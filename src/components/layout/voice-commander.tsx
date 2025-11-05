@@ -504,7 +504,7 @@ export function VoiceCommander({
           const allAliases = [t(key, lang), ...cmdGroup.aliases, ...(getAllAliases(key)[lang] || [])];
           for (const alias of [...new Set(allAliases)]) {
                if (calculateSimilarity(commandLower, alias) > 0.8 || commandText.toLowerCase() === alias) {
-                   speak(t(cmdGroup.reply, lang), lang, () => commandActionsRef.current[key]());
+                   speak(t(cmdGroup.reply, lang), lang, () => commandActionsRef.current[key]({ lang }));
                    resetAllContext();
                    return;
               }
@@ -729,15 +729,15 @@ export function VoiceCommander({
       orders: () => router.push('/dashboard/customer/my-orders'),
       deliveries: () => router.push('/dashboard/delivery/deliveries'),
       myStore: () => router.push('/dashboard/owner/my-store'),
-      checkout: (params: {lang: string}) => {
+      checkout: (params: { lang: string }) => {
         const lang = params.lang || 'en-IN';
-        if(cartItems.length > 0) {
-            speak(`Your total is ₹${cartTotal.toFixed(2)}. Proceeding to checkout.`, lang, () => {
-                onCloseCart();
-                router.push('/checkout');
-            });
+        if (cartItems.length > 0) {
+          speak(`Your total is ₹${cartTotal.toFixed(2)}. Proceeding to checkout.`, lang, () => {
+            onCloseCart();
+            router.push('/checkout');
+          });
         } else {
-            speak("Your cart is empty. Please add items before checking out.", lang);
+          speak("Your cart is empty. Please add items before checking out.", lang);
         }
       },
       homeAddress: () => {
@@ -987,5 +987,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    
