@@ -724,20 +724,19 @@ export function VoiceCommander({
           speak(bestCommand.command.reply, () => bestCommand!.command.action({phrase: commandText}));
           resetAllContext();
         } else {
-          const itemPhrases = commandText.split(/,?\s+(?:and|మరియు|और)\s+|,/);
-          if (itemPhrases.length > 1 || isOrderItemCommand) {
-            await commandActionsRef.current.orderItem({ phrase: commandText });
-            resetAllContext();
-          } else {
-            const { product } = await findProductAndVariant(commandText);
-            if (product) {
-              await commandActionsRef.current.orderItem({ phrase: commandText });
-              resetAllContext();
+            // New logic: Check if it's an item order even without a direct command match
+            const containsAddItem = ['add', 'get', 'buy', 'i want'].some(kw => commandLower.startsWith(kw));
+            if (containsAddItem || isOrderItemCommand) {
+                await commandActionsRef.current.orderItem({ phrase: commandText });
             } else {
-              speak("Sorry, I didn't understand that. Please try again.");
-              resetAllContext();
+                const { product } = await findProductAndVariant(commandText);
+                if (product) {
+                    await commandActionsRef.current.orderItem({ phrase: commandText });
+                } else {
+                    speak("Sorry, I didn't understand that. Please try again.");
+                }
             }
-          }
+            resetAllContext();
         }
 
       } catch(e) {
@@ -875,37 +874,61 @@ export function VoiceCommander({
       refresh: () => window.location.reload(),
       orderItem: async ({ phrase }: { phrase?: string }) => {
         if (!phrase) return;
-        const itemPhrases = phrase.split(/,?\s+(?:and|మరియు|और)\s+|,/);
+
+        let mutablePhrase = phrase.toLowerCase().replace(/^(add|get|buy|i want)\s+/, '');
         let addedItems: string[] = [];
         let notFoundItems: string[] = [];
-        
-        for (const itemPhrase of itemPhrases) {
-          if (!itemPhrase.trim()) continue;
-          
-          const { product: foundProduct, variant } = await findProductAndVariant(itemPhrase);
+        let hasMoreMatches = true;
 
-          if (foundProduct && variant) {
-            addItemToCart(foundProduct, variant, 1);
-            const productName = t(foundProduct.name.toLowerCase().replace(/ /g, '-')).split(' / ')[0];
-            addedItems.push(productName);
-          } else if (foundProduct) {
-            notFoundItems.push(`${itemPhrase} (variant not found)`);
-          } else {
-            notFoundItems.push(itemPhrase);
-          }
+        while (hasMoreMatches) {
+            hasMoreMatches = false;
+            let bestMatch: { product: Product, variant: ProductVariant, alias: string } | null = null;
+            let bestMatchLength = 0;
+
+            // Find the best (longest) matching product alias in the current phrase
+            for (const product of masterProducts) {
+                const aliases = [product.name.toLowerCase(), ...Object.values(getAllAliases(product.name.toLowerCase().replace(/ /g, '-'))).flat().map(name => name.toLowerCase())];
+                for (const alias of [...new Set(aliases)]) {
+                    if (mutablePhrase.includes(alias) && alias.length > bestMatchLength) {
+                        const { variant } = await findProductAndVariant(alias);
+                        if (variant) {
+                            bestMatch = { product, variant, alias };
+                            bestMatchLength = alias.length;
+                            hasMoreMatches = true;
+                        }
+                    }
+                }
+            }
+
+            if (bestMatch) {
+                const { product, variant, alias } = bestMatch;
+                addItemToCart(product, variant, 1);
+                const productName = t(product.name.toLowerCase().replace(/ /g, '-')).split(' / ')[0];
+                addedItems.push(productName);
+                
+                // Remove the matched alias from the phrase to avoid re-matching
+                mutablePhrase = mutablePhrase.replace(alias, '').trim();
+            }
         }
-        
+
+        // Collect any remaining parts of the phrase that weren't matched
+        if (mutablePhrase) {
+            notFoundItems = mutablePhrase.split(/,?\s+(?:and|మరియు|और)\s+|,/).filter(s => s.trim());
+        }
+
+        // Report results
         if (addedItems.length > 0) {
-          speak(`Okay, I've added ${addedItems.join(', ')} to your cart.`);
-          onOpenCart();
-        } 
-        
-        if (notFoundItems.length > 0 && addedItems.length === 0) {
-          speak(`Sorry, I couldn't find ${notFoundItems.join(', ')}.`);
+            let message = `Okay, I've added ${addedItems.join(', ')} to your cart.`;
+            if (notFoundItems.length > 0) {
+                message += ` but I couldn't find ${notFoundItems.join(', ')}.`;
+            }
+            speak(message);
+            onOpenCart();
         } else if (notFoundItems.length > 0) {
-          speak(`I added some items, but couldn't find ${notFoundItems.join(', ')}.`);
+            speak(`Sorry, I couldn't find ${notFoundItems.join(', ')}.`);
         }
-      },
+        // If nothing was found and nothing was added, the general fallback will handle it.
+    },
     };
 
     if (firestore && user) {
@@ -967,7 +990,8 @@ export function VoiceCommander({
     resetAllContext,
     shouldPlaceOrderDirectly,
     setShouldPlaceOrderDirectly,
-    areAllDetailsReady
+    areAllDetailsReady,
+    addItemToCart
   ]);
 
   return null;
