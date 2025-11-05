@@ -113,19 +113,28 @@ export function VoiceCommander({
 
 
   // Language detection and switching
-  const detectLanguage = useCallback((text: string): string => {
+  const detectLanguage = useCallback((text: string): { lang: string, command: string } => {
     const lowerText = text.toLowerCase();
+
+    const langKeywords = [
+        { lang: 'te-IN', keywords: ['naku', 'naaku', 'నాకు'] },
+        { lang: 'hi-IN', keywords: ['mujhe', 'मुझे'] },
+        { lang: 'en-IN', keywords: ['i want', 'i need', 'get me', 'add', 'get', 'buy'] }
+    ];
+
+    for (const lang of langKeywords) {
+        for (const keyword of lang.keywords) {
+            if (lowerText.startsWith(keyword + ' ')) {
+                return {
+                    lang: lang.lang,
+                    command: lowerText.substring(keyword.length).trim()
+                };
+            }
+        }
+    }
     
-    // Telugu keywords
-    if (['naku', 'naaku', 'oka', 'rendu'].some(kw => lowerText.startsWith(kw))) {
-      return 'te-IN';
-    }
-    // Hindi keywords
-    if (['mujhe', 'ek', 'do'].some(kw => lowerText.startsWith(kw))) {
-      return 'hi-IN';
-    }
-    // Default to English
-    return 'en-IN';
+    // Default case if no keyword is found
+    return { lang: 'en-IN', command: text };
   }, []);
 
   // Update recognition language dynamically
@@ -555,11 +564,11 @@ export function VoiceCommander({
       try {
         if (!firestore || !user) return;
         
-        const lang = detectLanguage(commandText);
+        const { lang, command: strippedCommand } = detectLanguage(commandText);
         updateRecognitionLanguage(lang);
         setCurrentLanguage(lang);
         
-        const commandLower = commandText.toLowerCase();
+        const commandLower = strippedCommand.toLowerCase();
 
         // --- PRIORITY 1: High-priority global navigation ---
         const highPriorityCommands = ["home", "stores", "dashboard", "cart", "orders", "deliveries", "myStore", "checkout", "refresh"];
@@ -584,7 +593,7 @@ export function VoiceCommander({
         const hasLocation = locationKeywords.some(kw => commandLower.includes(kw));
 
         if (hasAction && hasLocation) {
-            await handleSmartOrder(commandText, lang);
+            await handleSmartOrder(commandLower, lang);
             resetAllContext();
             return;
         }
@@ -609,7 +618,7 @@ export function VoiceCommander({
         }
 
         if (isWaitingForVoiceOrder) {
-          await commandActionsRef.current.createVoiceOrder(commandText, lang);
+          await commandActionsRef.current.createVoiceOrder(commandLower, lang);
           resetAllContext();
           return;
         }
@@ -640,7 +649,7 @@ export function VoiceCommander({
           if (firstWordAsNum) {
             quantity = firstWordAsNum;
           } else {
-            const parsedNum = parseInt(commandText.replace(/[^0-9]/g, ''), 10);
+            const parsedNum = parseInt(commandLower.replace(/[^0-9]/g, ''), 10);
             if (!isNaN(parsedNum)) {
               quantity = parsedNum;
             }
@@ -715,17 +724,16 @@ export function VoiceCommander({
         });
 
         if (bestCommand && bestCommand.similarity > 0.7) {
-          speak(t(bestCommand.command.reply, lang), lang, () => bestCommand!.command.action({phrase: commandText}));
+          speak(t(bestCommand.command.reply, lang), lang, () => bestCommand!.command.action({phrase: commandLower}));
           resetAllContext();
         } else {
             // New logic: Check if it's an item order even without a direct command match
-            const containsAddItem = ['add', 'get', 'buy', 'i want'].some(kw => commandLower.startsWith(kw));
-            if (containsAddItem || isOrderItemCommand) {
-                await commandActionsRef.current.orderItem({ phrase: commandText, lang });
+            if (isOrderItemCommand) {
+                await commandActionsRef.current.orderItem({ phrase: commandLower, lang });
             } else {
-                const { product } = await findProductAndVariant(commandText);
+                const { product } = await findProductAndVariant(commandLower);
                 if (product) {
-                    await commandActionsRef.current.orderItem({ phrase: commandText, lang });
+                    await commandActionsRef.current.orderItem({ phrase: commandLower, lang });
                 } else {
                     speak("Sorry, I didn't understand that. Please try again.", lang);
                 }
@@ -877,7 +885,7 @@ export function VoiceCommander({
       orderItem: async ({ phrase, lang }: { phrase?: string; lang: string }) => {
         if (!phrase) return;
 
-        let mutablePhrase = phrase.toLowerCase().replace(/^(add|get|buy|i want)\s+/, '');
+        let mutablePhrase = phrase.toLowerCase();
         const addedItems: string[] = [];
         const notFoundItems: string[] = [];
         let shouldContinue = true;
