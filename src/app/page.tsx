@@ -44,19 +44,16 @@ export default function Home() {
           <div className="flex flex-col items-center space-y-8">
             <div className="space-y-4 text-center">
               <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none font-headline">
-                {t('shop-fresh-shop-local-just-by-voice')}
+                Local Basket
               </h1>
               <p className="max-w-[600px] text-foreground/80 md:text-xl">
-                {t('your-hands-free-shopping-assistant')}
+                Let's raise the voice
               </p>
             </div>
             <div className="w-full max-w-sm space-y-4">
                  <Button asChild>
                     <Link href="/stores">{t('browse-all-stores')}</Link>
                  </Button>
-                 <p className="text-sm text-foreground/60 text-center">
-                  {t('try-saying-find-bananas')}
-                </p>
             </div>
           </div>
         </div>
