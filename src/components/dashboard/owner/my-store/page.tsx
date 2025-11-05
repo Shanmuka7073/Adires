@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useTransition, useEffect, useMemo, useRef } from 'react';
@@ -68,6 +69,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import Link from 'next/link';
 import { t, getAllAliases } from '@/lib/locales';
+import { useAppStore } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
@@ -76,6 +78,7 @@ const standardWeights = ["100gm", "250gm", "500gm", "1kg", "2kg", "5kg", "1 pack
 
 const storeSchema = z.object({
   name: z.string().min(3, 'Store name must be at least 3 characters'),
+  teluguName: z.string().optional(),
   description: z
     .string()
     .min(10, 'Description must be at least 10 characters'),
@@ -1261,6 +1264,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
         resolver: zodResolver(storeSchema.omit({ latitude: true, longitude: true })),
         defaultValues: {
             name: store.name,
+            teluguName: store.teluguName || '',
             description: store.description,
             address: store.address,
         },
@@ -1320,6 +1324,20 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                                     />
                                     <FormField
                                         control={form.control}
+                                        name="teluguName"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Store Name (Telugu)</FormLabel>
+                                                <FormControl>
+                                                    <Input {...field} placeholder="e.g., పటేల్ కిరాణా స్టోర్" />
+                                                </FormControl>
+                                                 <FormDescription>This name will be used for Telugu voice commands.</FormDescription>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
                                         name="description"
                                         render={({ field }) => (
                                             <FormItem>
@@ -1353,6 +1371,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
             <CardContent className="space-y-2 text-sm">
                 <p><strong>{t('description')}:</strong> {store.description}</p>
                 <p><strong>{t('address')}:</strong> {store.address}</p>
+                 <p><strong>Telugu Name:</strong> {store.teluguName || 'Not set'}</p>
                 <p><strong>{t('location')}:</strong> {store.latitude}, {store.longitude}</p>
             </CardContent>
         </Card>
@@ -1362,6 +1381,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
 // New component to fetch and display variants for a single product row in the admin table
 function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Product; storeId: string; onEdit: () => void; onDelete: () => void; }) {
     const { firestore } = useFirebase();
+    const getProductName = useAppStore(state => state.getProductName);
 
     const priceDocRef = useMemoFirebase(() => {
         if (!firestore || !product.name) return null;
@@ -1394,7 +1414,7 @@ function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Prod
                         className="rounded-sm object-cover mt-1"
                     />
                     <div>
-                        <span className="font-semibold">{product.name}</span>
+                        <span className="font-semibold">{getProductName(product)}</span>
                          <div className="flex flex-wrap gap-1 mt-1">
                             {productAliases.map((alias, index) => (
                                 <Badge key={index} variant="secondary" className="font-normal">{alias}</Badge>
@@ -1442,6 +1462,7 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
     const [isDeleting, startDeleteTransition] = useTransition();
     const [isOpening, startOpenTransition] = useTransition();
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const getProductName = useAppStore(state => state.getProductName);
 
     const productsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -1605,7 +1626,7 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
                                                 height={40}
                                                 className="rounded-sm object-cover"
                                             />
-                                            <span>{product.name}</span>
+                                            <span>{getProductName(product)}</span>
                                         </div>
                                     </TableCell>
                                     <TableCell>{t(product.category.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'))}</TableCell>
@@ -1639,6 +1660,7 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
             address: isAdmin ? 'Platform-wide' : (profile?.address || ''),
             latitude: 0,
             longitude: 0,
+            teluguName: ''
         },
     });
 
@@ -1753,6 +1775,20 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                                 <FormControl>
                                 <Input placeholder="e.g., Patel Kirana Store" {...field} disabled={isAdmin} />
                                 </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="teluguName"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Store Name (Telugu)</FormLabel>
+                                <FormControl>
+                                <Input placeholder="e.g., పటేల్ కిరాణా స్టోర్" {...field} />
+                                </FormControl>
+                                <FormDescription>This name will be used for Telugu voice commands.</FormDescription>
                                 <FormMessage />
                             </FormItem>
                             )}
@@ -1921,3 +1957,5 @@ export default function MyStorePage() {
         </div>
     );
 }
+
+    

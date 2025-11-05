@@ -24,6 +24,7 @@ export type Product = {
 export type Store = {
   id: string;
   name:string;
+  teluguName?: string;
   description: string;
   address: string;
   imageId: string;
@@ -110,5 +111,7 @@ export type ProductPrice = {
     productName: string; // The unique name of the product, matches the document ID.
     variants: ProductVariant[];
 }
+
+    
 
     
