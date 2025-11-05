@@ -91,8 +91,7 @@ export function VoiceCommander({
 
   const [speechSynthesisVoices, setSpeechSynthesisVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [currentLanguage, setCurrentLanguage] = useState('en-IN');
-  const [currentRecognitionLang, setCurrentRecognitionLang] = useState('en-IN');
-
+  
   // Track checkout state
   const [checkoutReady, setCheckoutReady] = useState(false);
   const addressValueRef = useRef<string>('');
@@ -119,8 +118,7 @@ export function VoiceCommander({
     const langKeywords = [
         { lang: 'te-IN', keywords: ['naku', 'naaku', 'నాకు'] },
         { lang: 'hi-IN', keywords: ['mujhe', 'मुझे'] },
-        // English is the fallback, so we can be more general
-        { lang: 'en-IN', keywords: ['i want', 'i need', 'get me', 'add', 'get', 'buy', 'order', 'send', 'go', 'open'] }
+        { lang: 'en-IN', keywords: ['i want', 'i need', 'get me', 'add', 'get', 'buy', 'order', 'send', 'go', 'open', 'i'] }
     ];
 
     for (const lang of langKeywords) {
@@ -141,16 +139,16 @@ export function VoiceCommander({
         }
     }
     
-    // Default case if no keyword is found
-    return { lang: 'en-IN', command: text };
-  }, []);
+    // Default case if no keyword is found, use the current sticky language
+    return { lang: currentLanguage, command: text };
+  }, [currentLanguage]);
 
   // Update recognition language dynamically
   const updateRecognitionLanguage = useCallback((newLang: string) => {
     if (recognition && recognition.lang !== newLang) {
       console.log('Switching recognition language to:', newLang);
       recognition.lang = newLang;
-      setCurrentRecognitionLang(newLang);
+      setCurrentLanguage(newLang);
     }
   }, []);
 
@@ -189,8 +187,8 @@ export function VoiceCommander({
     isEnabledRef.current = enabled;
     if (recognition) {
       if (enabled) {
-        // Set initial language
-        recognition.lang = currentRecognitionLang;
+        // Set initial language from the sticky state
+        recognition.lang = currentLanguage;
         try {
           recognition.start();
         } catch (e) {
@@ -200,7 +198,7 @@ export function VoiceCommander({
         recognition.abort();
       }
     }
-  }, [enabled, currentRecognitionLang]);
+  }, [enabled, currentLanguage]);
 
   const speak = useCallback((text: string, lang: string, onEndCallback?: () => void) => {
     if (typeof window === 'undefined' || !window.speechSynthesis) {
@@ -310,7 +308,7 @@ export function VoiceCommander({
     // Don't speak if we're already in a confirmation state
     if (isWaitingForQuickOrderConfirmation) {
       if (!hasSpokenCheckoutPrompt.current) {
-        speak(`Please say "confirm order" to place your order.`, 'en-IN');
+        speak(`Please say "confirm order" to place your order.`, currentLanguage);
         hasSpokenCheckoutPrompt.current = true;
       }
       return;
@@ -321,7 +319,7 @@ export function VoiceCommander({
     
     if (isCheckoutReady && !hasSpokenCheckoutPrompt.current) {
       console.log('All checkout conditions met - prompting for place order');
-      speak(`Everything is ready! Your order will be delivered to ${addressValueRef.current.substring(0, 30)}... Please say "place order" to confirm your order.`, 'en-IN');
+      speak(`Everything is ready! Your order will be delivered to ${addressValueRef.current.substring(0, 30)}... Please say "place order" to confirm your order.`, currentLanguage);
       hasSpokenCheckoutPrompt.current = true;
       setCheckoutReady(true);
       return;
@@ -333,26 +331,26 @@ export function VoiceCommander({
       const currentAddress = addressInput?.value || '';
 
       if (!currentAddress || currentAddress.length < 10) {
-        speak("Should I deliver to your home address or current location?", 'en-IN');
+        speak("Should I deliver to your home address or current location?", currentLanguage);
         setIsWaitingForAddressType(true);
         hasSpokenCheckoutPrompt.current = true;
         return;
       }
 
       if (!activeStoreId) {
-        speak(`Please tell me which store should fulfill your order.`, 'en-IN');
+        speak(`Please tell me which store should fulfill your order.`, currentLanguage);
         setIsWaitingForStoreName(true);
         hasSpokenCheckoutPrompt.current = true;
         return;
       }
 
       if (cartItems.length === 0) {
-        speak("Your cart is empty. Please add some items first.", 'en-IN');
+        speak("Your cart is empty. Please add some items first.", currentLanguage);
         hasSpokenCheckoutPrompt.current = true;
         return;
       }
     }
-  }, [pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, checkCheckoutConditions, speak, activeStoreId, cartItems.length]);
+  }, [pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, checkCheckoutConditions, speak, activeStoreId, cartItems.length, currentLanguage]);
 
   // Effect to monitor checkout state changes
   useEffect(() => {
@@ -491,7 +489,6 @@ export function VoiceCommander({
       
       const { lang, command: strippedCommand } = detectLanguage(commandText);
       updateRecognitionLanguage(lang);
-      setCurrentLanguage(lang);
       
       const commandLower = strippedCommand.toLowerCase();
 
@@ -649,7 +646,7 @@ export function VoiceCommander({
       });
 
       if (bestCommand && bestCommand.similarity > 0.7) {
-        speak(t(bestCommand.command.reply, lang), lang, () => bestCommand!.command.action({phrase: commandLower, lang: lang}));
+        speak(t(bestCommand.command.reply, lang), lang, () => bestCommand!.command.action({lang: lang}));
         resetAllContext();
       } else {
           // New logic: Check if it's an item order even without a direct command match
@@ -691,12 +688,12 @@ export function VoiceCommander({
     recognition.interimResults = false;
 
     recognition.onstart = () => {
-      onStatusUpdate(`Listening... (${currentRecognitionLang})`);
+      onStatusUpdate(`Listening... (${currentLanguage})`);
     };
 
     recognition.onresult = (event) => {
       const transcript = event.results[event.results.length - 1][0].transcript.trim();
-      console.log('Recognized:', transcript, 'Language:', currentRecognitionLang);
+      console.log('Recognized:', transcript, 'Language:', currentLanguage);
       handleCommand(transcript);
     };
 
@@ -729,8 +726,8 @@ export function VoiceCommander({
       orders: () => router.push('/dashboard/customer/my-orders'),
       deliveries: () => router.push('/dashboard/delivery/deliveries'),
       myStore: () => router.push('/dashboard/owner/my-store'),
-      checkout: (params: { lang: string }) => {
-        const lang = params.lang || 'en-IN';
+      checkout: (params) => {
+        const lang = params?.lang || 'en-IN';
         if (cartItems.length > 0) {
           speak(`Your total is ₹${cartTotal.toFixed(2)}. Proceeding to checkout.`, lang, () => {
             onCloseCart();
@@ -791,8 +788,8 @@ export function VoiceCommander({
           errorEmitter.emit('permission-error', permissionError);
         }
       },
-      placeOrder: (params: {lang: string}) => {
-        const lang = params.lang || 'en-IN';
+      placeOrder: (params) => {
+        const lang = params?.lang || 'en-IN';
         if (pathname === '/checkout') {
           if (placeOrderBtnRef?.current) {
             placeOrderBtnRef.current.click();
@@ -812,8 +809,8 @@ export function VoiceCommander({
         
         speak("Your cart is empty. Please add some items first.", lang);
       },
-      saveChanges: (params: {lang: string}) => {
-        const lang = params.lang || 'en-IN';
+      saveChanges: (params) => {
+        const lang = params?.lang || 'en-IN';
         if (pathname === '/dashboard/customer/my-profile' && profileForm) {
           const formElement = document.querySelector('form');
           if (formElement) formElement.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
@@ -821,8 +818,8 @@ export function VoiceCommander({
           speak("There are no changes to save on this page.", lang);
         }
       },
-      refresh: (params: {lang: string}) => {
-        const lang = params.lang || 'en-IN';
+      refresh: (params) => {
+        const lang = params?.lang || 'en-IN';
         speak("Refreshing.", lang, () => window.location.reload());
       },
       orderItem: async ({ phrase, lang }: { phrase?: string; lang: string }) => {
@@ -987,3 +984,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
