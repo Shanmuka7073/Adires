@@ -18,10 +18,8 @@ export interface AppState {
   productPrices: Record<string, ProductPrice | null>;
   loading: boolean;
   error: Error | null;
-  language: string; // e.g., 'en-IN', 'te-IN'
   fetchInitialData: (db: Firestore) => Promise<void>;
   fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
-  setLanguage: (language: string) => void;
   getProductName: (product: Product) => string;
 }
 
@@ -31,7 +29,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   productPrices: {},
   loading: true,
   error: null,
-  language: 'en-IN', // Default language
 
   fetchInitialData: async (db: Firestore) => {
     // Prevent re-fetching if data is already present
@@ -85,15 +82,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
   },
 
-  setLanguage: (language: string) => {
-    // We no longer store the language in localStorage as it's now dynamic
-    set({ language });
-  },
-
   getProductName: (product: Product) => {
+    // This function is now just a placeholder.
+    // The translation will be handled directly where needed.
     if (!product || !product.name) return '';
-    const lang = get().language;
-    return translate(product.name.toLowerCase().replace(/ /g, '-'), lang);
+    return product.name;
   },
 }));
 

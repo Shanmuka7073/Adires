@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { useAppStore } from '@/lib/store';
 import { useCart } from '@/lib/cart';
+import { t } from '@/lib/locales';
 
 // Helper to create a URL-friendly slug from a string
 const createSlug = (text: string) => {

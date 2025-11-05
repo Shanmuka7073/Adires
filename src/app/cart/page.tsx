@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useCart } from '@/lib/cart';
@@ -23,7 +24,6 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { useEffect, useState } from 'react';
-import { useAppStore } from '@/lib/store';
 import { t } from '@/lib/locales';
 
 const DELIVERY_FEE = 30;
@@ -31,7 +31,6 @@ const DELIVERY_FEE = 30;
 function CartRow({ item, image }) {
   const { removeItem, updateQuantity } = useCart();
   const { product, variant, quantity } = item;
-  const getProductName = useAppStore(state => state.getProductName);
 
   return (
     <TableRow>
@@ -46,7 +45,7 @@ function CartRow({ item, image }) {
             className="rounded-md object-cover"
           />
           <div>
-            <span className="font-medium">{getProductName(product)}</span>
+            <span className="font-medium">{product.name}</span>
             <p className="text-sm text-muted-foreground">{variant.weight}</p>
           </div>
         </div>
@@ -78,7 +77,6 @@ function CartRow({ item, image }) {
 function MobileCartItem({ item, image }) {
     const { removeItem, updateQuantity } = useCart();
     const { product, variant, quantity } = item;
-    const getProductName = useAppStore(state => state.getProductName);
 
     return (
         <Card>
@@ -92,7 +90,7 @@ function MobileCartItem({ item, image }) {
                     className="rounded-lg object-cover"
                 />
                 <div className="flex-1 space-y-2">
-                    <p className="font-semibold">{getProductName(product)} <span className="font-normal text-muted-foreground">({variant.weight})</span></p>
+                    <p className="font-semibold">{product.name} <span className="font-normal text-muted-foreground">({variant.weight})</span></p>
                     <p className="font-bold text-lg">₹{(variant.price * quantity).toFixed(2)}</p>
                      <div className="flex items-center gap-2">
                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(variant.sku, quantity - 1)}>

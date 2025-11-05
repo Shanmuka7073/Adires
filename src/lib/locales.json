@@ -1797,5 +1797,17 @@
       "డ్రై ఫ్రూట్స్",
       "dry fruits"
     ]
+  },
+  "ive-added-to-your-cart": {
+    "en": "I've added {items} to your cart.",
+    "te": "నేను మీ కార్ట్‌కు {items} జోడించాను."
+  },
+  "but-i-couldnt-find": {
+    "en": "but I couldn't find {items}.",
+    "te": "కానీ నేను {items} కనుగొనలేకపోయాను."
+  },
+  "sorry-i-couldnt-find-any-items": {
+    "en": "Sorry, I couldn't find any items in your request.",
+    "te": "క్షమించండి, మీ అభ్యర్థనలో నేను ఏ వస్తువులను కనుగొనలేకపోయాను."
   }
 }

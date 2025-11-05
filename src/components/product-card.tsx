@@ -1,3 +1,4 @@
+
 'use client'
 
 import Image from 'next/image';
@@ -10,7 +11,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from './ui/skeleton';
-import { useAppStore } from '@/lib/store';
 import { t } from '@/lib/locales';
 
 interface ProductCardProps {
@@ -25,7 +25,6 @@ interface ProductCardProps {
 export default function ProductCard({ product, image, priceData }: ProductCardProps) {
   const { addItem } = useCart();
   const { toast } = useToast();
-  const getProductName = useAppStore(state => state.getProductName);
   
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   
@@ -79,7 +78,7 @@ export default function ProductCard({ product, image, priceData }: ProductCardPr
         />
       </CardHeader>
       <CardContent className="p-2 pb-1 flex-1 text-center">
-        <CardTitle className="text-sm font-headline truncate">{getProductName(product)}</CardTitle>
+        <CardTitle className="text-sm font-headline truncate">{product.name}</CardTitle>
         {isLoadingPrice ? (
             <Skeleton className="h-6 w-20 mx-auto mt-1" />
         ) : (

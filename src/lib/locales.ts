@@ -1,6 +1,5 @@
 
 import locales from './locales.json';
-import { useAppStore } from './store';
 
 type LocaleEntry = string | string[];
 type Locales = Record<string, Record<string, LocaleEntry>>;
@@ -10,14 +9,12 @@ const translations: Locales = locales;
 /**
  * A simple translation function. It looks for a key in the JSON file
  * and returns the translation for the currently set language.
- * It does NOT fall back to English or render bilingual text anymore.
  * @param key The key from locales.json to translate.
- * @param lang The target language code (e.g., 'te-IN'). If not provided, it will be read from the app store.
+ * @param lang The target language code (e.g., 'te').
  * @returns The translated string, or the original key if not found.
  */
-export function t(key: string, lang?: string): string {
-  const language = lang || useAppStore.getState().language;
-  const langCode = language.split('-')[0]; // 'en' from 'en-IN'
+export function t(key: string, lang: string = 'en'): string {
+  const langCode = lang.split('-')[0]; // 'en' from 'en-IN'
   const entry = translations[key as keyof typeof translations];
   
   if (entry && entry[langCode]) {
