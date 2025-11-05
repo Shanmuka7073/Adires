@@ -1,4 +1,3 @@
-
 {
   "smartOrder": {
     "display": "Smart Order (Product, Store, Destination)",
@@ -186,6 +185,7 @@
     "display": "Proceed to Checkout",
     "reply": "Okay, let's proceed to checkout.",
     "aliases": [
+      "process next step",
       "proceed to checkout",
       "go to checkout",
       "checkout now",

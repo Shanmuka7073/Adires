@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useCart } from '@/lib/cart';

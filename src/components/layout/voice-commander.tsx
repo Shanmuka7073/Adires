@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -53,7 +52,7 @@ export function VoiceCommander({
   const pathname = usePathname();
   const { toast } = useToast();
   const { firestore, user } = useFirebase();
-  const { clearCart, addItem: addItemToCart, updateQuantity, activeStoreId, setActiveStoreId } = useCart();
+  const { clearCart, addItem: addItemToCart, updateQuantity, activeStoreId, setActiveStoreId, cartTotal } = useCart();
 
   const { stores, masterProducts, productPrices, fetchInitialData, fetchProductPrices } = useAppStore();
 
@@ -785,8 +784,14 @@ export function VoiceCommander({
       deliveries: () => router.push('/dashboard/delivery/deliveries'),
       myStore: () => router.push('/dashboard/owner/my-store'),
       checkout: () => {
-        onCloseCart();
-        router.push('/checkout');
+        if(cartItems.length > 0) {
+            speak(`Your total is ₹${cartTotal.toFixed(2)}. Proceeding to checkout.`, () => {
+                onCloseCart();
+                router.push('/checkout');
+            });
+        } else {
+            speak("Your cart is empty. Please add items before checking out.");
+        }
       },
       homeAddress: () => {
         if(pathname === '/checkout' && homeAddressBtnRef?.current) {
@@ -871,19 +876,19 @@ export function VoiceCommander({
         if (!phrase) return;
 
         let mutablePhrase = phrase.toLowerCase().replace(/^(add|get|buy|i want)\s+/, '');
-        let addedItems: string[] = [];
-        let notFoundItems: string[] = [];
+        const addedItems: string[] = [];
+        const notFoundItems: string[] = [];
         let shouldContinue = true;
 
-        while (shouldContinue) {
+        while(shouldContinue) {
             shouldContinue = false;
             let bestMatch: { product: Product, variant: ProductVariant, alias: string } | null = null;
             let bestMatchLength = 0;
 
-            // Find the best (longest) matching product alias in the current phrase
             for (const product of masterProducts) {
                 if (!product.name) continue;
                 const aliases = [product.name.toLowerCase(), ...Object.values(getAllAliases(product.name.toLowerCase().replace(/ /g, '-'))).flat().map(name => name.toLowerCase())];
+                
                 for (const alias of [...new Set(aliases)]) {
                     if (mutablePhrase.includes(alias) && alias.length > bestMatchLength) {
                         const { variant } = await findProductAndVariant(alias);
@@ -901,22 +906,19 @@ export function VoiceCommander({
                 const productName = t(product.name.toLowerCase().replace(/ /g, '-')).split(' / ')[0];
                 addedItems.push(productName);
                 
-                // Remove the matched alias from the phrase to avoid re-matching
                 mutablePhrase = mutablePhrase.replace(alias, '').trim();
-                if(mutablePhrase) {
-                    shouldContinue = true; // Continue if there's more phrase left
+                if(mutablePhrase.length > 0) {
+                    shouldContinue = true;
                 }
             }
         }
 
-        // Collect any remaining parts of the phrase that weren't matched
-        const remainingWords = mutablePhrase.split(/,?\s+(?:and|మరియు|और)\s+|,|\s+/).filter(s => s.trim());
+        const remainingWords = mutablePhrase.split(/,?\s+(?:and|మరియు|और)\s+|,|\s+/).filter(s => s.trim().length > 0);
         if (remainingWords.length > 0) {
             notFoundItems.push(...remainingWords);
         }
 
-        // Report results
-        let messageParts = [];
+        let messageParts: string[] = [];
         if (addedItems.length > 0) {
             messageParts.push(`I've added ${addedItems.join(', ')} to your cart.`);
             onOpenCart();
@@ -926,9 +928,11 @@ export function VoiceCommander({
         }
         
         if (messageParts.length > 0) {
-            speak(messageParts.join(' '));
+            const message = addedItems.length > 0 && notFoundItems.length > 0 
+                ? messageParts.join(' ') 
+                : messageParts[0];
+            speak(message);
         } else if (phrase) {
-             // This is the fallback if nothing at all was found in the original phrase.
              speak(`Sorry, I couldn't find any items in your request.`);
         }
     },
@@ -994,10 +998,9 @@ isWaitingForQuickOrderConfirmation,
     shouldPlaceOrderDirectly,
     setShouldPlaceOrderDirectly,
     areAllDetailsReady,
-    addItemToCart
+    addItemToCart,
+    cartTotal
   ]);
 
   return null;
 }
-
-    
