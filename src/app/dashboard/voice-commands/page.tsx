@@ -238,7 +238,7 @@ export default function VoiceCommandsPage() {
                                         <Label className="font-semibold">User's Phrases (Aliases)</Label>
                                         <div className="flex flex-wrap gap-2">
                                             {group.aliases.map((alias, index) => (
-                                                <Badge key={index} variant={isTemplateKey(key) ? "default" : "secondary"} className="relative pr-6 group text-base py-1">
+                                                <Badge key={`${alias}-${index}`} variant={isTemplateKey(key) ? "default" : "secondary"} className="relative pr-6 group text-base py-1">
                                                     {alias}
                                                     <button onClick={() => handleRemoveCommand(key, alias)} className="absolute top-1/2 -translate-y-1/2 right-1 rounded-full p-0.5 bg-background/50 hover:bg-background text-muted-foreground hover:text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity">
                                                         <X className="h-3 w-3" /><span className="sr-only">Remove {alias}</span>
@@ -290,8 +290,8 @@ export default function VoiceCommandsPage() {
                                                 <div key={lang} className="space-y-2">
                                                     <Label className="font-semibold text-sm uppercase">{lang} Aliases</Label>
                                                     <div className="flex flex-wrap gap-2">
-                                                        {currentAliases.map((alias) => (
-                                                            <Badge key={alias} variant="secondary" className="relative pr-6 group text-base py-1">
+                                                        {currentAliases.map((alias, index) => (
+                                                            <Badge key={`${alias}-${index}`} variant="secondary" className="relative pr-6 group text-base py-1">
                                                                 {alias}
                                                                 <button onClick={() => handleRemoveProductAlias(productKey, lang, alias)} className="absolute top-1/2 -translate-y-1/2 right-1 rounded-full p-0.5 bg-background/50 hover:bg-background text-muted-foreground hover:text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity">
                                                                     <X className="h-3 w-3" /><span className="sr-only">Remove {alias}</span>

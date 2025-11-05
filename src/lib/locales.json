@@ -310,7 +310,43 @@
   "onions": {
     "en": [
       "Onions",
-      "Onion"
+      "Onion",
+      "paya",
+      "payalu",
+      "kanda",
+      "kandalu",
+      "kanda paya (used in some telugu regions for onion)",
+      "ullipia",
+      "ullipayaa",
+      "ulipaya",
+      "ulipay",
+      "olipaya",
+      "alipaya",
+      "ullipa",
+      "olipa",
+      "ollipaya",
+      "ullipayam",
+      "ullipaya onion",
+      "ulli onion",
+      "ulli paya onion",
+      "onion ulli",
+      "onion ullipaya",
+      "ullipaya",
+      "ullipayalu",
+      "ulli paya",
+      "ullipay",
+      "ullipai",
+      "ulli",
+      "ulli payalu",
+      "ullipayal",
+      "onion",
+      "onions",
+      "onionn",
+      "oniun",
+      "onyen",
+      "onyan",
+      "anyon",
+      "onyion"
     ],
     "te": [
       "ఉల్లిపాయలు",
@@ -581,7 +617,8 @@
   },
   "bananas": {
     "en": [
-      "Bananas"
+      "Bananas",
+      "Banana"
     ],
     "te": [
       "అరటిపండ్లు",
@@ -1360,14 +1397,10 @@
     "te": "మీ త్వరిత ఆర్డర్ అంశం లోడ్ అవుతోంది..."
   },
   "apple": {
-    "en": [
-      "apple"
-    ]
+    "en": "apple"
   },
   "banana": {
-    "en": [
-      "banana"
-    ]
+    "en": "banana"
   },
   "red-chili-powder": {
     "en": [
