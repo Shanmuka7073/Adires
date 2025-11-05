@@ -286,9 +286,9 @@ export function VoiceCommander({
     }
   }, [profileForm, speak]);
 
-  // Monitor checkout conditions
+  // Monitor checkout conditions - This function now only runs on the client.
   const checkCheckoutConditions = useCallback(() => {
-    if (pathname !== '/checkout') return false;
+    if (typeof document === 'undefined' || pathname !== '/checkout') return false;
 
     const addressInput = document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement;
     const currentAddress = addressInput?.value || '';
@@ -330,14 +330,16 @@ export function VoiceCommander({
 
     // If not ready, guide through steps
     if (!hasSpokenCheckoutPrompt.current) {
-      const addressInput = document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement;
-      const currentAddress = addressInput?.value || '';
+      if (typeof document !== 'undefined') {
+        const addressInput = document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement;
+        const currentAddress = addressInput?.value || '';
 
-      if (!currentAddress || currentAddress.length < 10) {
-        speak(t('should-i-deliver-to-home-or-current-speech', currentLanguage), currentLanguage);
-        setIsWaitingForAddressType(true);
-        hasSpokenCheckoutPrompt.current = true;
-        return;
+        if (!currentAddress || currentAddress.length < 10) {
+            speak(t('should-i-deliver-to-home-or-current-speech', currentLanguage), currentLanguage);
+            setIsWaitingForAddressType(true);
+            hasSpokenCheckoutPrompt.current = true;
+            return;
+        }
       }
 
       if (!activeStoreId) {
@@ -355,9 +357,9 @@ export function VoiceCommander({
     }
   }, [pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, checkCheckoutConditions, speak, activeStoreId, cartItems.length, currentLanguage]);
 
-  // Effect to monitor checkout state changes
+  // Effect to monitor checkout state changes, now safely client-side
   useEffect(() => {
-    if (pathname === '/checkout') {
+    if (pathname === '/checkout' && hasMounted) {
       const interval = setInterval(() => {
         const isReady = checkCheckoutConditions();
         if (isReady && !hasSpokenCheckoutPrompt.current && !isSpeakingRef.current) {
@@ -369,27 +371,27 @@ export function VoiceCommander({
 
       return () => clearInterval(interval);
     }
-  }, [pathname, checkCheckoutConditions, runCheckoutPrompt]);
+  }, [pathname, hasMounted, checkCheckoutConditions, runCheckoutPrompt]);
 
   // Effect to run checkout prompt on voice trigger
   useEffect(() => {
-    if (pathname === '/checkout') {
+    if (pathname === '/checkout' && hasMounted) {
       const timeout = setTimeout(() => {
         hasSpokenCheckoutPrompt.current = false;
         runCheckoutPrompt();
       }, 1000);
       return () => clearTimeout(timeout);
     }
-  }, [voiceTrigger, pathname, runCheckoutPrompt]);
+  }, [voiceTrigger, pathname, hasMounted, runCheckoutPrompt]);
 
   // Effect to reset prompt when relevant states change
   useEffect(() => {
-    if (pathname === '/checkout') {
+    if (pathname === '/checkout' && hasMounted) {
       hasSpokenCheckoutPrompt.current = false;
       const timeout = setTimeout(runCheckoutPrompt, 500);
       return () => clearTimeout(timeout);
     }
-  }, [cartItems.length, activeStoreId, pathname, runCheckoutPrompt]);
+  }, [cartItems.length, activeStoreId, pathname, hasMounted, runCheckoutPrompt]);
 
   // Proactive prompt on profile page
   useEffect(() => {
@@ -820,8 +822,10 @@ export function VoiceCommander({
       saveChanges: (params) => {
         const lang = params?.lang || currentLanguage;
         if (pathname === '/dashboard/customer/my-profile' && profileForm) {
-          const formElement = document.querySelector('form');
-          if (formElement) formElement.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+            if (typeof document !== 'undefined') {
+                const formElement = document.querySelector('form');
+                if (formElement) formElement.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+            }
         } else {
           speak(t('no-changes-to-save-speech', lang), lang);
         }
