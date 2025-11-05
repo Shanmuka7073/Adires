@@ -288,7 +288,7 @@ export function VoiceCommander({
 
   // Monitor checkout conditions - This function now only runs on the client.
   const checkCheckoutConditions = useCallback(() => {
-    if (typeof document === 'undefined' || pathname !== '/checkout') return false;
+    if (typeof document === 'undefined' || pathname !== '/checkout') return false; // Guard clause
 
     const addressInput = document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement;
     const currentAddress = addressInput?.value || '';
@@ -478,14 +478,17 @@ export function VoiceCommander({
   }, [pathname]);
 
   // This is the auto-submit logic for direct quick orders
-  const areAllDetailsReady = checkCheckoutConditions();
   useEffect(() => {
-    if (shouldPlaceOrderDirectly && areAllDetailsReady && placeOrderBtnRef.current) {
-        console.log("Direct order conditions met. Clicking place order.");
-        placeOrderBtnRef.current.click();
-        setShouldPlaceOrderDirectly(false); // Reset after action
+    if (shouldPlaceOrderDirectly && placeOrderBtnRef.current) {
+        // We must check conditions here, inside the client-side effect
+        const areAllDetailsReady = checkCheckoutConditions();
+        if (areAllDetailsReady) {
+            console.log("Direct order conditions met. Clicking place order.");
+            placeOrderBtnRef.current.click();
+            setShouldPlaceOrderDirectly(false); // Reset after action
+        }
     }
-  }, [shouldPlaceOrderDirectly, areAllDetailsReady, placeOrderBtnRef, setShouldPlaceOrderDirectly]);
+  }, [shouldPlaceOrderDirectly, placeOrderBtnRef, setShouldPlaceOrderDirectly, checkCheckoutConditions]);
 
   const handleCommand = useCallback(async (commandText: string) => {
     onStatusUpdate(`Processing: "${commandText}"`);
@@ -1011,5 +1014,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    
