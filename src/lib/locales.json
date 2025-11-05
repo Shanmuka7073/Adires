@@ -1,3 +1,4 @@
+
 {
   "home": {
     "en": "Home",
@@ -298,8 +299,7 @@
   "potatoes": {
     "en": [
       "Potatoes",
-      "Potato",
-      "potato"
+      "Potato"
     ],
     "te": [
       "బంగాళదుంపలు",
@@ -571,8 +571,7 @@
   },
   "apples": {
     "en": [
-      "Apples",
-      "Apple"
+      "Apples"
     ],
     "te": [
       "యాపిల్స్",
@@ -582,8 +581,7 @@
   },
   "bananas": {
     "en": [
-      "Bananas",
-      "Banana"
+      "Bananas"
     ],
     "te": [
       "అరటిపండ్లు",
@@ -876,8 +874,7 @@
   "masoor-dal-(red-lentil)": {
     "en": [
       "Masoor Dal",
-      "Red Lentil",
-      "masoor dal"
+      "Red Lentil"
     ],
     "te": [
       "మసూర్ పప్పు",
@@ -1419,6 +1416,353 @@
       "chillie pwd",
       "chli pwd",
       "chilli podi"
+    ]
+  },
+  "snacks-namkeen": {
+    "en": [
+      "Snacks/Namkeen",
+      "snacks",
+      "namkeen"
+    ],
+    "te": [
+      "స్నాక్స్/నమ్‌కీన్",
+      "చిరుతిళ్లు",
+      "నమ్‌కీన్"
+    ]
+  },
+  "sugar": {
+    "en": [
+      "Sugar"
+    ],
+    "te": [
+      "చక్కెర",
+      "పంచదార"
+    ]
+  },
+  "turmeric": {
+    "en": [
+      "turmeric"
+    ],
+    "te": [
+      "పసుపు",
+      "pasupu"
+    ]
+  },
+  "urad-dal": {
+    "en": [
+      "urad dal"
+    ],
+    "te": [
+      "మినప పప్పు",
+      "minapa pappu"
+    ]
+  },
+  "sunflower-oil": {
+    "en": [
+      "sunflower oil"
+    ],
+    "te": [
+      "పొద్దుతిరుగుడు నూనె",
+      "sunflower nune"
+    ]
+  },
+  "toor-dal": {
+    "en": [
+      "toor dal"
+    ],
+    "te": [
+      "కంది పప్పు",
+      "kandi pappu"
+    ]
+  },
+  "atta": {
+    "en": [
+      "atta",
+      "wheat flour"
+    ],
+    "te": [
+      "గోధుమ పిండి",
+      "gothuma pindi"
+    ]
+  },
+  "salt": {
+    "en": [
+      "salt"
+    ],
+    "te": [
+      "ఉప్పు",
+      "uppu"
+    ]
+  },
+  "ghee": {
+    "en": [
+      "ghee"
+    ],
+    "te": [
+      "నెయ్యి",
+      "neyyi"
+    ]
+  },
+  "groundnut-oil": {
+    "en": [
+      "groundnut oil"
+    ],
+    "te": [
+      "వేరుశెనగ నూనె",
+      "verusenaga nune"
+    ]
+  },
+  "poha": {
+    "en": [
+      "poha"
+    ],
+    "te": [
+      "అటుకులు",
+      "atukulu"
+    ]
+  },
+  "tea": {
+    "en": [
+      "tea"
+    ],
+    "te": [
+      "టీ",
+      "tea"
+    ]
+  },
+  "moong-dal": {
+    "en": [
+      "moong dal"
+    ],
+    "te": [
+      "పెసర పప్పు",
+      "pesara pappu"
+    ]
+  },
+  "basmati-rice": {
+    "en": [
+      "basmati rice"
+    ],
+    "te": [
+      "బాస్మతి బియ్యం",
+      "basmati biyyam"
+    ]
+  },
+  "chana-dal": {
+    "en": [
+      "chana dal"
+    ],
+    "te": [
+      "శనగ పప్పు",
+      "senaga pappu"
+    ]
+  },
+  "sona-masoori-rice": {
+    "en": [
+      "sona masoori rice"
+    ],
+    "te": [
+      "సోనా మసూరి బియ్యం",
+      "sona masoori biyyam"
+    ]
+  },
+  "idly-rava": {
+    "en": [
+      "idly rava"
+    ],
+    "te": [
+      "ఇడ్లీ రవ్వ",
+      "idli rava"
+    ]
+  },
+  "kabuli-chana": {
+    "en": [
+      "kabuli chana"
+    ],
+    "te": [
+      "కాబూలీ శనగలు",
+      "kabuli senagalu"
+    ]
+  },
+  "rajma": {
+    "en": [
+      "rajma"
+    ],
+    "te": [
+      "రాజ్మా",
+      "rajma"
+    ]
+  },
+  "maida": {
+    "en": [
+      "maida"
+    ],
+    "te": [
+      "మైదా",
+      "maida"
+    ]
+  },
+  "bombay-rava": {
+    "en": [
+      "bombay rava"
+    ],
+    "te": [
+      "బొంబాయి రవ్వ",
+      "bombay rava"
+    ]
+  },
+  "kala-chana": {
+    "en": [
+      "kala chana"
+    ],
+    "te": [
+      "నల్ల శనగలు",
+      "nalla senagalu"
+    ]
+  },
+  "bansi-rava": {
+    "en": [
+      "bansi rava"
+    ],
+    "te": [
+      "బన్సీ రవ్వ",
+      "bansi rava"
+    ]
+  },
+  "green-peas": {
+    "en": [
+      "green peas"
+    ],
+    "te": [
+      "పచ్చి బఠానీలు",
+      "pachi batanilu"
+    ]
+  },
+  "corn-flour": {
+    "en": [
+      "corn flour"
+    ],
+    "te": [
+      "మొక్కజొన్న పిండి",
+      "mokkajonna pindi"
+    ]
+  },
+  "idly-rice": {
+    "en": [
+      "idly rice"
+    ],
+    "te": [
+      "ఇడ్లీ బియ్యం",
+      "idli biyyam"
+    ]
+  },
+  "besan-flour": {
+    "en": [
+      "besan flour"
+    ],
+    "te": [
+      "శనగ పిండి",
+      "senaga pindi"
+    ]
+  },
+  "ragi-flour": {
+    "en": [
+      "ragi flour"
+    ],
+    "te": [
+      "రాగి పిండి",
+      "ragi pindi"
+    ]
+  },
+  "jowar-flour": {
+    "en": [
+      "jowar flour"
+    ],
+    "te": [
+      "జొన్న పిండి",
+      "jonna pindi"
+    ]
+  },
+  "rice-flour": {
+    "en": [
+      "rice flour"
+    ],
+    "te": [
+      "బియ్యం పిండి",
+      "biyyam pindi"
+    ]
+  },
+  "mixed-dal": {
+    "en": [
+      "mixed dal"
+    ],
+    "te": [
+      "మిశ్రమ పప్పు",
+      "misrama pappu"
+    ]
+  },
+  "cow-peas": {
+    "en": [
+      "cow peas"
+    ],
+    "te": [
+      "అలసందలు",
+      "alasandalu"
+    ]
+  },
+  "coffee": {
+    "en": [
+      "coffee"
+    ],
+    "te": [
+      "కాఫీ",
+      "coffee"
+    ]
+  },
+  "dals": {
+    "en": [
+      "dals",
+      "pulses"
+    ],
+    "te": [
+      "పప్పులు",
+      "pappulu"
+    ]
+  },
+  "flours": {
+    "en": [
+      "flours"
+    ],
+    "te": [
+      "పిండి",
+      "pindi"
+    ]
+  },
+  "spices": {
+    "en": [
+      "spices"
+    ],
+    "te": [
+      "మసాలాలు",
+      "masalalu"
+    ]
+  },
+  "oils-ghee": {
+    "en": [
+      "oils & ghee"
+    ],
+    "te": [
+      "నూనెలు & నెయ్యి",
+      "nunelu & neyyi"
+    ]
+  },
+  "dry-fruits": {
+    "en": [
+      "dry fruits"
+    ],
+    "te": [
+      "డ్రై ఫ్రూట్స్",
+      "dry fruits"
     ]
   }
 }
