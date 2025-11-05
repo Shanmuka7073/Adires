@@ -58,7 +58,16 @@ export function VoiceCommander({
   const { stores, masterProducts, productPrices, fetchInitialData, fetchProductPrices } = useAppStore();
 
   const { form: profileForm } = useProfileFormStore();
-  const { placeOrderBtnRef, setIsWaitingForQuickOrderConfirmation, isWaitingForQuickOrderConfirmation, homeAddressBtnRef, currentLocationBtnRef, shouldPlaceOrderDirectly, setShouldPlaceOrderDirectly } = useCheckoutStore();
+  const { 
+    placeOrderBtnRef, 
+    setIsWaitingForQuickOrderConfirmation, 
+    isWaitingForQuickOrderConfirmation, 
+    homeAddressBtnRef, 
+    currentLocationBtnRef, 
+    shouldPlaceOrderDirectly, 
+    setShouldPlaceOrderDirectly 
+  } = useCheckoutStore();
+
 
   const isSpeakingRef = useRef(false);
   const isEnabledRef = useRef(enabled);
@@ -87,6 +96,21 @@ export function VoiceCommander({
   // Track checkout state
   const [checkoutReady, setCheckoutReady] = useState(false);
   const addressValueRef = useRef<string>('');
+  
+  const resetAllContext = useCallback(() => {
+    setIsWaitingForQuantity(false);
+    itemToUpdateSkuRef.current = null;
+    setIsWaitingForStoreName(false);
+    setClarificationStores([]);
+    onSuggestions([]);
+    setIsWaitingForQuickOrderConfirmation(false);
+    setIsWaitingForVoiceOrder(false);
+    setIsWaitingForAddressType(false);
+    hasSpokenCheckoutPrompt.current = false;
+    formFieldToFillRef.current = null;
+    setShouldPlaceOrderDirectly(false);
+  }, [onSuggestions, setIsWaitingForQuickOrderConfirmation, setShouldPlaceOrderDirectly]);
+
 
   // Language detection and switching
   const detectLanguage = useCallback((text: string): string => {
@@ -113,28 +137,11 @@ export function VoiceCommander({
     }
   }, []);
 
-    // Function to reset all contextual state variables
-    const resetAllContext = useCallback(() => {
-        setIsWaitingForQuantity(false);
-        itemToUpdateSkuRef.current = null;
-        setIsWaitingForStoreName(false);
-        setClarificationStores([]);
-        onSuggestions([]);
-        setIsWaitingForQuickOrderConfirmation(false);
-        setIsWaitingForVoiceOrder(false);
-        setIsWaitingForAddressType(false);
-        hasSpokenCheckoutPrompt.current = false;
-        formFieldToFillRef.current = null;
-        setShouldPlaceOrderDirectly(false);
-    }, [onSuggestions, setIsWaitingForQuickOrderConfirmation, setShouldPlaceOrderDirectly]);
-
-
-    // Effect to reset context when the user navigates away from a page
-    useEffect(() => {
-        if(pathname !== '/checkout') {
-          resetAllContext();
-        }
-    }, [pathname, resetAllContext]);
+  useEffect(() => {
+    if(pathname !== '/checkout') {
+      resetAllContext();
+    }
+  }, [pathname, resetAllContext]);
 
 
   useEffect(() => {
@@ -592,17 +599,9 @@ export function VoiceCommander({
           if (homeKeywords.some(keyword => cmd.includes(keyword))) {
             homeAddressBtnRef?.current?.click();
             speak("Setting delivery to your home address.");
-            setTimeout(() => {
-              hasSpokenCheckoutPrompt.current = false;
-              runCheckoutPrompt();
-            }, 2000);
           } else if (locationKeywords.some(keyword => cmd.includes(keyword))) {
             currentLocationBtnRef?.current?.click();
             speak("Using your current location for delivery.");
-            setTimeout(() => {
-              hasSpokenCheckoutPrompt.current = false;
-              runCheckoutPrompt();
-            }, 2000);
           } else {
             speak("Sorry, I didn't understand. Please say 'home address' or 'current location'.");
           }
@@ -668,10 +667,6 @@ export function VoiceCommander({
           if (bestMatch && bestMatch.similarity > 0.7) {
             speak(`Okay, ordering from ${bestMatch.name}.`);
             setActiveStoreId(bestMatch.id);
-            setTimeout(() => {
-              hasSpokenCheckoutPrompt.current = false;
-              runCheckoutPrompt();
-            }, 1000);
           } else {
             speak(`Sorry, I couldn't find a store named ${commandText}. Please try again.`);
           }
@@ -878,15 +873,16 @@ export function VoiceCommander({
         let mutablePhrase = phrase.toLowerCase().replace(/^(add|get|buy|i want)\s+/, '');
         let addedItems: string[] = [];
         let notFoundItems: string[] = [];
-        let hasMoreMatches = true;
+        let shouldContinue = true;
 
-        while (hasMoreMatches) {
-            hasMoreMatches = false;
+        while (shouldContinue) {
+            shouldContinue = false;
             let bestMatch: { product: Product, variant: ProductVariant, alias: string } | null = null;
             let bestMatchLength = 0;
 
             // Find the best (longest) matching product alias in the current phrase
             for (const product of masterProducts) {
+                if (!product.name) continue;
                 const aliases = [product.name.toLowerCase(), ...Object.values(getAllAliases(product.name.toLowerCase().replace(/ /g, '-'))).flat().map(name => name.toLowerCase())];
                 for (const alias of [...new Set(aliases)]) {
                     if (mutablePhrase.includes(alias) && alias.length > bestMatchLength) {
@@ -894,7 +890,6 @@ export function VoiceCommander({
                         if (variant) {
                             bestMatch = { product, variant, alias };
                             bestMatchLength = alias.length;
-                            hasMoreMatches = true;
                         }
                     }
                 }
@@ -908,26 +903,34 @@ export function VoiceCommander({
                 
                 // Remove the matched alias from the phrase to avoid re-matching
                 mutablePhrase = mutablePhrase.replace(alias, '').trim();
+                if(mutablePhrase) {
+                    shouldContinue = true; // Continue if there's more phrase left
+                }
             }
         }
 
         // Collect any remaining parts of the phrase that weren't matched
-        if (mutablePhrase) {
-            notFoundItems = mutablePhrase.split(/,?\s+(?:and|మరియు|और)\s+|,/).filter(s => s.trim());
+        const remainingWords = mutablePhrase.split(/,?\s+(?:and|మరియు|और)\s+|,|\s+/).filter(s => s.trim());
+        if (remainingWords.length > 0) {
+            notFoundItems.push(...remainingWords);
         }
 
         // Report results
+        let messageParts = [];
         if (addedItems.length > 0) {
-            let message = `Okay, I've added ${addedItems.join(', ')} to your cart.`;
-            if (notFoundItems.length > 0) {
-                message += ` but I couldn't find ${notFoundItems.join(', ')}.`;
-            }
-            speak(message);
+            messageParts.push(`I've added ${addedItems.join(', ')} to your cart.`);
             onOpenCart();
-        } else if (notFoundItems.length > 0) {
-            speak(`Sorry, I couldn't find ${notFoundItems.join(', ')}.`);
         }
-        // If nothing was found and nothing was added, the general fallback will handle it.
+        if (notFoundItems.length > 0) {
+            messageParts.push(`but I couldn't find ${notFoundItems.join(', ')}.`);
+        }
+        
+        if (messageParts.length > 0) {
+            speak(messageParts.join(' '));
+        } else if (phrase) {
+             // This is the fallback if nothing at all was found in the original phrase.
+             speak(`Sorry, I couldn't find any items in your request.`);
+        }
     },
     };
 
@@ -972,7 +975,7 @@ export function VoiceCommander({
     clarificationStores,
     isWaitingForQuantity,
     updateQuantity,
-    isWaitingForQuickOrderConfirmation,
+isWaitingForQuickOrderConfirmation,
     clearCart,
     setIsWaitingForQuickOrderConfirmation,
     stores,
