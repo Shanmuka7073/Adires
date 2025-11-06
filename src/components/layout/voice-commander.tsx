@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -314,8 +315,13 @@ export function VoiceCommander({
       }
       return;
     }
-    const isCheckoutReady = checkCheckoutConditions();
-    if (isCheckoutReady && !hasSpokenCheckoutPrompt.current) {
+    
+    let isReady = false;
+    if (hasMounted) {
+      isReady = checkCheckoutConditions();
+    }
+    
+    if (isReady && !hasSpokenCheckoutPrompt.current) {
       const speech = t('everything-is-ready-speech', currentLanguage).replace('{address}', addressValueRef.current.substring(0, 30));
       speak(speech, currentLanguage);
       hasSpokenCheckoutPrompt.current = true;
@@ -348,14 +354,15 @@ export function VoiceCommander({
   }, [pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, checkCheckoutConditions, speak, activeStoreId, cartItems.length, currentLanguage]);
   
   useEffect(() => {
-    if (pathname === '/checkout' && hasMounted) {
-      const areAllDetailsReady = checkCheckoutConditions();
-      if (shouldPlaceOrderDirectly && placeOrderBtnRef.current && areAllDetailsReady) {
+      let isReady = false;
+      if (pathname === '/checkout' && hasMounted) {
+          isReady = checkCheckoutConditions();
+      }
+      if (shouldPlaceOrderDirectly && placeOrderBtnRef.current && isReady) {
           console.log("Direct order conditions met. Clicking place order.");
           placeOrderBtnRef.current.click();
           setShouldPlaceOrderDirectly(false); // Reset after action
       }
-    }
   }, [shouldPlaceOrderDirectly, placeOrderBtnRef, setShouldPlaceOrderDirectly, checkCheckoutConditions, hasMounted, voiceTrigger, pathname]);
 
 
@@ -425,7 +432,7 @@ export function VoiceCommander({
     };
   }, [pathname, hasMounted, enabled, profileForm, handleProfileFormInteraction]);
 
-  const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null, variant: ProductPrice['variants'][0] | null, requestedQty: number, remainingPhrase: string }> => {
+ const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null, variant: ProductPrice['variants'][0] | null, requestedQty: number, remainingPhrase: string }> => {
     const lowerPhrase = phrase.toLowerCase();
     let bestMatch: { product: Product, alias: string, similarity: number } | null = null;
 
@@ -475,12 +482,11 @@ export function VoiceCommander({
         }
 
         // Check if the number was a quantity or a weight specifier
-        // If "2 kilo", quantity is 2, desired weight is 1000g. If "250 gm", quantity is 1, desired weight is 250g
-        if (num > 10 && unit.startsWith('k')) { // Heuristic: "25 kilo" is unlikely
-             requestedQty = 1;
-        } else if (num > 1) { // "2 kilo", "3 kilo"
+        if (num > 1 && unit.startsWith('k')) { // "2 kilo", "3 kilo"
             requestedQty = num;
-            desiredWeightInGrams = unit.startsWith('k') ? 1000 : (desiredWeightInGrams/num);
+            desiredWeightInGrams = 1000;
+        } else { // "1 kilo", "250 gm", "500 grams"
+             requestedQty = 1;
         }
     }
     
@@ -523,8 +529,8 @@ export function VoiceCommander({
           if (!cmdGroup) continue;
           
           const allAliases = [t(key, lang), ...(getAllAliases(key)[lang] || [])];
-          if(fileCommandsRef.current[key]?.aliases) {
-              allAliases.push(...fileCommandsRef.current[key].aliases)
+          if (cmdGroup && Array.isArray(cmdGroup.aliases)) {
+             allAliases.push(...cmdGroup.aliases);
           }
 
           for (const alias of [...new Set(allAliases)]) {
@@ -875,20 +881,17 @@ export function VoiceCommander({
             
             // Smart quantity logic
             if (requestedQty > 1 && variant.weight !== `${requestedQty}kg` && baseUnitVariant) {
-                // User requested a quantity (e.g., 2kg) but we only have 1kg packs
-                const quantityToAdd = requestedQty; // e.g., 2
+                const quantityToAdd = requestedQty;
                 addItemToCart(product, baseUnitVariant, quantityToAdd);
-                const speech = `Okay, I've added ${quantityToAdd} ${baseUnitVariant.weight} packs of ${getProductName(product)} to your cart.`;
+                const speech = `Okay, adding ${quantityToAdd} ${baseUnitVariant.weight} packs of ${getProductName(product)} to your cart.`;
                 speak(speech, lang);
             } else {
-                // Standard add
-                addItemToCart(product, variant, 1);
-                const speech = t('ive-added-to-your-cart', lang).replace('{items}', getProductName(product));
+                addItemToCart(product, variant, requestedQty);
+                 const speech = `Okay, adding ${requestedQty} ${variant.weight} of ${getProductName(product)} to your cart.`;
                 speak(speech, lang);
             }
             onOpenCart();
         } else {
-            // Only say "didn't understand" if no other command was matched
             speak(t('sorry-i-didnt-understand-that', lang), lang);
         }
         resetAllContext();
