@@ -183,7 +183,7 @@
   },
   "checkout": {
     "display": "Proceed to Checkout",
-    "reply": "Okay, let's proceed to checkout.",
+    "reply": "your-total-is-speech",
     "aliases": [
       "process next step",
       "proceed to checkout",
@@ -213,7 +213,7 @@
   },
   "placeOrder": {
     "display": "Place the order",
-    "reply": "Placing your order now.",
+    "reply": "placing-your-order-now-speech",
     "aliases": [
       "place order",
       "submit order",
@@ -256,7 +256,7 @@
   },
   "homeAddress": {
     "display": "Use Home Address",
-    "reply": "Using your saved home address.",
+    "reply": "setting-delivery-to-home-speech",
     "aliases": [
       "home address",
       "use my home address",
@@ -276,11 +276,26 @@
   },
   "currentLocation": {
     "display": "Use Current Location",
-    "reply": "Okay, finding your current location for delivery.",
+    "reply": "using-current-location-speech",
     "aliases": [
       "current location",
       "use my current location",
       "deliver here"
     ]
+  },
+  "addressPrompt": {
+    "display": "Prompt for Address Type",
+    "reply": "should-i-deliver-to-home-or-current-speech",
+    "aliases": []
+  },
+  "storePrompt": {
+    "display": "Prompt for Store",
+    "reply": "which-store-should-fulfill-speech",
+    "aliases": []
+  },
+  "finalConfirmPrompt": {
+    "display": "Final Order Confirmation Prompt",
+    "reply": "everything-is-ready-speech",
+    "aliases": []
   }
 }

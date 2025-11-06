@@ -1808,5 +1808,117 @@
   "sorry-i-couldnt-find-any-items": {
     "en": "Sorry, I couldn't find any items in your request.",
     "te": "క్షమించండి, మీ అభ్యర్థనలో నేను ఏ వస్తువులను కనుగొనలేకపోయాను."
+  },
+  "your-total-is-speech": {
+    "en": "Your cart total is {total}. Let's get this delivered.",
+    "te": "మీ కార్ట్ మొత్తం {total}. దీనిని డెలివరీ చేద్దాం."
+  },
+  "should-i-deliver-to-home-or-current-speech": {
+    "en": "Should I deliver to your saved home address or your current location?",
+    "te": "మీ సేవ్ చేసిన ఇంటి చిరునామాకు లేదా మీ ప్రస్తుత స్థానానికి డెలివరీ చేయాలా?"
+  },
+  "which-store-should-fulfill-speech": {
+    "en": "Which store should I order from?",
+    "te": "ఏ స్టోర్ నుండి ఆర్డర్ చేయాలి?"
+  },
+  "everything-is-ready-speech": {
+    "en": "Everything looks ready. We are delivering to {address}. Just say 'place order' to confirm.",
+    "te": "అన్నీ సిద్ధంగా ఉన్నాయి. మేము {address}కు డెలివరీ చేస్తున్నాము. నిర్ధారించడానికి 'ఆర్డర్ చేయండి' అని చెప్పండి."
+  },
+  "setting-delivery-to-home-speech": {
+    "en": "Okay, setting delivery to your home address.",
+    "te": "సరే, మీ ఇంటి చిరునామాకు డెలివరీని సెట్ చేస్తున్నాను."
+  },
+  "using-current-location-speech": {
+    "en": "Okay, using your current location for delivery.",
+    "te": "సరే, డెలివరీ కోసం మీ ప్రస్తుత స్థానాన్ని ఉపయోగిస్తున్నాను."
+  },
+  "placing-your-order-now-speech": {
+    "en": "Placing your order now.",
+    "te": "ఇప్పుడు మీ ఆర్డర్‌ను ఉంచుతున్నాను."
+  },
+  "confirm-the-quick-order-speech": {
+    "en": "I have prepared your quick order. Please say 'confirm order' to proceed.",
+    "te": "నేను మీ త్వరిత ఆర్డర్‌ను సిద్ధం చేసాను. కొనసాగించడానికి దయచేసి 'ఆర్డర్‌ను నిర్ధారించండి' అని చెప్పండి."
+  },
+  "did-not-understand-address-type-speech": {
+    "en": "I'm sorry, I didn't understand. Please say 'home' or 'current'.",
+    "te": "క్షమించండి, నాకు అర్థం కాలేదు. దయచేసి 'హోమ్' లేదా 'ప్రస్తుత' అని చెప్పండి."
+  },
+  "im-ready-for-order-speech": {
+    "en": "I'm ready. Please list the items you need for your order.",
+    "te": "నేను సిద్ధంగా ఉన్నాను. దయచేసి మీ ఆర్డర్ కోసం మీకు అవసరమైన వస్తువులను జాబితా చేయండి."
+  },
+  "cannot-create-order-no-profile-speech": {
+    "en": "I can't create a voice order until you've completed your user profile with an address.",
+    "te": "మీరు మీ వినియోగదారు ప్రొఫైల్‌ను ఒక చిరునామాతో పూర్తి చేసే వరకు నేను వాయిస్ ఆర్డర్‌ను సృష్టించలేను."
+  },
+  "sent-list-to-stores-speech": {
+    "en": "Great. I've sent your list to the stores. You can track its status in your orders page.",
+    "te": "అద్భుతం. నేను మీ జాబితాను దుకాణాలకు పంపాను. మీరు దాని స్థితిని మీ ఆర్డర్‌ల పేజీలో ట్రాక్ చేయవచ్చు."
+  },
+  "failed-to-create-voice-order-speech": {
+    "en": "I'm sorry, I failed to create the voice order. Please try again.",
+    "te": "క్షమించండి, నేను వాయిస్ ఆర్డర్‌ను సృష్టించడంలో విఫలమయ్యాను. దయచేసి మళ్లీ ప్రయత్నించండి."
+  },
+  "trying-to-place-order-speech": {
+    "en": "Trying to place the order, but the button isn't available yet.",
+    "te": "ఆర్డర్‌ను ఉంచడానికి ప్రయత్నిస్తున్నాను, కానీ బటన్ ఇంకా అందుబాటులో లేదు."
+  },
+  "complete-checkout-steps-speech": {
+    "en": "You need to complete all the steps on the checkout page first.",
+    "te": "మీరు ముందుగా చెక్అవుట్ పేజీలోని అన్ని దశలను పూర్తి చేయాలి."
+  },
+  "no-changes-to-save-speech": {
+    "en": "I can only save changes on the profile page.",
+    "te": "నేను ప్రొఫైల్ పేజీలో మాత్రమే మార్పులను సేవ్ చేయగలను."
+  },
+  "refreshing-speech": {
+    "en": "Refreshing.",
+    "te": "రిఫ్రెష్ చేస్తోంది."
+  },
+  "okay-updated-to-quantity-speech": {
+    "en": "Okay, updated to {quantity}.",
+    "te": "సరే, {quantity}కి నవీకరించబడింది."
+  },
+  "did-not-catch-quantity-speech": {
+    "en": "I'm sorry, I didn't catch that quantity. Please try again.",
+    "te": "క్షమించండి, నాకు ఆ పరిమాణం అర్థం కాలేదు. దయచేసి మళ్లీ ప్రయత్నించండి."
+  },
+  "could-not-find-store-speech": {
+    "en": "I'm sorry, I couldn't find a store named '{storeName}'. Please say the store name again.",
+    "te": "క్షమించండి, నేను '{storeName}' అనే పేరుతో ఒక దుకాణాన్ని కనుగొనలేకపోయాను. దయచేసి స్టోర్ పేరును మళ్లీ చెప్పండి."
+  },
+  "okay-ordering-from-speech": {
+    "en": "Okay, ordering from {storeName}.",
+    "te": "{storeName} నుండి ఆర్డర్ చేస్తున్నాను."
+  },
+  "sorry-i-didnt-understand-that": {
+    "en": "Sorry, I didn't understand that.",
+    "te": "క్షమించండి, నాకు అది అర్థం కాలేదు."
+  },
+  "could-not-find-product-in-order-speech": {
+    "en": "I'm sorry, I couldn't figure out which product you wanted in your smart order.",
+    "te": "క్షమించండి, మీ స్మార్ట్ ఆర్డర్‌లో మీరు ఏ ఉత్పత్తిని కోరుకుంటున్నారో నేను కనుగొనలేకపోయాను."
+  },
+  "could-not-identify-store-speech": {
+    "en": "I couldn't identify the store. Please try your smart order again.",
+    "te": "నేను దుకాణాన్ని గుర్తించలేకపోయాను. దయచేసి మీ స్మార్ట్ ఆర్డర్‌ను మళ్లీ ప్రయత్నించండి."
+  },
+  "cannot-deliver-home-no-address-speech": {
+    "en": "I can't deliver to your home because you haven't saved an address in your profile yet. Taking you there now.",
+    "te": "మీరు ఇంకా మీ ప్రొఫైల్‌లో ఒక చిరునామాను సేవ్ చేయనందున నేను మీ ఇంటికి డెలివరీ చేయలేను. ఇప్పుడు మిమ్మల్ని అక్కడికి తీసుకెళ్తున్నాను."
+  },
+  "preparing-order-speech": {
+    "en": "Okay. Preparing a quick order of {qty} {productName} from {storeName}.",
+    "te": "సరే. {storeName} నుండి {qty} {productName} యొక్క త్వరిత ఆర్డర్‌ను సిద్ధం చేస్తున్నాను."
+  },
+  "your-cart-is-empty-speech": {
+    "en": "Your cart is empty. Please add some items before going to checkout.",
+    "te": "మీ కార్ట్ ఖాళీగా ఉంది. చెక్అవుట్‌కు వెళ్లే ముందు దయచేసి కొన్ని వస్తువులను జోడించండి."
+  },
+  "cancelling-the-order-speech": {
+    "en": "Okay, cancelling this order.",
+    "te": "సరే, ఈ ఆర్డర్‌ను రద్దు చేస్తున్నాను."
   }
 }
