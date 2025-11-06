@@ -112,6 +112,12 @@ export type ProductPrice = {
     variants: ProductVariant[];
 }
 
-    
+export type FailedVoiceCommand = {
+    id: string;
+    userId: string;
+    commandText: string;
+    language: string;
+    timestamp: Timestamp | Date | string;
+}
 
     

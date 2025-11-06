@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, Truck, ShoppingBag, AlertCircle, ArrowRight, Settings, Mic } from 'lucide-react';
+import { Users, Store, Truck, ShoppingBag, AlertCircle, ArrowRight, Settings, Mic, MessageSquareWarning } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -138,7 +138,7 @@ export default function AdminDashboardPage() {
 
             <div className="mt-16">
                  <h2 className="text-2xl font-bold text-center mb-8 font-headline">{t('admin-tools')}</h2>
-                <div className="grid gap-8 md:grid-cols-2 max-w-4xl mx-auto">
+                <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
                     <AdminActionCard 
                         title="manage-master-store-and-products"
                         description="add-or-edit-products-in-the-master-catalog"
@@ -151,8 +151,16 @@ export default function AdminDashboardPage() {
                         href="/dashboard/voice-commands"
                         icon={Mic}
                     />
+                    <AdminActionCard 
+                        title="Failed Voice Commands"
+                        description="Review voice commands that the system failed to understand."
+                        href="/dashboard/admin/failed-commands"
+                        icon={MessageSquareWarning}
+                    />
                 </div>
             </div>
         </div>
     );
 }
+
+    

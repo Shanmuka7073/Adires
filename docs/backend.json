@@ -552,6 +552,36 @@
         }
       },
       "required": ["productName", "variants"]
+    },
+    "FailedVoiceCommand": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FailedVoiceCommand",
+      "type": "object",
+      "description": "Represents a voice command that was not understood by the system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the failed command log."
+        },
+        "userId": {
+          "type": "string",
+          "description": "The UID of the user who spoke the command."
+        },
+        "commandText": {
+          "type": "string",
+          "description": "The transcribed text of the failed command."
+        },
+        "language": {
+          "type": "string",
+          "description": "The language detected for the command (e.g., 'en-IN', 'te-IN')."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the command failed."
+        }
+      },
+      "required": ["id", "userId", "commandText", "language", "timestamp"]
     }
   },
   "auth": {
@@ -769,6 +799,22 @@
             {
               "name": "productName",
               "description": "The unique name of the product."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/failedCommands/{commandId}",
+        "definition": {
+          "entityName": "FailedVoiceCommand",
+          "schema": {
+            "$ref": "#/backend/entities/FailedVoiceCommand"
+          },
+          "description": "Logs voice commands that were not understood by the system.",
+          "params": [
+            {
+              "name": "commandId",
+              "description": "The unique identifier of the logged command."
             }
           ]
         }

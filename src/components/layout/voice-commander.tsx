@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, errorEmitter } from '@/firebase';
-import type { Store, Product, ProductPrice, CartItem, User } from '@/lib/types';
+import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand } from '@/lib/types';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
 import { useAppStore, useProfileFormStore } from '@/lib/store';
@@ -499,7 +499,7 @@ export function VoiceCommander({
     
     // Find best variant
     let chosenVariant = null;
-    const kiloWithoutNumber = !weightMatch && (phrase.includes('kilo') || phrase.includes('kg') || phrase.includes('కిలో'));
+    const kiloWithoutNumber = !weightMatch && ['kilo', 'kg', 'కిలో', 'కేజీ'].some(k => phrase.includes(k));
     if (kiloWithoutNumber) { // If weight is specified without a number (e.g. "kilo tomatoes")
       desiredWeightInGrams = 1000; // default to 1kg
     }
@@ -920,6 +920,17 @@ export function VoiceCommander({
             speak(`Sorry, I found ${matchedAlias || product.name} but could not determine a price or size.`, lang);
         } else {
              speak(t('sorry-i-didnt-understand-that', lang), lang);
+             if (firestore && user) {
+                const failedCommandData: Omit<FailedVoiceCommand, 'id' | 'timestamp'> = {
+                    userId: user.uid,
+                    commandText: phrase,
+                    language: lang,
+                };
+                const colRef = collection(firestore, 'failedCommands');
+                addDoc(colRef, { ...failedCommandData, timestamp: serverTimestamp() }).catch(e => {
+                    console.error("Could not log failed command:", e);
+                });
+             }
         }
         if(!phrase.startsWith('order ')) {
             resetAllContext();
@@ -1041,3 +1052,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
