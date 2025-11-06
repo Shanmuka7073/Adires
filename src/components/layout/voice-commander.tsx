@@ -330,6 +330,7 @@ export function VoiceCommander({
       return;
     }
     if (!hasSpokenCheckoutPrompt.current) {
+      // This is the corrected block
       if (typeof document !== 'undefined') {
         const addressInput = document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement;
         const currentAddress = addressInput?.value || '';
