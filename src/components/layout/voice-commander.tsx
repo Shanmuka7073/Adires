@@ -432,7 +432,7 @@ export function VoiceCommander({
     };
   }, [pathname, hasMounted, enabled, profileForm, handleProfileFormInteraction]);
 
-  const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null; variant: ProductPrice['variants'][0] | null; requestedQty: number; remainingPhrase: string; desiredWeightInGrams: number; detectedQuantity: number; matchedAlias: string | null; }> => {
+ const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null; variant: ProductPrice['variants'][0] | null; requestedQty: number; remainingPhrase: string; desiredWeightInGrams: number; detectedQuantity: number; matchedAlias: string | null; }> => {
     const lowerPhrase = phrase.toLowerCase();
     let bestMatch: { product: Product, alias: string, similarity: number } | null = null;
 
@@ -453,7 +453,11 @@ export function VoiceCommander({
     if (!bestMatch) return { product: null, variant: null, requestedQty: 1, remainingPhrase: phrase, desiredWeightInGrams: 0, detectedQuantity: 1, matchedAlias: null };
 
     const productMatch = bestMatch.product;
-    const remainingPhrase = lowerPhrase.replace(bestMatch.alias, '').trim();
+    let remainingPhrase = lowerPhrase;
+    if (bestMatch.alias) {
+        remainingPhrase = lowerPhrase.replace(bestMatch.alias, '').trim();
+    }
+    
 
     // Fetch price data if not cached
     let priceData = productPrices[productMatch.name.toLowerCase()];
@@ -470,7 +474,7 @@ export function VoiceCommander({
         'एक': 1, 'दो': 2, 'तीन': 3, 'चार': 4, 'पांच': 5, 'छह': 6, 'सात': 7, 'आठ': 8, 'नौ': 9, 'दस': 10
     };
     
-    const weightRegex = new RegExp(`(${Object.keys(numberWords).join('|')}|\\d+)\\s?(kg|kilo|kilos|కిలో|కిలోల|కిలోగ్రాము|g|gm|gram|grams|గ్రాములు|గ్రామ్)`, 'i');
+    const weightRegex = new RegExp(`(${Object.keys(numberWords).join('|')}|\\d+)\\s?(kg|kilo|kilos|కిలో|కిలోల|కిలోగ్రాము|కేజీ|కేజీలు|g|gm|gram|grams|గ్రాములు|గ్రామ్)`, 'i');
     const weightMatch = lowerPhrase.match(weightRegex);
     
     let requestedQty = 1;
@@ -482,7 +486,7 @@ export function VoiceCommander({
         detectedQuantity = numberWords[numStr] || parseInt(numStr, 10);
         const unit = weightMatch[2].toLowerCase();
         
-        const isKilo = ['kg', 'kilo', 'kilos', 'కిలో', 'కిలోల', 'కిలోగ్రాము'].includes(unit);
+        const isKilo = ['kg', 'kilo', 'kilos', 'కిలో', 'కిలోల', 'కిలోగ్రాము', 'కేజీ', 'కేజీలు'].includes(unit);
         const isGram = ['g', 'gm', 'gram', 'grams', 'గ్రాములు', 'గ్రామ్'].includes(unit);
 
         if (isKilo) {
