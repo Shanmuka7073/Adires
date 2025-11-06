@@ -719,6 +719,7 @@ export function VoiceCommander({
       myStore: () => router.push('/dashboard/owner/my-store'),
       checkout: (params: { lang: string }) => {
         const lang = params.lang || currentLanguage;
+        // Don't speak here. Let the checkout page prompt handle it.
         if (cartItemsProp.length > 0) {
             onCloseCart();
             router.push('/checkout');
@@ -986,5 +987,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    
