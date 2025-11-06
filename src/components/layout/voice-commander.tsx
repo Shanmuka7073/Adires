@@ -289,6 +289,9 @@ export function VoiceCommander({
     }
     
     if (hasSpokenCheckoutPrompt.current) return;
+    
+    const addressInput = typeof document !== 'undefined' ? (document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement) : null;
+    const currentAddress = addressInput?.value || '';
 
     if (isWaitingForQuickOrderConfirmation) {
         speak(t('confirm-the-quick-order-speech', currentLanguage), currentLanguage);
@@ -302,8 +305,6 @@ export function VoiceCommander({
       return;
     }
     
-    const addressInput = typeof document !== 'undefined' ? document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement : null;
-    const currentAddress = addressInput?.value || '';
     if (!currentAddress || currentAddress.length < 10) {
         speak(t('should-i-deliver-to-home-or-current-speech', currentLanguage), currentLanguage);
         setIsWaitingForAddressType(true);
@@ -327,15 +328,17 @@ export function VoiceCommander({
   
   useEffect(() => {
       hasSpokenCheckoutPrompt.current = false;
-  }, [pathname, voiceTrigger]);
-  
+  }, [pathname]);
+
   // This effect runs when the page loads, or when the voice is triggered manually
   useEffect(() => {
     if (pathname === '/checkout' && hasMounted && enabled) {
-      const timeoutId = setTimeout(() => {
-        runCheckoutPrompt();
-      }, 1000); // Add a small delay to allow page to settle
-      return () => clearTimeout(timeoutId);
+        // Reset the flag whenever the trigger fires to allow re-prompting
+        hasSpokenCheckoutPrompt.current = false;
+        const timeoutId = setTimeout(() => {
+            runCheckoutPrompt();
+        }, 1000); // Add a small delay to allow page to settle
+        return () => clearTimeout(timeoutId);
     }
   }, [pathname, hasMounted, enabled, voiceTrigger, runCheckoutPrompt]);
 
@@ -728,8 +731,7 @@ export function VoiceCommander({
       checkout: (params: { lang: string }) => {
         const lang = params.lang || currentLanguage;
         if (cartTotal > 0) {
-            const reply = t('your-total-is-speech', lang).replace('{total}', `₹${cartTotal.toFixed(2)}`);
-            speak(reply, lang, () => router.push('/checkout'));
+            speak(t('taking-you-to-checkout-speech', lang), lang, () => router.push('/checkout'));
         } else {
             speak(t('your-cart-is-empty-speech', lang), lang);
         }

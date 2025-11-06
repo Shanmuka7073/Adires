@@ -210,7 +210,7 @@ export default function CheckoutPage() {
         // Use a timeout to avoid calling it too frequently during typing
         const handler = setTimeout(() => {
             triggerVoicePrompt();
-        }, 300);
+        }, 500);
         return () => clearTimeout(handler);
       }
     }

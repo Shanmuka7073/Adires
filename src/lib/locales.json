@@ -1744,10 +1744,6 @@
     "en": "I'm sorry, I failed to create the voice order. Please try again.",
     "te": "క్షమించండి, నేను వాయిస్ ఆర్డర్‌ను సృష్టించడంలో విఫలమయ్యాను. దయచేసి మళ్లీ ప్రయత్నించండి."
   },
-  "trying-to-place-order-speech": {
-    "en": "Trying to place the order, but the button isn't available yet.",
-    "te": "ఆర్డర్‌ను ఉంచడానికి ప్రయత్నిస్తున్నాను, కానీ బటన్ ఇంకా అందుబాటులో లేదు."
-  },
   "complete-checkout-steps-speech": {
     "en": "You need to complete all the steps on the checkout page first.",
     "te": "మీరు ముందుగా చెక్అవుట్ పేజీలోని అన్ని దశలను పూర్తి చేయాలి."
@@ -1871,5 +1867,3 @@
     "te": "నమస్తే, మీరు ఇప్పుడు తెలుగులో మాట్లాడవచ్చు లేదా ఐటమ్స్ ఎంచుకోవచ్చు"
   }
 }
-
-    
