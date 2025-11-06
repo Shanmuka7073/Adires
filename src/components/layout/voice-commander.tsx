@@ -33,6 +33,7 @@ interface VoiceCommanderProps {
   isCartOpen: boolean;
   cartItems: CartItem[];
   voiceTrigger: number;
+  triggerVoicePrompt: () => void;
 }
 
 let recognition: SpeechRecognition | null = null;
@@ -48,14 +49,15 @@ export function VoiceCommander({
   onOpenCart,
   onCloseCart,
   isCartOpen,
-  cartItems,
-  voiceTrigger
+  cartItems: cartItemsProp,
+  voiceTrigger,
+  triggerVoicePrompt,
 }: VoiceCommanderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
   const { firestore, user } = useFirebase();
-  const { clearCart, addItem: addItemToCart, updateQuantity, activeStoreId, setActiveStoreId, cartTotal } = useCart();
+  const { clearCart, addItem: addItemToCart, updateQuantity, activeStoreId, setActiveStoreId, cartTotal, cartItems } = useCart();
 
   const { stores, masterProducts, productPrices, fetchInitialData, fetchProductPrices, getProductName } = useAppStore();
 
@@ -297,9 +299,8 @@ export function VoiceCommander({
         
         const hasValidAddress = currentAddress && currentAddress.length >= 10;
         const hasStore = !!activeStoreId;
-        const hasCartItems = cartItems.length > 0;
         
-        return hasValidAddress && hasStore && hasCartItems;
+        return hasValidAddress && hasStore && cartItems.length > 0;
     } catch (e) {
         return false;
     }
@@ -324,7 +325,7 @@ export function VoiceCommander({
     }
     
     if (isReady && !hasSpokenCheckoutPrompt.current) {
-      const speech = t('everything-is-ready-speech', currentLanguage).replace('{address}', addressValueRef.current.substring(0, 30));
+      const speech = t('everything-is-ready-speech', currentLanguage);
       speak(speech, currentLanguage);
       hasSpokenCheckoutPrompt.current = true;
       setCheckoutReady(true);
@@ -533,6 +534,7 @@ export function VoiceCommander({
       if (!firestore || !user) return;
       
       const { lang, command: strippedCommand } = detectLanguage(commandText);
+      setCurrentLanguage(lang);
       updateRecognitionLanguage(lang);
       
       const commandLower = strippedCommand.toLowerCase();
@@ -543,10 +545,7 @@ export function VoiceCommander({
           const cmdGroup = fileCommandsRef.current[key];
           if (!cmdGroup) continue;
           
-          const allAliases = [t(key, lang), ...getAllAliases(key)[lang] || []];
-          if (cmdGroup && Array.isArray(cmdGroup.aliases)) {
-             allAliases.push(...cmdGroup.aliases);
-          }
+          const allAliases = [t(key, lang), ...(getAllAliases(key)[lang] || []), ...(cmdGroup.aliases || [])];
 
           for (const alias of [...new Set(allAliases)]) {
                if (calculateSimilarity(commandLower, alias) > 0.8 || commandText.toLowerCase() === alias) {
@@ -659,8 +658,10 @@ export function VoiceCommander({
           }
 
           if (bestMatch && bestMatch.similarity > 0.6) {
-              speak(t('okay-ordering-from-speech', lang).replace('{storeName}', bestMatch.store.name), lang);
-              setActiveStoreId(bestMatch.store.id);
+              speak(t('okay-ordering-from-speech', lang).replace('{storeName}', bestMatch.store.name), lang, () => {
+                setActiveStoreId(bestMatch.store.id);
+                triggerVoicePrompt(); // Manually trigger re-evaluation
+              });
           } else {
               speak(t('could-not-find-store-speech', lang).replace('{storeName}', commandText), lang);
           }
@@ -681,10 +682,7 @@ export function VoiceCommander({
         const cmdGroup = fileCommandsRef.current[key];
         const action = commandActionsRef.current[key];
         if (action) {
-            const allAliases = [t(key, lang), ...(getAllAliases(key)[lang] || [])];
-             if (cmdGroup && Array.isArray(cmdGroup.aliases)) {
-                allAliases.push(...cmdGroup.aliases);
-            }
+            const allAliases = [t(key, lang), ...(getAllAliases(key)[lang] || []), ...(cmdGroup.aliases || [])];
              allAliases.forEach((alias: string) => {
                 allCommands.push({
                   command: alias,
@@ -733,7 +731,7 @@ export function VoiceCommander({
     isWaitingForAddressType, homeAddressBtnRef, currentLocationBtnRef, isWaitingForVoiceOrder, 
     isWaitingForQuickOrderConfirmation, placeOrderBtnRef, clearCart, router, isWaitingForQuantity, 
     updateQuantity, isWaitingForStoreName, pathname, stores, setActiveStoreId, profileForm, 
-    handleProfileFormInteraction, findProductAndVariant, 
+    handleProfileFormInteraction, findProductAndVariant, triggerVoicePrompt
   ]);
 
 
@@ -752,6 +750,11 @@ export function VoiceCommander({
 
     recognition.onresult = (event) => {
       const transcript = event.results[event.results.length - 1][0].transcript.trim();
+      if (transcript.toLowerCase().startsWith("naaku") && currentLanguage === "en-IN") {
+        setCurrentLanguage("te-IN");
+        speak(t("telugu-welcome-speech", "te-IN"), "te-IN");
+        return;
+      }
       console.log('Recognized:', transcript, 'Language:', currentLanguage);
       handleCommand(transcript);
     };
@@ -787,8 +790,12 @@ export function VoiceCommander({
       myStore: () => router.push('/dashboard/owner/my-store'),
       checkout: (params: { lang: string }) => {
         const lang = params.lang || currentLanguage;
-        if (cartItems.length > 0) {
-           const speech = t('your-total-is-speech', lang).replace('{total}', `₹${cartTotal.toFixed(2)}`);
+        // Read cartItems directly from the hook at the time of execution
+        const currentCartItems = useCart.getState().cartItems;
+        const currentCartTotal = currentCartItems.reduce((total, item) => total + item.variant.price * item.quantity, 0);
+
+        if (currentCartItems.length > 0) {
+           const speech = t('your-total-is-speech', lang).replace('{total}', `₹${currentCartTotal.toFixed(2)}`);
           speak(speech, lang, () => {
             onCloseCart();
             router.push('/checkout');
@@ -1060,4 +1067,3 @@ export function VoiceCommander({
   return null;
 }
 
-    
