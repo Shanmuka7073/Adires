@@ -476,10 +476,6 @@ export function VoiceCommander({
                if (calculateSimilarity(commandLower, alias) > 0.8 || commandText.toLowerCase() === alias) {
                    const action = commandActionsRef.current[key];
                    if (action) {
-                       // For checkout, don't speak here, let the action handle it.
-                       if (key !== 'checkout') {
-                           speak(t(cmdGroup.reply, lang), lang);
-                       }
                        action({ lang });
                    }
                    resetAllContext();
@@ -719,10 +715,11 @@ export function VoiceCommander({
       myStore: () => router.push('/dashboard/owner/my-store'),
       checkout: (params: { lang: string }) => {
         const lang = params.lang || currentLanguage;
-        // Don't speak here. Let the checkout page prompt handle it.
         if (cartItemsProp.length > 0) {
-            onCloseCart();
-            router.push('/checkout');
+            speak(t('taking-you-to-checkout-speech', lang), lang, () => {
+              onCloseCart();
+              router.push('/checkout');
+            });
         } else {
             speak(t('your-cart-is-empty-speech', lang), lang);
         }
@@ -783,7 +780,6 @@ export function VoiceCommander({
         if (pathname === '/checkout') {
           if (placeOrderBtnRef?.current) {
             placeOrderBtnRef.current.click();
-            speak(t('placing-your-order-now-speech', lang), lang);
           } else {
             speak(t('complete-checkout-steps-speech', lang), lang);
           }
