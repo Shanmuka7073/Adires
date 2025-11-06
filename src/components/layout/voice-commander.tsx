@@ -367,20 +367,11 @@ export function VoiceCommander({
   }, [shouldPlaceOrderDirectly, placeOrderBtnRef, setShouldPlaceOrderDirectly, checkCheckoutConditions, hasMounted, voiceTrigger, pathname]);
 
   useEffect(() => {
-    if (pathname === '/checkout' && hasMounted && !isSpeakingRef.current) {
+    if (voiceTrigger > 0 && pathname === '/checkout' && hasMounted && !isSpeakingRef.current) {
         hasSpokenCheckoutPrompt.current = false; // Allow reprompting
         runCheckoutPrompt();
     }
   }, [voiceTrigger, pathname, hasMounted, runCheckoutPrompt]);
-
-  useEffect(() => {
-    // This effect runs when we navigate to the checkout page.
-    if (pathname === '/checkout' && hasMounted) {
-        // We reset the prompt flag and give it a moment for the page to render, then check conditions.
-        hasSpokenCheckoutPrompt.current = false;
-        setTimeout(() => runCheckoutPrompt(), 500);
-    }
-  }, [pathname, hasMounted]);
 
 
   useEffect(() => {
