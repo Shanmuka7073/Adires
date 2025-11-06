@@ -29,7 +29,10 @@
     "te": "నా ఆర్డర్లు"
   },
   "my-store": {
-    "en": "My Store",
+    "en": [
+      "My Store",
+      "Store"
+    ],
     "te": "నా స్టోర్"
   },
   "store-orders": {
@@ -1865,5 +1868,17 @@
   "telugu-welcome-speech": {
     "en": "Namaste, you can now speak in Telugu or select items.",
     "te": "నమస్తే, మీరు ఇప్పుడు తెలుగులో మాట్లాడవచ్చు లేదా ఐటమ్స్ ఎంచుకోవచ్చు"
+  },
+  "curd/yogurt": {
+    "en": [
+      "Curd",
+      "Yogurt"
+    ],
+    "te": [
+      "పెరుగు",
+      "దహీ"
+    ]
   }
 }
+
+    
