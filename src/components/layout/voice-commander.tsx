@@ -14,6 +14,8 @@ import { useCheckoutStore } from '@/app/checkout/page';
 import { getCommands } from '@/app/actions';
 import { t, getAllAliases } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection } from 'firebase/firestore';
+import { FirestorePermissionError } from '@/firebase/errors';
+
 
 export interface Command {
   command: string;
@@ -430,7 +432,7 @@ export function VoiceCommander({
     };
   }, [pathname, hasMounted, enabled, profileForm, handleProfileFormInteraction]);
 
- const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null, variant: ProductPrice['variants'][0] | null, requestedQty: number, remainingPhrase: string }> => {
+ const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null, variant: ProductPrice['variants'][0] | null, requestedQty: number, remainingPhrase: string, desiredWeightInGrams: number, detectedQuantity: number }> => {
     const lowerPhrase = phrase.toLowerCase();
     let bestMatch: { product: Product, alias: string, similarity: number } | null = null;
 
@@ -448,7 +450,7 @@ export function VoiceCommander({
         }
     }
     
-    if (!bestMatch) return { product: null, variant: null, requestedQty: 1, remainingPhrase: phrase };
+    if (!bestMatch) return { product: null, variant: null, requestedQty: 1, remainingPhrase: phrase, desiredWeightInGrams: 0, detectedQuantity: 1 };
 
     const productMatch = bestMatch.product;
     const remainingPhrase = lowerPhrase.replace(bestMatch.alias, '').trim();
@@ -460,7 +462,7 @@ export function VoiceCommander({
         priceData = useAppStore.getState().productPrices[productMatch.name.toLowerCase()];
     }
     
-    if (!priceData?.variants?.length) return { product: productMatch, variant: null, requestedQty: 1, remainingPhrase };
+    if (!priceData?.variants?.length) return { product: productMatch, variant: null, requestedQty: 1, remainingPhrase, desiredWeightInGrams: 0, detectedQuantity: 1 };
 
     const numberWords: Record<string, number> = { 
         'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
@@ -469,47 +471,50 @@ export function VoiceCommander({
     };
     
     // Updated regex to be more flexible and capture Telugu units
-    const weightRegex = new RegExp(`(\\d+|${Object.keys(numberWords).join('|')})\\s?(kg|kilo|kilos|g|gm|gram|grams|కిలో|కిలోల|గ్రాములు|గ్రామ్)`, 'i');
+    const weightRegex = new RegExp(`(${Object.keys(numberWords).join('|')}|\\d+)\\s?(kg|kilo|kilos|g|gm|gram|grams|కిలో|కిలోల|గ్రాములు|గ్రామ్)`, 'i');
     const weightMatch = lowerPhrase.match(weightRegex);
     
     let requestedQty = 1;
     let desiredWeightInGrams = 0;
+    let detectedQuantity = 1;
 
     if (weightMatch) {
         const numStr = weightMatch[1].toLowerCase();
-        const num = numberWords[numStr] || parseInt(numStr, 10);
+        detectedQuantity = numberWords[numStr] || parseInt(numStr, 10);
         const unit = weightMatch[2].toLowerCase();
         
         const isKilo = unit.includes('k') || unit.includes('కి');
 
         if (isKilo) {
-            desiredWeightInGrams = num * 1000;
-        } else {
-            desiredWeightInGrams = num;
+            desiredWeightInGrams = detectedQuantity * 1000;
+            requestedQty = detectedQuantity;
+        } else { // grams
+            desiredWeightInGrams = detectedQuantity;
+            requestedQty = 1; // "250 grams" is one pack
         }
 
-        // Check if the number was a quantity or a weight specifier
-        if (num > 1 && isKilo) { // "2 kilo", "3 kilo"
-            requestedQty = num;
-            desiredWeightInGrams = 1000; // Look for the 1kg pack
-        } else { // "1 kilo", "250 gm", "500 grams"
-             requestedQty = 1;
-        }
     }
     
     // Find best variant
     let chosenVariant = null;
-    if (desiredWeightInGrams > 0) {
-        const targetWeightStr = desiredWeightInGrams >= 1000 ? `${desiredWeightInGrams/1000}kg` : `${desiredWeightInGrams}gm`;
-        chosenVariant = priceData.variants.find(v => v.weight.replace(/\s/g, '') === targetWeightStr);
-    }
-    
-    if (!chosenVariant) {
-        // Default to 1kg if available, otherwise the first variant
-        chosenVariant = priceData.variants.find(v => v.weight === '1kg') || priceData.variants[0];
+    if (desiredWeightInGrams > 0 && !weightMatch) { // If weight is specified without a number (e.g. "kilo tomatoes")
+      desiredWeightInGrams = 1000; // default to 1kg
     }
 
-    return { product: productMatch, variant: chosenVariant, requestedQty, remainingPhrase };
+    if (priceData.variants) {
+      if (desiredWeightInGrams > 0) {
+        const targetWeightStr = desiredWeightInGrams >= 1000 ? `${desiredWeightInGrams/1000}kg` : `${desiredWeightInGrams}gm`;
+        chosenVariant = priceData.variants.find(v => v.weight.replace(/\s/g, '') === targetWeightStr);
+      }
+      
+      if (!chosenVariant) {
+          // Default to 1kg if available, otherwise the first variant
+          chosenVariant = priceData.variants.find(v => v.weight === '1kg') || priceData.variants[0];
+      }
+    }
+
+
+    return { product: productMatch, variant: chosenVariant, requestedQty, remainingPhrase, desiredWeightInGrams, detectedQuantity };
 }, [firestore, masterProducts, productPrices, fetchProductPrices]);
 
   useEffect(() => {
@@ -605,7 +610,7 @@ export function VoiceCommander({
         const numberWords: Record<string, number> = { 
           'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
           'ఒకటి': 1, 'రెండు': 2, 'మూడు': 3, 'నాలుగు': 4, 'ఐదు': 5, 'ఆరు': 6, 'ఏడు': 7, 'ఎనిమిది': 8, 'తొమ్మిది': 9, 'పది': 10,
-          'एक': 1, 'दो': 2, 'तीन': 3, 'चार': 4, 'पांच': 5, 'छह': 6, 'सात': 8, 'आठ': 9, 'दस': 10
+          'एक': 1, 'दो': 2, 'तीन': 3, 'चार': 4, 'पांच': 5, 'छह': 6, 'सात': 7, 'आठ': 8, 'नौ': 9, 'दस': 10
         };
         const parts = commandLower.split(' ');
         let quantity: number | null = null;
@@ -881,13 +886,30 @@ export function VoiceCommander({
       orderItem: async ({ phrase, lang }: { phrase?: string; lang: string }) => {
         if (!phrase) return;
 
-        const { product, variant, requestedQty } = await findProductAndVariant(phrase);
+        const { product, variant, desiredWeightInGrams, detectedQuantity } = await findProductAndVariant(phrase);
 
         if (product && variant) {
-            addItemToCart(product, variant, requestedQty);
-            const speech = `Okay, adding ${requestedQty} ${variant.weight} of ${getProductName(product)} to your cart.`;
-            speak(speech, lang);
+            // Smart quantity logic
+            const baseUnitWeightMatch = variant.weight.match(/(\d+)(kg|gm|g)/);
+            if(baseUnitWeightMatch && desiredWeightInGrams > 0) {
+                 const baseUnitWeight = parseInt(baseUnitWeightMatch[1]);
+                 const baseUnit = baseUnitWeightMatch[2];
+                 const baseUnitInGrams = baseUnit === 'kg' ? baseUnitWeight * 1000 : baseUnitWeight;
+                 const numPacks = Math.ceil(desiredWeightInGrams / baseUnitInGrams);
+
+                 addItemToCart(product, variant, numPacks);
+                 const speech = `Okay, adding ${numPacks} ${numPacks > 1 ? 'packs' : 'pack'} of ${variant.weight} ${getProductName(product)} to your cart.`;
+                 speak(speech, lang);
+
+            } else { // Fallback for items without clear weight units
+                addItemToCart(product, variant, detectedQuantity);
+                const speech = `Okay, adding ${detectedQuantity} ${getProductName(product)} to your cart.`;
+                speak(speech, lang);
+            }
             onOpenCart();
+
+        } else if (product && !variant) {
+            speak(`Sorry, I found ${getProductName(product)} but could not determine a price or size.`, lang);
         } else {
             speak(t('sorry-i-didnt-understand-that', lang), lang);
         }
