@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -469,7 +470,7 @@ export function VoiceCommander({
         'एक': 1, 'दो': 2, 'तीन': 3, 'चार': 4, 'पांच': 5, 'छह': 6, 'सात': 7, 'आठ': 8, 'नौ': 9, 'दस': 10
     };
     
-    const weightRegex = new RegExp(`(${Object.keys(numberWords).join('|')}|\\d+)\\s?(kg|kilo|kilos|g|gm|gram|grams|కిలో|కిలోల|గ్రాములు|గ్రామ్)`, 'i');
+    const weightRegex = new RegExp(`(${Object.keys(numberWords).join('|')}|\\d+)\\s?(kg|kilo|kilos|కిలో|కిలోల|కిలోగ్రాము|g|gm|gram|grams|గ్రాములు|గ్రామ్)`, 'i');
     const weightMatch = lowerPhrase.match(weightRegex);
     
     let requestedQty = 1;
@@ -481,11 +482,12 @@ export function VoiceCommander({
         detectedQuantity = numberWords[numStr] || parseInt(numStr, 10);
         const unit = weightMatch[2].toLowerCase();
         
-        const isKilo = unit.includes('k') || unit.includes('కి');
+        const isKilo = ['kg', 'kilo', 'kilos', 'కిలో', 'కిలోల', 'కిలోగ్రాము'].includes(unit);
+        const isGram = ['g', 'gm', 'gram', 'grams', 'గ్రాములు', 'గ్రామ్'].includes(unit);
 
         if (isKilo) {
             desiredWeightInGrams = detectedQuantity * 1000;
-        } else { // grams
+        } else if(isGram) { // grams
             desiredWeightInGrams = detectedQuantity;
         }
 
@@ -885,7 +887,7 @@ export function VoiceCommander({
         if (product && variant) {
             // Smart quantity logic
             const baseUnitWeightMatch = variant.weight.match(/(\d+)(kg|gm|g)/);
-            let quantityToAdd = detectedQuantity;
+            let quantityToAdd = 1; // Default to 1 pack if no quantity is spoken
             let speech;
             
             if(baseUnitWeightMatch && desiredWeightInGrams > 0) {
@@ -901,6 +903,7 @@ export function VoiceCommander({
                     .replace('{weight}', variant.weight)
                     .replace('{productName}', matchedAlias || product.name);
             } else { // Fallback for items without clear weight units or simple quantity
+                quantityToAdd = detectedQuantity > 1 ? detectedQuantity : 1;
                 speech = t('adding-item-speech', lang)
                     .replace('{quantity}', `${quantityToAdd}`)
                     .replace('{productName}', matchedAlias || product.name);
@@ -1034,5 +1037,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    
