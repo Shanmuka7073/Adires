@@ -15,6 +15,7 @@ import { getCommands } from '@/app/actions';
 import { t, getAllAliases } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
+import groceryData from '@/lib/grocery-data.json';
 
 
 export interface Command {
@@ -40,6 +41,18 @@ if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSp
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognition = new SpeechRecognition();
 }
+
+// Model C: Hybrid AI - Category keywords for fast, targeted search
+const CATEGORY_KEYWORDS: Record<string, string[]> = groceryData.categories.reduce((acc, cat) => {
+    const key = cat.categoryName;
+    // Add aliases from locales.json for each category
+    const catSlug = key.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-');
+    const aliases = getAllAliases(catSlug);
+    const allTerms = [key.toLowerCase(), ...Object.values(aliases).flat().map(a => a.toLowerCase())];
+    acc[key] = [...new Set(allTerms)]; // Ensure unique keywords
+    return acc;
+}, {} as Record<string, string[]>);
+
 
 export function VoiceCommander({
   enabled,
@@ -363,12 +376,31 @@ export function VoiceCommander({
     };
   }, [pathname, hasMounted, enabled, profileForm, handleProfileFormInteraction]);
 
- const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null; variant: ProductPrice['variants'][0] | null; requestedQty: number; remainingPhrase: string; desiredWeightInGrams: number; detectedQuantity: number; matchedAlias: string | null; }> => {
+  const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null; variant: ProductPrice['variants'][0] | null; requestedQty: number; remainingPhrase: string; desiredWeightInGrams: number; detectedQuantity: number; matchedAlias: string | null; }> => {
     const lowerPhrase = phrase.toLowerCase();
     let bestMatch: { product: Product, alias: string, similarity: number } | null = null;
 
-    // Find best product match
-    for (const p of masterProducts) {
+    // Model C: Hybrid Search
+    // 1. Detect category from keywords
+    let detectedCategory: string | null = null;
+    for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+        if (keywords.some(kw => lowerPhrase.includes(kw))) {
+            detectedCategory = category;
+            break;
+        }
+    }
+    
+    // 2. Search within category or full scan
+    let productsToSearch = masterProducts;
+    if (detectedCategory) {
+        productsToSearch = masterProducts.filter(p => p.category === detectedCategory);
+        console.log(`Hybrid search: Detected category "${detectedCategory}", searching ${productsToSearch.length} products.`);
+    } else {
+        console.log(`Hybrid search: No category detected, performing full scan of ${masterProducts.length} products.`);
+    }
+
+    // 3. Find best product match within the search scope
+    for (const p of productsToSearch) {
         if (!p.name) continue;
         const aliases = [p.name.toLowerCase(), ...Object.values(getAllAliases(p.name.toLowerCase().replace(/ /g, '-'))).flat().map(a => a.toLowerCase())];
         for (const alias of [...new Set(aliases)]) {
@@ -381,6 +413,23 @@ export function VoiceCommander({
         }
     }
     
+    // If no match in category, do a full scan (fallback)
+    if (!bestMatch && detectedCategory) {
+        console.log("Hybrid search: No match in category, falling back to full scan.");
+        for (const p of masterProducts) {
+             if (!p.name) continue;
+            const aliases = [p.name.toLowerCase(), ...Object.values(getAllAliases(p.name.toLowerCase().replace(/ /g, '-'))).flat().map(a => a.toLowerCase())];
+            for (const alias of [...new Set(aliases)]) {
+                if (lowerPhrase.includes(alias)) {
+                    const similarity = calculateSimilarity(lowerPhrase, alias);
+                    if (!bestMatch || similarity > bestMatch.similarity) {
+                        bestMatch = { product: p, alias, similarity };
+                    }
+                }
+            }
+        }
+    }
+    
     if (!bestMatch) return { product: null, variant: null, requestedQty: 1, remainingPhrase: phrase, desiredWeightInGrams: 0, detectedQuantity: 1, matchedAlias: null };
 
     const productMatch = bestMatch.product;
@@ -388,7 +437,6 @@ export function VoiceCommander({
     if (bestMatch.alias) {
         remainingPhrase = lowerPhrase.replace(bestMatch.alias, '').trim();
     }
-    
 
     // Fetch price data if not cached
     let priceData = productPrices[productMatch.name.toLowerCase()];

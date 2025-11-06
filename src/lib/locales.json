@@ -1970,16 +1970,47 @@
       "దహీ"
     ]
   },
-  "wheat": {
+  "grains-&-cereals": {
     "en": [
-      "wheat",
-      "gehu",
-      "gehun",
-      "godhuma"
+      "Grains & Cereals",
+      "Grains",
+      "Cereals",
+      "dhanyalu"
     ],
     "te": [
-      "గోధుమ",
-      "godhuma pindi"
+      "ధాన్యాలు & తృణధాన్యాలు",
+      "ధాన్యాలు",
+      "తృణధాన్యాలు"
+    ]
+  },
+  "dals-&-pulses": {
+    "en": [
+      "Dals & Pulses",
+      "Dals",
+      "Pulses",
+      "pappulu"
+    ],
+    "te": [
+      "పప్పులు & పప్పుధాన్యాలు",
+      "పప్పులు",
+      "పప్పుధాన్యాలు"
+    ]
+  },
+  "rice-(raw,-boiled,-basmati,-brown-etc)": {
+    "en": [
+      "rice",
+      "rise",
+      "raw rice",
+      "boiled rice",
+      "basmati rice",
+      "brown rice"
+    ],
+    "te": [
+      "బియ్యం",
+      "వరి",
+      "byyam",
+      "వరి బియ్యం",
+      "బాస్మతి బియ్యం"
     ]
   },
   "suji-(rava/semolina)": {
@@ -1987,104 +2018,626 @@
       "suji",
       "sooji",
       "rava",
-      "semolina"
+      "semolina",
+      "bombay rava",
+      "bansi rava"
     ],
     "te": [
       "రవ్వ",
-      "బోంబాయి రవ్వ"
+      "బొంబాయి రవ్వ",
+      "బన్సీ రవ్వ",
+      "ఇడ్లీ రవ్వ"
     ]
   },
-  "oats": {
+  "toor-dal-(arhar-dal)": {
     "en": [
-      "oats",
-      "ots"
+      "toor dal",
+      "arhar dal",
+      "tuvar dal"
     ],
     "te": [
-      "ఓట్స్"
+      "kandi pappu",
+      "కందిపప్పు"
     ]
   },
-  "cornflakes": {
+  "moong-dal-(yellow-split)": {
     "en": [
-      "cornflakes",
-      "corn flakes",
-      "cornflaks"
+      "moong dal",
+      "mung dal"
     ],
     "te": [
-      "కార్న్ ఫ్లేక్స్"
+      "pesarapappu",
+      "పెసరపప్పు"
     ]
   },
-  "millets-(jowar,-bajra,-ragi,-foxtail,-etc.)": {
+  "spices-&-masalas": {
     "en": [
-      "millet",
-      "millets",
-      "jowar",
-      "joar",
-      "javar",
-      "bajra",
-      "bajri",
-      "ragi",
-      "ragulu",
-      "foxtail millet",
-      "korralu"
+      "spices & masalas",
+      "spices",
+      "masalas"
     ],
     "te": [
-      "సజ్జలు",
-      "రాగులు",
-      "కొర్రలు",
-      "jonna",
-      "jonnalu"
+      "మసాలాలు",
+      "సుగంధ ద్రవ్యాలు"
     ]
   },
-  "broken-wheat-(dalia)": {
+  "oils-&-ghee": {
     "en": [
-      "broken wheat",
-      "dalia",
-      "daliya"
+      "oils & ghee",
+      "oils",
+      "ghee"
     ],
     "te": [
-      "గోధుమ రవ్వ"
+      "నూనెలు & నెయ్యి",
+      "నూనెలు",
+      "నెయ్యి"
     ]
   },
-  "green-gram": {
+  "sauces-&-condiments": {
     "en": [
-      "green gram",
-      "mung bean"
+      "sauces & condiments",
+      "sauces",
+      "condiments"
     ],
     "te": [
-      "పెసలు",
-      "pesalu"
+      "సాస్‌లు & మసాలాలు",
+      "సాస్‌లు"
     ]
   },
-  "lobia-(black-eyed-peas)": {
+  "dairy-&-bakery": {
     "en": [
-      "lobia",
-      "black eyed peas",
-      "cowpeas"
+      "dairy & bakery",
+      "dairy",
+      "bakery"
     ],
     "te": [
-      "అలసందులు",
-      "alasandulu"
+      "డైరీ & బేకరీ",
+      "డైరీ",
+      "బేకరీ"
     ]
   },
-  "soya-chunks": {
+  "snacks-&-breakfast": {
     "en": [
-      "soya chunks",
-      "soya balls",
-      "nutri nuggets"
+      "snacks & breakfast",
+      "snacks",
+      "breakfast",
+      "namkeen"
     ],
     "te": [
-      "సోయా"
+      "స్నాక్స్ & బ్రేక్‌ఫాస్ట్",
+      "స్నాక్స్",
+      "బ్రేక్‌ఫాస్ట్"
     ]
   },
-  "horse-gram": {
+  "beverages": {
     "en": [
-      "horse gram",
-      "kulthi",
-      "ulavalu"
+      "beverages",
+      "drinks"
     ],
     "te": [
-      "ఉలవలు",
-      "ulavallu"
+      "పానీయాలు"
+    ]
+  },
+  "turmeric-powder": {
+    "en": [
+      "turmeric powder",
+      "turmeric",
+      "haldi"
+    ],
+    "te": [
+      "పసుపు",
+      "పసుపు పొడి"
+    ]
+  },
+  "cumin-seeds": {
+    "en": [
+      "cumin seeds",
+      "cumin",
+      "jeera"
+    ],
+    "te": [
+      "జీలకర్ర",
+      "jeelakarra"
+    ]
+  },
+  "mustard-seeds": {
+    "en": [
+      "mustard seeds",
+      "mustard",
+      "rai"
+    ],
+    "te": [
+      "ఆవాలు",
+      "aavalu"
+    ]
+  },
+  "fenugreek-seeds": {
+    "en": [
+      "fenugreek seeds",
+      "fenugreek",
+      "methi"
+    ],
+    "te": [
+      "మెంతులు",
+      "menthulu"
+    ]
+  },
+  "garam-masala": {
+    "en": [
+      "garam masala"
+    ],
+    "te": [
+      "గరం మసాలా"
+    ]
+  },
+  "black-pepper": {
+    "en": [
+      "black pepper",
+      "pepper",
+      "kali mirch"
+    ],
+    "te": [
+      "నల్ల మిరియాలు",
+      "మిరియాలు"
+    ]
+  },
+  "cloves": {
+    "en": [
+      "cloves",
+      "laung"
+    ],
+    "te": [
+      "లవంగాలు",
+      "lavangalu"
+    ]
+  },
+  "cardamom": {
+    "en": [
+      "cardamom",
+      "elaichi"
+    ],
+    "te": [
+      "యాలకులు",
+      "elaichi"
+    ]
+  },
+  "cinnamon": {
+    "en": [
+      "cinnamon",
+      "dalchini"
+    ],
+    "te": [
+      "దాల్చిన చెక్క",
+      "dalchina"
+    ]
+  },
+  "bay-leaf": {
+    "en": [
+      "bay leaf",
+      "tej patta"
+    ],
+    "te": [
+      "బిర్యానీ ఆకు",
+      "biryani aaku"
+    ]
+  },
+  "fennel-seeds-(saunf)": {
+    "en": [
+      "fennel seeds",
+      "fennel",
+      "saunf"
+    ],
+    "te": [
+      "సోంపు",
+      "sompu"
+    ]
+  },
+  "curry-leaves": {
+    "en": [
+      "curry leaves",
+      "kadi patta"
+    ],
+    "te": [
+      "కరివేపాకు",
+      "karivepaku"
+    ]
+  },
+  "hing-(asafoetida)": {
+    "en": [
+      "hing",
+      "asafoetida"
+    ],
+    "te": [
+      "ఇంగువ",
+      "inguva"
+    ]
+  },
+  "kasuri-methi-(dried-fenugreek)": {
+    "en": [
+      "kasuri methi",
+      "dried fenugreek"
+    ],
+    "te": [
+      "కసూరి మేతి",
+      "ఎండు మెంతి ఆకులు"
+    ]
+  },
+  "tamarind": {
+    "en": [
+      "tamarind",
+      "imli"
+    ],
+    "te": [
+      "చింతపండు",
+      "chintapandu"
+    ]
+  },
+  "dry-red-chilies": {
+    "en": [
+      "dry red chilies",
+      "dried red chilli"
+    ],
+    "te": [
+      "ఎండు మిర్చి",
+      "endu mirchi"
+    ]
+  },
+  "mustard-oil": {
+    "en": [
+      "mustard oil",
+      "sarson ka tel"
+    ],
+    "te": [
+      "ఆవాల నూనె",
+      "aavala nune"
+    ]
+  },
+  "coconut-oil": {
+    "en": [
+      "coconut oil",
+      "nariyal tel"
+    ],
+    "te": [
+      "కొబ్బరి నూనె",
+      "kobbari nune"
+    ]
+  },
+  "palm-oil": {
+    "en": [
+      "palm oil"
+    ],
+    "te": [
+      "పామాయిల్",
+      "palm oil"
+    ]
+  },
+  "olive-oil": {
+    "en": [
+      "olive oil"
+    ],
+    "te": [
+      "ఆలివ్ నూనె",
+      "olive nune"
+    ]
+  },
+  "rice-bran-oil": {
+    "en": [
+      "rice bran oil"
+    ],
+    "te": [
+      "రైస్ బ్రాన్ ఆయిల్",
+      "తవుడు నూనె"
+    ]
+  },
+  "butter": {
+    "en": [
+      "butter",
+      "makhan"
+    ],
+    "te": [
+      "వెన్న",
+      "venna"
+    ]
+  },
+  "tomato-ketchup": {
+    "en": [
+      "tomato ketchup",
+      "ketchup",
+      "tomato sauce"
+    ],
+    "te": [
+      "టమాటో కెచప్",
+      "కెచప్"
+    ]
+  },
+  "soy-sauce": {
+    "en": [
+      "soy sauce"
+    ],
+    "te": [
+      "సోయా సాస్"
+    ]
+  },
+  "vinegar": {
+    "en": [
+      "vinegar",
+      "sirka"
+    ],
+    "te": [
+      "వెనిగర్"
+    ]
+  },
+  "green-chili-sauce": {
+    "en": [
+      "green chili sauce",
+      "green chilly sauce"
+    ],
+    "te": [
+      "గ్రీన్ చిల్లీ సాస్"
+    ]
+  },
+  "red-chili-sauce": {
+    "en": [
+      "red chili sauce",
+      "red chilly sauce"
+    ],
+    "te": [
+      "రెడ్ చిల్లీ సాస్"
+    ]
+  },
+  "mustard-sauce": {
+    "en": [
+      "mustard sauce"
+    ],
+    "te": [
+      "ఆవాల సాస్"
+    ]
+  },
+  "mayonnaise": {
+    "en": [
+      "mayonnaise",
+      "mayo"
+    ],
+    "te": [
+      "మయోన్నైస్",
+      "మయో"
+    ]
+  },
+  "pickles-(mango,-lime,-mixed,-etc.)": {
+    "en": [
+      "pickles",
+      "pickle",
+      "mango pickle",
+      "lime pickle",
+      "mixed pickle",
+      "achar"
+    ],
+    "te": [
+      "పచ్చడి",
+      "ఊరగాయ",
+      "ఆవకాయ"
+    ]
+  },
+  "chutneys-(coconut,-mint,-tamarind)": {
+    "en": [
+      "chutneys",
+      "chutney",
+      "coconut chutney",
+      "mint chutney",
+      "tamarind chutney"
+    ],
+    "te": [
+      "చట్నీ",
+      "కొబ్బరి చట్నీ",
+      "పుదీనా చట్నీ"
+    ]
+  },
+  "paneer-(cottage-cheese)": {
+    "en": [
+      "paneer",
+      "cottage cheese"
+    ],
+    "te": [
+      "పన్నీర్",
+      "paneer"
+    ]
+  },
+  "cheese": {
+    "en": [
+      "cheese"
+    ],
+    "te": [
+      "చీజ్",
+      "జున్ను"
+    ]
+  },
+  "fresh-cream": {
+    "en": [
+      "fresh cream",
+      "cream"
+    ],
+    "te": [
+      "ఫ్రెష్ క్రీమ్",
+      "క్రీమ్",
+      "మీగడ"
+    ]
+  },
+  "bread-(white,-brown,-multigrain)": {
+    "en": [
+      "bread",
+      "white bread",
+      "brown bread",
+      "multigrain bread"
+    ],
+    "te": [
+      "బ్రెడ్",
+      "రొట్టె"
+    ]
+  },
+  "buns": {
+    "en": [
+      "buns",
+      "bun"
+    ],
+    "te": [
+      "బన్స్",
+      "బన్"
+    ]
+  },
+  "pav": {
+    "en": [
+      "pav"
+    ],
+    "te": [
+      "పావ్"
+    ]
+  },
+  "biscuits": {
+    "en": [
+      "biscuits",
+      "biscuit",
+      "cookies"
+    ],
+    "te": [
+      "బిస్కెట్లు",
+      "బిస్కట్"
+    ]
+  },
+  "rusks": {
+    "en": [
+      "rusks",
+      "rusk",
+      "toast"
+    ],
+    "te": [
+      "రస్క్"
+    ]
+  },
+  "cakes": {
+    "en": [
+      "cakes",
+      "cake"
+    ],
+    "te": [
+      "కేకులు",
+      "కేక్"
+    ]
+  },
+  "muffins": {
+    "en": [
+      "muffins",
+      "muffin"
+    ],
+    "te": [
+      "మఫిన్లు",
+      "మఫిన్"
+    ]
+  },
+  "pancake-mix": {
+    "en": [
+      "pancake mix"
+    ],
+    "te": [
+      "పాన్‌కేక్ మిక్స్"
+    ]
+  },
+  "wafers": {
+    "en": [
+      "wafers",
+      "wafer",
+      "chips"
+    ],
+    "te": [
+      "వేఫర్లు",
+      "చిప్స్"
+    ]
+  },
+  "breakfast-cereals": {
+    "en": [
+      "breakfast cereals",
+      "cereal"
+    ],
+    "te": [
+      "బ్రేక్‌ఫాస్ట్ తృణధాన్యాలు",
+      "తృణధాన్యాలు"
+    ]
+  },
+  "tea-powder": {
+    "en": [
+      "tea powder",
+      "tea leaves"
+    ],
+    "te": [
+      "టీ పొడి",
+      "తేయాకు"
+    ]
+  },
+  "coffee-powder": {
+    "en": [
+      "coffee powder",
+      "coffee beans"
+    ],
+    "te": [
+      "కాఫీ పొడి",
+      "కాఫీ గింజలు"
+    ]
+  },
+  "green-tea": {
+    "en": [
+      "green tea"
+    ],
+    "te": [
+      "గ్రీన్ టీ"
+    ]
+  },
+  "milk-powder": {
+    "en": [
+      "milk powder"
+    ],
+    "te": [
+      "పాల పొడి"
+    ]
+  },
+  "soft-drinks": {
+    "en": [
+      "soft drinks",
+      "soda",
+      "coke",
+      "pepsi",
+      "sprite"
+    ],
+    "te": [
+      "శీతల పానీయాలు",
+      "సోడా"
+    ]
+  },
+  "juices": {
+    "en": [
+      "juices",
+      "juice",
+      "fruit juice"
+    ],
+    "te": [
+      "రసాలు",
+      "జ్యూస్"
+    ]
+  },
+  "coconut-water": {
+    "en": [
+      "coconut water"
+    ],
+    "te": [
+      "కొబ్బరి నీళ్ళు",
+      "బోండం"
+    ]
+  },
+  "energy-drinks": {
+    "en": [
+      "energy drinks",
+      "energy drink"
+    ],
+    "te": [
+      "ఎనర్జీ డ్రింక్స్"
     ]
   }
 }
