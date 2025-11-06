@@ -302,58 +302,82 @@
   "potatoes": {
     "en": [
       "Potatoes",
-      "Potato"
+      "Potato",
+      "poteto",
+      "aloo"
     ],
     "te": [
       "బంగాళదుంపలు",
       "ఆలుగడ్డ",
       "ఆలు",
-      "పొటాటో"
+      "పొటాటో",
+      "బంగాళదుంప",
+      "అలోగడ్డ",
+      "bangaladumpa",
+      "bangala dumpa"
     ]
   },
   "onions": {
     "en": [
       "Onions",
-      "Onion"
+      "Onion",
+      "union",
+      "piyaz"
     ],
     "te": [
       "ఉల్లిపాయలు",
       "ఉల్లిపాయ",
-      "ఎర్రగడ్డ"
+      "ఎర్రగడ్డ",
+      "ఉల్లి",
+      "ఉల్లిగడ్డ",
+      "ullipaya",
+      "ulligadda"
     ]
   },
   "tomatoes": {
     "en": [
       "Tomatoes",
-      "Tomato"
+      "Tomato",
+      "tamato",
+      "tometo"
     ],
     "te": [
       "టమోటాలు",
       "టమోటా",
-      "రామ ములగ"
+      "రామ ములగ",
+      "టమాట",
+      "టమాట పండు",
+      "rammulapandu"
     ]
   },
   "carrots": {
     "en": [
       "Carrots",
-      "Carrot"
+      "Carrot",
+      "karet",
+      "gajar"
     ],
     "te": [
       "క్యారెట్లు",
-      "క్యారెట్"
+      "క్యారెట్",
+      "గాజర"
     ]
   },
   "cabbage": {
     "en": [
-      "Cabbage"
+      "Cabbage",
+      "cabage"
     ],
     "te": [
-      "క్యాబేజీ"
+      "క్యాబేజీ",
+      "పట్టాగోబి"
     ]
   },
   "cauliflower": {
     "en": [
-      "Cauliflower"
+      "Cauliflower",
+      "gobi",
+      "gobhi"
     ],
     "te": [
       "కాలీఫ్లవర్",
@@ -373,28 +397,35 @@
   "green-chilies": {
     "en": [
       "Green Chilies",
-      "Green Chilli"
+      "Green Chilli",
+      "chilli",
+      "chili"
     ],
     "te": [
       "పచ్చి మిరపకాయలు",
-      "పచ్చి మిర్చి"
+      "పచ్చి మిర్చి",
+      "mirapakaya"
     ]
   },
   "ginger": {
     "en": [
-      "Ginger"
+      "Ginger",
+      "injur"
     ],
     "te": [
-      "అల్లం"
+      "అల్లం",
+      "allam"
     ]
   },
   "garlic": {
     "en": [
-      "Garlic"
+      "Garlic",
+      "lasun"
     ],
     "te": [
       "వెల్లుల్లి",
-      "ఎల్లిపాయ"
+      "ఎల్లిపాయ",
+      "వెల్లులి"
     ]
   },
   "beans": {
@@ -412,41 +443,53 @@
     ],
     "te": [
       "బఠానీలు",
-      "పచ్చి బఠానీలు"
+      "పచ్చి బఠానీలు",
+      "బటానీ",
+      "పచ్చి బటానీ"
     ]
   },
   "brinjal-(eggplant)": {
     "en": [
       "Brinjal",
-      "Eggplant"
+      "Eggplant",
+      "baingan"
     ],
     "te": [
       "వంకాయ",
-      "వంగ"
+      "వంగ",
+      "vankaya"
     ]
   },
   "okra-(lady’s-finger)": {
     "en": [
       "Okra",
-      "Lady's Finger"
+      "Lady's Finger",
+      "ladyfinger",
+      "bendi"
     ],
     "te": [
-      "బెండకాయ"
+      "బెండకాయ",
+      "బెండ",
+      "bendakaya"
     ]
   },
   "spinach": {
     "en": [
-      "Spinach"
+      "Spinach",
+      "spinich"
     ],
     "te": [
-      "పాలకూర"
+      "పాలకూర",
+      "palakura"
     ]
   },
   "coriander-leaves": {
     "en": [
       "Coriander Leaves",
       "Coriander",
-      "Cilantro"
+      "Cilantro",
+      "kothmir",
+      "dhaniya"
     ],
     "te": [
       "కొత్తిమీర"
@@ -455,7 +498,8 @@
   "mint-leaves": {
     "en": [
       "Mint Leaves",
-      "Mint"
+      "Mint",
+      "pudina"
     ],
     "te": [
       "పుదీనా ఆకులు",
@@ -467,12 +511,14 @@
       "Drumstick"
     ],
     "te": [
-      "మునగకాయ"
+      "మునగకాయ",
+      "munagakaya"
     ]
   },
   "radish": {
     "en": [
-      "Radish"
+      "Radish",
+      "mooli"
     ],
     "te": [
       "ముల్లంగి"
@@ -480,7 +526,8 @@
   },
   "beetroot": {
     "en": [
-      "Beetroot"
+      "Beetroot",
+      "beet"
     ],
     "te": [
       "బీట్‌రూట్"
@@ -488,11 +535,14 @@
   },
   "bottle-gourd": {
     "en": [
-      "Bottle Gourd"
+      "Bottle Gourd",
+      "lauki",
+      "doodhi"
     ],
     "te": [
       "సొరకాయ",
-      "ఆనపకాయ"
+      "ఆనపకాయ",
+      "sorakaya"
     ]
   },
   "ridge-gourd": {
@@ -500,15 +550,18 @@
       "Ridge Gourd"
     ],
     "te": [
-      "బీరకాయ"
+      "బీరకాయ",
+      "beerakaya"
     ]
   },
   "bitter-gourd": {
     "en": [
-      "Bitter Gourd"
+      "Bitter Gourd",
+      "karela"
     ],
     "te": [
-      "కాకరకాయ"
+      "కాకరకాయ",
+      "kakarakaya"
     ]
   },
   "pumpkin": {
@@ -516,16 +569,19 @@
       "Pumpkin"
     ],
     "te": [
-      "గుమ్మడికాయ"
+      "గుమ్మడికాయ",
+      "gummadikaya"
     ]
   },
   "cucumber": {
     "en": [
-      "Cucumber"
+      "Cucumber",
+      "kheera"
     ],
     "te": [
       "కీర దోసకాయ",
-      "దోసకాయ"
+      "దోసకాయ",
+      "dosakaya"
     ]
   },
   "raw-banana": {
@@ -534,16 +590,19 @@
     ],
     "te": [
       "పచ్చి అరటికాయ",
-      "అరటికాయ"
+      "అరటికాయ",
+      "arati kaya"
     ]
   },
   "yam": {
     "en": [
-      "Yam"
+      "Yam",
+      "kanda"
     ],
     "te": [
       "కంద గడ్డ",
-      "కంద"
+      "కంద",
+      "కందగడ్డ"
     ]
   },
   "sweet-potato": {
@@ -553,12 +612,14 @@
     ],
     "te": [
       "చిలగడదుంప",
-      "రత్నపురి గడ్డ"
+      "రత్నపురి గడ్డ",
+      "చెక్కరకంద"
     ]
   },
   "broccoli": {
     "en": [
-      "Broccoli"
+      "Broccoli",
+      "brokoli"
     ],
     "te": [
       "బ్రోకలీ"
@@ -566,7 +627,8 @@
   },
   "zucchini": {
     "en": [
-      "Zucchini"
+      "Zucchini",
+      "zukini"
     ],
     "te": [
       "జుకినీ",
