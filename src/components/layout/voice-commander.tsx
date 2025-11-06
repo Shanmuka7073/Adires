@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, errorEmitter } from '@/firebase';
-import type { Store, Product, ProductPrice, ProductVariant, CartItem, User } from '@/lib/types';
+import type { Store, Product, ProductPrice, CartItem, User } from '@/lib/types';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
 import { useAppStore, useProfileFormStore } from '@/lib/store';
@@ -286,28 +286,21 @@ export function VoiceCommander({
     }
   }, [profileForm, speak]);
 
-  // Monitor checkout conditions - This function now only runs on the client.
   const checkCheckoutConditions = useCallback(() => {
-    if (typeof document === 'undefined' || pathname !== '/checkout') return false; // Guard clause
-
+    if (typeof document === 'undefined' || pathname !== '/checkout') return false;
     const addressInput = document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement;
     const currentAddress = addressInput?.value || '';
     addressValueRef.current = currentAddress;
-
     const hasValidAddress = currentAddress && currentAddress.length >= 10;
     const hasStore = !!activeStoreId;
     const hasCartItems = cartItems.length > 0;
-
     return hasValidAddress && hasStore && hasCartItems;
   }, [pathname, activeStoreId, cartItems.length]);
 
-  // Enhanced checkout prompt function
   const runCheckoutPrompt = useCallback(() => {
     if (pathname !== '/checkout' || !hasMounted || !enabled || isSpeakingRef.current) {
       return;
     }
-
-    // Don't speak if we're already in a confirmation state
     if (isWaitingForQuickOrderConfirmation) {
       if (!hasSpokenCheckoutPrompt.current) {
         speak(t('confirm-the-quick-order-speech', currentLanguage), currentLanguage);
@@ -315,25 +308,18 @@ export function VoiceCommander({
       }
       return;
     }
-
-    // Check if all conditions are met for final step
     const isCheckoutReady = checkCheckoutConditions();
-    
     if (isCheckoutReady && !hasSpokenCheckoutPrompt.current) {
-      console.log('All checkout conditions met - prompting for place order');
-       const speech = t('everything-is-ready-speech', currentLanguage).replace('{address}', addressValueRef.current.substring(0, 30));
+      const speech = t('everything-is-ready-speech', currentLanguage).replace('{address}', addressValueRef.current.substring(0, 30));
       speak(speech, currentLanguage);
       hasSpokenCheckoutPrompt.current = true;
       setCheckoutReady(true);
       return;
     }
-
-    // If not ready, guide through steps
     if (!hasSpokenCheckoutPrompt.current) {
       if (typeof document !== 'undefined') {
         const addressInput = document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement;
         const currentAddress = addressInput?.value || '';
-
         if (!currentAddress || currentAddress.length < 10) {
             speak(t('should-i-deliver-to-home-or-current-speech', currentLanguage), currentLanguage);
             setIsWaitingForAddressType(true);
@@ -341,14 +327,12 @@ export function VoiceCommander({
             return;
         }
       }
-
       if (!activeStoreId) {
         speak(t('which-store-should-fulfill-speech', currentLanguage), currentLanguage);
         setIsWaitingForStoreName(true);
         hasSpokenCheckoutPrompt.current = true;
         return;
       }
-
       if (cartItems.length === 0) {
         speak(t('your-cart-is-empty-speech', currentLanguage), currentLanguage);
         hasSpokenCheckoutPrompt.current = true;
@@ -357,58 +341,70 @@ export function VoiceCommander({
     }
   }, [pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, checkCheckoutConditions, speak, activeStoreId, cartItems.length, currentLanguage]);
 
-  // Effect to monitor checkout state changes, now safely client-side
   useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null;
     if (pathname === '/checkout' && hasMounted) {
-      const interval = setInterval(() => {
+      intervalId = setInterval(() => {
         const isReady = checkCheckoutConditions();
         if (isReady && !hasSpokenCheckoutPrompt.current && !isSpeakingRef.current) {
-          console.log('Checkout conditions now met - triggering prompt');
           hasSpokenCheckoutPrompt.current = false;
           setTimeout(runCheckoutPrompt, 1000);
         }
       }, 2000);
-
-      return () => clearInterval(interval);
     }
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
   }, [pathname, hasMounted, checkCheckoutConditions, runCheckoutPrompt]);
 
-  // Effect to run checkout prompt on voice trigger
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout | null = null;
     if (pathname === '/checkout' && hasMounted) {
-      const timeout = setTimeout(() => {
+      timeoutId = setTimeout(() => {
         hasSpokenCheckoutPrompt.current = false;
         runCheckoutPrompt();
       }, 1000);
-      return () => clearTimeout(timeout);
     }
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [voiceTrigger, pathname, hasMounted, runCheckoutPrompt]);
 
-  // Effect to reset prompt when relevant states change
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout | null = null;
     if (pathname === '/checkout' && hasMounted) {
       hasSpokenCheckoutPrompt.current = false;
-      const timeout = setTimeout(runCheckoutPrompt, 500);
-      return () => clearTimeout(timeout);
+      timeoutId = setTimeout(runCheckoutPrompt, 500);
     }
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [cartItems.length, activeStoreId, pathname, hasMounted, runCheckoutPrompt]);
 
-  // Proactive prompt on profile page
   useEffect(() => {
     if (pathname !== '/dashboard/customer/my-profile' || !hasMounted || !enabled) {
       hasSpokenCheckoutPrompt.current = false;
       formFieldToFillRef.current = null;
       return;
     }
-
+    let speakTimeout: NodeJS.Timeout | null = null;
     if (!hasSpokenCheckoutPrompt.current && profileForm) {
-      const speakTimeout = setTimeout(() => {
+      speakTimeout = setTimeout(() => {
         handleProfileFormInteraction();
         hasSpokenCheckoutPrompt.current = true;
       }, 1500);
-
-      return () => clearTimeout(speakTimeout);
     }
+    return () => {
+      if (speakTimeout) {
+        clearTimeout(speakTimeout);
+      }
+    };
   }, [pathname, hasMounted, enabled, profileForm, handleProfileFormInteraction]);
 
   const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null, variant: ProductVariant | null, remainingPhrase: string }> => {
@@ -477,17 +473,15 @@ export function VoiceCommander({
     }
   }, [pathname]);
 
-  // This is the auto-submit logic for direct quick orders
   useEffect(() => {
-    if (shouldPlaceOrderDirectly && placeOrderBtnRef.current) {
-        // We must check conditions here, inside the client-side effect
-        const areAllDetailsReady = checkCheckoutConditions();
-        if (areAllDetailsReady) {
-            console.log("Direct order conditions met. Clicking place order.");
-            placeOrderBtnRef.current.click();
-            setShouldPlaceOrderDirectly(false); // Reset after action
-        }
-    }
+      if (shouldPlaceOrderDirectly && placeOrderBtnRef.current) {
+          const areAllDetailsReady = checkCheckoutConditions();
+          if (areAllDetailsReady) {
+              console.log("Direct order conditions met. Clicking place order.");
+              placeOrderBtnRef.current.click();
+              setShouldPlaceOrderDirectly(false); // Reset after action
+          }
+      }
   }, [shouldPlaceOrderDirectly, placeOrderBtnRef, setShouldPlaceOrderDirectly, checkCheckoutConditions]);
 
   const handleCommand = useCallback(async (commandText: string) => {
@@ -597,23 +591,38 @@ export function VoiceCommander({
       }
 
       if (isWaitingForStoreName && pathname === '/checkout') {
-        const spokenStoreName = commandLower;
-        const bestMatch = stores
-          .map(store => ({ 
-              store, 
-              engSim: calculateSimilarity(spokenStoreName, store.name.toLowerCase()),
-              teluguSim: store.teluguName ? calculateSimilarity(spokenStoreName, store.teluguName.toLowerCase()) : 0
-            }))
-          .sort((a, b) => Math.max(b.engSim, b.teluguSim) - Math.max(a.engSim, a.teluguSim))[0];
+          const spokenStoreName = commandLower;
+          let bestMatch: { store: Store, similarity: number } | null = null;
 
-        if (bestMatch && Math.max(bestMatch.engSim, bestMatch.teluguSim) > 0.6) {
-          speak(t('okay-ordering-from-speech', lang).replace('{storeName}', bestMatch.store.name), lang);
-          setActiveStoreId(bestMatch.store.id);
-        } else {
-          speak(t('could-not-find-store-speech', lang).replace('{storeName}', commandText), lang);
-        }
-        resetAllContext();
-        return;
+          for (const store of stores) {
+              const storeNameLower = store.name.toLowerCase();
+              const teluguNameLower = store.teluguName?.toLowerCase();
+              
+              // Create a slug for looking up in locales
+              const storeKey = storeNameLower.replace(/ /g, '-');
+              const aliases = getAllAliases(storeKey);
+              
+              const termsToSearch = [storeNameLower];
+              if (teluguNameLower) termsToSearch.push(teluguNameLower);
+              if (aliases.en) termsToSearch.push(...aliases.en);
+              if (aliases.te) termsToSearch.push(...aliases.te);
+
+              for (const term of [...new Set(termsToSearch)]) {
+                  const similarity = calculateSimilarity(spokenStoreName, term);
+                  if (!bestMatch || similarity > bestMatch.similarity) {
+                      bestMatch = { store, similarity };
+                  }
+              }
+          }
+
+          if (bestMatch && bestMatch.similarity > 0.6) {
+              speak(t('okay-ordering-from-speech', lang).replace('{storeName}', bestMatch.store.name), lang);
+              setActiveStoreId(bestMatch.store.id);
+          } else {
+              speak(t('could-not-find-store-speech', lang).replace('{storeName}', commandText), lang);
+          }
+          resetAllContext();
+          return;
       }
 
       if (formFieldToFillRef.current && profileForm) {

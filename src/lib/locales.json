@@ -1799,5 +1799,11 @@
   "cancelling-the-order-speech": {
     "en": "Okay, cancelling this order.",
     "te": "సరే, ఈ ఆర్డర్‌ను రద్దు చేస్తున్నాను."
+  },
+  "chandra-store": {
+    "te": [
+      "చంద్ర",
+      "చంద్ర స్టోర్"
+    ]
   }
 }
