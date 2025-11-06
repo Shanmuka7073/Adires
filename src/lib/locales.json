@@ -307,7 +307,7 @@
       "aloo"
     ],
     "te": [
-      "బంగాళదుంపలు",
+      "బంగాళాదుంపలు",
       "ఆలుగడ్డ",
       "ఆలు",
       "పొటాటో",
@@ -1378,13 +1378,20 @@
       "బెల్లం"
     ]
   },
-  "rice": {
+  "rice-(raw,-boiled,-basmati,-brown-etc)": {
     "en": [
-      "Rice"
+      "rice",
+      "rise",
+      "raw rice",
+      "boiled rice",
+      "basmati",
+      "brown rice"
     ],
     "te": [
       "బియ్యం",
-      "అన్నం"
+      "వరి",
+      "byyam",
+      "వరి బియ్యం"
     ]
   },
   "milk": {
@@ -1462,10 +1469,13 @@
   },
   "urad-dal": {
     "en": [
-      "urad dal"
+      "urad dal",
+      "udad dal",
+      "black gram dal"
     ],
     "te": [
-      "మినప పప్పు"
+      "మినపప్పు",
+      "minapa pappu"
     ]
   },
   "sunflower-oil": {
@@ -1476,12 +1486,15 @@
       "పొద్దుతిరుగుడు నూనె"
     ]
   },
-  "toor-dal": {
+  "toor-dal-(arhar-dal)": {
     "en": [
-      "toor dal"
+      "toor dal",
+      "arhar dal",
+      "tuvar dal"
     ],
     "te": [
-      "కంది పప్పు"
+      "kandi pappu",
+      "కందిపప్పు"
     ]
   },
   "atta": {
@@ -1517,12 +1530,15 @@
       "వేరుశెనగ నూనె"
     ]
   },
-  "poha": {
+  "poha-(flattened-rice)": {
     "en": [
-      "poha"
+      "poha",
+      "pohaa",
+      "atukulu"
     ],
     "te": [
-      "అటుకులు"
+      "అటుకులు",
+      "avalakki"
     ]
   },
   "tea": {
@@ -1533,12 +1549,14 @@
       "టీ"
     ]
   },
-  "moong-dal": {
+  "moong-dal-(yellow-split)": {
     "en": [
-      "moong dal"
+      "moong dal",
+      "mung dal"
     ],
     "te": [
-      "పెసర పప్పు"
+      "pesarapappu",
+      "పెసరపప్పు"
     ]
   },
   "basmati-rice": {
@@ -1551,10 +1569,12 @@
   },
   "chana-dal": {
     "en": [
-      "chana dal"
+      "chana dal",
+      "bengal gram dal"
     ],
     "te": [
-      "శనగ పప్పు"
+      "శనగపప్పు",
+      "shanaga pappu"
     ]
   },
   "sona-masoori-rice": {
@@ -1573,28 +1593,34 @@
       "ఇడ్లీ రవ్వ"
     ]
   },
-  "kabuli-chana": {
+  "kabuli-chana-(white-chickpeas)": {
     "en": [
-      "kabuli chana"
+      "kabuli chana",
+      "white chana",
+      "white chickpeas"
     ],
     "te": [
-      "కాబూలీ శనగలు"
+      "సఫేద్ చనా"
     ]
   },
-  "rajma": {
+  "rajma-(kidney-beans)": {
     "en": [
-      "rajma"
+      "rajma",
+      "kidney beans"
     ],
     "te": [
       "రాజ్మా"
     ]
   },
-  "maida": {
+  "maida-(refined-flour)": {
     "en": [
-      "maida"
+      "maida",
+      "refined flour",
+      "meda"
     ],
     "te": [
-      "మైదా"
+      "మైదా",
+      "maida pindi"
     ]
   },
   "bombay-rava": {
@@ -1605,12 +1631,14 @@
       "బొంబాయి రవ్వ"
     ]
   },
-  "kala-chana": {
+  "kala-chana-(black-chickpeas)": {
     "en": [
-      "kala chana"
+      "kala chana",
+      "black chana"
     ],
     "te": [
-      "నల్ల శనగలు"
+      "కల చనా",
+      "kalla sanagalu"
     ]
   },
   "bansi-rava": {
@@ -1940,6 +1968,123 @@
     "te": [
       "పెరుగు",
       "దహీ"
+    ]
+  },
+  "wheat": {
+    "en": [
+      "wheat",
+      "gehu",
+      "gehun",
+      "godhuma"
+    ],
+    "te": [
+      "గోధుమ",
+      "godhuma pindi"
+    ]
+  },
+  "suji-(rava/semolina)": {
+    "en": [
+      "suji",
+      "sooji",
+      "rava",
+      "semolina"
+    ],
+    "te": [
+      "రవ్వ",
+      "బోంబాయి రవ్వ"
+    ]
+  },
+  "oats": {
+    "en": [
+      "oats",
+      "ots"
+    ],
+    "te": [
+      "ఓట్స్"
+    ]
+  },
+  "cornflakes": {
+    "en": [
+      "cornflakes",
+      "corn flakes",
+      "cornflaks"
+    ],
+    "te": [
+      "కార్న్ ఫ్లేక్స్"
+    ]
+  },
+  "millets-(jowar,-bajra,-ragi,-foxtail,-etc.)": {
+    "en": [
+      "millet",
+      "millets",
+      "jowar",
+      "joar",
+      "javar",
+      "bajra",
+      "bajri",
+      "ragi",
+      "ragulu",
+      "foxtail millet",
+      "korralu"
+    ],
+    "te": [
+      "సజ్జలు",
+      "రాగులు",
+      "కొర్రలు",
+      "jonna",
+      "jonnalu"
+    ]
+  },
+  "broken-wheat-(dalia)": {
+    "en": [
+      "broken wheat",
+      "dalia",
+      "daliya"
+    ],
+    "te": [
+      "గోధుమ రవ్వ"
+    ]
+  },
+  "green-gram": {
+    "en": [
+      "green gram",
+      "mung bean"
+    ],
+    "te": [
+      "పెసలు",
+      "pesalu"
+    ]
+  },
+  "lobia-(black-eyed-peas)": {
+    "en": [
+      "lobia",
+      "black eyed peas",
+      "cowpeas"
+    ],
+    "te": [
+      "అలసందులు",
+      "alasandulu"
+    ]
+  },
+  "soya-chunks": {
+    "en": [
+      "soya chunks",
+      "soya balls",
+      "nutri nuggets"
+    ],
+    "te": [
+      "సోయా"
+    ]
+  },
+  "horse-gram": {
+    "en": [
+      "horse gram",
+      "kulthi",
+      "ulavalu"
+    ],
+    "te": [
+      "ఉలవలు",
+      "ulavallu"
     ]
   }
 }
