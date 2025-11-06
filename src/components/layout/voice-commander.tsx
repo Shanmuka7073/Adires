@@ -715,14 +715,14 @@ export function VoiceCommander({
       myStore: () => router.push('/dashboard/owner/my-store'),
       checkout: (params: { lang: string }) => {
         const lang = params.lang || currentLanguage;
-        if (cartItemsProp.length > 0) {
-            speak(t('taking-you-to-checkout-speech', lang), lang, () => {
-              onCloseCart();
-              router.push('/checkout');
-            });
-        } else {
+        speak(t('taking-you-to-checkout-speech', lang), lang, () => {
+          if (cartItemsProp.length > 0) {
+            onCloseCart();
+            router.push('/checkout');
+          } else {
             speak(t('your-cart-is-empty-speech', lang), lang);
-        }
+          }
+        });
       },
       homeAddress: () => {
         if(pathname === '/checkout' && homeAddressBtnRef?.current) {
@@ -983,3 +983,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
