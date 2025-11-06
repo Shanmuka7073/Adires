@@ -432,7 +432,7 @@ export function VoiceCommander({
     };
   }, [pathname, hasMounted, enabled, profileForm, handleProfileFormInteraction]);
 
-  const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null, variant: ProductPrice['variants'][0] | null, requestedQty: number, remainingPhrase: string, desiredWeightInGrams: number, detectedQuantity: number }> => {
+  const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null; variant: ProductPrice['variants'][0] | null; requestedQty: number; remainingPhrase: string; desiredWeightInGrams: number; detectedQuantity: number; matchedAlias: string | null; }> => {
     const lowerPhrase = phrase.toLowerCase();
     let bestMatch: { product: Product, alias: string, similarity: number } | null = null;
 
@@ -450,7 +450,7 @@ export function VoiceCommander({
         }
     }
     
-    if (!bestMatch) return { product: null, variant: null, requestedQty: 1, remainingPhrase: phrase, desiredWeightInGrams: 0, detectedQuantity: 1 };
+    if (!bestMatch) return { product: null, variant: null, requestedQty: 1, remainingPhrase: phrase, desiredWeightInGrams: 0, detectedQuantity: 1, matchedAlias: null };
 
     const productMatch = bestMatch.product;
     const remainingPhrase = lowerPhrase.replace(bestMatch.alias, '').trim();
@@ -462,7 +462,7 @@ export function VoiceCommander({
         priceData = useAppStore.getState().productPrices[productMatch.name.toLowerCase()];
     }
     
-    if (!priceData?.variants?.length) return { product: productMatch, variant: null, requestedQty: 1, remainingPhrase, desiredWeightInGrams: 0, detectedQuantity: 1 };
+    if (!priceData?.variants?.length) return { product: productMatch, variant: null, requestedQty: 1, remainingPhrase, desiredWeightInGrams: 0, detectedQuantity: 1, matchedAlias: bestMatch.alias };
 
     const numberWords: Record<string, number> = { 
         'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
@@ -487,17 +487,15 @@ export function VoiceCommander({
 
         if (isKilo) {
             desiredWeightInGrams = detectedQuantity * 1000;
-            requestedQty = detectedQuantity;
         } else { // grams
             desiredWeightInGrams = detectedQuantity;
-            requestedQty = 1; // "250 grams" is one pack
         }
 
     }
     
     // Find best variant
     let chosenVariant = null;
-    if (desiredWeightInGrams > 0 && !weightMatch) { // If weight is specified without a number (e.g. "kilo tomatoes")
+    if (desiredWeightInGrams > 0 && !weightMatch && (phrase.includes('kilo') || phrase.includes('kg'))) { // If weight is specified without a number (e.g. "kilo tomatoes")
       desiredWeightInGrams = 1000; // default to 1kg
     }
 
@@ -513,8 +511,7 @@ export function VoiceCommander({
       }
     }
 
-
-    return { product: productMatch, variant: chosenVariant, requestedQty, remainingPhrase, desiredWeightInGrams, detectedQuantity };
+    return { product: productMatch, variant: chosenVariant, requestedQty: 1, remainingPhrase, desiredWeightInGrams, detectedQuantity, matchedAlias: bestMatch.alias };
 }, [firestore, masterProducts, productPrices, fetchProductPrices]);
 
   useEffect(() => {
@@ -718,7 +715,6 @@ export function VoiceCommander({
       } else {
           // Fallback to order item logic
           await commandActionsRef.current.orderItem({ phrase: commandLower, lang });
-          // The orderItem action will handle its own speech and context reset
       }
 
     } catch(e) {
@@ -886,39 +882,44 @@ export function VoiceCommander({
       orderItem: async ({ phrase, lang }: { phrase?: string; lang: string }) => {
         if (!phrase) return;
 
-        const { product, variant, desiredWeightInGrams, detectedQuantity } = await findProductAndVariant(phrase);
+        const { product, variant, desiredWeightInGrams, detectedQuantity, matchedAlias } = await findProductAndVariant(phrase);
 
         if (product && variant) {
             // Smart quantity logic
             const baseUnitWeightMatch = variant.weight.match(/(\d+)(kg|gm|g)/);
+            let quantityToAdd = detectedQuantity;
+            
             if(baseUnitWeightMatch && desiredWeightInGrams > 0) {
                  const baseUnitWeight = parseInt(baseUnitWeightMatch[1]);
                  const baseUnit = baseUnitWeightMatch[2];
-                 const baseUnitInGrams = baseUnit === 'kg' ? baseUnitWeight * 1000 : baseUnitWeight;
+                 const baseUnitInGrams = baseUnit.startsWith('k') ? baseUnitWeight * 1000 : baseUnitWeight;
+                 
+                 // Calculate how many packs of the base unit are needed
                  const numPacks = Math.ceil(desiredWeightInGrams / baseUnitInGrams);
+                 quantityToAdd = numPacks;
 
-                 addItemToCart(product, variant, numPacks);
                  const speech = t('adding-packs-speech', lang)
                     .replace('{quantity}', `${numPacks}`)
                     .replace('{weight}', variant.weight)
-                    .replace('{productName}', getProductName(product));
+                    .replace('{productName}', matchedAlias || product.name);
                  speak(speech, lang);
-
-            } else { // Fallback for items without clear weight units
-                addItemToCart(product, variant, detectedQuantity);
+            } else { // Fallback for items without clear weight units or simple quantity
                 const speech = t('adding-item-speech', lang)
-                    .replace('{quantity}', `${detectedQuantity}`)
-                    .replace('{productName}', getProductName(product));
+                    .replace('{quantity}', `${quantityToAdd}`)
+                    .replace('{productName}', matchedAlias || product.name);
                 speak(speech, lang);
             }
+            addItemToCart(product, variant, quantityToAdd);
             onOpenCart();
 
         } else if (product && !variant) {
-            speak(`Sorry, I found ${getProductName(product)} but could not determine a price or size.`, lang);
+            speak(`Sorry, I found ${matchedAlias || product.name} but could not determine a price or size.`, lang);
         } else {
-            speak(t('sorry-i-didnt-understand-that', lang), lang);
+             speak(t('sorry-i-didnt-understand-that', lang), lang);
         }
-        resetAllContext();
+        if(!phrase.startsWith('order ')) {
+            resetAllContext();
+        }
     },
     smartOrder: async (command: string, lang: string) => {
         let remainingCommand = command.toLowerCase();
@@ -966,7 +967,7 @@ export function VoiceCommander({
         }
 
         // 3. Find Product and Variant (from the remaining text)
-        const { product, variant, requestedQty } = await findProductAndVariant(remainingCommand);
+        const { product, variant, requestedQty, matchedAlias } = await findProductAndVariant(remainingCommand);
 
         // 4. Validate and Execute
         if (!product || !variant) {
@@ -985,10 +986,9 @@ export function VoiceCommander({
         }
 
         // --- Optimistic UI Flow ---
-        const translatedProductName = getProductName(product);
         const speech = t('preparing-order-speech', lang)
             .replace('{qty}', `${requestedQty}`)
-            .replace('{productName}', translatedProductName)
+            .replace('{productName}', matchedAlias || product.name)
             .replace('{storeName}', bestStoreMatch.store.name);
         speak(speech, lang);
 
