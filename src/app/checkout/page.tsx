@@ -202,15 +202,16 @@ export default function CheckoutPage() {
     }
   }, [userData, form, toast]);
 
-  // Safely watch the delivery address and trigger voice prompt when it changes
   const deliveryAddressValue = form.watch('deliveryAddress');
   
   useEffect(() => {
-    // This effect will trigger the voice commander to re-evaluate the checkout page state.
-    // It runs when the address is filled out, OR when a store is selected.
-    if ((deliveryAddressValue && deliveryAddressValue.length > 10) || activeStoreId) {
+    if ( (deliveryAddressValue && deliveryAddressValue.length > 10) || activeStoreId ) {
       if (triggerVoicePrompt) {
-        triggerVoicePrompt();
+        // Use a timeout to avoid calling it too frequently during typing
+        const handler = setTimeout(() => {
+            triggerVoicePrompt();
+        }, 300);
+        return () => clearTimeout(handler);
       }
     }
   }, [deliveryAddressValue, activeStoreId, triggerVoicePrompt]);
@@ -489,7 +490,7 @@ export default function CheckoutPage() {
                                 )}
                             </div>
 
-                            <Button ref={placeOrderBtnRef} type="submit" disabled={isPlacingOrder || !activeStoreId} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
+                            <Button ref={placeOrderBtnRef} type="submit" disabled={isPlacingOrder || !areAllDetailsReady} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
                                 {isPlacingOrder ? t('placing-order') : t('place-order')}
                             </Button>
                         </CardContent>
@@ -500,5 +501,3 @@ export default function CheckoutPage() {
     </div>
   );
 }
-
-    

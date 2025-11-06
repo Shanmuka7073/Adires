@@ -55,7 +55,7 @@ export function VoiceCommander({
   const pathname = usePathname();
   const { toast } = useToast();
   const { firestore, user } = useFirebase();
-  const { clearCart, addItem: addItemToCart, updateQuantity, activeStoreId, setActiveStoreId } = useCart();
+  const { clearCart, addItem: addItemToCart, updateQuantity, activeStoreId, setActiveStoreId, cartTotal } = useCart();
 
   const { stores, masterProducts, productPrices, fetchInitialData, fetchProductPrices, getProductName } = useAppStore();
 
@@ -302,7 +302,6 @@ export function VoiceCommander({
       return;
     }
     
-    // Check address *after* cart, as address is the next logical step
     const addressInput = typeof document !== 'undefined' ? document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement : null;
     const currentAddress = addressInput?.value || '';
     if (!currentAddress || currentAddress.length < 10) {
@@ -326,16 +325,19 @@ export function VoiceCommander({
 
   }, [pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, speak, activeStoreId, cartItemsProp, currentLanguage]);
   
+  useEffect(() => {
+      hasSpokenCheckoutPrompt.current = false;
+  }, [pathname, voiceTrigger]);
+  
   // This effect runs when the page loads, or when the voice is triggered manually
   useEffect(() => {
-    if (pathname === '/checkout' && hasMounted) {
-      hasSpokenCheckoutPrompt.current = false;
+    if (pathname === '/checkout' && hasMounted && enabled) {
       const timeoutId = setTimeout(() => {
         runCheckoutPrompt();
-      }, 500);
+      }, 1000); // Add a small delay to allow page to settle
       return () => clearTimeout(timeoutId);
     }
-  }, [pathname, hasMounted, voiceTrigger, runCheckoutPrompt]);
+  }, [pathname, hasMounted, enabled, voiceTrigger, runCheckoutPrompt]);
 
 
   useEffect(() => {
@@ -465,7 +467,7 @@ export function VoiceCommander({
       const commandLower = strippedCommand.toLowerCase();
 
       // --- PRIORITY 1: High-priority global navigation ---
-      const highPriorityCommands = ["home", "stores", "dashboard", "cart", "orders", "deliveries", "myStore", "checkout", "refresh"];
+      const highPriorityCommands = ["home", "stores", "dashboard", "cart", "orders", "deliveries", "myStore", "refresh"];
       for (const key of highPriorityCommands) {
           const cmdGroup = fileCommandsRef.current[key];
           if (!cmdGroup) continue;
@@ -484,6 +486,16 @@ export function VoiceCommander({
           }
       }
       
+      // PRIORITY 1.5: Checkout is special because it needs to speak before navigating
+      const checkoutAliases = [t('checkout', lang), ...Object.values(getAllAliases('checkout')).flat()];
+      for (const alias of [...new Set(checkoutAliases)]) {
+          if (calculateSimilarity(commandLower, alias) > 0.8 || commandText.toLowerCase() === alias) {
+              await commandActionsRef.current.checkout({ lang });
+              resetAllContext();
+              return;
+          }
+      }
+
       // --- PRIORITY 2: Smart Order command (isolated check) ---
       const actionKeywords = ['order', 'send', 'buy', 'get'];
       const locationKeywords = ['from', 'to'];
@@ -715,14 +727,12 @@ export function VoiceCommander({
       myStore: () => router.push('/dashboard/owner/my-store'),
       checkout: (params: { lang: string }) => {
         const lang = params.lang || currentLanguage;
-        speak(t('taking-you-to-checkout-speech', lang), lang, () => {
-          if (cartItemsProp.length > 0) {
-            onCloseCart();
-            router.push('/checkout');
-          } else {
+        if (cartTotal > 0) {
+            const reply = t('your-total-is-speech', lang).replace('{total}', `₹${cartTotal.toFixed(2)}`);
+            speak(reply, lang, () => router.push('/checkout'));
+        } else {
             speak(t('your-cart-is-empty-speech', lang), lang);
-          }
-        });
+        }
       },
       homeAddress: () => {
         if(pathname === '/checkout' && homeAddressBtnRef?.current) {
@@ -979,9 +989,7 @@ export function VoiceCommander({
         recognition.abort();
       }
     };
-  }, [handleCommand, cartItemsProp]);
+  }, [handleCommand, cartTotal, cartItemsProp, pathname]);
 
   return null;
 }
-
-    
