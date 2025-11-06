@@ -1,3 +1,4 @@
+
 {
   "home": {
     "en": "Home",
@@ -1691,6 +1692,10 @@
     "en": "Your cart total is {total}. Let's get this delivered.",
     "te": "మీ కార్ట్ మొత్తం {total}. దీనిని డెలివరీ చేద్దాం."
   },
+  "taking-you-to-checkout-speech": {
+    "en": "Okay, taking you to checkout.",
+    "te": "సరే, మిమ్మల్ని చెక్అవుట్‌కు తీసుకువెళుతున్నాను."
+  },
   "should-i-deliver-to-home-or-current-speech": {
     "en": "Should I deliver to your saved home address or your current location?",
     "te": "మీ సేవ్ చేసిన ఇంటి చిరునామాకు లేదా మీ ప్రస్తుత స్థానానికి డెలివరీ చేయాలా?"
@@ -1866,3 +1871,5 @@
     "te": "నమస్తే, మీరు ఇప్పుడు తెలుగులో మాట్లాడవచ్చు లేదా ఐటమ్స్ ఎంచుకోవచ్చు"
   }
 }
+
+    

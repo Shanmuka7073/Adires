@@ -33,6 +33,7 @@ interface VoiceCommanderProps {
   isCartOpen: boolean;
   cartItems: CartItem[];
   voiceTrigger: number;
+  triggerVoicePrompt: () => void;
 }
 
 let recognition: SpeechRecognition | null = null;
@@ -50,6 +51,7 @@ export function VoiceCommander({
   isCartOpen,
   cartItems: cartItemsProp,
   voiceTrigger,
+  triggerVoicePrompt,
 }: VoiceCommanderProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -309,51 +311,61 @@ export function VoiceCommander({
     if (pathname !== '/checkout' || !hasMounted || !enabled || isSpeakingRef.current) {
       return;
     }
+    
+    if (hasSpokenCheckoutPrompt.current) return;
+
     if (isWaitingForQuickOrderConfirmation) {
-      if (!hasSpokenCheckoutPrompt.current) {
         speak(t('confirm-the-quick-order-speech', currentLanguage), currentLanguage);
         hasSpokenCheckoutPrompt.current = true;
-      }
-      return;
+        return;
     }
     
-    let isReady = false;
-    if (hasMounted) {
-      isReady = checkCheckoutConditions();
-    }
+    let isReady = checkCheckoutConditions();
     
-    if (isReady && !hasSpokenCheckoutPrompt.current) {
+    if (isReady) {
       const speech = t('everything-is-ready-speech', currentLanguage);
       speak(speech, currentLanguage);
       hasSpokenCheckoutPrompt.current = true;
       setCheckoutReady(true);
       return;
     }
-    if (!hasSpokenCheckoutPrompt.current) {
-      // This is the corrected block
-      if (typeof document !== 'undefined') {
-        const addressInput = document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement;
-        const currentAddress = addressInput?.value || '';
-        if (!currentAddress || currentAddress.length < 10) {
-            speak(t('should-i-deliver-to-home-or-current-speech', currentLanguage), currentLanguage);
-            setIsWaitingForAddressType(true);
-            hasSpokenCheckoutPrompt.current = true;
-            return;
-        }
-      }
-      if (!activeStoreId) {
-        speak(t('which-store-should-fulfill-speech', currentLanguage), currentLanguage);
-        setIsWaitingForStoreName(true);
-        hasSpokenCheckoutPrompt.current = true;
-        return;
-      }
-      if (cartItems.length === 0) {
-        speak(t('your-cart-is-empty-speech', currentLanguage), currentLanguage);
-        hasSpokenCheckoutPrompt.current = true;
-        return;
-      }
+    
+    // Check conditions in order of importance for user flow
+    if (cartItems.length === 0) {
+      speak(t('your-cart-is-empty-speech', currentLanguage), currentLanguage);
+      hasSpokenCheckoutPrompt.current = true;
+      return;
     }
+    
+    // Check address *after* cart, as address is the next logical step
+    const addressInput = typeof document !== 'undefined' ? document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement : null;
+    const currentAddress = addressInput?.value || '';
+    if (!currentAddress || currentAddress.length < 10) {
+        speak(t('should-i-deliver-to-home-or-current-speech', currentLanguage), currentLanguage);
+        setIsWaitingForAddressType(true);
+        hasSpokenCheckoutPrompt.current = true;
+        return;
+    }
+
+    if (!activeStoreId) {
+      speak(t('which-store-should-fulfill-speech', currentLanguage), currentLanguage);
+      setIsWaitingForStoreName(true);
+      hasSpokenCheckoutPrompt.current = true;
+      return;
+    }
+
   }, [pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, checkCheckoutConditions, speak, activeStoreId, cartItems.length, currentLanguage]);
+  
+  // This effect runs when the page loads, to trigger the initial prompt
+  useEffect(() => {
+    if (pathname === '/checkout' && hasMounted) {
+      // Use a timeout to give the page a moment to settle
+      const timeoutId = setTimeout(() => {
+        runCheckoutPrompt();
+      }, 500);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [pathname, hasMounted, runCheckoutPrompt]);
   
   useEffect(() => {
       let isReady = false;
@@ -520,7 +532,14 @@ export function VoiceCommander({
 
           for (const alias of [...new Set(allAliases)]) {
                if (calculateSimilarity(commandLower, alias) > 0.8 || commandText.toLowerCase() === alias) {
-                   speak(t(cmdGroup.reply, lang), lang, () => commandActionsRef.current[key]({ lang }));
+                   const action = commandActionsRef.current[key];
+                   if (action) {
+                       action({ lang });
+                       // For commands that navigate, the reply should happen BEFORE the action
+                       if (key !== 'checkout') {
+                           speak(t(cmdGroup.reply, lang), lang);
+                       }
+                   }
                    resetAllContext();
                    return;
               }
@@ -683,7 +702,11 @@ export function VoiceCommander({
 
 
       if (bestCommand && bestCommand.similarity > 0.7 && !isOrderItemCommand) {
-        speak(t(bestCommand.command.reply, lang), lang, () => bestCommand!.command.action({lang: lang}));
+        const action = bestCommand.command.action;
+        if(action) action({lang: lang});
+        if(bestCommand.command.reply){
+            speak(t(bestCommand.command.reply, lang), lang);
+        }
         resetAllContext();
       } else {
           // Fallback to order item logic
@@ -754,12 +777,10 @@ export function VoiceCommander({
       myStore: () => router.push('/dashboard/owner/my-store'),
       checkout: (params: { lang: string }) => {
         const lang = params.lang || currentLanguage;
-        // CORRECTED: Use the cartItemsProp which is reactive to the useEffect dependency array.
-        const currentCartItems = cartItemsProp; 
-        const currentCartTotal = currentCartItems.reduce((total, item) => total + item.variant.price * item.quantity, 0);
-
+        const currentCartItems = cartItemsProp;
         if (currentCartItems.length > 0) {
-           const speech = t('your-total-is-speech', lang).replace('{total}', `₹${currentCartTotal.toFixed(2)}`);
+          const currentCartTotal = currentCartItems.reduce((total, item) => total + item.variant.price * item.quantity, 0);
+          const speech = t('your-total-is-speech', lang).replace('{total}', `₹${currentCartTotal.toFixed(2)}`);
           speak(speech, lang, () => {
             onCloseCart();
             router.push('/checkout');
@@ -1030,3 +1051,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
