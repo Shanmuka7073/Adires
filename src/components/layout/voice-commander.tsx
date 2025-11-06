@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -470,7 +469,6 @@ export function VoiceCommander({
         'एक': 1, 'दो': 2, 'तीन': 3, 'चार': 4, 'पांच': 5, 'छह': 6, 'सात': 7, 'आठ': 8, 'नौ': 9, 'दस': 10
     };
     
-    // Updated regex to be more flexible and capture Telugu units
     const weightRegex = new RegExp(`(${Object.keys(numberWords).join('|')}|\\d+)\\s?(kg|kilo|kilos|g|gm|gram|grams|కిలో|కిలోల|గ్రాములు|గ్రామ్)`, 'i');
     const weightMatch = lowerPhrase.match(weightRegex);
     
@@ -888,27 +886,26 @@ export function VoiceCommander({
             // Smart quantity logic
             const baseUnitWeightMatch = variant.weight.match(/(\d+)(kg|gm|g)/);
             let quantityToAdd = detectedQuantity;
+            let speech;
             
             if(baseUnitWeightMatch && desiredWeightInGrams > 0) {
                  const baseUnitWeight = parseInt(baseUnitWeightMatch[1]);
                  const baseUnit = baseUnitWeightMatch[2];
                  const baseUnitInGrams = baseUnit.startsWith('k') ? baseUnitWeight * 1000 : baseUnitWeight;
                  
-                 // Calculate how many packs of the base unit are needed
                  const numPacks = Math.ceil(desiredWeightInGrams / baseUnitInGrams);
                  quantityToAdd = numPacks;
 
-                 const speech = t('adding-packs-speech', lang)
+                 speech = t('adding-packs-speech', lang)
                     .replace('{quantity}', `${numPacks}`)
                     .replace('{weight}', variant.weight)
                     .replace('{productName}', matchedAlias || product.name);
-                 speak(speech, lang);
             } else { // Fallback for items without clear weight units or simple quantity
-                const speech = t('adding-item-speech', lang)
+                speech = t('adding-item-speech', lang)
                     .replace('{quantity}', `${quantityToAdd}`)
                     .replace('{productName}', matchedAlias || product.name);
-                speak(speech, lang);
             }
+            speak(speech, lang);
             addItemToCart(product, variant, quantityToAdd);
             onOpenCart();
 
@@ -1037,3 +1034,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
