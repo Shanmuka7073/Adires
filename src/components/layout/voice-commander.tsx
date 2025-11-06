@@ -33,7 +33,6 @@ interface VoiceCommanderProps {
   isCartOpen: boolean;
   cartItems: CartItem[];
   voiceTrigger: number;
-  triggerVoicePrompt: () => void;
 }
 
 let recognition: SpeechRecognition | null = null;
@@ -51,7 +50,6 @@ export function VoiceCommander({
   isCartOpen,
   cartItems: cartItemsProp,
   voiceTrigger,
-  triggerVoicePrompt,
 }: VoiceCommanderProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -368,50 +366,22 @@ export function VoiceCommander({
       }
   }, [shouldPlaceOrderDirectly, placeOrderBtnRef, setShouldPlaceOrderDirectly, checkCheckoutConditions, hasMounted, voiceTrigger, pathname]);
 
-
   useEffect(() => {
-    let intervalId: NodeJS.Timeout | null = null;
-    if (pathname === '/checkout' && hasMounted) {
-      intervalId = setInterval(() => {
-        const isReady = checkCheckoutConditions();
-        if (isReady && !hasSpokenCheckoutPrompt.current && !isSpeakingRef.current) {
-          hasSpokenCheckoutPrompt.current = false;
-          setTimeout(runCheckoutPrompt, 1000);
-        }
-      }, 2000);
+    if (pathname === '/checkout' && hasMounted && !isSpeakingRef.current) {
+        hasSpokenCheckoutPrompt.current = false; // Allow reprompting
+        runCheckoutPrompt();
     }
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
-  }, [pathname, hasMounted, checkCheckoutConditions, runCheckoutPrompt]);
-
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout | null = null;
-    if (pathname === '/checkout' && hasMounted) {
-      hasSpokenCheckoutPrompt.current = false;
-      timeoutId = setTimeout(runCheckoutPrompt, 500);
-    }
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
   }, [voiceTrigger, pathname, hasMounted, runCheckoutPrompt]);
 
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout | null = null;
+    // This effect runs when we navigate to the checkout page.
     if (pathname === '/checkout' && hasMounted) {
-      hasSpokenCheckoutPrompt.current = false;
-      timeoutId = setTimeout(runCheckoutPrompt, 500);
+        // We reset the prompt flag and give it a moment for the page to render, then check conditions.
+        hasSpokenCheckoutPrompt.current = false;
+        setTimeout(() => runCheckoutPrompt(), 500);
     }
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, [cartItems.length, activeStoreId, pathname, hasMounted, runCheckoutPrompt]);
+  }, [pathname, hasMounted]);
+
 
   useEffect(() => {
     if (pathname !== '/dashboard/customer/my-profile' || !hasMounted || !enabled) {
@@ -533,9 +503,18 @@ export function VoiceCommander({
     try {
       if (!firestore || !user) return;
       
-      const { lang, command: strippedCommand } = detectLanguage(commandText);
-      setCurrentLanguage(lang);
-      updateRecognitionLanguage(lang);
+      let { lang, command: strippedCommand } = detectLanguage(commandText);
+      
+      if (lang !== currentLanguage) {
+          setCurrentLanguage(lang);
+          updateRecognitionLanguage(lang);
+          // If the user just switched language with a keyword, welcome them.
+          if (strippedCommand === "") {
+              speak(t('telugu-welcome-speech', lang), lang);
+              resetAllContext();
+              return;
+          }
+      }
       
       const commandLower = strippedCommand.toLowerCase();
 
@@ -545,7 +524,7 @@ export function VoiceCommander({
           const cmdGroup = fileCommandsRef.current[key];
           if (!cmdGroup) continue;
           
-          const allAliases = [t(key, lang), ...(getAllAliases(key)[lang] || []), ...(cmdGroup.aliases || [])];
+          const allAliases = [t(key, lang), ...Object.values(getAllAliases(key)).flat(), ...(cmdGroup.aliases || [])];
 
           for (const alias of [...new Set(allAliases)]) {
                if (calculateSimilarity(commandLower, alias) > 0.8 || commandText.toLowerCase() === alias) {
@@ -660,7 +639,6 @@ export function VoiceCommander({
           if (bestMatch && bestMatch.similarity > 0.6) {
               speak(t('okay-ordering-from-speech', lang).replace('{storeName}', bestMatch.store.name), lang, () => {
                 setActiveStoreId(bestMatch.store.id);
-                triggerVoicePrompt(); // Manually trigger re-evaluation
               });
           } else {
               speak(t('could-not-find-store-speech', lang).replace('{storeName}', commandText), lang);
@@ -682,7 +660,7 @@ export function VoiceCommander({
         const cmdGroup = fileCommandsRef.current[key];
         const action = commandActionsRef.current[key];
         if (action) {
-            const allAliases = [t(key, lang), ...(getAllAliases(key)[lang] || []), ...(cmdGroup.aliases || [])];
+            const allAliases = [t(key, lang), ...Object.values(getAllAliases(key)).flat(), ...(cmdGroup.aliases || [])];
              (allAliases || []).forEach((alias: string) => {
                 allCommands.push({
                   command: alias,
@@ -727,11 +705,11 @@ export function VoiceCommander({
       onSuggestions([]);
     }
   }, [
-    firestore, user, detectLanguage, updateRecognitionLanguage, speak, onStatusUpdate, onSuggestions, resetAllContext,
+    firestore, user, detectLanguage, updateRecognitionLanguage, currentLanguage, speak, onStatusUpdate, onSuggestions, resetAllContext,
     isWaitingForAddressType, homeAddressBtnRef, currentLocationBtnRef, isWaitingForVoiceOrder, 
     isWaitingForQuickOrderConfirmation, placeOrderBtnRef, clearCart, router, isWaitingForQuantity, 
     updateQuantity, isWaitingForStoreName, pathname, stores, setActiveStoreId, profileForm, 
-    handleProfileFormInteraction, findProductAndVariant, triggerVoicePrompt
+    handleProfileFormInteraction, findProductAndVariant
   ]);
 
 
@@ -750,12 +728,6 @@ export function VoiceCommander({
 
     recognition.onresult = (event) => {
       const transcript = event.results[event.results.length - 1][0].transcript.trim();
-      if (transcript.toLowerCase().startsWith("naaku") && currentLanguage === "en-IN") {
-        setCurrentLanguage("te-IN");
-        speak(t("telugu-welcome-speech", "te-IN"), "te-IN");
-        return;
-      }
-      console.log('Recognized:', transcript, 'Language:', currentLanguage);
       handleCommand(transcript);
     };
 
@@ -1066,5 +1038,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    
