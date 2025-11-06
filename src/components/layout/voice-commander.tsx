@@ -495,7 +495,8 @@ export function VoiceCommander({
     
     // Find best variant
     let chosenVariant = null;
-    if (desiredWeightInGrams > 0 && !weightMatch && (phrase.includes('kilo') || phrase.includes('kg'))) { // If weight is specified without a number (e.g. "kilo tomatoes")
+    const kiloWithoutNumber = !weightMatch && (phrase.includes('kilo') || phrase.includes('kg') || phrase.includes('కిలో'));
+    if (kiloWithoutNumber) { // If weight is specified without a number (e.g. "kilo tomatoes")
       desiredWeightInGrams = 1000; // default to 1kg
     }
 
@@ -885,9 +886,8 @@ export function VoiceCommander({
         const { product, variant, desiredWeightInGrams, detectedQuantity, matchedAlias } = await findProductAndVariant(phrase);
 
         if (product && variant) {
-            // Smart quantity logic
             const baseUnitWeightMatch = variant.weight.match(/(\d+)(kg|gm|g)/);
-            let quantityToAdd = 1; // Default to 1 pack if no quantity is spoken
+            let quantityToAdd = 1;
             let speech;
             
             if(baseUnitWeightMatch && desiredWeightInGrams > 0) {
