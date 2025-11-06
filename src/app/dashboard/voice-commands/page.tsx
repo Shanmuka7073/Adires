@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Save, X, Mic, MessageSquare, Code, Package } from 'lucide-react';
+import { Loader2, PlusCircle, Save, X, Mic, MessageSquare, Code, Package, Store as StoreIcon } from 'lucide-react';
 import { getCommands, saveCommands, getLocales, saveLocales } from '@/app/actions';
 import { useAppStore } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
@@ -29,7 +29,7 @@ const createSlug = (text: string) => text.toLowerCase().replace(/ & /g, '-').rep
 
 export default function VoiceCommandsPage() {
     const [isProcessing, startTransition] = useTransition();
-    const [activeTab, setActiveTab] = useState('general'); // 'general' or 'products'
+    const [activeTab, setActiveTab] = useState('general'); // 'general', 'products', or 'stores'
 
     const [commands, setCommands] = useState<Record<string, CommandGroup>>({});
     const [newCommands, setNewCommands] = useState<Record<string, string>>({});
@@ -37,7 +37,7 @@ export default function VoiceCommandsPage() {
     const [locales, setLocales] = useState<Locales>({});
     const [newAliases, setNewAliases] = useState<Record<string, Record<string, string>>>({});
 
-    const { masterProducts, fetchInitialData } = useAppStore();
+    const { masterProducts, stores, fetchInitialData } = useAppStore();
     const { firestore } = useFirebase();
 
     const [isListening, setIsListening] = useState(false);
@@ -85,17 +85,17 @@ export default function VoiceCommandsPage() {
         setNewCommands(prev => ({...prev, [actionKey]: ''}));
     };
 
-    const handleAddProductAlias = (productKey: string, lang: string) => {
-        const newAliasInput = newAliases[productKey]?.[lang]?.trim();
+    const handleAddAlias = (itemKey: string, lang: string) => {
+        const newAliasInput = newAliases[itemKey]?.[lang]?.trim();
         if(!newAliasInput) {
             toast({ variant: 'destructive', title: 'Cannot add empty alias' });
             return;
         }
-        addAlias('locales', productKey, newAliasInput, lang);
+        addAlias('locales', itemKey, newAliasInput, lang);
         setNewAliases(prev => ({
             ...prev,
-            [productKey]: {
-                ...prev[productKey],
+            [itemKey]: {
+                ...prev[itemKey],
                 [lang]: ''
             }
         }));
@@ -135,7 +135,7 @@ export default function VoiceCommandsPage() {
                         duplicates.push(newAlias);
                     }
                 });
-                updatedLocales[key][lang] = existingAliases;
+                updatedLocales[key][lang] = existingAliases.length === 1 ? existingAliases[0] : existingAliases;
                 return updatedLocales;
             });
         }
@@ -162,11 +162,15 @@ export default function VoiceCommandsPage() {
         });
     };
 
-     const handleRemoveProductAlias = (productKey: string, lang: string, aliasToRemove: string) => {
+     const handleRemoveAlias = (itemKey: string, lang: string, aliasToRemove: string) => {
         setLocales(currentLocales => {
             const updatedLocales = { ...currentLocales };
-            if (updatedLocales[productKey] && Array.isArray(updatedLocales[productKey][lang])) {
-                (updatedLocales[productKey][lang] as string[]) = (updatedLocales[productKey][lang] as string[]).filter(alias => alias !== aliasToRemove);
+            if (updatedLocales[itemKey] && Array.isArray(updatedLocales[itemKey][lang])) {
+                let aliases = updatedLocales[itemKey][lang] as string[];
+                aliases = aliases.filter(alias => alias !== aliasToRemove);
+                updatedLocales[itemKey][lang] = aliases.length === 1 ? aliases[0] : aliases;
+            } else if (updatedLocales[itemKey] && updatedLocales[itemKey][lang] === aliasToRemove) {
+                 delete updatedLocales[itemKey][lang];
             }
             return updatedLocales;
         });
@@ -260,62 +264,66 @@ export default function VoiceCommandsPage() {
             </CardContent>
         </Card>
     );
-
-    const renderProductAliases = () => (
-        <Card className="max-w-4xl mx-auto">
-            <CardHeader>
-                <CardTitle>Manage Product Aliases</CardTitle>
-                <CardDescription>
-                    Add alternative names for products in different languages to improve voice recognition.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                 <Accordion type="multiple" className="w-full">
-                    {masterProducts.map((product) => {
-                        const productKey = createSlug(product.name);
-                        const productAliases = locales[productKey] || {};
+    
+    const renderAliasAccordion = (
+      items: { name: string }[],
+      title: string,
+      description: string,
+      icon: React.ElementType
+    ) => (
+      <Card className="max-w-4xl mx-auto">
+        <CardHeader>
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Accordion type="multiple" className="w-full">
+            {items.map((item) => {
+              const itemKey = createSlug(item.name);
+              const itemAliases = locales[itemKey] || {};
+              const IconComponent = icon;
+              return (
+                <AccordionItem value={itemKey} key={itemKey}>
+                  <AccordionTrigger>
+                    <div className="flex items-center gap-2">
+                      <IconComponent className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-semibold text-base">{item.name}</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-6 p-4 bg-muted/50 rounded-lg">
+                      {['en', 'te'].map(lang => {
+                        const currentAliases: string[] = Array.isArray(itemAliases[lang]) ? itemAliases[lang] as string[] : (itemAliases[lang] ? [itemAliases[lang] as string] : []);
                         return (
-                            <AccordionItem value={productKey} key={productKey}>
-                                <AccordionTrigger>
-                                    <div className="flex items-center gap-2">
-                                        <Package className="h-4 w-4 text-muted-foreground" />
-                                        <span className="font-semibold text-base">{product.name}</span>
-                                    </div>
-                                </AccordionTrigger>
-                                <AccordionContent>
-                                    <div className="space-y-6 p-4 bg-muted/50 rounded-lg">
-                                        {['en', 'te'].map(lang => {
-                                            const currentAliases: string[] = Array.isArray(productAliases[lang]) ? productAliases[lang] as string[] : (productAliases[lang] ? [productAliases[lang] as string] : []);
-                                            return (
-                                                <div key={lang} className="space-y-2">
-                                                    <Label className="font-semibold text-sm uppercase">{lang} Aliases</Label>
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {currentAliases.map((alias, index) => (
-                                                            <Badge key={`${alias}-${index}`} variant="secondary" className="relative pr-6 group text-base py-1">
-                                                                {alias}
-                                                                <button onClick={() => handleRemoveProductAlias(productKey, lang, alias)} className="absolute top-1/2 -translate-y-1/2 right-1 rounded-full p-0.5 bg-background/50 hover:bg-background text-muted-foreground hover:text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                    <X className="h-3 w-3" /><span className="sr-only">Remove {alias}</span>
-                                                                </button>
-                                                            </Badge>
-                                                        ))}
-                                                        {currentAliases.length === 0 && <p className="text-xs text-muted-foreground">No aliases yet.</p>}
-                                                    </div>
-                                                     <div className="flex items-center gap-2 pt-2 border-t">
-                                                        <Input placeholder={`Add ${lang} alias(es), comma-separated...`} value={newAliases[productKey]?.[lang] || ''} onChange={(e) => setNewAliases(p => ({ ...p, [productKey]: { ...p[productKey], [lang]: e.target.value } }))} onKeyDown={(e) => {if (e.key === 'Enter') { e.preventDefault(); handleAddProductAlias(productKey, lang); }}} />
-                                                        <Button size="sm" onClick={() => handleAddProductAlias(productKey, lang)}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
-                                                         <Button size="sm" variant="outline" onClick={() => handleVoiceAdd('locales', productKey, lang === 'te' ? 'te-IN' : 'en-IN')} disabled={isListening}><Mic className="h-4 w-4" /><span className="sr-only">Add by voice</span></Button>
-                                                    </div>
-                                                </div>
-                                            )
-                                        })}
-                                    </div>
-                                </AccordionContent>
-                            </AccordionItem>
+                          <div key={lang} className="space-y-2">
+                            <Label className="font-semibold text-sm uppercase">{lang} Aliases</Label>
+                            <div className="flex flex-wrap gap-2">
+                              {currentAliases.map((alias, index) => (
+                                <Badge key={`${alias}-${index}`} variant="secondary" className="relative pr-6 group text-base py-1">
+                                  {alias}
+                                  <button onClick={() => handleRemoveAlias(itemKey, lang, alias)} className="absolute top-1/2 -translate-y-1/2 right-1 rounded-full p-0.5 bg-background/50 hover:bg-background text-muted-foreground hover:text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <X className="h-3 w-3" /><span className="sr-only">Remove {alias}</span>
+                                  </button>
+                                </Badge>
+                              ))}
+                              {currentAliases.length === 0 && <p className="text-xs text-muted-foreground">No aliases yet.</p>}
+                            </div>
+                            <div className="flex items-center gap-2 pt-2 border-t">
+                              <Input placeholder={`Add ${lang} alias(es), comma-separated...`} value={newAliases[itemKey]?.[lang] || ''} onChange={(e) => setNewAliases(p => ({ ...p, [itemKey]: { ...p[itemKey], [lang]: e.target.value } }))} onKeyDown={(e) => {if (e.key === 'Enter') { e.preventDefault(); handleAddAlias(itemKey, lang); }}} />
+                              <Button size="sm" onClick={() => handleAddAlias(itemKey, lang)}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
+                              <Button size="sm" variant="outline" onClick={() => handleVoiceAdd('locales', itemKey, lang === 'te' ? 'te-IN' : 'en-IN')} disabled={isListening}><Mic className="h-4 w-4" /><span className="sr-only">Add by voice</span></Button>
+                            </div>
+                          </div>
                         )
-                    })}
-                 </Accordion>
-            </CardContent>
-        </Card>
+                      })}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              )
+            })}
+          </Accordion>
+        </CardContent>
+      </Card>
     );
 
     return (
@@ -328,6 +336,7 @@ export default function VoiceCommandsPage() {
             <div className="flex justify-center gap-2 mb-8">
                 <Button variant={activeTab === 'general' ? 'default' : 'outline'} onClick={() => setActiveTab('general')}>General Commands</Button>
                 <Button variant={activeTab === 'products' ? 'default' : 'outline'} onClick={() => setActiveTab('products')}>Product Aliases</Button>
+                <Button variant={activeTab === 'stores' ? 'default' : 'outline'} onClick={() => setActiveTab('stores')}>Store Aliases</Button>
             </div>
 
             {isProcessing && Object.keys(commands).length === 0 && Object.keys(locales).length === 0 ? (
@@ -338,7 +347,8 @@ export default function VoiceCommandsPage() {
             ) : (
                 <>
                     {activeTab === 'general' && renderGeneralCommands()}
-                    {activeTab === 'products' && renderProductAliases()}
+                    {activeTab === 'products' && renderAliasAccordion(masterProducts, "Manage Product Aliases", "Add alternative names for products in different languages to improve voice recognition.", Package)}
+                    {activeTab === 'stores' && renderAliasAccordion(stores, "Manage Store Aliases", "Add alternative names for your stores in different languages.", StoreIcon)}
                 </>
             )}
 

@@ -65,7 +65,8 @@ export function VoiceCommander({
     homeAddressBtnRef, 
     currentLocationBtnRef, 
     shouldPlaceOrderDirectly, 
-    setShouldPlaceOrderDirectly 
+    setShouldPlaceOrderDirectly,
+    setHomeAddress 
   } = useCheckoutStore();
 
 
@@ -135,7 +136,7 @@ export function VoiceCommander({
                  setCurrentLanguage(lang.lang);
                  return {
                     lang: lang.lang,
-                    command: '' // The command is just the keyword, which is handled elsewhere
+                    command: lowerText // Keep the command to match aliases like "home"
                 };
             }
         }
@@ -150,7 +151,6 @@ export function VoiceCommander({
     if (recognition && recognition.lang !== newLang) {
       console.log('Switching recognition language to:', newLang);
       recognition.lang = newLang;
-      // No need to set currentLanguage state here, it's set in detectLanguage
     }
   }, []);
 
@@ -223,7 +223,6 @@ export function VoiceCommander({
     if (desiredVoice) {
       utterance.voice = desiredVoice;
     } else {
-      // Fallback to any voice that supports the language
       const langCode = lang.split('-')[0];
       const langVoices = speechSynthesisVoices.filter(v => v.lang.startsWith(langCode));
       if (langVoices.length > 0) {
@@ -340,6 +339,19 @@ export function VoiceCommander({
       }
     }
   }, [pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, checkCheckoutConditions, speak, activeStoreId, cartItems.length, currentLanguage]);
+  
+  useEffect(() => {
+    let areAllDetailsReady = false;
+    if (hasMounted) {
+      areAllDetailsReady = checkCheckoutConditions();
+    }
+    if (shouldPlaceOrderDirectly && placeOrderBtnRef.current && areAllDetailsReady) {
+        console.log("Direct order conditions met. Clicking place order.");
+        placeOrderBtnRef.current.click();
+        setShouldPlaceOrderDirectly(false); // Reset after action
+    }
+  }, [shouldPlaceOrderDirectly, placeOrderBtnRef, setShouldPlaceOrderDirectly, checkCheckoutConditions, hasMounted, voiceTrigger]);
+
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
@@ -407,7 +419,7 @@ export function VoiceCommander({
     };
   }, [pathname, hasMounted, enabled, profileForm, handleProfileFormInteraction]);
 
-  const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null, variant: ProductVariant | null, remainingPhrase: string }> => {
+  const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null, variant: ProductPrice['variants'][0] | null, remainingPhrase: string }> => {
     const lowerPhrase = phrase.toLowerCase();
 
     let bestMatch: { product: Product, alias: string, similarity: number } | null = null;
@@ -473,16 +485,6 @@ export function VoiceCommander({
     }
   }, [pathname]);
 
-  useEffect(() => {
-      if (shouldPlaceOrderDirectly && placeOrderBtnRef.current) {
-          const areAllDetailsReady = checkCheckoutConditions();
-          if (areAllDetailsReady) {
-              console.log("Direct order conditions met. Clicking place order.");
-              placeOrderBtnRef.current.click();
-              setShouldPlaceOrderDirectly(false); // Reset after action
-          }
-      }
-  }, [shouldPlaceOrderDirectly, placeOrderBtnRef, setShouldPlaceOrderDirectly, checkCheckoutConditions]);
 
   const handleCommand = useCallback(async (commandText: string) => {
     onStatusUpdate(`Processing: "${commandText}"`);
@@ -595,17 +597,13 @@ export function VoiceCommander({
           let bestMatch: { store: Store, similarity: number } | null = null;
 
           for (const store of stores) {
-              const storeNameLower = store.name.toLowerCase();
-              const teluguNameLower = store.teluguName?.toLowerCase();
-              
-              // Create a slug for looking up in locales
-              const storeKey = storeNameLower.replace(/ /g, '-');
+              const storeKey = store.name.toLowerCase().replace(/ /g, '-');
               const aliases = getAllAliases(storeKey);
               
-              const termsToSearch = [storeNameLower];
-              if (teluguNameLower) termsToSearch.push(teluguNameLower);
-              if (aliases.en) termsToSearch.push(...aliases.en);
-              if (aliases.te) termsToSearch.push(...aliases.te);
+              const termsToSearch = [store.name.toLowerCase()];
+              if (store.teluguName) termsToSearch.push(store.teluguName.toLowerCase());
+              if (aliases.en) termsToSearch.push(...aliases.en.map(a => a.toLowerCase()));
+              if (aliases.te) termsToSearch.push(...aliases.te.map(a => a.toLowerCase()));
 
               for (const term of [...new Set(termsToSearch)]) {
                   const similarity = calculateSimilarity(spokenStoreName, term);
@@ -633,20 +631,20 @@ export function VoiceCommander({
       }
       
       // --- PRIORITY 4: General Commands & Fallbacks ---
-      
       const allCommands = [...commandsRef.current];
       for (const key in fileCommandsRef.current) {
         const cmdGroup = fileCommandsRef.current[key];
         const action = commandActionsRef.current[key];
         if (action) {
-          cmdGroup.aliases.forEach((alias: string) => {
-            allCommands.push({
-              command: alias,
-              action: action,
-              display: cmdGroup.display,
-              reply: cmdGroup.reply
-            });
-          });
+            const allAliases = [t(key, lang), ...cmdGroup.aliases, ...(getAllAliases(key)[lang] || [])];
+             allAliases.forEach((alias: string) => {
+                allCommands.push({
+                  command: alias,
+                  action: action,
+                  display: cmdGroup.display,
+                  reply: cmdGroup.reply
+                });
+             });
         }
       }
       
@@ -666,7 +664,7 @@ export function VoiceCommander({
         return calculateSimilarity(simplifiedCommandText, simplifiedAlias) > 0.6;
       });
 
-      if (bestCommand && bestCommand.similarity > 0.7) {
+      if (bestCommand && bestCommand.similarity > 0.7 && !isOrderItemCommand) {
         speak(t(bestCommand.command.reply, lang), lang, () => bestCommand!.command.action({lang: lang}));
         resetAllContext();
       } else {
@@ -856,7 +854,7 @@ export function VoiceCommander({
 
         while(shouldContinue) {
             shouldContinue = false;
-            let bestMatch: { product: Product, variant: ProductVariant, alias: string } | null = null;
+            let bestMatch: { product: Product, variant: ProductPrice['variants'][0], alias: string } | null = null;
             let bestMatchLength = 0;
 
             for (const product of masterProducts) {
@@ -921,17 +919,20 @@ export function VoiceCommander({
         for (const store of stores) {
             const storeNameLower = store.name.toLowerCase();
             const teluguNameLower = store.teluguName?.toLowerCase();
+            const storeKey = store.name.toLowerCase().replace(/ /g, '-');
+            const aliases = getAllAliases(storeKey);
+              
+            const termsToSearch = [storeNameLower];
+            if (teluguNameLower) termsToSearch.push(teluguNameLower);
+            if (aliases.en) termsToSearch.push(...aliases.en.map(a => a.toLowerCase()));
+            if (aliases.te) termsToSearch.push(...aliases.te.map(a => a.toLowerCase()));
 
-            if (remainingCommand.includes(storeNameLower)) {
-                const similarity = calculateSimilarity(remainingCommand, storeNameLower);
-                if (!bestStoreMatch || similarity > bestStoreMatch.similarity) {
-                    bestStoreMatch = { store, similarity };
-                }
-            }
-            if (teluguNameLower && remainingCommand.includes(teluguNameLower)) {
-                 const similarity = calculateSimilarity(remainingCommand, teluguNameLower);
-                if (!bestStoreMatch || similarity > bestStoreMatch.similarity) {
-                    bestStoreMatch = { store, similarity };
+            for (const term of [...new Set(termsToSearch)]) {
+                if (remainingCommand.includes(term)) {
+                    const similarity = calculateSimilarity(remainingCommand, term);
+                    if (!bestStoreMatch || similarity > bestStoreMatch.similarity) {
+                        bestStoreMatch = { store, similarity };
+                    }
                 }
             }
         }
@@ -985,9 +986,9 @@ export function VoiceCommander({
         setActiveStoreId(bestStoreMatch.store.id);
 
         if (destination === 'home' && userProfileRef.current?.address) {
-            useCheckoutStore.getState().setHomeAddress(userProfileRef.current.address);
+            setHomeAddress(userProfileRef.current.address);
         } else {
-             useCheckoutStore.getState().setHomeAddress(null);
+             setHomeAddress(null);
         }
 
         // Set state based on command type
