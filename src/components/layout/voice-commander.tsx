@@ -474,7 +474,7 @@ export function VoiceCommander({
         'एक': 1, 'दो': 2, 'तीन': 3, 'चार': 4, 'पांच': 5, 'छह': 6, 'सात': 7, 'आठ': 8, 'नौ': 9, 'दस': 10
     };
     
-    const weightRegex = new RegExp(`(${Object.keys(numberWords).join('|')}|\\d+)\\s?(kg|kilo|kilos|కిలో|కిలోల|కిలోగ్రాము|కేజీ|కేజీలు|g|gm|gram|grams|గ్రాములు|గ్రామ్)`, 'i');
+    const weightRegex = new RegExp(`(${Object.keys(numberWords).join('|')}|\\d+)\\s*(kg|kilo|kilos|కిలో|కిలోల|కిలోగ్రాము|కేజీ|కేజీలు|g|gm|gram|grams|గ్రాములు|గ్రామ్)`, 'i');
     const weightMatch = lowerPhrase.match(weightRegex);
     
     let requestedQty = 1;
@@ -499,7 +499,7 @@ export function VoiceCommander({
     
     // Find best variant
     let chosenVariant = null;
-    const kiloWithoutNumber = !weightMatch && ['kilo', 'kg', 'కిలో', 'కేజీ'].some(k => phrase.includes(k));
+    const kiloWithoutNumber = !weightMatch && ['kilo', 'kg', 'కిలో', 'కేజీ', 'కేజీలు'].some(k => phrase.includes(k));
     if (kiloWithoutNumber) { // If weight is specified without a number (e.g. "kilo tomatoes")
       desiredWeightInGrams = 1000; // default to 1kg
     }
@@ -719,7 +719,7 @@ export function VoiceCommander({
         resetAllContext();
       } else {
           // Fallback to order item logic
-          await commandActionsRef.current.orderItem({ phrase: commandLower, lang });
+          await commandActionsRef.current.orderItem({ phrase: commandLower, lang, originalText: commandText });
       }
 
     } catch(e) {
@@ -884,7 +884,7 @@ export function VoiceCommander({
         const lang = params?.lang || currentLanguage;
         speak(t('refreshing-speech', lang), lang, () => window.location.reload());
       },
-      orderItem: async ({ phrase, lang }: { phrase?: string; lang: string }) => {
+      orderItem: async ({ phrase, lang, originalText }: { phrase?: string; lang: string, originalText: string }) => {
         if (!phrase) return;
 
         const { product, variant, desiredWeightInGrams, detectedQuantity, matchedAlias } = await findProductAndVariant(phrase);
@@ -918,18 +918,25 @@ export function VoiceCommander({
 
         } else if (product && !variant) {
             speak(`Sorry, I found ${matchedAlias || product.name} but could not determine a price or size.`, lang);
+            if (firestore && user) {
+                const failedCommandData: Omit<FailedVoiceCommand, 'id' | 'timestamp'> = {
+                    userId: user.uid,
+                    commandText: originalText,
+                    language: lang,
+                    reason: `Product found, but no matching variant/price for "${phrase}"`
+                };
+                addDoc(collection(firestore, 'failedCommands'), { ...failedCommandData, timestamp: serverTimestamp() }).catch(e => console.error("Could not log failed command:", e));
+            }
         } else {
              speak(t('sorry-i-didnt-understand-that', lang), lang);
              if (firestore && user) {
                 const failedCommandData: Omit<FailedVoiceCommand, 'id' | 'timestamp'> = {
                     userId: user.uid,
-                    commandText: phrase,
+                    commandText: originalText,
                     language: lang,
+                    reason: 'No matching product or command alias found'
                 };
-                const colRef = collection(firestore, 'failedCommands');
-                addDoc(colRef, { ...failedCommandData, timestamp: serverTimestamp() }).catch(e => {
-                    console.error("Could not log failed command:", e);
-                });
+                addDoc(collection(firestore, 'failedCommands'), { ...failedCommandData, timestamp: serverTimestamp() }).catch(e => console.error("Could not log failed command:", e));
              }
         }
         if(!phrase.startsWith('order ')) {

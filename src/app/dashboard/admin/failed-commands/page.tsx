@@ -69,6 +69,7 @@ export default function FailedCommandsPage() {
                                 <TableRow>
                                     <TableHead>Timestamp</TableHead>
                                     <TableHead>Command Text</TableHead>
+                                    <TableHead>Reason for Failure</TableHead>
                                     <TableHead>Language</TableHead>
                                     <TableHead>User ID</TableHead>
                                 </TableRow>
@@ -78,6 +79,9 @@ export default function FailedCommandsPage() {
                                     <TableRow key={cmd.id}>
                                         <TableCell>{formatDateSafe(cmd.timestamp)}</TableCell>
                                         <TableCell className="font-mono">{cmd.commandText}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="destructive">{cmd.reason}</Badge>
+                                        </TableCell>
                                         <TableCell>
                                             <Badge variant="outline">{cmd.language}</Badge>
                                         </TableCell>

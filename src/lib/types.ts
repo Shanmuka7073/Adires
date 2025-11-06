@@ -118,6 +118,7 @@ export type FailedVoiceCommand = {
     commandText: string;
     language: string;
     timestamp: Timestamp | Date | string;
+    reason: string;
 }
 
     
