@@ -33,7 +33,6 @@ interface VoiceCommanderProps {
   isCartOpen: boolean;
   cartItems: CartItem[];
   voiceTrigger: number;
-  triggerVoicePrompt: () => void;
 }
 
 let recognition: SpeechRecognition | null = null;
@@ -51,13 +50,12 @@ export function VoiceCommander({
   isCartOpen,
   cartItems: cartItemsProp,
   voiceTrigger,
-  triggerVoicePrompt,
 }: VoiceCommanderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
   const { firestore, user } = useFirebase();
-  const { clearCart, addItem: addItemToCart, updateQuantity, activeStoreId, setActiveStoreId, cartTotal, cartItems } = useCart();
+  const { clearCart, addItem: addItemToCart, updateQuantity, activeStoreId, setActiveStoreId } = useCart();
 
   const { stores, masterProducts, productPrices, fetchInitialData, fetchProductPrices, getProductName } = useAppStore();
 
@@ -96,10 +94,6 @@ export function VoiceCommander({
 
   const [speechSynthesisVoices, setSpeechSynthesisVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [currentLanguage, setCurrentLanguage] = useState('en-IN');
-  
-  // Track checkout state
-  const [checkoutReady, setCheckoutReady] = useState(false);
-  const addressValueRef = useRef<string>('');
   
   const resetAllContext = useCallback(() => {
     setIsWaitingForQuantity(false);
@@ -289,25 +283,7 @@ export function VoiceCommander({
     }
   }, [profileForm, speak]);
 
- const checkCheckoutConditions = useCallback(() => {
-    if (typeof document === 'undefined' || pathname !== '/checkout') return false;
-    
-    try {
-        const addressInput = document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement;
-        const currentAddress = addressInput?.value || '';
-        addressValueRef.current = currentAddress;
-        
-        const hasValidAddress = currentAddress && currentAddress.length >= 10;
-        const hasStore = !!activeStoreId;
-        
-        return hasValidAddress && hasStore && cartItems.length > 0;
-    } catch (e) {
-        return false;
-    }
-  }, [pathname, activeStoreId, cartItems.length]);
-
-
-  const runCheckoutPrompt = useCallback(() => {
+ const runCheckoutPrompt = useCallback(() => {
     if (pathname !== '/checkout' || !hasMounted || !enabled || isSpeakingRef.current) {
       return;
     }
@@ -320,18 +296,7 @@ export function VoiceCommander({
         return;
     }
     
-    let isReady = checkCheckoutConditions();
-    
-    if (isReady) {
-      const speech = t('everything-is-ready-speech', currentLanguage);
-      speak(speech, currentLanguage);
-      hasSpokenCheckoutPrompt.current = true;
-      setCheckoutReady(true);
-      return;
-    }
-    
-    // Check conditions in order of importance for user flow
-    if (cartItems.length === 0) {
+    if (cartItemsProp.length === 0) {
       speak(t('your-cart-is-empty-speech', currentLanguage), currentLanguage);
       hasSpokenCheckoutPrompt.current = true;
       return;
@@ -354,37 +319,23 @@ export function VoiceCommander({
       return;
     }
 
-  }, [pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, checkCheckoutConditions, speak, activeStoreId, cartItems.length, currentLanguage]);
+    const speech = t('everything-is-ready-speech', currentLanguage);
+    speak(speech, currentLanguage);
+    hasSpokenCheckoutPrompt.current = true;
+    return;
+
+  }, [pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, speak, activeStoreId, cartItemsProp, currentLanguage]);
   
-  // This effect runs when the page loads, to trigger the initial prompt
+  // This effect runs when the page loads, or when the voice is triggered manually
   useEffect(() => {
     if (pathname === '/checkout' && hasMounted) {
-      // Use a timeout to give the page a moment to settle
+      hasSpokenCheckoutPrompt.current = false;
       const timeoutId = setTimeout(() => {
         runCheckoutPrompt();
       }, 500);
       return () => clearTimeout(timeoutId);
     }
-  }, [pathname, hasMounted, runCheckoutPrompt]);
-  
-  useEffect(() => {
-      let isReady = false;
-      if (pathname === '/checkout' && hasMounted) {
-          isReady = checkCheckoutConditions();
-      }
-      if (shouldPlaceOrderDirectly && placeOrderBtnRef.current && isReady) {
-          console.log("Direct order conditions met. Clicking place order.");
-          placeOrderBtnRef.current.click();
-          setShouldPlaceOrderDirectly(false); // Reset after action
-      }
-  }, [shouldPlaceOrderDirectly, placeOrderBtnRef, setShouldPlaceOrderDirectly, checkCheckoutConditions, hasMounted, voiceTrigger, pathname]);
-
-  useEffect(() => {
-    if (voiceTrigger > 0 && pathname === '/checkout' && hasMounted && !isSpeakingRef.current) {
-        hasSpokenCheckoutPrompt.current = false; // Allow reprompting
-        runCheckoutPrompt();
-    }
-  }, [voiceTrigger, pathname, hasMounted, runCheckoutPrompt]);
+  }, [pathname, hasMounted, voiceTrigger, runCheckoutPrompt]);
 
 
   useEffect(() => {
@@ -494,14 +445,6 @@ export function VoiceCommander({
     return { product: productMatch, variant: chosenVariant, requestedQty: 1, remainingPhrase, desiredWeightInGrams, detectedQuantity, matchedAlias: bestMatch.alias };
 }, [firestore, masterProducts, productPrices, fetchProductPrices]);
 
-  useEffect(() => {
-    if (pathname !== '/checkout') {
-      hasSpokenCheckoutPrompt.current = false;
-      setCheckoutReady(false);
-    }
-  }, [pathname]);
-
-
   const handleCommand = useCallback(async (commandText: string) => {
     onStatusUpdate(`Processing: "${commandText}"`);
     try {
@@ -512,7 +455,6 @@ export function VoiceCommander({
       if (lang !== currentLanguage) {
           setCurrentLanguage(lang);
           updateRecognitionLanguage(lang);
-          // If the user just switched language with a keyword, welcome them.
           if (strippedCommand === "") {
               speak(t('telugu-welcome-speech', lang), lang);
               resetAllContext();
@@ -534,11 +476,11 @@ export function VoiceCommander({
                if (calculateSimilarity(commandLower, alias) > 0.8 || commandText.toLowerCase() === alias) {
                    const action = commandActionsRef.current[key];
                    if (action) {
-                       action({ lang });
-                       // For commands that navigate, the reply should happen BEFORE the action
+                       // For checkout, don't speak here, let the action handle it.
                        if (key !== 'checkout') {
                            speak(t(cmdGroup.reply, lang), lang);
                        }
+                       action({ lang });
                    }
                    resetAllContext();
                    return;
@@ -724,7 +666,7 @@ export function VoiceCommander({
     isWaitingForAddressType, homeAddressBtnRef, currentLocationBtnRef, isWaitingForVoiceOrder, 
     isWaitingForQuickOrderConfirmation, placeOrderBtnRef, clearCart, router, isWaitingForQuantity, 
     updateQuantity, isWaitingForStoreName, pathname, stores, setActiveStoreId, profileForm, 
-    handleProfileFormInteraction, findProductAndVariant
+    handleProfileFormInteraction, findProductAndVariant, cartItemsProp, commandActionsRef
   ]);
 
 
@@ -777,16 +719,11 @@ export function VoiceCommander({
       myStore: () => router.push('/dashboard/owner/my-store'),
       checkout: (params: { lang: string }) => {
         const lang = params.lang || currentLanguage;
-        const currentCartItems = cartItemsProp;
-        if (currentCartItems.length > 0) {
-          const currentCartTotal = currentCartItems.reduce((total, item) => total + item.variant.price * item.quantity, 0);
-          const speech = t('your-total-is-speech', lang).replace('{total}', `₹${currentCartTotal.toFixed(2)}`);
-          speak(speech, lang, () => {
+        if (cartItemsProp.length > 0) {
             onCloseCart();
             router.push('/checkout');
-          });
         } else {
-          speak(t('your-cart-is-empty-speech', lang), lang);
+            speak(t('your-cart-is-empty-speech', lang), lang);
         }
       },
       homeAddress: () => {
@@ -846,15 +783,13 @@ export function VoiceCommander({
           if (placeOrderBtnRef?.current) {
             placeOrderBtnRef.current.click();
             speak(t('placing-your-order-now-speech', lang), lang);
-          } else if (checkoutReady) {
-            speak(t('trying-to-place-order-speech', lang), lang);
           } else {
             speak(t('complete-checkout-steps-speech', lang), lang);
           }
           return;
         }
         
-        if (cartItems.length > 0) {
+        if (cartItemsProp.length > 0) {
           speak(t('taking-you-to-checkout-speech', lang), lang, () => router.push('/checkout'));
           return;
         }
