@@ -387,10 +387,8 @@ export function VoiceCommander({
   useEffect(() => {
     let timeoutId: NodeJS.Timeout | null = null;
     if (pathname === '/checkout' && hasMounted) {
-      timeoutId = setTimeout(() => {
-        hasSpokenCheckoutPrompt.current = false;
-        runCheckoutPrompt();
-      }, 1000);
+      hasSpokenCheckoutPrompt.current = false;
+      timeoutId = setTimeout(runCheckoutPrompt, 500);
     }
     return () => {
       if (timeoutId) {
@@ -464,9 +462,16 @@ export function VoiceCommander({
     
     if (!priceData?.variants?.length) return { product: productMatch, variant: null, requestedQty: 1, remainingPhrase };
 
-    const numberWords: Record<string, number> = { 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5 };
-    const weightRegex = /(\d+|one|two|three|four|five)\s?(kg|kilo|kilos|g|gm|gram|grams)/i;
+    const numberWords: Record<string, number> = { 
+        'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+        'ఒకటి': 1, 'రెండు': 2, 'మూడు': 3, 'నాలుగు': 4, 'ఐదు': 5, 'ఆరు': 6, 'ఏడు': 7, 'ఎనిమిది': 8, 'తొమ్మిది': 9, 'పది': 10,
+        'एक': 1, 'दो': 2, 'तीन': 3, 'चार': 4, 'पांच': 5, 'छह': 6, 'सात': 7, 'आठ': 8, 'नौ': 9, 'दस': 10
+    };
+    
+    // Updated regex to be more flexible and capture Telugu units
+    const weightRegex = new RegExp(`(\\d+|${Object.keys(numberWords).join('|')})\\s?(kg|kilo|kilos|g|gm|gram|grams|కిలో|కిలోల|గ్రాములు|గ్రామ్)`, 'i');
     const weightMatch = lowerPhrase.match(weightRegex);
+    
     let requestedQty = 1;
     let desiredWeightInGrams = 0;
 
@@ -475,16 +480,18 @@ export function VoiceCommander({
         const num = numberWords[numStr] || parseInt(numStr, 10);
         const unit = weightMatch[2].toLowerCase();
         
-        if (unit.startsWith('k')) {
+        const isKilo = unit.includes('k') || unit.includes('కి');
+
+        if (isKilo) {
             desiredWeightInGrams = num * 1000;
         } else {
             desiredWeightInGrams = num;
         }
 
         // Check if the number was a quantity or a weight specifier
-        if (num > 1 && unit.startsWith('k')) { // "2 kilo", "3 kilo"
+        if (num > 1 && isKilo) { // "2 kilo", "3 kilo"
             requestedQty = num;
-            desiredWeightInGrams = 1000;
+            desiredWeightInGrams = 1000; // Look for the 1kg pack
         } else { // "1 kilo", "250 gm", "500 grams"
              requestedQty = 1;
         }
@@ -498,6 +505,7 @@ export function VoiceCommander({
     }
     
     if (!chosenVariant) {
+        // Default to 1kg if available, otherwise the first variant
         chosenVariant = priceData.variants.find(v => v.weight === '1kg') || priceData.variants[0];
     }
 
@@ -876,20 +884,9 @@ export function VoiceCommander({
         const { product, variant, requestedQty } = await findProductAndVariant(phrase);
 
         if (product && variant) {
-            const priceData = productPrices[product.name.toLowerCase()];
-            const baseUnitVariant = priceData?.variants.find(v => v.weight === '1kg' || v.weight === '1gm');
-            
-            // Smart quantity logic
-            if (requestedQty > 1 && variant.weight !== `${requestedQty}kg` && baseUnitVariant) {
-                const quantityToAdd = requestedQty;
-                addItemToCart(product, baseUnitVariant, quantityToAdd);
-                const speech = `Okay, adding ${quantityToAdd} ${baseUnitVariant.weight} packs of ${getProductName(product)} to your cart.`;
-                speak(speech, lang);
-            } else {
-                addItemToCart(product, variant, requestedQty);
-                 const speech = `Okay, adding ${requestedQty} ${variant.weight} of ${getProductName(product)} to your cart.`;
-                speak(speech, lang);
-            }
+            addItemToCart(product, variant, requestedQty);
+            const speech = `Okay, adding ${requestedQty} ${variant.weight} of ${getProductName(product)} to your cart.`;
+            speak(speech, lang);
             onOpenCart();
         } else {
             speak(t('sorry-i-didnt-understand-that', lang), lang);
@@ -996,7 +993,9 @@ export function VoiceCommander({
         });
         
         getCommands().then((fileCommands) => {
-            fileCommandsRef.current = fileCommands;
+            if (fileCommands) {
+                fileCommandsRef.current = fileCommands;
+            }
         }).catch(console.error);
     }
 
@@ -1011,3 +1010,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
