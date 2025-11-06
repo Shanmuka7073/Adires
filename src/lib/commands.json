@@ -1,320 +1,87 @@
+
 {
   "smartOrder": {
     "display": "Smart Order (Product, Store, Destination)",
-    "reply": "Okay, preparing your quick order.",
-    "aliases": [
-      "order {quantity} of {product} from {store} to {destination}",
-      "order {quantity} {product} from {store} to {destination}",
-      "send {quantity} of {product} from {store} to {destination}",
-      "send {quantity} {product} from {store} to {destination}",
-      "order {product} from {store} to {destination}",
-      "send {product} from {store} to {destination}",
-      "order {quantity} of {product} from {store}",
-      "order {product} from {store}"
-    ]
+    "reply": "Okay, preparing your quick order."
   },
   "quickOrder": {
     "display": "Quick Order an Item from a Store",
-    "reply": "Okay, preparing your quick order.",
-    "aliases": [
-      "order {quantity} of {product} from {store}",
-      "order {quantity} {product} from {store}",
-      "get {quantity} of {product} from {store}",
-      "get {quantity} {product} from {store}",
-      "buy {quantity} of {product} from {store}",
-      "buy {quantity} {product} from {store}",
-      "order {product} from {store}",
-      "get {product} from {store}",
-      "buy {product} from {store}"
-    ]
+    "reply": "Okay, preparing your quick order."
   },
   "quickOrderConfirm": {
     "display": "Confirm the quick order",
-    "reply": "Placing your order now.",
-    "aliases": [
-      "confirm order",
-      "confirm",
-      "ok",
-      "done",
-      "alright",
-      "yes",
-      "place order"
-    ]
+    "reply": "Placing your order now."
   },
   "recordOrder": {
     "display": "Record a shopping list by voice",
-    "reply": "I'm ready. Please list the items you need for your order.",
-    "aliases": [
-      "record my order",
-      "take my order",
-      "voice order",
-      "new voice order",
-      "create a shopping list"
-    ]
+    "reply": "I'm ready. Please list the items you need for your order."
   },
   "orderItem": {
     "display": "Order an Item (Template)",
-    "reply": "Adding it to your cart.",
-    "aliases": [
-      "add {quantity} of {product}",
-      "add {quantity} {product}",
-      "get {quantity} of {product}",
-      "get {quantity} {product}",
-      "buy {quantity} of {product}",
-      "buy {quantity} {product}",
-      "i want {quantity} of {product}",
-      "i want {quantity} {product}",
-      "had {quantity} of {product}",
-      "had {quantity} {product}",
-      "add one {product}",
-      "get one {product}",
-      "had one {product}",
-      "{quantity} {product}",
-      "oka product quantity",
-      "oka {product} {quantity}",
-      "add chicken",
-      "i want chicken",
-      "chicken kavali",
-      "naaku chicken kavali"
-    ]
+    "reply": "Adding it to your cart."
   },
   "home": {
     "display": "Navigate to Home",
-    "reply": "Okay, taking you to the home page.",
-    "aliases": [
-      "go home",
-      "home page",
-      "main screen",
-      "go to home",
-      "back to start",
-      "open homepage",
-      "return home",
-      "show home",
-      "open home",
-      "home"
-    ]
+    "reply": "Okay, taking you to the home page."
   },
   "stores": {
     "display": "Browse All Stores",
-    "reply": "Showing all available stores.",
-    "aliases": [
-      "go to stores",
-      "browse stores",
-      "show all stores",
-      "open store list",
-      "find stores",
-      "explore shops",
-      "nearby shops",
-      "shop list"
-    ]
+    "reply": "Showing all available stores."
   },
   "dashboard": {
     "display": "View Dashboard",
-    "reply": "Opening your dashboard.",
-    "aliases": [
-      "go to dashboard",
-      "open dashboard",
-      "my dashboard",
-      "show my stats",
-      "open my panel",
-      "go to control panel",
-      "dashboard"
-    ]
+    "reply": "Opening your dashboard."
   },
   "cart": {
     "display": "View Your Cart",
-    "reply": "Opening your shopping cart.",
-    "aliases": [
-      "go to cart",
-      "open cart",
-      "show cart",
-      "view my cart",
-      "see my basket",
-      "go to basket",
-      "open shopping cart",
-      "my items"
-    ]
+    "reply": "Opening your shopping cart."
   },
   "orders": {
     "display": "View My Orders",
-    "reply": "Here are your past orders.",
-    "aliases": [
-      "my orders",
-      "go to my orders",
-      "open my orders",
-      "show my orders",
-      "view orders",
-      "check my orders",
-      "open order history",
-      "see past orders",
-      "my purchases"
-    ]
+    "reply": "Here are your past orders."
   },
   "deliveries": {
     "display": "View Deliveries",
-    "reply": "Opening the delivery dashboard.",
-    "aliases": [
-      "deliveries",
-      "my deliveries",
-      "go to deliveries",
-      "open deliveries",
-      "track deliveries",
-      "check delivery status",
-      "see my delivery list",
-      "delivery updates",
-      "delivery dashboard",
-      "deliverys",
-      "delivery"
-    ]
+    "reply": "Opening the delivery dashboard."
   },
   "myStore": {
     "display": "Create or Manage My Store",
-    "reply": "Opening your store management page.",
-    "aliases": [
-      "create my store",
-      "my store",
-      "manage my store",
-      "new store",
-      "register my store",
-      "make a store",
-      "open my shop",
-      "go to seller page"
-    ]
+    "reply": "Opening your store management page."
   },
   "checkout": {
     "display": "Proceed to Checkout",
-    "reply": "your-total-is-speech",
-    "aliases": [
-      "process next step",
-      "proceed to checkout",
-      "go to checkout",
-      "checkout now",
-      "open checkout",
-      "start checkout",
-      "finish my order",
-      "complete purchase",
-      "pay now",
-      "check out",
-      "checkout",
-      "proceedcheck out",
-      "proceed to check out",
-      "proceed checkout",
-      "చెకౌట్‌కి వెళ్ళు",
-      "చెకౌట్‌ ప్రారంభించు",
-      "ఆర్డర్‌ పూర్తి చేయి",
-      "చెల్లింపు చేయి",
-      "చెల్లించు",
-      "కొనుగోలు పూర్తి చేయి",
-      "చెకౌట్‌ చేయి",
-      "చెకౌట్‌ మొదలు పెట్టు",
-      "ఆర్డర్‌ సమర్పించు",
-      "పేమెంట్‌ చేయి"
-    ]
+    "reply": "your-total-is-speech"
   },
   "placeOrder": {
     "display": "Place the order",
-    "reply": "placing-your-order-now-speech",
-    "aliases": [
-      "place order",
-      "submit order",
-      "finish and pay",
-      "complete my order",
-      "place the order",
-      "placeorder",
-      "orderplace",
-      "please order",
-      "submit",
-      "fine",
-      "order"
-    ]
+    "reply": "placing-your-order-now-speech"
   },
   "saveChanges": {
     "display": "Save Changes",
-    "reply": "Saving your changes.",
-    "aliases": [
-      "save changes",
-      "submit form",
-      "confirm changes",
-      "save my profile",
-      "update profile",
-      "save"
-    ]
+    "reply": "Saving your changes."
   },
   "refresh": {
     "display": "Refresh the page",
-    "reply": "Refreshing.",
-    "aliases": [
-      "refresh the page",
-      "reload page",
-      "reload app",
-      "refresh screen",
-      "restart page",
-      "refresh",
-      "reload",
-      "restart"
-    ]
+    "reply": "Refreshing."
   },
   "homeAddress": {
     "display": "Use Home Address",
-    "reply": "setting-delivery-to-home-speech",
-    "aliases": [
-      "home address",
-      "use my home address",
-      "deliver to home",
-      "ఇంటి చిరునామా",
-      "నా ఇంటి చిరునామా",
-      "హోం అడ్రస్",
-      "ఇంటి అడ్రస్",
-      "నా హోం అడ్రస్",
-      "నా అడ్రస్",
-      "మన ఇంటి చిరునామా",
-      "ఇంటి వివరాలు",
-      "అడ్రస్ చెప్పు",
-      "ఇంటి లోకేషన్",
-      "ఇంటి ప్లేస్",
-      "మా ఇంటి చిరునామా",
-      "ఇంటికి",
-      "ఇంటి దగ్గర చిరునామా",
-      "ఇల్లు చిరునామా",
-      "నా ఇల్లు చిరునామా",
-      "నా ఇంటి లోకేషన్",
-      "ఇల్లుయొక్క చిరునామా"
-    ]
+    "reply": "setting-delivery-to-home-speech"
   },
   "currentLocation": {
     "display": "Use Current Location",
-    "reply": "using-current-location-speech",
-    "aliases": [
-      "current location",
-      "use my current location",
-      "deliver here",
-      "ప్రస్తుత స్థానం",
-      "ప్రస్తుత లోకేషన్",
-      "నా లోకేషన్",
-      "కరెంట్ లోకేషన్",
-      "కరెంట్ స్థానం",
-      "ఇప్పటి స్థానం",
-      "నా ప్రెజెంట్ లోకేషన్",
-      "నా ప్రస్తుత స్థానం",
-      "నా దగ్గర స్థానం",
-      "నేను ఉన్న చోటు",
-      "నేను ఉన్న స్థానం",
-      "ఇక్కడి లోకేషన్"
-    ]
+    "reply": "using-current-location-speech"
   },
   "addressPrompt": {
     "display": "Prompt for Address Type",
-    "reply": "should-i-deliver-to-home-or-current-speech",
-    "aliases": []
+    "reply": "should-i-deliver-to-home-or-current-speech"
   },
   "storePrompt": {
     "display": "Prompt for Store",
-    "reply": "which-store-should-fulfill-speech",
-    "aliases": []
+    "reply": "which-store-should-fulfill-speech"
   },
   "finalConfirmPrompt": {
     "display": "Final Order Confirmation Prompt",
-    "reply": "everything-is-ready-speech",
-    "aliases": []
+    "reply": "everything-is-ready-speech"
   }
 }
