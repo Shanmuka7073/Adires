@@ -1700,8 +1700,8 @@
     "te": "ఏ స్టోర్ నుండి ఆర్డర్ చేయాలి?"
   },
   "everything-is-ready-speech": {
-    "en": "Everything looks ready. We are delivering to {address}. Just say 'place order' to confirm.",
-    "te": "అన్నీ సిద్ధంగా ఉన్నాయి. మేము {address}కు డెలివరీ చేస్తున్నాము. నిర్ధారించడానికి 'ఆర్డర్ చేయండి' అని చెప్పండి."
+    "en": "Everything looks ready. We will deliver to your address on file. Just say 'place order' to confirm.",
+    "te": "అన్నీ సిద్ధంగా ఉన్నాయి. మేము మీ ఫైల్‌లోని చిరునామాకు డెలివరీ చేస్తాము. నిర్ధారించడానికి 'ఆర్డర్ చేయండి' అని చెప్పండి."
   },
   "setting-delivery-to-home-speech": {
     "en": "Okay, setting delivery to your home address.",
@@ -1815,5 +1815,54 @@
   "adding-packs-speech": {
     "en": "Okay, adding {quantity} packs of {weight} {productName} to your cart.",
     "te": "సరే, మీ కార్ట్‌కి {quantity} {weight} {productName} ప్యాక్‌లను జోడిస్తున్నాను."
+  },
+  "placeOrder": {
+    "te": [
+      "ఆర్డర్ పెట్టు",
+      "ఆర్డర్ చెయ్",
+      "ఆర్డర్ చేయి",
+      "ఆర్డర్ ఇవ్వు",
+      "ఆర్డర్ కన్ఫర్మ్ చెయ్",
+      "ఆర్డర్ కన్ఫర్మ్ చేయి",
+      "ఆర్డర్ పూర్తి చెయ్",
+      "ఆర్డర్ చేసేయ్",
+      "ఆర్డర్ పెట్టేయ్",
+      "ఆర్డర్ చేయండి",
+      "ఆర్డర్ ఇవ్వండి"
+    ],
+    "en": [
+      "place order",
+      "confirm order",
+      "order chey",
+      "order place chey",
+      "order cheyyi",
+      "order pettu",
+      "order ivvu",
+      "order confirm chey",
+      "order ayipovali",
+      "order complete chey",
+      "order ipu chey"
+    ]
+  },
+  "checkout": {
+    "te": [
+      "చెకౌట్‌కు వెళ్లు",
+      "చెకౌట్ కు వెళ్లు",
+      "చెకౌట్ కి వెళ్లు",
+      "చెకౌట్ చేయి",
+      "చెకౌట్ చెయ్",
+      "చెకౌట్ మొదలు పెట్టు",
+      "చెకౌట్ స్టార్ట్ చెయ్",
+      "ఆర్డర్ పూర్తి చెయ్యడానికి ముందుకు వెళ్లు",
+      "బిల్లు చెల్లించడానికి వెళ్లు"
+    ],
+    "en": [
+      "checkout",
+      "proceed to checkout"
+    ]
+  },
+  "telugu-welcome-speech": {
+    "en": "Namaste, you can now speak in Telugu or select items.",
+    "te": "నమస్తే, మీరు ఇప్పుడు తెలుగులో మాట్లాడవచ్చు లేదా ఐటమ్స్ ఎంచుకోవచ్చు"
   }
 }

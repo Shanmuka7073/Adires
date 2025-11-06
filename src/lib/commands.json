@@ -1,87 +1,107 @@
-
 {
   "smartOrder": {
     "display": "Smart Order (Product, Store, Destination)",
-    "reply": "Okay, preparing your quick order."
+    "reply": "Okay, preparing your quick order.",
+    "aliases": []
   },
   "quickOrder": {
     "display": "Quick Order an Item from a Store",
-    "reply": "Okay, preparing your quick order."
+    "reply": "Okay, preparing your quick order.",
+    "aliases": []
   },
   "quickOrderConfirm": {
     "display": "Confirm the quick order",
-    "reply": "Placing your order now."
+    "reply": "Placing your order now.",
+    "aliases": []
   },
   "recordOrder": {
     "display": "Record a shopping list by voice",
-    "reply": "I'm ready. Please list the items you need for your order."
+    "reply": "I'm ready. Please list the items you need for your order.",
+    "aliases": []
   },
   "orderItem": {
     "display": "Order an Item (Template)",
-    "reply": "Adding it to your cart."
+    "reply": "Adding it to your cart.",
+    "aliases": []
   },
   "home": {
     "display": "Navigate to Home",
-    "reply": "Okay, taking you to the home page."
+    "reply": "Okay, taking you to the home page.",
+    "aliases": []
   },
   "stores": {
     "display": "Browse All Stores",
-    "reply": "Showing all available stores."
+    "reply": "Showing all available stores.",
+    "aliases": []
   },
   "dashboard": {
     "display": "View Dashboard",
-    "reply": "Opening your dashboard."
+    "reply": "Opening your dashboard.",
+    "aliases": []
   },
   "cart": {
     "display": "View Your Cart",
-    "reply": "Opening your shopping cart."
+    "reply": "Opening your shopping cart.",
+    "aliases": []
   },
   "orders": {
     "display": "View My Orders",
-    "reply": "Here are your past orders."
+    "reply": "Here are your past orders.",
+    "aliases": []
   },
   "deliveries": {
     "display": "View Deliveries",
-    "reply": "Opening the delivery dashboard."
+    "reply": "Opening the delivery dashboard.",
+    "aliases": []
   },
   "myStore": {
     "display": "Create or Manage My Store",
-    "reply": "Opening your store management page."
+    "reply": "Opening your store management page.",
+    "aliases": []
   },
   "checkout": {
     "display": "Proceed to Checkout",
-    "reply": "your-total-is-speech"
+    "reply": "your-total-is-speech",
+    "aliases": ["proceed to checkout"]
   },
   "placeOrder": {
     "display": "Place the order",
-    "reply": "placing-your-order-now-speech"
+    "reply": "placing-your-order-now-speech",
+    "aliases": []
   },
   "saveChanges": {
     "display": "Save Changes",
-    "reply": "Saving your changes."
+    "reply": "Saving your changes.",
+    "aliases": []
   },
   "refresh": {
     "display": "Refresh the page",
-    "reply": "Refreshing."
+    "reply": "Refreshing.",
+    "aliases": []
   },
   "homeAddress": {
     "display": "Use Home Address",
-    "reply": "setting-delivery-to-home-speech"
+    "reply": "setting-delivery-to-home-speech",
+    "aliases": []
   },
   "currentLocation": {
     "display": "Use Current Location",
-    "reply": "using-current-location-speech"
+    "reply": "using-current-location-speech",
+    "aliases": []
   },
   "addressPrompt": {
     "display": "Prompt for Address Type",
-    "reply": "should-i-deliver-to-home-or-current-speech"
+    "reply": "should-i-deliver-to-home-or-current-speech",
+    "aliases": []
   },
   "storePrompt": {
     "display": "Prompt for Store",
-    "reply": "which-store-should-fulfill-speech"
+    "reply": "which-store-should-fulfill-speech",
+    "aliases": []
   },
   "finalConfirmPrompt": {
     "display": "Final Order Confirmation Prompt",
-    "reply": "everything-is-ready-speech"
+    "reply": "everything-is-ready-speech",
+    "aliases": []
   }
 }
