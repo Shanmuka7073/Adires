@@ -683,7 +683,7 @@ export function VoiceCommander({
         const action = commandActionsRef.current[key];
         if (action) {
             const allAliases = [t(key, lang), ...(getAllAliases(key)[lang] || []), ...(cmdGroup.aliases || [])];
-             allAliases.forEach((alias: string) => {
+             (allAliases || []).forEach((alias: string) => {
                 allCommands.push({
                   command: alias,
                   action: action,
@@ -790,8 +790,8 @@ export function VoiceCommander({
       myStore: () => router.push('/dashboard/owner/my-store'),
       checkout: (params: { lang: string }) => {
         const lang = params.lang || currentLanguage;
-        // Read cartItems directly from the hook at the time of execution
-        const currentCartItems = useCart.getState().cartItems;
+        // CORRECTED: Use the cartItemsProp which is reactive to the useEffect dependency array.
+        const currentCartItems = cartItemsProp; 
         const currentCartTotal = currentCartItems.reduce((total, item) => total + item.variant.price * item.quantity, 0);
 
         if (currentCartItems.length > 0) {
@@ -1062,8 +1062,9 @@ export function VoiceCommander({
         recognition.abort();
       }
     };
-  }, [handleCommand]);
+  }, [handleCommand, cartItemsProp]);
 
   return null;
 }
 
+    
