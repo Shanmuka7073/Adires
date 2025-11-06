@@ -1,3 +1,4 @@
+
 {
   "home": {
     "en": "Home",
@@ -309,43 +310,7 @@
   "onions": {
     "en": [
       "Onions",
-      "Onion",
-      "paya",
-      "payalu",
-      "kanda",
-      "kandalu",
-      "kanda paya (used in some telugu regions for onion)",
-      "ullipia",
-      "ullipayaa",
-      "ulipaya",
-      "ulipay",
-      "olipaya",
-      "alipaya",
-      "ullipa",
-      "olipa",
-      "ollipaya",
-      "ullipayam",
-      "ullipaya onion",
-      "ulli onion",
-      "ulli paya onion",
-      "onion ulli",
-      "onion ullipaya",
-      "ullipaya",
-      "ullipayalu",
-      "ulli paya",
-      "ullipay",
-      "ullipai",
-      "ulli",
-      "ulli payalu",
-      "ullipayal",
-      "onion",
-      "onions",
-      "onionn",
-      "oniun",
-      "onyen",
-      "onyan",
-      "anyon",
-      "onyion"
+      "Onion"
     ],
     "te": [
       "ఉల్లిపాయలు",
@@ -1336,8 +1301,7 @@
     ],
     "te": [
       "పప్పు",
-      "పప్పులు",
-      "dal"
+      "పప్పులు"
     ]
   },
   "jaggery": {
@@ -1345,12 +1309,7 @@
       "Jaggery"
     ],
     "te": [
-      "బెల్లం",
-      "bellam"
-    ],
-    "hi": [
-      "गुड़",
-      "gud"
+      "బెల్లం"
     ]
   },
   "rice": {
@@ -1359,12 +1318,7 @@
     ],
     "te": [
       "బియ్యం",
-      "అన్నం",
-      "biyyam"
-    ],
-    "hi": [
-      "चावल",
-      "chawal"
+      "అన్నం"
     ]
   },
   "milk": {
@@ -1373,9 +1327,7 @@
       "Cow Milk"
     ],
     "te": [
-      "పాలు",
-      "doodh",
-      "paalu"
+      "పాలు"
     ]
   },
   "chicken-skin-less": {
@@ -1406,48 +1358,11 @@
       "chilli powder",
       "chili powder",
       "red chilli powder",
-      "red chili powder",
-      "chili pwd",
-      "chilli pwd",
-      "red chili",
-      "red chilli",
-      "dry red chili powder",
-      "spicy powder",
-      "mirchi powder",
-      "hot chili",
-      "ground chili",
-      "crushed chili",
-      "chili masala",
-      "chili mix",
-      "red spice",
-      "spicy masala",
-      "mirchi podi",
-      "mirchi pudi",
-      "mirchi podu",
-      "milagai podi",
-      "lal mirch",
-      "lal mirch powder",
-      "lal mirchi",
-      "mirchi podi powder",
-      "karam podi",
-      "karam pudi",
-      "mirapa podi",
-      "mirapa pudi",
-      "red mirchi",
-      "red mirch masala",
-      "karam masala",
-      "chilly powder",
-      "red chilly",
-      "chili pdr",
-      "chille powder",
-      "chillipowder",
-      "chili poeder",
-      "chily powder",
-      "chilley powder",
-      "chilie powder",
-      "chillie pwd",
-      "chli pwd",
-      "chilli podi"
+      "red chili powder"
+    ],
+    "te": [
+      "కారం పొడి",
+      "మిరప పొడి"
     ]
   },
   "snacks-namkeen": {
@@ -1476,8 +1391,7 @@
       "turmeric"
     ],
     "te": [
-      "పసుపు",
-      "pasupu"
+      "పసుపు"
     ]
   },
   "urad-dal": {
@@ -1485,8 +1399,7 @@
       "urad dal"
     ],
     "te": [
-      "మినప పప్పు",
-      "minapa pappu"
+      "మినప పప్పు"
     ]
   },
   "sunflower-oil": {
@@ -1494,8 +1407,7 @@
       "sunflower oil"
     ],
     "te": [
-      "పొద్దుతిరుగుడు నూనె",
-      "sunflower nune"
+      "పొద్దుతిరుగుడు నూనె"
     ]
   },
   "toor-dal": {
@@ -1503,8 +1415,7 @@
       "toor dal"
     ],
     "te": [
-      "కంది పప్పు",
-      "kandi pappu"
+      "కంది పప్పు"
     ]
   },
   "atta": {
@@ -1513,8 +1424,7 @@
       "wheat flour"
     ],
     "te": [
-      "గోధుమ పిండి",
-      "gothuma pindi"
+      "గోధుమ పిండి"
     ]
   },
   "salt": {
@@ -1522,8 +1432,7 @@
       "salt"
     ],
     "te": [
-      "ఉప్పు",
-      "uppu"
+      "ఉప్పు"
     ]
   },
   "ghee": {
@@ -1531,8 +1440,7 @@
       "ghee"
     ],
     "te": [
-      "నెయ్యి",
-      "neyyi"
+      "నెయ్యి"
     ]
   },
   "groundnut-oil": {
@@ -1540,8 +1448,7 @@
       "groundnut oil"
     ],
     "te": [
-      "వేరుశెనగ నూనె",
-      "verusenaga nune"
+      "వేరుశెనగ నూనె"
     ]
   },
   "poha": {
@@ -1549,8 +1456,7 @@
       "poha"
     ],
     "te": [
-      "అటుకులు",
-      "atukulu"
+      "అటుకులు"
     ]
   },
   "tea": {
@@ -1558,8 +1464,7 @@
       "tea"
     ],
     "te": [
-      "టీ",
-      "tea"
+      "టీ"
     ]
   },
   "moong-dal": {
@@ -1567,8 +1472,7 @@
       "moong dal"
     ],
     "te": [
-      "పెసర పప్పు",
-      "pesara pappu"
+      "పెసర పప్పు"
     ]
   },
   "basmati-rice": {
@@ -1576,8 +1480,7 @@
       "basmati rice"
     ],
     "te": [
-      "బాస్మతి బియ్యం",
-      "basmati biyyam"
+      "బాస్మతి బియ్యం"
     ]
   },
   "chana-dal": {
@@ -1585,8 +1488,7 @@
       "chana dal"
     ],
     "te": [
-      "శనగ పప్పు",
-      "senaga pappu"
+      "శనగ పప్పు"
     ]
   },
   "sona-masoori-rice": {
@@ -1594,8 +1496,7 @@
       "sona masoori rice"
     ],
     "te": [
-      "సోనా మసూరి బియ్యం",
-      "sona masoori biyyam"
+      "సోనా మసూరి బియ్యం"
     ]
   },
   "idly-rava": {
@@ -1603,8 +1504,7 @@
       "idly rava"
     ],
     "te": [
-      "ఇడ్లీ రవ్వ",
-      "idli rava"
+      "ఇడ్లీ రవ్వ"
     ]
   },
   "kabuli-chana": {
@@ -1612,8 +1512,7 @@
       "kabuli chana"
     ],
     "te": [
-      "కాబూలీ శనగలు",
-      "kabuli senagalu"
+      "కాబూలీ శనగలు"
     ]
   },
   "rajma": {
@@ -1621,8 +1520,7 @@
       "rajma"
     ],
     "te": [
-      "రాజ్మా",
-      "rajma"
+      "రాజ్మా"
     ]
   },
   "maida": {
@@ -1630,8 +1528,7 @@
       "maida"
     ],
     "te": [
-      "మైదా",
-      "maida"
+      "మైదా"
     ]
   },
   "bombay-rava": {
@@ -1639,8 +1536,7 @@
       "bombay rava"
     ],
     "te": [
-      "బొంబాయి రవ్వ",
-      "bombay rava"
+      "బొంబాయి రవ్వ"
     ]
   },
   "kala-chana": {
@@ -1648,8 +1544,7 @@
       "kala chana"
     ],
     "te": [
-      "నల్ల శనగలు",
-      "nalla senagalu"
+      "నల్ల శనగలు"
     ]
   },
   "bansi-rava": {
@@ -1657,8 +1552,7 @@
       "bansi rava"
     ],
     "te": [
-      "బన్సీ రవ్వ",
-      "bansi rava"
+      "బన్సీ రవ్వ"
     ]
   },
   "green-peas": {
@@ -1666,8 +1560,7 @@
       "green peas"
     ],
     "te": [
-      "పచ్చి బఠానీలు",
-      "pachi batanilu"
+      "పచ్చి బఠానీలు"
     ]
   },
   "corn-flour": {
@@ -1675,8 +1568,7 @@
       "corn flour"
     ],
     "te": [
-      "మొక్కజొన్న పిండి",
-      "mokkajonna pindi"
+      "మొక్కజొన్న పిండి"
     ]
   },
   "idly-rice": {
@@ -1684,8 +1576,7 @@
       "idly rice"
     ],
     "te": [
-      "ఇడ్లీ బియ్యం",
-      "idli biyyam"
+      "ఇడ్లీ బియ్యం"
     ]
   },
   "besan-flour": {
@@ -1693,8 +1584,7 @@
       "besan flour"
     ],
     "te": [
-      "శనగ పిండి",
-      "senaga pindi"
+      "శనగ పిండి"
     ]
   },
   "ragi-flour": {
@@ -1702,8 +1592,7 @@
       "ragi flour"
     ],
     "te": [
-      "రాగి పిండి",
-      "ragi pindi"
+      "రాగి పిండి"
     ]
   },
   "jowar-flour": {
@@ -1711,8 +1600,7 @@
       "jowar flour"
     ],
     "te": [
-      "జొన్న పిండి",
-      "jonna pindi"
+      "జొన్న పిండి"
     ]
   },
   "rice-flour": {
@@ -1720,8 +1608,7 @@
       "rice flour"
     ],
     "te": [
-      "బియ్యం పిండి",
-      "biyyam pindi"
+      "బియ్యం పిండి"
     ]
   },
   "mixed-dal": {
@@ -1729,8 +1616,7 @@
       "mixed dal"
     ],
     "te": [
-      "మిశ్రమ పప్పు",
-      "misrama pappu"
+      "మిశ్రమ పప్పు"
     ]
   },
   "cow-peas": {
@@ -1738,8 +1624,7 @@
       "cow peas"
     ],
     "te": [
-      "అలసందలు",
-      "alasandalu"
+      "అలసందలు"
     ]
   },
   "coffee": {
@@ -1747,8 +1632,7 @@
       "coffee"
     ],
     "te": [
-      "కాఫీ",
-      "coffee"
+      "కాఫీ"
     ]
   },
   "dals": {
@@ -1757,8 +1641,7 @@
       "pulses"
     ],
     "te": [
-      "పప్పులు",
-      "pappulu"
+      "పప్పులు"
     ]
   },
   "flours": {
@@ -1766,8 +1649,7 @@
       "flours"
     ],
     "te": [
-      "పిండి",
-      "pindi"
+      "పిండి"
     ]
   },
   "spices": {
@@ -1775,8 +1657,7 @@
       "spices"
     ],
     "te": [
-      "మసాలాలు",
-      "masalalu"
+      "మసాలాలు"
     ]
   },
   "oils-ghee": {
@@ -1784,8 +1665,7 @@
       "oils & ghee"
     ],
     "te": [
-      "నూనెలు & నెయ్యి",
-      "nunelu & neyyi"
+      "నూనెలు & నెయ్యి"
     ]
   },
   "dry-fruits": {
@@ -1793,8 +1673,7 @@
       "dry fruits"
     ],
     "te": [
-      "డ్రై ఫ్రూట్స్",
-      "dry fruits"
+      "డ్రై ఫ్రూట్స్"
     ]
   },
   "ive-added-to-your-cart": {
