@@ -1807,5 +1807,13 @@
   },
   "chandra": {
     "te": "చంద్ర"
+  },
+  "adding-item-speech": {
+    "en": "Okay, adding {quantity} {productName} to your cart.",
+    "te": "సరే, మీ కార్ట్‌కు {quantity} {productName} జోడిస్తున్నాను."
+  },
+  "adding-packs-speech": {
+    "en": "Okay, adding {quantity} packs of {weight} {productName} to your cart.",
+    "te": "సరే, మీ కార్ట్‌కి {quantity} {weight} {productName} ప్యాక్‌లను జోడిస్తున్నాను."
   }
 }

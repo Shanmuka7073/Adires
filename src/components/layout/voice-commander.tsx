@@ -432,7 +432,7 @@ export function VoiceCommander({
     };
   }, [pathname, hasMounted, enabled, profileForm, handleProfileFormInteraction]);
 
- const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null, variant: ProductPrice['variants'][0] | null, requestedQty: number, remainingPhrase: string, desiredWeightInGrams: number, detectedQuantity: number }> => {
+  const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null, variant: ProductPrice['variants'][0] | null, requestedQty: number, remainingPhrase: string, desiredWeightInGrams: number, detectedQuantity: number }> => {
     const lowerPhrase = phrase.toLowerCase();
     let bestMatch: { product: Product, alias: string, similarity: number } | null = null;
 
@@ -541,7 +541,7 @@ export function VoiceCommander({
           const cmdGroup = fileCommandsRef.current[key];
           if (!cmdGroup) continue;
           
-          const allAliases = [t(key, lang), ...(getAllAliases(key)[lang] || [])];
+          const allAliases = [t(key, lang), ...getAllAliases(key)[lang] || []];
           if (cmdGroup && Array.isArray(cmdGroup.aliases)) {
              allAliases.push(...cmdGroup.aliases);
           }
@@ -898,12 +898,17 @@ export function VoiceCommander({
                  const numPacks = Math.ceil(desiredWeightInGrams / baseUnitInGrams);
 
                  addItemToCart(product, variant, numPacks);
-                 const speech = `Okay, adding ${numPacks} ${numPacks > 1 ? 'packs' : 'pack'} of ${variant.weight} ${getProductName(product)} to your cart.`;
+                 const speech = t('adding-packs-speech', lang)
+                    .replace('{quantity}', `${numPacks}`)
+                    .replace('{weight}', variant.weight)
+                    .replace('{productName}', getProductName(product));
                  speak(speech, lang);
 
             } else { // Fallback for items without clear weight units
                 addItemToCart(product, variant, detectedQuantity);
-                const speech = `Okay, adding ${detectedQuantity} ${getProductName(product)} to your cart.`;
+                const speech = t('adding-item-speech', lang)
+                    .replace('{quantity}', `${detectedQuantity}`)
+                    .replace('{productName}', getProductName(product));
                 speak(speech, lang);
             }
             onOpenCart();
@@ -1032,5 +1037,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    
