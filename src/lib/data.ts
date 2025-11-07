@@ -32,7 +32,8 @@ const getImage = async (id: string) => {
 
 export async function getStores(db: Firestore): Promise<Store[]> {
   const storesCol = collection(db, 'stores');
-  const q = query(storesCol, where('isClosed', '!=', true));
+  // Add a filter to exclude the master "LocalBasket" store from this public list
+  const q = query(storesCol, where('isClosed', '!=', true), where('name', '!=', 'LocalBasket'));
   const storeSnapshot = await getDocs(q);
   const storeList = storeSnapshot.docs.map((doc) => ({
     id: doc.id,

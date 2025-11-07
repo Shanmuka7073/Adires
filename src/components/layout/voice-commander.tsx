@@ -368,10 +368,6 @@ export function VoiceCommander({
     setIsWaitingForStoreName, cartTotal
   ]);
   
-  useEffect(() => {
-      hasSpokenCheckoutPrompt.current = false;
-  }, [pathname]);
-
   // This effect runs when the page loads, or when the voice is triggered manually
   useEffect(() => {
     if (pathname === '/checkout' && hasMounted && enabled) {
