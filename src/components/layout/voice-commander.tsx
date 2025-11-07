@@ -771,19 +771,19 @@ export function VoiceCommander({
     };
 
     commandActionsRef.current = {
-      home: () => router.push('/'),
-      stores: () => router.push('/stores'),
-      dashboard: () => router.push('/dashboard'),
-      cart: () => router.push('/cart'),
-      orders: () => router.push('/dashboard/customer/my-orders'),
-      deliveries: () => router.push('/dashboard/delivery/deliveries'),
-      myStore: () => router.push('/dashboard/owner/my-store'),
+      home: (params) => speak(t('navigating-to-home', params.lang), params.lang, () => router.push('/')),
+      stores: (params) => speak(t('navigating-to-stores', params.lang), params.lang, () => router.push('/stores')),
+      dashboard: (params) => speak(t('navigating-to-dashboard', params.lang), params.lang, () => router.push('/dashboard')),
+      cart: (params) => speak(t('navigating-to-cart', params.lang), params.lang, () => router.push('/cart')),
+      orders: (params) => speak(t('navigating-to-orders', params.lang), params.lang, () => router.push('/dashboard/customer/my-orders')),
+      deliveries: (params) => speak(t('navigating-to-deliveries', params.lang), params.lang, () => router.push('/dashboard/delivery/deliveries')),
+      myStore: (params) => speak(t('navigating-to-my-store', params.lang), params.lang, () => router.push('/dashboard/owner/my-store')),
       checkout: (params: { lang: string }) => {
         const lang = params.lang || currentLanguage;
         const total = cartTotal + 30; // Assuming 30 is delivery fee
         if (cartTotal > 0) {
+            onCloseCart();
             speak(t('your-total-is-speech', lang).replace('{total}', `₹${total.toFixed(2)}`), lang, () => {
-                onCloseCart();
                 router.push('/checkout')
             });
         } else {

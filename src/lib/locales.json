@@ -1,7 +1,12 @@
 
 {
   "home": {
-    "en": "Home",
+    "en": [
+      "Home",
+      "home",
+      "homepage",
+      "home page"
+    ],
     "te": "హోమ్"
   },
   "stores": {
@@ -1784,8 +1789,8 @@
     "te": "క్షమించండి, మీ అభ్యర్థనలో నేను ఏ వస్తువులను కనుగొనలేకపోయాను."
   },
   "your-total-is-speech": {
-    "en": "Your cart total is {total}. Let's get this delivered.",
-    "te": "మీ కార్ట్ మొత్తం {total}. దీనిని డెలివరీ చేద్దాం."
+    "en": "Your cart total is {total}. I'll take you to the checkout page now.",
+    "te": "మీ కార్ట్ మొత్తం {total}. నేను ఇప్పుడు మిమ్మల్ని చెక్అవుట్ పేజీకి తీసుకువెళతాను."
   },
   "taking-you-to-checkout-speech": {
     "en": "Okay, taking you to checkout.",
@@ -1997,23 +2002,6 @@
       "పప్పుధాన్యాలు"
     ]
   },
-  "rice-(raw,-boiled,-basmati,-brown-etc)": {
-    "en": [
-      "rice",
-      "rise",
-      "raw rice",
-      "boiled rice",
-      "basmati rice",
-      "brown rice"
-    ],
-    "te": [
-      "బియ్యం",
-      "వరి",
-      "byyam",
-      "వరి బియ్యం",
-      "బాస్మతి బియ్యం"
-    ]
-  },
   "suji-(rava/semolina)": {
     "en": [
       "suji",
@@ -2028,27 +2016,6 @@
       "బొంబాయి రవ్వ",
       "బన్సీ రవ్వ",
       "ఇడ్లీ రవ్వ"
-    ]
-  },
-  "toor-dal-(arhar-dal)": {
-    "en": [
-      "toor dal",
-      "arhar dal",
-      "tuvar dal"
-    ],
-    "te": [
-      "kandi pappu",
-      "కందిపప్పు"
-    ]
-  },
-  "moong-dal-(yellow-split)": {
-    "en": [
-      "moong dal",
-      "mung dal"
-    ],
-    "te": [
-      "pesarapappu",
-      "పెసరపప్పు"
     ]
   },
   "spices-&-masalas": {
@@ -2640,5 +2607,33 @@
     "te": [
       "ఎనర్జీ డ్రింక్స్"
     ]
+  },
+  "navigating-to-home": {
+    "en": "Okay, taking you to the home page.",
+    "te": "సరే, మిమ్మల్ని హోమ్ పేజీకి తీసుకువెళుతున్నాను."
+  },
+  "navigating-to-stores": {
+    "en": "Showing all available stores.",
+    "te": "అందుబాటులో ఉన్న అన్ని దుకాణాలను చూపుతున్నాను."
+  },
+  "navigating-to-dashboard": {
+    "en": "Opening your dashboard.",
+    "te": "మీ డాష్‌బోర్డ్ తెరుస్తున్నాను."
+  },
+  "navigating-to-cart": {
+    "en": "Opening your shopping cart.",
+    "te": "మీ షాపింగ్ కార్ట్‌ను తెరుస్తున్నాను."
+  },
+  "navigating-to-orders": {
+    "en": "Here are your past orders.",
+    "te": "ఇవి మీ గత ఆర్డర్లు."
+  },
+  "navigating-to-deliveries": {
+    "en": "Opening the delivery dashboard.",
+    "te": "డెలివరీ డాష్‌బోర్డ్ తెరుస్తున్నాను."
+  },
+  "navigating-to-my-store": {
+    "en": "Opening your store management page.",
+    "te": "మీ స్టోర్ నిర్వహణ పేజీని తెరుస్తున్నాను."
   }
 }

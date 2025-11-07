@@ -62,7 +62,9 @@
   "checkout": {
     "display": "Proceed to Checkout",
     "reply": "your-total-is-speech",
-    "aliases": ["proceed to checkout"]
+    "aliases": [
+      "proceed to checkout"
+    ]
   },
   "placeOrder": {
     "display": "Place the order",
