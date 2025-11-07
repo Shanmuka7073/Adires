@@ -322,8 +322,7 @@ export function VoiceCommander({
         speak(t('which-store-should-fulfill-speech', currentLanguage), currentLanguage);
         setIsWaitingForStoreName(true);
     } else {
-        // If we've gotten this far, all details are present.
-        const speech = t('everything-is-ready-speech', currentLanguage);
+        const speech = t('everything-is-ready-speech', currentLanguage).replace('{address}', currentAddress);
         speak(speech, currentLanguage);
     }
     
@@ -533,6 +532,7 @@ export function VoiceCommander({
       const checkoutAliases = [t('checkout', lang), ...Object.values(getAllAliases('checkout')).flat()];
       for (const alias of [...new Set(checkoutAliases)]) {
           if (calculateSimilarity(commandLower, alias) > 0.8 || commandText.toLowerCase() === alias) {
+              // Pass the detected language explicitly
               await commandActionsRef.current.checkout({ lang });
               resetAllContext();
               return;
@@ -557,16 +557,25 @@ export function VoiceCommander({
         const homeKeywords = ['home', 'address', 'గృహ', 'మనె', 'घर', 'पता'];
         const locationKeywords = ['current', 'location', 'ప్రస్తుత', 'స్థానం', 'वर्तमान', 'स्थान'];
         
+        let actionTaken = false;
         if (homeKeywords.some(keyword => cmd.includes(keyword))) {
-          homeAddressBtnRef?.current?.click();
-          speak(t('setting-delivery-to-home-speech', lang), lang);
+          commandActionsRef.current.homeAddress({lang});
+          actionTaken = true;
         } else if (locationKeywords.some(keyword => cmd.includes(keyword))) {
-          currentLocationBtnRef?.current?.click();
-          speak(t('using-current-location-speech', lang), lang);
+          commandActionsRef.current.currentLocation({lang});
+          actionTaken = true;
         } else {
           speak(t('did-not-understand-address-type-speech', lang), lang);
         }
-        resetAllContext();
+        
+        // Reset context *after* the action has had a chance to run
+        if(actionTaken) {
+            setTimeout(() => {
+              hasSpokenCheckoutPrompt.current = false;
+              setIsWaitingForAddressType(false);
+              runCheckoutPrompt();
+            }, 1000);
+        }
         return;
       }
 
@@ -717,7 +726,7 @@ export function VoiceCommander({
     isWaitingForAddressType, homeAddressBtnRef, currentLocationBtnRef, isWaitingForVoiceOrder, 
     isWaitingForQuickOrderConfirmation, placeOrderBtnRef, clearCart, router, isWaitingForQuantity, 
     updateQuantity, isWaitingForStoreName, pathname, stores, setActiveStoreId, profileForm, 
-    handleProfileFormInteraction, findProductAndVariant, cartItemsProp, commandActionsRef
+    handleProfileFormInteraction, findProductAndVariant, cartItemsProp, commandActionsRef, runCheckoutPrompt
   ]);
 
 
@@ -783,15 +792,17 @@ export function VoiceCommander({
             speak(t('your-cart-is-empty-speech', lang), lang);
         }
       },
-      homeAddress: () => {
-        if(pathname === '/checkout' && homeAddressBtnRef?.current) {
-          homeAddressBtnRef.current.click();
+      homeAddress: ({ lang }) => {
+        if (pathname === '/checkout' && homeAddressBtnRef?.current) {
+            homeAddressBtnRef.current.click();
+            speak(t('setting-delivery-to-home-speech', lang), lang);
         }
       },
-      currentLocation: () => {
-        if(pathname === '/checkout' && currentLocationBtnRef?.current) {
-          currentLocationBtnRef.current.click();
-        }
+      currentLocation: ({ lang }) => {
+          if (pathname === '/checkout' && currentLocationBtnRef?.current) {
+              currentLocationBtnRef.current.click();
+              speak(t('using-current-location-speech', lang), lang);
+          }
       },
       recordOrder: (params: {lang: string}) => {
         const lang = params.lang || currentLanguage;
