@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -781,7 +782,10 @@ export function VoiceCommander({
         const lang = params.lang || currentLanguage;
         const total = cartTotal + 30; // Assuming 30 is delivery fee
         if (cartTotal > 0) {
-            speak(t('your-total-is-speech', lang).replace('{total}', `₹${total.toFixed(2)}`), lang, () => router.push('/checkout'));
+            speak(t('your-total-is-speech', lang).replace('{total}', `₹${total.toFixed(2)}`), lang, () => {
+                onCloseCart();
+                router.push('/checkout')
+            });
         } else {
             speak(t('your-cart-is-empty-speech', lang), lang);
         }
