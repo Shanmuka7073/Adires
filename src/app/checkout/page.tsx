@@ -154,7 +154,6 @@ export default function CheckoutPage() {
                 // A real app would use a Geocoding API here.
                 form.setValue('deliveryAddress', `Current Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`, { shouldValidate: true });
                 toast({ title: "Location Fetched!", description: "Your current location has been set for delivery." });
-                setTimeout(() => triggerVoicePrompt(), 500); // Trigger re-evaluation
             },
             () => {
                 toast({ variant: 'destructive', title: "Location Error", description: "Could not retrieve your location. Please ensure permissions are enabled." });
@@ -164,7 +163,7 @@ export default function CheckoutPage() {
     } else {
         toast({ variant: 'destructive', title: "Not Supported", description: "Geolocation is not supported by your browser." });
     }
-  }, [toast, form, triggerVoicePrompt]);
+  }, [toast, form]);
 
   useEffect(() => {
     setPlaceOrderBtnRef(placeOrderBtnRef);
@@ -197,26 +196,27 @@ export default function CheckoutPage() {
         // A real app would geocode the address to get coordinates.
         // For now, we'll clear coords if they were set.
         setDeliveryCoords(null);
-        setTimeout(() => triggerVoicePrompt(), 500); // Trigger re-evaluation
       } else {
         toast({ variant: 'destructive', title: 'No Home Address', description: 'Please set your home address in your profile first.' });
       }
     }
-  }, [userData, form, toast, triggerVoicePrompt]);
+  }, [userData, form, toast]);
 
   const deliveryAddressValue = form.watch('deliveryAddress');
-  
+
+  // This effect will proactively trigger the voice commander when a key piece of information changes.
   useEffect(() => {
-    if ( (deliveryAddressValue && deliveryAddressValue.length > 10) || activeStoreId ) {
+    if ((deliveryAddressValue && deliveryAddressValue.length > 10) || activeStoreId) {
       if (triggerVoicePrompt) {
-        // Use a timeout to avoid calling it too frequently during typing
+        // Use a timeout to avoid calling it too frequently during typing and to give React time to update state
         const handler = setTimeout(() => {
-            triggerVoicePrompt();
-        }, 500);
+          triggerVoicePrompt();
+        }, 300);
         return () => clearTimeout(handler);
       }
     }
   }, [deliveryAddressValue, activeStoreId, triggerVoicePrompt]);
+  
 
    // Effect for smart order: set home address if provided
   useEffect(() => {
@@ -504,4 +504,3 @@ export default function CheckoutPage() {
   );
 }
 
-    
