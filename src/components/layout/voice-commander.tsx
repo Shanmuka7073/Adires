@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, errorEmitter } from '@/firebase';
@@ -54,6 +54,9 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = groceryData.categories.reduc
     return acc;
 }, {} as Record<string, string[]>);
 
+
+type ProductAliasMap = Map<string, Product>;
+type StoreAliasMap = Map<string, Store>;
 
 export function VoiceCommander({
   enabled,
@@ -109,6 +112,46 @@ export function VoiceCommander({
   const [speechSynthesisVoices, setSpeechSynthesisVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [currentLanguage, setCurrentLanguage] = useState('en-IN');
   
+    // --- Performance Optimization: Memoized Alias Maps ---
+  const productAliasMap = useMemo<ProductAliasMap>(() => {
+    const map: ProductAliasMap = new Map();
+    if (!masterProducts) return map;
+
+    for (const p of masterProducts) {
+      if (!p.name) continue;
+      const productSlug = p.name.toLowerCase().replace(/ /g, '-');
+      const aliases = getAllAliases(productSlug);
+      const allTerms = [
+        p.name.toLowerCase(),
+        ...Object.values(aliases).flat().map(a => a.toLowerCase()),
+      ];
+      for (const term of [...new Set(allTerms)]) {
+        if (term) map.set(term, p);
+      }
+    }
+    return map;
+  }, [masterProducts]);
+
+  const storeAliasMap = useMemo<StoreAliasMap>(() => {
+    const map: StoreAliasMap = new Map();
+    if (!stores) return map;
+
+    for (const s of stores) {
+      const storeSlug = s.name.toLowerCase().replace(/ /g, '-');
+      const aliases = getAllAliases(storeSlug);
+      const allTerms = [
+        s.name.toLowerCase(),
+        ...(s.teluguName ? [s.teluguName.toLowerCase()] : []),
+        ...Object.values(aliases).flat().map(a => a.toLowerCase()),
+      ];
+      for (const term of [...new Set(allTerms)]) {
+        if (term) map.set(term, s);
+      }
+    }
+    return map;
+  }, [stores]);
+
+
   const resetAllContext = useCallback(() => {
     setIsWaitingForQuantity(false);
     itemToUpdateSkuRef.current = null;
@@ -203,6 +246,7 @@ export function VoiceCommander({
       if (enabled) {
         // Set initial language from the sticky state
         recognition.lang = currentLanguage;
+        recognition.continuous = true;
         try {
           recognition.start();
         } catch (e) {
@@ -324,7 +368,7 @@ export function VoiceCommander({
     
     hasSpokenCheckoutPrompt.current = true;
   }, [
-    pathname, hasMounted, enabled, isSpeakingRef.current, isWaitingForQuickOrderConfirmation, 
+    pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, 
     cartItemsProp.length, activeStoreId, currentLanguage, speak, setIsWaitingForAddressType, setIsWaitingForStoreName
   ]);
   
@@ -369,18 +413,12 @@ export function VoiceCommander({
     const lowerPhrase = phrase.toLowerCase();
     let bestMatch: { product: Product, alias: string, similarity: number } | null = null;
     
-    let productsToSearch = masterProducts;
-
-    // 1. Find best product match
-    for (const p of productsToSearch) {
-        if (!p.name) continue;
-        const aliases = [p.name.toLowerCase(), ...Object.values(getAllAliases(p.name.toLowerCase().replace(/ /g, '-'))).flat().map(a => a.toLowerCase())];
-        for (const alias of [...new Set(aliases)]) {
-            if (lowerPhrase.includes(alias)) {
-                const similarity = calculateSimilarity(lowerPhrase, alias);
-                if (!bestMatch || similarity > bestMatch.similarity) {
-                    bestMatch = { product: p, alias, similarity };
-                }
+    // Optimized search using the pre-built alias map
+    for (const [alias, product] of productAliasMap.entries()) {
+        if (lowerPhrase.includes(alias)) {
+             const similarity = calculateSimilarity(lowerPhrase, alias);
+             if (!bestMatch || similarity > bestMatch.similarity) {
+                bestMatch = { product, alias, similarity };
             }
         }
     }
@@ -459,7 +497,7 @@ export function VoiceCommander({
     }
     
     return { product: productMatch, variant: chosenVariant, requestedQty, remainingPhrase };
-  }, [firestore, masterProducts, productPrices, fetchProductPrices]);
+  }, [firestore, productPrices, fetchProductPrices, productAliasMap]);
 
   const handleCommand = useCallback(async (commandText: string) => {
     onStatusUpdate(`Processing: "${commandText}"`);
@@ -619,21 +657,13 @@ export function VoiceCommander({
           const spokenStoreName = commandLower;
           let bestMatch: { store: Store, similarity: number } | null = null;
 
-          for (const store of stores) {
-              const storeKey = store.name.toLowerCase().replace(/ /g, '-');
-              const aliases = getAllAliases(storeKey);
-              
-              const termsToSearch = [store.name.toLowerCase()];
-              if (store.teluguName) termsToSearch.push(store.teluguName.toLowerCase());
-              if (aliases.en) termsToSearch.push(...aliases.en.map(a => a.toLowerCase()));
-              if (aliases.te) termsToSearch.push(...aliases.te.map(a => a.toLowerCase()));
-
-              for (const term of [...new Set(termsToSearch)]) {
-                  const similarity = calculateSimilarity(spokenStoreName, term);
-                  if (!bestMatch || similarity > bestMatch.similarity) {
-                      bestMatch = { store, similarity };
-                  }
-              }
+          for (const [alias, store] of storeAliasMap.entries()) {
+            if (spokenStoreName.includes(alias)) {
+                const similarity = calculateSimilarity(spokenStoreName, alias);
+                if (!bestMatch || similarity > bestMatch.similarity) {
+                    bestMatch = { store, similarity };
+                }
+            }
           }
 
           if (bestMatch && bestMatch.similarity > 0.6) {
@@ -717,8 +747,8 @@ export function VoiceCommander({
     firestore, user, detectLanguage, updateRecognitionLanguage, currentLanguage, speak, onStatusUpdate, onSuggestions, resetAllContext,
     isWaitingForAddressType, homeAddressBtnRef, currentLocationBtnRef, isWaitingForVoiceOrder, 
     isWaitingForQuickOrderConfirmation, placeOrderBtnRef, clearCart, router, isWaitingForQuantity, 
-    updateQuantity, isWaitingForStoreName, pathname, stores, setActiveStoreId, profileForm, 
-    handleProfileFormInteraction, findProductAndVariant, cartItemsProp, commandActionsRef, runCheckoutPrompt
+    updateQuantity, isWaitingForStoreName, pathname, setActiveStoreId, profileForm, 
+    handleProfileFormInteraction, findProductAndVariant, cartItemsProp, commandActionsRef, runCheckoutPrompt, storeAliasMap
   ]);
 
 
@@ -728,7 +758,7 @@ export function VoiceCommander({
       return;
     }
 
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = false;
 
     recognition.onstart = () => {
@@ -771,12 +801,10 @@ export function VoiceCommander({
       myStore: (params) => speak(t('navigating-to-my-store', params.lang), params.lang, () => router.push('/dashboard/owner/my-store')),
       checkout: (params: { lang: string }) => {
         const lang = params.lang || currentLanguage;
-        console.log('Checkout command - Using language:', lang, 'Params lang:', params.lang, 'Current lang:', currentLanguage);
         const total = cartTotal + 30; // Assuming 30 is delivery fee
         onCloseCart();
         if (cartTotal > 0) {
             const speechText = t('your-total-is-speech', lang).replace('{total}', `₹${total.toFixed(2)}`);
-            console.log('Speaking checkout total:', speechText, 'in language:', lang);
             speak(speechText, lang, () => {
                 router.push('/checkout')
             });
@@ -944,23 +972,11 @@ export function VoiceCommander({
 
         // 1. Find Store
         let bestStoreMatch: { store: Store, similarity: number, term: string } | null = null;
-        for (const store of stores) {
-            const storeNameLower = store.name.toLowerCase();
-            const teluguNameLower = store.teluguName?.toLowerCase();
-            const storeKey = store.name.toLowerCase().replace(/ /g, '-');
-            const aliases = getAllAliases(storeKey);
-              
-            const termsToSearch = [storeNameLower];
-            if (teluguNameLower) termsToSearch.push(teluguNameLower);
-            if (aliases.en) termsToSearch.push(...aliases.en.map(a => a.toLowerCase()));
-            if (aliases.te) termsToSearch.push(...aliases.te.map(a => a.toLowerCase()));
-
-            for (const term of [...new Set(termsToSearch)]) {
-                if (remainingCommand.includes(term)) {
-                    const similarity = calculateSimilarity(remainingCommand, term);
-                    if (!bestStoreMatch || similarity > bestStoreMatch.similarity) {
-                        bestStoreMatch = { store, similarity, term };
-                    }
+        for (const [alias, store] of storeAliasMap.entries()) {
+             if (remainingCommand.includes(alias)) {
+                const similarity = calculateSimilarity(remainingCommand, alias);
+                if (!bestStoreMatch || similarity > bestStoreMatch.similarity) {
+                    bestStoreMatch = { store, similarity, term: alias };
                 }
             }
         }
@@ -970,7 +986,7 @@ export function VoiceCommander({
 
         // 2. Find Destination
         let destination: 'home' | null = null;
-        const homeKeywords = ['to home', 'at home', 'my home', 'to my house'];
+        const homeKeywords = ['to home', 'at home', 'my home', 'to my house', 'intiki', 'naa intiki'];
         const homeMatch = homeKeywords.find(kw => remainingCommand.includes(kw));
         if (homeMatch) {
             destination = 'home';
