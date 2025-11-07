@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -358,8 +359,20 @@ export function VoiceCommander({
     setIsWaitingForStoreName, cartTotal
   ]);
   
+  // New proactive trigger for the checkout page
+  useEffect(() => {
+    if (pathname === '/checkout' && hasMounted && enabled) {
+        // Use a timeout to avoid calling it too frequently during typing
+        const handler = setTimeout(() => {
+            triggerVoicePrompt();
+        }, 300); 
+        return () => clearTimeout(handler);
+    }
+  }, [pathname, hasMounted, enabled, voiceTrigger, runCheckoutPrompt]);
+  
   useEffect(() => {
     if (pathname === '/checkout' && hasMounted && enabled && voiceTrigger > 0) {
+        // This is triggered by the checkout command itself.
         const timeoutId = setTimeout(() => {
             runCheckoutPrompt();
         }, 1000); 
@@ -564,9 +577,7 @@ export function VoiceCommander({
         }
         
         setIsWaitingForAddressType(false);
-        setTimeout(() => {
-            runCheckoutPrompt();
-        }, 1500);
+        // The prompt will be re-triggered by the useEffect in checkout page
         return;
     }
 
@@ -585,11 +596,6 @@ export function VoiceCommander({
             const store = bestMatch.store;
             speak(t('okay-ordering-from-speech', lang).replace('{storeName}', store.name), langWithRegion, () => {
                 setActiveStoreId(store.id);
-                if(pathname === '/checkout') {
-                  setTimeout(() => {
-                      runCheckoutPrompt();
-                  }, 1500);
-                }
             });
         } else {
             speak(t('could-not-find-store-speech', lang).replace('{storeName}', commandText), langWithRegion);
@@ -606,6 +612,13 @@ export function VoiceCommander({
     }
     
     // --- PRIORITY 4: Core Order Processing Logic ---
+    const checkPriceAliases = [t('checkPrice', lang).toLowerCase(), ...Object.values(getAllAliases('checkPrice')).flat().map(a => a.toLowerCase())];
+    if (checkPriceAliases.some(alias => calculateSimilarity(commandLower, alias) > 0.8)) {
+        await commandActionsRef.current.checkPrice({ phrase: commandLower, lang, originalText: commandText });
+        resetAllContext();
+        return;
+    }
+
     const locationKeywords = ['from', 'to'];
     const hasLocation = locationKeywords.some(kw => commandLower.includes(kw));
 
@@ -691,12 +704,9 @@ export function VoiceCommander({
         const lang = params.lang || language;
         onCloseCart();
         if (cartTotal > 0) {
-             if (pathname !== '/checkout') {
-                router.push('/checkout');
-            } else {
-                // If already on checkout, just trigger the prompt
-                runCheckoutPrompt();
-            }
+            // This is the important change: trigger the voice prompt *after* navigating
+            router.push('/checkout');
+            triggerVoicePrompt();
         } else {
             speak(t('your-cart-is-empty-speech', lang), lang + '-IN');
         }
@@ -938,6 +948,45 @@ export function VoiceCommander({
 
         setShouldPlaceOrderDirectly(true);
         router.push('/checkout');
+    },
+    checkPrice: async ({ phrase, lang, originalText }: { phrase?: string; lang: string, originalText: string }) => {
+        if (!phrase) return;
+
+        // Try to isolate the product name from the query
+        const priceKeywords = [t('checkPrice', lang).toLowerCase(), ...Object.values(getAllAliases('checkPrice')).flat().map(a => a.toLowerCase())];
+        let productNameQuery = phrase;
+        for (const keyword of priceKeywords) {
+            if (productNameQuery.includes(keyword)) {
+                productNameQuery = productNameQuery.replace(keyword, '').trim();
+                break; // Stop after the first replacement
+            }
+        }
+        
+        const { product, variant } = await findProductAndVariant(productNameQuery);
+        
+        if (product) {
+            const priceData = productPrices[product.name.toLowerCase()];
+            if (priceData && priceData.variants && priceData.variants.length > 0) {
+                const pricesString = priceData.variants.map(v => 
+                    t('price-check-variant-speech', lang)
+                        .replace('{weight}', v.weight)
+                        .replace('{price}', `₹${v.price.toFixed(2)}`)
+                ).join(', ');
+
+                const reply = t('price-check-reply-speech', lang)
+                    .replace('{productName}', getProductName(product))
+                    .replace('{prices}', pricesString);
+                
+                speak(reply, lang + '-IN');
+
+            } else {
+                speak(t('no-price-found-speech', lang).replace('{productName}', getProductName(product)), lang + '-IN');
+                 if(firestore && user) addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: lang, reason: `Price check: product "${product.name}" found but no price data available.`, timestamp: serverTimestamp() });
+            }
+        } else {
+            speak(t('sorry-i-didnt-understand-that', lang), lang + '-IN');
+            if(firestore && user) addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: lang, reason: `Price check: product not found for query "${productNameQuery}".`, timestamp: serverTimestamp() });
+        }
     },
     };
 

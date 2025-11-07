@@ -1807,9 +1807,9 @@
     "en": "Which store should I order from?",
     "te": "ఏ స్టోర్ నుండి ఆర్డర్ చేయాలి?"
   },
-  "everything-is-ready-speech": {
-    "en": "Everything looks ready. We will deliver to your address on file. Just say 'place order' to confirm.",
-    "te": "అన్నీ సిద్ధంగా ఉన్నాయి. మేము మీ ఫైల్‌లోని చిరునామాకు డెలివరీ చేస్తాము. నిర్ధారించడానికి 'ఆర్డర్ చేయండి' అని చెప్పండి."
+  "finalConfirmPrompt": {
+    "en": "Everything looks ready. Your total is {total}. Just say 'place order' to confirm.",
+    "te": "అన్నీ సిద్ధంగా ఉన్నాయి. మీ మొత్తం {total}. నిర్ధారించడానికి 'ఆర్డర్ చేయండి' అని చెప్పండి."
   },
   "setting-delivery-to-home-speech": {
     "en": "Okay, setting delivery to your home address.",
@@ -3511,10 +3511,35 @@
       "amma amma"
     ]
   },
-  "finalConfirmPrompt": {
-    "en": "Everything looks ready. Your total is {total}. Just say 'place order' to confirm.",
-    "te": "అన్నీ సిద్ధంగా ఉన్నాయి. మీ మొత్తం {total}. నిర్ధారించడానికి 'ఆర్డర్ చేయండి' అని చెప్పండి."
+  "price-check-reply-speech": {
+    "en": "{productName} is available as: {prices}",
+    "te": "{productName} ఈ క్రింది విధముగా అందుబాటులో ఉంది: {prices}"
+  },
+  "price-check-variant-speech": {
+    "en": "{weight} for {price}",
+    "te": "{weight} కి {price}"
+  },
+  "no-price-found-speech": {
+    "en": "I'm sorry, I couldn't find a price for {productName}.",
+    "te": "క్షమించండి, {productName} కోసం నేను ధరను కనుగొనలేకపోయాను."
+  },
+  "checkPrice": {
+    "en": [
+      "what is the price of",
+      "what's the price of",
+      "price of",
+      "cost of",
+      "what is the cost of",
+      "how much for",
+      "how much is"
+    ],
+    "te": [
+      "ధర ఎంత",
+      "రేటు ఎంత",
+      "ఖరీదు ఎంత",
+      "వెరీ ఎంత",
+      "దీని ధర ఎంత",
+      "దీని రేటు ఎంత"
+    ]
   }
 }
-
-    

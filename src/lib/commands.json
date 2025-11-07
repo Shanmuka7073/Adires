@@ -105,5 +105,10 @@
     "display": "Final Order Confirmation Prompt",
     "reply": "everything-is-ready-speech",
     "aliases": []
+  },
+  "checkPrice": {
+    "display": "Check Price of an Item",
+    "reply": "price-check-reply-speech",
+    "aliases": []
   }
 }
