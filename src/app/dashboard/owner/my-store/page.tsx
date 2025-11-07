@@ -69,7 +69,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import Link from 'next/link';
 import { t, getAllAliases } from '@/lib/locales';
-import { useAppStore } from '@/lib/store';
+import { useAppStore, useMyStorePageStore } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
@@ -529,6 +529,8 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [isSaving, startSaveTransition] = useTransition();
+  const { setSaveInventoryBtnRef } = useMyStorePageStore();
+  const saveBtnRef = useRef<HTMLButtonElement>(null);
 
   // Fetch all products from the master admin store
   const masterProductsQuery = useMemoFirebase(() => {
@@ -546,6 +548,11 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
 
   // State to manage which products are checked
   const [checkedProducts, setCheckedProducts] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setSaveInventoryBtnRef(saveBtnRef);
+    return () => setSaveInventoryBtnRef(null);
+  }, [setSaveInventoryBtnRef, saveBtnRef]);
 
   // When owner's products load, initialize the checked state
   useEffect(() => {
@@ -665,7 +672,7 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
                        </AccordionItem>
                   ))}
               </Accordion>
-               <Button onClick={handleSaveChanges} disabled={isSaving} className="w-full">
+               <Button ref={saveBtnRef} onClick={handleSaveChanges} disabled={isSaving} className="w-full">
                   {isSaving ? t('saving-changes') : t('save-inventory-changes')}
               </Button>
           </CardContent>

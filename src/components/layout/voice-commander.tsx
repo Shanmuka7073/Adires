@@ -9,7 +9,7 @@ import { useFirebase, errorEmitter } from '@/firebase';
 import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant } from '@/lib/types';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
-import { useAppStore, useProfileFormStore } from '@/lib/store';
+import { useAppStore, useProfileFormStore, useMyStorePageStore } from '@/lib/store';
 import { ProfileFormValues } from '@/app/dashboard/customer/my-profile/page';
 import { useCheckoutStore } from '@/app/checkout/page';
 import { getCommands } from '@/app/actions';
@@ -77,6 +77,7 @@ export function VoiceCommander({
   const { stores, masterProducts, productPrices, fetchInitialData, fetchProductPrices, getProductName } = useAppStore();
 
   const { form: profileForm } = useProfileFormStore();
+  const { saveInventoryBtnRef } = useMyStorePageStore();
   const { 
     placeOrderBtnRef, 
     setIsWaitingForQuickOrderConfirmation, 
@@ -513,6 +514,15 @@ export function VoiceCommander({
       }
 
       if (pathname === '/dashboard/owner/my-store') {
+        const saveAliases = [t('saveChanges', lang), ...Object.values(getAllAliases('saveChanges')).flat()];
+         for (const alias of [...new Set(saveAliases)]) {
+              if (calculateSimilarity(commandLower, alias) > 0.8 || commandText.toLowerCase() === alias) {
+                  commandActionsRef.current.saveChanges({ lang });
+                  resetAllContext();
+                  return;
+              }
+          }
+
         const { product } = await findProductAndVariant(commandLower);
         if (product && product.id) {
             const checkbox = document.getElementById(product.id);
@@ -688,8 +698,7 @@ export function VoiceCommander({
       // --- PRIORITY 4: Multi-Item Order ---
       const multiItemSeparators = / and | , | and then | then /i;
       if (commandLower.match(multiItemSeparators)) {
-          const items = commandLower.split(multiItemSeparators);
-          await commandActionsRef.current.orderMultipleItems(items, lang, commandText);
+          await commandActionsRef.current.orderMultipleItems(commandLower.split(multiItemSeparators), lang, commandText);
           return;
       }
 
@@ -744,7 +753,7 @@ export function VoiceCommander({
     isWaitingForAddressType, homeAddressBtnRef, currentLocationBtnRef, isWaitingForVoiceOrder, 
     isWaitingForQuickOrderConfirmation, placeOrderBtnRef, clearCart, router, isWaitingForQuantity, 
     updateQuantity, isWaitingForStoreName, pathname, setActiveStoreId, profileForm, 
-    handleProfileFormInteraction, findProductAndVariant, cartItemsProp, commandActionsRef, runCheckoutPrompt, storeAliasMap
+    handleProfileFormInteraction, findProductAndVariant, cartItemsProp, commandActionsRef, runCheckoutPrompt, storeAliasMap, saveInventoryBtnRef
   ]);
 
 
@@ -880,7 +889,9 @@ export function VoiceCommander({
       },
       saveChanges: (params) => {
         const lang = params?.lang || currentLanguage;
-        if (pathname === '/dashboard/customer/my-profile' && profileForm) {
+        if (pathname === '/dashboard/owner/my-store' && saveInventoryBtnRef?.current) {
+          saveInventoryBtnRef.current.click();
+        } else if (pathname === '/dashboard/customer/my-profile' && profileForm) {
             if (typeof document !== 'undefined') {
                 const formElement = document.querySelector('form');
                 if (formElement) formElement.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));

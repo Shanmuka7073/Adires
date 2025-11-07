@@ -6,7 +6,7 @@ import { Firestore } from 'firebase/firestore';
 import { Store, Product, ProductPrice } from './types';
 import { getStores, getMasterProducts, getProductPrice } from './data';
 import { useFirebase } from '@/firebase';
-import { useEffect } from 'react';
+import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { ProfileFormValues } from '@/app/dashboard/customer/my-profile/page';
 import { t as translate } from '@/lib/locales';
@@ -114,4 +114,15 @@ interface ProfileFormState {
 export const useProfileFormStore = create<ProfileFormState>((set) => ({
   form: null,
   setForm: (form) => set({ form }),
+}));
+
+// --- Store for My Store Page ---
+interface MyStorePageState {
+  saveInventoryBtnRef: RefObject<HTMLButtonElement> | null;
+  setSaveInventoryBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
+}
+
+export const useMyStorePageStore = create<MyStorePageState>((set) => ({
+  saveInventoryBtnRef: null,
+  setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
 }));
