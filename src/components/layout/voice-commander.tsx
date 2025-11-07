@@ -296,7 +296,7 @@ export function VoiceCommander({
     }
   }, [profileForm, speak]);
 
-  const runCheckoutPrompt = useCallback(() => {
+ const runCheckoutPrompt = useCallback(() => {
     if (pathname !== '/checkout' || !hasMounted || !enabled || isSpeakingRef.current) {
       return;
     }
@@ -306,7 +306,7 @@ export function VoiceCommander({
     const addressInput = typeof document !== 'undefined' ? (document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement) : null;
     const currentAddress = addressInput?.value || '';
 
-    // Use if/else if to ensure sequential prompting
+    // Corrected logic with if/else if
     if (isWaitingForQuickOrderConfirmation) {
         speak(t('confirm-the-quick-order-speech', currentLanguage), currentLanguage);
     } else if (cartItemsProp.length === 0) {
@@ -318,14 +318,12 @@ export function VoiceCommander({
         speak(t('which-store-should-fulfill-speech', currentLanguage), currentLanguage);
         setIsWaitingForStoreName(true);
     } else {
-        // If we've gotten this far, all details are present.
         const speech = t('everything-is-ready-speech', currentLanguage).replace('{address}', currentAddress);
         speak(speech, currentLanguage);
     }
     
     hasSpokenCheckoutPrompt.current = true;
-}, [pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, speak, activeStoreId, cartItemsProp, currentLanguage, setIsWaitingForAddressType, setIsWaitingForStoreName]);
-
+  }, [pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, speak, activeStoreId, cartItemsProp, currentLanguage, setIsWaitingForAddressType, setIsWaitingForStoreName]);
   
   useEffect(() => {
       hasSpokenCheckoutPrompt.current = false;
@@ -552,15 +550,15 @@ export function VoiceCommander({
         
         let actionTaken = false;
         if (homeKeywords.some(keyword => cmd.includes(keyword))) {
-          commandActionsRef.current.homeAddress({ lang });
+          homeAddressBtnRef?.current?.click();
           actionTaken = true;
         } else if (locationKeywords.some(keyword => cmd.includes(keyword))) {
-          commandActionsRef.current.currentLocation({ lang });
+          currentLocationBtnRef?.current?.click();
           actionTaken = true;
         } else {
           speak(t('did-not-understand-address-type-speech', lang), lang);
         }
-
+        
         if (actionTaken) {
             setIsWaitingForAddressType(false);
             // Re-trigger the prompt after a short delay to allow page to settle
@@ -643,14 +641,12 @@ export function VoiceCommander({
           }
 
           if (bestMatch && bestMatch.similarity > 0.6) {
-              speak(t('okay-ordering-from-speech', lang).replace('{storeName}', bestMatch.store.name), lang, () => {
-                setActiveStoreId(bestMatch.store.id);
-                // Re-trigger the prompt after a short delay to check the next step
-                 setTimeout(() => {
-                    hasSpokenCheckoutPrompt.current = false;
-                    runCheckoutPrompt();
-                }, 1500);
-              });
+              setActiveStoreId(bestMatch.store.id);
+              // Re-trigger the prompt after a short delay to allow page to settle
+              setTimeout(() => {
+                  hasSpokenCheckoutPrompt.current = false;
+                  runCheckoutPrompt();
+              }, 1500);
           } else {
               speak(t('could-not-find-store-speech', lang).replace('{storeName}', commandText), lang);
           }
@@ -1054,4 +1050,3 @@ export function VoiceCommander({
 
   return null;
 }
-```
