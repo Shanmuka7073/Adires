@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -299,13 +300,13 @@ export function VoiceCommander({
     if (pathname !== '/checkout' || !hasMounted || !enabled || isSpeakingRef.current) {
       return;
     }
-
+    
     if (hasSpokenCheckoutPrompt.current) return;
-
+    
     const addressInput = typeof document !== 'undefined' ? (document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement) : null;
     const currentAddress = addressInput?.value || '';
 
-    // Use if/else if to ensure only one prompt is spoken per check
+    // Use if/else if to ensure sequential prompting
     if (isWaitingForQuickOrderConfirmation) {
         speak(t('confirm-the-quick-order-speech', currentLanguage), currentLanguage);
     } else if (cartItemsProp.length === 0) {
@@ -317,23 +318,13 @@ export function VoiceCommander({
         speak(t('which-store-should-fulfill-speech', currentLanguage), currentLanguage);
         setIsWaitingForStoreName(true);
     } else {
+        // If we've gotten this far, all details are present.
         const speech = t('everything-is-ready-speech', currentLanguage).replace('{address}', currentAddress);
         speak(speech, currentLanguage);
     }
-
+    
     hasSpokenCheckoutPrompt.current = true;
-}, [
-    pathname,
-    hasMounted,
-    enabled,
-    isWaitingForQuickOrderConfirmation,
-    cartItemsProp.length,
-    activeStoreId,
-    speak,
-    currentLanguage,
-    setIsWaitingForAddressType,
-    setIsWaitingForStoreName
-]);
+}, [pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, speak, activeStoreId, cartItemsProp, currentLanguage, setIsWaitingForAddressType, setIsWaitingForStoreName]);
 
   
   useEffect(() => {
@@ -391,9 +382,6 @@ export function VoiceCommander({
     let productsToSearch = masterProducts;
     if (detectedCategory) {
         productsToSearch = masterProducts.filter(p => p.category === detectedCategory);
-        console.log(`Hybrid search: Detected category "${detectedCategory}", searching ${productsToSearch.length} products.`);
-    } else {
-        console.log(`Hybrid search: No category detected, performing full scan of ${masterProducts.length} products.`);
     }
 
     // 3. Find best product match within the search scope
@@ -412,7 +400,6 @@ export function VoiceCommander({
     
     // If no match in category, do a full scan (fallback)
     if (!bestMatch && detectedCategory) {
-        console.log("Hybrid search: No match in category, falling back to full scan.");
         for (const p of masterProducts) {
              if (!p.name) continue;
             const aliases = [p.name.toLowerCase(), ...Object.values(getAllAliases(p.name.toLowerCase().replace(/ /g, '-'))).flat().map(a => a.toLowerCase())];
@@ -535,14 +522,15 @@ export function VoiceCommander({
           }
       }
       
+      // PRIORITY 1.5: Checkout is special because it needs to speak before navigating
       const checkoutAliases = [t('checkout', lang), ...Object.values(getAllAliases('checkout')).flat()];
-        for (const alias of [...new Set(checkoutAliases)]) {
-            if (calculateSimilarity(commandLower, alias) > 0.8 || commandText.toLowerCase() === alias) {
-                await commandActionsRef.current.checkout({ lang });
-                resetAllContext();
-                return;
-            }
-        }
+      for (const alias of [...new Set(checkoutAliases)]) {
+          if (calculateSimilarity(commandLower, alias) > 0.8 || commandText.toLowerCase() === alias) {
+              await commandActionsRef.current.checkout({ lang });
+              resetAllContext();
+              return;
+          }
+      }
 
       // --- PRIORITY 2: Smart Order command (isolated check) ---
       const actionKeywords = ['order', 'send', 'buy', 'get'];
@@ -562,25 +550,27 @@ export function VoiceCommander({
         const homeKeywords = ['home', 'address', 'గృహ', 'మనె', 'घर', 'पता'];
         const locationKeywords = ['current', 'location', 'ప్రస్తుత', 'స్థానం', 'वर्तमान', 'स्थान'];
         
-        const handleAddressAction = (actionFn: () => void) => {
-            actionFn();
+        let actionTaken = false;
+        if (homeKeywords.some(keyword => cmd.includes(keyword))) {
+          commandActionsRef.current.homeAddress({ lang });
+          actionTaken = true;
+        } else if (locationKeywords.some(keyword => cmd.includes(keyword))) {
+          commandActionsRef.current.currentLocation({ lang });
+          actionTaken = true;
+        } else {
+          speak(t('did-not-understand-address-type-speech', lang), lang);
+        }
+
+        if (actionTaken) {
             setIsWaitingForAddressType(false);
-            // Re-trigger the prompt after a short delay to check the next step
+            // Re-trigger the prompt after a short delay to allow page to settle
             setTimeout(() => {
                 hasSpokenCheckoutPrompt.current = false;
                 runCheckoutPrompt();
             }, 1500);
-        };
-
-        if (homeKeywords.some(keyword => cmd.includes(keyword))) {
-            handleAddressAction(() => commandActionsRef.current.homeAddress({ lang }));
-        } else if (locationKeywords.some(keyword => cmd.includes(keyword))) {
-            handleAddressAction(() => commandActionsRef.current.currentLocation({ lang }));
-        } else {
-            speak(t('did-not-understand-address-type-speech', lang), lang);
         }
-        return; // Important: Stop further processing
-    }
+        return;
+      }
 
       if (isWaitingForVoiceOrder) {
         await commandActionsRef.current.createVoiceOrder(commandLower, lang);
@@ -655,11 +645,11 @@ export function VoiceCommander({
           if (bestMatch && bestMatch.similarity > 0.6) {
               speak(t('okay-ordering-from-speech', lang).replace('{storeName}', bestMatch.store.name), lang, () => {
                 setActiveStoreId(bestMatch.store.id);
-                // Re-trigger the prompt after a short delay
-                setTimeout(() => {
+                // Re-trigger the prompt after a short delay to check the next step
+                 setTimeout(() => {
                     hasSpokenCheckoutPrompt.current = false;
                     runCheckoutPrompt();
-                }, 500);
+                }, 1500);
               });
           } else {
               speak(t('could-not-find-store-speech', lang).replace('{storeName}', commandText), lang);
@@ -1057,10 +1047,11 @@ export function VoiceCommander({
       }
     };
   }, [handleCommand, cartTotal, cartItemsProp, pathname]);
-  
+
   useEffect(() => {
     console.log('Current language changed to:', currentLanguage);
   }, [currentLanguage]);
 
   return null;
 }
+```
