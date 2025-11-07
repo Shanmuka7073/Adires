@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import Image from 'next/image';
@@ -46,9 +47,8 @@ export default function ProductCard({ product, image, priceData }: ProductCardPr
   
   const handleAddToCart = () => {
     if (selectedVariant) {
-      // Pass the product with the dynamically fetched variants to the cart
-      const productWithPrice = { ...product, variants: priceVariants };
-      addItem(productWithPrice, selectedVariant);
+      // The product object now correctly includes its storeId, which is needed by the cart.
+      addItem(product, selectedVariant);
     } else {
       toast({
         variant: 'destructive',
