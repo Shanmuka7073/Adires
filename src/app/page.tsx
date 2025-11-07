@@ -1,19 +1,16 @@
 
 'use client';
 import { Button } from '@/components/ui/button';
-import { getStores } from '@/lib/data';
-import StoreCard from '@/components/store-card';
 import { useFirebase } from '@/firebase';
 import { Store } from '@/lib/types';
-import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
-import { ArrowRight, ShoppingCart, Send, Map } from 'lucide-react';
+import { ArrowRight, ShoppingCart, Send, Map, Target, Eye, Heart } from 'lucide-react';
 import Image from 'next/image';
 
 function InfoCard({ icon: Icon, title, description }: { icon: React.ElementType, title: string, description: string }) {
     return (
-        <div className="flex flex-col items-center text-center p-6 bg-card rounded-xl shadow-sm">
+        <div className="flex flex-col items-center text-center p-6 bg-card rounded-xl shadow-sm h-full">
             <div className="p-4 bg-primary/10 rounded-full mb-4">
                 <Icon className="h-8 w-8 text-primary" />
             </div>
@@ -26,29 +23,6 @@ function InfoCard({ icon: Icon, title, description }: { icon: React.ElementType,
 
 export default function Home() {
   const { firestore } = useFirebase();
-  const [allStores, setAllStores] = useState<Store[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchStores() {
-      if (!firestore) return;
-      setLoading(true);
-      try {
-        const stores = await getStores(firestore);
-        setAllStores(stores);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchStores();
-  }, [firestore]);
-
-  const displayedStores = useMemo(() => {
-    return allStores.slice(0, 3);
-  }, [allStores]);
-
 
   return (
     <div className="flex flex-col">
@@ -108,36 +82,34 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="w-full py-12 md:py-24 lg:py-32 bg-secondary/30">
+      <section className="w-full py-16 md:py-24 lg:py-32 bg-secondary/30">
         <div className="container px-4 md:px-6">
-          <div className="flex flex-col items-center justify-center space-y-4 text-center">
-            <div className="space-y-2">
+          <div className="flex flex-col items-center justify-center space-y-4 text-center mb-12">
+              <div className="inline-block rounded-lg bg-accent/10 px-3 py-1 text-sm font-semibold text-accent-foreground">Our Story</div>
               <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl font-headline">
-                {t('or-browse-featured-stores')}
+                AI for Bharat
               </h2>
               <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-                {t('explore-top-rated-local-stores-right-in-your-neighborhood')}
+                We are building the fastest, smartest, and most natural grocery voice engine in India, designed specially for Indian languages, accents, and real-life speech.
               </p>
-            </div>
           </div>
-          <div className="mx-auto grid grid-cols-1 gap-6 py-12 sm:grid-cols-2 lg:grid-cols-3">
-            {loading ? (
-              <p>{t('loading-stores')}...</p>
-            ) : displayedStores.length > 0 ? (
-              displayedStores.map((store) => (
-                <StoreCard key={store.id} store={store} />
-              ))
-            ) : (
-              <p className="col-span-full text-center text-muted-foreground">{t('no-stores-found')}</p>
-            )}
+           <div className="mx-auto grid max-w-5xl items-start gap-8 sm:grid-cols-3">
+               <InfoCard
+                    icon={Target}
+                    title="The Problem"
+                    description="Most grocery apps fail when users speak naturally with mixed languages, slang, or regional accents. We solve this."
+                />
+                <InfoCard
+                    icon={Eye}
+                    title="Our Vision"
+                    description="To become India’s No.1 AI Grocery Voice Platform, powering every home and every store with simple, voice-based shopping."
+                />
+                 <InfoCard
+                    icon={Heart}
+                    title="Our Mission"
+                    description="To empower local neighborhood stores and connect them directly with customers through technology that understands them."
+                />
           </div>
-            {allStores.length > 3 && (
-                <div className="text-center">
-                    <Button asChild variant="outline">
-                        <Link href="/stores">View All Stores</Link>
-                    </Button>
-                </div>
-            )}
         </div>
       </section>
     </div>
