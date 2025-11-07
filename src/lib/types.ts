@@ -19,6 +19,7 @@ export type Product = {
   category?: string;
   imageUrl?: string; // Data URI for AI-generated image
   imageHint?: string;
+  matchedAlias?: string; // The alias the user spoke
 };
 
 export type Store = {
@@ -120,5 +121,3 @@ export type FailedVoiceCommand = {
     timestamp: Timestamp | Date | string;
     reason: string;
 }
-
-    
