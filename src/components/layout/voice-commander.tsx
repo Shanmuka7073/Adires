@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -398,7 +399,7 @@ export function VoiceCommander({
     };
   }, [pathname, hasMounted, enabled, profileForm, handleProfileFormInteraction]);
 
-  const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null; variant: ProductVariant | null; requestedQty: number; remainingPhrase: string; }> => {
+  const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null; variant: ProductVariant | null; requestedQty: number; remainingPhrase: string; matchedAlias: string | null; }> => {
     const lowerPhrase = phrase.toLowerCase();
     let bestMatch: { product: Product, alias: string, similarity: number } | null = null;
     
@@ -411,9 +412,10 @@ export function VoiceCommander({
         }
     }
     
-    if (!bestMatch) return { product: null, variant: null, requestedQty: 1, remainingPhrase: phrase };
+    if (!bestMatch) return { product: null, variant: null, requestedQty: 1, remainingPhrase: phrase, matchedAlias: null };
 
     const productMatch = bestMatch.product;
+    const matchedAlias = bestMatch.alias;
     let remainingPhrase = lowerPhrase.replace(bestMatch.alias, '').trim();
 
     let priceData = productPrices[productMatch.name.toLowerCase()];
@@ -422,7 +424,7 @@ export function VoiceCommander({
         priceData = useAppStore.getState().productPrices[productMatch.name.toLowerCase()];
     }
     
-    if (!priceData?.variants?.length) return { product: productMatch, variant: null, requestedQty: 1, remainingPhrase };
+    if (!priceData?.variants?.length) return { product: productMatch, variant: null, requestedQty: 1, remainingPhrase, matchedAlias };
     
     const numberWords: Record<string, number> = { 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10, 'ఒకటి': 1, 'రెండు': 2, 'మూడు': 3, 'నాలుగు': 4, 'ఐదు': 5, 'ఆరు': 6, 'ఏడు': 7, 'ఎనిమిది': 8, 'తొమ్మిది': 9, 'పది': 10, 'एक': 1, 'दो': 2, 'तीन': 3, 'चार': 4, 'पांच': 5, 'छह': 6, 'सात': 7, 'आठ': 8, 'नौ': 9, 'दस': 10 };
     const weightRegex = new RegExp(`(${Object.keys(numberWords).join('|')}|\\d+)\\s*(kg|kilo|kilos|కేజీ|కిలో|gm|g|grams|గ్రాములు|pc|piece|pack|ప్యాక్)`, 'i');
@@ -472,7 +474,7 @@ export function VoiceCommander({
       }
     }
     
-    return { product: productMatch, variant: chosenVariant, requestedQty: quantity, remainingPhrase };
+    return { product: productMatch, variant: chosenVariant, requestedQty: quantity, remainingPhrase, matchedAlias };
 
   }, [firestore, productPrices, fetchProductPrices, productAliasMap]);
 
@@ -824,12 +826,13 @@ export function VoiceCommander({
       orderItem: async ({ phrase, lang, originalText }: { phrase?: string; lang: string, originalText: string }) => {
         if (!phrase) return;
 
-        const { product, variant, requestedQty } = await findProductAndVariant(phrase);
+        const { product, variant, requestedQty, matchedAlias } = await findProductAndVariant(phrase);
 
         if (product && variant) {
+            const replyProductName = matchedAlias || getProductName(product);
             const speech = t('adding-item-speech', lang)
                 .replace('{quantity}', `${requestedQty}`)
-                .replace('{productName}', product.name);
+                .replace('{productName}', replyProductName);
             speak(speech, lang + '-IN');
             addItemToCart(product, variant, requestedQty);
             onOpenCart();
@@ -852,10 +855,11 @@ export function VoiceCommander({
 
         for (const phrase of phrases) {
             if (!phrase.trim()) continue;
-            const { product, variant, requestedQty } = await findProductAndVariant(phrase);
+            const { product, variant, requestedQty, matchedAlias } = await findProductAndVariant(phrase);
             if (product && variant) {
                 addItemToCart(product, variant, requestedQty);
-                addedItems.push(`${requestedQty} ${product.name}`);
+                const replyProductName = matchedAlias || getProductName(product);
+                addedItems.push(`${requestedQty} ${replyProductName}`);
             } else {
                 failedItems.push(phrase);
             }
@@ -914,10 +918,11 @@ export function VoiceCommander({
 
         for (const phrase of productPhrases) {
             if (!phrase.trim()) continue;
-            const { product, variant, requestedQty } = await findProductAndVariant(phrase);
+            const { product, variant, requestedQty, matchedAlias } = await findProductAndVariant(phrase);
             if (product && variant) {
                 addItemToCart(product, variant, requestedQty);
-                addedItems.push(`${requestedQty} ${product.name}`);
+                const replyProductName = matchedAlias || getProductName(product);
+                addedItems.push(`${requestedQty} ${replyProductName}`);
             } else {
                 failedItems.push(phrase);
             }
@@ -988,3 +993,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
