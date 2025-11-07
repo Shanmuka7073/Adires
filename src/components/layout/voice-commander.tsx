@@ -172,27 +172,18 @@ export function VoiceCommander({
     const lowerText = text.toLowerCase();
 
     const langKeywords = [
-        { lang: 'te-IN', keywords: ['naku', 'naaku', 'నాకు'] },
+        { lang: 'te-IN', keywords: ['naku', 'naaku', 'నాకు', 'తెలుగు', 'telugu'] },
         { lang: 'hi-IN', keywords: ['mujhe', 'मुझे'] },
-        { lang: 'en-IN', keywords: ['i want', 'i need', 'get me', 'add', 'get', 'buy', 'order', 'send', 'go', 'open', 'i'] }
+        { lang: 'en-IN', keywords: ['i want', 'i need', 'get me', 'add', 'get', 'buy', 'order', 'send', 'go', 'open', 'i', 'english', 'in english'] }
     ];
 
     for (const lang of langKeywords) {
         for (const keyword of lang.keywords) {
-            if (lowerText.startsWith(keyword + ' ')) {
+             // Check if the command includes the keyword, not just starts with it
+            if (lowerText.includes(keyword)) {
                  setCurrentLanguage(lang.lang);
-                return {
-                    lang: lang.lang,
-                    command: lowerText.substring(keyword.length).trim()
-                };
-            }
-             // Also handle cases where keyword is the whole command e.g., "Home" or "naaku"
-            if (lowerText === keyword) {
-                 setCurrentLanguage(lang.lang);
-                 return {
-                    lang: lang.lang,
-                    command: lowerText // Keep the command to match aliases
-                };
+                // Return the full command, don't strip the keyword
+                return { lang: lang.lang, command: lowerText };
             }
         }
     }
@@ -362,14 +353,15 @@ export function VoiceCommander({
         speak(t('which-store-should-fulfill-speech', currentLanguage), currentLanguage);
         setIsWaitingForStoreName(true);
     } else {
-        const speech = t('everything-is-ready-speech', currentLanguage).replace('{address}', currentAddress);
+        const total = cartTotal + 30; // Assuming 30 is delivery fee
+        const speech = t('your-total-is-speech', currentLanguage).replace('{total}', `₹${total.toFixed(2)}`);
         speak(speech, currentLanguage);
     }
     
     hasSpokenCheckoutPrompt.current = true;
   }, [
     pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, 
-    cartItemsProp.length, activeStoreId, currentLanguage, speak, setIsWaitingForAddressType, setIsWaitingForStoreName
+    cartItemsProp.length, activeStoreId, currentLanguage, speak, setIsWaitingForAddressType, setIsWaitingForStoreName, cartTotal
   ]);
   
   useEffect(() => {
@@ -494,14 +486,15 @@ export function VoiceCommander({
       
       let { lang, command: strippedCommand } = detectLanguage(commandText);
       
-      if (lang !== currentLanguage) {
+       if (lang !== currentLanguage) {
           setCurrentLanguage(lang);
           updateRecognitionLanguage(lang);
-          const isJustLangKeyword = ['naaku', 'naku', 'నాకు', 'mujhe', 'मुझे'].includes(commandText.toLowerCase());
-          if (isJustLangKeyword) {
-              speak(t('telugu-welcome-speech', lang), lang);
-              resetAllContext();
-              return;
+          // Check for simple language switching commands
+          if (['english', 'తెలుగు'].includes(commandText.toLowerCase())) {
+            const welcomeKey = lang === 'te-IN' ? 'telugu-welcome-speech' : 'english-welcome-speech';
+            speak(t(welcomeKey, lang), lang);
+            resetAllContext();
+            return;
           }
       }
       
@@ -517,6 +510,21 @@ export function VoiceCommander({
                   return;
               }
           }
+      }
+
+      if (pathname === '/dashboard/owner/my-store') {
+        const { product } = await findProductAndVariant(commandLower);
+        if (product && product.id) {
+            const checkbox = document.getElementById(product.id);
+            if (checkbox) {
+                checkbox.click();
+                 // Use the `lang` detected for this specific command for the reply
+                speak(t('adding-item-speech', lang).replace('{quantity}', '').replace('{productName}', product.name), lang);
+            } else {
+                speak(`I found ${product.name} but couldn't find its checkbox on the page.`, lang);
+            }
+            return; // Command is handled, stop further processing
+        }
       }
 
 
@@ -565,8 +573,8 @@ export function VoiceCommander({
       // --- PRIORITY 3: CONTEXTUAL REPLIES (Checkout, Forms, etc.) ---
       if (isWaitingForAddressType) {
         const cmd = commandLower;
-        const homeKeywords = ['home', 'address', 'గృహ', 'మనె', 'घर', 'पता'];
-        const locationKeywords = ['current', 'location', 'ప్రస్తుత', 'స్థానం', 'वर्तमान', 'स्थान'];
+        const homeKeywords = ['home', 'address', ...getAllAliases('homeAddress').te];
+        const locationKeywords = ['current', 'location', ...getAllAliases('currentLocation').te];
         
         let actionTaken = false;
         if (homeKeywords.some(keyword => cmd.includes(keyword))) {
@@ -1052,4 +1060,3 @@ export function VoiceCommander({
 
   return null;
 }
-
