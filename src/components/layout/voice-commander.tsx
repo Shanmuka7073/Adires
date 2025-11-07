@@ -875,7 +875,7 @@ export function VoiceCommander({
              if (remainingCommand.includes(alias)) {
                 const similarity = calculateSimilarity(remainingCommand, alias);
                 if (!bestStoreMatch || similarity > bestStoreMatch.similarity) {
-                    bestStoreMatch = { store, similarity: sim, term: alias };
+                    bestStoreMatch = { store, similarity: similarity, term: alias };
                 }
             }
         }
