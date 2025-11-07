@@ -647,38 +647,12 @@ export function VoiceCommander({
         }
     }
 
-
     // --- PRIORITY 5: Fallback to Single Item Order or Failure ---
-    if (hasAction) {
-         await commandActionsRef.current.orderItem({ phrase: commandLower, lang, originalText: commandText });
-         resetAllContext();
-         return;
-    }
-
-    // --- PRIORITY 6: Final Fallback ---
-    speak(t('sorry-i-didnt-understand-that', lang), langWithRegion);
-    // Log the failed command
-    const failedCommandData: Omit<FailedVoiceCommand, 'id' | 'timestamp'> = {
-        userId: user.uid,
-        commandText: commandText,
-        language: lang,
-        reason: 'No matching command, alias, or logic found.'
-    };
-    addDoc(collection(firestore, 'failedCommands'), {
-        ...failedCommandData,
-        timestamp: serverTimestamp()
-    }).catch(e => {
-        console.error("Could not log failed command:", e);
-        const permissionError = new FirestorePermissionError({
-            path: 'failedCommands',
-            operation: 'create',
-            requestResourceData: failedCommandData
-        });
-        errorEmitter.emit('permission-error', permissionError);
-    });
-
+    // If no other logic has handled the command, try to interpret the whole thing as a product order.
+    // This is the fix: removing the `hasAction` guard allows "carrots" to be processed.
+    await commandActionsRef.current.orderItem({ phrase: commandLower, lang, originalText: commandText });
     resetAllContext();
-    
+
   }, [firestore, user, language, detectLanguage, updateRecognitionLanguage, speak, onStatusUpdate, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp.length]);
 
 
