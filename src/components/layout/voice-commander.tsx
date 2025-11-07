@@ -331,53 +331,42 @@ export function VoiceCommander({
 
   const runCheckoutPrompt = useCallback(() => {
     if (pathname !== '/checkout' || !hasMounted || !enabled || isSpeakingRef.current) {
-      return;
+        return;
     }
-  
+
     const addressInput = typeof document !== 'undefined' ? (document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement) : null;
     const currentAddress = addressInput?.value || '';
-  
+
     if (isWaitingForQuickOrderConfirmation) {
-      speak(t('confirm-the-quick-order-speech', language), language);
+        speak(t('confirm-the-quick-order-speech', language), language);
     } else if (cartItemsProp.length === 0) {
-      speak(t('your-cart-is-empty-speech', language), language);
+        speak(t('your-cart-is-empty-speech', language), language);
     } else if (!currentAddress || currentAddress.length < 10) {
-      speak(t('should-i-deliver-to-home-or-current-speech', language), language);
-      setIsWaitingForAddressType(true);
+        speak(t('should-i-deliver-to-home-or-current-speech', language), language);
+        setIsWaitingForAddressType(true);
     } else if (!activeStoreId) {
-      speak(t('which-store-should-fulfill-speech', language), language);
-      setIsWaitingForStoreName(true);
+        speak(t('which-store-should-fulfill-speech', language), language);
+        setIsWaitingForStoreName(true);
     } else {
-      const total = cartTotal + 30; // Assuming 30 is delivery fee
-      const speech = t('finalConfirmPrompt', language).replace('{total}', `₹${total.toFixed(2)}`);
-      speak(speech, language);
+        const total = cartTotal + 30; // Assuming 30 is delivery fee
+        const speech = t('finalConfirmPrompt', language).replace('{total}', `₹${total.toFixed(2)}`);
+        speak(speech, language);
     }
-    
-  }, [
-    pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, 
-    cartItemsProp.length, activeStoreId, language, speak, setIsWaitingForAddressType, 
-    setIsWaitingForStoreName, cartTotal
-  ]);
+}, [
+    pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation,
+    cartItemsProp.length, activeStoreId, language, speak,
+    setIsWaitingForAddressType, setIsWaitingForStoreName, cartTotal, t
+]);
   
-  // New proactive trigger for the checkout page
+  // Proactive trigger for the checkout page based on a state change
   useEffect(() => {
-    if (pathname === '/checkout' && hasMounted && enabled) {
-        // Use a timeout to avoid calling it too frequently during typing
-        const handler = setTimeout(() => {
-            triggerVoicePrompt();
-        }, 300); 
-        return () => clearTimeout(handler);
-    }
-  }, [pathname, hasMounted, enabled, voiceTrigger, runCheckoutPrompt]);
-  
-  useEffect(() => {
-    if (pathname === '/checkout' && hasMounted && enabled && voiceTrigger > 0) {
-        // This is triggered by the checkout command itself.
-        const timeoutId = setTimeout(() => {
-            runCheckoutPrompt();
-        }, 1000); 
-        return () => clearTimeout(timeoutId);
-    }
+      if (pathname === '/checkout' && hasMounted && enabled && voiceTrigger > 0) {
+          // This is triggered by the checkout command itself, let's give the page a moment to settle.
+          const timeoutId = setTimeout(() => {
+              runCheckoutPrompt();
+          }, 1000); 
+          return () => clearTimeout(timeoutId);
+      }
   }, [pathname, hasMounted, enabled, voiceTrigger, runCheckoutPrompt]);
 
 
@@ -613,7 +602,7 @@ export function VoiceCommander({
     
     // --- PRIORITY 4: Core Order Processing Logic ---
     const checkPriceAliases = [t('checkPrice', lang).toLowerCase(), ...Object.values(getAllAliases('checkPrice')).flat().map(a => a.toLowerCase())];
-    if (checkPriceAliases.some(alias => calculateSimilarity(commandLower, alias) > 0.8)) {
+    if (checkPriceAliases.some(alias => commandLower.includes(alias) || calculateSimilarity(commandLower, alias) > 0.8)) {
         await commandActionsRef.current.checkPrice({ phrase: commandLower, lang, originalText: commandText });
         resetAllContext();
         return;
