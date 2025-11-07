@@ -141,5 +141,3 @@ service firebase.storage {
     }
   }
 }
-
-    
