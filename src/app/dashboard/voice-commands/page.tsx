@@ -109,7 +109,7 @@ export default function VoiceCommandsPage() {
             const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
             if (!updatedLocales[key]) updatedLocales[key] = {};
             
-            const existingAliases = Array.isArray(updatedLocales[key][lang]) ? updatedLocales[key][lang] : [updatedLocales[key][lang]].filter(Boolean);
+            const existingAliases = Array.isArray(updatedLocales[key][lang]) ? updatedLocales[key][lang] as string[] : ([updatedLocales[key][lang]].filter(Boolean) as string[]);
             
             aliasesToAdd.forEach(newAlias => {
                 if(!existingAliases.includes(newAlias)) {
@@ -134,17 +134,27 @@ export default function VoiceCommandsPage() {
 
      const handleRemoveAlias = (itemKey: string, lang: string, aliasToRemove: string) => {
         setLocales(currentLocales => {
-            const updatedLocales = { ...currentLocales };
-            if (updatedLocales[itemKey] && Array.isArray(updatedLocales[itemKey][lang])) {
-                let aliases = updatedLocales[itemKey][lang] as string[];
-                aliases = aliases.filter(alias => alias !== aliasToRemove);
-                updatedLocales[itemKey][lang] = aliases.length === 1 ? aliases[0] : aliases;
-                 if (aliases.length === 0) {
+            const updatedLocales = JSON.parse(JSON.stringify(currentLocales)); // Deep copy
+            const itemLangEntry = updatedLocales[itemKey]?.[lang];
+
+            if (Array.isArray(itemLangEntry)) {
+                const newAliases = itemLangEntry.filter(alias => alias !== aliasToRemove);
+                if (newAliases.length === 0) {
                     delete updatedLocales[itemKey][lang];
+                } else if (newAliases.length === 1) {
+                    updatedLocales[itemKey][lang] = newAliases[0];
+                } else {
+                    updatedLocales[itemKey][lang] = newAliases;
                 }
-            } else if (updatedLocales[itemKey] && updatedLocales[itemKey][lang] === aliasToRemove) {
-                 delete updatedLocales[itemKey][lang];
+            } else if (itemLangEntry === aliasToRemove) {
+                delete updatedLocales[itemKey][lang];
             }
+            
+            // Clean up the item key if no languages are left
+            if (updatedLocales[itemKey] && Object.keys(updatedLocales[itemKey]).length === 0) {
+                delete updatedLocales[itemKey];
+            }
+
             return updatedLocales;
         });
     };
