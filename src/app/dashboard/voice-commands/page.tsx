@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Save, X, Mic, MessageSquare, Code, Package, Store as StoreIcon } from 'lucide-react';
+import { Loader2, PlusCircle, Save, X, Mic, MessageSquare, Code, Package, Store as StoreIcon, Trash2 } from 'lucide-react';
 import { getCommands, saveCommands, getLocales, saveLocales } from '@/app/actions';
 import { useAppStore } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useFirebase } from '@/firebase';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 
 type CommandGroup = {
   display: string;
@@ -34,6 +35,13 @@ export default function VoiceCommandsPage() {
     
     const [locales, setLocales] = useState<Locales>({});
     const [newAliases, setNewAliases] = useState<Record<string, Record<string, string>>>({});
+    
+    // State for the "Add New Command" dialog
+    const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+    const [newCommandKey, setNewCommandKey] = useState('');
+    const [newCommandDisplay, setNewCommandDisplay] = useState('');
+    const [newCommandReply, setNewCommandReply] = useState('');
+
 
     const { masterProducts, stores, fetchInitialData } = useAppStore();
     const { firestore } = useFirebase();
@@ -138,13 +146,51 @@ export default function VoiceCommandsPage() {
             return updatedLocales;
         });
     };
-
-    const handleReplyChange = (actionKey: string, newReply: string) => {
-        setCommands(currentCommands => ({
-            ...currentCommands,
-            [actionKey]: { ...currentCommands[actionKey], reply: newReply }
+    
+    const handleCommandUpdate = (key: string, field: 'display' | 'reply', value: string) => {
+        setCommands(current => ({
+            ...current,
+            [key]: { ...current[key], [field]: value }
         }));
     };
+
+    const handleAddNewCommand = () => {
+        const key = newCommandKey.trim();
+        if (!key) {
+            toast({ variant: 'destructive', title: 'Command Key is required.' });
+            return;
+        }
+        if (commands[key]) {
+            toast({ variant: 'destructive', title: 'Command Key already exists.' });
+            return;
+        }
+        setCommands(current => ({
+            ...current,
+            [key]: { display: newCommandDisplay, reply: newCommandReply }
+        }));
+        setIsAddDialogOpen(false);
+        setNewCommandKey('');
+        setNewCommandDisplay('');
+        setNewCommandReply('');
+        toast({ title: 'New command added!', description: `Don't forget to save your changes.` });
+    };
+    
+    const handleDeleteCommand = (keyToDelete: string) => {
+        if (window.confirm(`Are you sure you want to permanently delete the "${commands[keyToDelete].display}" command? This cannot be undone.`)) {
+            setCommands(current => {
+                const newCommands = { ...current };
+                delete newCommands[keyToDelete];
+                return newCommands;
+            });
+             setLocales(current => {
+                const newLocales = { ...current };
+                delete newLocales[keyToDelete];
+                return newLocales;
+            });
+            toast({ title: 'Command Deleted', description: `Remember to save your changes.` });
+        }
+    };
+
 
     const handleSaveAll = () => {
         startTransition(async () => {
@@ -178,10 +224,46 @@ export default function VoiceCommandsPage() {
     const renderGeneralCommands = () => (
         <Card className="max-w-4xl mx-auto">
             <CardHeader>
-                <CardTitle>Manage General Commands & Replies</CardTitle>
-                <CardDescription>
-                    Each action can be triggered by multiple phrases (aliases) in different languages.
-                </CardDescription>
+                <div className="flex justify-between items-center">
+                    <div>
+                        <CardTitle>Manage General Commands & Replies</CardTitle>
+                        <CardDescription>
+                            Each action can be triggered by multiple phrases (aliases) in different languages.
+                        </CardDescription>
+                    </div>
+                     <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                        <DialogTrigger asChild>
+                             <Button><PlusCircle className="mr-2 h-4 w-4" /> Add New Command</Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                             <DialogHeader>
+                                <DialogTitle>Add New General Command</DialogTitle>
+                                <DialogDescription>
+                                    Define a new action the voice assistant can perform. This does not write any code.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="new-cmd-key">Command Key</Label>
+                                    <Input id="new-cmd-key" value={newCommandKey} onChange={e => setNewCommandKey(e.target.value.replace(/\s+/g, ''))} placeholder="e.g., showPromotions" />
+                                    <p className="text-xs text-muted-foreground">A unique, code-friendly key (no spaces).</p>
+                                </div>
+                                 <div className="space-y-2">
+                                    <Label htmlFor="new-cmd-display">Display Name</Label>
+                                    <Input id="new-cmd-display" value={newCommandDisplay} onChange={e => setNewCommandDisplay(e.target.value)} placeholder="e.g., Show Promotions" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="new-cmd-reply">App's Reply</Label>
+                                    <Input id="new-cmd-reply" value={newCommandReply} onChange={e => setNewCommandReply(e.target.value)} placeholder="e.g., Okay, here are the latest promotions." />
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button type="button" variant="secondary" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+                                <Button type="button" onClick={handleAddNewCommand}>Add Command</Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                </div>
             </CardHeader>
             <CardContent className="space-y-6">
                 <Accordion type="multiple" className="w-full">
@@ -194,9 +276,16 @@ export default function VoiceCommandsPage() {
                             </AccordionTrigger>
                             <AccordionContent>
                                 <div className="space-y-6 p-4 bg-muted/50 rounded-lg">
+                                    <div className="flex items-end gap-4">
+                                        <div className="space-y-2 flex-1">
+                                            <Label htmlFor={`display-${key}`} className="font-semibold">Display Name</Label>
+                                            <Input id={`display-${key}`} value={group.display} onChange={(e) => handleCommandUpdate(key, 'display', e.target.value)} />
+                                        </div>
+                                         <Button variant="destructive" size="icon" onClick={() => handleDeleteCommand(key)}><Trash2 className="h-4 w-4" /></Button>
+                                    </div>
                                     <div className="space-y-2">
                                         <Label htmlFor={`reply-${key}`} className="flex items-center gap-2 font-semibold"><MessageSquare className="h-4 w-4" />App's Reply</Label>
-                                        <Input id={`reply-${key}`} value={group.reply || ''} onChange={(e) => handleReplyChange(key, e.target.value)} placeholder="Enter what the app should say..." />
+                                        <Input id={`reply-${key}`} value={group.reply || ''} onChange={(e) => handleCommandUpdate(key, 'reply', e.target.value)} placeholder="Enter what the app should say..." />
                                     </div>
                                     
                                      {['en', 'te'].map(lang => {
@@ -345,3 +434,5 @@ export default function VoiceCommandsPage() {
         </div>
     );
 }
+
+    
