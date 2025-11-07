@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -545,6 +546,15 @@ export function VoiceCommander({
         }
     }
 
+    if (pathname === '/dashboard/delivery/deliveries') {
+      const acceptJobAliases = ["accept job", "accept this job", "take this job", "accept group", "i'll take it"];
+      if (acceptJobAliases.some(alias => calculateSimilarity(commandLower, alias) > 0.8)) {
+          commandActionsRef.current.acceptDeliveryJob({ lang });
+          resetAllContext();
+          return;
+      }
+    }
+
 
     // --- PRIORITY 3: Contextual Replies & Information Gathering ---
     if (isWaitingForAddressType) {
@@ -575,9 +585,9 @@ export function VoiceCommander({
          let bestMatch: { store: Store, similarity: number, term: string } | null = null;
          for (const [alias, store] of storeAliasMap.entries()) {
              if (commandLower.includes(alias)) {
-                 const sim = calculateSimilarity(commandLower, alias);
-                 if (!bestMatch || sim > bestMatch.similarity) {
-                     bestMatch = { store, similarity: sim, term: alias };
+                 const similarity = calculateSimilarity(commandLower, alias);
+                 if (!bestMatch || similarity > bestMatch.similarity) {
+                     bestMatch = { store, similarity: similarity, term: alias };
                  }
              }
          }
@@ -810,6 +820,19 @@ export function VoiceCommander({
         } else {
           speak(t('no-changes-to-save-speech', lang), lang + '-IN');
         }
+      },
+      acceptDeliveryJob: ({ lang }) => {
+          if (pathname === '/dashboard/delivery/deliveries' && typeof document !== 'undefined') {
+              const acceptButton = document.querySelector('.accordion-content button') as HTMLButtonElement | null;
+              if (acceptButton) {
+                  speak("Okay, accepting the first available job group.", lang + '-IN');
+                  acceptButton.click();
+              } else {
+                  speak("There are no available jobs to accept right now.", lang + '-IN');
+              }
+          } else {
+              speak("You can only accept jobs from the deliveries page.", lang + '-IN');
+          }
       },
       refresh: (params) => {
          window.location.reload();
