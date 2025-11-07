@@ -32,14 +32,16 @@ const getImage = async (id: string) => {
 
 export async function getStores(db: Firestore): Promise<Store[]> {
   const storesCol = collection(db, 'stores');
-  // Use 'not-in' for multiple inequality checks, as Firestore does not support multiple '!=' filters.
-  // We also filter for stores that are not closed.
-  const q = query(storesCol, where('isClosed', '!=', true), where('name', 'not-in', ['LocalBasket']));
+  // Firestore does not allow combining 'not-in' with '!='.
+  // We query for stores that are not closed, and then filter out the master store on the client.
+  const q = query(storesCol, where('isClosed', '!=', true));
   const storeSnapshot = await getDocs(q);
-  const storeList = storeSnapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as Store[];
+  const storeList = storeSnapshot.docs
+    .map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+    }) as Store)
+    .filter((store) => store.name !== 'LocalBasket'); // Filter client-side
   return storeList;
 }
 
