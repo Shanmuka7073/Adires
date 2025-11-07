@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, errorEmitter } from '@/firebase';
-import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand } from '@/lib/types';
+import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant } from '@/lib/types';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
 import { useAppStore, useProfileFormStore } from '@/lib/store';
@@ -409,11 +409,10 @@ export function VoiceCommander({
     };
   }, [pathname, hasMounted, enabled, profileForm, handleProfileFormInteraction]);
 
-  const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null; variant: ProductPrice['variants'][0] | null; requestedQty: number; remainingPhrase: string; }> => {
+  const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null; variant: ProductVariant | null; requestedQty: number; remainingPhrase: string; }> => {
     const lowerPhrase = phrase.toLowerCase();
     let bestMatch: { product: Product, alias: string, similarity: number } | null = null;
     
-    // Optimized search using the pre-built alias map
     for (const [alias, product] of productAliasMap.entries()) {
         if (lowerPhrase.includes(alias)) {
              const similarity = calculateSimilarity(lowerPhrase, alias);
@@ -428,7 +427,6 @@ export function VoiceCommander({
     const productMatch = bestMatch.product;
     let remainingPhrase = lowerPhrase.replace(bestMatch.alias, '').trim();
 
-    // 2. Fetch price data if needed
     let priceData = productPrices[productMatch.name.toLowerCase()];
     if (priceData === undefined && firestore) {
         await fetchProductPrices(firestore, [productMatch.name]);
@@ -436,67 +434,57 @@ export function VoiceCommander({
     }
     
     if (!priceData?.variants?.length) return { product: productMatch, variant: null, requestedQty: 1, remainingPhrase };
-
-    // 3. Determine quantity and weight
+    
     const numberWords: Record<string, number> = { 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10, 'ఒకటి': 1, 'రెండు': 2, 'మూడు': 3, 'నాలుగు': 4, 'ఐదు': 5, 'ఆరు': 6, 'ఏడు': 7, 'ఎనిమిది': 8, 'తొమ్మిది': 9, 'పది': 10, 'एक': 1, 'दो': 2, 'तीन': 3, 'चार': 4, 'पांच': 5, 'छह': 6, 'सात': 7, 'आठ': 8, 'नौ': 9, 'दस': 10 };
     const weightRegex = new RegExp(`(${Object.keys(numberWords).join('|')}|\\d+)\\s*(kg|kilo|kilos|కేజీ|కిలో|gm|g|grams|గ్రాములు|pc|piece|pack|ప్యాక్)`, 'i');
-    const weightMatch = remainingPhrase.match(weightRegex);
-
-    let requestedQty = 1;
-    let desiredWeightInGrams = 0;
     
-    if (weightMatch) {
-      const numStr = weightMatch[1].toLowerCase();
-      const quantity = numberWords[numStr] || parseInt(numStr, 10);
-      const unit = weightMatch[2].toLowerCase();
-
-      const isKilo = ['kg', 'kilo', 'kilos', 'కేజీ', 'కిలో'].includes(unit);
-      const isGram = ['gm', 'g', 'grams', 'గ్రాములు'].includes(unit);
-      
-      if(isKilo) {
-        desiredWeightInGrams = quantity * 1000;
-      } else if (isGram) {
-        desiredWeightInGrams = quantity;
-      } else { // It's a quantity of a pack/piece
-        requestedQty = quantity;
-      }
-      remainingPhrase = remainingPhrase.replace(weightMatch[0], '').trim();
-    } else if (['kilo', 'kg', 'కేజీ'].some(k => remainingPhrase.includes(k))) {
-      desiredWeightInGrams = 1000; // Default to 1kg if unit is mentioned without number
+    const numPart = (phrase.match(/(\d+)/) || [])[0];
+    const wordNumPart = (phrase.match(new RegExp(`\\b(${Object.keys(numberWords).join('|')})\\b`, 'i')) || [])[0];
+    let quantity = 1;
+    if(numPart) {
+      quantity = parseInt(numPart, 10);
+    } else if (wordNumPart) {
+      quantity = numberWords[wordNumPart.toLowerCase()];
     }
-    
-    // 4. Find best variant
-    let chosenVariant: ProductPrice['variants'][0] | null = null;
+
+    let chosenVariant: ProductVariant | null = null;
     if (priceData.variants) {
+      let bestVariantMatch: { variant: ProductVariant, diff: number } | null = null;
+
+      const unitMatch = phrase.match(/(kg|kilo|gm|g|gram|pack|pc|piece)/i);
+      const unit = unitMatch ? unitMatch[0].toLowerCase() : null;
+
+      let desiredWeightInGrams = 0;
+      if (unit && ['kg', 'kilo'].includes(unit)) desiredWeightInGrams = quantity * 1000;
+      else if (unit && ['gm', 'g', 'gram'].includes(unit)) desiredWeightInGrams = quantity;
+
       if (desiredWeightInGrams > 0) {
-        let bestVariantMatch: { variant: ProductVariant, diff: number } | null = null;
         for (const v of priceData.variants) {
           const variantWeightMatch = v.weight.match(/(\d+)(kg|gm|g)/);
           if (variantWeightMatch) {
             const variantWeightNum = parseInt(variantWeightMatch[1]);
-            const variantUnit = variantWeightMatch[2];
+            const variantUnit = variantWeightMatch[2].toLowerCase();
             const variantWeightInGrams = variantUnit.startsWith('k') ? variantWeightNum * 1000 : variantWeightNum;
             const diff = Math.abs(desiredWeightInGrams - variantWeightInGrams);
             if (!bestVariantMatch || diff < bestVariantMatch.diff) {
-              bestVariantMatch = { variant: v, diff };
+              bestVariantMatch = { variant: v, diff: diff };
             }
           }
         }
         if (bestVariantMatch) {
           chosenVariant = bestVariantMatch.variant;
-          // Adjust quantity if a larger pack was chosen for a smaller weight
           const chosenWeightInGrams = parseInt(chosenVariant.weight.replace(/[^0-9]/g, '')) * (chosenVariant.weight.includes('kg') ? 1000 : 1);
-          requestedQty = Math.max(1, Math.round(desiredWeightInGrams / chosenWeightInGrams));
+          quantity = Math.max(1, Math.round(desiredWeightInGrams / chosenWeightInGrams));
         }
       }
       
-      // Default fallback
       if (!chosenVariant) {
-        chosenVariant = priceData.variants.find(v => v.weight === '1kg') || priceData.variants.find(v => v.weight === '1 pc') || priceData.variants[0];
+        chosenVariant = priceData.variants.find(v => v.weight.includes('kg')) || priceData.variants.find(v => v.weight.includes('pc')) || priceData.variants[0];
       }
     }
     
-    return { product: productMatch, variant: chosenVariant, requestedQty, remainingPhrase };
+    return { product: productMatch, variant: chosenVariant, requestedQty: quantity, remainingPhrase };
+
   }, [firestore, productPrices, fetchProductPrices, productAliasMap]);
 
   const handleCommand = useCallback(async (commandText: string) => {
@@ -1064,3 +1052,4 @@ export function VoiceCommander({
 
   return null;
 }
+
