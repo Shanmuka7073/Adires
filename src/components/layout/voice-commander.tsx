@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -301,16 +300,18 @@ export function VoiceCommander({
     }
   }, [profileForm, speak]);
 
- const runCheckoutPrompt = useCallback(() => {
+  const runCheckoutPrompt = useCallback(() => {
     if (pathname !== '/checkout' || !hasMounted || !enabled || isSpeakingRef.current) {
-      return;
+        return;
     }
-    
+
     if (hasSpokenCheckoutPrompt.current) return;
-    
+
+    // We must get the live value from the DOM as the form state might be stale in this callback
     const addressInput = typeof document !== 'undefined' ? (document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement) : null;
     const currentAddress = addressInput?.value || '';
 
+    // Use if/else if to ensure only one prompt is spoken per check
     if (isWaitingForQuickOrderConfirmation) {
         speak(t('confirm-the-quick-order-speech', currentLanguage), currentLanguage);
     } else if (cartItemsProp.length === 0) {
@@ -327,7 +328,7 @@ export function VoiceCommander({
     }
     
     hasSpokenCheckoutPrompt.current = true;
-}, [pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, speak, activeStoreId, cartItemsProp, currentLanguage, setIsWaitingForAddressType, setIsWaitingForStoreName]);
+  }, [pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, speak, activeStoreId, cartItemsProp, currentLanguage, setIsWaitingForAddressType, setIsWaitingForStoreName]);
   
   useEffect(() => {
       hasSpokenCheckoutPrompt.current = false;
@@ -532,7 +533,6 @@ export function VoiceCommander({
       const checkoutAliases = [t('checkout', lang), ...Object.values(getAllAliases('checkout')).flat()];
       for (const alias of [...new Set(checkoutAliases)]) {
           if (calculateSimilarity(commandLower, alias) > 0.8 || commandText.toLowerCase() === alias) {
-              // Pass the detected language explicitly
               await commandActionsRef.current.checkout({ lang });
               resetAllContext();
               return;
@@ -558,23 +558,27 @@ export function VoiceCommander({
         const locationKeywords = ['current', 'location', 'ప్రస్తుత', 'స్థానం', 'वर्तमान', 'स्थान'];
         
         let actionTaken = false;
-        if (homeKeywords.some(keyword => cmd.includes(keyword))) {
-          commandActionsRef.current.homeAddress({lang});
-          actionTaken = true;
-        } else if (locationKeywords.some(keyword => cmd.includes(keyword))) {
-          commandActionsRef.current.currentLocation({lang});
-          actionTaken = true;
-        } else {
-          speak(t('did-not-understand-address-type-speech', lang), lang);
-        }
-        
-        // Reset context *after* the action has had a chance to run
-        if(actionTaken) {
+        const handleAddressAction = (actionFn: () => void) => {
+            actionFn();
+            // Give the UI time to update the address field
             setTimeout(() => {
-              hasSpokenCheckoutPrompt.current = false;
-              setIsWaitingForAddressType(false);
-              runCheckoutPrompt();
-            }, 1000);
+                hasSpokenCheckoutPrompt.current = false;
+                setIsWaitingForAddressType(false);
+                runCheckoutPrompt();
+            }, 1000); // 1 second delay
+            actionTaken = true;
+        };
+
+        if (homeKeywords.some(keyword => cmd.includes(keyword))) {
+            handleAddressAction(() => commandActionsRef.current.homeAddress({ lang }));
+        } else if (locationKeywords.some(keyword => cmd.includes(keyword))) {
+            handleAddressAction(() => commandActionsRef.current.currentLocation({ lang }));
+        } else {
+            speak(t('did-not-understand-address-type-speech', lang), lang);
+        }
+
+        if (!actionTaken) {
+            resetAllContext();
         }
         return;
       }
@@ -652,6 +656,12 @@ export function VoiceCommander({
           if (bestMatch && bestMatch.similarity > 0.6) {
               speak(t('okay-ordering-from-speech', lang).replace('{storeName}', bestMatch.store.name), lang, () => {
                 setActiveStoreId(bestMatch.store.id);
+                 // Re-run prompt after setting store to see what's next
+                 setTimeout(() => {
+                    hasSpokenCheckoutPrompt.current = false;
+                    setIsWaitingForStoreName(false);
+                    runCheckoutPrompt();
+                }, 500);
               });
           } else {
               speak(t('could-not-find-store-speech', lang).replace('{storeName}', commandText), lang);
@@ -793,16 +803,16 @@ export function VoiceCommander({
         }
       },
       homeAddress: ({ lang }) => {
-        if (pathname === '/checkout' && homeAddressBtnRef?.current) {
-            homeAddressBtnRef.current.click();
-            speak(t('setting-delivery-to-home-speech', lang), lang);
+        if(pathname === '/checkout' && homeAddressBtnRef?.current) {
+          homeAddressBtnRef.current.click();
+          // The confirmation speech is now handled by runCheckoutPrompt after a delay
         }
       },
       currentLocation: ({ lang }) => {
-          if (pathname === '/checkout' && currentLocationBtnRef?.current) {
-              currentLocationBtnRef.current.click();
-              speak(t('using-current-location-speech', lang), lang);
-          }
+        if(pathname === '/checkout' && currentLocationBtnRef?.current) {
+          currentLocationBtnRef.current.click();
+          // The confirmation speech is now handled by runCheckoutPrompt after a delay
+        }
       },
       recordOrder: (params: {lang: string}) => {
         const lang = params.lang || currentLanguage;

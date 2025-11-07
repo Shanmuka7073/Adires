@@ -1,4 +1,3 @@
-
 {
   "home": {
     "en": [
@@ -1805,8 +1804,8 @@
     "te": "ఏ స్టోర్ నుండి ఆర్డర్ చేయాలి?"
   },
   "everything-is-ready-speech": {
-    "en": "Okay, everything looks ready. We will deliver to {address}. Just say 'place order' to confirm.",
-    "te": "సరే, అన్నీ సిద్ధంగా ఉన్నాయి. మేము {address} చిరునామాకు డెలివరీ చేస్తాము. నిర్ధారించడానికి 'ఆర్డర్ చేయండి' అని చెప్పండి."
+    "en": "Everything looks ready. We will deliver to your address on file. Just say 'place order' to confirm.",
+    "te": "అన్నీ సిద్ధంగా ఉన్నాయి. మేము మీ ఫైల్‌లోని చిరునామాకు డెలివరీ చేస్తాము. నిర్ధారించడానికి 'ఆర్డర్ చేయండి' అని చెప్పండి."
   },
   "setting-delivery-to-home-speech": {
     "en": "Okay, setting delivery to your home address.",
@@ -1907,7 +1906,8 @@
     ]
   },
   "chandra": {
-    "te": "చంద్ర"
+    "te": "చంద్ర",
+    "en": "chandra"
   },
   "adding-item-speech": {
     "en": "Okay, adding {quantity} {productName} to your cart.",
