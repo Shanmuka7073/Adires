@@ -109,6 +109,10 @@ export function VoiceCommander({
   const [speechSynthesisVoices, setSpeechSynthesisVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [currentLanguage, setCurrentLanguage] = useState('en-IN');
   
+  useEffect(() => {
+    console.log('Current language changed to:', currentLanguage);
+  }, [currentLanguage]);
+
   const resetAllContext = useCallback(() => {
     setIsWaitingForQuantity(false);
     itemToUpdateSkuRef.current = null;
@@ -309,37 +313,22 @@ export function VoiceCommander({
 
     if (isWaitingForQuickOrderConfirmation) {
         speak(t('confirm-the-quick-order-speech', currentLanguage), currentLanguage);
-        hasSpokenCheckoutPrompt.current = true;
-        return;
-    }
-    
-    if (cartItemsProp.length === 0) {
-      speak(t('your-cart-is-empty-speech', currentLanguage), currentLanguage);
-      hasSpokenCheckoutPrompt.current = true;
-      return;
-    }
-    
-    if (!currentAddress || currentAddress.length < 10) {
+    } else if (cartItemsProp.length === 0) {
+        speak(t('your-cart-is-empty-speech', currentLanguage), currentLanguage);
+    } else if (!currentAddress || currentAddress.length < 10) {
         speak(t('should-i-deliver-to-home-or-current-speech', currentLanguage), currentLanguage);
         setIsWaitingForAddressType(true);
-        hasSpokenCheckoutPrompt.current = true;
-        return;
+    } else if (!activeStoreId) {
+        speak(t('which-store-should-fulfill-speech', currentLanguage), currentLanguage);
+        setIsWaitingForStoreName(true);
+    } else {
+        // If we've gotten this far, all details are present.
+        const speech = t('everything-is-ready-speech', currentLanguage);
+        speak(speech, currentLanguage);
     }
-
-    if (!activeStoreId) {
-      speak(t('which-store-should-fulfill-speech', currentLanguage), currentLanguage);
-      setIsWaitingForStoreName(true);
-      hasSpokenCheckoutPrompt.current = true;
-      return;
-    }
-
-    // If we've gotten this far, all details are present.
-    const speech = t('everything-is-ready-speech', currentLanguage);
-    speak(speech, currentLanguage);
+    
     hasSpokenCheckoutPrompt.current = true;
-    return;
-
-  }, [pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, speak, activeStoreId, cartItemsProp, currentLanguage]);
+}, [pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, speak, activeStoreId, cartItemsProp, currentLanguage, setIsWaitingForAddressType, setIsWaitingForStoreName]);
   
   useEffect(() => {
       hasSpokenCheckoutPrompt.current = false;
@@ -781,10 +770,13 @@ export function VoiceCommander({
       myStore: (params) => speak(t('navigating-to-my-store', params.lang), params.lang, () => router.push('/dashboard/owner/my-store')),
       checkout: (params: { lang: string }) => {
         const lang = params.lang || currentLanguage;
+        console.log('Checkout command - Using language:', lang, 'Params lang:', params.lang, 'Current lang:', currentLanguage);
         const total = cartTotal + 30; // Assuming 30 is delivery fee
         onCloseCart();
         if (cartTotal > 0) {
-            speak(t('your-total-is-speech', lang).replace('{total}', `₹${total.toFixed(2)}`), lang, () => {
+            const speechText = t('your-total-is-speech', lang).replace('{total}', `₹${total.toFixed(2)}`);
+            console.log('Speaking checkout total:', speechText, 'in language:', lang);
+            speak(speechText, lang, () => {
                 router.push('/checkout')
             });
         } else {
