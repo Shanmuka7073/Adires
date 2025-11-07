@@ -155,17 +155,18 @@ export function VoiceCommander({
 
 
   // Language detection and switching
-  const detectLanguage = useCallback((text: string): { lang: string, command: string } => {
+  const detectLanguage = useCallback((text: string): { lang: string, command: string, languageSwitched: boolean } => {
     const lowerText = text.toLowerCase();
+    const previousLang = language;
 
     // Specific keywords to force a language switch
     if (['english', 'in english', 'switch to english'].some(kw => lowerText.includes(kw))) {
         setLanguage('en');
-        return { lang: 'en', command: lowerText };
+        return { lang: 'en', command: lowerText, languageSwitched: previousLang !== 'en' };
     }
     if (['telugu', 'తెలుగు', 'తెలుగులో'].some(kw => lowerText.includes(kw))) {
         setLanguage('te');
-        return { lang: 'te', command: lowerText };
+        return { lang: 'te', command: lowerText, languageSwitched: previousLang !== 'te' };
     }
 
 
@@ -180,12 +181,12 @@ export function VoiceCommander({
             if (language !== lang.lang) {
                 setLanguage(lang.lang);
             }
-            return { lang: lang.lang, command: lowerText };
+            return { lang: lang.lang, command: lowerText, languageSwitched: previousLang !== lang.lang };
         }
     }
     
     // Default case if no keyword is found, use the global language
-    return { lang: language, command: lowerText };
+    return { lang: language, command: lowerText, languageSwitched: false };
   }, [language, setLanguage]);
 
   // Update recognition language dynamically
@@ -232,7 +233,7 @@ export function VoiceCommander({
     if (recognition) {
       if (enabled) {
         // Set initial language from the sticky state
-        recognition.lang = language + '-IN';
+        recognition.lang = language === 'te' ? 'te-IN' : 'en-IN';
         recognition.continuous = true;
         try {
           recognition.start();
@@ -482,11 +483,17 @@ export function VoiceCommander({
         return;
     }
 
-    const { lang, command: strippedCommand } = detectLanguage(commandText);
+    const { lang, command: strippedCommand, languageSwitched } = detectLanguage(commandText);
     const langWithRegion = lang === 'en' ? 'en-IN' : `${lang}-IN`;
     
     if (lang !== language) {
         updateRecognitionLanguage(langWithRegion);
+    }
+    
+    // PRIORITY 0: Handle language switch feedback
+    if (languageSwitched && lang === 'te') {
+        speak(t('telugu-welcome-speech', 'te'), 'te-IN');
+        return;
     }
 
     const commandLower = strippedCommand.toLowerCase();
@@ -648,8 +655,6 @@ export function VoiceCommander({
     }
 
     // --- PRIORITY 5: Fallback to Single Item Order or Failure ---
-    // If no other logic has handled the command, try to interpret the whole thing as a product order.
-    // This is the fix: removing the `hasAction` guard allows "carrots" to be processed.
     await commandActionsRef.current.orderItem({ phrase: commandLower, lang, originalText: commandText });
     resetAllContext();
 
@@ -983,5 +988,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    
