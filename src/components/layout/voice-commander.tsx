@@ -87,7 +87,6 @@ export function VoiceCommander({
   const [isWaitingForStoreName, setIsWaitingForStoreName] = useState(false);
   const [isWaitingForVoiceOrder, setIsWaitingForVoiceOrder] = useState(false);
   const [clarificationStores, setClarificationStores] = useState<Store[]>([]);
-  const hasSpokenCheckoutPrompt = useRef(false);
   const [isWaitingForAddressType, setIsWaitingForAddressType] = useState(false);
 
   const [isWaitingForQuantity, setIsWaitingForQuantity] = useState(false);
@@ -148,7 +147,6 @@ export function VoiceCommander({
     setIsWaitingForQuickOrderConfirmation(false);
     setIsWaitingForVoiceOrder(false);
     setIsWaitingForAddressType(false);
-    hasSpokenCheckoutPrompt.current = false;
     formFieldToFillRef.current = null;
     setShouldPlaceOrderDirectly(false);
   }, [onSuggestions, setIsWaitingForQuickOrderConfirmation, setShouldPlaceOrderDirectly]);
@@ -335,12 +333,8 @@ export function VoiceCommander({
       return;
     }
   
-    if (hasSpokenCheckoutPrompt.current) return;
-  
     const addressInput = typeof document !== 'undefined' ? (document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement) : null;
     const currentAddress = addressInput?.value || '';
-  
-    const areAllDetailsReady = cartItemsProp.length > 0 && activeStoreId && currentAddress.length > 10;
   
     if (isWaitingForQuickOrderConfirmation) {
       speak(t('confirm-the-quick-order-speech', language), language);
@@ -352,30 +346,23 @@ export function VoiceCommander({
     } else if (!activeStoreId) {
       speak(t('which-store-should-fulfill-speech', language), language);
       setIsWaitingForStoreName(true);
-    } else if (areAllDetailsReady) {
-      const total = cartTotal + 30; // Assuming 30 is delivery fee
-      const speech = t('everything-is-ready-speech', language).replace('{total}', `₹${total.toFixed(2)}`);
-      speak(speech, language);
     } else {
-      // This is a fallback, should ideally not be hit if logic is sound.
-      console.warn("Checkout prompt ran but conditions were not met in an expected way.");
+      const total = cartTotal + 30; // Assuming 30 is delivery fee
+      const speech = t('finalConfirmPrompt', language).replace('{total}', `₹${total.toFixed(2)}`);
+      speak(speech, language);
     }
     
-    hasSpokenCheckoutPrompt.current = true;
   }, [
     pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, 
     cartItemsProp.length, activeStoreId, language, speak, setIsWaitingForAddressType, 
     setIsWaitingForStoreName, cartTotal
   ]);
   
-  // This effect runs when the page loads, or when the voice is triggered manually
   useEffect(() => {
-    if (pathname === '/checkout' && hasMounted && enabled) {
-        // Reset the flag whenever the trigger fires to allow re-prompting
-        hasSpokenCheckoutPrompt.current = false;
+    if (pathname === '/checkout' && hasMounted && enabled && voiceTrigger > 0) {
         const timeoutId = setTimeout(() => {
             runCheckoutPrompt();
-        }, 1000); // Add a small delay to allow page to settle
+        }, 1000); 
         return () => clearTimeout(timeoutId);
     }
   }, [pathname, hasMounted, enabled, voiceTrigger, runCheckoutPrompt]);
@@ -383,15 +370,13 @@ export function VoiceCommander({
 
   useEffect(() => {
     if (pathname !== '/dashboard/customer/my-profile' || !hasMounted || !enabled) {
-      hasSpokenCheckoutPrompt.current = false;
       formFieldToFillRef.current = null;
       return;
     }
     let speakTimeout: NodeJS.Timeout | null = null;
-    if (!hasSpokenCheckoutPrompt.current && profileForm) {
+    if (profileForm) {
       speakTimeout = setTimeout(() => {
         handleProfileFormInteraction();
-        hasSpokenCheckoutPrompt.current = true;
       }, 1500);
     }
     return () => {
@@ -501,7 +486,7 @@ export function VoiceCommander({
 
     const commandLower = strippedCommand.toLowerCase();
     
-    // --- PRIORITY 1: Context-aware commands ("Situational Awareness") ---
+    // --- PRIORITY 1: Page-Specific Actions ("Situational Awareness") ---
     if (pathname === '/checkout') {
         const placeOrderAliases = [t('placeOrder', lang).toLowerCase(), ...Object.values(getAllAliases('placeOrder')).flat().map(a => a.toLowerCase())];
         if (placeOrderAliases.some(alias => calculateSimilarity(commandLower, alias) > 0.8)) {
@@ -580,7 +565,6 @@ export function VoiceCommander({
         
         setIsWaitingForAddressType(false);
         setTimeout(() => {
-            hasSpokenCheckoutPrompt.current = false;
             runCheckoutPrompt();
         }, 1500);
         return;
@@ -603,7 +587,6 @@ export function VoiceCommander({
                 setActiveStoreId(store.id);
                 if(pathname === '/checkout') {
                   setTimeout(() => {
-                      hasSpokenCheckoutPrompt.current = false;
                       runCheckoutPrompt();
                   }, 1500);
                 }
@@ -710,6 +693,9 @@ export function VoiceCommander({
         if (cartTotal > 0) {
              if (pathname !== '/checkout') {
                 router.push('/checkout');
+            } else {
+                // If already on checkout, just trigger the prompt
+                runCheckoutPrompt();
             }
         } else {
             speak(t('your-cart-is-empty-speech', lang), lang + '-IN');
@@ -983,3 +969,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    

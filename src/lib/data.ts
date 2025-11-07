@@ -32,7 +32,7 @@ const getImage = async (id: string) => {
 
 export async function getStores(db: Firestore): Promise<Store[]> {
   const storesCol = collection(db, 'stores');
-  // Firestore does not allow combining 'not-in' with '!='.
+  // Firestore does not allow combining 'not-in' with '!=' or multiple 'not-in's.
   // We query for stores that are not closed, and then filter out the master store on the client.
   const q = query(storesCol, where('isClosed', '!=', true));
   const storeSnapshot = await getDocs(q);
@@ -134,3 +134,5 @@ export const getStoreImage = async (store: Store) => {
     }
     return await getImage(store.imageId);
 };
+
+    

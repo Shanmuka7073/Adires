@@ -3510,5 +3510,11 @@
       "amma",
       "amma amma"
     ]
+  },
+  "finalConfirmPrompt": {
+    "en": "Everything looks ready. Your total is {total}. Just say 'place order' to confirm.",
+    "te": "అన్నీ సిద్ధంగా ఉన్నాయి. మీ మొత్తం {total}. నిర్ధారించడానికి 'ఆర్డర్ చేయండి' అని చెప్పండి."
   }
 }
+
+    
