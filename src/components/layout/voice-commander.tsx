@@ -494,21 +494,17 @@ export function VoiceCommander({
             const cmdGroup = fileCommandsRef.current[key];
             if (!cmdGroup) continue;
 
-            // Combine aliases from JSON with programmatically generated ones
             const allAliases = [t(key, lang), ...Object.values(getAllAliases(key)).flat(), ...(cmdGroup.aliases || [])];
             for (const alias of [...new Set(allAliases)]) {
                 if (calculateSimilarity(commandLower, alias) > 0.8 || commandText.toLowerCase() === alias) {
                     const action = commandActionsRef.current[key];
                     if (action) {
                         speak(cmdGroup.reply, langWithRegion, () => action({ lang }));
-                    } else {
-                        // Handle checkout specifically because its speech depends on cart total
-                        if (key === 'checkout') {
-                             commandActionsRef.current.checkout({ lang });
-                        }
+                    } else if (key === 'checkout') {
+                         commandActionsRef.current.checkout({ lang });
                     }
                     resetAllContext();
-                    return; // Command handled, stop processing.
+                    return;
                 }
             }
         }
@@ -520,7 +516,7 @@ export function VoiceCommander({
                 if (calculateSimilarity(commandLower, alias) > 0.8) {
                     await commandActionsRef.current.placeOrder({ lang });
                     resetAllContext();
-                    return; // Command handled
+                    return;
                 }
             }
         }
@@ -534,7 +530,6 @@ export function VoiceCommander({
                     return;
                 }
             }
-             // Check for product name to add to inventory
             const { product } = await findProductAndVariant(commandLower);
             if (product && product.id) {
                 const checkbox = document.getElementById(product.id) as HTMLInputElement | null;
@@ -576,27 +571,27 @@ export function VoiceCommander({
             return;
         }
 
-        if (isWaitingForStoreName && pathname === '/checkout') {
-            const { store, similarity } = (()=>{
-                 let bestMatch: { store: Store, similarity: number, term: string } | null = null;
-                 for (const [alias, store] of storeAliasMap.entries()) {
-                     if (commandLower.includes(alias)) {
-                         const sim = calculateSimilarity(commandLower, alias);
-                         if (!bestMatch || sim > bestMatch.similarity) {
-                             bestMatch = { store, similarity: sim, term: alias };
-                         }
+        if (isWaitingForStoreName) {
+             let bestMatch: { store: Store, similarity: number, term: string } | null = null;
+             for (const [alias, store] of storeAliasMap.entries()) {
+                 if (commandLower.includes(alias)) {
+                     const sim = calculateSimilarity(commandLower, alias);
+                     if (!bestMatch || sim > bestMatch.similarity) {
+                         bestMatch = { store, similarity: sim, term: alias };
                      }
                  }
-                return { store: bestMatch?.store, similarity: bestMatch?.similarity || 0 };
-            })();
+             }
 
-            if (store && similarity > 0.6) {
+            if (bestMatch && bestMatch.similarity > 0.6) {
+                const store = bestMatch.store;
                 speak(t('okay-ordering-from-speech', lang).replace('{storeName}', store.name), langWithRegion, () => {
                     setActiveStoreId(store.id);
-                    setTimeout(() => {
-                        hasSpokenCheckoutPrompt.current = false;
-                        runCheckoutPrompt();
-                    }, 1500);
+                    if(pathname === '/checkout') {
+                      setTimeout(() => {
+                          hasSpokenCheckoutPrompt.current = false;
+                          runCheckoutPrompt();
+                      }, 1500);
+                    }
                 });
             } else {
                 speak(t('could-not-find-store-speech', lang).replace('{storeName}', commandText), langWithRegion);
@@ -634,11 +629,11 @@ export function VoiceCommander({
         // --- PRIORITY 5: Fallback to Single Item Order or Failure ---
         if (hasAction) {
              await commandActionsRef.current.orderItem({ phrase: commandLower, lang, originalText: commandText });
+             resetAllContext();
              return;
         }
 
         // --- PRIORITY 6: Final Fallback ---
-        // If no other logic has handled the command, it's a failure.
         speak(t('sorry-i-didnt-understand-that', lang), langWithRegion);
         addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText, language: lang, reason: 'No matching command or logic found', timestamp: serverTimestamp() });
         resetAllContext();
@@ -763,11 +758,10 @@ export function VoiceCommander({
           if (placeOrderBtnRef?.current) {
             speak(t('placing-your-order-now-speech', lang), lang + '-IN');
             placeOrderBtnRef.current.click();
-            return; // Important: Stop execution here
+            return;
           } 
         }
         
-        // This is the fallback if not on checkout page
         if (cartItemsProp.length > 0) {
           const total = cartTotal + 30; // Assuming 30 is delivery fee
           speak(t('your-total-is-speech', lang).replace('{total}', `₹${total.toFixed(2)}`), lang + '-IN', () => router.push('/checkout'));
@@ -794,7 +788,10 @@ export function VoiceCommander({
          window.location.reload();
       },
       goToStore: ({ store, lang }) => {
-        router.push(`/stores/${store.id}`);
+        const langWithRegion = lang === 'en' ? 'en-IN' : `${lang}-IN`;
+        speak(`Okay, opening ${store.name}.`, langWithRegion, () => {
+          router.push(`/stores/${store.id}`);
+        });
       },
       orderItem: async ({ phrase, lang, originalText }: { phrase?: string; lang: string, originalText: string }) => {
         if (!phrase) return;
@@ -831,7 +828,6 @@ export function VoiceCommander({
                 addDoc(collection(firestore, 'failedCommands'), { ...failedCommandData, timestamp: serverTimestamp() }).catch(e => console.error("Could not log failed command:", e));
              }
         }
-        resetAllContext();
     },
     orderMultipleItems: async (phrases: string[], lang: string, originalText: string) => {
         let addedItems: string[] = [];
@@ -864,12 +860,10 @@ export function VoiceCommander({
             }
         }
         speak(speech, lang + '-IN');
-        resetAllContext();
     },
     smartOrder: async (command: string, lang: string, originalText: string) => {
         let remainingCommand = command.toLowerCase();
 
-        // 1. Find Store
         let bestStoreMatch: { store: Store, similarity: number, term: string } | null = null;
         for (const [alias, store] of storeAliasMap.entries()) {
              if (remainingCommand.includes(alias)) {
@@ -883,7 +877,6 @@ export function VoiceCommander({
             remainingCommand = remainingCommand.replace("from " + bestStoreMatch.term, '').trim();
         }
 
-        // 2. Find Destination
         let destination: 'home' | null = null;
         const homeKeywords = ['to home', 'at home', 'my home', 'to my house', 'intiki', 'naa intiki'];
         const homeMatch = homeKeywords.find(kw => remainingCommand.includes(kw));
@@ -892,10 +885,8 @@ export function VoiceCommander({
             remainingCommand = remainingCommand.replace(homeMatch, '').trim();
         }
 
-        // 3. Find Product and Variant (from the remaining text)
         const { product, variant, requestedQty } = await findProductAndVariant(remainingCommand.replace(/^(order|buy|get|send|need|want)/, '').trim());
 
-        // 4. Validate and Execute
         if (!product || !variant) {
             speak(t('could-not-find-product-in-order-speech', lang), lang + '-IN');
             if(firestore && user) addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: lang, reason: `Smart order: product not found in "${remainingCommand}"`, timestamp: serverTimestamp() });
@@ -913,7 +904,6 @@ export function VoiceCommander({
             return;
         }
 
-        // --- Optimistic UI Flow ---
         const speech = t('preparing-order-speech', lang)
             .replace('{qty}', `${requestedQty}`)
             .replace('{productName}', product.name)
@@ -963,4 +953,3 @@ export function VoiceCommander({
 
   return null;
 }
-
