@@ -332,6 +332,7 @@ export function VoiceCommander({
       return;
     }
 
+    // If we've gotten this far, all details are present.
     const speech = t('everything-is-ready-speech', currentLanguage);
     speak(speech, currentLanguage);
     hasSpokenCheckoutPrompt.current = true;
@@ -778,8 +779,9 @@ export function VoiceCommander({
       myStore: () => router.push('/dashboard/owner/my-store'),
       checkout: (params: { lang: string }) => {
         const lang = params.lang || currentLanguage;
+        const total = cartTotal + 30; // Assuming 30 is delivery fee
         if (cartTotal > 0) {
-            speak(t('taking-you-to-checkout-speech', lang), lang, () => router.push('/checkout'));
+            speak(t('your-total-is-speech', lang).replace('{total}', `₹${total.toFixed(2)}`), lang, () => router.push('/checkout'));
         } else {
             speak(t('your-cart-is-empty-speech', lang), lang);
         }
@@ -847,7 +849,8 @@ export function VoiceCommander({
         }
         
         if (cartItemsProp.length > 0) {
-          speak(t('taking-you-to-checkout-speech', lang), lang, () => router.push('/checkout'));
+          const total = cartTotal + 30; // Assuming 30 is delivery fee
+          speak(t('your-total-is-speech', lang).replace('{total}', `₹${total.toFixed(2)}`), lang, () => router.push('/checkout'));
           return;
         }
         
