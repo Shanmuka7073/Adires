@@ -143,12 +143,12 @@ export function VoiceCommander({
                     command: lowerText.substring(keyword.length).trim()
                 };
             }
-             // Also handle cases where keyword is the whole command e.g., "Home"
+             // Also handle cases where keyword is the whole command e.g., "Home" or "naaku"
             if (lowerText === keyword) {
                  setCurrentLanguage(lang.lang);
                  return {
                     lang: lang.lang,
-                    command: lowerText // Keep the command to match aliases like "home"
+                    command: lowerText // Keep the command to match aliases
                 };
             }
         }
@@ -510,7 +510,8 @@ export function VoiceCommander({
       if (lang !== currentLanguage) {
           setCurrentLanguage(lang);
           updateRecognitionLanguage(lang);
-          if (strippedCommand === "") {
+          const isJustLangKeyword = ['naaku', 'naku', 'నాకు', 'mujhe', 'मुझे'].includes(commandText.toLowerCase());
+          if (isJustLangKeyword) {
               speak(t('telugu-welcome-speech', lang), lang);
               resetAllContext();
               return;
@@ -781,8 +782,8 @@ export function VoiceCommander({
       checkout: (params: { lang: string }) => {
         const lang = params.lang || currentLanguage;
         const total = cartTotal + 30; // Assuming 30 is delivery fee
+        onCloseCart();
         if (cartTotal > 0) {
-            onCloseCart();
             speak(t('your-total-is-speech', lang).replace('{total}', `₹${total.toFixed(2)}`), lang, () => {
                 router.push('/checkout')
             });
