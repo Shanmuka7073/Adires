@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useTransition, useEffect, useRef } from 'react';
@@ -126,7 +127,8 @@ export default function VoiceCommandsPage() {
              toast({ variant: 'destructive', title: 'Duplicate Item(s)', description: `"${duplicates.join(', ')}" already exist.` });
         }
         if (addedCount > 0) {
-            toast({ title: 'Alias Added', description: `Added "${aliasesToAdd.join(', ')}".` });
+            const addedAliases = aliasesToAdd.filter(a => !duplicates.includes(a));
+            toast({ title: 'Alias Added', description: `Added "${addedAliases.join(', ')}".` });
         }
     };
 
@@ -434,5 +436,3 @@ export default function VoiceCommandsPage() {
         </div>
     );
 }
-
-    
