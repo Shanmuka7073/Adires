@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -108,10 +107,6 @@ export function VoiceCommander({
   const [speechSynthesisVoices, setSpeechSynthesisVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [currentLanguage, setCurrentLanguage] = useState('en-IN');
   
-  useEffect(() => {
-    console.log('Current language changed to:', currentLanguage);
-  }, [currentLanguage]);
-
   const resetAllContext = useCallback(() => {
     setIsWaitingForQuantity(false);
     itemToUpdateSkuRef.current = null;
@@ -302,12 +297,11 @@ export function VoiceCommander({
 
   const runCheckoutPrompt = useCallback(() => {
     if (pathname !== '/checkout' || !hasMounted || !enabled || isSpeakingRef.current) {
-        return;
+      return;
     }
-
+    
     if (hasSpokenCheckoutPrompt.current) return;
-
-    // We must get the live value from the DOM as the form state might be stale in this callback
+    
     const addressInput = typeof document !== 'undefined' ? (document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement) : null;
     const currentAddress = addressInput?.value || '';
 
@@ -557,16 +551,13 @@ export function VoiceCommander({
         const homeKeywords = ['home', 'address', 'గృహ', 'మనె', 'घर', 'पता'];
         const locationKeywords = ['current', 'location', 'ప్రస్తుత', 'స్థానం', 'वर्तमान', 'स्थान'];
         
-        let actionTaken = false;
         const handleAddressAction = (actionFn: () => void) => {
             actionFn();
             // Give the UI time to update the address field
             setTimeout(() => {
                 hasSpokenCheckoutPrompt.current = false;
-                setIsWaitingForAddressType(false);
-                runCheckoutPrompt();
-            }, 1000); // 1 second delay
-            actionTaken = true;
+                runCheckoutPrompt(); // Re-evaluate the prompt sequence
+            }, 1500); // Wait a bit longer to be safe
         };
 
         if (homeKeywords.some(keyword => cmd.includes(keyword))) {
@@ -576,10 +567,7 @@ export function VoiceCommander({
         } else {
             speak(t('did-not-understand-address-type-speech', lang), lang);
         }
-
-        if (!actionTaken) {
-            resetAllContext();
-        }
+        setIsWaitingForAddressType(false); // Reset context after handling
         return;
       }
 
@@ -654,19 +642,17 @@ export function VoiceCommander({
           }
 
           if (bestMatch && bestMatch.similarity > 0.6) {
+              setActiveStoreId(bestMatch.store.id);
               speak(t('okay-ordering-from-speech', lang).replace('{storeName}', bestMatch.store.name), lang, () => {
-                setActiveStoreId(bestMatch.store.id);
-                 // Re-run prompt after setting store to see what's next
                  setTimeout(() => {
                     hasSpokenCheckoutPrompt.current = false;
-                    setIsWaitingForStoreName(false);
                     runCheckoutPrompt();
                 }, 500);
               });
           } else {
               speak(t('could-not-find-store-speech', lang).replace('{storeName}', commandText), lang);
           }
-          resetAllContext();
+          setIsWaitingForStoreName(false); // Reset context
           return;
       }
 
@@ -789,13 +775,10 @@ export function VoiceCommander({
       myStore: (params) => speak(t('navigating-to-my-store', params.lang), params.lang, () => router.push('/dashboard/owner/my-store')),
       checkout: (params: { lang: string }) => {
         const lang = params.lang || currentLanguage;
-        console.log('Checkout command - Using language:', lang, 'Params lang:', params.lang, 'Current lang:', currentLanguage);
         const total = cartTotal + 30; // Assuming 30 is delivery fee
         onCloseCart();
         if (cartTotal > 0) {
-            const speechText = t('your-total-is-speech', lang).replace('{total}', `₹${total.toFixed(2)}`);
-            console.log('Speaking checkout total:', speechText, 'in language:', lang);
-            speak(speechText, lang, () => {
+            speak(t('your-total-is-speech', lang).replace('{total}', `₹${total.toFixed(2)}`), lang, () => {
                 router.push('/checkout')
             });
         } else {
@@ -805,13 +788,11 @@ export function VoiceCommander({
       homeAddress: ({ lang }) => {
         if(pathname === '/checkout' && homeAddressBtnRef?.current) {
           homeAddressBtnRef.current.click();
-          // The confirmation speech is now handled by runCheckoutPrompt after a delay
         }
       },
       currentLocation: ({ lang }) => {
         if(pathname === '/checkout' && currentLocationBtnRef?.current) {
           currentLocationBtnRef.current.click();
-          // The confirmation speech is now handled by runCheckoutPrompt after a delay
         }
       },
       recordOrder: (params: {lang: string}) => {
