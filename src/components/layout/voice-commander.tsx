@@ -403,6 +403,7 @@ export function VoiceCommander({
     const lowerPhrase = phrase.toLowerCase();
     let bestMatch: { product: Product, alias: string, similarity: number } | null = null;
     
+    // Find the best product match based on aliases
     for (const [alias, product] of productAliasMap.entries()) {
         if (lowerPhrase.includes(alias)) {
              const similarity = calculateSimilarity(lowerPhrase, alias);
@@ -416,8 +417,9 @@ export function VoiceCommander({
 
     const productMatch = bestMatch.product;
     const matchedAlias = bestMatch.alias;
-    let remainingPhrase = lowerPhrase.replace(bestMatch.alias, '').trim();
+    const remainingPhrase = lowerPhrase.replace(bestMatch.alias, '').trim();
 
+    // Fetch price data if not already cached
     let priceData = productPrices[productMatch.name.toLowerCase()];
     if (priceData === undefined && firestore) {
         await fetchProductPrices(firestore, [productMatch.name]);
@@ -427,54 +429,49 @@ export function VoiceCommander({
     if (!priceData?.variants?.length) return { product: productMatch, variant: null, requestedQty: 1, remainingPhrase, matchedAlias };
     
     const numberWords: Record<string, number> = { 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10, 'ఒకటి': 1, 'రెండు': 2, 'మూడు': 3, 'నాలుగు': 4, 'ఐదు': 5, 'ఆరు': 6, 'ఏడు': 7, 'ఎనిమిది': 8, 'తొమ్మిది': 9, 'పది': 10, 'एक': 1, 'दो': 2, 'तीन': 3, 'चार': 4, 'पांच': 5, 'छह': 6, 'सात': 7, 'आठ': 8, 'नौ': 9, 'दस': 10 };
-    const weightRegex = new RegExp(`(${Object.keys(numberWords).join('|')}|\\d+)\\s*(kg|kilo|kilos|కేజీ|కిలో|gm|g|grams|గ్రాములు|pc|piece|pack|ప్యాక్)`, 'i');
     
-    const numPart = (phrase.match(/(\d+)/) || [])[0];
-    const wordNumPart = (phrase.match(new RegExp(`\\b(${Object.keys(numberWords).join('|')})\\b`, 'i')) || [])[0];
-    let quantity = 1;
-    if(numPart) {
-      quantity = parseInt(numPart, 10);
-    } else if (wordNumPart) {
-      quantity = numberWords[wordNumPart.toLowerCase()];
+    // 1. Find a number (digit or word)
+    let requestedQty = 1;
+    const numMatch = remainingPhrase.match(/(\d+)/);
+    const wordNumMatch = remainingPhrase.match(new RegExp(`\\b(${Object.keys(numberWords).join('|')})\\b`, 'i'));
+    
+    if (numMatch) {
+        requestedQty = parseInt(numMatch[0], 10);
+    } else if (wordNumMatch) {
+        requestedQty = numberWords[wordNumMatch[0].toLowerCase()];
     }
 
+    // 2. Find a unit
+    const unitMatch = remainingPhrase.match(/(kg|kilo|kilos|కేజీ|కిలో|gm|g|grams|గ్రాములు|pc|piece|pack|ప్యాక్)/i);
+    const requestedUnit = unitMatch ? unitMatch[0].toLowerCase() : null;
+
+    // 3. Find the best variant based on the unit
     let chosenVariant: ProductVariant | null = null;
-    if (priceData.variants) {
-      let bestVariantMatch: { variant: ProductVariant, diff: number } | null = null;
-
-      const unitMatch = phrase.match(/(kg|kilo|gm|g|gram|pack|pc|piece)/i);
-      const unit = unitMatch ? unitMatch[0].toLowerCase() : null;
-
-      let desiredWeightInGrams = 0;
-      if (unit && ['kg', 'kilo'].includes(unit)) desiredWeightInGrams = quantity * 1000;
-      else if (unit && ['gm', 'g', 'gram'].includes(unit)) desiredWeightInGrams = quantity;
-
-      if (desiredWeightInGrams > 0) {
-        for (const v of priceData.variants) {
-          const variantWeightMatch = v.weight.match(/(\d+)(kg|gm|g)/);
-          if (variantWeightMatch) {
-            const variantWeightNum = parseInt(variantWeightMatch[1]);
-            const variantUnit = variantWeightMatch[2].toLowerCase();
-            const variantWeightInGrams = variantUnit.startsWith('k') ? variantWeightNum * 1000 : variantWeightNum;
-            const diff = Math.abs(desiredWeightInGrams - variantWeightInGrams);
-            if (!bestVariantMatch || diff < bestVariantMatch.diff) {
-              bestVariantMatch = { variant: v, diff: diff };
-            }
-          }
+    
+    if (requestedUnit) {
+        // Prioritize exact match or unit type match (e.g., 'kg' matches '1kg')
+        const isKg = ['kg', 'kilo', 'kilos', 'కేజీ', 'కిలో'].includes(requestedUnit);
+        const isGm = ['gm', 'g', 'grams', 'గ్రాములు'].includes(requestedUnit);
+        
+        if (isKg) {
+            chosenVariant = priceData.variants.find(v => v.weight.includes('kg')) || null;
+        } else if (isGm) {
+            chosenVariant = priceData.variants.find(v => v.weight.includes('gm')) || null;
+        } else { // pc, pack, etc.
+            chosenVariant = priceData.variants.find(v => v.weight.includes(requestedUnit)) || null;
         }
-        if (bestVariantMatch) {
-          chosenVariant = bestVariantMatch.variant;
-          const chosenWeightInGrams = parseInt(chosenVariant.weight.replace(/[^0-9]/g, '')) * (chosenVariant.weight.includes('kg') ? 1000 : 1);
-          quantity = Math.max(1, Math.round(desiredWeightInGrams / chosenWeightInGrams));
-        }
-      }
-      
-      if (!chosenVariant) {
-        chosenVariant = priceData.variants.find(v => v.weight.includes('kg')) || priceData.variants.find(v => v.weight.includes('pc')) || priceData.variants[0];
-      }
     }
     
-    return { product: productMatch, variant: chosenVariant, requestedQty: quantity, remainingPhrase, matchedAlias };
+    // Fallback: If no variant was found, or no unit was specified, pick the most common one (e.g., 1kg or 1 pc)
+    if (!chosenVariant && priceData.variants.length > 0) {
+        chosenVariant = 
+            priceData.variants.find(v => v.weight === '1kg') ||
+            priceData.variants.find(v => v.weight.includes('kg')) ||
+            priceData.variants.find(v => v.weight.includes('pc')) ||
+            priceData.variants[0]; // Default to the first variant
+    }
+    
+    return { product: productMatch, variant: chosenVariant, requestedQty, remainingPhrase, matchedAlias };
 
   }, [firestore, productPrices, fetchProductPrices, productAliasMap]);
 
@@ -493,8 +490,8 @@ export function VoiceCommander({
     }
     
     // PRIORITY 0: Handle language switch feedback
-    if (languageSwitched && lang === 'te') {
-        speak(t('telugu-welcome-speech', 'te'), 'te-IN');
+    if (languageSwitched) {
+        speak(t(lang === 'te' ? 'telugu-welcome-speech' : 'english-welcome-speech', lang), langWithRegion);
         return;
     }
 
@@ -994,4 +991,3 @@ export function VoiceCommander({
   return null;
 }
 
-    
