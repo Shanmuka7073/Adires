@@ -2255,7 +2255,6 @@
       "చెకౌట్ ప్రాసెస్ చేయి",
       "చెకౌట్ లోకి వెళ్ళు",
       "చెకౌట్ చేసేయి",
-      "ఆర్డర్ చెయ్యి",
       "బై చెయ్యి",
       "కొనుగోలు చెయ్యి",
       "ఆర్డర్ ప్లేస్ చెయ్యి",
@@ -2267,8 +2266,7 @@
       "ఆర్డర్ ఫైనల్ చెయ్యి",
       "చెకౌట్ ప్రాసెస్ చెయ్యి",
       "పేమెంట్ ప్రాసెస్ చెయ్యి",
-      "ఆర్డర్ ప్రాసెస్ చెయ్యి",
-      "ఆర్డర్ ప్రాసెస్"
+      "ఆర్డర్ ప్రాసెస్ చెయ్యి"
     ],
     "en": [
       "checkout",
@@ -3512,16 +3510,16 @@
     ]
   },
   "price-check-reply-speech": {
-    "en": "{productName} is available as: {prices}",
-    "te": "{productName} ఈ క్రింది విధముగా అందుబాటులో ఉంది: {prices}"
+    "en": "{productName} is available as: {prices}.",
+    "te": "{productName} ఈ క్రింది విధంగా అందుబాటులో ఉంది: {prices}."
   },
   "price-check-variant-speech": {
     "en": "{weight} for {price}",
     "te": "{weight} కి {price}"
   },
   "no-price-found-speech": {
-    "en": "I'm sorry, I couldn't find a price for {productName}.",
-    "te": "క్షమించండి, {productName} కోసం నేను ధరను కనుగొనలేకపోయాను."
+    "en": "I found {productName}, but a price has not been set for it yet.",
+    "te": "నేను {productName}ను కనుగొన్నాను, కానీ దాని కోసం ఇంకా ధర నిర్ణయించబడలేదు."
   },
   "checkPrice": {
     "en": [

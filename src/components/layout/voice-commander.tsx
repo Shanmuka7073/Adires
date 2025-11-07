@@ -360,14 +360,29 @@ export function VoiceCommander({
   
   // Proactive trigger for the checkout page based on a state change
   useEffect(() => {
+      // This effect now ONLY runs when the `voiceTrigger` state changes.
+      // `voiceTrigger` is changed inside the `checkout` voice command.
       if (pathname === '/checkout' && hasMounted && enabled && voiceTrigger > 0) {
-          // This is triggered by the checkout command itself, let's give the page a moment to settle.
+          // This delay is crucial. It gives the page a moment to render after navigation
+          // before the AI tries to read its state.
           const timeoutId = setTimeout(() => {
               runCheckoutPrompt();
           }, 1000); 
           return () => clearTimeout(timeoutId);
       }
-  }, [pathname, hasMounted, enabled, voiceTrigger, runCheckoutPrompt]);
+  }, [voiceTrigger]); // This effect is now solely dependent on the voiceTrigger.
+
+  // New Proactive trigger for checkout page based on address/store changes
+  useEffect(() => {
+    if (pathname !== '/checkout' || !enabled || isSpeakingRef.current) return;
+    
+    // Give React time to update state before triggering the prompt.
+    const handler = setTimeout(() => {
+      runCheckoutPrompt();
+    }, 500);
+
+    return () => clearTimeout(handler);
+  }, [activeStoreId, runCheckoutPrompt]);
 
 
   useEffect(() => {
@@ -939,43 +954,44 @@ export function VoiceCommander({
         router.push('/checkout');
     },
     checkPrice: async ({ phrase, lang, originalText }: { phrase?: string; lang: string, originalText: string }) => {
-        if (!phrase) return;
+      if (!phrase) return;
 
-        // Try to isolate the product name from the query
-        const priceKeywords = [t('checkPrice', lang).toLowerCase(), ...Object.values(getAllAliases('checkPrice')).flat().map(a => a.toLowerCase())];
-        let productNameQuery = phrase;
-        for (const keyword of priceKeywords) {
-            if (productNameQuery.includes(keyword)) {
-                productNameQuery = productNameQuery.replace(keyword, '').trim();
-                break; // Stop after the first replacement
-            }
+      const { product } = await findProductAndVariant(phrase);
+
+      if (product) {
+        // We have a product, now fetch its price explicitly if not already cached
+        let priceData = productPrices[product.name.toLowerCase()];
+        if (priceData === undefined && firestore) {
+          await fetchProductPrices(firestore, [product.name]);
+          // After fetching, get the updated value from the store
+          priceData = useAppStore.getState().productPrices[product.name.toLowerCase()];
         }
         
-        const { product, variant } = await findProductAndVariant(productNameQuery);
-        
-        if (product) {
-            const priceData = productPrices[product.name.toLowerCase()];
-            if (priceData && priceData.variants && priceData.variants.length > 0) {
-                const pricesString = priceData.variants.map(v => 
-                    t('price-check-variant-speech', lang)
-                        .replace('{weight}', v.weight)
-                        .replace('{price}', `₹${v.price.toFixed(2)}`)
-                ).join(', ');
+        if (priceData && priceData.variants && priceData.variants.length > 0) {
+          const pricesString = priceData.variants.map(v => 
+            t('price-check-variant-speech', lang)
+              .replace('{weight}', v.weight)
+              .replace('{price}', `₹${v.price.toFixed(2)}`)
+          ).join(', ');
 
-                const reply = t('price-check-reply-speech', lang)
-                    .replace('{productName}', getProductName(product))
-                    .replace('{prices}', pricesString);
-                
-                speak(reply, lang + '-IN');
+          const reply = t('price-check-reply-speech', lang)
+            .replace('{productName}', getProductName(product))
+            .replace('{prices}', pricesString);
+          
+          speak(reply, lang + '-IN');
 
-            } else {
-                speak(t('no-price-found-speech', lang).replace('{productName}', getProductName(product)), lang + '-IN');
-                 if(firestore && user) addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: lang, reason: `Price check: product "${product.name}" found but no price data available.`, timestamp: serverTimestamp() });
-            }
         } else {
-            speak(t('sorry-i-didnt-understand-that', lang), lang + '-IN');
-            if(firestore && user) addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: lang, reason: `Price check: product not found for query "${productNameQuery}".`, timestamp: serverTimestamp() });
+          speak(t('no-price-found-speech', lang).replace('{productName}', getProductName(product)), lang + '-IN');
+          if (firestore && user) {
+            addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: lang, reason: `Price check: product "${product.name}" found but no price data available.`, timestamp: serverTimestamp() });
+          }
         }
+      } else {
+        speak(t('sorry-i-didnt-understand-that', lang), lang + '-IN');
+        if (firestore && user) {
+          addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: lang, reason: `Price check: product not found in phrase "${phrase}".`, timestamp: serverTimestamp() });
+        }
+      }
     },
     };
 
