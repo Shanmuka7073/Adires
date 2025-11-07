@@ -154,6 +154,7 @@ export default function CheckoutPage() {
                 // A real app would use a Geocoding API here.
                 form.setValue('deliveryAddress', `Current Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`, { shouldValidate: true });
                 toast({ title: "Location Fetched!", description: "Your current location has been set for delivery." });
+                setTimeout(() => triggerVoicePrompt(), 500); // Trigger re-evaluation
             },
             () => {
                 toast({ variant: 'destructive', title: "Location Error", description: "Could not retrieve your location. Please ensure permissions are enabled." });
@@ -163,7 +164,7 @@ export default function CheckoutPage() {
     } else {
         toast({ variant: 'destructive', title: "Not Supported", description: "Geolocation is not supported by your browser." });
     }
-  }, [toast, form]);
+  }, [toast, form, triggerVoicePrompt]);
 
   useEffect(() => {
     setPlaceOrderBtnRef(placeOrderBtnRef);
@@ -195,12 +196,13 @@ export default function CheckoutPage() {
         // Note: We don't have lat/lng for home address in this version.
         // A real app would geocode the address to get coordinates.
         // For now, we'll clear coords if they were set.
-        setDeliveryCoords(null); 
+        setDeliveryCoords(null);
+        setTimeout(() => triggerVoicePrompt(), 500); // Trigger re-evaluation
       } else {
         toast({ variant: 'destructive', title: 'No Home Address', description: 'Please set your home address in your profile first.' });
       }
     }
-  }, [userData, form, toast]);
+  }, [userData, form, toast, triggerVoicePrompt]);
 
   const deliveryAddressValue = form.watch('deliveryAddress');
   
@@ -501,3 +503,5 @@ export default function CheckoutPage() {
     </div>
   );
 }
+
+    
