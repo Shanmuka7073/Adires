@@ -296,17 +296,16 @@ export function VoiceCommander({
     }
   }, [profileForm, speak]);
 
- const runCheckoutPrompt = useCallback(() => {
+  const runCheckoutPrompt = useCallback(() => {
     if (pathname !== '/checkout' || !hasMounted || !enabled || isSpeakingRef.current) {
       return;
     }
-    
+
     if (hasSpokenCheckoutPrompt.current) return;
-    
+
     const addressInput = typeof document !== 'undefined' ? (document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement) : null;
     const currentAddress = addressInput?.value || '';
 
-    // Corrected logic with if/else if
     if (isWaitingForQuickOrderConfirmation) {
         speak(t('confirm-the-quick-order-speech', currentLanguage), currentLanguage);
     } else if (cartItemsProp.length === 0) {
@@ -323,7 +322,10 @@ export function VoiceCommander({
     }
     
     hasSpokenCheckoutPrompt.current = true;
-  }, [pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, speak, activeStoreId, cartItemsProp, currentLanguage, setIsWaitingForAddressType, setIsWaitingForStoreName]);
+  }, [
+    pathname, hasMounted, enabled, isSpeakingRef.current, isWaitingForQuickOrderConfirmation, 
+    cartItemsProp.length, activeStoreId, currentLanguage, speak, setIsWaitingForAddressType, setIsWaitingForStoreName
+  ]);
   
   useEffect(() => {
       hasSpokenCheckoutPrompt.current = false;
@@ -500,6 +502,19 @@ export function VoiceCommander({
       
       const commandLower = strippedCommand.toLowerCase();
 
+      // --- Contextual High-Priority Commands ---
+      if (pathname === '/checkout') {
+          const placeOrderAliases = [t('placeOrder', lang), ...Object.values(getAllAliases('placeOrder')).flat()];
+          for (const alias of [...new Set(placeOrderAliases)]) {
+              if (calculateSimilarity(commandLower, alias) > 0.8 || commandText.toLowerCase() === alias) {
+                  commandActionsRef.current.placeOrder({ lang });
+                  resetAllContext();
+                  return;
+              }
+          }
+      }
+
+
       // --- PRIORITY 1: High-priority global navigation ---
       const highPriorityCommands = ["home", "stores", "dashboard", "cart", "orders", "deliveries", "myStore", "refresh"];
       for (const key of highPriorityCommands) {
@@ -551,10 +566,12 @@ export function VoiceCommander({
         let actionTaken = false;
         if (homeKeywords.some(keyword => cmd.includes(keyword))) {
           homeAddressBtnRef?.current?.click();
+          speak(t('setting-delivery-to-home-speech', lang), lang);
           actionTaken = true;
         } else if (locationKeywords.some(keyword => cmd.includes(keyword))) {
           currentLocationBtnRef?.current?.click();
-          actionTaken = true;
+          speak(t('using-current-location-speech', lang), lang);
+           actionTaken = true;
         } else {
           speak(t('did-not-understand-address-type-speech', lang), lang);
         }
@@ -641,12 +658,14 @@ export function VoiceCommander({
           }
 
           if (bestMatch && bestMatch.similarity > 0.6) {
-              setActiveStoreId(bestMatch.store.id);
-              // Re-trigger the prompt after a short delay to allow page to settle
-              setTimeout(() => {
+              speak(t('okay-ordering-from-speech', lang).replace('{storeName}', bestMatch.store.name), lang, () => {
+                setActiveStoreId(bestMatch.store.id);
+                // Re-trigger the prompt after a short delay to allow page to settle
+                setTimeout(() => {
                   hasSpokenCheckoutPrompt.current = false;
                   runCheckoutPrompt();
-              }, 1500);
+                }, 1500);
+              });
           } else {
               speak(t('could-not-find-store-speech', lang).replace('{storeName}', commandText), lang);
           }
