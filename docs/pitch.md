@@ -42,6 +42,7 @@ Our app introduces a smart voice AI engine designed exclusively for groceries.
 
 - **Multilingual Voice Understanding**: English, Telugu, Hindi, Roman Telugu, slang, and misspellings.
 - **Natural Language AI**: Works even with sentences like: “Add one curd packet… and two onions… and oil also.”
+- **Instant Store Onboarding**: Store owners can get their shop online in seconds. Just by visiting the "My Store" page, the app uses AI-assisted automation to create their digital storefront instantly.
 - **Category Smart Mapping**: Detects grocery categories instantly, like Google detects searches.
 - **Lightning Fast Matching**: Works smoothly on even low-end Android mobiles.
 - **Hands-Free Shopping**: Order groceries without typing or touching the phone.
