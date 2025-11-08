@@ -13,8 +13,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Check, X, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useTransition } from 'react';
+import { useTransition, useState, useEffect } from 'react';
 import { addAliasToLocales, getLocales } from '@/app/actions';
+import { Input } from '@/components/ui/input';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -41,6 +42,7 @@ export default function FailedCommandsPage() {
     const router = useRouter();
     const { toast } = useToast();
     const [isProcessing, startTransition] = useTransition();
+    const [editableSuggestions, setEditableSuggestions] = useState<Record<string, string>>({});
 
     const failedCommandsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -48,6 +50,17 @@ export default function FailedCommandsPage() {
     }, [firestore]);
 
     const { data: failedCommands, isLoading, mutate } = useCollection<FailedVoiceCommand>(failedCommandsQuery);
+    
+    useEffect(() => {
+        if (failedCommands) {
+            const initialSuggestions = failedCommands.reduce((acc, cmd) => {
+                acc[cmd.id] = cmd.suggestedProduct || '';
+                return acc;
+            }, {});
+            setEditableSuggestions(initialSuggestions);
+        }
+    }, [failedCommands]);
+
 
     if (!isUserLoading && (!user || user.email !== ADMIN_EMAIL)) {
         router.replace('/dashboard');
@@ -58,31 +71,48 @@ export default function FailedCommandsPage() {
         if (!firestore) return;
         startTransition(async () => {
             const commandRef = doc(firestore, 'failedCommands', commandId);
-            await deleteDoc(commandRef);
-            toast({ title: "Suggestion Rejected", description: "The failed command log has been removed." });
-            // The real-time listener will auto-update the UI.
+            try {
+              await deleteDoc(commandRef);
+              toast({ title: "Suggestion Rejected", description: "The failed command log has been removed." });
+            } catch (error) {
+              console.error("Failed to reject command:", error);
+              toast({ variant: 'destructive', title: "Deletion Failed", description: "Could not remove the log entry." });
+            }
         });
     }
 
     const handleAddAlias = (command: FailedVoiceCommand) => {
-        if (!command.suggestedProduct || !command.commandText || !command.language) {
-            toast({ variant: 'destructive', title: 'Missing Information', description: 'Cannot add alias due to missing data.' });
+        const finalProductName = editableSuggestions[command.id];
+
+        if (!finalProductName || !command.commandText || !command.language) {
+            toast({ variant: 'destructive', title: 'Missing Information', description: 'Please ensure there is a product name to associate the alias with.' });
             return;
         }
 
         startTransition(async () => {
-            const productKey = createSlug(command.suggestedProduct!);
+            const productKey = createSlug(finalProductName);
             try {
-                await addAliasToLocales(productKey, command.commandText, command.language);
-                const commandRef = doc(firestore, 'failedCommands', command.id);
-                await deleteDoc(commandRef);
-                toast({ title: 'Alias Added!', description: `"${command.commandText}" is now an alias for "${command.suggestedProduct}".` });
+                const result = await addAliasToLocales(productKey, command.commandText, command.language);
+                if (result.success) {
+                    const commandRef = doc(firestore, 'failedCommands', command.id);
+                    await deleteDoc(commandRef);
+                    toast({ title: 'Alias Added!', description: `"${command.commandText}" is now an alias for "${finalProductName}".` });
+                } else {
+                    throw new Error("Server action failed.");
+                }
             } catch (error) {
                 console.error("Failed to add alias:", error);
                 toast({ variant: 'destructive', title: 'Failed to Add Alias', description: (error as Error).message });
             }
         });
     }
+    
+    const handleSuggestionChange = (commandId: string, value: string) => {
+        setEditableSuggestions(prev => ({
+            ...prev,
+            [commandId]: value
+        }));
+    };
 
 
     return (
@@ -91,7 +121,7 @@ export default function FailedCommandsPage() {
                 <CardHeader>
                     <CardTitle>AI Training Center: Failed Commands</CardTitle>
                     <CardDescription>
-                        Review voice commands the AI failed to understand. The AI suggests the closest product match. You can approve the suggestion to teach the AI, or reject it.
+                        Review voice commands the AI failed to understand. The AI suggests the closest product match. You can approve the suggestion, correct it, and then approve it to teach the AI.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -108,7 +138,7 @@ export default function FailedCommandsPage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>User Said</TableHead>
-                                    <TableHead>AI Suggestion</TableHead>
+                                    <TableHead>AI Suggestion (Editable)</TableHead>
                                     <TableHead>Confidence</TableHead>
                                     <TableHead>Language</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
@@ -119,14 +149,14 @@ export default function FailedCommandsPage() {
                                     <TableRow key={cmd.id}>
                                         <TableCell className="font-mono text-base">"{cmd.commandText}"</TableCell>
                                         <TableCell>
-                                            {cmd.suggestedProduct ? (
-                                                <div className="flex items-center gap-2">
-                                                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                                                    <Badge variant="secondary" className="text-base">{cmd.suggestedProduct}</Badge>
-                                                </div>
-                                            ) : (
-                                                <span className="text-muted-foreground text-xs">N/A</span>
-                                            )}
+                                            <div className="flex items-center gap-2">
+                                                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                                                <Input 
+                                                    value={editableSuggestions[cmd.id] || ''}
+                                                    onChange={(e) => handleSuggestionChange(cmd.id, e.target.value)}
+                                                    placeholder="Enter correct product name..."
+                                                />
+                                            </div>
                                         </TableCell>
                                         <TableCell>
                                             {cmd.similarityScore ? (
@@ -155,7 +185,7 @@ export default function FailedCommandsPage() {
                                                 variant="default" 
                                                 size="icon" 
                                                 onClick={() => handleAddAlias(cmd)}
-                                                disabled={isProcessing || !cmd.suggestedProduct}
+                                                disabled={isProcessing || !editableSuggestions[cmd.id]}
                                                 title="Add as Alias"
                                              >
                                                 <Check className="h-4 w-4" />
