@@ -109,13 +109,18 @@ export function VoiceCommander({
       const productSlug = p.name.toLowerCase().replace(/ /g, '-');
       const productAliasesByLang = getAllAliases(productSlug);
       
-      // Add the canonical name itself
-      map.set(p.name.toLowerCase(), { product: p, lang: 'en' }); // Assume canonical is English
+      // Add the canonical name itself, both with and without spaces
+      const normalizedCanonicalName = p.name.toLowerCase();
+      map.set(normalizedCanonicalName, { product: p, lang: 'en' });
+      map.set(normalizedCanonicalName.replace(/\s+/g, ''), { product: p, lang: 'en' });
+
 
       // Add all aliases from locales.json
       for (const lang in productAliasesByLang) {
         for (const alias of productAliasesByLang[lang]) {
-          map.set(alias.toLowerCase(), { product: p, lang: lang });
+          const normalizedAlias = alias.toLowerCase();
+          map.set(normalizedAlias, { product: p, lang: lang });
+          map.set(normalizedAlias.replace(/\s+/g, ''), { product: p, lang: lang });
         }
       }
     }
@@ -135,7 +140,11 @@ export function VoiceCommander({
         ...Object.values(aliases).flat().map(a => a.toLowerCase()),
       ];
       for (const term of [...new Set(allTerms)]) {
-        if (term) map.set(term, s);
+         if (term) {
+            const normalizedTerm = term.toLowerCase();
+            map.set(normalizedTerm, s);
+            map.set(normalizedTerm.replace(/\s+/g, ''), s);
+        }
       }
     }
     return map;
@@ -425,15 +434,22 @@ export function VoiceCommander({
 
   const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null; variant: ProductVariant | null; requestedQty: number; remainingPhrase: string; matchedAlias: string | null; lang: string; }> => {
     const lowerPhrase = phrase.toLowerCase();
+    const normalizedPhrase = lowerPhrase.replace(/\s+/g, '');
     let bestMatch: { product: Product, alias: string, similarity: number, lang: string } | null = null;
 
-    for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
-      if (lowerPhrase.includes(alias)) {
-        const similarity = calculateSimilarity(lowerPhrase, alias);
-        if (!bestMatch || similarity > bestMatch.similarity) {
-          bestMatch = { product, alias, similarity, lang };
+    // Search both with and without spaces for flexibility
+    const searchTerms = [lowerPhrase, normalizedPhrase];
+
+    for (const term of searchTerms) {
+        for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
+            // Check if the alias (which might be space-less) is a substring of the search term
+            if (term.includes(alias)) {
+                const similarity = calculateSimilarity(term, alias);
+                if (!bestMatch || similarity > bestMatch.similarity) {
+                    bestMatch = { product, alias, similarity, lang };
+                }
+            }
         }
-      }
     }
     
     if (!bestMatch) return { product: null, variant: null, requestedQty: 1, remainingPhrase: phrase, matchedAlias: null, lang: 'en' };
