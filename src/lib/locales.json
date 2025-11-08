@@ -327,11 +327,8 @@
   },
   "onions": {
     "en": [
-      "Onions",
-      "Onion",
-      "union",
-      "piyaz",
-      "ulli"
+      "onions",
+      "onion"
     ],
     "te": [
       "ఉల్లిపాయలు",
@@ -342,7 +339,7 @@
       "ullipaya",
       "ullipayalu",
       "ulligadda",
-      "ఉల్లి"
+      "ఒనియన్స్"
     ],
     "hi": [
       "pyaz",
@@ -362,7 +359,8 @@
       "రామ ములగ",
       "టమాట",
       "టమాట పండు",
-      "rammulapandu"
+      "rammulapandu",
+      "టమోటో"
     ]
   },
   "carrots": {
@@ -1504,13 +1502,14 @@
   },
   "toor-dal-(arhar-dal)": {
     "en": [
+      "toordal",
       "toor dal",
       "arhar dal",
       "tuvar dal"
     ],
     "te": [
-      "kandi pappu",
       "kandipappu",
+      "kandi pappu",
       "కందిపప్పు"
     ]
   },
@@ -3450,15 +3449,17 @@
   },
   "toor-dal-(arhar-dal)": {
     "en": [
+      "toordal",
       "toor dal",
       "arhar dal",
-      "tuvar dal",
-      "toordal"
+      "tuvar dal"
     ],
     "te": [
-      "kandi pappu",
       "kandipappu",
+      "kandi pappu",
       "కందిపప్పు"
     ]
   }
 }
+
+    
