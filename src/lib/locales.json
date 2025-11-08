@@ -1876,8 +1876,8 @@
     "te": "{storeName} నుండి ఆర్డర్ చేస్తున్నాను."
   },
   "sorry-i-didnt-understand-that": {
-    "en": "Sorry, I didn't understand that.",
-    "te": "క్షమించండి, నాకు అది అర్థం కాలేదు."
+    "en": "My apologies, I'm still learning. I've noted this down and will be able to understand it soon.",
+    "te": "క్షమించండి, నేను ఇంకా నేర్చుకుంటున్నాను. నేను దీనిని నోట్ చేసుకున్నాను మరియు త్వరలో అర్థం చేసుకోగలుగుతాను."
   },
   "could-not-find-product-in-order-speech": {
     "en": "I'm sorry, I couldn't figure out which product you wanted in your smart order.",
@@ -3381,7 +3381,7 @@
       "మార్పులు ఉంచు",
       "మార్పులు అమలు చేయి",
       "మార్పులు పూర్తి చేయి",
-      "మార్పులు ఫైనల్ చేయి",
+      "మార్పులు ఫైనல் చేయి",
       "మార్పులు స్టోర్ చేయి",
       "డేటా సేవ్ చేయి",
       "సమాచారం సేవ్ చేయి",
@@ -3541,3 +3541,5 @@
     ]
   }
 }
+
+    
