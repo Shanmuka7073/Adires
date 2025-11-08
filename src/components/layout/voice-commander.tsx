@@ -276,17 +276,8 @@ export function VoiceCommander({
     window.speechSynthesis.cancel();
     isSpeakingRef.current = false;
     
-    // Process dynamic replies
-    let processedText = text;
-    if (text.includes('{time}')) {
-        const now = new Date();
-        const timeString = now.toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' });
-        processedText = text.replace('{time}', timeString);
-    }
-
-
     const langCode = lang.split('-')[0]; // 'en' from 'en-IN'
-    const utterance = new SpeechSynthesisUtterance(processedText);
+    const utterance = new SpeechSynthesisUtterance(text);
     utterance.pitch = 1;
     utterance.rate = 1.1;
     utterance.lang = lang; // Use the dynamically detected language
@@ -537,7 +528,16 @@ export function VoiceCommander({
         const allAliases = [t(key, spokenLang).toLowerCase(), ...Object.values(getAllAliases(key)).flat().map(a => a.toLowerCase()), ...(cmdGroup.aliases || [])];
         for (const alias of [...new Set(allAliases)]) {
             if (calculateSimilarity(commandLower, alias) > 0.8 || commandText.toLowerCase() === alias) {
-                speak(t(cmdGroup.reply, spokenLang), langWithRegion);
+                let replyText = t(cmdGroup.reply, spokenLang);
+                
+                // Handle dynamic parts of the reply here
+                if (replyText.includes('{time}')) {
+                    const now = new Date();
+                    const timeString = now.toLocaleTimeString(langWithRegion, { hour: '2-digit', minute: '2-digit' });
+                    replyText = replyText.replace('{time}', timeString);
+                }
+                
+                speak(replyText, langWithRegion);
                 resetAllContext();
                 return;
             }
