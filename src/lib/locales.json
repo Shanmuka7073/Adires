@@ -326,23 +326,47 @@
   },
   "onions": {
     "en": [
+      "onion",
       "onions",
-      "onion"
+      "unian",
+      "uniyan",
+      "oniyan",
+      "onians",
+      "anion",
+      "aniyan",
+      "onins"
     ],
     "te": [
-      "ఉల్లిపాయలు",
       "ఉల్లిపాయ",
-      "ఎర్రగడ్డ",
+      "ఉల్లిపాయలు",
       "ఉల్లి",
       "ఉల్లిగడ్డ",
+      "ఎర్రగడ్డ",
+      "ఎర్రగడ్డలు",
+      "నీరుల్లి",
       "ullipaya",
       "ullipayalu",
+      "ulli",
       "ulligadda",
-      "ఒనియన్స్"
+      "erragadda",
+      "neerulli",
+      "oniyan",
+      "oniyans",
+      "ఒనియన్",
+      "ఒనియన్స్",
+      "ఉల్లిపాయలు కావాలి",
+      "ఉల్లిపాయ కావాలి",
+      "ఉల్లి గడ్డలు",
+      "ఉల్లిపాయలు ఉల్లిపాయలు"
     ],
     "hi": [
       "pyaz",
-      "प्याज़"
+      "pyaaz",
+      "pyaj",
+      "kanda",
+      "प्याज",
+      "प्याज़",
+      "कांदा"
     ]
   },
   "tomatoes": {
@@ -3413,6 +3437,9 @@
     "en": [
       "amma",
       "amma amma"
+    ],
+    "te": [
+      "టమోటో"
     ]
   },
   "price-check-reply-speech": {
@@ -3444,19 +3471,6 @@
       "వెరీ ఎంత",
       "దీని ధర ఎంత",
       "దీని రేటు ఎంత"
-    ]
-  },
-  "toor-dal-(arhar-dal)": {
-    "en": [
-      "toordal",
-      "toor dal",
-      "arhar dal",
-      "tuvar dal"
-    ],
-    "te": [
-      "kandipappu",
-      "kandi pappu",
-      "కందిపప్పు"
     ]
   },
   "whatTime": {
