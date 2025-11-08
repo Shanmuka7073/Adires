@@ -275,9 +275,18 @@ export function VoiceCommander({
 
     window.speechSynthesis.cancel();
     isSpeakingRef.current = false;
+    
+    // Process dynamic replies
+    let processedText = text;
+    if (text.includes('{time}')) {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' });
+        processedText = text.replace('{time}', timeString);
+    }
+
 
     const langCode = lang.split('-')[0]; // 'en' from 'en-IN'
-    const utterance = new SpeechSynthesisUtterance(text);
+    const utterance = new SpeechSynthesisUtterance(processedText);
     utterance.pitch = 1;
     utterance.rate = 1.1;
     utterance.lang = lang; // Use the dynamically detected language
@@ -518,8 +527,24 @@ export function VoiceCommander({
     const spokenLang = determinePhraseLanguage(commandText);
     const langWithRegion = spokenLang === 'en' ? 'en-IN' : `${spokenLang}-IN`;
     const commandLower = commandText.toLowerCase();
+
+    // --- PRIORITY 0: Check for simple conversational commands first ---
+    const conversationalCommands = ["whatTime", "howAreYou", "howIsYourDay", "whatToOrder"];
+    for (const key of conversationalCommands) {
+        const cmdGroup = fileCommandsRef.current[key];
+        if (!cmdGroup) continue;
+
+        const allAliases = [t(key, spokenLang).toLowerCase(), ...Object.values(getAllAliases(key)).flat().map(a => a.toLowerCase()), ...(cmdGroup.aliases || [])];
+        for (const alias of [...new Set(allAliases)]) {
+            if (calculateSimilarity(commandLower, alias) > 0.8 || commandText.toLowerCase() === alias) {
+                speak(t(cmdGroup.reply, spokenLang), langWithRegion);
+                resetAllContext();
+                return;
+            }
+        }
+    }
     
-    // --- PRIORITY 1: Check for a product/item command first ---
+    // --- PRIORITY 1: Check for a product/item command ---
     const { product, variant, requestedQty, matchedAlias, lang: itemLang } = await findProductAndVariant(commandLower);
 
     if (product && variant) {
@@ -1067,5 +1092,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    

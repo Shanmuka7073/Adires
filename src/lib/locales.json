@@ -1,4 +1,3 @@
-
 {
   "home": {
     "en": [
@@ -3459,7 +3458,50 @@
       "kandi pappu",
       "కందిపప్పు"
     ]
+  },
+  "whatTime": {
+    "en": [
+      "what is the time",
+      "what's the time",
+      "time please",
+      "tell me the time"
+    ],
+    "te": [
+      "samayam entha",
+      "time entha",
+      "time cheppu",
+      "సమయం ఎంత"
+    ]
+  },
+  "howAreYou": {
+    "en": [
+      "how are you",
+      "how you doin"
+    ],
+    "te": [
+      "ela unnav",
+      "ela unnaru",
+      "ఎలా ఉన్నారు"
+    ]
+  },
+  "howIsYourDay": {
+    "en": [
+      "how is your day",
+      "how's your day"
+    ],
+    "te": [
+      "ee roju ela undi",
+      "ఈ రోజు ఎలా ఉంది"
+    ]
+  },
+  "whatToOrder": {
+    "en": [
+      "what can i order",
+      "what do you have"
+    ],
+    "te": [
+      "em order cheyali",
+      "ఏమి ఆర్డర్ చేయాలి"
+    ]
   }
 }
-
-    
