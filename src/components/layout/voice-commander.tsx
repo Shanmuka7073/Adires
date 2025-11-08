@@ -42,8 +42,8 @@ if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSp
   recognition = new SpeechRecognition();
 }
 
-type ProductAliasMap = Map<string, Product>;
-type StoreAliasMap = Map<string, Store>;
+type AliasToProductMap = Map<string, { product: Product; lang: string }>;
+
 
 export function VoiceCommander({
   enabled,
@@ -100,27 +100,30 @@ export function VoiceCommander({
   const [speechSynthesisVoices, setSpeechSynthesisVoices] = useState<SpeechSynthesisVoice[]>([]);
   
     // --- Performance Optimization: Memoized Alias Maps ---
-  const productAliasMap = useMemo<ProductAliasMap>(() => {
-    const map: ProductAliasMap = new Map();
+  const universalProductAliasMap = useMemo<AliasToProductMap>(() => {
+    const map: AliasToProductMap = new Map();
     if (!masterProducts) return map;
 
     for (const p of masterProducts) {
       if (!p.name) continue;
       const productSlug = p.name.toLowerCase().replace(/ /g, '-');
-      const aliases = getAllAliases(productSlug);
-      const allTerms = [
-        p.name.toLowerCase(),
-        ...Object.values(aliases).flat().map(a => a.toLowerCase()),
-      ];
-      for (const term of [...new Set(allTerms)]) {
-        if (term) map.set(term, p);
+      const productAliasesByLang = getAllAliases(productSlug);
+      
+      // Add the canonical name itself
+      map.set(p.name.toLowerCase(), { product: p, lang: 'en' }); // Assume canonical is English
+
+      // Add all aliases from locales.json
+      for (const lang in productAliasesByLang) {
+        for (const alias of productAliasesByLang[lang]) {
+          map.set(alias.toLowerCase(), { product: p, lang: lang });
+        }
       }
     }
     return map;
   }, [masterProducts]);
 
-  const storeAliasMap = useMemo<StoreAliasMap>(() => {
-    const map: StoreAliasMap = new Map();
+  const storeAliasMap = useMemo(() => {
+    const map = new Map<string, Store>();
     if (!stores) return map;
 
     for (const s of stores) {
@@ -420,25 +423,23 @@ export function VoiceCommander({
     };
   }, [pathname, hasMounted, enabled, profileForm, handleProfileFormInteraction]);
 
-  const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null; variant: ProductVariant | null; requestedQty: number; remainingPhrase: string; matchedAlias: string | null; }> => {
+  const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null; variant: ProductVariant | null; requestedQty: number; remainingPhrase: string; matchedAlias: string | null; lang: string; }> => {
     const lowerPhrase = phrase.toLowerCase();
-    let bestMatch: { product: Product, alias: string, similarity: number } | null = null;
-    
-    // Find the best product match based on aliases
-    for (const [alias, product] of productAliasMap.entries()) {
-        if (lowerPhrase.includes(alias)) {
-             const similarity = calculateSimilarity(lowerPhrase, alias);
-             if (!bestMatch || similarity > bestMatch.similarity) {
-                bestMatch = { product, alias, similarity };
-            }
+    let bestMatch: { product: Product, alias: string, similarity: number, lang: string } | null = null;
+
+    for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
+      if (lowerPhrase.includes(alias)) {
+        const similarity = calculateSimilarity(lowerPhrase, alias);
+        if (!bestMatch || similarity > bestMatch.similarity) {
+          bestMatch = { product, alias, similarity, lang };
         }
+      }
     }
     
-    if (!bestMatch) return { product: null, variant: null, requestedQty: 1, remainingPhrase: phrase, matchedAlias: null };
+    if (!bestMatch) return { product: null, variant: null, requestedQty: 1, remainingPhrase: phrase, matchedAlias: null, lang: 'en' };
 
-    const productMatch = bestMatch.product;
-    const matchedAlias = bestMatch.alias;
-    let remainingPhrase = lowerPhrase.replace(bestMatch.alias, '').trim();
+    const { product: productMatch, alias: matchedAlias, lang: detectedLang } = bestMatch;
+    let remainingPhrase = lowerPhrase.replace(matchedAlias, '').trim();
 
     // Fetch price data if not already cached
     let priceData = productPrices[productMatch.name.toLowerCase()];
@@ -447,7 +448,7 @@ export function VoiceCommander({
         priceData = useAppStore.getState().productPrices[productMatch.name.toLowerCase()];
     }
     
-    if (!priceData?.variants?.length) return { product: productMatch, variant: null, requestedQty: 1, remainingPhrase, matchedAlias };
+    if (!priceData?.variants?.length) return { product: productMatch, variant: null, requestedQty: 1, remainingPhrase, matchedAlias, lang: detectedLang };
     
     const numberWords: Record<string, number> = { 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10, 'ఒకటి': 1, 'రెండు': 2, 'మూడు': 3, 'నాలుగు': 4, 'ఐదు': 5, 'ఆరు': 6, 'ఏడు': 7, 'ఎనిమిది': 8, 'తొమ్మిది': 9, 'పది': 10, 'एक': 1, 'दो': 2, 'तीन': 3, 'चार': 4, 'पांच': 5, 'छह': 6, 'सात': 7, 'आठ': 8, 'नौ': 9, 'दस': 10 };
     const unitKeywords: Record<string, string[]> = {
@@ -498,9 +499,9 @@ export function VoiceCommander({
             priceData.variants[0]; // Default to the first variant
     }
     
-    return { product: productMatch, variant: chosenVariant, requestedQty, remainingPhrase, matchedAlias };
+    return { product: productMatch, variant: chosenVariant, requestedQty, remainingPhrase, matchedAlias, lang: detectedLang };
 
-  }, [firestore, productPrices, fetchProductPrices, productAliasMap]);
+  }, [firestore, productPrices, fetchProductPrices, universalProductAliasMap]);
 
   const handleCommand = useCallback(async (commandText: string) => {
     onStatusUpdate(`Processing: "${commandText}"`);
@@ -668,7 +669,7 @@ export function VoiceCommander({
     }
 
     // --- PRIORITY 5: Fallback to Single Item Order or Failure ---
-    await commandActionsRef.current.orderItem({ phrase: commandLower, lang, originalText: commandText });
+    await commandActionsRef.current.orderItem({ phrase: commandLower, originalText: commandText });
     resetAllContext();
 
   }, [firestore, user, language, detectLanguage, updateRecognitionLanguage, speak, onStatusUpdate, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp.length]);
@@ -830,10 +831,10 @@ export function VoiceCommander({
         speak(`Okay, opening ${store.name}.`, langWithRegion); // Speak immediately
         router.push(`/stores/${store.id}`); // Navigate immediately
       },
-      orderItem: async ({ phrase, lang, originalText }: { phrase?: string; lang: string, originalText: string }) => {
+      orderItem: async ({ phrase, originalText }: { phrase?: string; originalText: string }) => {
         if (!phrase) return;
 
-        const { product, variant, requestedQty, matchedAlias } = await findProductAndVariant(phrase);
+        const { product, variant, requestedQty, matchedAlias, lang } = await findProductAndVariant(phrase);
 
         if (product && variant) {
             const replyProductName = matchedAlias || getProductName(product);
@@ -844,7 +845,8 @@ export function VoiceCommander({
             addItemToCart(product, variant, requestedQty);
             onOpenCart();
         } else {
-            speak(t('sorry-i-didnt-understand-that', lang), lang + '-IN');
+            const detectedLang = detectLanguage(originalText).lang;
+            speak(t('sorry-i-didnt-understand-that', detectedLang), detectedLang + '-IN');
             if (firestore && user) {
                 // Find best guess for logging
                 let bestGuess: { product: Product, similarity: number } | null = null;
@@ -858,7 +860,7 @@ export function VoiceCommander({
                 const logData: Partial<FailedVoiceCommand> = {
                     userId: user.uid,
                     commandText: originalText,
-                    language: lang,
+                    language: detectedLang,
                     reason: `No matching product found for phrase: "${phrase}"`,
                     timestamp: serverTimestamp(),
                     suggestedProduct: bestGuess?.product.name,
@@ -872,10 +874,13 @@ export function VoiceCommander({
     orderMultipleItems: async (phrases: string[], lang: string, originalText: string) => {
         let addedItems: string[] = [];
         let failedItems: string[] = [];
+        let detectedLang = lang;
 
         for (const phrase of phrases) {
             if (!phrase.trim()) continue;
-            const { product, variant, requestedQty, matchedAlias } = await findProductAndVariant(phrase);
+            const { product, variant, requestedQty, matchedAlias, lang: itemLang } = await findProductAndVariant(phrase);
+             if (itemLang !== detectedLang) detectedLang = itemLang;
+
             if (product && variant) {
                 addItemToCart(product, variant, requestedQty);
                 const replyProductName = matchedAlias || getProductName(product);
@@ -887,27 +892,28 @@ export function VoiceCommander({
 
         let speech = "";
         if (addedItems.length > 0) {
-            speech += t('ive-added-to-your-cart', lang).replace('{items}', addedItems.join(', '));
+            speech += t('ive-added-to-your-cart', detectedLang).replace('{items}', addedItems.join(', '));
             onOpenCart();
         }
         if (failedItems.length > 0) {
             if (speech) speech += " ";
-            speech += t('but-i-couldnt-find', lang).replace('{items}', failedItems.join(', '));
+            speech += t('but-i-couldnt-find', detectedLang).replace('{items}', failedItems.join(', '));
             if (firestore && user) {
-               addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: lang, reason: `Multi-item match failed for: "${failedItems.join(', ')}"`, timestamp: serverTimestamp() });
+               addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: detectedLang, reason: `Multi-item match failed for: "${failedItems.join(', ')}"`, timestamp: serverTimestamp() });
             }
         }
         if (!speech) {
-            speech = t('sorry-i-couldnt-find-any-items', lang);
+            speech = t('sorry-i-couldnt-find-any-items', detectedLang);
              if (firestore && user) {
-                addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: lang, reason: 'Multi-item match failed for all items', timestamp: serverTimestamp() });
+                addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: detectedLang, reason: 'Multi-item match failed for all items', timestamp: serverTimestamp() });
             }
         }
-        speak(speech, lang + '-IN');
+        speak(speech, detectedLang + '-IN');
     },
     smartOrder: async (command: string, lang: string, originalText: string) => {
         let remainingCommand = command.toLowerCase();
         const multiItemSeparators = / and | , | and then | then /i;
+        let detectedLang = lang;
 
         let bestStoreMatch: { store: Store, similarity: number, term: string } | null = null;
         for (const [alias, store] of storeAliasMap.entries()) {
@@ -938,7 +944,9 @@ export function VoiceCommander({
 
         for (const phrase of productPhrases) {
             if (!phrase.trim()) continue;
-            const { product, variant, requestedQty, matchedAlias } = await findProductAndVariant(phrase);
+            const { product, variant, requestedQty, matchedAlias, lang: itemLang } = await findProductAndVariant(phrase);
+            if (itemLang !== detectedLang) detectedLang = itemLang;
+
             if (product && variant) {
                 addItemToCart(product, variant, requestedQty);
                 const replyProductName = matchedAlias || getProductName(product);
@@ -949,28 +957,28 @@ export function VoiceCommander({
         }
 
         if (addedItems.length === 0) {
-            speak(t('could-not-find-product-in-order-speech', lang), lang + '-IN');
-            if(firestore && user) addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: lang, reason: `Smart order: no products found in "${productPhrase}"`, timestamp: serverTimestamp() });
+            speak(t('could-not-find-product-in-order-speech', detectedLang), detectedLang + '-IN');
+            if(firestore && user) addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: detectedLang, reason: `Smart order: no products found in "${productPhrase}"`, timestamp: serverTimestamp() });
             return;
         }
 
         if (!bestStoreMatch) {
-            speak(t('could-not-identify-store-speech', lang), lang + '-IN');
-             if(firestore && user) addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: lang, reason: 'Smart order: store not found', timestamp: serverTimestamp() });
+            speak(t('could-not-identify-store-speech', detectedLang), detectedLang + '-IN');
+             if(firestore && user) addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: detectedLang, reason: 'Smart order: store not found', timestamp: serverTimestamp() });
             return;
         }
         if (destination === 'home' && (!userProfileRef.current || !userProfileRef.current.address)) {
-            speak(t('cannot-deliver-home-no-address-speech', lang), lang + '-IN', () => {
+            speak(t('cannot-deliver-home-no-address-speech', detectedLang), detectedLang + '-IN', () => {
               router.push('/dashboard/customer/my-profile');
             });
             return;
         }
 
-        const speech = t('preparing-order-speech', lang)
+        const speech = t('preparing-order-speech', detectedLang)
             .replace('{qty}', '') // Quantity is plural, so we remove it
             .replace('{productName}', addedItems.map(i => `${i.qty} ${i.name}`).join(', '))
             .replace('{storeName}', bestStoreMatch.store.name);
-        speak(speech, lang + '-IN');
+        speak(speech, detectedLang + '-IN');
 
         setActiveStoreId(bestStoreMatch.store.id);
 
@@ -990,7 +998,7 @@ export function VoiceCommander({
       const priceKeywords = [t('checkPrice', lang).toLowerCase(), ...Object.values(getAllAliases('checkPrice')).flat().map(a => a.toLowerCase())];
       const productPhrase = priceKeywords.reduce((acc, keyword) => acc.replace(keyword, ''), phrase).trim();
 
-      const { product } = await findProductAndVariant(productPhrase);
+      const { product, lang: detectedLang } = await findProductAndVariant(productPhrase);
 
       if (product) {
         // We have a product, now fetch its price explicitly if not already cached
@@ -1003,22 +1011,22 @@ export function VoiceCommander({
         
         if (priceData && priceData.variants && priceData.variants.length > 0) {
           const pricesString = priceData.variants.map(v => 
-            t('price-check-variant-speech', lang)
+            t('price-check-variant-speech', detectedLang)
               .replace('{weight}', v.weight)
               .replace('{price}', `₹${v.price.toFixed(2)}`)
           ).join(', ');
 
-          const reply = t('price-check-reply-speech', lang)
+          const reply = t('price-check-reply-speech', detectedLang)
             .replace('{productName}', getProductName(product))
             .replace('{prices}', pricesString);
           
-          speak(reply, lang + '-IN');
+          speak(reply, detectedLang + '-IN');
           return;
 
         } else {
-          speak(t('no-price-found-speech', lang).replace('{productName}', getProductName(product)), lang + '-IN');
+          speak(t('no-price-found-speech', detectedLang).replace('{productName}', getProductName(product)), detectedLang + '-IN');
           if (firestore && user) {
-            addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: lang, reason: `Price check: product "${product.name}" found but no price data available.`, timestamp: serverTimestamp() });
+            addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: detectedLang, reason: `Price check: product "${product.name}" found but no price data available.`, timestamp: serverTimestamp() });
           }
            return;
         }
