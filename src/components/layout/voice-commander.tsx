@@ -1,6 +1,4 @@
 
-
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -13,7 +11,7 @@ import { useCart } from '@/lib/cart';
 import { useAppStore, useProfileFormStore, useMyStorePageStore } from '@/lib/store';
 import { ProfileFormValues } from '@/app/dashboard/customer/my-profile/page';
 import { useCheckoutStore } from '@/app/checkout/page';
-import { getCommands } from '@/app/actions';
+import { getCommands, getLocales } from '@/app/actions';
 import { t, getAllAliases } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -84,6 +82,7 @@ export function VoiceCommander({
   const commandsRef = useRef<Command[]>([]);
   const commandActionsRef = useRef<any>({});
   const fileCommandsRef = useRef<any>({});
+  const allAliasesRef = useRef<Record<string, Record<string, string[]>>>({});
 
   const formFieldToFillRef = useRef<keyof ProfileFormValues | null>(null);
   const [isWaitingForStoreName, setIsWaitingForStoreName] = useState(false);
@@ -156,38 +155,46 @@ export function VoiceCommander({
 
   // Language detection and switching
   const detectLanguage = useCallback((text: string): { lang: string, command: string, languageSwitched: boolean } => {
-    const lowerText = text.toLowerCase();
-    const previousLang = language;
+      const lowerText = text.toLowerCase();
+      let detectedLang = language; // Start with current global language
+      let languageSwitched = false;
 
-    // Specific keywords to force a language switch
-    if (['english', 'in english', 'switch to english'].some(kw => lowerText.includes(kw))) {
-        setLanguage('en');
-        return { lang: 'en', command: lowerText, languageSwitched: previousLang !== 'en' };
-    }
-    if (['telugu', 'తెలుగు', 'తెలుగులో'].some(kw => lowerText.includes(kw))) {
-        setLanguage('te');
-        return { lang: 'te', command: lowerText, languageSwitched: previousLang !== 'te' };
-    }
+      // Iterate through all known aliases to find a match
+      for (const key in allAliasesRef.current) {
+          const langAliases = allAliasesRef.current[key];
+          for (const lang in langAliases) {
+              const aliases = langAliases[lang];
+              if (aliases.some(alias => lowerText.includes(alias.toLowerCase()))) {
+                  if (lang !== language) {
+                      setLanguage(lang);
+                      languageSwitched = true;
+                  }
+                  detectedLang = lang;
+                  // Return immediately once a language is confidently detected
+                  return { lang: detectedLang, command: lowerText, languageSwitched };
+              }
+          }
+      }
 
+      // If no alias matched, check for generic language keywords as a fallback
+      const langKeywords = [
+          { lang: 'te', keywords: ['naku', 'naaku', 'నాకు', 'కావాలి'] },
+          { lang: 'hi', keywords: ['mujhe', 'मुझे'] },
+          { lang: 'en', keywords: ['i want', 'i need', 'get me', 'add', 'get', 'buy', 'order', 'send', 'go', 'open', 'i'] }
+      ];
 
-    const langKeywords = [
-        { lang: 'te', keywords: ['naku', 'naaku', 'నాకు', 'కావాలి'] },
-        { lang: 'hi', keywords: ['mujhe', 'मुझे'] },
-        { lang: 'en', keywords: ['i want', 'i need', 'get me', 'add', 'get', 'buy', 'order', 'send', 'go', 'open', 'i'] }
-    ];
-
-    for (const lang of langKeywords) {
-        if (lang.keywords.some(keyword => lowerText.includes(keyword))) {
-            if (language !== lang.lang) {
-                setLanguage(lang.lang);
-                return { lang: lang.lang, command: lowerText, languageSwitched: true };
-            }
-            return { lang: lang.lang, command: lowerText, languageSwitched: false };
-        }
-    }
-    
-    // Default case if no keyword is found, use the global language
-    return { lang: language, command: lowerText, languageSwitched: false };
+      for (const langInfo of langKeywords) {
+          if (langInfo.keywords.some(keyword => lowerText.includes(keyword))) {
+              if (language !== langInfo.lang) {
+                  setLanguage(langInfo.lang);
+                  languageSwitched = true;
+              }
+              detectedLang = langInfo.lang;
+              break; // Found a match, no need to continue
+          }
+      }
+      
+      return { lang: detectedLang, command: lowerText, languageSwitched };
   }, [language, setLanguage]);
 
   // Update recognition language dynamically
@@ -210,6 +217,19 @@ export function VoiceCommander({
     if(firestore) {
       fetchInitialData(firestore);
     }
+    // Pre-fetch all commands and locales and store them in a ref for the detector.
+    getLocales().then(locales => {
+        const aliasMap: Record<string, Record<string, string[]>> = {};
+        for(const key in locales) {
+            aliasMap[key] = {};
+            for(const lang in locales[key]) {
+                const value = locales[key][lang];
+                aliasMap[key][lang] = Array.isArray(value) ? value : [value];
+            }
+        }
+        allAliasesRef.current = aliasMap;
+    });
+
     const getVoices = () => {
       const allVoices = window.speechSynthesis.getVoices();
       if (allVoices.length > 0) {
@@ -494,7 +514,7 @@ export function VoiceCommander({
     
     if (languageSwitched) {
         updateRecognitionLanguage(langWithRegion);
-        speak(t(lang === 'te' ? 'telugu-welcome-speech' : 'english-welcome-speech', lang), langWithRegion);
+        speak(t('telugu-welcome-speech', lang), langWithRegion);
         return;
     }
 
@@ -1058,5 +1078,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    
