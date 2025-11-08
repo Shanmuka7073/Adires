@@ -70,6 +70,31 @@ export async function saveLocales(locales: Locales): Promise<{ success: boolean;
     }
 }
 
+export async function addAliasToLocales(productKey: string, newAlias: string, lang: string): Promise<{ success: boolean }> {
+    const locales = await getLocales();
+    
+    if (!locales[productKey]) {
+        locales[productKey] = {};
+    }
+
+    const langEntry = locales[productKey][lang];
+    const newAliasLower = newAlias.toLowerCase();
+
+    if (!langEntry) {
+        locales[productKey][lang] = newAliasLower;
+    } else if (Array.isArray(langEntry)) {
+        if (!langEntry.includes(newAliasLower)) {
+            langEntry.push(newAliasLower);
+        }
+    } else { // It's a single string
+        if (langEntry !== newAliasLower) {
+            locales[productKey][lang] = [langEntry, newAliasLower];
+        }
+    }
+
+    return saveLocales(locales);
+}
+
 
 export async function indexSiteContent() {
     try {

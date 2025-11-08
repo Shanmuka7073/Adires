@@ -1,5 +1,6 @@
 
 
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -360,17 +361,13 @@ export function VoiceCommander({
   
   // Proactive trigger for the checkout page based on a state change
   useEffect(() => {
-      // This effect now ONLY runs when the `voiceTrigger` state changes.
-      // `voiceTrigger` is changed inside the `checkout` voice command.
       if (pathname === '/checkout' && hasMounted && enabled && voiceTrigger > 0) {
-          // This delay is crucial. It gives the page a moment to render after navigation
-          // before the AI tries to read its state.
           const timeoutId = setTimeout(() => {
               runCheckoutPrompt();
           }, 1000); 
           return () => clearTimeout(timeoutId);
       }
-  }, [voiceTrigger]); // This effect is now solely dependent on the voiceTrigger.
+  }, [voiceTrigger, pathname, hasMounted, enabled, runCheckoutPrompt]);
 
   // New Proactive trigger for checkout page based on address/store changes
   useEffect(() => {
@@ -826,17 +823,30 @@ export function VoiceCommander({
             speak(speech, lang + '-IN');
             addItemToCart(product, variant, requestedQty);
             onOpenCart();
-        } else if (product && !variant) {
-            const reason = `Product found ("${product.name}"), but no matching variant/price for phrase: "${phrase}"`;
-            speak(`Sorry, I found ${getProductName(product)} but could not determine a price or size.`, lang + '-IN');
-             if (firestore && user) {
-                addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: lang, reason, timestamp: serverTimestamp() });
-             }
         } else {
-             speak(t('sorry-i-didnt-understand-that', lang), lang + '-IN');
-             if (firestore && user) {
-                addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: lang, reason: 'No matching product found.', timestamp: serverTimestamp() });
-             }
+            speak(t('sorry-i-didnt-understand-that', lang), lang + '-IN');
+            if (firestore && user) {
+                // Find best guess for logging
+                let bestGuess: { product: Product, similarity: number } | null = null;
+                for (const p of masterProducts) {
+                    const similarity = calculateSimilarity(phrase, p.name.toLowerCase());
+                    if (!bestGuess || similarity > bestGuess.similarity) {
+                        bestGuess = { product: p, similarity: similarity };
+                    }
+                }
+                
+                const logData: Partial<FailedVoiceCommand> = {
+                    userId: user.uid,
+                    commandText: originalText,
+                    language: lang,
+                    reason: `No matching product found for phrase: "${phrase}"`,
+                    timestamp: serverTimestamp(),
+                    suggestedProduct: bestGuess?.product.name,
+                    similarityScore: bestGuess?.similarity,
+                };
+                
+                addDoc(collection(firestore, 'failedCommands'), logData);
+            }
         }
     },
     orderMultipleItems: async (phrases: string[], lang: string, originalText: string) => {
@@ -956,7 +966,11 @@ export function VoiceCommander({
     checkPrice: async ({ phrase, lang, originalText }: { phrase?: string; lang: string, originalText: string }) => {
       if (!phrase) return;
 
-      const { product } = await findProductAndVariant(phrase);
+      // Clean the phrase by removing the price check keywords first
+      const priceKeywords = [t('checkPrice', lang).toLowerCase(), ...Object.values(getAllAliases('checkPrice')).flat().map(a => a.toLowerCase())];
+      const productPhrase = priceKeywords.reduce((acc, keyword) => acc.replace(keyword, ''), phrase).trim();
+
+      const { product } = await findProductAndVariant(productPhrase);
 
       if (product) {
         // We have a product, now fetch its price explicitly if not already cached
@@ -979,18 +993,39 @@ export function VoiceCommander({
             .replace('{prices}', pricesString);
           
           speak(reply, lang + '-IN');
+          return;
 
         } else {
           speak(t('no-price-found-speech', lang).replace('{productName}', getProductName(product)), lang + '-IN');
           if (firestore && user) {
             addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: lang, reason: `Price check: product "${product.name}" found but no price data available.`, timestamp: serverTimestamp() });
           }
+           return;
         }
-      } else {
-        speak(t('sorry-i-didnt-understand-that', lang), lang + '-IN');
-        if (firestore && user) {
-          addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: lang, reason: `Price check: product not found in phrase "${phrase}".`, timestamp: serverTimestamp() });
+      }
+      
+      // If we reach here, no product was found
+      speak(t('sorry-i-didnt-understand-that', lang), lang + '-IN');
+      if (firestore && user) {
+        // Find best guess for logging
+        let bestGuess: { product: Product, similarity: number } | null = null;
+        for (const p of masterProducts) {
+            const similarity = calculateSimilarity(productPhrase, p.name.toLowerCase());
+            if (!bestGuess || similarity > bestGuess.similarity) {
+                bestGuess = { product: p, similarity: similarity };
+            }
         }
+        
+        const logData: Partial<FailedVoiceCommand> = {
+            userId: user.uid,
+            commandText: originalText,
+            language: lang,
+            reason: `Price check: product not found in phrase "${productPhrase}".`,
+            timestamp: serverTimestamp(),
+            suggestedProduct: bestGuess?.product.name,
+            similarityScore: bestGuess?.similarity,
+        };
+        addDoc(collection(firestore, 'failedCommands'), logData);
       }
     },
     };
@@ -1015,7 +1050,7 @@ export function VoiceCommander({
         recognition.abort();
       }
     };
-  }, [handleCommand, cartTotal, cartItemsProp, pathname]);
+  }, [handleCommand, cartTotal, cartItemsProp, pathname, masterProducts]);
 
   useEffect(() => {
     console.log('Current language changed to:', language);

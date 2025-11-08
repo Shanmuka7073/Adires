@@ -120,4 +120,6 @@ export type FailedVoiceCommand = {
     language: string;
     timestamp: Timestamp | Date | string;
     reason: string;
+    suggestedProduct?: string; // e.g., 'tomatoes'
+    similarityScore?: number; // e.g., 0.75
 }
