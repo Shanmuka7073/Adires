@@ -1475,6 +1475,7 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
     const [isOpening, startOpenTransition] = useTransition();
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const { getProductName, language } = useAppStore(state => ({ getProductName: state.getProductName, language: state.language }));
+    const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
     const productsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -1484,6 +1485,12 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
     const { data: products, isLoading } = useCollection<Product>(productsQuery);
     
     const needsLocationUpdate = !store.latitude || !store.longitude;
+    
+    const filteredProducts = useMemo(() => {
+        if (!products) return [];
+        if (selectedCategory === 'all') return products;
+        return products.filter(p => p.category === selectedCategory);
+    }, [products, selectedCategory]);
 
     const handleOpenStore = () => {
         if (!firestore) return;
@@ -1599,10 +1606,29 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
 
         <Card>
             <CardHeader>
-                <CardTitle>{t('your-products')}</CardTitle>
-                 <CardDescription>
-                    {isAdmin ? t('this-is-the-master-list-of-products') : t('this-is-your-current-store-inventory')}
-                </CardDescription>
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                    <div>
+                        <CardTitle>{t('your-products')}</CardTitle>
+                        <CardDescription>
+                            {isAdmin ? t('this-is-the-master-list-of-products') : t('this-is-your-current-store-inventory')}
+                        </CardDescription>
+                    </div>
+                    {isAdmin && (
+                        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                            <SelectTrigger className="w-full sm:w-[200px]">
+                                <SelectValue placeholder="Filter by category..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Categories</SelectItem>
+                                {groceryData.categories.map(cat => (
+                                    <SelectItem key={cat.categoryName} value={cat.categoryName}>
+                                        {t(cat.categoryName.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
+                </div>
             </CardHeader>
             <CardContent>
                 {isLoading ? (
@@ -1618,7 +1644,7 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {products.map(product => 
+                        {filteredProducts.map(product => 
                             isAdmin ? (
                                 <AdminProductRow 
                                     key={product.id}
