@@ -328,13 +328,18 @@
     "en": [
       "onion",
       "onions",
-      "unian",
+      "uniyan",
       "uniyan",
       "oniyan",
       "onians",
-      "anion",
       "aniyan",
-      "onins"
+      "onins",
+      "onien",
+      "unian",
+      "unien",
+      "oniyon",
+      "oniyans",
+      "oniyon"
     ],
     "te": [
       "ఉల్లిపాయ",
@@ -977,11 +982,19 @@
   "masoor-dal-(red-lentil)": {
     "en": [
       "Masoor Dal",
-      "Red Lentil"
+      "Red Lentil",
+      "masoor",
+      "masur"
     ],
     "te": [
       "మసూర్ పప్పు",
-      "ఎర్ర కంది పప్పు"
+      "ఎర్ర కంది పప్పు",
+      "మసూర్",
+      "misur pappu"
+    ],
+    "hi": [
+      "मसूर दाल",
+      "मसूर"
     ]
   },
   "fresh-cut": {
