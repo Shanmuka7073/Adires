@@ -396,8 +396,8 @@ export default function VoiceCommandsPage() {
     return (
         <div className="container mx-auto py-12 px-4 md:px-6 space-y-8">
              <div className="text-center mb-12">
-                <h1 className="text-4xl font-bold font-headline">Voice System Control</h1>
-                <p className="text-lg text-muted-foreground mt-2">Manage phrases, aliases, and replies for all voice-activated actions.</p>
+                <h1 className="text-4xl font-bold font-headline">AI Training Center</h1>
+                <p className="text-lg text-muted-foreground mt-2">This is the brain of your app. Add aliases and commands to make the AI smarter.</p>
             </div>
             
             <div className="flex justify-center gap-2 mb-8">
