@@ -134,6 +134,12 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
   const isAdmin = user && user.email === ADMIN_EMAIL;
   const dashboardHref = isAdmin ? '/dashboard/admin' : '/dashboard';
   const { toast } = useToast();
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
 
   const handleToggleVoiceWithCheck = () => {
     if (!user) {
@@ -269,26 +275,30 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
         <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />
         <UserMenu />
       </div>
-       <div className="absolute top-16 left-0 w-full bg-secondary text-secondary-foreground text-center py-1 text-sm font-mono z-40">
-            {voiceStatus}
-        </div>
-      {suggestedCommands.length > 0 && (
-         <div className="absolute top-24 left-1/2 -translate-x-1/2 w-full max-w-md bg-background border rounded-lg shadow-lg z-50 p-2">
-            <p className="text-sm font-semibold text-muted-foreground px-2 pb-2">Did you mean...?</p>
-            <div className="flex flex-col gap-1">
-                {suggestedCommands.map((cmd, index) => (
-                    <Button 
-                        key={index}
-                        variant="ghost"
-                        className="justify-start"
-                        onClick={() => handleSuggestionClick(cmd)}
-                    >
-                        {cmd.display}
-                    </Button>
-                ))}
-            </div>
-         </div>
-      )}
+        {hasMounted && (
+            <>
+                <div className="absolute top-16 left-0 w-full bg-secondary text-secondary-foreground text-center py-1 text-sm font-mono z-40">
+                    {voiceStatus}
+                </div>
+                {suggestedCommands.length > 0 && (
+                    <div className="absolute top-24 left-1/2 -translate-x-1/2 w-full max-w-md bg-background border rounded-lg shadow-lg z-50 p-2">
+                        <p className="text-sm font-semibold text-muted-foreground px-2 pb-2">Did you mean...?</p>
+                        <div className="flex flex-col gap-1">
+                            {suggestedCommands.map((cmd, index) => (
+                                <Button 
+                                    key={index}
+                                    variant="ghost"
+                                    className="justify-start"
+                                    onClick={() => handleSuggestionClick(cmd)}
+                                >
+                                    {cmd.display}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </>
+        )}
     </header>
   );
 }
