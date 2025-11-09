@@ -24,7 +24,7 @@ async function readJsonFile<T>(filePath: string): Promise<T | null> {
         return JSON.parse(fileContent);
     } catch (error) {
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-            console.warn(`File not found: ${filePath}`);
+            // console.warn(`File not found: ${filePath}`);
             return null;
         }
         console.error(`Error reading or parsing JSON file: ${filePath}`, error);
@@ -48,19 +48,6 @@ export async function getCommands(): Promise<Record<string, CommandGroup>> {
           };
         }
       }
-    }
-    
-    if (Object.keys(commands).length === 0) {
-        const legacyPath = path.join(process.cwd(), 'src', 'lib', 'commands.json');
-        try {
-            const legacyCommands = await readJsonFile<Record<string, CommandGroup>>(legacyPath);
-            if (legacyCommands) {
-                 await fs.unlink(legacyPath); 
-                 return legacyCommands;
-            }
-        } catch(e) {
-            // ignore if not found
-        }
     }
     
     return commands;
@@ -105,18 +92,37 @@ export async function saveLocales(locales: Locales): Promise<{ success: boolean;
     try {
         await fs.mkdir(LOCALES_DIR, { recursive: true });
         
-        // Keep track of which keys have been written
-        const writtenKeys = new Set<string>();
+        const writtenFiles = new Set<string>();
+
+        // Separate commands from other locales
+        const commands: Record<string, any> = {};
+        const otherLocales: Locales = {};
 
         for (const key in locales) {
-            if (Object.prototype.hasOwnProperty.call(locales, key) && !writtenKeys.has(key)) {
-                const filePath = path.join(LOCALES_DIR, `${key}.json`);
-                const content = { [key]: locales[key] };
-                const jsonContent = JSON.stringify(content, null, 2);
-                await fs.writeFile(filePath, jsonContent, 'utf-8');
-                writtenKeys.add(key);
+            if (Object.prototype.hasOwnProperty.call(locales, key)) {
+                if (locales[key] && typeof (locales[key] as any).reply === 'string') {
+                    commands[key] = locales[key];
+                } else {
+                    otherLocales[key] = locales[key];
+                }
             }
         }
+        
+        // Write commands.json
+        const commandsFilePath = path.join(LOCALES_DIR, `commands.json`);
+        const commandsJsonContent = JSON.stringify(commands, null, 2);
+        await fs.writeFile(commandsFilePath, commandsJsonContent, 'utf-8');
+        writtenFiles.add(commandsFilePath);
+
+        // Write other locale files
+        for (const key in otherLocales) {
+            const filePath = path.join(LOCALES_DIR, `${key}.json`);
+            const content = { [key]: otherLocales[key] };
+            const jsonContent = JSON.stringify(content, null, 2);
+            await fs.writeFile(filePath, jsonContent, 'utf-8');
+            writtenFiles.add(filePath);
+        }
+
         return { success: true };
     } catch (error) {
         console.error("Error writing locale files:", error);
