@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -74,7 +72,8 @@ export function VoiceCommander({
     currentLocationBtnRef, 
     shouldPlaceOrderDirectly, 
     setShouldPlaceOrderDirectly,
-    setHomeAddress 
+    setHomeAddress,
+    isHomeAddress
   } = useCheckoutStore();
 
 
@@ -757,26 +756,18 @@ export function VoiceCommander({
         onStatusUpdate(`⚠️ Error: ${event.error}`);
       }
     };
-
-    // This is the key change: the onend handler.
+    
     recognition.onend = () => {
-        // Only restart if the mic was intentionally enabled by the user
-        // and we are not in the middle of speaking a reply.
         if (isEnabledRef.current && !isSpeakingRef.current) {
             try {
                 // A brief delay can help prevent rapid restart loops on some systems.
                 setTimeout(() => {
                     if (isEnabledRef.current && !isSpeakingRef.current && recognition) {
-                        try {
-                           recognition.start();
-                        } catch(e) {
-                           // This can happen if it's already starting. Safe to ignore.
-                        }
+                         recognition.start();
                     }
-                }, 100); 
+                }, 250); 
             } catch (e) {
                 // This can happen if start() is called while it's already starting.
-                // It's safe to ignore in this context.
             }
         }
     };
@@ -812,7 +803,7 @@ export function VoiceCommander({
         }
       },
       recordOrder: (params: {lang: string}) => {
-        const lang = params.lang || language;
+        const lang = params?.lang || language;
         speak(t('im-ready-for-order-speech', lang), lang + '-IN');
         setIsWaitingForVoiceOrder(true);
       },
