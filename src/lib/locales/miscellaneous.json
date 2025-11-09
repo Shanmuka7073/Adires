@@ -1,0 +1,117 @@
+
+{
+  "jaggery": {
+    "en": [
+      "Jaggery"
+    ],
+    "te": [
+      "బెల్లం"
+    ]
+  },
+  "sugar": {
+    "en": [
+      "Sugar"
+    ],
+    "te": [
+      "చక్కెర",
+      "పంచదార"
+    ]
+  },
+  "atta": {
+    "en": [
+      "atta",
+      "wheat flour"
+    ],
+    "te": [
+      "గోధుమ పిండి"
+    ]
+  },
+  "idly-rava": {
+    "en": [
+      "idly rava"
+    ],
+    "te": [
+      "ఇడ్లీ రవ్వ"
+    ]
+  },
+  "bombay-rava": {
+    "en": [
+      "bombay rava"
+    ],
+    "te": [
+      "బొంబాయి రవ్వ"
+    ]
+  },
+  "bansi-rava": {
+    "en": [
+      "bansi rava"
+    ],
+    "te": [
+      "బన్సీ రవ్వ"
+    ]
+  },
+  "corn-flour": {
+    "en": [
+      "corn flour"
+    ],
+    "te": [
+      "మొక్కజొన్న పిండి"
+    ]
+  },
+  "idly-rice": {
+    "en": [
+      "idly rice"
+    ],
+    "te": [
+      "ఇడ్లీ బియ్యం"
+    ]
+  },
+  "besan-flour": {
+    "en": [
+      "besan flour"
+    ],
+    "te": [
+      "శనగ పిండి"
+    ]
+  },
+  "ragi-flour": {
+    "en": [
+      "ragi flour"
+    ],
+    "te": [
+      "రాగి పిండి"
+    ]
+  },
+  "jowar-flour": {
+    "en": [
+      "jowar flour"
+    ],
+    "te": [
+      "జొన్న పిండి"
+    ]
+  },
+  "rice-flour": {
+    "en": [
+      "rice flour"
+    ],
+    "te": [
+      "బియ్యం పిండి"
+    ]
+  },
+  "flours": {
+    "en": [
+      "flours"
+    ],
+    "te": [
+      "పిండి"
+    ]
+  },
+  "dry-fruits": {
+    "en": [
+      "dry fruits"
+    ],
+    "te": [
+      "డ్రై ఫ్రూట్స్"
+    ]
+  }
+}

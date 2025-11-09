@@ -1,0 +1,94 @@
+
+{
+  "beverages": {
+    "en": [
+      "beverages",
+      "drinks"
+    ],
+    "te": [
+      "పానీయాలు"
+    ]
+  },
+  "tea-powder": {
+    "en": [
+      "tea powder",
+      "tea leaves",
+      "tea"
+    ],
+    "te": [
+      "టీ పొడి",
+      "తేయాకు",
+      "టీ"
+    ]
+  },
+  "coffee-powder": {
+    "en": [
+      "coffee powder",
+      "coffee beans",
+      "coffee"
+    ],
+    "te": [
+      "కాఫీ పొడి",
+      "కాఫీ గింజలు",
+      "కాఫీ"
+    ]
+  },
+  "green-tea": {
+    "en": [
+      "green tea"
+    ],
+    "te": [
+      "గ్రీన్ టీ"
+    ]
+  },
+  "milk-powder": {
+    "en": [
+      "milk powder"
+    ],
+    "te": [
+      "పాల పొడి"
+    ]
+  },
+  "soft-drinks": {
+    "en": [
+      "soft drinks",
+      "soda",
+      "coke",
+      "pepsi",
+      "sprite"
+    ],
+    "te": [
+      "శీతల పానీయాలు",
+      "సోడా"
+    ]
+  },
+  "juices": {
+    "en": [
+      "juices",
+      "juice",
+      "fruit juice"
+    ],
+    "te": [
+      "రసాలు",
+      "జ్యూస్"
+    ]
+  },
+  "coconut-water": {
+    "en": [
+      "coconut water"
+    ],
+    "te": [
+      "కొబ్బరి నీళ్ళు",
+      "బోండం"
+    ]
+  },
+  "energy-drinks": {
+    "en": [
+      "energy drinks",
+      "energy drink"
+    ],
+    "te": [
+      "ఎనర్జీ డ్రింక్స్"
+    ]
+  }
+}

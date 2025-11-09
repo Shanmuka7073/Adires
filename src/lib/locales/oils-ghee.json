@@ -1,0 +1,97 @@
+
+{
+  "oils-&-ghee": {
+    "en": [
+      "oils & ghee",
+      "oils",
+      "ghee"
+    ],
+    "te": [
+      "నూనెలు & నెయ్యి",
+      "నూనెలు",
+      "నెయ్యి"
+    ]
+  },
+  "sunflower-oil": {
+    "en": [
+      "sunflower oil"
+    ],
+    "te": [
+      "పొద్దుతిరుగుడు నూనె"
+    ]
+  },
+  "groundnut-oil": {
+    "en": [
+      "groundnut oil"
+    ],
+    "te": [
+      "వేరుశెనగ నూనె"
+    ]
+  },
+  "mustard-oil": {
+    "en": [
+      "mustard oil",
+      "sarson ka tel"
+    ],
+    "te": [
+      "ఆవాల నూనె",
+      "aavala nune"
+    ]
+  },
+  "coconut-oil": {
+    "en": [
+      "coconut oil",
+      "nariyal tel"
+    ],
+    "te": [
+      "కొబ్బరి నూనె",
+      "kobbari nune"
+    ]
+  },
+  "palm-oil": {
+    "en": [
+      "palm oil"
+    ],
+    "te": [
+      "పామాయిల్",
+      "palm oil"
+    ]
+  },
+  "olive-oil": {
+    "en": [
+      "olive oil"
+    ],
+    "te": [
+      "ఆలివ్ నూనె",
+      "olive nune"
+    ]
+  },
+  "rice-bran-oil": {
+    "en": [
+      "rice bran oil"
+    ],
+    "te": [
+      "రైస్ బ్రాన్ ఆయిల్",
+      "తవుడు నూనె"
+    ]
+  },
+  "ghee-(clarified-butter)": {
+    "en": [
+      "ghee",
+      "clarified butter"
+    ],
+    "te": [
+      "నెయ్యి"
+    ]
+  },
+  "butter": {
+    "en": [
+      "butter",
+      "makhan"
+    ],
+    "te": [
+      "వెన్న",
+      "venna"
+    ]
+  }
+}

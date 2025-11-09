@@ -1,0 +1,135 @@
+
+{
+  "dairy-&-bakery": {
+    "en": [
+      "dairy & bakery",
+      "dairy",
+      "bakery"
+    ],
+    "te": [
+      "డైరీ & బేకరీ",
+      "డైరీ",
+      "బేకరీ"
+    ]
+  },
+  "milk": {
+    "en": [
+      "Milk",
+      "Cow Milk"
+    ],
+    "te": [
+      "పాలు"
+    ]
+  },
+  "curd/yogurt": {
+    "en": [
+      "Curd",
+      "Yogurt"
+    ],
+    "te": [
+      "పెరుగు",
+      "దహీ"
+    ]
+  },
+  "paneer-(cottage-cheese)": {
+    "en": [
+      "paneer",
+      "cottage cheese"
+    ],
+    "te": [
+      "పన్నీర్",
+      "paneer"
+    ]
+  },
+  "cheese": {
+    "en": [
+      "cheese"
+    ],
+    "te": [
+      "చీజ్",
+      "జున్ను"
+    ]
+  },
+  "fresh-cream": {
+    "en": [
+      "fresh cream",
+      "cream"
+    ],
+    "te": [
+      "ఫ్రెష్ క్రీమ్",
+      "క్రీమ్",
+      "మీగడ"
+    ]
+  },
+  "bread-(white,-brown,-multigrain)": {
+    "en": [
+      "bread",
+      "white bread",
+      "brown bread",
+      "multigrain bread"
+    ],
+    "te": [
+      "బ్రెడ్",
+      "రొట్టె"
+    ]
+  },
+  "buns": {
+    "en": [
+      "buns",
+      "bun"
+    ],
+    "te": [
+      "బన్స్",
+      "బన్"
+    ]
+  },
+  "pav": {
+    "en": [
+      "pav"
+    ],
+    "te": [
+      "పావ్"
+    ]
+  },
+  "biscuits": {
+    "en": [
+      "biscuits",
+      "biscuit",
+      "cookies"
+    ],
+    "te": [
+      "బిస్కెట్లు",
+      "బిస్కట్"
+    ]
+  },
+  "rusks": {
+    "en": [
+      "rusks",
+      "rusk",
+      "toast"
+    ],
+    "te": [
+      "రస్క్"
+    ]
+  },
+  "cakes": {
+    "en": [
+      "cakes",
+      "cake"
+    ],
+    "te": [
+      "కేకులు",
+      "కేక్"
+    ]
+  },
+  "muffins": {
+    "en": [
+      "muffins",
+      "muffin"
+    ],
+    "te": [
+      "మఫిన్లు",
+      "మఫిన్"
+    ]
+  }
+}

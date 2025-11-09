@@ -1,40 +1,46 @@
 
-import locales from './locales.json';
+import { getLocales as fetchAllLocales } from '@/app/actions';
 
 type LocaleEntry = string | string[];
 type Locales = Record<string, Record<string, LocaleEntry>>;
 
-const translations: Locales = locales;
+// This variable will act as a server-side cache.
+let translations: Locales | null = null;
 
-/**
- * A simple translation function. It looks for a key in the JSON file
- * and returns the translation for the currently set language.
- * @param key The key from locales.json to translate.
- * @param lang The target language code (e.g., 'te').
- * @returns The translated string, or the original key if not found.
- */
-export function t(key: string, lang: string = 'en'): string {
-  const langCode = lang.split('-')[0]; // 'en' from 'en-IN'
-  const entry = translations[key as keyof typeof translations];
-  
-  if (entry && entry[langCode]) {
-    const regionalEntry = entry[langCode];
-    // Return the first alias if it's an array
-    return Array.isArray(regionalEntry) ? regionalEntry[0] : regionalEntry;
-  }
-  
-  // Fallback for keys that might not be in the JSON, like dynamic product names
-  return key.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+async function getTranslations(): Promise<Locales> {
+    if (translations) {
+        return translations;
+    }
+    // If not cached, fetch and then cache it.
+    translations = await fetchAllLocales();
+    return translations;
 }
 
+// Client-side synchronous translation function
+// Note: This relies on the data being pre-fetched and available.
+export function t(key: string, lang: string = 'en'): string {
+    const allTranslations = translations;
+    if (!allTranslations || Object.keys(allTranslations).length === 0) {
+        return key.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
+    const langCode = lang.split('-')[0];
+    const entry = allTranslations[key as keyof typeof allTranslations];
+    
+    if (entry && entry[langCode]) {
+        const regionalEntry = entry[langCode];
+        // Return the first alias if it's an array
+        return Array.isArray(regionalEntry) ? regionalEntry[0] : regionalEntry;
+    }
+    
+    // Fallback for keys that might not be in the JSON, like dynamic product names
+    return key.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
 
-/**
- * Gets all aliases for a given key in a specific language.
- * @param key The key from locales.json.
- * @returns An object with arrays of aliases for all configured languages (e.g., { en: [], te: [], hi: [] }).
- */
+// Client-side synchronous alias getter
 export function getAllAliases(key: string): Record<string, string[]> {
-    const entry = translations[key as keyof typeof translations];
+    const allTranslations = translations;
+    if (!allTranslations) return {};
+    const entry = allTranslations[key as keyof typeof allTranslations];
     const result: Record<string, string[]> = {};
 
     if (entry) {

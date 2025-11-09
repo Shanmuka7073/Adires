@@ -1,0 +1,545 @@
+
+{
+  "potatoes": {
+    "en": [
+      "Potatoes",
+      "Potato",
+      "patato",
+      "batata",
+      "bateta",
+      "aloo",
+      "alu",
+      "poteto",
+      "potetu",
+      "potat",
+      "potatoh"
+    ],
+    "te": [
+      "బంగాళాదుంపలు",
+      "ఆలుగడ్డ",
+      "ఆలు",
+      "పొటాటో",
+      "బంగాళదుంప",
+      "అలోగడ్డ",
+      "bangaladumpa",
+      "bangala dumpa",
+      "alugadda",
+      "allugadda"
+    ]
+  },
+  "onions": {
+    "en": [
+      "onion",
+      "onions",
+      "unian",
+      "uniyan",
+      "oniyan",
+      "onians",
+      "anian",
+      "anion",
+      "aniyan",
+      "onins",
+      "unyun",
+      "unyion",
+      "onyan",
+      "oniun"
+    ],
+    "te": [
+      "ఉల్లిపాయ",
+      "ఉల్లిపాయలు",
+      "ఉల్లి",
+      "ఉల్లిగడ్డ",
+      "ఎర్రగడ్డ",
+      "ఎర్రగడ్డలు",
+      "నీరుల్లి",
+      "ullipaya",
+      "ullipayalu",
+      "ulli",
+      "ulligadda",
+      "erragadda",
+      "neerulli",
+      "oniyan",
+      "oniyans",
+      "ఒనియన్",
+      "ఒనియన్స్",
+      "ఉల్లిపాయలు కావాలి",
+      "ఉల్లిపాయ కావాలి",
+      "ఉల్లి గడ్డలు",
+      "ఉల్లిపాయలు ఉల్లిపాయలు",
+      "ulli gadda"
+    ],
+    "hi": [
+      "pyaz",
+      "pyaaz",
+      "pyaj",
+      "kanda",
+      "प्याज",
+      "प्याज़",
+      "कांदा"
+    ]
+  },
+  "tomatoes": {
+    "en": [
+      "Tomatoes",
+      "Tomato",
+      "tamato",
+      "tometo",
+      "tameto",
+      "thomato",
+      "thomata",
+      "tomata",
+      "tomaato",
+      "thakkali",
+      "takali",
+      "tamatoo",
+      "tomot",
+      "tomatto",
+      "tomto"
+    ],
+    "te": [
+      "టమోటాలు",
+      "టమోటా",
+      "రామ ములగ",
+      "టమాట",
+      "టమాట పండు",
+      "rammulapandu",
+      "టమోటో"
+    ]
+  },
+  "carrots": {
+    "en": [
+      "Carrots",
+      "Carrot",
+      "karet",
+      "gajar",
+      "karrot",
+      "kerat",
+      "karat",
+      "carat",
+      "carret",
+      "carotte",
+      "carot",
+      "carroot"
+    ],
+    "te": [
+      "క్యారెట్లు",
+      "క్యారెట్",
+      "గాజర",
+      "gajjara",
+      "gajjare"
+    ]
+  },
+  "cabbage": {
+    "en": [
+      "Cabbage",
+      "cabage",
+      "cabbej",
+      "kabbij",
+      "gabij",
+      "gabbage",
+      "cabej",
+      "cabij"
+    ],
+    "te": [
+      "క్యాబేజీ",
+      "పట్టాగోబి",
+      "gommanga",
+      "gommanga chekka"
+    ]
+  },
+  "cauliflower": {
+    "en": [
+      "Cauliflower",
+      "gobi",
+      "gobhi",
+      "cauli flower",
+      "cauli",
+      "koliflower",
+      "goppi",
+      "cali flower"
+    ],
+    "te": [
+      "కాలీఫ్లవర్",
+      "గోబి పువ్వు",
+      "gobi gadda"
+    ]
+  },
+  "capsicum-(bell-pepper)": {
+    "en": [
+      "Capsicum",
+      "Bell Pepper",
+      "capsicon",
+      "shimla mirch",
+      "capsikum",
+      "capsicam",
+      "green capsicum"
+    ],
+    "te": [
+      "క్యాప్సికమ్",
+      "బెంగళూరు మిరపకాయ"
+    ]
+  },
+  "green-chilies": {
+    "en": [
+      "Green Chilies",
+      "Green Chilli",
+      "chilli",
+      "chili",
+      "green mirchi",
+      "green mirch",
+      "chilies",
+      "chillies",
+      "mirchi"
+    ],
+    "te": [
+      "పచ్చి మిరపకాయలు",
+      "పచ్చి మిర్చి",
+      "mirapakaya",
+      "pachi mirchi",
+      "pachimirchi",
+      "pachchi mirchi",
+      "pachhi mirchi"
+    ]
+  },
+  "ginger": {
+    "en": [
+      "Ginger",
+      "injur",
+      "giner",
+      "ginjer",
+      "inza",
+      "inji",
+      "gingar"
+    ],
+    "te": [
+      "అల్లం",
+      "allam",
+      "allamu",
+      "alum",
+      "allam piece"
+    ]
+  },
+  "garlic": {
+    "en": [
+      "Garlic",
+      "lasun",
+      "gaarlic",
+      "garlicc",
+      "lassun",
+      "lason",
+      "garlik"
+    ],
+    "te": [
+      "వెల్లుల్లి",
+      "ఎల్లిపాయ",
+      "వెల్లులి",
+      "vellulli",
+      "velluli"
+    ]
+  },
+  "beans": {
+    "en": [
+      "Beans",
+      "beens",
+      "bins",
+      "bens",
+      "beanz",
+      "bends"
+    ],
+    "te": [
+      "బీన్స్",
+      "chikkudu",
+      "chikkudu kaya",
+      "chikud",
+      "chikkud"
+    ]
+  },
+  "peas": {
+    "en": [
+      "Peas",
+      "Green Peas",
+      "peace",
+      "pees",
+      "mutter",
+      "matar",
+      "mattar"
+    ],
+    "te": [
+      "బఠానీలు",
+      "పచ్చి బఠానీలు",
+      "బటానీ",
+      "పచ్చి బటానీ",
+      "batani",
+      "bhatani"
+    ]
+  },
+  "brinjal-(eggplant)": {
+    "en": [
+      "Brinjal",
+      "Eggplant",
+      "baingan",
+      "bringal",
+      "brinzel",
+      "bangun",
+      "bengan"
+    ],
+    "te": [
+      "వంకాయ",
+      "వంగ",
+      "vankaya",
+      "vangaya",
+      "brinjal gadda"
+    ]
+  },
+  "okra-(lady’s-finger)": {
+    "en": [
+      "Okra",
+      "Lady's Finger",
+      "ladyfinger",
+      "bendi",
+      "bhindi",
+      "benda",
+      "okara",
+      "ladifinger"
+    ],
+    "te": [
+      "బెండకాయ",
+      "బెండ",
+      "bendakaya"
+    ]
+  },
+  "spinach": {
+    "en": [
+      "Spinach",
+      "spinich",
+      "palak",
+      "spanich"
+    ],
+    "te": [
+      "పాలకూర",
+      "palakura",
+      "paluku",
+      "palaku",
+      "keerai",
+      "keerai leaf",
+      "palaaku",
+      "palakh"
+    ]
+  },
+  "coriander-leaves": {
+    "en": [
+      "Coriander Leaves",
+      "Coriander",
+      "Cilantro",
+      "kothmir",
+      "dhaniya",
+      "dhania",
+      "coriender"
+    ],
+    "te": [
+      "కొత్తిమీర",
+      "kothimeera",
+      "kothimeeru",
+      "kottimeera",
+      "kotimeera"
+    ]
+  },
+  "mint-leaves": {
+    "en": [
+      "Mint Leaves",
+      "Mint",
+      "pudina",
+      "pudhina",
+      "mint leaf"
+    ],
+    "te": [
+      "పుదీనా ఆకులు",
+      "పుదీనా",
+      "pudina leaf",
+      "pudina aku",
+      "pudina chettu",
+      "pudhina aku"
+    ]
+  },
+  "drumstick": {
+    "en": [
+      "Drumstick",
+      "moringa",
+      "drum stik",
+      "drumstik"
+    ],
+    "te": [
+      "మునగకాయ",
+      "munagakaya",
+      "munaga",
+      "murungai"
+    ]
+  },
+  "radish": {
+    "en": [
+      "Radish",
+      "mooli",
+      "muli",
+      "moolii"
+    ],
+    "te": [
+      "ముల్లంగి",
+      "mulangi",
+      "mullangi",
+      "mulakaya"
+    ]
+  },
+  "beetroot": {
+    "en": [
+      "Beetroot",
+      "beet",
+      "bitroot",
+      "bitrut",
+      "beatroot",
+      "beet rot",
+      "betroot"
+    ],
+    "te": [
+      "బీట్‌రూట్",
+      "beetrootu"
+    ]
+  },
+  "bottle-gourd": {
+    "en": [
+      "Bottle Gourd",
+      "lauki",
+      "doodhi",
+      "dudhi",
+      "bottle guard"
+    ],
+    "te": [
+      "సొరకాయ",
+      "ఆనపకాయ",
+      "sorakaya",
+      "sorkaya",
+      "sorakai",
+      "sora gadda"
+    ]
+  },
+  "ridge-gourd": {
+    "en": [
+      "Ridge Gourd",
+      "turai",
+      "tori",
+      "ridgeguard"
+    ],
+    "te": [
+      "బీరకాయ",
+      "beerakaya",
+      "birakaya",
+      "berakaya"
+    ]
+  },
+  "bitter-gourd": {
+    "en": [
+      "Bitter Gourd",
+      "karela",
+      "biter gourd"
+    ],
+    "te": [
+      "కాకరకాయ",
+      "kakarakaya",
+      "kakar kaya"
+    ]
+  },
+  "pumpkin": {
+    "en": [
+      "Pumpkin",
+      "kaddu",
+      "pumpkim",
+      "pumkin",
+      "kaddoo"
+    ],
+    "te": [
+      "గుమ్మడికాయ",
+      "gummadikaya",
+      "gummadi"
+    ]
+  },
+  "cucumber": {
+    "en": [
+      "Cucumber",
+      "kheera"
+    ],
+    "te": [
+      "కీర దోసకాయ",
+      "దోసకాయ",
+      "dosakaya",
+      "kakadi",
+      "dosekaya"
+    ]
+  },
+  "raw-banana": {
+    "en": [
+      "Raw Banana",
+      "raw plantain"
+    ],
+    "te": [
+      "పచ్చి అరటికాయ",
+      "అరటికాయ",
+      "arati kaya",
+      "banana vegetable",
+      "balekai",
+      "arati kaya gadda"
+    ]
+  },
+  "yam": {
+    "en": [
+      "Yam",
+      "kanda",
+      "kand",
+      "surankanda",
+      "yam root"
+    ],
+    "te": [
+      "కంద గడ్డ",
+      "కంద",
+      "కందగడ్డ",
+      "yam gadda"
+    ]
+  },
+  "sweet-potato": {
+    "en": [
+      "Sweet Potato",
+      "Sweet Potatoes",
+      "sweet patato",
+      "sweet batata",
+      "sweet alu",
+      "sweet aloo"
+    ],
+    "te": [
+      "చిలగడదుంప",
+      "రత్నపురి గడ్డ",
+      "చెక్కరకంద",
+      "kumara",
+      "chilakada dumpa"
+    ]
+  },
+  "broccoli": {
+    "en": [
+      "Broccoli",
+      "brokoli"
+    ],
+    "te": [
+      "బ్రోకలీ"
+    ]
+  },
+  "zucchini": {
+    "en": [
+      "Zucchini",
+      "zukini"
+    ],
+    "te": [
+      "జుకినీ",
+      "నల్ల దోసకాయ"
+    ]
+  },
+  "vegetables": {
+    "en": "Vegetables"
+  }
+}

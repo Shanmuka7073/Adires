@@ -1,0 +1,115 @@
+
+{
+  "dals-&-pulses": {
+    "en": [
+      "Dals & Pulses",
+      "Dals",
+      "Pulses",
+      "pappulu"
+    ],
+    "te": [
+      "పప్పులు & పప్పుధాన్యాలు",
+      "పప్పులు",
+      "పప్పుధాన్యాలు"
+    ]
+  },
+  "toor-dal-(arhar-dal)": {
+    "en": [
+      "toordal",
+      "toor dal",
+      "arhar dal",
+      "tuvar dal"
+    ],
+    "te": [
+      "kandipappu",
+      "kandi pappu",
+      "కందిపప్పు"
+    ]
+  },
+  "moong-dal-(yellow-split)": {
+    "en": [
+      "moong dal",
+      "mung dal"
+    ],
+    "te": [
+      "pesarapappu",
+      "పెసరపప్పు"
+    ]
+  },
+  "masoor-dal-(red-lentil)": {
+    "en": [
+      "Masoor Dal",
+      "Red Lentil"
+    ],
+    "te": [
+      "మసూర్ పప్పు",
+      "ఎర్ర కంది పప్పు"
+    ]
+  },
+  "chana-dal": {
+    "en": [
+      "chana dal",
+      "bengal gram dal"
+    ],
+    "te": [
+      "శనగపప్పు",
+      "shanaga pappu"
+    ]
+  },
+  "urad-dal": {
+    "en": [
+      "urad dal",
+      "udad dal",
+      "black gram dal"
+    ],
+    "te": [
+      "మినపప్పు",
+      "minapa pappu"
+    ]
+  },
+  "rajma-(kidney-beans)": {
+    "en": [
+      "rajma",
+      "kidney beans"
+    ],
+    "te": [
+      "రాజ్మా"
+    ]
+  },
+  "kabuli-chana-(white-chickpeas)": {
+    "en": [
+      "kabuli chana",
+      "white chana",
+      "white chickpeas"
+    ],
+    "te": [
+      "సఫేద్ చనా"
+    ]
+  },
+  "kala-chana-(black-chickpeas)": {
+    "en": [
+      "kala chana",
+      "black chana"
+    ],
+    "te": [
+      "కల చనా",
+      "kalla sanagalu"
+    ]
+  },
+  "green-gram": {
+    "en": "Green Gram",
+    "te": "పెసలు"
+  },
+  "lobia-(black-eyed-peas)": {
+    "en": "Lobia (Black Eyed Peas)",
+    "te": "అలసందలు"
+  },
+  "soya-chunks": {
+    "en": "Soya Chunks",
+    "te": "సోయా చంక్స్"
+  },
+  "horse-gram": {
+    "en": "Horse Gram",
+    "te": "ఉలవలు"
+  }
+}

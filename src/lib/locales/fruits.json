@@ -1,0 +1,197 @@
+
+{
+  "fruits": {
+    "en": "Fruits"
+  },
+  "apples": {
+    "en": [
+      "Apples",
+      "apple"
+    ],
+    "te": [
+      "యాపిల్స్",
+      "యాపిల్ పండు",
+      "సీమ రేగు"
+    ]
+  },
+  "bananas": {
+    "en": [
+      "Bananas",
+      "Banana"
+    ],
+    "te": [
+      "అరటిపండ్లు",
+      "అరటిపండు"
+    ]
+  },
+  "oranges": {
+    "en": [
+      "Oranges",
+      "Orange"
+    ],
+    "te": [
+      "నారింజ",
+      "కమలా పండు"
+    ]
+  },
+  "grapes": {
+    "en": [
+      "Grapes"
+    ],
+    "te": [
+      "ద్రాక్ష",
+      "ద్రాక్ష పండ్లు"
+    ]
+  },
+  "mangoes": {
+    "en": [
+      "Mangoes",
+      "Mango"
+    ],
+    "te": [
+      "మామిడిపండ్లు",
+      "మామిడి పండు"
+    ]
+  },
+  "papaya": {
+    "en": [
+      "Papaya"
+    ],
+    "te": [
+      "బొప్పాయి"
+    ]
+  },
+  "pineapple": {
+    "en": [
+      "Pineapple"
+    ],
+    "te": [
+      "పైనాపిల్",
+      "అనాస పండు"
+    ]
+  },
+  "watermelon": {
+    "en": [
+      "Watermelon"
+    ],
+    "te": [
+      "పుచ్చకాయ"
+    ]
+  },
+  "muskmelon": {
+    "en": [
+      "Muskmelon"
+    ],
+    "te": [
+      "కర్బూజ"
+    ]
+  },
+  "guava": {
+    "en": [
+      "Guava"
+    ],
+    "te": [
+      "జామకాయ",
+      "జామ పండు"
+    ]
+  },
+  "pomegranate": {
+    "en": [
+      "Pomegranate"
+    ],
+    "te": [
+      "దానిమ్మ",
+      "దానిమ్మ పండు"
+    ]
+  },
+  "chikoo-(sapota)": {
+    "en": [
+      "Chikoo",
+      "Sapota"
+    ],
+    "te": [
+      "సపోటా"
+    ]
+  },
+  "strawberries": {
+    "en": [
+      "Strawberries",
+      "Strawberry"
+    ],
+    "te": [
+      "స్ట్రాబెర్రీలు",
+      "స్ట్రాబెర్రీ"
+    ]
+  },
+  "kiwi": {
+    "en": [
+      "Kiwi"
+    ],
+    "te": [
+      "కివి"
+    ]
+  },
+  "pears": {
+    "en": [
+      "Pears",
+      "Pear"
+    ],
+    "te": [
+      "బేరిపండు"
+    ]
+  },
+  "plums": {
+    "en": [
+      "Plums",
+      "Plum"
+    ],
+    "te": [
+      "రేగు పండ్లు",
+      "ఆల్బకరా"
+    ]
+  },
+  "dates": {
+    "en": [
+      "Dates"
+    ],
+    "te": [
+      "ఖర్జూరం",
+      "ఖర్జూర పండ్లు"
+    ]
+  },
+  "dry-figs": {
+    "en": [
+      "Dry Figs",
+      "Fig"
+    ],
+    "te": [
+      "ఎండు అత్తి పండ్లు",
+      "అంజీర్"
+    ]
+  },
+  "coconut": {
+    "en": [
+      "Coconut"
+    ],
+    "te": [
+      "కొబ్బరికాయ",
+      "టెంకాయ",
+      "qabar kaya"
+    ]
+  },
+  "lemons": {
+    "en": [
+      "lemons",
+      "lemon",
+      "lomon",
+      "lemmon",
+      "limbu"
+    ],
+    "te": [
+      "నిమ్మకాయలు",
+      "నిమ్మకాయ",
+      "nimmakaya",
+      "nimma"
+    ]
+  }
+}
