@@ -259,11 +259,13 @@ export function VoiceCommander({
             try {
                 recognition.start();
             } catch (e) {
-                // Ignore if already started
+                 if (! (e instanceof DOMException && e.name === 'InvalidStateError')) {
+                    console.error("Could not start recognition:", e);
+                }
             }
         } else {
             recognition.onend = null; // Prevent restart on manual disable
-            recognition.abort();
+            recognition.stop();
         }
     }
 }, [enabled, language]);
@@ -322,7 +324,6 @@ export function VoiceCommander({
       }
     };
     
-    // Temporarily stop recognition. The onend handler for synthesis will restart it.
     if(recognition) recognition.stop();
     window.speechSynthesis.speak(utterance);
   }, [speechSynthesisVoices]);
@@ -714,8 +715,12 @@ export function VoiceCommander({
             try {
                 // A brief delay can help prevent rapid restart loops on some systems.
                 setTimeout(() => {
-                    if (isEnabledRef.current && !isSpeakingRef.current) {
-                        recognition?.start();
+                    if (isEnabledRef.current && !isSpeakingRef.current && recognition) {
+                        try {
+                           recognition.start();
+                        } catch(e) {
+                           // This can happen if it's already starting. Safe to ignore.
+                        }
                     }
                 }, 100); 
             } catch (e) {
@@ -1086,7 +1091,7 @@ export function VoiceCommander({
     return () => {
       if (recognition) {
         recognition.onend = null;
-        recognition.abort();
+        recognition.stop();
       }
     };
   }, [handleCommand, cartTotal, cartItemsProp, pathname, masterProducts]);
@@ -1098,4 +1103,3 @@ export function VoiceCommander({
   return null;
 }
 
-    
