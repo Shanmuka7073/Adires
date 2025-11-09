@@ -1,8 +1,7 @@
 
-
 'use client';
 
-import { useState, useTransition, useEffect, useMemo, useRef } from 'react';
+import { useState, useTransition, useEffect, useMemo, useRef, RefObject } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -69,8 +68,10 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import Link from 'next/link';
 import { t, getAllAliases } from '@/lib/locales';
-import { useAppStore, useMyStorePageStore } from '@/lib/store';
+import { useAppStore } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
+import { create } from 'zustand';
+
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -120,6 +121,18 @@ const createSlug = (text: string) => {
       .replace(/^-+/, '') // Trim - from start of text
       .replace(/-+$/, ''); // Trim - from end of text
   };
+
+  // --- Store for My Store Page ---
+interface MyStorePageState {
+  saveInventoryBtnRef: RefObject<HTMLButtonElement> | null;
+  setSaveInventoryBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
+}
+
+export const useMyStorePageStore = create<MyStorePageState>((set) => ({
+  saveInventoryBtnRef: null,
+  setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
+}));
+
 
 function StoreImageUploader({ store }: { store: Store }) {
     const { firestore } = useFirebase();
@@ -1997,4 +2010,3 @@ export default function MyStorePage() {
         </div>
     );
 }
-

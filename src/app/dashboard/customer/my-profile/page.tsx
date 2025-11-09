@@ -11,11 +11,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { doc, setDoc } from 'firebase/firestore';
-import { useTransition, useEffect, useRef } from 'react';
+import { useTransition, useEffect, useRef, RefObject } from 'react';
 import type { User as AppUser } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useProfileFormStore } from '@/lib/store';
+import { create } from 'zustand';
 
 const profileSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -26,6 +26,34 @@ const profileSchema = z.object({
 });
 
 export type ProfileFormValues = z.infer<typeof profileSchema>;
+
+
+// --- Store for Profile Page Form ---
+interface ProfileFormState {
+  form: z.infer<typeof profileSchema> | null;
+  setForm: (form: z.infer<typeof profileSchema> | null) => void;
+  fieldRefs: Record<keyof ProfileFormValues, RefObject<HTMLInputElement>>;
+  setFieldRef: (fieldName: keyof ProfileFormValues, ref: RefObject<HTMLInputElement>) => void;
+}
+
+export const useProfileFormStore = create<ProfileFormState>((set) => ({
+  form: null,
+  setForm: (form) => set({ form }),
+   fieldRefs: {
+      firstName: { current: null },
+      lastName: { current: null },
+      email: { current: null },
+      phone: { current: null },
+      address: { current: null },
+  },
+  setFieldRef: (fieldName, ref) => set(state => ({
+    fieldRefs: {
+        ...state.fieldRefs,
+        [fieldName]: ref,
+    }
+  })),
+}));
+
 
 export default function MyProfilePage() {
   const { user, isUserLoading, firestore } = useFirebase();
@@ -55,9 +83,13 @@ export default function MyProfilePage() {
   
   // Expose form instance to global state
   useEffect(() => {
-    setForm(form);
-    return () => setForm(null); // Cleanup
-  }, [form, setForm]);
+    setForm(form.getValues());
+    const subscription = form.watch(() => setForm(form.getValues()));
+    return () => {
+        subscription.unsubscribe();
+        setForm(null)
+    };
+}, [form, setForm]);
 
 
   useEffect(() => {
@@ -97,7 +129,7 @@ export default function MyProfilePage() {
         };
 
         try {
-            await setDoc(userDocRef, profileData, { merge: true });
+            await setDoc(userDocRef!, profileData, { merge: true });
             toast({
                 title: 'Profile Updated',
                 description: 'Your information has been saved successfully.',

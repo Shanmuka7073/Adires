@@ -114,11 +114,26 @@ export const useInitializeApp = () => {
 interface ProfileFormState {
   form: UseFormReturn<ProfileFormValues> | null;
   setForm: (form: UseFormReturn<ProfileFormValues> | null) => void;
+  fieldRefs: Record<keyof ProfileFormValues, RefObject<HTMLInputElement>>;
+  setFieldRef: (fieldName: keyof ProfileFormValues, ref: RefObject<HTMLInputElement>) => void;
 }
 
 export const useProfileFormStore = create<ProfileFormState>((set) => ({
   form: null,
   setForm: (form) => set({ form }),
+  fieldRefs: {
+      firstName: { current: null },
+      lastName: { current: null },
+      email: { current: null },
+      phone: { current: null },
+      address: { current: null },
+  },
+  setFieldRef: (fieldName, ref) => set(state => ({
+    fieldRefs: {
+        ...state.fieldRefs,
+        [fieldName]: ref,
+    }
+  })),
 }));
 
 // --- Store for My Store Page ---
@@ -130,35 +145,4 @@ interface MyStorePageState {
 export const useMyStorePageStore = create<MyStorePageState>((set) => ({
   saveInventoryBtnRef: null,
   setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
-}));
-
-// --- Store for Checkout Page ---
-interface CheckoutPageState {
-  placeOrderBtnRef: RefObject<HTMLButtonElement> | null;
-  setPlaceOrderBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
-  isWaitingForQuickOrderConfirmation: boolean;
-  setIsWaitingForQuickOrderConfirmation: (isWaiting: boolean) => void;
-  homeAddressBtnRef: RefObject<HTMLButtonElement> | null;
-  setHomeAddressBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
-  currentLocationBtnRef: RefObject<HTMLButtonElement> | null;
-  setCurrentLocationBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
-  homeAddress: string | null;
-  setHomeAddress: (address: string | null) => void;
-  shouldPlaceOrderDirectly: boolean;
-  setShouldPlaceOrderDirectly: (shouldPlace: boolean) => void;
-}
-
-export const useCheckoutStore = create<CheckoutPageState>((set) => ({
-  placeOrderBtnRef: null,
-  setPlaceOrderBtnRef: (placeOrderBtnRef) => set({ placeOrderBtnRef }),
-  isWaitingForQuickOrderConfirmation: false,
-  setIsWaitingForQuickOrderConfirmation: (isWaiting) => set({ isWaitingForQuickOrderConfirmation: isWaiting }),
-  homeAddressBtnRef: null,
-  setHomeAddressBtnRef: (ref) => set({ homeAddressBtnRef: ref }),
-  currentLocationBtnRef: null,
-  setCurrentLocationBtnRef: (ref) => set({ currentLocationBtnRef: ref }),
-  homeAddress: null,
-  setHomeAddress: (address) => set({ homeAddress: address }),
-  shouldPlaceOrderDirectly: false,
-  setShouldPlaceOrderDirectly: (shouldPlace) => set({ shouldPlaceOrderDirectly: shouldPlace }),
 }));
