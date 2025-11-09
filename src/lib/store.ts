@@ -2,20 +2,22 @@
 'use client';
 
 import { create } from 'zustand';
-import { Firestore } from 'firebase/firestore';
-import { Store, Product, ProductPrice } from './types';
+import { Firestore, collection, getDocs } from 'firebase/firestore';
+import { Store, Product, ProductPrice, VoiceAlias } from './types';
 import { getStores, getMasterProducts, getProductPrice } from './data';
 import { useFirebase } from '@/firebase';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { ProfileFormValues } from '@/app/dashboard/customer/my-profile/page';
-import { t as translate } from '@/lib/locales';
+import { t as translate, initializeTranslations, Locales, getAllAliases as getAliasesFromLocales } from '@/lib/locales';
 
 
 export interface AppState {
   stores: Store[];
   masterProducts: Product[];
   productPrices: Record<string, ProductPrice | null>;
+  voiceAliases: VoiceAlias[];
+  locales: Locales;
   loading: boolean;
   error: Error | null;
   language: string;
@@ -23,12 +25,34 @@ export interface AppState {
   fetchInitialData: (db: Firestore) => Promise<void>;
   fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
   getProductName: (product: Product) => string;
+  getAllAliases: (key: string) => Record<string, string[]>;
 }
+
+const buildLocalesFromAliases = (aliases: VoiceAlias[]): Locales => {
+    const locales: Locales = {};
+    aliases.forEach(aliasDoc => {
+        if (!locales[aliasDoc.key]) {
+            locales[aliasDoc.key] = {};
+        }
+        const langEntry = locales[aliasDoc.key][aliasDoc.language];
+        if (Array.isArray(langEntry)) {
+            langEntry.push(aliasDoc.alias);
+        } else if (typeof langEntry === 'string') {
+            locales[aliasDoc.key][aliasDoc.language] = [langEntry, aliasDoc.alias];
+        } else {
+            locales[aliasDoc.key][aliasDoc.language] = aliasDoc.alias;
+        }
+    });
+    return locales;
+}
+
 
 export const useAppStore = create<AppState>((set, get) => ({
   stores: [],
   masterProducts: [],
   productPrices: {},
+  voiceAliases: [],
+  locales: {},
   loading: true,
   error: null,
   language: 'en', // Default language is English
@@ -36,14 +60,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   setLanguage: (lang: string) => set({ language: lang }),
 
   fetchInitialData: async (db: Firestore) => {
-    // Prevent re-fetching if data is already present
-    if (get().stores.length > 0 && get().masterProducts.length > 0) {
-      set({ loading: false });
-      return;
-    }
+    if (!get().loading && get().stores.length > 0) return; // Already fetched
 
     set({ loading: true, error: null });
     try {
+      const aliasCollection = collection(db, 'voiceAliases');
+      const aliasSnapshot = await getDocs(aliasCollection);
+      const voiceAliases = aliasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAlias));
+      const locales = buildLocalesFromAliases(voiceAliases);
+      initializeTranslations(locales); // Initialize the t() function
+
       const [stores, masterProducts] = await Promise.all([
         getStores(db),
         getMasterProducts(db),
@@ -52,6 +78,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({
         stores,
         masterProducts,
+        voiceAliases,
+        locales,
         loading: false,
       });
     } catch (error) {
@@ -83,16 +111,18 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       } catch (error) {
           console.error("Failed to fetch product prices:", error);
-          // Optionally handle price-specific errors
       }
   },
 
   getProductName: (product: Product) => {
-    // This function can now use the global language state
     if (!product || !product.name) return '';
     const lang = get().language;
     return translate(product.name.toLowerCase().replace(/ /g, '-'), lang);
   },
+
+  getAllAliases: (key: string) => {
+    return getAliasesFromLocales(key);
+  }
 }));
 
 // Custom hook to initialize the store's data on app load

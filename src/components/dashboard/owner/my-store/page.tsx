@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useTransition, useEffect, useMemo, useRef, RefObject } from 'react';
@@ -35,8 +36,8 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import type { Store, Product, ProductPrice, User as AppUser } from '@/lib/types';
-import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -67,11 +68,9 @@ import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import Link from 'next/link';
-import { t, getAllAliases } from '@/lib/locales';
-import { useAppStore } from '@/lib/store';
+import { t } from '@/lib/locales';
+import { useAppStore, useMyStorePageStore } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
-import { create } from 'zustand';
-
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -121,18 +120,6 @@ const createSlug = (text: string) => {
       .replace(/^-+/, '') // Trim - from start of text
       .replace(/-+$/, ''); // Trim - from end of text
   };
-
-  // --- Store for My Store Page ---
-interface MyStorePageState {
-  saveInventoryBtnRef: RefObject<HTMLButtonElement> | null;
-  setSaveInventoryBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
-}
-
-export const useMyStorePageStore = create<MyStorePageState>((set) => ({
-  saveInventoryBtnRef: null,
-  setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
-}));
-
 
 function StoreImageUploader({ store }: { store: Store }) {
     const { firestore } = useFirebase();
@@ -1284,6 +1271,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
     const [isOpen, setIsOpen] = useState(false);
+    const { getAllAliases } = useAppStore();
 
     const form = useForm<Omit<StoreFormValues, 'latitude' | 'longitude'>>({
         resolver: zodResolver(storeSchema.omit({ latitude: true, longitude: true })),
@@ -1315,6 +1303,11 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
             }
         });
     };
+
+    const storeAliases = useMemo(() => {
+        const key = createSlug(store.name);
+        return getAllAliases(key);
+    }, [store.name, getAllAliases]);
 
     return (
         <Card>
@@ -1393,20 +1386,30 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                     </Dialog>
                 </div>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm">
+            <CardContent className="space-y-4 text-sm">
                 <p><strong>{t('description')}:</strong> {store.description}</p>
                 <p><strong>{t('address')}:</strong> {store.address}</p>
                  <p><strong>Telugu Name:</strong> {store.teluguName || 'Not set'}</p>
                 <p><strong>{t('location')}:</strong> {store.latitude}, {store.longitude}</p>
+                <div>
+                  <strong>Voice Aliases:</strong>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                      {Object.entries(storeAliases).flatMap(([lang, aliases]) =>
+                          aliases.map(alias => (
+                              <Badge key={`${lang}-${alias}`} variant="secondary">{alias} ({lang})</Badge>
+                          ))
+                      )}
+                      {Object.keys(storeAliases).length === 0 && <span className="text-muted-foreground ml-2">None set. Add aliases in the Voice Commands admin page.</span>}
+                  </div>
+                </div>
             </CardContent>
         </Card>
     );
 }
 
-// New component to fetch and display variants for a single product row in the admin table
 function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Product; storeId: string; onEdit: () => void; onDelete: () => void; }) {
     const { firestore } = useFirebase();
-    const { getProductName, language } = useAppStore(state => ({ getProductName: state.getProductName, language: state.language }));
+    const { getProductName, language, getAllAliases } = useAppStore();
 
     const priceDocRef = useMemoFirebase(() => {
         if (!firestore || !product.name) return null;
@@ -1416,10 +1419,9 @@ function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Prod
     const { data: priceData, isLoading: pricesLoading } = useDoc<ProductPrice>(priceDocRef);
     
     const productAliases = useMemo(() => {
-        const aliases = getAllAliases(product.name.toLowerCase().replace(/ /g, '-'));
-        // Flatten the object of arrays into a single array, but only get the first one for display
-        return Object.values(aliases).flat();
-    }, [product.name]);
+        const key = createSlug(product.name);
+        return getAllAliases(key);
+    }, [product.name, getAllAliases]);
 
     const variantsString = useMemo(() => {
         if (pricesLoading) return "Loading prices...";
@@ -1439,16 +1441,18 @@ function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Prod
                         className="rounded-sm object-cover mt-1"
                     />
                     <div>
-                        <span className="font-semibold">{t(product.name.toLowerCase().replace(/ /g, '-'), language)}</span>
+                        <span className="font-semibold">{getProductName(product)}</span>
                          <div className="flex flex-wrap gap-1 mt-1">
-                            {productAliases.map((alias, index) => (
-                                <Badge key={index} variant="secondary" className="font-normal">{alias}</Badge>
-                            ))}
+                            {Object.entries(productAliases).flatMap(([lang, aliases]) => 
+                                aliases.map(alias => (
+                                    <Badge key={`${lang}-${alias}`} variant="outline">{alias} ({lang})</Badge>
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>
             </TableCell>
-            <TableCell>{t(product.category.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</TableCell>
+            <TableCell>{t(product.category?.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</TableCell>
             <TableCell>{variantsString}</TableCell>
             <TableCell className="text-right">
                 <Button variant="ghost" size="icon" onClick={onEdit}>
@@ -1680,7 +1684,7 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
                                             <span>{t(product.name.toLowerCase().replace(/ /g, '-'), language)}</span>
                                         </div>
                                     </TableCell>
-                                    <TableCell>{t(product.category.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</TableCell>
+                                    <TableCell>{t(product.category?.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</TableCell>
                                 </TableRow>
                             )
                         )}

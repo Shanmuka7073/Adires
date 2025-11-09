@@ -123,3 +123,11 @@ export type FailedVoiceCommand = {
     suggestedProduct?: string; // e.g., 'tomatoes'
     similarityScore?: number; // e.g., 0.75
 }
+
+export type VoiceAlias = {
+    id?: string; // Firestore document ID
+    key: string; // e.g. 'go-to-cart' or 'tomatoes'
+    language: string; // 'en', 'te', 'display', 'reply'
+    alias: string; // 'go to my cart', 'టమోటాలు', 'Go To Cart', 'Navigating...'
+    type: 'command' | 'product' | 'store';
+};

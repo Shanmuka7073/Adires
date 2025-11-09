@@ -5,14 +5,14 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, errorEmitter } from '@/firebase';
-import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant } from '@/lib/types';
+import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, VoiceAlias } from '@/lib/types';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
 import { useAppStore } from '@/lib/store';
 import { ProfileFormValues, useProfileFormStore } from '@/app/dashboard/customer/my-profile/page';
 import { useCheckoutStore } from '@/app/checkout/page';
-import { useMyStorePageStore } from '@/components/dashboard/owner/my-store/page';
-import { t, getAllAliases, initializeTranslations, loadLocales } from '@/lib/locales';
+import { useMyStorePageStore } from '@/lib/store';
+import { t, initializeTranslations } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import groceryData from '@/lib/grocery-data.json';
@@ -61,7 +61,7 @@ export function VoiceCommander({
   const { firestore, user } = useFirebase();
   const { clearCart, addItem: addItemToCart, updateQuantity, activeStoreId, setActiveStoreId, cartTotal } = useCart();
 
-  const { stores, masterProducts, productPrices, fetchInitialData, fetchProductPrices, getProductName, language, setLanguage } = useAppStore();
+  const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales } = useAppStore();
 
   const { form: profileForm } = useProfileFormStore();
   const { saveInventoryBtnRef } = useMyStorePageStore();
@@ -79,10 +79,7 @@ export function VoiceCommander({
 
   const isSpeakingRef = useRef(false);
   const isEnabledRef = useRef(enabled);
-  const commandsRef = useRef<Command[]>([]);
   const commandActionsRef = useRef<any>({});
-  const fileCommandsRef = useRef<Record<string, { display: string, reply: string, aliases: string[] }>>({});
-  const allAliasesRef = useRef<Record<string, Record<string, string[]>>>({});
 
   const formFieldToFillRef = useRef<keyof ProfileFormValues | null>(null);
   const [isWaitingForStoreName, setIsWaitingForStoreName] = useState(false);
@@ -109,13 +106,10 @@ export function VoiceCommander({
       const productSlug = p.name.toLowerCase().replace(/ /g, '-');
       const productAliasesByLang = getAllAliases(productSlug);
       
-      // Add the canonical name itself, both with and without spaces
       const normalizedCanonicalName = p.name.toLowerCase();
       map.set(normalizedCanonicalName, { product: p, lang: 'en' });
       map.set(normalizedCanonicalName.replace(/\s+/g, ''), { product: p, lang: 'en' });
 
-
-      // Add all aliases from locales
       for (const lang in productAliasesByLang) {
         for (const alias of productAliasesByLang[lang]) {
           const normalizedAlias = alias.toLowerCase();
@@ -125,7 +119,7 @@ export function VoiceCommander({
       }
     }
     return map;
-  }, [masterProducts]);
+  }, [masterProducts, getAllAliases]);
 
   const storeAliasMap = useMemo(() => {
     const map = new Map<string, Store>();
@@ -148,7 +142,7 @@ export function VoiceCommander({
       }
     }
     return map;
-  }, [stores]);
+  }, [stores, getAllAliases]);
 
 
   const resetAllContext = useCallback(() => {
@@ -165,17 +159,14 @@ export function VoiceCommander({
   }, [onSuggestions, setIsWaitingForQuickOrderConfirmation, setShouldPlaceOrderDirectly]);
 
 
-  // Determine the language of a phrase without changing the app's state
   const determinePhraseLanguage = useCallback((text: string): string => {
     const lowerText = text.toLowerCase();
     
-    // --- Priority 1: Check for transliterated English greetings ---
     const transliteratedGreetings = ['హై', 'హలో'];
     if (transliteratedGreetings.some(greeting => lowerText.includes(greeting))) {
-      return 'en'; // Treat these as English commands for greetings.
+      return 'en';
     }
 
-    // --- Priority 2: Check for core language keywords ---
     const langKeywords = [
         { lang: 'te', keywords: ['నాకు', 'కావాలి', 'naku', 'naaku', 'kavali'] },
         { lang: 'hi', keywords: ['मुझे', 'चाहिए', 'mujhe', 'chahiye'] },
@@ -187,21 +178,22 @@ export function VoiceCommander({
         }
     }
 
-    // --- Priority 3: Check all aliases for a match ---
-    for (const key in allAliasesRef.current) {
-        const langAliases = allAliasesRef.current[key];
+    // Check all aliases
+     for (const key in locales) {
+        const langAliases = locales[key];
         for (const lang in langAliases) {
-            if (langAliases[lang].some(alias => lowerText.includes(alias.toLowerCase()))) {
-                if (lang !== 'en') return lang; // Return if we find a non-English alias match
+             if (lang === 'display' || lang === 'reply') continue;
+            const aliases = Array.isArray(langAliases[lang]) ? langAliases[lang] as string[] : [langAliases[lang] as string];
+            if (aliases.some(alias => lowerText.includes(alias.toLowerCase()))) {
+                if (lang !== 'en') return lang;
             }
         }
     }
 
-    return language; // Default to the current app language if no strong hint is found
-  }, [language]);
+    return language; // Default to the current app language
+  }, [language, locales]);
 
 
-  // Update recognition language dynamically
   const updateRecognitionLanguage = useCallback((newLang: string) => {
     if (recognition && recognition.lang !== newLang) {
       console.log('Switching recognition language to:', newLang);
@@ -218,52 +210,7 @@ export function VoiceCommander({
 
   useEffect(() => {
     setHasMounted(true);
-    
-    const loadInitialData = async () => {
-        if(!firestore) return;
-        try {
-            await fetchInitialData(firestore)
-            const locales = await loadLocales(); // This now reads from the client-side cache
-            
-            // Re-construct commands from locales
-            const commands = {};
-            for (const key in locales) {
-                const entry = locales[key];
-                if(entry.display || entry.reply) {
-                    commands[key] = {
-                        display: Array.isArray(entry.display) ? entry.display[0] : entry.display,
-                        reply: Array.isArray(entry.reply) ? entry.reply[0] : entry.reply,
-                        aliases: [], // Aliases are handled globally by `t`
-                    };
-                }
-            }
-
-            fileCommandsRef.current = commands;
-            
-            const aliasMap: Record<string, Record<string, string[]>> = {};
-            for(const key in locales) {
-                aliasMap[key] = {};
-                for(const lang in locales[key]) {
-                    const value = locales[key][lang];
-                    if (lang !== 'display' && lang !== 'reply' && lang !== 'aliases') {
-                        aliasMap[key][lang] = Array.isArray(value) ? value : [value];
-                    }
-                }
-            }
-            allAliasesRef.current = aliasMap;
-            initializeTranslations(locales);
-
-        } catch (error) {
-            console.error("Failed to load initial command data:", error);
-            toast({
-                variant: 'destructive',
-                title: 'Could not load voice commands',
-                description: 'The voice system may not work correctly.'
-            });
-        }
-    };
-    
-    loadInitialData();
+    initializeTranslations(locales);
 
     const getVoices = () => {
       const allVoices = window.speechSynthesis.getVoices();
@@ -282,7 +229,7 @@ export function VoiceCommander({
         window.speechSynthesis.onvoiceschanged = null;
       }
     };
-  }, [firestore, fetchInitialData, toast]);
+  }, [locales]);
 
   useEffect(() => {
     isEnabledRef.current = enabled;
@@ -312,12 +259,12 @@ export function VoiceCommander({
     }
 
     window.speechSynthesis.cancel();
-    isSpeakingRef.current = true; // Set speaking flag
+    isSpeakingRef.current = true;
     
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.pitch = 1;
     utterance.rate = 1.1;
-    utterance.lang = lang; // Use the dynamically detected language
+    utterance.lang = lang;
 
     const desiredVoice = speechSynthesisVoices.find(voice => 
       voice.lang === lang && voice.localService
@@ -336,7 +283,6 @@ export function VoiceCommander({
     utterance.onend = () => {
       isSpeakingRef.current = false;
       if (onEndCallback) onEndCallback();
-       // After speaking, check if recognition should be restarted.
       if (isEnabledRef.current && recognition) {
         try {
             recognition.start();
@@ -391,7 +337,7 @@ export function VoiceCommander({
         return;
     }
 
-    const detectedLang = language; // Use the app's current UI language for the prompt
+    const detectedLang = language;
     const addressInput = typeof document !== 'undefined' ? (document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement) : null;
     const currentAddress = addressInput?.value || '';
 
@@ -406,7 +352,7 @@ export function VoiceCommander({
         speak(t('which-store-should-fulfill-speech', detectedLang), detectedLang + '-IN');
         setIsWaitingForStoreName(true);
     } else {
-        const total = cartTotal + 30; // Assuming 30 is delivery fee
+        const total = cartTotal + 30;
         const speech = t('finalConfirmPrompt', detectedLang).replace('{total}', `₹${total.toFixed(2)}`);
         speak(speech, detectedLang + '-IN');
     }
@@ -416,7 +362,6 @@ export function VoiceCommander({
     setIsWaitingForAddressType, setIsWaitingForStoreName, cartTotal, t
 ]);
   
-  // Proactive trigger for the checkout page based on a state change
   useEffect(() => {
       if (pathname === '/checkout' && hasMounted && enabled && voiceTrigger > 0) {
           const timeoutId = setTimeout(() => {
@@ -426,11 +371,9 @@ export function VoiceCommander({
       }
   }, [voiceTrigger, pathname, hasMounted, enabled, runCheckoutPrompt]);
 
-  // New Proactive trigger for checkout page based on address/store changes
   useEffect(() => {
     if (pathname !== '/checkout' || !enabled || isSpeakingRef.current) return;
     
-    // Give React time to update state before triggering the prompt.
     const handler = setTimeout(() => {
       runCheckoutPrompt();
     }, 500);
@@ -462,12 +405,10 @@ export function VoiceCommander({
     const normalizedPhrase = lowerPhrase.replace(/\s+/g, '');
     let bestMatch: { product: Product, alias: string, similarity: number, lang: string } | null = null;
 
-    // Search both with and without spaces for flexibility
     const searchTerms = [lowerPhrase, normalizedPhrase];
 
     for (const term of searchTerms) {
         for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
-            // Check if the alias (which might be space-less) is a substring of the search term
             if (term.includes(alias)) {
                 const similarity = calculateSimilarity(term, alias);
                 if (!bestMatch || similarity > bestMatch.similarity) {
@@ -482,7 +423,6 @@ export function VoiceCommander({
     const { product: productMatch, alias: matchedAlias, lang: detectedLang } = bestMatch;
     let remainingPhrase = lowerPhrase.replace(matchedAlias, '').trim();
 
-    // Fetch price data if not already cached
     let priceData = productPrices[productMatch.name.toLowerCase()];
     if (priceData === undefined && firestore) {
         await fetchProductPrices(firestore, [productMatch.name]);
@@ -502,7 +442,6 @@ export function VoiceCommander({
     let requestedQty = 1;
     let requestedUnit: string | null = null;
     
-    // 1. Find quantity (number word or digit)
     const numMatch = remainingPhrase.match(/(\d+)/);
     const wordNumMatch = remainingPhrase.match(new RegExp(`\\b(${Object.keys(numberWords).join('|')})\\b`, 'i'));
 
@@ -514,7 +453,6 @@ export function VoiceCommander({
         remainingPhrase = remainingPhrase.replace(wordNumMatch[0], '').trim();
     }
 
-    // 2. Find unit
     for (const unit in unitKeywords) {
         const keywords = unitKeywords[unit];
         const unitMatch = remainingPhrase.match(new RegExp(`\\b(${keywords.join('|')})\\b`, 'i'));
@@ -524,20 +462,17 @@ export function VoiceCommander({
         }
     }
 
-    // 3. Find the best variant
     let chosenVariant: ProductVariant | null = null;
     if (requestedUnit) {
-        // Find a variant that contains the unit, e.g., 'kg' in '1kg'
         chosenVariant = priceData.variants.find(v => v.weight.toLowerCase().includes(requestedUnit)) || null;
     }
 
-    // Fallback: If no variant was found, or no unit was specified, pick the most common one (e.g., 1kg or 1 pc)
     if (!chosenVariant && priceData.variants.length > 0) {
         chosenVariant = 
             priceData.variants.find(v => v.weight === '1kg') ||
             priceData.variants.find(v => v.weight.includes('kg')) ||
             priceData.variants.find(v => v.weight.includes('pc')) ||
-            priceData.variants[0]; // Default to the first variant
+            priceData.variants[0];
     }
     
     return { product: productMatch, variant: chosenVariant, requestedQty, remainingPhrase, matchedAlias, lang: detectedLang };
@@ -552,8 +487,6 @@ export function VoiceCommander({
     }
 
     const commandLower = commandText.toLowerCase();
-
-    // --- Language Detection & Context Management ---
     const spokenLang = determinePhraseLanguage(commandText);
     const langWithRegion = spokenLang === 'en' ? 'en-IN' : `${spokenLang}-IN`;
     const didLanguageChange = spokenLang !== language;
@@ -561,10 +494,8 @@ export function VoiceCommander({
     if (didLanguageChange) {
         setLanguage(spokenLang);
         updateRecognitionLanguage(langWithRegion);
-        // Announce the change *after* processing the action, if an action is taken.
     }
     
-    // --- PRIORITY 0: Check for product/item command first ---
     const multiItemSeparators = new RegExp(`\\s+(${['and', 'మరియు', 'aur'].join('|')})\\s+`, 'i');
     const potentialItems = commandLower.split(multiItemSeparators).filter(s => s && !['and', 'మరియు', 'aur'].includes(s));
 
@@ -577,11 +508,9 @@ export function VoiceCommander({
     const { product, variant, requestedQty, matchedAlias, lang: itemLang } = await findProductAndVariant(commandLower);
 
     if (product && variant) {
-        // Since we found a product, this takes precedence. Perform the action.
         addItemToCart(product, variant, requestedQty);
         onOpenCart();
         
-        // Now, construct and speak the confirmation.
         const productLang = itemLang || spokenLang;
         const replyProductName = matchedAlias || getProductName(product);
 
@@ -590,7 +519,6 @@ export function VoiceCommander({
             .replace('{weight}', `${variant.weight}`)
             .replace('{productName}', replyProductName);
 
-        // If the language changed during this command, add the confirmation to the speech.
         if (didLanguageChange) {
             speech += spokenLang === 'te' ? " నేను మీ కోసం తెలుగుకి మారాను." : " I've also switched to English for you.";
         }
@@ -600,82 +528,42 @@ export function VoiceCommander({
         return;
     }
     
-    // --- PRIORITY 1: Check for simple conversational commands first ---
-    const conversationalCommands = ["whatTime", "howAreYou", "howIsYourDay", "whatToOrder"];
-    for (const key of conversationalCommands) {
-        const cmdGroup = fileCommandsRef.current[key];
-        if (!cmdGroup) continue;
+    const allCommandKeys = Object.keys(locales);
+    
+    // Combine aliases from all languages for matching
+    let bestCommandMatch: { key: string, similarity: number, reply: string, display: string } | null = null;
 
-        const allAliases = [t(key, spokenLang).toLowerCase(), ...Object.values(getAllAliases(key)).flat().map(a => a.toLowerCase()), ...(cmdGroup.aliases || [])];
-        for (const alias of [...new Set(allAliases)]) {
-            if (calculateSimilarity(commandLower, alias) > 0.8 || commandText.toLowerCase() === alias) {
-                let replyText = t(cmdGroup.reply, spokenLang);
-                
-                if (replyText.includes('{time}')) {
-                    const now = new Date();
-                    const timeString = now.toLocaleTimeString(langWithRegion, { hour: '2-digit', minute: '2-digit' });
-                    replyText = replyText.replace('{time}', timeString);
-                }
-                
-                speak(replyText, langWithRegion);
-                resetAllContext();
-                return;
+    for (const key of allCommandKeys) {
+        const commandAliases = getAllAliases(key);
+        const allAliasStrings = Object.values(commandAliases).flat();
+        
+        for (const alias of allAliasStrings) {
+            const similarity = calculateSimilarity(commandLower, alias.toLowerCase());
+            if (similarity > (bestCommandMatch?.similarity || 0.75)) {
+                 bestCommandMatch = {
+                    key,
+                    similarity,
+                    reply: t(key, spokenLang, 'reply'),
+                    display: t(key, spokenLang, 'display')
+                };
             }
         }
     }
     
-    
-    // --- PRIORITY 2: Page-Specific Contextual Actions ---
-    if (pathname === '/checkout') {
-        const placeOrderAliases = [t('placeOrder', spokenLang).toLowerCase(), ...Object.values(getAllAliases('placeOrder')).flat().map(a => a.toLowerCase())];
-        if (placeOrderAliases.some(alias => calculateSimilarity(commandLower, alias) > 0.8)) {
-            await commandActionsRef.current.placeOrder({ lang: spokenLang });
-            resetAllContext();
-            return;
-        }
-    }
-    
-    if (pathname === '/dashboard/owner/my-store') {
-        const saveAliases = [t('saveChanges', spokenLang).toLowerCase(), ...Object.values(getAllAliases('saveChanges')).flat().map(a => a.toLowerCase())];
-        if (saveAliases.some(alias => calculateSimilarity(commandLower, alias) > 0.8)) {
-            commandActionsRef.current.saveChanges({ lang: spokenLang });
-            resetAllContext();
-            return;
-        }
+    if (bestCommandMatch) {
+         const action = commandActionsRef.current[bestCommandMatch.key];
+         if (action) {
+             speak(bestCommandMatch.reply, langWithRegion, () => action({ lang: spokenLang, phrase: commandLower, originalText: commandText }));
+         } else {
+             speak(bestCommandMatch.reply, langWithRegion);
+         }
+         resetAllContext();
+         return;
     }
 
-    if (pathname === '/dashboard/delivery/deliveries') {
-      const acceptJobAliases = ["accept job", "accept this job", "take this job", "accept group", "i'll take it"];
-      if (acceptJobAliases.some(alias => calculateSimilarity(commandLower, alias) > 0.8)) {
-          commandActionsRef.current.acceptDeliveryJob({ lang: spokenLang });
-          resetAllContext();
-          return;
-      }
-    }
-
-    // --- PRIORITY 3: High-priority global navigation ---
-    const highPriorityCommands = ["home", "stores", "dashboard", "cart", "orders", "deliveries", "myStore", "refresh", "checkout", "myProfile"];
-    for (const key of highPriorityCommands) {
-        const cmdGroup = fileCommandsRef.current[key];
-        if (!cmdGroup) continue;
-
-        const allAliases = [t(key, spokenLang).toLowerCase(), ...Object.values(getAllAliases(key)).flat().map(a => a.toLowerCase()), ...(cmdGroup.aliases || [])];
-        for (const alias of [...new Set(allAliases)]) {
-             if (calculateSimilarity(commandLower, alias) > 0.8 || commandText.toLowerCase() === alias) {
-                const action = commandActionsRef.current[key];
-                if (action) {
-                    speak(t(cmdGroup.reply, spokenLang), langWithRegion, () => action({ lang: spokenLang }));
-                }
-                resetAllContext();
-                return;
-            }
-        }
-    }
-
-    // --- PRIORITY 4: Contextual Replies & Information Gathering ---
     if (isWaitingForAddressType) {
-        const homeKeywords = [t('homeAddress', spokenLang).toLowerCase(), ...Object.values(getAllAliases('homeAddress')).flat().map(a => a.toLowerCase())];
-        const locationKeywords = [t('currentLocation', spokenLang).toLowerCase(), ...Object.values(getAllAliases('currentLocation')).flat().map(a => a.toLowerCase())];
+        const homeKeywords = getAllAliases('homeAddress')['en'] || [];
+        const locationKeywords = getAllAliases('currentLocation')['en'] || [];
         
         if (homeKeywords.some(keyword => commandLower.includes(keyword))) {
             homeAddressBtnRef?.current?.click();
@@ -722,7 +610,6 @@ export function VoiceCommander({
         return;
     }
     
-    // --- PRIORITY 5: Complex "Smart Order" parsing ---
     const locationKeywords = ['from', 'to'];
     if (locationKeywords.some(kw => commandLower.includes(kw))) {
         await commandActionsRef.current.smartOrder(commandLower, spokenLang, commandText);
@@ -730,7 +617,6 @@ export function VoiceCommander({
         return;
     }
 
-    // --- PRIORITY 6: Fallback for failure ---
     speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
     if (firestore && user) {
         addDoc(collection(firestore, 'failedCommands'), {
@@ -743,7 +629,7 @@ export function VoiceCommander({
     }
     resetAllContext();
 
-  }, [firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, onStatusUpdate, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp.length, setLanguage, addItemToCart, onOpenCart]);
+  }, [firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, onStatusUpdate, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp.length, setLanguage, addItemToCart, onOpenCart, locales, getAllAliases, t]);
 
 
   useEffect(() => {
@@ -896,8 +782,8 @@ export function VoiceCommander({
       },
       goToStore: ({ store, lang }) => {
         const langWithRegion = lang === 'en' ? 'en-IN' : `${lang}-IN`;
-        speak(`Okay, opening ${store.name}.`, langWithRegion); // Speak immediately
-        router.push(`/stores/${store.id}`); // Navigate immediately
+        speak(`Okay, opening ${store.name}.`, langWithRegion);
+        router.push(`/stores/${store.id}`);
       },
       orderItem: async ({ phrase, originalText }: { phrase?: string; originalText: string }) => {
         if (!phrase) return;
@@ -916,7 +802,6 @@ export function VoiceCommander({
             const detectedLang = determinePhraseLanguage(originalText);
             speak(t('sorry-i-didnt-understand-that', detectedLang), detectedLang + '-IN');
             if (firestore && user) {
-                // Find best guess for logging
                 let bestGuess: { product: Product, similarity: number } | null = null;
                 for (const p of masterProducts) {
                     const similarity = calculateSimilarity(phrase, p.name.toLowerCase());
@@ -1061,18 +946,15 @@ export function VoiceCommander({
     checkPrice: async ({ phrase, lang, originalText }: { phrase?: string; lang: string, originalText: string }) => {
       if (!phrase) return;
 
-      // Clean the phrase by removing the price check keywords first
-      const priceKeywords = [t('checkPrice', lang).toLowerCase(), ...Object.values(getAllAliases('checkPrice')).flat().map(a => a.toLowerCase())];
+      const priceKeywords = [t('checkPrice', lang).toLowerCase(), ...getAllAliases('checkPrice')[lang] || []];
       const productPhrase = priceKeywords.reduce((acc, keyword) => acc.replace(keyword, ''), phrase).trim();
 
       const { product, lang: detectedLang } = await findProductAndVariant(productPhrase);
 
       if (product) {
-        // We have a product, now fetch its price explicitly if not already cached
         let priceData = productPrices[product.name.toLowerCase()];
         if (priceData === undefined && firestore) {
           await fetchProductPrices(firestore, [product.name]);
-          // After fetching, get the updated value from the store
           priceData = useAppStore.getState().productPrices[product.name.toLowerCase()];
         }
         
@@ -1099,10 +981,8 @@ export function VoiceCommander({
         }
       }
       
-      // If we reach here, no product was found
       speak(t('sorry-i-didnt-understand-that', lang), lang + '-IN');
       if (firestore && user) {
-        // Find best guess for logging
         let bestGuess: { product: Product, similarity: number } | null = null;
         for (const p of masterProducts) {
             const similarity = calculateSimilarity(productPhrase, p.name.toLowerCase());
@@ -1139,7 +1019,7 @@ export function VoiceCommander({
         recognition.stop();
       }
     };
-  }, [handleCommand, cartTotal, cartItemsProp, pathname, masterProducts]);
+  }, [handleCommand, cartTotal, cartItemsProp, pathname, masterProducts, t]);
 
   useEffect(() => {
     console.log('Current language changed to:', language);
@@ -1147,5 +1027,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    

@@ -1,17 +1,14 @@
 
 
 'use client';
-
-// This new version no longer uses server actions.
-// It will be powered by client-side Firestore queries.
+import type { VoiceAlias } from './types';
+export type { VoiceAlias };
 
 export type LocaleEntry = string | string[];
 export type Locales = Record<string, Record<string, LocaleEntry>>;
 
-// This variable will act as a client-side cache.
 let translations: Locales | null = null;
 
-// Function to initialize or refresh the translations cache on the client.
 export function initializeTranslations(initialData: Locales) {
     if (!translations) {
         translations = initialData;
@@ -19,28 +16,31 @@ export function initializeTranslations(initialData: Locales) {
 }
 
 // Client-side synchronous translation function
-export function t(key: string, lang: string = 'en'): string {
+export function t(key: string, lang: string = 'en', type: 'display' | 'reply' | 'alias' = 'alias'): string {
     if (!translations) {
-        // Fallback for when translations aren't loaded yet.
         return key.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     }
     const langCode = lang.split('-')[0];
     const entry = translations[key];
     
+    // For 'display' or 'reply', we expect a single string.
+    if (type === 'display' || type === 'reply') {
+      return (entry?.[type] as string) || key.replace(/-/g, ' ');
+    }
+
+    // For 'alias', we check the specific language, then fallback to English.
     if (entry && entry[langCode]) {
         const regionalEntry = entry[langCode];
         return Array.isArray(regionalEntry) ? regionalEntry[0] : regionalEntry;
     }
-     if (entry && entry['en']) {
+    if (entry && entry['en']) {
         const fallbackEntry = entry['en'];
         return Array.isArray(fallbackEntry) ? fallbackEntry[0] : fallbackEntry;
     }
     
-    // Fallback for keys that might not be in the JSON, like dynamic product names
     return key.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 }
 
-// Client-side synchronous alias getter
 export function getAllAliases(key: string): Record<string, string[]> {
     if (!translations) return {};
     const entry = translations[key];
@@ -57,7 +57,21 @@ export function getAllAliases(key: string): Record<string, string[]> {
     return result;
 }
 
-// loadLocales is no longer needed as data is fetched directly in components.
-export async function loadLocales() {
-    return translations;
+// This function is now only used for initializing the store from the fetched aliases.
+export function buildLocalesFromAliases(aliases: VoiceAlias[]): Locales {
+    const locales: Locales = {};
+    aliases.forEach(aliasDoc => {
+        if (!locales[aliasDoc.key]) {
+            locales[aliasDoc.key] = {};
+        }
+        const langEntry = locales[aliasDoc.key][aliasDoc.language];
+        if (Array.isArray(langEntry)) {
+            langEntry.push(aliasDoc.alias);
+        } else if (typeof langEntry === 'string') {
+            locales[aliasDoc.key][aliasDoc.language] = [langEntry, aliasDoc.alias];
+        } else {
+            locales[aliasDoc.key][aliasDoc.language] = aliasDoc.alias;
+        }
+    });
+    return locales;
 }

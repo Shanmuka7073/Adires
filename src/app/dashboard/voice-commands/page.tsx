@@ -15,126 +15,57 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useFirebase } from '@/firebase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
-import { collection, getDocs, writeBatch, query, where } from 'firebase/firestore';
-
+import { collection, getDocs, writeBatch, doc, query, where, deleteDoc } from 'firebase/firestore';
+import type { VoiceAlias, Locales } from '@/lib/locales';
 
 type CommandGroup = {
   display: string;
   reply: string;
 };
 
-type LocaleEntry = string | string[];
-type Locales = Record<string, Record<string, LocaleEntry>>;
-type VoiceAlias = { id?: string; key: string; language: string; alias: string; type: string };
-
 const createSlug = (text: string) => text.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-');
 
-// --- Client-Side Data Fetching and Saving ---
-async function fetchAliasesFromFirestore(db): Promise<VoiceAlias[]> {
-    const aliasCollection = collection(db, 'voiceAliases');
-    const snapshot = await getDocs(aliasCollection);
-    if (snapshot.empty) {
-        return [];
-    }
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAlias));
-}
-
-async function getCommands(db): Promise<Record<string, CommandGroup>> {
-    const aliases = await fetchAliasesFromFirestore(db);
-    const commandAliases = aliases.filter(a => a.type === 'command');
-    
-    const commands: Record<string, CommandGroup> = {};
-
-    commandAliases.forEach(aliasDoc => {
-         if (aliasDoc.language === 'display' || aliasDoc.language === 'reply') {
-            if (!commands[aliasDoc.key]) {
-                commands[aliasDoc.key] = { display: '', reply: '' };
-            }
-            if (aliasDoc.language === 'display') commands[aliasDoc.key].display = aliasDoc.alias;
-            if (aliasDoc.language === 'reply') commands[aliasDoc.key].reply = aliasDoc.alias;
-        }
-    });
-
-    return commands;
-}
-
-async function getLocales(db): Promise<Locales> {
-    const aliases = await fetchAliasesFromFirestore(db);
-    const locales: Locales = {};
-
-    aliases.forEach(aliasDoc => {
-        if (aliasDoc.language === 'display' || aliasDoc.language === 'reply') return;
-
-        if (!locales[aliasDoc.key]) {
-            locales[aliasDoc.key] = {};
-        }
-
-        const langEntry = locales[aliasDoc.key][aliasDoc.language];
-        
-        if (Array.isArray(langEntry)) {
-            langEntry.push(aliasDoc.alias);
-        } else if (typeof langEntry === 'string') {
-            locales[aliasDoc.key][aliasDoc.language] = [langEntry, aliasDoc.alias];
-        } else {
-            locales[aliasDoc.key][aliasDoc.language] = aliasDoc.alias;
-        }
-    });
-    
-    return locales;
-}
-
-
+// This component now relies on the global useAppStore for its data.
 export default function VoiceCommandsPage() {
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
     const [isProcessing, startTransition] = useTransition();
-    const [activeTab, setActiveTab] = useState('general'); // 'general', 'products', or 'stores'
+    const [activeTab, setActiveTab] = useState('general');
 
+    // Data from the global store
+    const { masterProducts, stores, locales: initialLocales, voiceAliases: initialAliases, fetchInitialData } = useAppStore();
+
+    // Local state for UI edits, initialized from the global store
+    const [locales, setLocales] = useState<Locales>(initialLocales);
     const [commands, setCommands] = useState<Record<string, CommandGroup>>({});
     
-    const [locales, setLocales] = useState<Locales>({});
+    // Local state for UI interactions
     const [newAliases, setNewAliases] = useState<Record<string, Record<string, string>>>({});
-    
-    // State for the "Add New Command" dialog
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [newCommandKey, setNewCommandKey] = useState('');
     const [newCommandDisplay, setNewCommandDisplay] = useState('');
     const [newCommandReply, setNewCommandReply] = useState('');
-
-
-    const { masterProducts, stores, fetchInitialData } = useAppStore();
-    const { firestore } = useFirebase();
-
     const [isListening, setIsListening] = useState(false);
     const recognitionRef = useRef<SpeechRecognition | null>(null);
 
-    const { toast } = useToast();
-
-    const loadAllData = useCallback(() => {
-        if (!firestore) return;
-        startTransition(async () => {
-            try {
-                const [fetchedCommands, fetchedLocales] = await Promise.all([
-                    getCommands(firestore),
-                    getLocales(firestore),
-                ]);
-                setCommands(fetchedCommands);
-                setLocales(fetchedLocales);
-            } catch (error) {
-                console.error("Failed to load voice command data:", error);
-                toast({
-                    variant: 'destructive',
-                    title: 'Data Load Failed',
-                    description: 'Could not load voice commands and aliases. Please refresh the page.'
-                });
+    // Re-initialize local state whenever the global store's data changes (e.g., after a save and refresh)
+    useEffect(() => {
+        setLocales(initialLocales);
+        const initialCommands: Record<string, CommandGroup> = {};
+        Object.keys(initialLocales).forEach(key => {
+            const entry = initialLocales[key];
+            if (entry.display || entry.reply) {
+                initialCommands[key] = {
+                    display: Array.isArray(entry.display) ? entry.display[0] : (entry.display || ''),
+                    reply: Array.isArray(entry.reply) ? entry.reply[0] : (entry.reply || ''),
+                };
             }
         });
-    }, [firestore, toast]);
+        setCommands(initialCommands);
+    }, [initialLocales]);
+
 
     useEffect(() => {
-        if (firestore) {
-            fetchInitialData(firestore);
-            loadAllData();
-        }
-
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
             recognitionRef.current = new SpeechRecognition();
@@ -153,37 +84,27 @@ export default function VoiceCommandsPage() {
         } else {
             console.warn("Speech recognition not supported in this browser.");
         }
-    }, [firestore, fetchInitialData, loadAllData, toast]);
+    }, [toast]);
 
 
     const handleAddAlias = (itemKey: string, lang: string) => {
         const newAliasInput = newAliases[itemKey]?.[lang]?.trim();
-        if(!newAliasInput) {
+        if (!newAliasInput) {
             toast({ variant: 'destructive', title: 'Cannot add empty alias' });
             return;
         }
-        addAlias(itemKey, newAliasInput, lang);
-        setNewAliases(prev => ({
-            ...prev,
-            [itemKey]: {
-                ...prev[itemKey],
-                [lang]: ''
-            }
-        }));
-    };
 
-    const addAlias = (key: string, newAliasString: string, lang: string) => {
-        const aliasesToAdd = newAliasString.split(',').map(alias => alias.trim().toLowerCase()).filter(Boolean);
+        const aliasesToAdd = newAliasInput.split(',').map(alias => alias.trim().toLowerCase()).filter(Boolean);
         if (aliasesToAdd.length === 0) return;
 
         let addedCount = 0;
         let duplicates: string[] = [];
-        
+
         setLocales(currentLocales => {
             const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
-            if (!updatedLocales[key]) updatedLocales[key] = {};
+            if (!updatedLocales[itemKey]) updatedLocales[itemKey] = {};
             
-            const existingAliases = Array.isArray(updatedLocales[key][lang]) ? updatedLocales[key][lang] as string[] : ([updatedLocales[key][lang]].filter(Boolean) as string[]);
+            const existingAliases = Array.isArray(updatedLocales[itemKey][lang]) ? updatedLocales[itemKey][lang] as string[] : ([updatedLocales[itemKey][lang]].filter(Boolean) as string[]);
             
             aliasesToAdd.forEach(newAlias => {
                 if(!existingAliases.includes(newAlias)) {
@@ -193,22 +114,27 @@ export default function VoiceCommandsPage() {
                     duplicates.push(newAlias);
                 }
             });
-            updatedLocales[key][lang] = existingAliases.length === 1 ? existingAliases[0] : existingAliases;
+            updatedLocales[itemKey][lang] = existingAliases.length === 1 ? existingAliases[0] : existingAliases;
             return updatedLocales;
         });
-        
+
         if (duplicates.length > 0) {
              toast({ variant: 'destructive', title: 'Duplicate Item(s)', description: `"${duplicates.join(', ')}" already exist.` });
         }
         if (addedCount > 0) {
-            const addedAliases = aliasesToAdd.filter(a => !duplicates.includes(a));
-            toast({ title: 'Alias Added', description: `Added "${addedAliases.join(', ')}". Remember to save.` });
+            toast({ title: 'Alias Added Locally', description: `Added new alias(es). Remember to save your changes.` });
         }
+
+        // Clear the input field
+        setNewAliases(prev => ({
+            ...prev,
+            [itemKey]: { ...prev[itemKey], [lang]: '' }
+        }));
     };
 
-     const handleRemoveAlias = (itemKey: string, lang: string, aliasToRemove: string) => {
+    const handleRemoveAlias = (itemKey: string, lang: string, aliasToRemove: string) => {
         setLocales(currentLocales => {
-            const updatedLocales = JSON.parse(JSON.stringify(currentLocales)); // Deep copy
+            const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
             const itemLangEntry = updatedLocales[itemKey]?.[lang];
 
             if (Array.isArray(itemLangEntry)) {
@@ -227,9 +153,9 @@ export default function VoiceCommandsPage() {
             if (updatedLocales[itemKey] && Object.keys(updatedLocales[itemKey]).length === 0) {
                 delete updatedLocales[itemKey];
             }
-
             return updatedLocales;
         });
+        toast({ title: 'Alias Removed Locally', description: 'Remember to save your changes.' });
     };
     
     const handleCommandUpdate = (key: string, field: 'display' | 'reply', value: string) => {
@@ -245,7 +171,7 @@ export default function VoiceCommandsPage() {
             toast({ variant: 'destructive', title: 'Command Key is required.' });
             return;
         }
-        if (commands[key]) {
+        if (commands[key] || locales[key]) {
             toast({ variant: 'destructive', title: 'Command Key already exists.' });
             return;
         }
@@ -261,7 +187,7 @@ export default function VoiceCommandsPage() {
     };
     
     const handleDeleteCommand = (keyToDelete: string) => {
-        if (window.confirm(`Are you sure you want to permanently delete the "${commands[keyToDelete].display}" command? This cannot be undone.`)) {
+        if (window.confirm(`Are you sure you want to permanently delete the "${commands[keyToDelete]?.display || keyToDelete}" command and all its aliases? This cannot be undone.`)) {
             setCommands(current => {
                 const newCommands = { ...current };
                 delete newCommands[keyToDelete];
@@ -272,68 +198,99 @@ export default function VoiceCommandsPage() {
                 delete newLocales[keyToDelete];
                 return newLocales;
             });
-            toast({ title: 'Command Deleted', description: `Remember to save your changes.` });
+            toast({ title: 'Command Deleted Locally', description: `Remember to save your changes.` });
         }
     };
 
-
     const handleSaveAll = () => {
         if (!firestore) return;
+
         startTransition(async () => {
-            try {
-                const batch = writeBatch(firestore);
-                const aliasCollection = collection(firestore, 'voiceAliases');
+            const batch = writeBatch(firestore);
+            const aliasCollection = collection(firestore, 'voiceAliases');
 
-                // Nuke all existing aliases
-                const existingDocs = await getDocs(aliasCollection);
-                existingDocs.forEach(doc => batch.delete(doc.ref));
-
-                // Add all new command aliases (display/reply)
-                for (const key in commands) {
-                    const { display, reply } = commands[key];
-                    if (display) batch.set(doc(aliasCollection), { key, language: 'display', alias: display, type: 'command' });
-                    if (reply) batch.set(doc(aliasCollection), { key, language: 'reply', alias: reply, type: 'command' });
+            // 1. Delete all existing documents
+            initialAliases.forEach(aliasDoc => {
+                if(aliasDoc.id) {
+                    batch.delete(doc(firestore, 'voiceAliases', aliasDoc.id));
                 }
+            });
 
-                // Add all new locale aliases
-                for (const key in locales) {
-                    const langMap = locales[key];
-                    const itemType = masterProducts.some(p => createSlug(p.name) === key) ? 'product' : (stores.some(s => createSlug(s.name) === key) ? 'store' : 'command');
-                    for (const lang in langMap) {
-                        const aliases = Array.isArray(langMap[lang]) ? langMap[lang] as string[] : [langMap[lang] as string];
-                        for (const alias of aliases) {
-                            if (alias) batch.set(doc(aliasCollection), { key, language: lang, alias, type: itemType });
+            const allItemsMap = new Map([
+                ...masterProducts.map(p => [createSlug(p.name), 'product']),
+                ...stores.map(s => [createSlug(s.name), 'store']),
+                ...Object.keys(commands).map(c => [c, 'command'])
+            ]);
+
+
+            // 2. Add all new aliases from the combined 'locales' and 'commands' state
+            for (const key in locales) {
+                const type = allItemsMap.get(key) || 'command';
+                const langMap = locales[key];
+                for (const lang in langMap) {
+                    const aliases = Array.isArray(langMap[lang]) ? langMap[lang] as string[] : [langMap[lang] as string];
+                    aliases.forEach(alias => {
+                        if (alias) {
+                            const newAliasDocRef = doc(aliasCollection);
+                            batch.set(newAliasDocRef, { key, language: lang, alias, type });
                         }
-                    }
+                    });
                 }
+            }
 
+            // Also add display/reply from commands state as aliases
+            for (const key in commands) {
+                const { display, reply } = commands[key];
+                if (display) batch.set(doc(aliasCollection), { key, language: 'display', alias: display, type: 'command' });
+                if (reply) batch.set(doc(aliasCollection), { key, language: 'reply', alias: reply, type: 'command' });
+            }
+
+            try {
                 await batch.commit();
-
                 toast({
                     title: 'All Changes Saved!',
-                    description: 'Your voice commands and aliases have been saved to the database.',
+                    description: 'Your voice commands and aliases have been updated.',
                 });
+                // Trigger a re-fetch of the global data to get the new state
+                await fetchInitialData(firestore);
             } catch (error) {
                  toast({
                     variant: 'destructive',
                     title: 'Save Failed',
                     description: (error as Error).message || 'Could not save changes to Firestore.',
                 });
+                console.error(error);
             }
         });
     };
 
     const handleVoiceAdd = (key: string, lang: string) => {
         if (!recognitionRef.current) {
-            toast({ variant: 'destructive', title: 'Voice Not Supported', description: 'Your browser does not support speech recognition.' });
+            toast({ variant: 'destructive', title: 'Voice Not Supported' });
             return;
         }
         const recognition = recognitionRef.current;
-        recognition.lang = lang || 'en-IN';
-        recognition.onresult = (event) => addAlias(key, event.results[0][0].transcript.toLowerCase(), lang);
+        const recognitionLang = lang === 'te' ? 'te-IN' : 'en-IN';
+        recognition.lang = recognitionLang;
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript.toLowerCase();
+            setLocales(currentLocales => {
+                const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
+                if (!updatedLocales[key]) updatedLocales[key] = {};
+                const existing = Array.isArray(updatedLocales[key][lang]) ? updatedLocales[key][lang] : (updatedLocales[key][lang] ? [updatedLocales[key][lang]] : []);
+                if (!existing.includes(transcript)) {
+                    existing.push(transcript);
+                    toast({ title: 'Alias Added Locally', description: `Added "${transcript}". Remember to save.` });
+                } else {
+                    toast({ variant: 'destructive', title: 'Duplicate Alias', description: `"${transcript}" already exists.` });
+                }
+                updatedLocales[key][lang] = existing.length === 1 ? existing[0] : existing;
+                return updatedLocales;
+            });
+        };
         recognition.start();
     };
-    
+
     const renderGeneralCommands = () => (
         <Card className="max-w-4xl mx-auto">
             <CardHeader>
@@ -420,7 +377,7 @@ export default function VoiceCommandsPage() {
                                             <div className="flex items-center gap-2 pt-2 border-t">
                                               <Input placeholder={`Add ${lang} alias(es), comma-separated...`} value={newAliases[key]?.[lang] || ''} onChange={(e) => setNewAliases(p => ({ ...p, [key]: { ...p[key], [lang]: e.target.value } }))} onKeyDown={(e) => {if (e.key === 'Enter') { e.preventDefault(); handleAddAlias(key, lang); }}} />
                                               <Button size="sm" onClick={() => handleAddAlias(key, lang)}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
-                                              <Button size="sm" variant="outline" onClick={() => handleVoiceAdd(key, lang === 'te' ? 'te-IN' : 'en-IN')} disabled={isListening}><Mic className="h-4 w-4" /><span className="sr-only">Add by voice</span></Button>
+                                              <Button size="sm" variant="outline" onClick={() => handleVoiceAdd(key, lang)} disabled={isListening}><Mic className="h-4 w-4" /><span className="sr-only">Add by voice</span></Button>
                                             </div>
                                           </div>
                                         )
@@ -480,7 +437,7 @@ export default function VoiceCommandsPage() {
                             <div className="flex items-center gap-2 pt-2 border-t">
                               <Input placeholder={`Add ${lang} alias(es), comma-separated...`} value={newAliases[itemKey]?.[lang] || ''} onChange={(e) => setNewAliases(p => ({ ...p, [itemKey]: { ...(p[itemKey] || {}), [lang]: e.target.value } }))} onKeyDown={(e) => {if (e.key === 'Enter') { e.preventDefault(); handleAddAlias(itemKey, lang); }}} />
                               <Button size="sm" onClick={() => handleAddAlias(itemKey, lang)}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
-                              <Button size="sm" variant="outline" onClick={() => handleVoiceAdd(itemKey, lang === 'te' ? 'te-IN' : 'en-IN')} disabled={isListening}><Mic className="h-4 w-4" /><span className="sr-only">Add by voice</span></Button>
+                              <Button size="sm" variant="outline" onClick={() => handleVoiceAdd(itemKey, lang)} disabled={isListening}><Mic className="h-4 w-4" /><span className="sr-only">Add by voice</span></Button>
                             </div>
                           </div>
                         )
@@ -508,7 +465,7 @@ export default function VoiceCommandsPage() {
                 <Button variant={activeTab === 'stores' ? 'default' : 'outline'} onClick={() => setActiveTab('stores')}>Store Aliases</Button>
             </div>
 
-            {isProcessing ? (
+            {useAppStore.getState().loading ? (
                 <div className="flex items-center justify-center h-64">
                     <Loader2 className="mr-2 h-8 w-8 animate-spin" />
                     <span className="text-lg">Loading voice settings...</span>
@@ -531,7 +488,7 @@ export default function VoiceCommandsPage() {
             <Card className="max-w-4xl mx-auto">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><Code className="h-5 w-5" />Raw JSON View</CardTitle>
-                    <CardDescription>This is a read-only view of the data that powers the voice system.</CardDescription>
+                    <CardDescription>This is a read-only view of the local UI state that will be saved to the database.</CardDescription>
                 </CardHeader>
                 <CardContent className="grid md:grid-cols-2 gap-4">
                      <div>
@@ -547,5 +504,3 @@ export default function VoiceCommandsPage() {
         </div>
     );
 }
-
-    
