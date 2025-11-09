@@ -1,17 +1,21 @@
 
-import { initializeApp, getApp, getApps, cert } from 'firebase-admin/app';
+import { initializeApp, getApp, getApps, App } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 
 /**
  * Initializes the Firebase Admin SDK, reusing the existing app instance if available.
- * This function is intended for server-side use only. It automatically handles credentials
- * in a Firebase/Google Cloud environment (like App Hosting or Cloud Functions) and falls
- * back to a local service account file for local development.
+ * This function is intended for server-side use only. It relies on default application
+ * credentials, which are automatically available in Google Cloud environments (like App Hosting)
+ * or can be set up locally by logging in with the `gcloud` CLI.
+ *
+ * To set up locally:
+ * 1. `gcloud auth application-default login`
+ * 2. Run your Next.js dev server.
  *
  * @returns An object containing the initialized Firebase Admin app, Firestore, and Auth services.
  */
-export async function initServerApp() {
+export function initServerApp() {
   // Check if an app is already initialized to prevent re-initialization errors.
   if (getApps().length > 0) {
     const existingApp = getApp();
@@ -22,11 +26,8 @@ export async function initServerApp() {
     };
   }
 
-  // The GOOGLE_APPLICATION_CREDENTIALS environment variable will be used automatically
-  // by initializeApp() if it is set. In Firebase App Hosting, this is handled for you.
-  // For local development, you would set this variable to point to your service account JSON file.
-  // Example for local .env.local:
-  // GOOGLE_APPLICATION_CREDENTIALS=./path/to/your/service-account-key.json
+  // initializeApp() will automatically use the Application Default Credentials
+  // in a server environment.
   const app = initializeApp();
 
   return {
