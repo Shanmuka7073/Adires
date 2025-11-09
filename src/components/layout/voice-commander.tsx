@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -7,9 +8,10 @@ import { useFirebase, errorEmitter } from '@/firebase';
 import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant } from '@/lib/types';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
-import { useAppStore, useProfileFormStore, useMyStorePageStore } from '@/lib/store';
+import { useAppStore, useProfileFormStore } from '@/lib/store';
 import { ProfileFormValues } from '@/app/dashboard/customer/my-profile/page';
 import { useCheckoutStore } from '@/app/checkout/page';
+import { useMyStorePageStore } from '@/components/dashboard/owner/my-store/page';
 import { getCommands, getLocales } from '@/app/actions';
 import { t, getAllAliases, initializeTranslations } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection } from 'firebase/firestore';
@@ -72,8 +74,7 @@ export function VoiceCommander({
     currentLocationBtnRef, 
     shouldPlaceOrderDirectly, 
     setShouldPlaceOrderDirectly,
-    setHomeAddress,
-    isHomeAddress
+    setHomeAddress
   } = useCheckoutStore();
 
 
@@ -278,7 +279,7 @@ export function VoiceCommander({
     if (recognition) {
         if (enabled) {
             recognition.lang = language === 'te' ? 'te-IN' : 'en-IN';
-            recognition.continuous = true;
+            recognition.continuous = false; // Changed from true to false
             recognition.interimResults = false;
             try {
                 recognition.start();
