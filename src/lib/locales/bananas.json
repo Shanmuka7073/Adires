@@ -1,7 +1,8 @@
-
 {
   "bananas": {
-    "en": ["bananas"],
+    "en": [
+      "bananas"
+    ],
     "te": []
   }
 }

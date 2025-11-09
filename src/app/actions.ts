@@ -3,9 +3,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { promises as fs } from 'fs';
-import path from 'path';
-import { generalCommands as fileBasedGeneralCommands } from '@/lib/locales/commands';
+import { adminApp, firestore as adminFirestore } from '@/firebase/admin-init';
+import { collection, getDocs, writeBatch, doc, addDoc, deleteDoc } from 'firebase/firestore';
 
 type CommandGroup = {
   display: string;
@@ -14,148 +13,184 @@ type CommandGroup = {
 
 type LocaleEntry = string | string[];
 type Locales = Record<string, Record<string, LocaleEntry>>;
+type VoiceAlias = { id?: string; key: string; language: string; alias: string; type: string };
 
 
-// --- NEW FILE-BASED DATA FETCHING ---
+// --- NEW FIRESTORE-BASED DATA FETCHING ---
 
-async function readLocaleFiles(): Promise<Locales> {
-    const localesDir = path.join(process.cwd(), 'src', 'lib', 'locales');
-    const allLocales: Locales = {};
-
-    try {
-        const filenames = await fs.readdir(localesDir);
-        for (const filename of filenames) {
-            // Skip the main commands file
-            if (filename.endsWith('.json') && filename !== 'commands.json') {
-                const filePath = path.join(localesDir, filename);
-                const fileContent = await fs.readFile(filePath, 'utf-8');
-                const jsonContent = JSON.parse(fileContent);
-                // The key for the locale is the filename without .json
-                const key = filename.replace('.json', '');
-                allLocales[key] = jsonContent[key];
-            }
-        }
-    } catch (error) {
-        console.error("Error reading locale files:", error);
-        return {};
-    }
-    return allLocales;
+async function fetchAliasesFromFirestore(): Promise<VoiceAlias[]> {
+    const aliasCollection = collection(adminFirestore, 'voiceAliases');
+    const snapshot = await getDocs(aliasCollection);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAlias));
 }
-
 
 // --- REFACTORED PUBLIC FUNCTIONS ---
 
 export async function getCommands(): Promise<Record<string, CommandGroup>> {
-    // Directly return the imported commands object. No database/file-system call needed here
-    // as module imports are cached.
-    return Promise.resolve(fileBasedGeneralCommands);
+    const aliases = await fetchAliasesFromFirestore();
+    const commandAliases = aliases.filter(a => a.type === 'command');
+    
+    const commands: Record<string, CommandGroup> = {};
+
+    commandAliases.forEach(aliasDoc => {
+         if (aliasDoc.language === 'display' || aliasDoc.language === 'reply') {
+            if (!commands[aliasDoc.key]) {
+                commands[aliasDoc.key] = { display: '', reply: '' };
+            }
+            if (aliasDoc.language === 'display') commands[aliasDoc.key].display = aliasDoc.alias;
+            if (aliasDoc.language === 'reply') commands[aliasDoc.key].reply = aliasDoc.alias;
+        }
+    });
+
+    return commands;
 }
+
 
 export async function getLocales(): Promise<Locales> {
-    // This function now reads from the local file system on the server.
-    const fileLocales = await readLocaleFiles();
-    
-    // We also need to add the aliases for the general commands themselves.
-    const mergedLocales: Locales = { ...fileLocales };
-    for (const key in fileBasedGeneralCommands) {
-        mergedLocales[key] = {
-            en: [fileBasedGeneralCommands[key].display.toLowerCase()], // Default English alias
-        };
+    const aliases = await fetchAliasesFromFirestore();
+    const locales: Locales = {};
+
+    aliases.forEach(aliasDoc => {
+        if (aliasDoc.language === 'display' || aliasDoc.language === 'reply') return;
+
+        if (!locales[aliasDoc.key]) {
+            locales[aliasDoc.key] = {};
+        }
+
+        if (!locales[aliasDoc.key][aliasDoc.language]) {
+            locales[aliasDoc.key][aliasDoc.language] = [];
+        }
+        
+        const langEntry = locales[aliasDoc.key][aliasDoc.language];
+        if (Array.isArray(langEntry)) {
+            langEntry.push(aliasDoc.alias);
+        }
+    });
+
+    // Convert single-entry arrays back to strings for consistency if needed, though arrays are safer.
+    for (const key in locales) {
+        for (const lang in locales[key]) {
+            const entry = locales[key][lang];
+            if (Array.isArray(entry) && entry.length === 1) {
+                locales[key][lang] = entry[0];
+            }
+        }
     }
-    
-    return mergedLocales;
+
+    return locales;
 }
 
 
-// --- REFACTORED FILE-BASED SAVING ---
+// --- REFACTORED FIRESTORE-BASED SAVING ---
 
 export async function saveCommands(commands: Record<string, CommandGroup>): Promise<{ success: boolean; }> {
-    const filePath = path.join(process.cwd(), 'src', 'lib', 'locales', 'commands.ts');
-    
-    // Construct the file content as a TS module export
-    const fileContent = `
-// This file is auto-generated by the admin panel. Do not edit manually.
-export const generalCommands = ${JSON.stringify(commands, null, 2)};
-`.trim();
-
     try {
-        await fs.writeFile(filePath, fileContent, 'utf-8');
-        // Revalidate the path to ensure Next.js clears any server-side cache
+        const batch = writeBatch(adminFirestore);
+        const aliasCollection = collection(adminFirestore, 'voiceAliases');
+        
+        // Query existing command display/reply docs to delete them before writing new ones
+        const q = query(collection(adminFirestore, 'voiceAliases'), where('type', '==', 'command'));
+        const existingDocs = await getDocs(q);
+
+        const keysFromDb = new Set<string>();
+        existingDocs.forEach(doc => {
+            const data = doc.data();
+            if (data.language === 'display' || data.language === 'reply') {
+                batch.delete(doc.ref);
+            }
+            keysFromDb.add(data.key);
+        });
+        
+        // Add new/updated display and reply docs
+        for (const key in commands) {
+            const { display, reply } = commands[key];
+            
+            // Add display name as a special alias
+            const displayDocRef = doc(aliasCollection);
+            batch.set(displayDocRef, { key, language: 'display', alias: display, type: 'command' });
+            
+            // Add reply as a special alias
+            const replyDocRef = doc(aliasCollection);
+            batch.set(replyDocRef, { key, language: 'reply', alias: reply, type: 'command' });
+        }
+        
+        await batch.commit();
+
         revalidatePath('/dashboard/voice-commands');
         return { success: true };
     } catch (error) {
-        console.error("Error saving commands to file:", error);
+        console.error("Error saving commands to Firestore:", error);
         return { success: false };
     }
 }
 
 export async function saveLocales(locales: Locales): Promise<{ success: boolean; }> {
-    const localesDir = path.join(process.cwd(), 'src', 'lib', 'locales');
+     try {
+        const batch = writeBatch(adminFirestore);
+        const aliasCollection = collection(adminFirestore, 'voiceAliases');
 
-    try {
+        // First, delete all existing aliases that are not 'display' or 'reply'
+        const q = query(aliasCollection);
+        const existingDocs = await getDocs(q);
+        existingDocs.forEach(doc => {
+            const data = doc.data();
+             if (data.language !== 'display' && data.language !== 'reply') {
+                batch.delete(doc.ref);
+            }
+        });
+        
+        // Now, add all the new aliases from the locales object
         for (const key in locales) {
-            // Skip general commands, as they are handled by saveCommands
-            if (fileBasedGeneralCommands[key]) continue;
+            const langMap = locales[key];
+            const itemType = determineItemType(key); // You'll need this helper
 
-            const filename = `${key}.json`;
-            const filePath = path.join(localesDir, filename);
-            
-            const fileContent = JSON.stringify({ [key]: locales[key] }, null, 2);
-
-            try {
-                await fs.writeFile(filePath, fileContent, 'utf-8');
-            } catch (writeError) {
-                 // If a file doesn't exist, it might be a new product/store.
-                 // We don't create new files here, just update existing ones.
-                 // This function assumes files for all products/stores exist.
-                 // A more robust system might create them. For now, log and continue.
-                 console.warn(`Could not write to ${filename}, it might be a new item without a corresponding file.`, writeError);
+            for (const lang in langMap) {
+                const aliases = Array.isArray(langMap[lang]) ? langMap[lang] : [langMap[lang]];
+                for (const alias of aliases) {
+                    if (alias) { // Ensure alias is not empty
+                        const newDocRef = doc(aliasCollection);
+                        batch.set(newDocRef, { key, language: lang, alias, type: itemType });
+                    }
+                }
             }
         }
+
+        await batch.commit();
         revalidatePath('/dashboard/voice-commands');
         return { success: true };
-
     } catch (error) {
-        console.error("Error saving locales to files:", error);
+        console.error("Error saving locales to Firestore:", error);
         return { success: false };
     }
 }
 
+function determineItemType(key: string): 'product' | 'store' | 'command' {
+    // This is a simplified heuristic. A more robust system might involve checking against
+    // actual product/store lists or having the type passed in.
+    if (key.includes('-')) return 'product';
+    if (key.startsWith('go') || key.endsWith('Changes') || key.endsWith('Order')) return 'command';
+    return 'store';
+}
+
 
 export async function addAliasToLocales(productKey: string, newAlias: string, lang: string): Promise<{ success: boolean }> {
-    const aliasLower = newAlias.toLowerCase();
-    const filename = `${productKey}.json`;
-    const filePath = path.join(process.cwd(), 'src', 'lib', 'locales', filename);
-
+    // This function is no longer the primary way to add aliases, but we can adapt it.
+    // It's simpler to just add a new document.
     try {
-        let fileContent;
-        try {
-             fileContent = await fs.readFile(filePath, 'utf-8');
-        } catch (e) {
-            // File doesn't exist, create it.
-            const initialContent = { [productKey]: { [lang]: [aliasLower] } };
-            await fs.writeFile(filePath, JSON.stringify(initialContent, null, 2), 'utf-8');
-            revalidatePath('/dashboard/voice-commands');
-            return { success: true };
-        }
+        const aliasCollection = collection(adminFirestore, 'voiceAliases');
+        const itemType = determineItemType(productKey);
 
-        const jsonData = JSON.parse(fileContent);
-        if (!jsonData[productKey]) jsonData[productKey] = {};
-        if (!jsonData[productKey][lang]) jsonData[productKey][lang] = [];
-
-        const aliases = Array.isArray(jsonData[productKey][lang]) ? jsonData[productKey][lang] : [jsonData[productKey][lang]];
-        
-        if (!aliases.includes(aliasLower)) {
-            aliases.push(aliasLower);
-            jsonData[productKey][lang] = aliases;
-            await fs.writeFile(filePath, JSON.stringify(jsonData, null, 2), 'utf-8');
-        }
+        await addDoc(aliasCollection, {
+            key: productKey,
+            language: lang,
+            alias: newAlias.toLowerCase(),
+            type: itemType
+        });
         
         revalidatePath('/dashboard/voice-commands');
         return { success: true };
-
     } catch (error) {
-         console.error("Error adding alias to file:", error);
+         console.error("Error adding alias to Firestore:", error);
         return { success: false };
     }
 }

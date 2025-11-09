@@ -1,7 +1,8 @@
-
 {
   "breakfast-cereals": {
-    "en": ["breakfast cereals"],
+    "en": [
+      "breakfast cereals"
+    ],
     "te": []
   }
 }

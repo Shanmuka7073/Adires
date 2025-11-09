@@ -1,7 +1,8 @@
-
 {
   "soft-drinks": {
-    "en": ["soft drinks"],
+    "en": [
+      "soft drinks"
+    ],
     "te": []
   }
 }

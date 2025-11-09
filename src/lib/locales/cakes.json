@@ -1,7 +1,8 @@
-
 {
   "cakes": {
-    "en": ["cakes"],
+    "en": [
+      "cakes"
+    ],
     "te": []
   }
 }

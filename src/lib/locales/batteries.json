@@ -1,7 +1,8 @@
-
 {
   "batteries": {
-    "en": ["batteries"],
+    "en": [
+      "batteries"
+    ],
     "te": []
   }
 }

@@ -52,7 +52,7 @@ export default function VoiceCommandsPage() {
 
     const { toast } = useToast();
 
-    const loadAllData = useCallback(async () => {
+    const loadAllData = useCallback(() => {
         if (!firestore) return;
         startTransition(async () => {
             try {
@@ -72,7 +72,7 @@ export default function VoiceCommandsPage() {
                 });
             }
         });
-    }, [firestore]);
+    }, [firestore, toast]);
 
     useEffect(() => {
         loadAllData();
@@ -446,15 +446,15 @@ export default function VoiceCommandsPage() {
             <Card className="max-w-4xl mx-auto">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><Code className="h-5 w-5" />Raw JSON View</CardTitle>
-                    <CardDescription>This is a read-only view of the files that power the voice system.</CardDescription>
+                    <CardDescription>This is a read-only view of the data that powers the voice system.</CardDescription>
                 </CardHeader>
                 <CardContent className="grid md:grid-cols-2 gap-4">
                      <div>
-                        <Label htmlFor="commands-json">commands.json</Label>
+                        <Label htmlFor="commands-json">Commands</Label>
                         <Textarea id="commands-json" readOnly value={JSON.stringify(commands, null, 2)} className="bg-muted font-mono text-xs h-96" />
                      </div>
                       <div>
-                        <Label htmlFor="locales-json">locales.json</Label>
+                        <Label htmlFor="locales-json">Aliases</Label>
                         <Textarea id="locales-json" readOnly value={JSON.stringify(locales, null, 2)} className="bg-muted font-mono text-xs h-96" />
                      </div>
                 </CardContent>
@@ -462,6 +462,3 @@ export default function VoiceCommandsPage() {
         </div>
     );
 }
-
-
-    

@@ -1,4 +1,5 @@
 
+
 'use client';
 import { getLocales as fetchAllLocales } from '@/app/actions';
 

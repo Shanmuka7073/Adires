@@ -1,7 +1,8 @@
-
 {
   "frozen-pizzas": {
-    "en": ["frozen pizzas"],
+    "en": [
+      "frozen pizzas"
+    ],
     "te": []
   }
 }

@@ -1,7 +1,8 @@
-
 {
   "broccoli": {
-    "en": ["broccoli"],
+    "en": [
+      "broccoli"
+    ],
     "te": []
   }
 }
