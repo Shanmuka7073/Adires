@@ -298,6 +298,7 @@ export function VoiceCommander({
     utterance.onend = () => {
       isSpeakingRef.current = false;
       if (onEndCallback) onEndCallback();
+      // Restart recognition if it was stopped by speech synthesis
       if (isEnabledRef.current) {
         try {
           recognition?.start();
@@ -315,15 +316,15 @@ export function VoiceCommander({
       }
       isSpeakingRef.current = false;
       if (onEndCallback) onEndCallback();
-      if (isEnabledRef.current) {
+       if (isEnabledRef.current) {
         try {
           recognition?.start();
         } catch(e) {}
       }
     };
-
+    
     isSpeakingRef.current = true;
-    recognition?.stop();
+    recognition?.stop(); // Temporarily stop listening while we speak
     window.speechSynthesis.speak(utterance);
   }, [speechSynthesisVoices]);
 
@@ -515,11 +516,30 @@ export function VoiceCommander({
         return;
     }
 
-    const spokenLang = determinePhraseLanguage(commandText);
-    const langWithRegion = spokenLang === 'en' ? 'en-IN' : `${spokenLang}-IN`;
     const commandLower = commandText.toLowerCase();
 
-    // --- PRIORITY 0: Check for simple conversational commands first ---
+    // --- PRIORITY 0: Check for product/item command first ---
+    const { product, variant, requestedQty, matchedAlias, lang: itemLang } = await findProductAndVariant(commandLower);
+
+    if (product && variant) {
+        const productLang = itemLang || determinePhraseLanguage(commandText);
+        const replyProductName = matchedAlias || getProductName(product);
+        const speech = t('adding-item-speech', productLang)
+            .replace('{quantity}', `${requestedQty}`)
+            .replace('{productName}', replyProductName);
+        speak(speech, productLang + '-IN');
+        addItemToCart(product, variant, requestedQty);
+        onOpenCart();
+        resetAllContext();
+        return;
+    }
+    
+    // If no product found, continue to other command types
+    const spokenLang = determinePhraseLanguage(commandText);
+    const langWithRegion = spokenLang === 'en' ? 'en-IN' : `${spokenLang}-IN`;
+
+
+    // --- PRIORITY 1: Check for simple conversational commands first ---
     const conversationalCommands = ["whatTime", "howAreYou", "howIsYourDay", "whatToOrder"];
     for (const key of conversationalCommands) {
         const cmdGroup = fileCommandsRef.current[key];
@@ -544,21 +564,6 @@ export function VoiceCommander({
         }
     }
     
-    // --- PRIORITY 1: Check for a product/item command ---
-    const { product, variant, requestedQty, matchedAlias, lang: itemLang } = await findProductAndVariant(commandLower);
-
-    if (product && variant) {
-        const productLang = itemLang || spokenLang;
-        const replyProductName = matchedAlias || getProductName(product);
-        const speech = t('adding-item-speech', productLang)
-            .replace('{quantity}', `${requestedQty}`)
-            .replace('{productName}', replyProductName);
-        speak(speech, productLang + '-IN');
-        addItemToCart(product, variant, requestedQty);
-        onOpenCart();
-        resetAllContext();
-        return;
-    }
     
     // --- PRIORITY 2: Page-Specific Contextual Actions ---
     if (pathname === '/checkout') {
