@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useTransition, useEffect, useRef } from 'react';
@@ -333,7 +334,7 @@ export default function VoiceCommandsPage() {
     );
     
     const renderAliasAccordion = (
-      items: { name: string }[],
+      items: { id: string; name: string }[],
       title: string,
       description: string,
       icon: React.ElementType
@@ -350,7 +351,7 @@ export default function VoiceCommandsPage() {
               const itemAliases = locales[itemKey] || {};
               const IconComponent = icon;
               return (
-                <AccordionItem value={itemKey} key={itemKey}>
+                <AccordionItem value={item.id} key={item.id}>
                   <AccordionTrigger>
                     <div className="flex items-center gap-2">
                       <IconComponent className="h-4 w-4 text-muted-foreground" />
