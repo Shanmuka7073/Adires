@@ -170,21 +170,28 @@ export function VoiceCommander({
   const determinePhraseLanguage = useCallback((text: string): string => {
     const lowerText = text.toLowerCase();
     
-    // Check aliases first for a confident match
+    // --- Priority 1: Check for transliterated English greetings ---
+    const transliteratedGreetings = ['హై', 'హలో', 'నమస్తే'];
+    if (transliteratedGreetings.some(greeting => lowerText.includes(greeting))) {
+      return 'en'; // Treat these as English commands for greetings.
+    }
+
+    // --- Priority 2: Check all aliases for a strong match ---
     for (const key in allAliasesRef.current) {
         const langAliases = allAliasesRef.current[key];
         for (const lang in langAliases) {
             if (langAliases[lang].some(alias => lowerText.includes(alias.toLowerCase()))) {
-                return lang; // Return 'en', 'te', etc.
+                if (lang !== 'en') return lang; // Return if we find a non-English alias match
             }
         }
     }
 
-    // Fallback to generic keywords if no alias matches
+    // --- Priority 3: Fallback to generic keywords for a final check ---
     const langKeywords = [
-        { lang: 'te', keywords: ['naku', 'naaku', 'నాకు', 'కావాలి'] },
-        { lang: 'hi', keywords: ['mujhe', 'मुझे'] },
-        { lang: 'en', keywords: ['i want', 'i need', 'get me', 'add', 'get', 'buy', 'order', 'send', 'go', 'open', 'i', 'is', 'the', 'what', 'a'] }
+        { lang: 'te', keywords: ['నాకు', 'కావాలి', 'naku', 'naaku', 'kavali'] },
+        { lang: 'hi', keywords: ['मुझे', 'चाहिए', 'mujhe', 'chahiye'] },
+        // English keywords are broad, so keep them last to avoid false positives
+        { lang: 'en', keywords: ['i want', 'i need', 'get me', 'add', 'get', 'buy', 'order', 'send', 'go', 'open', 'what is', 'how'] }
     ];
 
     for (const langInfo of langKeywords) {
@@ -193,7 +200,7 @@ export function VoiceCommander({
         }
     }
 
-    return language; // Default to the current app language if no hint is found
+    return language; // Default to the current app language if no strong hint is found
   }, [language]);
 
 
@@ -1102,4 +1109,5 @@ export function VoiceCommander({
 
   return null;
 }
+
 
