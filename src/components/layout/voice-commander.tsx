@@ -550,7 +550,6 @@ export function VoiceCommander({
             if (calculateSimilarity(commandLower, alias) > 0.8 || commandText.toLowerCase() === alias) {
                 let replyText = t(cmdGroup.reply, spokenLang);
                 
-                // Handle dynamic parts of the reply here
                 if (replyText.includes('{time}')) {
                     const now = new Date();
                     const timeString = now.toLocaleTimeString(langWithRegion, { hour: '2-digit', minute: '2-digit' });
@@ -712,16 +711,19 @@ export function VoiceCommander({
     };
 
     recognition.onend = () => {
+      // Only restart if the mic was intentionally enabled and is not currently speaking.
+      // This prevents the restart loop when the user manually disables the mic.
       if (isEnabledRef.current && !isSpeakingRef.current) {
         setTimeout(() => {
-          if(isEnabledRef.current && !isSpeakingRef.current) {
+          if (isEnabledRef.current && !isSpeakingRef.current) {
             try {
               recognition?.start();
             } catch (e) {
-              console.warn("Recognition restart failed, possibly due to rapid succession.", e);
+              // This can happen if start() is called while it's already starting.
+              // It's safe to ignore in this context.
             }
           }
-        }, 250);
+        }, 250); // A small delay to prevent frantic restarting.
       }
     };
 
@@ -1097,3 +1099,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
