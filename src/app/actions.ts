@@ -96,8 +96,7 @@ export async function saveCommands(commands: Record<string, CommandGroup>): Prom
 
 
 export async function saveLocales(locales: Locales): Promise<{ success: boolean; }> {
-    const { firestore } = await initServerApp();
-    const adminDb = getFirestore();
+    const { firestore: adminDb } = await initServerApp();
     const batch: WriteBatch = adminDb.batch();
     const voiceAliasesRef = adminDb.collection('voiceAliases');
 
@@ -163,8 +162,7 @@ export async function saveLocales(locales: Locales): Promise<{ success: boolean;
 
 
 export async function addAliasToLocales(productKey: string, newAlias: string, lang: string): Promise<{ success: boolean }> {
-    const { firestore } = await initServerApp();
-    const adminDb = getFirestore();
+    const { firestore: adminDb } = await initServerApp();
     const aliasLower = newAlias.toLowerCase();
     const voiceAliasesRef = adminDb.collection('voiceAliases');
     
@@ -199,12 +197,11 @@ export async function addAliasToLocales(productKey: string, newAlias: string, la
 export async function indexSiteContent() {
     try {
         const { firestore: adminFirestore } = await initServerApp();
-        const db = getFirestore();
 
         console.log('Fetching stores and master products for indexing...');
 
-        const stores = await getStores(db as any);
-        const masterProducts = await getMasterProducts(db as any);
+        const stores = await getStores(adminFirestore as any);
+        const masterProducts = await getMasterProducts(adminFirestore as any);
 
         console.log(`Found ${stores.length} stores.`);
         console.log(`Found ${masterProducts.length} master products.`);
