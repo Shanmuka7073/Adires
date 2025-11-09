@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -5,7 +6,7 @@ import { Users, Store, Truck, ShoppingBag, AlertCircle, ArrowRight, Settings, Mi
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { collection, query, where } from 'firebase/firestore';
@@ -98,8 +99,13 @@ export default function AdminDashboardPage() {
 
     const statsLoading = isUserLoading || usersLoading || storesLoading || partnersLoading || ordersLoading;
 
-    if (!isUserLoading && (!user || user.email !== ADMIN_EMAIL)) {
-        router.replace('/dashboard');
+    useEffect(() => {
+        if (!isUserLoading && (!user || user.email !== ADMIN_EMAIL)) {
+            router.replace('/dashboard');
+        }
+    }, [isUserLoading, user, router]);
+
+    if (isUserLoading || adminStoreLoading || !user || user.email !== ADMIN_EMAIL) {
         return <p>Loading admin dashboard...</p>
     }
 
@@ -109,10 +115,6 @@ export default function AdminDashboardPage() {
         { title: 'delivery-partners', value: stats.totalDeliveryPartners, icon: Truck },
         { title: 'orders-delivered', value: stats.totalOrdersDelivered, icon: ShoppingBag },
     ];
-
-    if (isUserLoading || adminStoreLoading) {
-        return <p>Loading admin dashboard...</p>
-    }
 
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
