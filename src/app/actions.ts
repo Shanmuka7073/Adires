@@ -19,7 +19,6 @@ type VoiceAlias = { id?: string; key: string; language: string; alias: string; t
 // --- REWRITTEN FIRESTORE-BASED DATA FETCHING using ADMIN SDK ---
 
 async function fetchAliasesFromFirestore(): Promise<VoiceAlias[]> {
-    // CORRECT: Use adminFirestore.collection() syntax for the Admin SDK
     const aliasCollection = adminFirestore.collection('voiceAliases');
     const snapshot = await aliasCollection.get();
     if (snapshot.empty) {
@@ -55,32 +54,26 @@ export async function getLocales(): Promise<Locales> {
     const locales: Locales = {};
 
     aliases.forEach(aliasDoc => {
+        // Exclude the special 'display' and 'reply' types used for commands
         if (aliasDoc.language === 'display' || aliasDoc.language === 'reply') return;
 
         if (!locales[aliasDoc.key]) {
             locales[aliasDoc.key] = {};
         }
 
-        if (!locales[aliasDoc.key][aliasDoc.language]) {
-            locales[aliasDoc.key][aliasDoc.language] = [];
-        }
-        
         const langEntry = locales[aliasDoc.key][aliasDoc.language];
+        
         if (Array.isArray(langEntry)) {
             langEntry.push(aliasDoc.alias);
+        } else if (typeof langEntry === 'string') {
+            // Convert to array if it's currently a string
+            locales[aliasDoc.key][aliasDoc.language] = [langEntry, aliasDoc.alias];
+        } else {
+            // First alias for this key-lang pair
+            locales[aliasDoc.key][aliasDoc.language] = aliasDoc.alias;
         }
     });
-
-    // Convert single-entry arrays back to strings for consistency if needed, though arrays are safer.
-    for (const key in locales) {
-        for (const lang in locales[key]) {
-            const entry = locales[key][lang];
-            if (Array.isArray(entry) && entry.length === 1) {
-                locales[key][lang] = entry[0];
-            }
-        }
-    }
-
+    
     return locales;
 }
 
@@ -103,14 +96,19 @@ export async function saveCommands(commands: Record<string, CommandGroup>): Prom
         // Add new/updated display and reply docs
         for (const key in commands) {
             const { display, reply } = commands[key];
-            
+            if (!display && !reply) continue; // Skip empty command entries
+
             // Add display name as a special alias
-            const displayDocRef = aliasCollection.doc();
-            batch.set(displayDocRef, { key, language: 'display', alias: display, type: 'command' });
+            if(display) {
+                const displayDocRef = aliasCollection.doc(); // Auto-generate ID
+                batch.set(displayDocRef, { key, language: 'display', alias: display, type: 'command' });
+            }
             
             // Add reply as a special alias
-            const replyDocRef = aliasCollection.doc();
-            batch.set(replyDocRef, { key, language: 'reply', alias: reply, type: 'command' });
+             if(reply) {
+                const replyDocRef = aliasCollection.doc(); // Auto-generate ID
+                batch.set(replyDocRef, { key, language: 'reply', alias: reply, type: 'command' });
+            }
         }
         
         await batch.commit();
@@ -144,7 +142,7 @@ export async function saveLocales(locales: Locales): Promise<{ success: boolean;
                 const aliases = Array.isArray(langMap[lang]) ? langMap[lang] as string[] : [langMap[lang] as string];
                 for (const alias of aliases) {
                     if (alias) { // Ensure alias is not empty
-                        const newDocRef = aliasCollection.doc();
+                        const newDocRef = aliasCollection.doc(); // Auto-generate ID
                         batch.set(newDocRef, { key, language: lang, alias, type: itemType });
                     }
                 }
