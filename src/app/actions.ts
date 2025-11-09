@@ -82,6 +82,7 @@ export async function saveCommands(commands: Record<string, CommandGroup>): Prom
 export async function getLocales(): Promise<Locales> {
     const mergedLocales: Locales = {};
     try {
+        await fs.mkdir(LOCALES_DIR, { recursive: true }); // Ensure the directory exists
         const files = await fs.readdir(LOCALES_DIR);
         const jsonFiles = files.filter(file => file.endsWith('.json'));
 
@@ -102,12 +103,18 @@ export async function getLocales(): Promise<Locales> {
 
 export async function saveLocales(locales: Locales): Promise<{ success: boolean; }> {
     try {
+        await fs.mkdir(LOCALES_DIR, { recursive: true });
+        
+        // Keep track of which keys have been written
+        const writtenKeys = new Set<string>();
+
         for (const key in locales) {
-            if (Object.prototype.hasOwnProperty.call(locales, key)) {
+            if (Object.prototype.hasOwnProperty.call(locales, key) && !writtenKeys.has(key)) {
                 const filePath = path.join(LOCALES_DIR, `${key}.json`);
                 const content = { [key]: locales[key] };
                 const jsonContent = JSON.stringify(content, null, 2);
                 await fs.writeFile(filePath, jsonContent, 'utf-8');
+                writtenKeys.add(key);
             }
         }
         return { success: true };
