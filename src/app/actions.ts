@@ -4,7 +4,7 @@
 import { revalidatePath } from 'next/cache';
 import { getStores, getMasterProducts } from '@/lib/data';
 import { initServerApp } from '@/firebase/server-init';
-import { collection, getDocs, writeBatch, doc, query, where, addDoc } from 'firebase/firestore';
+import { getFirestore } from 'firebase-admin/firestore';
 
 type CommandGroup = {
   display: string;
@@ -45,7 +45,7 @@ export async function getLocales(): Promise<Locales> {
 
     try {
         // 1. Fetch aliases from Firestore
-        const aliasSnapshot = await getDocs(collection(firestore, 'voiceAliases'));
+        const aliasSnapshot = await firestore.collection('voiceAliases').get();
         aliasSnapshot.forEach(doc => {
             const data = doc.data();
             const { key, language, alias } = data;
@@ -113,14 +113,17 @@ export async function saveCommands(commands: Record<string, CommandGroup>): Prom
 
 export async function saveLocales(locales: Locales): Promise<{ success: boolean; }> {
     const { firestore } = await initServerApp();
-    const batch = writeBatch(firestore);
+    const batch = firestore.batch();
+    const voiceAliasesRef = firestore.collection('voiceAliases');
     
     // We need to fetch all existing aliases to know which ones to delete.
-    const existingAliasesSnap = await getDocs(collection(firestore, 'voiceAliases'));
+    const existingAliasesSnap = await voiceAliasesRef.get();
     const existingAliases = new Map<string, string>(); // Map of "key-lang-alias" -> docId
     existingAliasesSnap.forEach(doc => {
         const { key, language, alias } = doc.data();
-        existingAliases.set(`${key}-${language}-${alias}`, doc.id);
+        if(key && language && alias) {
+            existingAliases.set(`${key}-${language}-${alias}`, doc.id);
+        }
     });
 
     const newAliasesSet = new Set<string>();
@@ -141,7 +144,7 @@ export async function saveLocales(locales: Locales): Promise<{ success: boolean;
                 
                 // If this exact alias doesn't exist in our fetched map, it's new. Add it.
                 if (!existingAliases.has(uniqueId)) {
-                    const newAliasRef = doc(collection(firestore, 'voiceAliases'));
+                    const newAliasRef = voiceAliasesRef.doc();
                      batch.set(newAliasRef, {
                         key,
                         language: lang,
@@ -156,7 +159,7 @@ export async function saveLocales(locales: Locales): Promise<{ success: boolean;
     // Now, determine which aliases to delete
     existingAliases.forEach((docId, uniqueId) => {
         if (!newAliasesSet.has(uniqueId)) {
-            batch.delete(doc(firestore, 'voiceAliases', docId));
+            batch.delete(voiceAliasesRef.doc(docId));
         }
     });
 
@@ -172,24 +175,23 @@ export async function saveLocales(locales: Locales): Promise<{ success: boolean;
 export async function addAliasToLocales(productKey: string, newAlias: string, lang: string): Promise<{ success: boolean }> {
     const { firestore } = await initServerApp();
     const aliasLower = newAlias.toLowerCase();
+    const voiceAliasesRef = firestore.collection('voiceAliases');
     
     // Check if alias already exists for this key/lang combination to avoid duplicates
-    const q = query(
-        collection(firestore, 'voiceAliases'),
-        where('key', '==', productKey),
-        where('language', '==', lang),
-        where('alias', '==', aliasLower)
-    );
+    const q = voiceAliasesRef
+        .where('key', '==', productKey)
+        .where('language', '==', lang)
+        .where('alias', '==', aliasLower);
 
     try {
-        const querySnapshot = await getDocs(q);
+        const querySnapshot = await q.get();
         if (!querySnapshot.empty) {
             // Alias already exists, no need to add again
             return { success: true };
         }
         
         // Add the new alias
-        await addDoc(collection(firestore, 'voiceAliases'), {
+        await voiceAliasesRef.add({
             key: productKey,
             language: lang,
             alias: aliasLower,
@@ -206,11 +208,13 @@ export async function addAliasToLocales(productKey: string, newAlias: string, la
 
 export async function indexSiteContent() {
     try {
-        const { firestore } = await initServerApp();
+        const { firestore: adminFirestore } = await initServerApp();
+        const db = getFirestore();
+
         console.log('Fetching stores and master products for indexing...');
 
-        const stores = await getStores(firestore as any);
-        const masterProducts = await getMasterProducts(firestore as any);
+        const stores = await getStores(db as any);
+        const masterProducts = await getMasterProducts(db as any);
 
         console.log(`Found ${stores.length} stores.`);
         console.log(`Found ${masterProducts.length} master products.`);
