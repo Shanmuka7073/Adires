@@ -8,8 +8,9 @@ import { useFirebase, errorEmitter } from '@/firebase';
 import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant } from '@/lib/types';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
-import { useAppStore, useProfileFormStore } from '@/lib/store';
+import { useAppStore } from '@/lib/store';
 import { ProfileFormValues } from '@/app/dashboard/customer/my-profile/page';
+import { useProfileFormStore } from '@/app/dashboard/customer/my-profile/page';
 import { useCheckoutStore } from '@/app/checkout/page';
 import { useMyStorePageStore } from '@/components/dashboard/owner/my-store/page';
 import { getCommands, getLocales } from '@/app/actions';
@@ -279,7 +280,7 @@ export function VoiceCommander({
     if (recognition) {
         if (enabled) {
             recognition.lang = language === 'te' ? 'te-IN' : 'en-IN';
-            recognition.continuous = false; // Changed from true to false
+            recognition.continuous = false;
             recognition.interimResults = false;
             try {
                 recognition.start();
@@ -289,7 +290,7 @@ export function VoiceCommander({
                 }
             }
         } else {
-            recognition.onend = null; // Prevent restart on manual disable
+            recognition.onend = null; 
             recognition.stop();
         }
     }
@@ -761,14 +762,13 @@ export function VoiceCommander({
     recognition.onend = () => {
         if (isEnabledRef.current && !isSpeakingRef.current) {
             try {
-                // A brief delay can help prevent rapid restart loops on some systems.
                 setTimeout(() => {
                     if (isEnabledRef.current && !isSpeakingRef.current && recognition) {
                          recognition.start();
                     }
                 }, 250); 
             } catch (e) {
-                // This can happen if start() is called while it's already starting.
+                // Ignore error
             }
         }
     };
@@ -786,7 +786,6 @@ export function VoiceCommander({
         const lang = params.lang || language;
         onCloseCart();
         if (cartTotal > 0) {
-            // This is the important change: trigger the voice prompt *after* navigating
             router.push('/checkout');
             triggerVoicePrompt();
         } else {
@@ -1139,3 +1138,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
