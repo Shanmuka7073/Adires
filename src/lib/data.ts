@@ -134,5 +134,3 @@ export const getStoreImage = async (store: Store) => {
     }
     return await getImage(store.imageId);
 };
-
-    
