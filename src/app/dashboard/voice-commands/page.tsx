@@ -44,7 +44,7 @@ export default function VoiceCommandsPage() {
     const [newCommandReply, setNewCommandReply] = useState('');
 
 
-    const { masterProducts, stores, fetchInitialData } = useAppStore();
+    const { masterProducts, stores } = useAppStore();
     const { firestore } = useFirebase();
 
     const [isListening, setIsListening] = useState(false);
@@ -58,12 +58,12 @@ export default function VoiceCommandsPage() {
             try {
                 // Fetch all data concurrently
                 const [fetchedCommands, fetchedLocales] = await Promise.all([
-                    getCommands(), 
+                    getCommands(),
                     getLocales(),
                 ]);
                 setCommands(fetchedCommands);
                 setLocales(fetchedLocales);
-            } catch(error) {
+            } catch (error) {
                 console.error("Failed to load voice command data:", error);
                 toast({
                     variant: 'destructive',
@@ -72,7 +72,7 @@ export default function VoiceCommandsPage() {
                 });
             }
         });
-    }, [firestore, toast]);
+    }, [firestore]);
 
     useEffect(() => {
         loadAllData();
@@ -95,7 +95,7 @@ export default function VoiceCommandsPage() {
         } else {
             console.warn("Speech recognition not supported in this browser.");
         }
-    }, [loadAllData, toast]);
+    }, [loadAllData]);
 
 
     const handleAddAlias = (itemKey: string, lang: string) => {
