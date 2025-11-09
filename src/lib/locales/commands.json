@@ -56,6 +56,15 @@
       "order history"
     ]
   },
+  "myProfile": {
+    "display": "View My Profile",
+    "reply": "Okay, opening your profile page.",
+    "aliases": [
+      "go to my profile",
+      "show my profile",
+      "my profile"
+    ]
+  },
   "deliveries": {
     "display": "View Deliveries",
     "reply": "Okay, showing available delivery jobs.",
@@ -133,6 +142,23 @@
       "what is the price of",
       "check price of",
       "how much is"
+    ]
+  },
+  "recordOrder": {
+    "display": "Record Order",
+    "reply": "I'm ready to take your order. Please state your items.",
+    "aliases": [
+      "record my order",
+      "take my order",
+      "voice order"
+    ]
+  },
+  "refresh": {
+    "display": "Refresh Page",
+    "reply": "Okay, refreshing the page.",
+    "aliases": [
+      "refresh page",
+      "reload page"
     ]
   }
 }

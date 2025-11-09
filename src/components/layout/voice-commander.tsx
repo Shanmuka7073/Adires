@@ -1,6 +1,5 @@
 
 
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -12,7 +11,7 @@ import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
 import { useAppStore, useProfileFormStore, useMyStorePageStore } from '@/lib/store';
 import { ProfileFormValues } from '@/app/dashboard/customer/my-profile/page';
-import { useCheckoutStore } from '@/lib/store';
+import { useCheckoutStore } from '@/app/checkout/page';
 import { getCommands, getLocales } from '@/app/actions';
 import { t, getAllAliases, initializeTranslations } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection } from 'firebase/firestore';
@@ -220,13 +219,11 @@ export function VoiceCommander({
 
   useEffect(() => {
     setHasMounted(true);
-    if(firestore) {
-      fetchInitialData(firestore);
-    }
     
-    // Fetch all commands and locales and store them in a ref for the detector.
     const loadInitialData = async () => {
+        if(!firestore) return;
         try {
+            await fetchInitialData(firestore)
             const [fetchedCommands, fetchedLocales] = await Promise.all([getCommands(), getLocales()]);
             initializeTranslations(fetchedLocales); // Initialize the translation system
             
@@ -647,7 +644,7 @@ export function VoiceCommander({
     }
 
     // --- PRIORITY 3: High-priority global navigation ---
-    const highPriorityCommands = ["home", "stores", "dashboard", "cart", "orders", "deliveries", "myStore", "refresh", "checkout"];
+    const highPriorityCommands = ["home", "stores", "dashboard", "cart", "orders", "deliveries", "myStore", "refresh", "checkout", "myProfile"];
     for (const key of highPriorityCommands) {
         const cmdGroup = fileCommandsRef.current[key];
         if (!cmdGroup) continue;
@@ -792,6 +789,7 @@ export function VoiceCommander({
       orders: (params) => router.push('/dashboard/customer/my-orders'),
       deliveries: (params) => router.push('/dashboard/delivery/deliveries'),
       myStore: (params) => router.push('/dashboard/owner/my-store'),
+      myProfile: (params) => router.push('/dashboard/customer/my-profile'),
       checkout: (params: { lang: string }) => {
         const lang = params.lang || language;
         onCloseCart();
