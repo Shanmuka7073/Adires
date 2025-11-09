@@ -171,32 +171,30 @@ export function VoiceCommander({
     const lowerText = text.toLowerCase();
     
     // --- Priority 1: Check for transliterated English greetings ---
-    const transliteratedGreetings = ['హై', 'హలో', 'నమస్తే'];
+    const transliteratedGreetings = ['హై', 'హలో'];
     if (transliteratedGreetings.some(greeting => lowerText.includes(greeting))) {
       return 'en'; // Treat these as English commands for greetings.
     }
 
-    // --- Priority 2: Check all aliases for a strong match ---
+    // --- Priority 2: Check for core language keywords ---
+    const langKeywords = [
+        { lang: 'te', keywords: ['నాకు', 'కావాలి', 'naku', 'naaku', 'kavali'] },
+        { lang: 'hi', keywords: ['मुझे', 'चाहिए', 'mujhe', 'chahiye'] },
+        { lang: 'en', keywords: ['i want', 'i need', 'get me', 'add', 'get', 'buy', 'order', 'send', 'go', 'open', 'what is', 'how'] }
+    ];
+     for (const langInfo of langKeywords) {
+        if (langInfo.keywords.some(keyword => lowerText.includes(keyword))) {
+            return langInfo.lang;
+        }
+    }
+
+    // --- Priority 3: Check all aliases for a match ---
     for (const key in allAliasesRef.current) {
         const langAliases = allAliasesRef.current[key];
         for (const lang in langAliases) {
             if (langAliases[lang].some(alias => lowerText.includes(alias.toLowerCase()))) {
                 if (lang !== 'en') return lang; // Return if we find a non-English alias match
             }
-        }
-    }
-
-    // --- Priority 3: Fallback to generic keywords for a final check ---
-    const langKeywords = [
-        { lang: 'te', keywords: ['నాకు', 'కావాలి', 'naku', 'naaku', 'kavali'] },
-        { lang: 'hi', keywords: ['मुझे', 'चाहिए', 'mujhe', 'chahiye'] },
-        // English keywords are broad, so keep them last to avoid false positives
-        { lang: 'en', keywords: ['i want', 'i need', 'get me', 'add', 'get', 'buy', 'order', 'send', 'go', 'open', 'what is', 'how'] }
-    ];
-
-    for (const langInfo of langKeywords) {
-        if (langInfo.keywords.some(keyword => lowerText.includes(keyword))) {
-            return langInfo.lang;
         }
     }
 
@@ -525,11 +523,23 @@ export function VoiceCommander({
 
     const commandLower = commandText.toLowerCase();
 
+    // --- Language Detection & Welcome ---
+    const spokenLang = determinePhraseLanguage(commandText);
+    if (spokenLang === 'te' && language !== 'te') {
+      setLanguage('te');
+      const langWithRegion = 'te-IN';
+      speak(t('telugu-welcome-speech', 'te'), langWithRegion);
+      updateRecognitionLanguage(langWithRegion);
+      return; // Stop processing this command, wait for the next one after welcome.
+    }
+    const langWithRegion = spokenLang === 'en' ? 'en-IN' : `${spokenLang}-IN`;
+
+
     // --- PRIORITY 0: Check for product/item command first ---
     const { product, variant, requestedQty, matchedAlias, lang: itemLang } = await findProductAndVariant(commandLower);
 
     if (product && variant) {
-        const productLang = itemLang || determinePhraseLanguage(commandText);
+        const productLang = itemLang || spokenLang;
         const replyProductName = matchedAlias || getProductName(product);
         const speech = t('adding-item-speech', productLang)
             .replace('{quantity}', `${requestedQty}`)
@@ -541,11 +551,6 @@ export function VoiceCommander({
         return;
     }
     
-    // If no product found, continue to other command types
-    const spokenLang = determinePhraseLanguage(commandText);
-    const langWithRegion = spokenLang === 'en' ? 'en-IN' : `${spokenLang}-IN`;
-
-
     // --- PRIORITY 1: Check for simple conversational commands first ---
     const conversationalCommands = ["whatTime", "howAreYou", "howIsYourDay", "whatToOrder"];
     for (const key of conversationalCommands) {
@@ -1109,5 +1114,6 @@ export function VoiceCommander({
 
   return null;
 }
+
 
 
