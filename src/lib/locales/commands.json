@@ -455,7 +455,7 @@
     "te": "హలో, నేను మీకు ఎలా సహాయపడగలను?"
   },
   "adding-item-speech": {
-    "en": "Okay, adding {quantity} {productName}.",
+    "en": "Okay, adding {quantity} of {productName}.",
     "te": "సరే, {quantity} {productName} జోడిస్తున్నాను."
   },
   "smartOrder": {

@@ -531,26 +531,32 @@ export function VoiceCommander({
     if (didLanguageChange) {
         setLanguage(spokenLang);
         updateRecognitionLanguage(langWithRegion);
+        // Announce the change *after* processing the action, if an action is taken.
     }
     
     // --- PRIORITY 0: Check for product/item command first ---
     const { product, variant, requestedQty, matchedAlias, lang: itemLang } = await findProductAndVariant(commandLower);
 
     if (product && variant) {
+        // Since we found a product, this takes precedence. Perform the action.
+        addItemToCart(product, variant, requestedQty);
+        onOpenCart();
+        
+        // Now, construct and speak the confirmation.
         const productLang = itemLang || spokenLang;
         const replyProductName = matchedAlias || getProductName(product);
+
         let speech = t('adding-item-speech', productLang)
-            .replace('{quantity}', `${requestedQty}`)
+            .replace('{quantity}', `${requestedQty} ${variant.weight}`)
             .replace('{productName}', replyProductName);
-            
-        // If language changed, add a confirmation to the speech.
+
+        // If the language changed during this command, add the confirmation to the speech.
         if (didLanguageChange) {
-            speech += spokenLang === 'te' ? " నేను మీ కోసం తెలుగుకి మారాను." : " I've switched to English for you.";
+            speech += spokenLang === 'te' ? " నేను మీ కోసం తెలుగుకి మారాను." : " I've also switched to English for you.";
+            // Since we're now in a new language, play the welcome speech after a delay.
         }
             
         speak(speech, productLang + '-IN');
-        addItemToCart(product, variant, requestedQty);
-        onOpenCart();
         resetAllContext();
         return;
     }
@@ -871,7 +877,7 @@ export function VoiceCommander({
         if (product && variant) {
             const replyProductName = matchedAlias || getProductName(product);
             const speech = t('adding-item-speech', lang)
-                .replace('{quantity}', `${requestedQty}`)
+                .replace('{quantity}', `${requestedQty} ${variant.weight}`)
                 .replace('{productName}', replyProductName);
             speak(speech, lang + '-IN');
             addItemToCart(product, variant, requestedQty);
@@ -1118,3 +1124,4 @@ export function VoiceCommander({
 
   return null;
 }
+
