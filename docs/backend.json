@@ -586,6 +586,32 @@
         }
       },
       "required": ["id", "userId", "commandText", "language", "timestamp", "reason"]
+    },
+    "VoiceAlias": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "VoiceAlias",
+      "type": "object",
+      "description": "Represents a voice alias for a specific item (product, store, or command).",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "The canonical key for the item (e.g., 'tomatoes', 'go-to-cart')."
+        },
+        "language": {
+          "type": "string",
+          "description": "The language of the alias (e.g., 'en', 'te')."
+        },
+        "alias": {
+          "type": "string",
+          "description": "The spoken alias for the item."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["product", "store", "command"],
+          "description": "The type of item this alias refers to."
+        }
+      },
+      "required": ["key", "language", "alias", "type"]
     }
   },
   "auth": {
@@ -819,6 +845,22 @@
             {
               "name": "commandId",
               "description": "The unique identifier of the logged command."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/voiceAliases/{aliasId}",
+        "definition": {
+          "entityName": "VoiceAlias",
+          "schema": {
+            "$ref": "#/backend/entities/VoiceAlias"
+          },
+          "description": "Stores all voice aliases for products, commands, and stores.",
+          "params": [
+            {
+              "name": "aliasId",
+              "description": "The unique identifier of the alias document."
             }
           ]
         }

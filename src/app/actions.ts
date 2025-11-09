@@ -2,12 +2,9 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import * as fs from 'fs/promises';
-import * as path from 'path';
 import { getStores, getMasterProducts } from '@/lib/data';
 import { initServerApp } from '@/firebase/server-init';
-
-const LOCALES_DIR = path.join(process.cwd(), 'src', 'lib', 'locales');
+import { collection, getDocs, writeBatch, doc, query, where, addDoc } from 'firebase/firestore';
 
 type CommandGroup = {
   display: string;
@@ -18,155 +15,192 @@ type CommandGroup = {
 type LocaleEntry = string | string[];
 type Locales = Record<string, Record<string, LocaleEntry>>;
 
-async function readJsonFile<T>(filePath: string): Promise<T | null> {
+
+// Reads legacy commands.json for migration purposes. Will be removed later.
+async function getFileCommands(): Promise<Record<string, CommandGroup>> {
     try {
+        const fs = await import('fs/promises');
+        const path = await import('path');
+        const LOCALES_DIR = path.join(process.cwd(), 'src', 'lib', 'locales');
+        const filePath = path.join(LOCALES_DIR, 'commands.json');
         const fileContent = await fs.readFile(filePath, 'utf-8');
         return JSON.parse(fileContent);
-    } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-            // console.warn(`File not found: ${filePath}`);
-            return null;
-        }
-        console.error(`Error reading or parsing JSON file: ${filePath}`, error);
-        throw new Error(`Could not load data from ${path.basename(filePath)}.`);
+    } catch (e) {
+        console.warn("commands.json not found or unreadable. Skipping file-based command loading.");
+        return {};
     }
 }
+
 
 export async function getCommands(): Promise<Record<string, CommandGroup>> {
-    const filePath = path.join(LOCALES_DIR, 'commands.json');
-    const commandLocales = await readJsonFile<any>(filePath);
-    
-    const commands: Record<string, CommandGroup> = {};
-    if (commandLocales) {
-      for (const key in commandLocales) {
-        const potentialCommand = commandLocales[key];
-        if (potentialCommand && typeof potentialCommand.reply === 'string' && typeof potentialCommand.display === 'string') {
-          commands[key] = {
-            display: potentialCommand.display,
-            reply: potentialCommand.reply,
-            aliases: potentialCommand.aliases || []
-          };
-        }
-      }
-    }
-    
-    return commands;
-}
-
-export async function saveCommands(commands: Record<string, CommandGroup>): Promise<{ success: boolean; }> {
-    const allLocales = await getLocales();
-
-    for (const key in commands) {
-      if (!allLocales[key]) {
-        allLocales[key] = {};
-      }
-      Object.assign(allLocales[key], commands[key]);
-    }
-    
-    return saveLocales(allLocales);
+    // For now, we still read from the file for the display/reply info,
+    // as we haven't built a UI to manage that in Firestore yet.
+    // The aliases themselves will come from the voiceAliases collection.
+    return getFileCommands();
 }
 
 export async function getLocales(): Promise<Locales> {
-    const mergedLocales: Locales = {};
-    try {
-        await fs.mkdir(LOCALES_DIR, { recursive: true }); // Ensure the directory exists
-        const files = await fs.readdir(LOCALES_DIR);
-        const jsonFiles = files.filter(file => file.endsWith('.json'));
+    const { firestore } = await initServerApp();
+    const locales: Locales = {};
 
-        for (const file of jsonFiles) {
-            const filePath = path.join(LOCALES_DIR, file);
-            const content = await readJsonFile<Locales>(filePath);
-            if (content) {
-                // Merge content key by key to avoid overwriting
-                for (const key in content) {
-                    if (Object.prototype.hasOwnProperty.call(content, key)) {
-                         if (!mergedLocales[key]) {
-                            mergedLocales[key] = {};
-                        }
-                        // Deep merge the language entries
-                        for(const lang in content[key]) {
-                             if (Object.prototype.hasOwnProperty.call(content[key], lang)) {
-                                mergedLocales[key][lang] = content[key][lang];
-                            }
-                        }
-                    }
+    try {
+        // 1. Fetch aliases from Firestore
+        const aliasSnapshot = await getDocs(collection(firestore, 'voiceAliases'));
+        aliasSnapshot.forEach(doc => {
+            const data = doc.data();
+            const { key, language, alias } = data;
+            if (!key || !language || !alias) return;
+
+            if (!locales[key]) {
+                locales[key] = {};
+            }
+            if (!locales[key][language]) {
+                locales[key][language] = [];
+            }
+            
+            const langEntry = locales[key][language];
+            if (Array.isArray(langEntry) && !langEntry.includes(alias)) {
+                langEntry.push(alias);
+            }
+        });
+        
+        // 2. Fetch commands from the file to merge in display/reply text
+        const fileCommands = await getFileCommands();
+        for (const key in fileCommands) {
+            if (!locales[key]) {
+                locales[key] = {};
+            }
+            // This is a temporary hack. We should have a proper command collection.
+            Object.assign(locales[key], fileCommands[key]);
+        }
+
+        // Normalize single-item arrays back to strings for compatibility
+        for (const key in locales) {
+            for (const lang in locales[key]) {
+                const entry = locales[key][lang];
+                if (Array.isArray(entry) && entry.length === 1) {
+                    locales[key][lang] = entry[0];
                 }
             }
         }
-        
-        return mergedLocales;
+
+        return locales;
+
     } catch (error) {
-        console.error("Error reading locales directory:", error);
-        throw new Error("Could not load locale files.");
+        console.error("Error fetching locales from Firestore:", error);
+        // Fallback to file-based commands if Firestore fails
+        return getFileCommands() as Locales;
+    }
+}
+
+export async function saveCommands(commands: Record<string, CommandGroup>): Promise<{ success: boolean; }> {
+    // This function will eventually save command metadata (display, reply) to Firestore.
+    // For now, we are still saving this part to a file as a fallback.
+     try {
+        const fs = await import('fs/promises');
+        const path = await import('path');
+        const LOCALES_DIR = path.join(process.cwd(), 'src', 'lib', 'locales');
+        await fs.mkdir(LOCALES_DIR, { recursive: true });
+        const commandsFilePath = path.join(LOCALES_DIR, `commands.json`);
+        const commandsJsonContent = JSON.stringify(commands, null, 2);
+        await fs.writeFile(commandsFilePath, commandsJsonContent, 'utf-8');
+        return { success: true };
+    } catch (error) {
+        console.error("Error saving commands.json file:", error);
+        return { success: false };
     }
 }
 
 export async function saveLocales(locales: Locales): Promise<{ success: boolean; }> {
-    try {
-        await fs.mkdir(LOCALES_DIR, { recursive: true });
-        
-        const writtenFiles = new Set<string>();
+    const { firestore } = await initServerApp();
+    const batch = writeBatch(firestore);
+    
+    // We need to fetch all existing aliases to know which ones to delete.
+    const existingAliasesSnap = await getDocs(collection(firestore, 'voiceAliases'));
+    const existingAliases = new Map<string, string>(); // Map of "key-lang-alias" -> docId
+    existingAliasesSnap.forEach(doc => {
+        const { key, language, alias } = doc.data();
+        existingAliases.set(`${key}-${language}-${alias}`, doc.id);
+    });
 
-        // Separate commands from other locales
-        const commands: Record<string, any> = {};
-        const otherLocales: Locales = {};
+    const newAliasesSet = new Set<string>();
 
-        for (const key in locales) {
-            if (Object.prototype.hasOwnProperty.call(locales, key)) {
-                if (locales[key] && typeof (locales[key] as any).reply === 'string') {
-                    commands[key] = locales[key];
-                } else {
-                    otherLocales[key] = locales[key];
+    for (const key in locales) {
+        const langEntries = locales[key];
+        for (const lang in langEntries) {
+            // Skip non-alias properties like 'display' and 'reply'
+            if (lang === 'display' || lang === 'reply' || lang === 'aliases') continue;
+
+            const aliasEntry = langEntries[lang];
+            const aliases = Array.isArray(aliasEntry) ? aliasEntry : [aliasEntry];
+
+            for (const alias of aliases) {
+                if (!alias) continue;
+                const uniqueId = `${key}-${lang}-${alias}`;
+                newAliasesSet.add(uniqueId);
+                
+                // If this exact alias doesn't exist in our fetched map, it's new. Add it.
+                if (!existingAliases.has(uniqueId)) {
+                    const newAliasRef = doc(collection(firestore, 'voiceAliases'));
+                     batch.set(newAliasRef, {
+                        key,
+                        language: lang,
+                        alias: alias.toLowerCase(),
+                        type: Object.keys(await getFileCommands()).includes(key) ? 'command' : 'product', // Heuristic
+                    });
                 }
             }
         }
-        
-        // Write commands.json
-        const commandsFilePath = path.join(LOCALES_DIR, `commands.json`);
-        const commandsJsonContent = JSON.stringify(commands, null, 2);
-        await fs.writeFile(commandsFilePath, commandsJsonContent, 'utf-8');
-        writtenFiles.add(commandsFilePath);
-
-        // Write other locale files based on their top-level key
-        for (const key in otherLocales) {
-            const filePath = path.join(LOCALES_DIR, `${key}.json`);
-            const content = { [key]: otherLocales[key] };
-            const jsonContent = JSON.stringify(content, null, 2);
-            await fs.writeFile(filePath, jsonContent, 'utf-8');
-            writtenFiles.add(filePath);
+    }
+    
+    // Now, determine which aliases to delete
+    existingAliases.forEach((docId, uniqueId) => {
+        if (!newAliasesSet.has(uniqueId)) {
+            batch.delete(doc(firestore, 'voiceAliases', docId));
         }
+    });
 
+    try {
+        await batch.commit();
         return { success: true };
     } catch (error) {
-        console.error("Error writing locale files:", error);
-        throw new Error("Could not save locales to individual files.");
+        console.error("Error saving locales to Firestore:", error);
+        return { success: false };
     }
 }
 
-
 export async function addAliasToLocales(productKey: string, newAlias: string, lang: string): Promise<{ success: boolean }> {
-    const locales = await getLocales();
+    const { firestore } = await initServerApp();
+    const aliasLower = newAlias.toLowerCase();
     
-    if (!locales[productKey]) {
-        locales[productKey] = {};
-    }
+    // Check if alias already exists for this key/lang combination to avoid duplicates
+    const q = query(
+        collection(firestore, 'voiceAliases'),
+        where('key', '==', productKey),
+        where('language', '==', lang),
+        where('alias', '==', aliasLower)
+    );
 
-    const langEntry = locales[productKey][lang];
-    const newAliasLower = newAlias.toLowerCase();
-
-    if (!langEntry) {
-        locales[productKey][lang] = newAliasLower;
-    } else if (Array.isArray(langEntry)) {
-        if (!langEntry.includes(newAliasLower)) {
-            langEntry.push(newAliasLower);
+    try {
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+            // Alias already exists, no need to add again
+            return { success: true };
         }
-    } else { // It's a single string
-        if (langEntry !== newAliasLower) {
-            locales[productKey][lang] = [langEntry, newAliasLower];
-        }
-    }
+        
+        // Add the new alias
+        await addDoc(collection(firestore, 'voiceAliases'), {
+            key: productKey,
+            language: lang,
+            alias: aliasLower,
+            type: 'product', // Assume it's a product for this function
+        });
 
-    return saveLocales(locales);
+        return { success: true };
+    } catch (error) {
+         console.error("Error adding alias to Firestore:", error);
+        return { success: false };
+    }
 }
 
 
@@ -212,3 +246,5 @@ export async function indexSiteContent() {
 }
 
 // This file can be extended with more server actions.
+
+    

@@ -127,6 +127,11 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if false;
     }
+
+    match /voiceAliases/{aliasId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }
 
@@ -141,3 +146,5 @@ service firebase.storage {
     }
   }
 }
+
+    
