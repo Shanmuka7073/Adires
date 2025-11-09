@@ -261,7 +261,7 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
       </Sheet>
       
       <div className="flex w-full items-center justify-end gap-4 md:ml-auto md:gap-2 lg:gap-4">
-        <Button variant={voiceEnabled ? 'secondary' : 'outline'} size="icon" onClick={handleToggleVoiceWithCheck} className="relative">
+        <Button variant={voiceEnabled ? 'destructive' : 'outline'} size="icon" onClick={handleToggleVoiceWithCheck} className="relative">
           {voiceEnabled ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
           {voiceEnabled && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>}
           <span className="sr-only">{voiceEnabled ? 'Stop voice commands' : 'Start voice commands'}</span>
@@ -269,11 +269,9 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
         <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />
         <UserMenu />
       </div>
-       {voiceEnabled && (
-        <div className="absolute top-16 left-0 w-full bg-secondary text-secondary-foreground text-center py-1 text-sm font-mono z-40">
+       <div className="absolute top-16 left-0 w-full bg-secondary text-secondary-foreground text-center py-1 text-sm font-mono z-40">
             {voiceStatus}
         </div>
-      )}
       {suggestedCommands.length > 0 && (
          <div className="absolute top-24 left-1/2 -translate-x-1/2 w-full max-w-md bg-background border rounded-lg shadow-lg z-50 p-2">
             <p className="text-sm font-semibold text-muted-foreground px-2 pb-2">Did you mean...?</p>
