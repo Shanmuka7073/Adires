@@ -7,8 +7,6 @@ import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase';
 import { CartProvider } from '@/lib/cart';
 import { MainLayout } from '@/components/layout/main-layout';
-import { getLocales } from '@/app/actions';
-
 
 const ptSans = PT_Sans({
   subsets: ['latin'],
@@ -16,7 +14,6 @@ const ptSans = PT_Sans({
   variable: '--font-pt-sans',
 });
 
-// This is now a pure server component. Metadata can be exported.
 export const metadata: Metadata = {
     title: 'LocalBasket',
     description: 'Shop Fresh, Shop Local, Just by Voice',
@@ -27,9 +24,8 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Fetch initial locale data on the server
-  const initialLocales = await getLocales();
-
+  // Data is no longer fetched on the server during the initial render.
+  // It will be fetched on the client-side within the MainLayout component.
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -43,7 +39,7 @@ export default async function RootLayout({
       >
         <FirebaseClientProvider>
           <CartProvider>
-            <MainLayout initialLocales={initialLocales}>
+            <MainLayout>
               {children}
             </MainLayout>
             <Toaster />

@@ -59,3 +59,16 @@ export function getAllAliases(key: string): Record<string, string[]> {
     
     return result;
 }
+
+// New function to be called from a client component to fetch all locales
+export async function loadLocales() {
+    if (!translations) {
+        try {
+            const fetchedLocales = await fetchAllLocales();
+            initializeTranslations(fetchedLocales);
+        } catch (error) {
+            console.error("Failed to load locales from client:", error);
+        }
+    }
+    return translations;
+}

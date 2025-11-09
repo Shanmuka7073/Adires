@@ -1,5 +1,6 @@
 
 
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -13,7 +14,7 @@ import { useAppStore, useProfileFormStore, useMyStorePageStore } from '@/lib/sto
 import { ProfileFormValues } from '@/app/dashboard/customer/my-profile/page';
 import { useCheckoutStore } from '@/lib/store';
 import { getCommands, getLocales } from '@/app/actions';
-import { t, getAllAliases } from '@/lib/locales';
+import { t, getAllAliases, initializeTranslations } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import groceryData from '@/lib/grocery-data.json';
@@ -222,20 +223,40 @@ export function VoiceCommander({
     if(firestore) {
       fetchInitialData(firestore);
     }
-    // Pre-fetch all commands and locales and store them in a ref for the detector.
-    getLocales().then(locales => {
-        const aliasMap: Record<string, Record<string, string[]>> = {};
-        for(const key in locales) {
-            aliasMap[key] = {};
-            for(const lang in locales[key]) {
-                const value = locales[key][lang];
-                if (lang !== 'display' && lang !== 'reply' && lang !== 'aliases') {
-                    aliasMap[key][lang] = Array.isArray(value) ? value : [value];
+    
+    // Fetch all commands and locales and store them in a ref for the detector.
+    const loadInitialData = async () => {
+        try {
+            const [fetchedCommands, fetchedLocales] = await Promise.all([getCommands(), getLocales()]);
+            initializeTranslations(fetchedLocales); // Initialize the translation system
+            
+            if (fetchedCommands) {
+                fileCommandsRef.current = fetchedCommands;
+            }
+
+            const aliasMap: Record<string, Record<string, string[]>> = {};
+            for(const key in fetchedLocales) {
+                aliasMap[key] = {};
+                for(const lang in fetchedLocales[key]) {
+                    const value = fetchedLocales[key][lang];
+                    if (lang !== 'display' && lang !== 'reply' && lang !== 'aliases') {
+                        aliasMap[key][lang] = Array.isArray(value) ? value : [value];
+                    }
                 }
             }
+            allAliasesRef.current = aliasMap;
+
+        } catch (error) {
+            console.error("Failed to load initial command data:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Could not load voice commands',
+                description: 'The voice system may not work correctly.'
+            });
         }
-        allAliasesRef.current = aliasMap;
-    });
+    };
+    
+    loadInitialData();
 
     const getVoices = () => {
       const allVoices = window.speechSynthesis.getVoices();
@@ -254,7 +275,7 @@ export function VoiceCommander({
         window.speechSynthesis.onvoiceschanged = null;
       }
     };
-  }, [firestore, fetchInitialData]);
+  }, [firestore, fetchInitialData, toast]);
 
   useEffect(() => {
     isEnabledRef.current = enabled;
@@ -1111,12 +1132,6 @@ export function VoiceCommander({
         getDoc(userDocRef).then(docSnap => {
             if (docSnap.exists()) userProfileRef.current = docSnap.data() as User;
         });
-        
-        getCommands().then((fileCommands) => {
-            if (fileCommands) {
-                fileCommandsRef.current = fileCommands;
-            }
-        }).catch(console.error);
     }
 
 

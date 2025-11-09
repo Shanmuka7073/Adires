@@ -23,10 +23,8 @@ export function useVoiceCommander() {
 
 export function MainLayout({ 
   children,
-  initialLocales,
 }: { 
   children: React.ReactNode;
-  initialLocales: Locales;
 }) {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState('Click the mic to start listening.');
@@ -36,11 +34,6 @@ export function MainLayout({
 
   // State to trigger re-evaluation in VoiceCommander
   const [voiceTrigger, setVoiceTrigger] = useState(0);
-  
-  // Safely initialize the translations on the client
-  useEffect(() => {
-    initializeTranslations(initialLocales);
-  }, [initialLocales]);
 
   // Stable callback to trigger the voice prompt check
   const triggerVoicePrompt = useCallback(() => {
