@@ -9,8 +9,7 @@ import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, 
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
 import { useAppStore } from '@/lib/store';
-import { ProfileFormValues } from '@/app/dashboard/customer/my-profile/page';
-import { useProfileFormStore } from '@/app/dashboard/customer/my-profile/page';
+import { ProfileFormValues, useProfileFormStore } from '@/app/dashboard/customer/my-profile/page';
 import { useCheckoutStore } from '@/app/checkout/page';
 import { useMyStorePageStore } from '@/components/dashboard/owner/my-store/page';
 import { getCommands, getLocales } from '@/app/actions';
@@ -1138,5 +1137,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    
