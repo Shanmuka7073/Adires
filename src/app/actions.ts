@@ -3,8 +3,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { getStores, getMasterProducts } from '@/lib/data';
-import { initServerApp } from '@/firebase/server-init';
-import type { WriteBatch, DocumentReference } from 'firebase-admin/firestore';
+import { firestore } from '@/firebase/admin-init';
+import type { WriteBatch } from 'firebase-admin/firestore';
 
 type CommandGroup = {
   display: string;
@@ -16,25 +16,26 @@ type Locales = Record<string, Record<string, LocaleEntry>>;
 
 
 export async function getCommands(): Promise<Record<string, CommandGroup>> {
-    const { firestore } = initServerApp();
     const commands: Record<string, CommandGroup> = {};
-    const aliasSnapshot = await firestore.collection('voiceAliases').where('type', '==', 'command').get();
-
-    aliasSnapshot.forEach(doc => {
-        const data = doc.data();
-        const key = data.key;
-        if (key && !commands[key]) {
-            commands[key] = {
-                display: key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
-                reply: `Executing ${key}...`
-            };
-        }
-    });
+    try {
+        const aliasSnapshot = await firestore.collection('voiceAliases').where('type', '==', 'command').get();
+        aliasSnapshot.forEach(doc => {
+            const data = doc.data();
+            const key = data.key;
+            if (key && !commands[key]) {
+                commands[key] = {
+                    display: key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
+                    reply: `Executing ${key}...`
+                };
+            }
+        });
+    } catch (error) {
+        console.error("Error fetching commands from Firestore:", error);
+    }
     return commands;
 }
 
 export async function getLocales(): Promise<Locales> {
-    const { firestore } = initServerApp();
     const locales: Locales = {};
 
     try {
@@ -77,13 +78,19 @@ export async function getLocales(): Promise<Locales> {
 }
 
 export async function saveCommands(commands: Record<string, CommandGroup>): Promise<{ success: boolean; }> {
-    console.warn("saveCommands function is not fully implemented for Firestore yet.");
-    return { success: true };
+    try {
+        // This function would need to create/update documents in 'voiceAliases'
+        // based on the 'commands' object. For now, it's a no-op that returns success.
+        console.warn("saveCommands function is not fully implemented for Firestore yet.");
+        return { success: true };
+    } catch (error) {
+        console.error("Error in saveCommands:", error);
+        return { success: false };
+    }
 }
 
 
 export async function saveLocales(locales: Locales): Promise<{ success: boolean; }> {
-    const { firestore } = initServerApp();
     const batch: WriteBatch = firestore.batch();
     const voiceAliasesRef = firestore.collection('voiceAliases');
 
@@ -143,7 +150,6 @@ export async function saveLocales(locales: Locales): Promise<{ success: boolean;
 
 
 export async function addAliasToLocales(productKey: string, newAlias: string, lang: string): Promise<{ success: boolean }> {
-    const { firestore } = initServerApp();
     const aliasLower = newAlias.toLowerCase();
     const voiceAliasesRef = firestore.collection('voiceAliases');
     
@@ -175,8 +181,6 @@ export async function addAliasToLocales(productKey: string, newAlias: string, la
 
 export async function indexSiteContent() {
     try {
-        const { firestore } = initServerApp();
-
         console.log('Fetching stores and master products for indexing...');
 
         const stores = await getStores(firestore);
