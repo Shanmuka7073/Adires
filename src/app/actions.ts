@@ -206,3 +206,19 @@ export async function indexSiteContent() {
         };
     }
 }
+
+export async function getSystemStatus(): Promise<{ userCount: number, status: 'ok' | 'error' }> {
+    try {
+        const usersSnapshot = await adminFirestore.collection('users').get();
+        return {
+            status: 'ok',
+            userCount: usersSnapshot.size,
+        };
+    } catch (error) {
+        console.error("System Status Check Failed:", error);
+        return {
+            status: 'error',
+            userCount: 0,
+        };
+    }
+}
