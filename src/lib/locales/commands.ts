@@ -1,5 +1,6 @@
 
-{
+// This file replaces the old commands.json to be a proper TS module.
+export const generalCommands = {
   "home": {
     "display": "Go Home",
     "reply": "Okay, going to the home page."
@@ -72,4 +73,4 @@
     "display": "Refresh Page",
     "reply": "Okay, refreshing the page."
   }
-}
+};
