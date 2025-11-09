@@ -9,28 +9,23 @@ export type Locales = Record<string, Record<string, LocaleEntry>>;
 let translations: Locales | null = null;
 
 // Function to initialize or refresh the translations cache on the client.
-// This is now called from a client component (MainLayout) after the server has fetched the data.
 export function initializeTranslations(initialData: Locales) {
     if (!translations) {
         translations = initialData;
     }
 }
 
-
 // Client-side synchronous translation function
-// Note: This relies on the data being pre-fetched and available.
 export function t(key: string, lang: string = 'en'): string {
-    const allTranslations = translations;
-    if (!allTranslations || Object.keys(allTranslations).length === 0) {
+    if (!translations) {
         // Fallback for when translations aren't loaded yet.
         return key.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     }
     const langCode = lang.split('-')[0];
-    const entry = allTranslations[key as keyof typeof allTranslations];
+    const entry = translations[key];
     
     if (entry && entry[langCode]) {
         const regionalEntry = entry[langCode];
-        // Return the first alias if it's an array
         return Array.isArray(regionalEntry) ? regionalEntry[0] : regionalEntry;
     }
      if (entry && entry['en']) {
@@ -44,14 +39,13 @@ export function t(key: string, lang: string = 'en'): string {
 
 // Client-side synchronous alias getter
 export function getAllAliases(key: string): Record<string, string[]> {
-    const allTranslations = translations;
-    if (!allTranslations) return {};
-    const entry = allTranslations[key as keyof typeof allTranslations];
+    if (!translations) return {};
+    const entry = translations[key];
     const result: Record<string, string[]> = {};
 
     if (entry) {
         for (const langCode in entry) {
-             if (langCode === 'display' || langCode === 'reply' || langCode === 'aliases') continue;
+             if (langCode === 'display' || langCode === 'reply') continue;
             const langAliases = entry[langCode];
             result[langCode] = (Array.isArray(langAliases) ? langAliases : [langAliases]).filter(Boolean);
         }

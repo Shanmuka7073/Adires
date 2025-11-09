@@ -8,7 +8,7 @@ import { Footer } from '@/components/layout/footer';
 import { VoiceCommander } from '@/components/layout/voice-commander';
 import { ProfileCompletionChecker } from '@/components/profile-completion-checker';
 import { NotificationPermissionManager } from '@/components/layout/notification-permission-manager';
-import { initializeTranslations, type Locales } from '@/lib/locales';
+import { initializeTranslations, type Locales, loadLocales } from '@/lib/locales';
 
 // Create a context to provide the trigger function
 const VoiceCommandContext = createContext<{ triggerVoicePrompt: () => void } | undefined>(undefined);
@@ -31,9 +31,19 @@ export function MainLayout({
   const [suggestedCommands, setSuggestedCommands] = useState<any[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { cartItems } = useCart();
+  const [localesLoaded, setLocalesLoaded] = useState(false);
 
   // State to trigger re-evaluation in VoiceCommander
   const [voiceTrigger, setVoiceTrigger] = useState(0);
+  
+  useEffect(() => {
+    // Fetch locales when the main layout mounts
+    const initLocales = async () => {
+        await loadLocales();
+        setLocalesLoaded(true);
+    };
+    initLocales();
+  }, []);
 
   // Stable callback to trigger the voice prompt check
   const triggerVoicePrompt = useCallback(() => {
@@ -51,16 +61,18 @@ export function MainLayout({
             isCartOpen={isCartOpen}
             onCartOpenChange={setIsCartOpen}
         />
-        <VoiceCommander 
-            enabled={voiceEnabled} 
-            onStatusUpdate={setVoiceStatus}
-            onSuggestions={setSuggestedCommands}
-            onOpenCart={() => setIsCartOpen(true)}
-            onCloseCart={() => setIsCartOpen(false)}
-            isCartOpen={isCartOpen}
-            cartItems={cartItems}
-            voiceTrigger={voiceTrigger}
-        />
+        {localesLoaded && (
+            <VoiceCommander 
+                enabled={voiceEnabled} 
+                onStatusUpdate={setVoiceStatus}
+                onSuggestions={setSuggestedCommands}
+                onOpenCart={() => setIsCartOpen(true)}
+                onCloseCart={() => setIsCartOpen(false)}
+                isCartOpen={isCartOpen}
+                cartItems={cartItems}
+                voiceTrigger={voiceTrigger}
+            />
+        )}
         <ProfileCompletionChecker />
         <main className="flex-1 pb-10">{children}</main>
         <NotificationPermissionManager />

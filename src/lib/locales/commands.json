@@ -1,164 +1,75 @@
+
 {
   "home": {
     "display": "Go Home",
-    "reply": "Okay, going to the home page.",
-    "aliases": [
-      "go to home",
-      "homepage",
-      "main page"
-    ]
+    "reply": "Okay, going to the home page."
   },
   "stores": {
     "display": "Browse Stores",
-    "reply": "Okay, here are the nearby stores.",
-    "aliases": [
-      "go to stores",
-      "show stores",
-      "find stores",
-      "browse stores"
-    ]
+    "reply": "Okay, here are the nearby stores."
   },
   "dashboard": {
     "display": "Go to Dashboard",
-    "reply": "Okay, opening your dashboard.",
-    "aliases": [
-      "go to dashboard",
-      "show my dashboard",
-      "open dashboard"
-    ]
+    "reply": "Okay, opening your dashboard."
   },
   "cart": {
     "display": "Open Cart",
-    "reply": "Okay, here is your cart.",
-    "aliases": [
-      "go to cart",
-      "show my cart",
-      "open cart",
-      "view cart"
-    ]
+    "reply": "Okay, here is your cart."
   },
   "checkout": {
     "display": "Proceed to Checkout",
-    "reply": "Okay, let's complete your order.",
-    "aliases": [
-      "go to checkout",
-      "proceed to checkout",
-      "checkout now"
-    ]
+    "reply": "Okay, let's complete your order."
   },
   "orders": {
     "display": "View My Orders",
-    "reply": "Okay, here is your order history.",
-    "aliases": [
-      "go to my orders",
-      "show my orders",
-      "my orders",
-      "order history"
-    ]
+    "reply": "Okay, here is your order history."
   },
   "myProfile": {
     "display": "View My Profile",
-    "reply": "Okay, opening your profile page.",
-    "aliases": [
-      "go to my profile",
-      "show my profile",
-      "my profile"
-    ]
+    "reply": "Okay, opening your profile page."
   },
   "deliveries": {
     "display": "View Deliveries",
-    "reply": "Okay, showing available delivery jobs.",
-    "aliases": [
-      "go to deliveries",
-      "show deliveries",
-      "delivery jobs"
-    ]
+    "reply": "Okay, showing available delivery jobs."
   },
   "myStore": {
     "display": "Manage My Store",
-    "reply": "Okay, opening your store management page.",
-    "aliases": [
-      "go to my store",
-      "manage my store",
-      "my shop"
-    ]
+    "reply": "Okay, opening your store management page."
   },
   "saveChanges": {
     "display": "Save Changes",
-    "reply": "Okay, saving your changes.",
-    "aliases": [
-      "save changes",
-      "save",
-      "submit form"
-    ]
+    "reply": "Okay, saving your changes."
   },
   "placeOrder": {
     "display": "Place Order",
-    "reply": "Okay, placing your order now.",
-    "aliases": [
-      "place order",
-      "confirm order",
-      "buy now",
-      "complete purchase"
-    ]
+    "reply": "Okay, placing your order now."
   },
   "homeAddress": {
     "display": "Use Home Address",
-    "reply": "Okay, I'll use your saved home address for delivery.",
-    "aliases": [
-      "use home address",
-      "deliver to home",
-      "my house"
-    ]
+    "reply": "Okay, I'll use your saved home address for delivery."
   },
   "currentLocation": {
     "display": "Use Current Location",
-    "reply": "Okay, using your current location for delivery.",
-    "aliases": [
-      "use current location",
-      "deliver here",
-      "this location"
-    ]
+    "reply": "Okay, using your current location for delivery."
   },
   "whatTime": {
     "display": "Check Time",
-    "reply": "The current time is {time}.",
-    "aliases": [
-      "what time is it",
-      "current time"
-    ]
+    "reply": "The current time is {time}."
   },
   "howAreYou": {
     "display": "How are you?",
-    "reply": "I'm doing great, thanks for asking! Ready to take your order.",
-    "aliases": [
-      "how are you"
-    ]
+    "reply": "I'm doing great, thanks for asking! Ready to take your order."
   },
   "checkPrice": {
     "display": "Check Price",
-    "reply": "Sure, which item's price would you like to check?",
-    "aliases": [
-      "what is the price of",
-      "check price of",
-      "how much is"
-    ]
+    "reply": "Sure, which item's price would you like to check?"
   },
   "recordOrder": {
     "display": "Record Order",
-    "reply": "I'm ready to take your order. Please state your items.",
-    "aliases": [
-      "record my order",
-      "take my order",
-      "voice order"
-    ]
+    "reply": "I'm ready to take your order. Please state your items."
   },
   "refresh": {
     "display": "Refresh Page",
-    "reply": "Okay, refreshing the page.",
-    "aliases": [
-      "refresh page",
-      "reload page"
-    ]
+    "reply": "Okay, refreshing the page."
   }
 }
