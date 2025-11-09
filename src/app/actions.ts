@@ -246,6 +246,3 @@ export async function indexSiteContent() {
 }
 
 // This file can be extended with more server actions.
-
-    
-    
