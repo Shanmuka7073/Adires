@@ -77,7 +77,20 @@ export async function getLocales(): Promise<Locales> {
             const filePath = path.join(LOCALES_DIR, file);
             const content = await readJsonFile<Locales>(filePath);
             if (content) {
-                Object.assign(mergedLocales, content);
+                // Merge content key by key to avoid overwriting
+                for (const key in content) {
+                    if (Object.prototype.hasOwnProperty.call(content, key)) {
+                         if (!mergedLocales[key]) {
+                            mergedLocales[key] = {};
+                        }
+                        // Deep merge the language entries
+                        for(const lang in content[key]) {
+                             if (Object.prototype.hasOwnProperty.call(content[key], lang)) {
+                                mergedLocales[key][lang] = content[key][lang];
+                            }
+                        }
+                    }
+                }
             }
         }
         
@@ -114,7 +127,7 @@ export async function saveLocales(locales: Locales): Promise<{ success: boolean;
         await fs.writeFile(commandsFilePath, commandsJsonContent, 'utf-8');
         writtenFiles.add(commandsFilePath);
 
-        // Write other locale files
+        // Write other locale files based on their top-level key
         for (const key in otherLocales) {
             const filePath = path.join(LOCALES_DIR, `${key}.json`);
             const content = { [key]: otherLocales[key] };
