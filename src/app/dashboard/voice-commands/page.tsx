@@ -53,14 +53,17 @@ export default function VoiceCommandsPage() {
     const { toast } = useToast();
 
     useEffect(() => {
-        if (!firestore) return; // Wait for firestore to be available
-
-        startTransition(async () => {
-            await fetchInitialData(firestore);
-            const [fetchedCommands, fetchedLocales] = await Promise.all([getCommands(), getLocales()]);
-            setCommands(fetchedCommands);
-            setLocales(fetchedLocales);
-        });
+        // Only run this effect once firestore is available.
+        if (firestore) {
+            startTransition(async () => {
+                // First, fetch the store and product data, which is needed for the other tabs.
+                await fetchInitialData(firestore);
+                // Then, fetch the command and locale data.
+                const [fetchedCommands, fetchedLocales] = await Promise.all([getCommands(), getLocales()]);
+                setCommands(fetchedCommands);
+                setLocales(fetchedLocales);
+            });
+        }
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
@@ -80,7 +83,8 @@ export default function VoiceCommandsPage() {
         } else {
             console.warn("Speech recognition not supported in this browser.");
         }
-    }, [toast, firestore, fetchInitialData]);
+    }, [firestore, fetchInitialData, toast]);
+
 
     const handleAddAlias = (itemKey: string, lang: string) => {
         const newAliasInput = newAliases[itemKey]?.[lang]?.trim();
