@@ -20,20 +20,25 @@ type Locales = Record<string, Record<string, LocaleEntry>>;
 export async function getCommands(): Promise<Record<string, CommandGroup>> {
     const commands: Record<string, CommandGroup> = {};
     try {
-        const aliasSnapshot = await firestore.collection('voiceAliases').where('type', '==', 'command').get();
+        // Query for documents that are commands and have a 'display' field.
+        // This implicitly filters for the "primary" document of each command key.
+        const aliasSnapshot = await firestore.collection('voiceAliases')
+            .where('type', '==', 'command')
+            .get();
+
         aliasSnapshot.forEach(doc => {
             const data = doc.data();
             const key = data.key;
-            if (key && !commands[key]) {
+            // Only add if it has a display property and we haven't already processed this key.
+            if (key && data.display && !commands[key]) {
                 commands[key] = {
-                    display: data.display || key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
+                    display: data.display,
                     reply: data.reply || `Executing ${key}...`
                 };
             }
         });
     } catch (error) {
         console.error("Error fetching commands from Firestore:", error);
-        // In case of error, return an empty object to avoid breaking the app layout
         return {};
     }
     return commands;
@@ -47,23 +52,28 @@ export async function getLocales(): Promise<Locales> {
         
         aliasSnapshot.forEach(doc => {
             const data = doc.data();
-            const { key, language, alias, type } = data;
+            const { key, language, alias } = data;
+            
             if (!key || !language || !alias) return;
 
+            // Initialize the key entry if it doesn't exist.
             if (!locales[key]) {
                 locales[key] = {};
             }
+
+            // Initialize the language array if it doesn't exist.
             if (!locales[key][language]) {
                 locales[key][language] = [];
             }
             
             const langEntry = locales[key][language];
+            // Push the new alias if it's not already in the array.
             if (Array.isArray(langEntry) && !langEntry.includes(alias)) {
                 langEntry.push(alias);
             }
         });
 
-        // Normalize single-item arrays back to strings for compatibility with old format
+        // After grouping, normalize single-item arrays back to strings for compatibility.
         for (const key in locales) {
             for (const lang in locales[key]) {
                 const entry = locales[key][lang];
@@ -77,7 +87,6 @@ export async function getLocales(): Promise<Locales> {
 
     } catch (error) {
         console.error("Error fetching locales from Firestore:", error);
-        // Return empty object on failure to prevent breaking the layout
         return {}; 
     }
 }
@@ -97,17 +106,19 @@ export async function saveCommands(commands: Record<string, CommandGroup>): Prom
         const existingCommandsSnap = await voiceAliasesRef.where('type', '==', 'command').get();
         const existingDocsByKey = new Map<string, { id: string, data: any }>();
         
+        // Find the primary document for each key (the one with the 'display' field).
         existingCommandsSnap.forEach(doc => {
-            // Because a command can have multiple aliases (rows), we only care about one entry per key.
-            if (!existingDocsByKey.has(doc.data().key)) {
-                existingDocsByKey.set(doc.data().key, { id: doc.id, data: doc.data() });
+            const docData = doc.data();
+            if (docData.key && docData.display) { // A primary doc must have a display name
+               if (!existingDocsByKey.has(docData.key)) {
+                  existingDocsByKey.set(docData.key, { id: doc.id, data: docData });
+               }
             }
         });
 
         for (const [key, data] of commandDataMap) {
             if (existingDocsByKey.has(key)) {
-                // If command key exists, update its display name and reply.
-                // We assume one primary document per command key holds this info.
+                // If command key exists, update its display name and reply on the primary doc.
                 const existingDoc = existingDocsByKey.get(key)!;
                 const docRef = voiceAliasesRef.doc(existingDoc.id);
 
@@ -119,8 +130,7 @@ export async function saveCommands(commands: Record<string, CommandGroup>): Prom
                     batch.update(docRef, updateData);
                 }
             } else {
-                // If command is new, create a new document for it.
-                // This will be the "primary" document for this command key.
+                // If command is new, create a new primary document for it.
                 const newDocRef = voiceAliasesRef.doc(); // Firestore will auto-generate an ID.
                 batch.set(newDocRef, {
                     key: key,
@@ -143,9 +153,11 @@ export async function saveCommands(commands: Record<string, CommandGroup>): Prom
 
         if (keysToDelete.size > 0) {
             // We need to fetch ALL documents for the keys to be deleted, not just the primary one.
-            const docsToDeleteSnap = await voiceAliasesRef.where('key', 'in', Array.from(keysToDelete)).where('type', '==', 'command').get();
+            const docsToDeleteSnap = await voiceAliasesRef.where('key', 'in', Array.from(keysToDelete)).get();
             docsToDeleteSnap.forEach(doc => {
-                batch.delete(doc.ref);
+                 if (doc.data().type === 'command') { // Ensure we only delete commands
+                    batch.delete(doc.ref);
+                }
             });
         }
         
@@ -169,18 +181,25 @@ export async function saveLocales(locales: Locales): Promise<{ success: boolean;
         existingAliasesSnap.forEach(doc => {
             const { key, language, alias } = doc.data();
             if(key && language && alias) {
+                // Use a consistent key format for comparison.
                 existingAliases.set(`${key}-${language}-${alias}`.toLowerCase(), doc.id);
             }
         });
 
         const newAliasesSet = new Set<string>();
-        const commandKeysQuery = await voiceAliasesRef.where('type', '==', 'command').get();
-        const commandKeys = new Set(commandKeysQuery.docs.map(d => d.data().key));
+        // Pre-fetch all known types to avoid lookups inside the loop.
+        const itemTypes = new Map<string, string>();
+        existingAliasesSnap.forEach(doc => {
+            const { key, type } = doc.data();
+            if(key && type && !itemTypes.has(key)) {
+                itemTypes.set(key, type);
+            }
+        });
         
         for (const key in locales) {
             const langEntries = locales[key];
             for (const lang in langEntries) {
-                if (lang === 'display' || lang === 'reply' || lang === 'aliases') continue;
+                if (lang === 'display' || lang === 'reply') continue;
 
                 const aliasEntry = langEntries[lang];
                 const aliases = Array.isArray(aliasEntry) ? aliasEntry : [aliasEntry];
@@ -192,21 +211,21 @@ export async function saveLocales(locales: Locales): Promise<{ success: boolean;
                     
                     if (!existingAliases.has(uniqueId)) {
                         const newAliasRef = voiceAliasesRef.doc();
-                         // Determine type: check if it's a known command key, otherwise default to product.
-                        const docData = await voiceAliasesRef.where('key', '==', key).limit(1).get();
-                        const existingType = docData.empty ? (commandKeys.has(key) ? 'command' : 'product') : docData.docs[0].data().type;
+                        // Determine type based on our pre-fetched map, defaulting to 'product'.
+                        const type = itemTypes.get(key) || 'product';
                         
                         batch.set(newAliasRef, {
                             key,
                             language: lang,
                             alias: alias.toLowerCase(),
-                            type: existingType,
+                            type,
                         });
                     }
                 }
             }
         }
         
+        // Delete aliases that exist in Firestore but not in the new state.
         existingAliases.forEach((docId, uniqueId) => {
             if (!newAliasesSet.has(uniqueId)) {
                 batch.delete(voiceAliasesRef.doc(docId));
