@@ -1,25 +1,19 @@
 
-
+'use client';
 import { getLocales as fetchAllLocales } from '@/app/actions';
 
-type LocaleEntry = string | string[];
-type Locales = Record<string, Record<string, LocaleEntry>>;
+export type LocaleEntry = string | string[];
+export type Locales = Record<string, Record<string, LocaleEntry>>;
 
-// This variable will act as a server-side cache.
+// This variable will act as a client-side cache.
 let translations: Locales | null = null;
 
-async function getTranslations(): Promise<Locales> {
-    if (translations) {
-        return translations;
+// Function to initialize or refresh the translations cache on the client.
+// This is now called from a client component (MainLayout) after the server has fetched the data.
+export function initializeTranslations(initialData: Locales) {
+    if (!translations) {
+        translations = initialData;
     }
-    // If not cached, fetch and then cache it.
-    translations = await fetchAllLocales();
-    return translations;
-}
-
-// Function to initialize or refresh the translations cache
-export async function initializeTranslations() {
-    translations = await fetchAllLocales();
 }
 
 
@@ -65,6 +59,3 @@ export function getAllAliases(key: string): Record<string, string[]> {
     
     return result;
 }
-
-// Initialize translations on server startup
-initializeTranslations();

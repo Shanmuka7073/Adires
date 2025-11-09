@@ -1,13 +1,14 @@
 
 'use client';
 
-import { useState, createContext, useContext, useCallback } from 'react';
+import { useState, createContext, useContext, useCallback, useEffect } from 'react';
 import { useCart } from '@/lib/cart';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { VoiceCommander } from '@/components/layout/voice-commander';
 import { ProfileCompletionChecker } from '@/components/profile-completion-checker';
 import { NotificationPermissionManager } from '@/components/layout/notification-permission-manager';
+import { initializeTranslations, type Locales } from '@/lib/locales';
 
 // Create a context to provide the trigger function
 const VoiceCommandContext = createContext<{ triggerVoicePrompt: () => void } | undefined>(undefined);
@@ -20,7 +21,13 @@ export function useVoiceCommander() {
     return context;
 }
 
-export function MainLayout({ children }: { children: React.ReactNode }) {
+export function MainLayout({ 
+  children,
+  initialLocales,
+}: { 
+  children: React.ReactNode;
+  initialLocales: Locales;
+}) {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState('Click the mic to start listening.');
   const [suggestedCommands, setSuggestedCommands] = useState<any[]>([]);
@@ -30,6 +37,11 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   // State to trigger re-evaluation in VoiceCommander
   const [voiceTrigger, setVoiceTrigger] = useState(0);
   
+  // Safely initialize the translations on the client
+  useEffect(() => {
+    initializeTranslations(initialLocales);
+  }, [initialLocales]);
+
   // Stable callback to trigger the voice prompt check
   const triggerVoicePrompt = useCallback(() => {
     setVoiceTrigger(v => v + 1);
@@ -64,5 +76,3 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     </VoiceCommandContext.Provider>
   );
 }
-
-    

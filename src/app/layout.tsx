@@ -7,6 +7,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase';
 import { CartProvider } from '@/lib/cart';
 import { MainLayout } from '@/components/layout/main-layout';
+import { getLocales } from '@/app/actions';
 
 
 const ptSans = PT_Sans({
@@ -21,11 +22,14 @@ export const metadata: Metadata = {
     description: 'Shop Fresh, Shop Local, Just by Voice',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Fetch initial locale data on the server
+  const initialLocales = await getLocales();
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -39,7 +43,7 @@ export default function RootLayout({
       >
         <FirebaseClientProvider>
           <CartProvider>
-            <MainLayout>
+            <MainLayout initialLocales={initialLocales}>
               {children}
             </MainLayout>
             <Toaster />
