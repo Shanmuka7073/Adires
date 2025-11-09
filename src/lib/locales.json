@@ -1,3 +1,4 @@
+
 {
   "home": {
     "en": [
@@ -291,12 +292,12 @@
     "te": "అన్ని దుకాణాలు అమ్మగల మాస్టర్ కేటలాగ్‌లో ఉత్పత్తులను జోడించండి లేదా సవరించండి."
   },
   "voice-commands-control": {
-    "en": "Voice Commands Control",
-    "te": "వాయిస్ ఆదేశాల నియంత్రణ"
+    "en": "AI Training Center",
+    "te": "AI శిక్షణా కేంద్రం"
   },
   "view-and-manage-the-voice-commands-users-can-say": {
-    "en": "View and manage the voice commands users can say.",
-    "te": "వినియోగదారులు చెప్పగల వాయిస్ ఆదేశాలను వీక్షించండి మరియు నిర్వహించండి."
+    "en": "Train the AI by adding aliases for products, stores, and actions.",
+    "te": "ఉత్పత్తులు, దుకాణాలు మరియు చర్యల కోసం మారుపేర్లను జోడించడం ద్వారా AIకి శిక్షణ ఇవ్వండి."
   },
   "admin-dashboard": {
     "en": "Admin Dashboard",
@@ -846,6 +847,21 @@
       "నల్ల దోసకాయ"
     ]
   },
+  "lemons": {
+    "en": [
+      "Lemons",
+      "Lemon",
+      "lomon",
+      "lemmon",
+      "limbu"
+    ],
+    "te": [
+      "నిమ్మకాయలు",
+      "నిమ్మకాయ",
+      "nimmakaya",
+      "nimma"
+    ]
+  },
   "apples": {
     "en": [
       "Apples",
@@ -1020,21 +1036,6 @@
       "కొబ్బరికాయ",
       "టెంకాయ",
       "qabar kaya"
-    ]
-  },
-  "lemons": {
-    "en": [
-      "Lemons",
-      "Lemon",
-      "lomon",
-      "lemmon",
-      "limbu"
-    ],
-    "te": [
-      "నిమ్మకాయలు",
-      "నిమ్మకాయ",
-      "nimmakaya",
-      "nimma"
     ]
   },
   "chicken": {
@@ -3615,27 +3616,6 @@
       "సేవ్ చేయాలి"
     ]
   },
-  "tomato": {
-    "en": [
-      "tomato",
-      "tamato",
-      "tometo",
-      "tameto",
-      "thomato",
-      "thomata",
-      "tomata",
-      "tomaato",
-      "thakkali",
-      "takali",
-      "tamatoo",
-      "tomot",
-      "tomatto",
-      "tomto"
-    ],
-    "te": [
-      "టమోటో"
-    ]
-  },
   "price-check-reply-speech": {
     "en": "{productName} is available as: {prices}.",
     "te": "{productName} ఈ క్రింది విధంగా అందుబాటులో ఉంది: {prices}."
@@ -3715,38 +3695,6 @@
       "order ela cheyyali"
     ]
   },
-  "green_chilli": {
-    "en": [
-      "green chilli",
-      "green chili",
-      "green mirchi",
-      "green mirch",
-      "chilies",
-      "chillies",
-      "mirchi"
-    ],
-    "te": [
-      "pachi mirchi",
-      "pachimirchi",
-      "mirapakaya",
-      "pachchi mirchi",
-      "pachhi mirchi"
-    ]
-  },
-  "lady_finger": {
-    "en": [
-      "lady finger",
-      "ladies finger",
-      "bhindi",
-      "okra",
-      "ladifinger"
-    ],
-    "te": [
-      "bendakaya",
-      "benda",
-      "okara"
-    ]
-  },
   "mushroom": {
     "en": [
       "mushroom",
@@ -3811,6 +3759,27 @@
     "te": [
       "koora aku",
       "aku vegetables"
+    ]
+  },
+  "snake-gourd": {
+    "en": [
+      "snake gourd",
+      "chichinda",
+      "snak gourd"
+    ],
+    "te": [
+      "potlakaya",
+      "potlakaaya"
+    ]
+  },
+  "spring-onion": {
+    "en": [
+      "spring onion",
+      "spring onyan",
+      "green onion",
+      "spring oniun",
+      "scallion",
+      "huli onion"
     ]
   }
 }
