@@ -12,8 +12,7 @@ import { useAppStore } from '@/lib/store';
 import { ProfileFormValues, useProfileFormStore } from '@/app/dashboard/customer/my-profile/page';
 import { useCheckoutStore } from '@/app/checkout/page';
 import { useMyStorePageStore } from '@/components/dashboard/owner/my-store/page';
-import { getCommands, getLocales } from '@/app/actions';
-import { t, getAllAliases, initializeTranslations } from '@/lib/locales';
+import { t, getAllAliases, initializeTranslations, loadLocales } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import groceryData from '@/lib/grocery-data.json';
@@ -224,24 +223,35 @@ export function VoiceCommander({
         if(!firestore) return;
         try {
             await fetchInitialData(firestore)
-            const [fetchedCommands, fetchedLocales] = await Promise.all([getCommands(), getLocales()]);
-            initializeTranslations(fetchedLocales); // Initialize the translation system
+            const locales = await loadLocales(); // This now reads from the client-side cache
             
-            if (fetchedCommands) {
-                fileCommandsRef.current = fetchedCommands;
+            // Re-construct commands from locales
+            const commands = {};
+            for (const key in locales) {
+                const entry = locales[key];
+                if(entry.display || entry.reply) {
+                    commands[key] = {
+                        display: Array.isArray(entry.display) ? entry.display[0] : entry.display,
+                        reply: Array.isArray(entry.reply) ? entry.reply[0] : entry.reply,
+                        aliases: [], // Aliases are handled globally by `t`
+                    };
+                }
             }
 
+            fileCommandsRef.current = commands;
+            
             const aliasMap: Record<string, Record<string, string[]>> = {};
-            for(const key in fetchedLocales) {
+            for(const key in locales) {
                 aliasMap[key] = {};
-                for(const lang in fetchedLocales[key]) {
-                    const value = fetchedLocales[key][lang];
+                for(const lang in locales[key]) {
+                    const value = locales[key][lang];
                     if (lang !== 'display' && lang !== 'reply' && lang !== 'aliases') {
                         aliasMap[key][lang] = Array.isArray(value) ? value : [value];
                     }
                 }
             }
             allAliasesRef.current = aliasMap;
+            initializeTranslations(locales);
 
         } catch (error) {
             console.error("Failed to load initial command data:", error);
@@ -1137,3 +1147,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    

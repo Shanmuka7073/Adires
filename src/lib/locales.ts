@@ -1,7 +1,9 @@
 
 
 'use client';
-import { getLocales as fetchAllLocales } from '@/app/actions';
+
+// This new version no longer uses server actions.
+// It will be powered by client-side Firestore queries.
 
 export type LocaleEntry = string | string[];
 export type Locales = Record<string, Record<string, LocaleEntry>>;
@@ -55,15 +57,7 @@ export function getAllAliases(key: string): Record<string, string[]> {
     return result;
 }
 
-// New function to be called from a client component to fetch all locales
+// loadLocales is no longer needed as data is fetched directly in components.
 export async function loadLocales() {
-    if (!translations) {
-        try {
-            const fetchedLocales = await fetchAllLocales();
-            initializeTranslations(fetchedLocales);
-        } catch (error) {
-            console.error("Failed to load locales from client:", error);
-        }
-    }
     return translations;
 }

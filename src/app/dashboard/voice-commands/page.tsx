@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, PlusCircle, Save, X, Mic, MessageSquare, Code, Package, Store as StoreIcon, Trash2 } from 'lucide-react';
-import { getCommands, saveCommands, getLocales, saveLocales } from '@/app/actions';
 import { useAppStore } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -16,6 +15,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useFirebase } from '@/firebase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { collection, getDocs, writeBatch, query, where } from 'firebase/firestore';
+
 
 type CommandGroup = {
   display: string;
@@ -24,8 +25,63 @@ type CommandGroup = {
 
 type LocaleEntry = string | string[];
 type Locales = Record<string, Record<string, LocaleEntry>>;
+type VoiceAlias = { id?: string; key: string; language: string; alias: string; type: string };
 
 const createSlug = (text: string) => text.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-');
+
+// --- Client-Side Data Fetching and Saving ---
+async function fetchAliasesFromFirestore(db): Promise<VoiceAlias[]> {
+    const aliasCollection = collection(db, 'voiceAliases');
+    const snapshot = await getDocs(aliasCollection);
+    if (snapshot.empty) {
+        return [];
+    }
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAlias));
+}
+
+async function getCommands(db): Promise<Record<string, CommandGroup>> {
+    const aliases = await fetchAliasesFromFirestore(db);
+    const commandAliases = aliases.filter(a => a.type === 'command');
+    
+    const commands: Record<string, CommandGroup> = {};
+
+    commandAliases.forEach(aliasDoc => {
+         if (aliasDoc.language === 'display' || aliasDoc.language === 'reply') {
+            if (!commands[aliasDoc.key]) {
+                commands[aliasDoc.key] = { display: '', reply: '' };
+            }
+            if (aliasDoc.language === 'display') commands[aliasDoc.key].display = aliasDoc.alias;
+            if (aliasDoc.language === 'reply') commands[aliasDoc.key].reply = aliasDoc.alias;
+        }
+    });
+
+    return commands;
+}
+
+async function getLocales(db): Promise<Locales> {
+    const aliases = await fetchAliasesFromFirestore(db);
+    const locales: Locales = {};
+
+    aliases.forEach(aliasDoc => {
+        if (aliasDoc.language === 'display' || aliasDoc.language === 'reply') return;
+
+        if (!locales[aliasDoc.key]) {
+            locales[aliasDoc.key] = {};
+        }
+
+        const langEntry = locales[aliasDoc.key][aliasDoc.language];
+        
+        if (Array.isArray(langEntry)) {
+            langEntry.push(aliasDoc.alias);
+        } else if (typeof langEntry === 'string') {
+            locales[aliasDoc.key][aliasDoc.language] = [langEntry, aliasDoc.alias];
+        } else {
+            locales[aliasDoc.key][aliasDoc.language] = aliasDoc.alias;
+        }
+    });
+    
+    return locales;
+}
 
 
 export default function VoiceCommandsPage() {
@@ -53,12 +109,12 @@ export default function VoiceCommandsPage() {
     const { toast } = useToast();
 
     const loadAllData = useCallback(() => {
+        if (!firestore) return;
         startTransition(async () => {
             try {
-                // Fetch all data concurrently
                 const [fetchedCommands, fetchedLocales] = await Promise.all([
-                    getCommands(),
-                    getLocales(),
+                    getCommands(firestore),
+                    getLocales(firestore),
                 ]);
                 setCommands(fetchedCommands);
                 setLocales(fetchedLocales);
@@ -71,14 +127,13 @@ export default function VoiceCommandsPage() {
                 });
             }
         });
-    }, [toast]);
+    }, [firestore, toast]);
 
     useEffect(() => {
-        // Fetch stores and products for alias management
         if (firestore) {
             fetchInitialData(firestore);
+            loadAllData();
         }
-        loadAllData();
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
@@ -98,7 +153,7 @@ export default function VoiceCommandsPage() {
         } else {
             console.warn("Speech recognition not supported in this browser.");
         }
-    }, [loadAllData, firestore, fetchInitialData, toast]);
+    }, [firestore, fetchInitialData, loadAllData, toast]);
 
 
     const handleAddAlias = (itemKey: string, lang: string) => {
@@ -147,7 +202,7 @@ export default function VoiceCommandsPage() {
         }
         if (addedCount > 0) {
             const addedAliases = aliasesToAdd.filter(a => !duplicates.includes(a));
-            toast({ title: 'Alias Added', description: `Added "${addedAliases.join(', ')}".` });
+            toast({ title: 'Alias Added', description: `Added "${addedAliases.join(', ')}". Remember to save.` });
         }
     };
 
@@ -169,7 +224,6 @@ export default function VoiceCommandsPage() {
                 delete updatedLocales[itemKey][lang];
             }
             
-            // Clean up the item key if no languages are left
             if (updatedLocales[itemKey] && Object.keys(updatedLocales[itemKey]).length === 0) {
                 delete updatedLocales[itemKey];
             }
@@ -224,18 +278,46 @@ export default function VoiceCommandsPage() {
 
 
     const handleSaveAll = () => {
+        if (!firestore) return;
         startTransition(async () => {
             try {
-                await Promise.all([saveCommands(commands), saveLocales(locales)]);
+                const batch = writeBatch(firestore);
+                const aliasCollection = collection(firestore, 'voiceAliases');
+
+                // Nuke all existing aliases
+                const existingDocs = await getDocs(aliasCollection);
+                existingDocs.forEach(doc => batch.delete(doc.ref));
+
+                // Add all new command aliases (display/reply)
+                for (const key in commands) {
+                    const { display, reply } = commands[key];
+                    if (display) batch.set(doc(aliasCollection), { key, language: 'display', alias: display, type: 'command' });
+                    if (reply) batch.set(doc(aliasCollection), { key, language: 'reply', alias: reply, type: 'command' });
+                }
+
+                // Add all new locale aliases
+                for (const key in locales) {
+                    const langMap = locales[key];
+                    const itemType = masterProducts.some(p => createSlug(p.name) === key) ? 'product' : (stores.some(s => createSlug(s.name) === key) ? 'store' : 'command');
+                    for (const lang in langMap) {
+                        const aliases = Array.isArray(langMap[lang]) ? langMap[lang] as string[] : [langMap[lang] as string];
+                        for (const alias of aliases) {
+                            if (alias) batch.set(doc(aliasCollection), { key, language: lang, alias, type: itemType });
+                        }
+                    }
+                }
+
+                await batch.commit();
+
                 toast({
-                    title: 'Commands Saved!',
-                    description: 'Your new voice commands and aliases have been saved successfully.',
+                    title: 'All Changes Saved!',
+                    description: 'Your voice commands and aliases have been saved to the database.',
                 });
             } catch (error) {
                  toast({
                     variant: 'destructive',
                     title: 'Save Failed',
-                    description: (error as Error).message || 'Could not save changes.',
+                    description: (error as Error).message || 'Could not save changes to Firestore.',
                 });
             }
         });
@@ -465,3 +547,5 @@ export default function VoiceCommandsPage() {
         </div>
     );
 }
+
+    
