@@ -3,8 +3,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { adminApp, firestore as adminFirestore } from '@/firebase/admin-init';
-import { collection, getDocs, writeBatch, doc, addDoc, deleteDoc } from 'firebase/firestore';
+import { firestore as adminFirestore } from '@/firebase/admin-init';
+import { collection, getDocs, writeBatch, doc, addDoc, deleteDoc, query, where } from 'firebase/firestore';
 
 type CommandGroup = {
   display: string;
@@ -89,16 +89,11 @@ export async function saveCommands(commands: Record<string, CommandGroup>): Prom
         const aliasCollection = collection(adminFirestore, 'voiceAliases');
         
         // Query existing command display/reply docs to delete them before writing new ones
-        const q = query(collection(adminFirestore, 'voiceAliases'), where('type', '==', 'command'));
+        const q = query(aliasCollection, where('type', '==', 'command'), where('language', 'in', ['display', 'reply']));
         const existingDocs = await getDocs(q);
 
-        const keysFromDb = new Set<string>();
         existingDocs.forEach(doc => {
-            const data = doc.data();
-            if (data.language === 'display' || data.language === 'reply') {
-                batch.delete(doc.ref);
-            }
-            keysFromDb.add(data.key);
+            batch.delete(doc.ref);
         });
         
         // Add new/updated display and reply docs
@@ -130,13 +125,10 @@ export async function saveLocales(locales: Locales): Promise<{ success: boolean;
         const aliasCollection = collection(adminFirestore, 'voiceAliases');
 
         // First, delete all existing aliases that are not 'display' or 'reply'
-        const q = query(aliasCollection);
+        const q = query(aliasCollection, where('language', 'not-in', ['display', 'reply']));
         const existingDocs = await getDocs(q);
         existingDocs.forEach(doc => {
-            const data = doc.data();
-             if (data.language !== 'display' && data.language !== 'reply') {
-                batch.delete(doc.ref);
-            }
+            batch.delete(doc.ref);
         });
         
         // Now, add all the new aliases from the locales object
@@ -145,7 +137,7 @@ export async function saveLocales(locales: Locales): Promise<{ success: boolean;
             const itemType = determineItemType(key); // You'll need this helper
 
             for (const lang in langMap) {
-                const aliases = Array.isArray(langMap[lang]) ? langMap[lang] : [langMap[lang]];
+                const aliases = Array.isArray(langMap[lang]) ? langMap[lang] as string[] : [langMap[lang] as string];
                 for (const alias of aliases) {
                     if (alias) { // Ensure alias is not empty
                         const newDocRef = doc(aliasCollection);

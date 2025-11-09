@@ -44,7 +44,7 @@ export default function VoiceCommandsPage() {
     const [newCommandReply, setNewCommandReply] = useState('');
 
 
-    const { masterProducts, stores } = useAppStore();
+    const { masterProducts, stores, fetchInitialData } = useAppStore();
     const { firestore } = useFirebase();
 
     const [isListening, setIsListening] = useState(false);
@@ -53,7 +53,6 @@ export default function VoiceCommandsPage() {
     const { toast } = useToast();
 
     const loadAllData = useCallback(() => {
-        if (!firestore) return;
         startTransition(async () => {
             try {
                 // Fetch all data concurrently
@@ -72,9 +71,13 @@ export default function VoiceCommandsPage() {
                 });
             }
         });
-    }, [firestore, toast]);
+    }, [toast]);
 
     useEffect(() => {
+        // Fetch stores and products for alias management
+        if (firestore) {
+            fetchInitialData(firestore);
+        }
         loadAllData();
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -95,7 +98,7 @@ export default function VoiceCommandsPage() {
         } else {
             console.warn("Speech recognition not supported in this browser.");
         }
-    }, [loadAllData]);
+    }, [loadAllData, firestore, fetchInitialData, toast]);
 
 
     const handleAddAlias = (itemKey: string, lang: string) => {
