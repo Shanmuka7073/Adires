@@ -72,21 +72,7 @@ function AdminActionCard({ title, description, href, icon: Icon }: { title: stri
 export default function AdminDashboardPage() {
     const { user, isUserLoading, firestore } = useFirebase();
     const router = useRouter();
-    const [systemStatus, setSystemStatus] = useState<{ userCount: number, status: string } | null>(null);
-    const [statusLoading, setStatusLoading] = useState(true);
-
-    // Fetch system status from server action
-    useEffect(() => {
-        const fetchStatus = async () => {
-            setStatusLoading(true);
-            const status = await getSystemStatus();
-            setSystemStatus(status);
-            setStatusLoading(false);
-        };
-        fetchStatus();
-    }, []);
-
-
+    
     // Queries for stats
     const storesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'stores'), where('isClosed', '!=', true)) : null, [firestore]);
     const partnersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'deliveryPartners') : null, [firestore]);
@@ -111,7 +97,7 @@ export default function AdminDashboardPage() {
         totalOrdersDelivered: deliveredOrders?.length ?? 0,
     }), [stores, partners, deliveredOrders]);
 
-    const statsLoading = isUserLoading || storesLoading || partnersLoading || ordersLoading || statusLoading;
+    const statsLoading = isUserLoading || storesLoading || partnersLoading || ordersLoading;
 
     useEffect(() => {
         if (!isUserLoading && (!user || user.email !== ADMIN_EMAIL)) {
@@ -124,8 +110,6 @@ export default function AdminDashboardPage() {
     }
 
     const statItems = [
-        { title: 'System Status', value: systemStatus?.status === 'ok' ? 'Live' : 'Error', icon: Server, isLive: systemStatus?.status === 'ok'},
-        { title: 'Total Customers', value: systemStatus?.userCount ?? 0, icon: Users },
         { title: 'total-stores', value: stats.totalStores, icon: Store },
         { title: 'delivery-partners', value: stats.totalDeliveryPartners, icon: Truck },
         { title: 'orders-delivered', value: stats.totalOrdersDelivered, icon: ShoppingBag },
@@ -140,7 +124,7 @@ export default function AdminDashboardPage() {
             
             {!masterStoreExists && <CreateMasterStoreCard />}
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-8">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
                 {statItems.map(item => (
                     <StatCard 
                         key={item.title} 
@@ -148,7 +132,6 @@ export default function AdminDashboardPage() {
                         value={item.value}
                         icon={item.icon}
                         loading={statsLoading}
-                        isLive={item.isLive}
                     />
                 ))}
             </div>
