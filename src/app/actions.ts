@@ -36,13 +36,9 @@ export async function getCommands(): Promise<Record<string, CommandGroup>> {
     const filePath = path.join(LOCALES_DIR, 'commands.json');
     const commandLocales = await readJsonFile<any>(filePath);
     
-    // The command file now contains aliases too, we need to extract the command-specific fields
     const commands: Record<string, CommandGroup> = {};
     if (commandLocales) {
       for (const key in commandLocales) {
-        // A simple heuristic: if it has a 'reply' field, it's a command.
-        // This relies on the structure from the old commands.json
-        // A more robust way might be needed if structures diverge.
         const potentialCommand = commandLocales[key];
         if (potentialCommand && typeof potentialCommand.reply === 'string' && typeof potentialCommand.display === 'string') {
           commands[key] = {
@@ -54,13 +50,12 @@ export async function getCommands(): Promise<Record<string, CommandGroup>> {
       }
     }
     
-    // Fallback to legacy commands.json if it exists
     if (Object.keys(commands).length === 0) {
         const legacyPath = path.join(process.cwd(), 'src', 'lib', 'commands.json');
         try {
             const legacyCommands = await readJsonFile<Record<string, CommandGroup>>(legacyPath);
             if (legacyCommands) {
-                 await fs.unlink(legacyPath); // remove legacy file
+                 await fs.unlink(legacyPath); 
                  return legacyCommands;
             }
         } catch(e) {
@@ -72,33 +67,23 @@ export async function getCommands(): Promise<Record<string, CommandGroup>> {
 }
 
 export async function saveCommands(commands: Record<string, CommandGroup>): Promise<{ success: boolean; }> {
-    const filePath = path.join(LOCALES_DIR, 'commands.json');
-     try {
-        // When saving commands, we need to merge them with any existing aliases in that file
-        const existingFileContent = await readJsonFile<Locales>(filePath) || {};
-        
-        Object.entries(commands).forEach(([key, value]) => {
-            if (!existingFileContent[key]) {
-                existingFileContent[key] = {};
-            }
-            // Merge command-specific data with locale data
-            Object.assign(existingFileContent[key], value);
-        });
+    const allLocales = await getLocales();
 
-        const jsonContent = JSON.stringify(existingFileContent, null, 2);
-        await fs.writeFile(filePath, jsonContent, 'utf-8');
-        return { success: true };
-    } catch (error) {
-        console.error("Error writing commands file:", error);
-        throw new Error("Could not save commands to file.");
+    for (const key in commands) {
+      if (!allLocales[key]) {
+        allLocales[key] = {};
+      }
+      Object.assign(allLocales[key], commands[key]);
     }
+    
+    return saveLocales(allLocales);
 }
 
 export async function getLocales(): Promise<Locales> {
     const mergedLocales: Locales = {};
     try {
         const files = await fs.readdir(LOCALES_DIR);
-        const jsonFiles = files.filter(file => file.endsWith('.json') && file !== 'locales.json');
+        const jsonFiles = files.filter(file => file.endsWith('.json'));
 
         for (const file of jsonFiles) {
             const filePath = path.join(LOCALES_DIR, file);
@@ -108,23 +93,6 @@ export async function getLocales(): Promise<Locales> {
             }
         }
         
-        // Handle legacy locales.json if it exists
-        const legacyFilePath = path.join(LOCALES_DIR, 'locales.json');
-        try {
-             const legacyContent = await fs.readFile(legacyFilePath, 'utf-8');
-             if (legacyContent.trim()) {
-                 const legacyLocales = JSON.parse(legacyContent);
-                 Object.assign(mergedLocales, legacyLocales);
-                 // Overwrite with empty after processing to prevent re-processing
-                 await fs.writeFile(legacyFilePath, '{}', 'utf-8');
-             }
-        } catch (e) {
-             // File might not exist, which is fine
-             if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
-                console.warn("Could not process legacy locales.json", e);
-             }
-        }
-
         return mergedLocales;
     } catch (error) {
         console.error("Error reading locales directory:", error);
@@ -132,92 +100,20 @@ export async function getLocales(): Promise<Locales> {
     }
 }
 
-async function getAllLocalesByCategory(): Promise<Record<string, Locales>> {
-    const allLocales: Record<string, Locales> = {};
-    try {
-        const files = await fs.readdir(LOCALES_DIR);
-        const jsonFiles = files.filter(file => file.endsWith('.json') && file !== 'locales.json');
-
-        for (const file of jsonFiles) {
-            const category = path.basename(file, '.json');
-            const filePath = path.join(LOCALES_DIR, file);
-            const content = await readJsonFile<Locales>(filePath);
-            if (content) {
-                allLocales[category] = content;
-            }
-        }
-    } catch (error) {
-        console.error("Error reading locales directory:", error);
-    }
-    return allLocales;
-}
-
 export async function saveLocales(locales: Locales): Promise<{ success: boolean; }> {
     try {
-        const localesByCategory = await getAllLocalesByCategory();
-        const groceryData = await readJsonFile<any>(path.join(process.cwd(), 'src', 'lib', 'grocery-data.json'));
-        
-        if (!groceryData) {
-            throw new Error("Could not load grocery-data.json to determine categories.");
-        }
-
-        const productToCategoryMap = new Map<string, string>();
-        groceryData.categories.forEach(category => {
-            const categorySlug = category.categoryName.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-');
-            category.items.forEach(item => {
-                // This slug generation MUST match the keys in the locale files (e.g., 'potatoes', 'green-chilies')
-                const productSlug = item.toLowerCase().replace(/\s*\(.*\)\s*/g, '').replace(/\s+/g, '-');
-                 productToCategoryMap.set(productSlug, categorySlug);
-            });
-        });
-        
-        const newCategoryFiles: Record<string, Locales> = {};
-
         for (const key in locales) {
-            let category = productToCategoryMap.get(key);
-
-            if (!category) {
-                // If not in the grocery-data map, check which existing file it belongs to.
-                for(const cat in localesByCategory) {
-                    if (localesByCategory[cat][key]) {
-                        category = cat;
-                        break;
-                    }
-                }
-                 // Default to a file based on existing structure or a default name
-                if (!category) {
-                   category = 'miscellaneous';
-                   if (localesByCategory.commands && localesByCategory.commands[key]) {
-                       category = 'commands';
-                   } else if(localesByCategory.stores && localesByCategory.stores[key]) {
-                       category = 'stores';
-                   }
-                }
+            if (Object.prototype.hasOwnProperty.call(locales, key)) {
+                const filePath = path.join(LOCALES_DIR, `${key}.json`);
+                const content = { [key]: locales[key] };
+                const jsonContent = JSON.stringify(content, null, 2);
+                await fs.writeFile(filePath, jsonContent, 'utf-8');
             }
-            
-            // Special handling for category names themselves, which are their own files
-            const isCategoryKey = groceryData.categories.some(c => c.categoryName.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-') === key);
-            if (isCategoryKey) {
-                category = key;
-            }
-
-
-            if (!newCategoryFiles[category]) {
-                newCategoryFiles[category] = {};
-            }
-            newCategoryFiles[category][key] = locales[key];
-        }
-
-        for (const category in newCategoryFiles) {
-            const filePath = path.join(LOCALES_DIR, `${category}.json`);
-            const jsonContent = JSON.stringify(newCategoryFiles[category], null, 2);
-            await fs.writeFile(filePath, jsonContent, 'utf-8');
         }
         return { success: true };
-
     } catch (error) {
-        console.error("Error writing locales files:", error);
-        throw new Error("Could not save locales to files.");
+        console.error("Error writing locale files:", error);
+        throw new Error("Could not save locales to individual files.");
     }
 }
 

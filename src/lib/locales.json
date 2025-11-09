@@ -1,2 +1,2668 @@
 
-{}
+{
+  "tomato": {
+    "en": [
+      "tomato",
+      "tamato",
+      "tometo",
+      "tameto",
+      "thomato",
+      "thomata",
+      "tomata",
+      "tomaato",
+      "thakkali",
+      "takali",
+      "tamatoo",
+      "tomot",
+      "tomatto",
+      "tomto"
+    ],
+    "te": [
+      "టమోటాలు",
+      "టమోటా",
+      "రామ ములగ",
+      "టమాట",
+      "టమాట పండు",
+      "rammulapandu",
+      "టమోటో"
+    ]
+  },
+  "onion": {
+    "en": [
+      "onion",
+      "anian",
+      "anion",
+      "unyun",
+      "unyion",
+      "uniyan",
+      "ulli",
+      "ulipaya",
+      "ullipayalu",
+      "ulli gadda",
+      "ulligadda",
+      "pyaz",
+      "piyaj",
+      "piaj",
+      "onyan",
+      "oniun"
+    ],
+    "te": [
+      "ఉల్లిపాయ",
+      "ఉల్లిపాయలు",
+      "ఉల్లి",
+      "ఉల్లిగడ్డ",
+      "ఎర్రగడ్డ",
+      "ఎర్రగడ్డలు",
+      "నీరుల్లి",
+      "ullipaya",
+      "ullipayalu",
+      "ulli",
+      "ulligadda",
+      "erragadda",
+      "neerulli",
+      "oniyan",
+      "oniyans",
+      "ఒనియన్",
+      "ఒనియన్స్",
+      "ఉల్లిపాయలు కావాలి",
+      "ఉల్లిపాయ కావాలి",
+      "ఉల్లి గడ్డలు",
+      "ఉల్లిపాయలు ఉల్లిపాయలు",
+      "ulli gadda"
+    ],
+    "hi": [
+      "pyaz",
+      "pyaaz",
+      "pyaj",
+      "kanda",
+      "प्याज",
+      "प्याज़",
+      "कांदा"
+    ]
+  },
+  "potato": {
+    "en": [
+      "potato",
+      "patato",
+      "batata",
+      "bateta",
+      "aloo",
+      "alu",
+      "alugadda",
+      "allugadda",
+      "poteto",
+      "potetu",
+      "potat",
+      "potatoh"
+    ],
+    "te": [
+      "బంగాళాదుంపలు",
+      "ఆలుగడ్డ",
+      "ఆలు",
+      "పొటాటో",
+      "బంగాళదుంప",
+      "అలోగడ్డ",
+      "bangaladumpa",
+      "bangala dumpa",
+      "alugadda",
+      "allugadda"
+    ]
+  },
+  "green_chilli": {
+    "en": [
+      "green chilli",
+      "green chili",
+      "green mirchi",
+      "green mirch",
+      "pachi mirchi",
+      "pachimirchi",
+      "mirapakaya",
+      "chilies",
+      "chillies",
+      "mirchi",
+      "pachchi mirchi",
+      "pachhi mirchi"
+    ],
+    "te": [
+      "పచ్చి మిరపకాయలు",
+      "పచ్చి మిర్చి",
+      "mirapakaya",
+      "pachi mirchi",
+      "pachimirchi",
+      "pachchi mirchi",
+      "pachhi mirchi"
+    ]
+  },
+  "carrot": {
+    "en": [
+      "carrot",
+      "karrot",
+      "kerat",
+      "karat",
+      "gajar",
+      "gajjara",
+      "gajjare",
+      "carat",
+      "carret",
+      "carotte",
+      "carot",
+      "carroot"
+    ],
+    "te": [
+      "క్యారెట్లు",
+      "క్యారెట్",
+      "గాజర",
+      "gajjara",
+      "gajjare"
+    ]
+  },
+  "cabbage": {
+    "en": [
+      "cabbage",
+      "cabage",
+      "cabbej",
+      "kabbij",
+      "gabij",
+      "gabbage",
+      "gommanga",
+      "gommanga chekka",
+      "cabej",
+      "cabij"
+    ],
+    "te": [
+      "క్యాబేజీ",
+      "పట్టాగోబి",
+      "gommanga",
+      "gommanga chekka"
+    ]
+  },
+  "cauliflower": {
+    "en": [
+      "cauliflower",
+      "cauli flower",
+      "cauli",
+      "koliflower",
+      "gobi",
+      "gobi gadda",
+      "gobhi",
+      "goppi",
+      "cali flower"
+    ],
+    "te": [
+      "కాలీఫ్లవర్",
+      "గోబి పువ్వు",
+      "gobi gadda"
+    ]
+  },
+  "beans": {
+    "en": [
+      "beans",
+      "beens",
+      "bins",
+      "bens",
+      "beanz",
+      "chikkudu",
+      "chikkudu kaya",
+      "chikud",
+      "chikkud",
+      "bends"
+    ],
+    "te": [
+      "బీన్స్",
+      "chikkudu",
+      "chikkudu kaya",
+      "chikud",
+      "chikkud"
+    ]
+  },
+  "brinjal": {
+    "en": [
+      "brinjal",
+      "bringal",
+      "brinzel",
+      "baingan",
+      "vankaya",
+      "vangaya",
+      "bangun",
+      "bengan",
+      "brinjal gadda"
+    ],
+    "te": [
+      "వంకాయ",
+      "వంగ",
+      "vankaya",
+      "vangaya",
+      "brinjal gadda"
+    ]
+  },
+  "spinach": {
+    "en": [
+      "spinach",
+      "palak",
+      "paluku",
+      "palaku",
+      "palakura",
+      "keerai",
+      "keerai leaf",
+      "palaaku",
+      "palakh",
+      "spanich"
+    ],
+    "te": [
+      "పాలకూర",
+      "palakura",
+      "paluku",
+      "palaku",
+      "keerai",
+      "keerai leaf",
+      "palaaku",
+      "palakh"
+    ]
+  },
+  "coriander": {
+    "en": [
+      "coriander",
+      "kothimeera",
+      "kothmir",
+      "kothimeeru",
+      "dhania",
+      "dhaniya",
+      "kottimeera",
+      "kotimeera",
+      "coriender"
+    ],
+    "te": [
+      "కొత్తిమీర",
+      "kothimeera",
+      "kothimeeru",
+      "kottimeera",
+      "kotimeera"
+    ]
+  },
+  "mint": {
+    "en": [
+      "mint",
+      "pudina",
+      "pudhina",
+      "pudina leaf",
+      "mint leaf",
+      "pudina aku",
+      "pudina chettu",
+      "pudhina aku"
+    ],
+    "te": [
+      "పుదీనా ఆకులు",
+      "పుదీనా",
+      "pudina leaf",
+      "pudina aku",
+      "pudina chettu",
+      "pudhina aku"
+    ]
+  },
+  "ginger": {
+    "en": [
+      "ginger",
+      "giner",
+      "ginjer",
+      "inza",
+      "inji",
+      "allam",
+      "allamu",
+      "alum",
+      "allam piece",
+      "gingar"
+    ],
+    "te": [
+      "అల్లం",
+      "allam",
+      "allamu",
+      "alum",
+      "allam piece"
+    ]
+  },
+  "garlic": {
+    "en": [
+      "garlic",
+      "gaarlic",
+      "garlicc",
+      "vellulli",
+      "velluli",
+      "lasun",
+      "lassun",
+      "lason",
+      "garlik"
+    ],
+    "te": [
+      "వెల్లుల్లి",
+      "ఎల్లిపాయ",
+      "వెల్లులి",
+      "vellulli",
+      "velluli"
+    ]
+  },
+  "lady_finger": {
+    "en": [
+      "lady finger",
+      "ladies finger",
+      "bhindi",
+      "bendi",
+      "bendakaya",
+      "benda",
+      "okra",
+      "okara",
+      "ladifinger"
+    ],
+    "te": [
+      "బెండకాయ",
+      "బెండ",
+      "bendakaya"
+    ]
+  },
+  "bottle_gourd": {
+    "en": [
+      "bottle gourd",
+      "lauki",
+      "dudhi",
+      "sorakaya",
+      "sorkaya",
+      "sorakai",
+      "sora gadda",
+      "bottle guard"
+    ],
+    "te": [
+      "సొరకాయ",
+      "ఆనపకాయ",
+      "sorakaya",
+      "sorkaya",
+      "sorakai",
+      "sora gadda"
+    ]
+  },
+  "ridge_gourd": {
+    "en": [
+      "ridge gourd",
+      "beerakaya",
+      "beerakaaya",
+      "birakaya",
+      "turai",
+      "tori",
+      "ridgeguard",
+      "berakaya"
+    ],
+    "te": [
+      "బీరకాయ",
+      "beerakaya",
+      "birakaya",
+      "berakaya"
+    ]
+  },
+  "drumstick": {
+    "en": [
+      "drumstick",
+      "drum stik",
+      "moringa",
+      "munaga",
+      "munagakaya",
+      "murungai",
+      "drumstik"
+    ],
+    "te": [
+      "మునగకాయ",
+      "munagakaya",
+      "munaga",
+      "murungai"
+    ]
+  },
+  "peas": {
+    "en": [
+      "peas",
+      "peace",
+      "pees",
+      "green peas",
+      "batani",
+      "bhatani",
+      "mutter",
+      "matar",
+      "mattar"
+    ],
+    "te": [
+      "బఠానీలు",
+      "పచ్చి బఠానీలు",
+      "బటానీ",
+      "పచ్చి బటానీ",
+      "batani",
+      "bhatani"
+    ]
+  },
+  "beetroot": {
+    "en": [
+      "beetroot",
+      "bitroot",
+      "bitrut",
+      "beetrootu",
+      "beet",
+      "beatroot",
+      "beet rot",
+      "betroot"
+    ],
+    "te": [
+      "బీట్‌రూట్",
+      "beetrootu"
+    ]
+  },
+  "capsicum": {
+    "en": [
+      "capsicum",
+      "capsicon",
+      "shimla mirch",
+      "capsikum",
+      "capsicam",
+      "bell pepper",
+      "green capsicum"
+    ],
+    "te": [
+      "క్యాప్సికమ్",
+      "బెంగళూరు మిరపకాయ"
+    ]
+  },
+  "mushroom": {
+    "en": [
+      "mushroom",
+      "mashroom",
+      "mushrum",
+      "muchroom",
+      "musroom",
+      "mashrum",
+      "mushroom packet"
+    ],
+    "te": [
+      "పుట్టగొడుగు",
+      "పుట్టగొడుగులు"
+    ]
+  },
+  "sweet_potato": {
+    "en": [
+      "sweet potato",
+      "sweet patato",
+      "sweet batata",
+      "kumara",
+      "chilakada dumpa",
+      "sweet alu",
+      "sweet aloo"
+    ],
+    "te": [
+      "చిలగడదుంప",
+      "రత్నపురి గడ్డ",
+      "చెక్కరకంద",
+      "kumara",
+      "chilakada dumpa"
+    ]
+  },
+  "radish": {
+    "en": [
+      "radish",
+      "mooli",
+      "muli",
+      "moolii",
+      "mulangi",
+      "mullangi",
+      "mulakaya"
+    ],
+    "te": [
+      "ముల్లంగి",
+      "mulangi",
+      "mullangi",
+      "mulakaya"
+    ]
+  },
+  "pumpkin": {
+    "en": [
+      "pumpkin",
+      "pumpkim",
+      "pumkin",
+      "gummadikaya",
+      "gummadi",
+      "kaddu",
+      "kaddoo"
+    ],
+    "te": [
+      "గుమ్మడికాయ",
+      "gummadikaya",
+      "gummadi"
+    ]
+  },
+  "cucumber": {
+    "en": [
+      "cucumber",
+      "kheera",
+      "kakadi",
+      "dosakaya",
+      "dosekaya"
+    ],
+    "te": [
+      "కీర దోసకాయ",
+      "దోసకాయ",
+      "dosakaya",
+      "kakadi",
+      "dosekaya"
+    ]
+  },
+  "tinda": {
+    "en": [
+      "tinda",
+      "tindaa",
+      "tindha",
+      "tendu",
+      "indi gourd"
+    ],
+    "te": [
+      "టిండ",
+      "టిండా"
+    ]
+  },
+  "bitter_gourd": {
+    "en": [
+      "bitter gourd",
+      "karela",
+      "kakarkaya",
+      "kakar kaya",
+      "karela gourd",
+      "biter gourd"
+    ],
+    "te": [
+      "కాకరకాయ",
+      "kakarakaya",
+      "kakar kaya"
+    ]
+  },
+  "snake_gourd": {
+    "en": [
+      "snake gourd",
+      "potlakaya",
+      "potlakaaya",
+      "chichinda",
+      "snak gourd"
+    ],
+    "te": [
+      "పొట్లకాయ",
+      "potlakaya",
+      "potlakaaya"
+    ]
+  },
+  "yam": {
+    "en": [
+      "yam",
+      "kanda",
+      "kand",
+      "surankanda",
+      "yam root",
+      "yam gadda"
+    ],
+    "te": [
+      "కంద గడ్డ",
+      "కంద",
+      "కందగడ్డ",
+      "yam gadda"
+    ]
+  },
+  "colocasia": {
+    "en": [
+      "colocasia",
+      "taro",
+      "arbi",
+      "chaamagadda",
+      "chamagadda",
+      "arvi"
+    ],
+    "te": [
+      "చేమగడ్డ",
+      "chaamagadda",
+      "chamagadda"
+    ]
+  },
+  "raw_banana": {
+    "en": [
+      "raw banana",
+      "arati kaya",
+      "banana vegetable",
+      "balekai",
+      "raw plantain",
+      "arati kaya gadda"
+    ],
+    "te": [
+      "పచ్చి అరటికాయ",
+      "అరటికాయ",
+      "arati kaya",
+      "banana vegetable",
+      "balekai",
+      "arati kaya gadda"
+    ]
+  },
+  "spring_onion": {
+    "en": [
+      "spring onion",
+      "spring onyan",
+      "green onion",
+      "spring oniun",
+      "scallion",
+      "huli onion"
+    ],
+    "te": [
+      "స్ప్రింగ్ ఉల్లిపాయ",
+      "ఉల్లికాడలు"
+    ]
+  },
+  "lemon": {
+    "en": [
+      "lemon",
+      "nimmakaya",
+      "nimma",
+      "nimbu",
+      "lomon",
+      "lemmon",
+      "limbu"
+    ],
+    "te": [
+      "నిమ్మకాయలు",
+      "నిమ్మకాయ",
+      "nimmakaya",
+      "nimma"
+    ]
+  },
+  "green_leaf": {
+    "en": [
+      "green leaf",
+      "leafy greens",
+      "koora aku",
+      "aku vegetables",
+      "greens",
+      "keerai",
+      "leaf vegetable"
+    ],
+    "te": [
+      "ఆకుకూరలు",
+      "koora aku",
+      "aku vegetables"
+    ]
+  },
+  "vegetables": {
+    "en": "Vegetables",
+    "te": [
+      "కూరగాయలు"
+    ]
+  },
+  "dals-&-pulses": {
+    "en": [
+      "Dals & Pulses",
+      "Dals",
+      "Pulses",
+      "pappulu"
+    ],
+    "te": [
+      "పప్పులు & పప్పుధాన్యాలు",
+      "పప్పులు",
+      "పప్పుధాన్యాలు"
+    ]
+  },
+  "toor-dal-(arhar-dal)": {
+    "en": [
+      "toordal",
+      "toor dal",
+      "arhar dal",
+      "tuvar dal"
+    ],
+    "te": [
+      "kandipappu",
+      "kandi pappu",
+      "కందిపప్పు"
+    ]
+  },
+  "moong-dal-(yellow-split)": {
+    "en": [
+      "moong dal",
+      "mung dal"
+    ],
+    "te": [
+      "pesarapappu",
+      "పెసరపప్పు"
+    ]
+  },
+  "masoor-dal-(red-lentil)": {
+    "en": [
+      "Masoor Dal",
+      "Red Lentil"
+    ],
+    "te": [
+      "మసూర్ పప్పు",
+      "ఎర్ర కంది పప్పు",
+      "masoor pappu"
+    ],
+    "hi": [
+      "मसूर दाल"
+    ]
+  },
+  "chana-dal": {
+    "en": [
+      "chana dal",
+      "bengal gram dal"
+    ],
+    "te": [
+      "శనగపప్పు",
+      "shanaga pappu"
+    ]
+  },
+  "urad-dal": {
+    "en": [
+      "urad dal",
+      "udad dal",
+      "black gram dal"
+    ],
+    "te": [
+      "మినపప్పు",
+      "minapa pappu"
+    ]
+  },
+  "rajma-(kidney-beans)": {
+    "en": [
+      "rajma",
+      "kidney beans"
+    ],
+    "te": [
+      "రాజ్మా"
+    ]
+  },
+  "kabuli-chana-(white-chickpeas)": {
+    "en": [
+      "kabuli chana",
+      "white chana",
+      "white chickpeas"
+    ],
+    "te": [
+      "సఫేద్ చనా"
+    ]
+  },
+  "kala-chana-(black-chickpeas)": {
+    "en": [
+      "kala chana",
+      "black chana"
+    ],
+    "te": [
+      "కల చనా",
+      "kalla sanagalu"
+    ]
+  },
+  "green-gram": {
+    "en": "Green Gram",
+    "te": "పెసలు"
+  },
+  "lobia-(black-eyed-peas)": {
+    "en": "Lobia (Black Eyed Peas)",
+    "te": "అలసందలు"
+  },
+  "soya-chunks": {
+    "en": "Soya Chunks",
+    "te": "సోయా చంక్స్"
+  },
+  "horse-gram": {
+    "en": "Horse Gram",
+    "te": "ఉలవలు"
+  },
+  "jaggery": {
+    "en": [
+      "Jaggery"
+    ],
+    "te": [
+      "బెల్లం"
+    ]
+  },
+  "sugar": {
+    "en": [
+      "Sugar"
+    ],
+    "te": [
+      "చక్కెర",
+      "పంచదార"
+    ]
+  },
+  "atta": {
+    "en": [
+      "atta",
+      "wheat flour"
+    ],
+    "te": [
+      "గోధుమ పిండి"
+    ]
+  },
+  "idly-rava": {
+    "en": [
+      "idly rava"
+    ],
+    "te": [
+      "ఇడ్లీ రవ్వ"
+    ]
+  },
+  "bombay-rava": {
+    "en": [
+      "bombay rava"
+    ],
+    "te": [
+      "బొంబాయి రవ్వ"
+    ]
+  },
+  "bansi-rava": {
+    "en": [
+      "bansi rava"
+    ],
+    "te": [
+      "బన్సీ రవ్వ"
+    ]
+  },
+  "corn-flour": {
+    "en": [
+      "corn flour"
+    ],
+    "te": [
+      "మొక్కజొన్న పిండి"
+    ]
+  },
+  "idly-rice": {
+    "en": [
+      "idly rice"
+    ],
+    "te": [
+      "ఇడ్లీ బియ్యం"
+    ]
+  },
+  "besan-flour": {
+    "en": [
+      "besan flour"
+    ],
+    "te": [
+      "శనగ పిండి"
+    ]
+  },
+  "ragi-flour": {
+    "en": [
+      "ragi flour"
+    ],
+    "te": [
+      "రాగి పిండి"
+    ]
+  },
+  "jowar-flour": {
+    "en": [
+      "jowar flour"
+    ],
+    "te": [
+      "జొన్న పిండి"
+    ]
+  },
+  "rice-flour": {
+    "en": [
+      "rice flour"
+    ],
+    "te": [
+      "బియ్యం పిండి"
+    ]
+  },
+  "flours": {
+    "en": [
+      "flours"
+    ],
+    "te": [
+      "పిండి"
+    ]
+  },
+  "dry-fruits": {
+    "en": [
+      "dry fruits"
+    ],
+    "te": [
+      "డ్రై ఫ్రూట్స్"
+    ]
+  },
+  "fruits": {
+    "en": "Fruits",
+    "te": [
+      "పండ్లు"
+    ]
+  },
+  "apples": {
+    "en": [
+      "Apples",
+      "apple"
+    ],
+    "te": [
+      "యాపిల్స్",
+      "యాపిల్ పండు",
+      "సీమ రేగు"
+    ]
+  },
+  "bananas": {
+    "en": [
+      "Bananas",
+      "Banana"
+    ],
+    "te": [
+      "అరటిపండ్లు",
+      "అరటిపండు"
+    ]
+  },
+  "oranges": {
+    "en": [
+      "Oranges",
+      "Orange"
+    ],
+    "te": [
+      "నారింజ",
+      "కమలా పండు"
+    ]
+  },
+  "grapes": {
+    "en": [
+      "Grapes"
+    ],
+    "te": [
+      "ద్రాక్ష",
+      "ద్రాక్ష పండ్లు"
+    ]
+  },
+  "mangoes": {
+    "en": [
+      "Mangoes",
+      "Mango"
+    ],
+    "te": [
+      "మామిడిపండ్లు",
+      "మామిడి పండు"
+    ]
+  },
+  "papaya": {
+    "en": [
+      "Papaya"
+    ],
+    "te": [
+      "బొప్పాయి"
+    ]
+  },
+  "pineapple": {
+    "en": [
+      "Pineapple"
+    ],
+    "te": [
+      "పైనాపిల్",
+      "అనాస పండు"
+    ]
+  },
+  "watermelon": {
+    "en": [
+      "Watermelon"
+    ],
+    "te": [
+      "పుచ్చకాయ"
+    ]
+  },
+  "muskmelon": {
+    "en": [
+      "Muskmelon"
+    ],
+    "te": [
+      "కర్బూజ"
+    ]
+  },
+  "guava": {
+    "en": [
+      "Guava"
+    ],
+    "te": [
+      "జామకాయ",
+      "జామ పండు"
+    ]
+  },
+  "pomegranate": {
+    "en": [
+      "Pomegranate"
+    ],
+    "te": [
+      "దానిమ్మ",
+      "దానిమ్మ పండు"
+    ]
+  },
+  "chikoo-(sapota)": {
+    "en": [
+      "Chikoo",
+      "Sapota"
+    ],
+    "te": [
+      "సపోటా"
+    ]
+  },
+  "strawberries": {
+    "en": [
+      "Strawberries",
+      "Strawberry"
+    ],
+    "te": [
+      "స్ట్రాబెర్రీలు",
+      "స్ట్రాబెర్రీ"
+    ]
+  },
+  "kiwi": {
+    "en": [
+      "Kiwi"
+    ],
+    "te": [
+      "కివి"
+    ]
+  },
+  "pears": {
+    "en": [
+      "Pears",
+      "Pear"
+    ],
+    "te": [
+      "బేరిపండు"
+    ]
+  },
+  "plums": {
+    "en": [
+      "Plums",
+      "Plum"
+    ],
+    "te": [
+      "రేగు పండ్లు",
+      "ఆల్బకరా"
+    ]
+  },
+  "dates": {
+    "en": [
+      "Dates"
+    ],
+    "te": [
+      "ఖర్జూరం",
+      "ఖర్జూర పండ్లు"
+    ]
+  },
+  "dry-figs": {
+    "en": [
+      "Dry Figs",
+      "Fig"
+    ],
+    "te": [
+      "ఎండు అత్తి పండ్లు",
+      "అంజీర్"
+    ]
+  },
+  "coconut": {
+    "en": [
+      "Coconut"
+    ],
+    "te": [
+      "కొబ్బరికాయ",
+      "టెంకాయ",
+      "qabar kaya"
+    ]
+  },
+  "lemons": {
+    "en": [
+      "lemons",
+      "lemon",
+      "lomon",
+      "lemmon",
+      "limbu"
+    ],
+    "te": [
+      "నిమ్మకాయలు",
+      "నిమ్మకాయ",
+      "nimmakaya",
+      "nimma"
+    ]
+  },
+  "chandra-store": {
+    "te": [
+      "చంద్ర",
+      "చంద్ర స్టోర్"
+    ],
+    "en": "chandra"
+  },
+  "potatoes": {
+    "en": [
+      "Potatoes",
+      "Potato",
+      "patato",
+      "batata",
+      "bateta",
+      "aloo",
+      "alu",
+      "poteto",
+      "potetu",
+      "potat",
+      "potatoh"
+    ],
+    "te": [
+      "బంగాళాదుంపలు",
+      "ఆలుగడ్డ",
+      "ఆలు",
+      "పొటాటో",
+      "బంగాళదుంప",
+      "అలోగడ్డ",
+      "bangaladumpa",
+      "bangala dumpa",
+      "alugadda",
+      "allugadda"
+    ]
+  },
+  "onions": {
+    "en": [
+      "onion",
+      "onions",
+      "unian",
+      "uniyan",
+      "oniyan",
+      "onians",
+      "anian",
+      "anion",
+      "aniyan",
+      "onins",
+      "unyun",
+      "unyion",
+      "onyan",
+      "oniun"
+    ],
+    "te": [
+      "ఉల్లిపాయ",
+      "ఉల్లిపాయలు",
+      "ఉల్లి",
+      "ఉల్లిగడ్డ",
+      "ఎర్రగడ్డ",
+      "ఎర్రగడ్డలు",
+      "నీరుల్లి",
+      "ullipaya",
+      "ullipayalu",
+      "ulli",
+      "ulligadda",
+      "erragadda",
+      "neerulli",
+      "oniyan",
+      "oniyans",
+      "ఒనియన్",
+      "ఒనియన్స్",
+      "ఉల్లిపాయలు కావాలి",
+      "ఉల్లిపాయ కావాలి",
+      "ఉల్లి గడ్డలు",
+      "ఉల్లిపాయలు ఉల్లిపాయలు",
+      "ulli gadda"
+    ],
+    "hi": [
+      "pyaz",
+      "pyaaz",
+      "pyaj",
+      "kanda",
+      "प्याज",
+      "प्याज़",
+      "कांदा"
+    ]
+  },
+  "tomatoes": {
+    "en": [
+      "Tomatoes",
+      "Tomato",
+      "tamato",
+      "tometo",
+      "tameto",
+      "thomato",
+      "thomata",
+      "tomata",
+      "tomaato",
+      "thakkali",
+      "takali",
+      "tamatoo",
+      "tomot",
+      "tomatto",
+      "tomto"
+    ],
+    "te": [
+      "టమోటాలు",
+      "టమోటా",
+      "రామ ములగ",
+      "టమాట",
+      "టమాట పండు",
+      "rammulapandu",
+      "టమోటో"
+    ]
+  },
+  "carrots": {
+    "en": [
+      "Carrots",
+      "Carrot",
+      "karet",
+      "gajar",
+      "karrot",
+      "kerat",
+      "karat",
+      "carat",
+      "carret",
+      "carotte",
+      "carot",
+      "carroot"
+    ],
+    "te": [
+      "క్యారెట్లు",
+      "క్యారెట్",
+      "గాజర",
+      "gajjara",
+      "gajjare"
+    ]
+  },
+  "green-chilies": {
+    "en": [
+      "Green Chilies",
+      "Green Chilli",
+      "chilli",
+      "chili",
+      "green mirchi",
+      "green mirch",
+      "chilies",
+      "chillies",
+      "mirchi"
+    ],
+    "te": [
+      "పచ్చి మిరపకాయలు",
+      "పచ్చి మిర్చి",
+      "mirapakaya",
+      "pachi mirchi",
+      "pachimirchi",
+      "pachchi mirchi",
+      "pachhi mirchi"
+    ]
+  },
+  "okra-(lady’s-finger)": {
+    "en": [
+      "Okra",
+      "Lady's Finger",
+      "ladyfinger",
+      "bendi",
+      "bhindi",
+      "benda",
+      "okara",
+      "ladifinger"
+    ],
+    "te": [
+      "బెండకాయ",
+      "బెండ",
+      "bendakaya"
+    ]
+  },
+  "brinjal-(eggplant)": {
+    "en": [
+      "Brinjal",
+      "Eggplant",
+      "baingan",
+      "bringal",
+      "brinzel",
+      "bangun",
+      "bengan"
+    ],
+    "te": [
+      "వంకాయ",
+      "వంగ",
+      "vankaya",
+      "vangaya",
+      "brinjal gadda"
+    ]
+  },
+  "coriander-leaves": {
+    "en": [
+      "Coriander Leaves",
+      "Coriander",
+      "Cilantro",
+      "kothmir",
+      "dhaniya",
+      "dhania",
+      "coriender"
+    ],
+    "te": [
+      "కొత్తిమీర",
+      "kothimeera",
+      "kothimeeru",
+      "kottimeera",
+      "kotimeera"
+    ]
+  },
+  "mint-leaves": {
+    "en": [
+      "Mint Leaves",
+      "Mint",
+      "pudina",
+      "pudhina",
+      "mint leaf"
+    ],
+    "te": [
+      "పుదీనా ఆకులు",
+      "పుదీనా",
+      "pudina leaf",
+      "pudina aku",
+      "pudina chettu",
+      "pudhina aku"
+    ]
+  },
+  "bottle-gourd": {
+    "en": [
+      "Bottle Gourd",
+      "lauki",
+      "doodhi",
+      "dudhi",
+      "bottle guard"
+    ],
+    "te": [
+      "సొరకాయ",
+      "ఆనపకాయ",
+      "sorakaya",
+      "sorkaya",
+      "sorakai",
+      "sora gadda"
+    ]
+  },
+  "ridge-gourd": {
+    "en": [
+      "Ridge Gourd",
+      "turai",
+      "tori",
+      "ridgeguard"
+    ],
+    "te": [
+      "బీరకాయ",
+      "beerakaya",
+      "birakaya",
+      "berakaya"
+    ]
+  },
+  "bitter-gourd": {
+    "en": [
+      "Bitter Gourd",
+      "karela",
+      "biter gourd"
+    ],
+    "te": [
+      "కాకరకాయ",
+      "kakarakaya",
+      "kakar kaya"
+    ]
+  },
+  "raw-banana": {
+    "en": [
+      "Raw Banana",
+      "raw plantain"
+    ],
+    "te": [
+      "పచ్చి అరటికాయ",
+      "అరటికాయ",
+      "arati kaya",
+      "banana vegetable",
+      "balekai",
+      "arati kaya gadda"
+    ]
+  },
+  "sweet-potato": {
+    "en": [
+      "Sweet Potato",
+      "Sweet Potatoes",
+      "sweet patato",
+      "sweet batata",
+      "sweet alu",
+      "sweet aloo"
+    ],
+    "te": [
+      "చిలగడదుంప",
+      "రత్నపురి గడ్డ",
+      "చెక్కరకంద",
+      "kumara",
+      "chilakada dumpa"
+    ]
+  },
+  "capsicum-(bell-pepper)": {
+    "en": [
+      "Capsicum",
+      "Bell Pepper",
+      "capsicon",
+      "shimla mirch",
+      "capsikum",
+      "capsicam",
+      "green capsicum"
+    ],
+    "te": [
+      "క్యాప్సికమ్",
+      "బెంగళూరు మిరపకాయ"
+    ]
+  },
+  "home": {
+    "en": [
+      "Home",
+      "home",
+      "homepage",
+      "home page"
+    ],
+    "te": "హోమ్"
+  },
+  "stores": {
+    "en": "Stores",
+    "te": "స్టోర్స్"
+  },
+  "dashboard": {
+    "en": "Dashboard",
+    "te": "డాష్‌బోర్డ్"
+  },
+  "login": {
+    "en": "Login",
+    "te": "లాగిన్"
+  },
+  "my-account": {
+    "en": "My Account",
+    "te": "నా ఖాతా"
+  },
+  "my-profile": {
+    "en": "My Profile",
+    "te": "నా ప్రొఫైల్"
+  },
+  "my-orders": {
+    "en": "My Orders",
+    "te": "నా ఆర్డర్లు"
+  },
+  "my-store": {
+    "en": [
+      "My Store",
+      "Store"
+    ],
+    "te": "నా స్టోర్"
+  },
+  "store-orders": {
+    "en": "Store Orders",
+    "te": "స్టోర్ ఆర్డర్లు"
+  },
+  "deliveries": {
+    "en": [
+      "Deliveries",
+      "delivery"
+    ],
+    "te": "డెలివరీలు"
+  },
+  "roles": {
+    "en": "Roles",
+    "te": "పాత్రలు"
+  },
+  "master-store": {
+    "en": "Master Store",
+    "te": "మాస్టర్ స్టోర్"
+  },
+  "logout": {
+    "en": "Logout",
+    "te": "లాగ్ అవుట్"
+  },
+  "start-shopping": {
+    "en": "Start Shopping",
+    "te": "షాపింగ్ ప్రారంభించండి"
+  },
+  "browse-local-stores-and-find-fresh-groceries": {
+    "en": "Browse local stores and find fresh groceries.",
+    "te": "స్థానిక దుకాణాలను బ్రౌజ్ చేయండి మరియు తాజా కిరాణా సామాగ్రిని కనుగొనండి."
+  },
+  "voice-order": {
+    "en": "Voice Order",
+    "te": "వాయిస్ ఆర్డర్"
+  },
+  "record-your-shopping-list-and-have-a-local-shopkeeper-fulfill-it": {
+    "en": "Record your shopping list and have a local shopkeeper fulfill it.",
+    "te": "మీ షాపింగ్ జాబితాను రికార్డ్ చేయండి మరియు స్థానిక దుకాణదారుడు దానిని నెరవేర్చండి."
+  },
+  "store-owner": {
+    "en": "Store Owner",
+    "te": "స్టోర్ యజమాని"
+  },
+  "manage-your-store-products-and-incoming-orders": {
+    "en": "Manage your store, products, and incoming orders.",
+    "te": "మీ స్టోర్, ఉత్పత్తులు మరియు ఇన్‌కమింగ్ ఆర్డర్‌లను నిర్వహించండి."
+  },
+  "delivery-partner": {
+    "en": "Delivery Partner",
+    "te": "డెలివరీ భాగస్వామి"
+  },
+  "view-and-accept-available-delivery-jobs": {
+    "en": "View and accept available delivery jobs.",
+    "te": "అందుబాటులో ఉన్న డెలివరీ పనులను వీక్షించండి మరియు అంగీకరించండి."
+  },
+  "your-dashboard": {
+    "en": "Your Dashboard",
+    "te": "మీ డాష్‌బోర్డ్"
+  },
+  "select-your-role-to-access-your-tools": {
+    "en": "Select your role to access your tools.",
+    "te": "మీ సాధనాలను యాక్సెస్ చేయడానికి మీ పాత్రను ఎంచుకోండి."
+  },
+  "go-to": {
+    "en": "Go to",
+    "te": "వెళ్ళండి"
+  },
+  "shopping-cart": {
+    "en": "Shopping Cart",
+    "te": "షాపింగ్ కార్ట్"
+  },
+  "total": {
+    "en": "Total",
+    "te": "మొత్తం"
+  },
+  "proceed-to-checkout": {
+    "en": "Proceed to Checkout",
+    "te": "చెక్అవుట్‌కు వెళ్లండి"
+  },
+  "your-cart-is-empty": {
+    "en": "Your cart is empty.",
+    "te": "మీ కార్ట్ ఖాళీగా ఉంది."
+  },
+  "shop-fresh-shop-local-just-by-voice": {
+    "en": "Shop Fresh, Shop Local, Just by Voice.",
+    "te": "వాయిస్ ద్వారా తాజా, స్థానిక ఉత్పత్తులను కొనండి."
+  },
+  "your-hands-free-shopping-assistant": {
+    "en": "Your hands-free shopping assistant for local groceries.",
+    "te": "స్థానిక కిరాణా సామాగ్రి కోసం మీ హ్యాండ్స్-ఫ్రీ షాపింగ్ సహాయకుడు."
+  },
+  "browse-all-stores": {
+    "en": "Browse All Stores",
+    "te": "అన్ని దుకాణాలను బ్రౌజ్ చేయండి"
+  },
+  "try-saying-find-bananas": {
+    "en": "Try saying 'find bananas near me' with the voice assistant!",
+    "te": "వాయిస్ అసిస్టెంట్‌తో 'నా దగ్గర అరటిపండ్లను కనుగొనండి' అని చెప్పడానికి ప్రయత్నించండి!"
+  },
+  "or-browse-featured-stores": {
+    "en": "Or, Browse Featured Stores",
+    "te": "లేదా, ఫీచర్ చేయబడిన దుకాణాలను బ్రౌజ్ చేయండి"
+  },
+  "explore-top-rated-local-stores-right-in-your-neighborhood": {
+    "en": "Explore top-rated local stores right in your neighborhood.",
+    "te": "మీ పరిసరాల్లోని అగ్రశ్రేణి స్థానిక దుకాణాలను అన్వేషించండి."
+  },
+  "loading-stores": {
+    "en": "Loading stores...",
+    "te": "దుకాణాలు లోడ్ అవుతున్నాయి..."
+  },
+  "no-stores-found": {
+    "en": "No stores found.",
+    "te": "దుకాణాలు కనుగొనబడలేదు."
+  },
+  "looks-like-you-havent-added-anything": {
+    "en": "Looks like you haven't added anything to your cart yet.",
+    "te": "మీరు ఇంకా మీ కార్ట్‌లో ఏమీ జోడించనట్లు కనిపిస్తోంది."
+  },
+  "browse-stores": {
+    "en": "Browse Stores",
+    "te": "దుకాణాలను బ్రౌజ్ చేయండి"
+  },
+  "product": {
+    "en": "Product",
+    "te": "ఉత్పత్తి"
+  },
+  "price": {
+    "en": "Price",
+    "te": "ధర"
+  },
+  "quantity": {
+    "en": "Quantity",
+    "te": "పరిమాణం"
+  },
+  "order-summary": {
+    "en": "Order Summary",
+    "te": "ఆర్డర్ సారాంశం"
+  },
+  "subtotal": {
+    "en": "Subtotal",
+    "te": "ఉపమొత్తం"
+  },
+  "delivery-fee": {
+    "en": "Delivery Fee",
+    "te": "డెలివరీ ఫీజు"
+  },
+  "please-add-items-to-your-cart-before-proceeding": {
+    "en": "Please add items to your cart before proceeding to checkout.",
+    "te": "దయచేసి చెక్అవుట్‌కు వెళ్లే ముందు మీ కార్ట్‌కు వస్తువులను జోడించండి."
+  },
+  "delivery-and-store-selection": {
+    "en": "Delivery and Store Selection",
+    "te": "డెలివరీ మరియు స్టోర్ ఎంపిక"
+  },
+  "full-name": {
+    "en": "Full Name",
+    "te": "పూర్తి పేరు"
+  },
+  "delivery-location": {
+    "en": "Delivery Location",
+    "te": "డెలివరీ స్థానం"
+  },
+  "location-captured": {
+    "en": "Location Captured",
+    "te": "స్థానం సంగ్రహించబడింది"
+  },
+  "re-capture": {
+    "en": "Re-capture",
+    "te": "తిరిగి సంగ్రహించండి"
+  },
+  "getting-your-current-location": {
+    "en": "Getting your current location...",
+    "te": "మీ ప్రస్తుత స్థానం పొందుతోంది..."
+  },
+  "phone-number": {
+    "en": "Phone Number",
+    "te": "ఫోను నంబరు"
+  },
+  "fulfilling-store": {
+    "en": "Fulfilling Store",
+    "te": "నెరవేర్చే స్టోర్"
+  },
+  "select-a-store-to-fulfill": {
+    "en": "Select a store to fulfill your order",
+    "te": "మీ ఆర్డర్‌ను నెరవేర్చడానికి ఒక దుకాణాన్ని ఎంచుకోండి"
+  },
+  "action-required": {
+    "en": "Action Required",
+    "te": "చర్య అవసరం"
+  },
+  "please-select-a-store-to-continue": {
+    "en": "Please select a store to continue.",
+    "te": "కొనసాగించడానికి దయచేసి ఒక దుకాణాన్ని ఎంచుకోండి."
+  },
+  "placing-order": {
+    "en": "Placing Order...",
+    "te": "ఆర్డర్ చేస్తోంది..."
+  },
+  "place-order": {
+    "en": [
+      "Place Order",
+      "confirm order"
+    ],
+    "te": "ఆర్డర్ చేయండి"
+  },
+  "select-weight": {
+    "en": "Select Weight",
+    "te": "బరువును ఎంచుకోండి"
+  },
+  "no-prices-set": {
+    "en": "No prices set",
+    "te": "ధరలు సెట్ చేయబడలేదు"
+  },
+  "add-to-cart": {
+    "en": "Add to Cart",
+    "te": "కార్ట్‌లో చేర్చు"
+  },
+  "total-customers": {
+    "en": "Total Customers",
+    "te": "మొత్తం వినియోగదారులు"
+  },
+  "total-stores": {
+    "en": "Total Stores",
+    "te": "మొత్తం దుకాణాలు"
+  },
+  "orders-delivered": {
+    "en": "Orders Delivered",
+    "te": "చేరవేసిన ఆర్డర్లు"
+  },
+  "action-required-create-master-store": {
+    "en": "Action Required: Create Master Store",
+    "te": "చర్య అవసరం: మాస్టర్ స్టోర్‌ను సృష్టించండి"
+  },
+  "the-master-store-for-setting-platform-wide": {
+    "en": "The master store for setting platform-wide product prices has not been created.",
+    "te": "ప్లాట్‌ఫారమ్-వ్యాప్తంగా ఉత్పత్తి ధరలను సెట్ చేయడానికి మాస్టర్ స్టోర్ సృష్టించబడలేదు."
+  },
+  "create-master-store": {
+    "en": "Create Master Store",
+    "te": "మాస్టర్ స్టోర్‌ను సృష్టించండి"
+  },
+  "admin-tools": {
+    "en": "Admin Tools",
+    "te": "అడ్మిన్ సాధనాలు"
+  },
+  "manage-master-store-and-products": {
+    "en": "Manage Master Store & Products",
+    "te": "మాస్టర్ స్టోర్ & ఉత్పత్తులను నిర్వహించండి"
+  },
+  "add-or-edit-products-in-the-master-catalog": {
+    "en": "Add or edit products in the master catalog that all stores can sell.",
+    "te": "అన్ని దుకాణాలు అమ్మగల మాస్టర్ కేటలాగ్‌లో ఉత్పత్తులను జోడించండి లేదా సవరించండి."
+  },
+  "voice-commands-control": {
+    "en": "AI Training Center",
+    "te": "AI శిక్షణా కేంద్రం"
+  },
+  "view-and-manage-the-voice-commands-users-can-say": {
+    "en": "Train the AI by adding aliases for products, stores, and actions.",
+    "te": "ఉత్పత్తులు, దుకాణాలు మరియు చర్యల కోసం మారుపేర్లను జోడించడం ద్వారా AIకి శిక్షణ ఇవ్వండి."
+  },
+  "admin-dashboard": {
+    "en": "Admin Dashboard",
+    "te": "అడ్మిన్ డాష్‌బోర్డ్"
+  },
+  "a-high-level-overview-of-your-application": {
+    "en": "A high-level overview of your application's activity.",
+    "te": "మీ అప్లికేషన్ యొక్క కార్యాచరణ యొక్క ఉన్నత-స్థాయి అవలోకనం."
+  },
+  "ive-added-to-your-cart": {
+    "en": "I've added {items} to your cart.",
+    "te": "నేను మీ కార్ట్‌కు {items} జోడించాను."
+  },
+  "but-i-couldnt-find": {
+    "en": "but I couldn't find {items}.",
+    "te": "కానీ నేను {items} కనుగొనలేకపోయాను."
+  },
+  "sorry-i-couldnt-find-any-items": {
+    "en": "Sorry, I couldn't find any items in your request.",
+    "te": "క్షమించండి, మీ అభ్యర్థనలో నేను ఏ వస్తువులను కనుగొనలేకపోయాను."
+  },
+  "your-total-is-speech": {
+    "en": "Your cart total is {total}. I'll take you to the checkout page now.",
+    "te": "మీ కార్ట్ మొత్తం {total}. నేను ఇప్పుడు మిమ్మల్ని చెక్అవుట్ పేజీకి తీసుకువెళతాను."
+  },
+  "taking-you-to-checkout-speech": {
+    "en": "Okay, taking you to checkout.",
+    "te": "సరే, మిమ్మల్ని చెక్అవుట్‌కు తీసుకువెళుతున్నాను."
+  },
+  "should-i-deliver-to-home-or-current-speech": {
+    "en": "Should I deliver to your saved home address or your current location?",
+    "te": "మీ సేవ్ చేసిన ఇంటి చిరునామాకు లేదా మీ ప్రస్తుత స్థానానికి డెలివరీ చేయాలా?"
+  },
+  "which-store-should-fulfill-speech": {
+    "en": "Which store should I order from?",
+    "te": "ఏ స్టోర్ నుండి ఆర్డర్ చేయాలి?"
+  },
+  "everything-is-ready-speech": {
+    "en": "Everything looks ready. Your total is {total}. Just say 'place order' to confirm.",
+    "te": "అన్నీ సిద్ధంగా ఉన్నాయి. మీ మొత్తం {total}. నిర్ధారించడానికి 'ఆర్డర్ చేయండి' అని చెప్పండి."
+  },
+  "setting-delivery-to-home-speech": {
+    "en": "Okay, setting delivery to your home address.",
+    "te": "సరే, మీ ఇంటి చిరునామాకు డెలివరీని సెట్ చేస్తున్నాను."
+  },
+  "using-current-location-speech": {
+    "en": "Okay, using your current location for delivery.",
+    "te": "సరే, డెలివరీ కోసం మీ ప్రస్తుత స్థానాన్ని ఉపయోగిస్తున్నాను."
+  },
+  "placing-your-order-now-speech": {
+    "en": "Placing your order now.",
+    "te": "ఇప్పుడు మీ ఆర్డర్‌ను ఉంచుతున్నాను."
+  },
+  "confirm-the-quick-order-speech": {
+    "en": "I have prepared your quick order. Please say 'confirm order' to proceed.",
+    "te": "నేను మీ త్వరిత ఆర్డర్‌ను సిద్ధం చేసాను. కొనసాగించడానికి దయచేసి 'ఆర్డర్‌ను నిర్ధారించండి' అని చెప్పండి."
+  },
+  "did-not-understand-address-type-speech": {
+    "en": "I'm sorry, I didn't understand. Please say 'home' or 'current'.",
+    "te": "క్షమించండి, నాకు అర్థం కాలేదు. దయచేసి 'హోమ్' లేదా 'ప్రస్తుత' అని చెప్పండి."
+  },
+  "im-ready-for-order-speech": {
+    "en": "I'm ready. Please list the items you need for your order.",
+    "te": "నేను సిద్ధంగా ఉన్నాను. దయచేసి మీ ఆర్డర్ కోసం మీకు అవసరమైన వస్తువులను జాబితా చేయండి."
+  },
+  "cannot-create-order-no-profile-speech": {
+    "en": "I can't create a voice order until you've completed your user profile with an address.",
+    "te": "మీరు మీ వినియోగదారు ప్రొఫైల్‌ను ఒక చిరునామాతో పూర్తి చేసే వరకు నేను వాయిస్ ఆర్డర్‌ను సృష్టించలేను."
+  },
+  "sent-list-to-stores-speech": {
+    "en": "Great. I've sent your list to the stores. You can track its status in your orders page.",
+    "te": "అద్భుతం. నేను మీ జాబితాను దుకాణాలకు పంపాను. మీరు దాని స్థితిని మీ ఆర్డర్‌ల పేజీలో ట్రాక్ చేయవచ్చు."
+  },
+  "failed-to-create-voice-order-speech": {
+    "en": "I'm sorry, I failed to create the voice order. Please try again.",
+    "te": "క్షమించండి, నేను వాయిస్ ఆర్డర్‌ను సృష్టించడంలో విఫలమయ్యాను. దయచేసి మళ్లీ ప్రయత్నించండి."
+  },
+  "complete-checkout-steps-speech": {
+    "en": "You need to complete all the steps on the checkout page first.",
+    "te": "మీరు ముందుగా చెక్అవుట్ పేజీలోని అన్ని దశలను పూర్తి చేయాలి."
+  },
+  "no-changes-to-save-speech": {
+    "en": "I can only save changes on the profile page.",
+    "te": "నేను ప్రొఫైల్ పేజీలో మాత్రమే మార్పులను సేవ్ చేయగలను."
+  },
+  "refreshing-speech": {
+    "en": "Refreshing.",
+    "te": "రిఫ్రెష్ చేస్తోంది."
+  },
+  "okay-updated-to-quantity-speech": {
+    "en": "Okay, updated to {quantity}.",
+    "te": "సరే, {quantity}కి నవీకరించబడింది."
+  },
+  "did-not-catch-quantity-speech": {
+    "en": "I'm sorry, I didn't catch that quantity. Please try again.",
+    "te": "క్షమించండి, నాకు ఆ పరిమాణం అర్థం కాలేదు. దయచేసి మళ్లీ ప్రయత్నించండి."
+  },
+  "could-not-find-store-speech": {
+    "en": "I'm sorry, I couldn't find a store named '{storeName}'. Please say the store name again.",
+    "te": "క్షమించండి, నేను '{storeName}' అనే పేరుతో ఒక దుకాణాన్ని కనుగొనలేకపోయాను. దయచేసి స్టోర్ పేరును మళ్లీ చెప్పండి."
+  },
+  "okay-ordering-from-speech": {
+    "en": "Okay, ordering from {storeName}.",
+    "te": "{storeName} నుండి ఆర్డర్ చేస్తున్నాను."
+  },
+  "sorry-i-didnt-understand-that": {
+    "en": "My apologies, I'm still learning. I've noted this down and will be able to understand it soon.",
+    "te": "క్షమించండి, నేను ఇంకా నేర్చుకుంటున్నాను. నేను దీనిని నోట్ చేసుకున్నాను మరియు త్వరలో అర్థం చేసుకోగలుగుతాను."
+  },
+  "could-not-find-product-in-order-speech": {
+    "en": "I'm sorry, I couldn't figure out which product you wanted in your smart order.",
+    "te": "క్షమించండి, మీ స్మార్ట్ ఆర్డర్‌లో మీరు ఏ ఉత్పత్తిని కోరుకుంటున్నారో నేను కనుగొనలేకపోయాను."
+  },
+  "could-not-identify-store-speech": {
+    "en": "I couldn't identify the store. Please try your smart order again.",
+    "te": "నేను దుకాణాన్ని గుర్తించలేకపోయాను. దయచేసి మీ స్మార్ట్ ఆర్డర్‌ను మళ్లీ ప్రయత్నించండి."
+  },
+  "cannot-deliver-home-no-address-speech": {
+    "en": "I can't deliver to your home because you haven't saved an address in your profile yet. Taking you there now.",
+    "te": "మీరు ఇంకా మీ ప్రొఫైల్‌లో ఒక చిరునామాను సేవ్ చేయనందున నేను మీ ఇంటికి డెలివరీ చేయలేను. ఇప్పుడు మిమ్మల్ని అక్కడికి తీసుకెళ్తున్నాను."
+  },
+  "preparing-order-speech": {
+    "en": "Okay. Preparing a quick order of {qty} {productName} from {storeName}.",
+    "te": "సరే. {storeName} నుండి {qty} {productName} యొక్క త్వరిత ఆర్డర్‌ను సిద్ధం చేస్తున్నాను."
+  },
+  "your-cart-is-empty-speech": {
+    "en": "Your cart is empty. Please add some items before going to checkout.",
+    "te": "మీ కార్ట్ ఖాళీగా ఉంది. చెక్అవుట్‌కు వెళ్లే ముందు దయచేసి కొన్ని వస్తువులను జోడించండి."
+  },
+  "cancelling-the-order-speech": {
+    "en": "Okay, cancelling this order.",
+    "te": "సరే, ఈ ఆర్డర్‌ను రద్దు చేస్తున్నాను."
+  },
+  "price-check-reply-speech": {
+    "en": "{productName} is available as: {prices}.",
+    "te": "{productName} ఈ క్రింది విధంగా అందుబాటులో ఉంది: {prices}."
+  },
+  "price-check-variant-speech": {
+    "en": "{weight} for {price}",
+    "te": "{weight} కి {price}"
+  },
+  "no-price-found-speech": {
+    "en": "I found {productName}, but a price has not been set for it yet.",
+    "te": "నేను {productName}ను కనుగొన్నాను, కానీ దాని కోసం ఇంకా ధర నిర్ణయించబడలేదు."
+  },
+  "telugu-welcome-speech": {
+    "en": "Namaste, you can now speak in Telugu or select items.",
+    "te": "నమస్తే, ఇప్పుడు మీరు తెలుగులో మాట్లాడవచ్చు లేదా ఐటమ్స్ ఎంచుకోవచ్చు"
+  },
+  "english-welcome-speech": {
+    "en": "Hello, how can I help you?",
+    "te": "హలో, నేను మీకు ఎలా సహాయపడగలను?"
+  },
+  "adding-item-speech": {
+    "en": "Okay, adding {quantity} of {productName}.",
+    "te": "సరే, {quantity} {productName} జోడిస్తున్నాను."
+  },
+  "grains-&-cereals": {
+    "en": [
+      "Grains & Cereals",
+      "Grains",
+      "Cereals",
+      "dhanyalu"
+    ],
+    "te": [
+      "ధాన్యాలు & తృణధాన్యాలు",
+      "ధాన్యాలు",
+      "తృణధాన్యాలు"
+    ]
+  },
+  "rice-(raw,-boiled,-basmati,-brown-etc)": {
+    "en": [
+      "rice",
+      "rise",
+      "raw rice",
+      "boiled rice",
+      "basmati rice",
+      "brown rice"
+    ],
+    "te": [
+      "బియ్యం",
+      "వరి",
+      "byyam",
+      "వరి బియ్యం",
+      "బాస్మతి బియ్యం"
+    ]
+  },
+  "wheat": {
+    "en": "Wheat",
+    "te": "గోధుమలు"
+  },
+  "maida-(refined-flour)": {
+    "en": [
+      "maida",
+      "refined flour",
+      "meda"
+    ],
+    "te": [
+      "మైదా",
+      "maida pindi"
+    ]
+  },
+  "suji-(rava/semolina)": {
+    "en": [
+      "suji",
+      "sooji",
+      "rava",
+      "semolina",
+      "bombay rava",
+      "bansi rava"
+    ],
+    "te": [
+      "రవ్వ",
+      "బొంబాయి రవ్వ",
+      "బన్సీ రవ్వ",
+      "ఇడ్లీ రవ్వ"
+    ]
+  },
+  "poha-(flattened-rice)": {
+    "en": [
+      "poha",
+      "pohaa",
+      "atukulu"
+    ],
+    "te": [
+      "అటుకులు",
+      "avalakki"
+    ]
+  },
+  "oats": {
+    "en": "Oats",
+    "te": "ఓట్స్"
+  },
+  "cornflakes": {
+    "en": "Cornflakes",
+    "te": "కార్న్‌ఫ్లేక్స్"
+  },
+  "millets-(jowar,-bajra,-ragi,-foxtail,-etc.)": {
+    "en": "Millets (Jowar, Bajra, Ragi, Foxtail, etc.)",
+    "te": "చిరుధాన్యాలు (జొన్న, బజ్రా, రాగి, మొదలైనవి)"
+  },
+  "broken-wheat-(dalia)": {
+    "en": "Broken Wheat (Dalia)",
+    "te": "గోధుమ రవ్వ (డాలియా)"
+  },
+  "oils-&-ghee": {
+    "en": [
+      "oils & ghee",
+      "oils",
+      "ghee"
+    ],
+    "te": [
+      "నూనెలు & నెయ్యి",
+      "నూనెలు",
+      "నెయ్యి"
+    ]
+  },
+  "sunflower-oil": {
+    "en": [
+      "sunflower oil"
+    ],
+    "te": [
+      "పొద్దుతిరుగుడు నూనె"
+    ]
+  },
+  "groundnut-oil": {
+    "en": [
+      "groundnut oil"
+    ],
+    "te": [
+      "వేరుశెనగ నూనె"
+    ]
+  },
+  "mustard-oil": {
+    "en": [
+      "mustard oil",
+      "sarson ka tel"
+    ],
+    "te": [
+      "ఆవాల నూనె",
+      "aavala nune"
+    ]
+  },
+  "coconut-oil": {
+    "en": [
+      "coconut oil",
+      "nariyal tel"
+    ],
+    "te": [
+      "కొబ్బరి నూనె",
+      "kobbari nune"
+    ]
+  },
+  "palm-oil": {
+    "en": [
+      "palm oil"
+    ],
+    "te": [
+      "పామాయిల్",
+      "palm oil"
+    ]
+  },
+  "olive-oil": {
+    "en": [
+      "olive oil"
+    ],
+    "te": [
+      "ఆలివ్ నూనె",
+      "olive nune"
+    ]
+  },
+  "rice-bran-oil": {
+    "en": [
+      "rice bran oil"
+    ],
+    "te": [
+      "రైస్ బ్రాన్ ఆయిల్",
+      "తవుడు నూనె"
+    ]
+  },
+  "ghee-(clarified-butter)": {
+    "en": [
+      "ghee",
+      "clarified butter"
+    ],
+    "te": [
+      "నెయ్యి"
+    ]
+  },
+  "butter": {
+    "en": [
+      "butter",
+      "makhan"
+    ],
+    "te": [
+      "వెన్న",
+      "venna"
+    ]
+  },
+  "snacks-&-breakfast": {
+    "en": [
+      "snacks & breakfast",
+      "snacks",
+      "breakfast",
+      "namkeen"
+    ],
+    "te": [
+      "స్నాక్స్ & బ్రేక్‌ఫాస్ట్",
+      "స్నాక్స్",
+      "బ్రేక్‌ఫాస్ట్"
+    ]
+  },
+  "pancake-mix": {
+    "en": [
+      "pancake mix"
+    ],
+    "te": [
+      "పాన్‌కేక్ మిక్స్"
+    ]
+  },
+  "wafers": {
+    "en": [
+      "wafers",
+      "wafer",
+      "chips"
+    ],
+    "te": [
+      "వేఫర్లు",
+      "చిప్స్"
+    ]
+  },
+  "breakfast-cereals": {
+    "en": [
+      "breakfast cereals",
+      "cereal"
+    ],
+    "te": [
+      "బ్రేక్‌ఫాస్ట్ తృణధాన్యాలు",
+      "తృణధాన్యాలు"
+    ]
+  },
+  "spices-&-masalas": {
+    "en": [
+      "spices & masalas",
+      "spices",
+      "masalas"
+    ],
+    "te": [
+      "మసాలాలు",
+      "సుగంధ ద్రవ్యాలు"
+    ]
+  },
+  "salt": {
+    "en": [
+      "salt"
+    ],
+    "te": [
+      "ఉప్పు"
+    ]
+  },
+  "turmeric-powder": {
+    "en": [
+      "turmeric powder",
+      "turmeric",
+      "haldi"
+    ],
+    "te": [
+      "పసుపు",
+      "పసుపు పొడి"
+    ]
+  },
+  "red-chili-powder": {
+    "en": [
+      "chilli powder",
+      "chili powder",
+      "red chilli powder",
+      "red chili powder"
+    ],
+    "te": [
+      "కారం పొడి",
+      "మిరప పొడి"
+    ]
+  },
+  "coriander-powder": {
+    "en": "Coriander Powder",
+    "te": "ధనియాల పొడి"
+  },
+  "cumin-seeds": {
+    "en": [
+      "cumin seeds",
+      "cumin",
+      "jeera"
+    ],
+    "te": [
+      "జీలకర్ర",
+      "jeelakarra"
+    ]
+  },
+  "mustard-seeds": {
+    "en": [
+      "mustard seeds",
+      "mustard",
+      "rai"
+    ],
+    "te": [
+      "ఆవాలు",
+      "aavalu"
+    ]
+  },
+  "fenugreek-seeds": {
+    "en": [
+      "fenugreek seeds",
+      "fenugreek",
+      "methi"
+    ],
+    "te": [
+      "మెంతులు",
+      "menthulu"
+    ]
+  },
+  "garam-masala": {
+    "en": [
+      "garam masala"
+    ],
+    "te": [
+      "గరం మసాలా"
+    ]
+  },
+  "black-pepper": {
+    "en": [
+      "black pepper",
+      "pepper",
+      "kali mirch"
+    ],
+    "te": [
+      "నల్ల మిరియాలు",
+      "మిరియాలు"
+    ]
+  },
+  "cloves": {
+    "en": [
+      "cloves",
+      "laung"
+    ],
+    "te": [
+      "లవంగాలు",
+      "lavangalu"
+    ]
+  },
+  "cardamom": {
+    "en": [
+      "cardamom",
+      "elaichi"
+    ],
+    "te": [
+      "యాలకులు",
+      "elaichi"
+    ]
+  },
+  "cinnamon": {
+    "en": [
+      "cinnamon",
+      "dalchini"
+    ],
+    "te": [
+      "దాల్చిన చెక్క",
+      "dalchina"
+    ]
+  },
+  "bay-leaf": {
+    "en": [
+      "bay leaf",
+      "tej patta"
+    ],
+    "te": [
+      "బిర్యానీ ఆకు",
+      "biryani aaku"
+    ]
+  },
+  "fennel-seeds-(saunf)": {
+    "en": [
+      "fennel seeds",
+      "fennel",
+      "saunf"
+    ],
+    "te": [
+      "సోంపు",
+      "sompu"
+    ]
+  },
+  "curry-leaves": {
+    "en": [
+      "curry leaves",
+      "kadi patta"
+    ],
+    "te": [
+      "కరివేపాకు",
+      "karivepaku"
+    ]
+  },
+  "hing-(asafoetida)": {
+    "en": [
+      "hing",
+      "asafoetida"
+    ],
+    "te": [
+      "ఇంగువ",
+      "inguva"
+    ]
+  },
+  "kasuri-methi-(dried-fenugreek)": {
+    "en": [
+      "kasuri methi",
+      "dried fenugreek"
+    ],
+    "te": [
+      "కసూరి మేతి",
+      "ఎండు మెంతి ఆకులు"
+    ]
+  },
+  "tamarind": {
+    "en": [
+      "tamarind",
+      "imli"
+    ],
+    "te": [
+      "చింతపండు",
+      "chintapandu"
+    ]
+  },
+  "dry-red-chilies": {
+    "en": [
+      "dry red chilies",
+      "dried red chilli"
+    ],
+    "te": [
+      "ఎండు మిర్చి",
+      "endu mirchi"
+    ]
+  },
+  "beverages": {
+    "en": [
+      "beverages",
+      "drinks"
+    ],
+    "te": [
+      "పానీయాలు"
+    ]
+  },
+  "tea-powder": {
+    "en": [
+      "tea powder",
+      "tea leaves",
+      "tea"
+    ],
+    "te": [
+      "టీ పొడి",
+      "తేయాకు",
+      "టీ"
+    ]
+  },
+  "coffee-powder": {
+    "en": [
+      "coffee powder",
+      "coffee beans",
+      "coffee"
+    ],
+    "te": [
+      "కాఫీ పొడి",
+      "కాఫీ గింజలు",
+      "కాఫీ"
+    ]
+  },
+  "green-tea": {
+    "en": [
+      "green tea"
+    ],
+    "te": [
+      "గ్రీన్ టీ"
+    ]
+  },
+  "milk-powder": {
+    "en": [
+      "milk powder"
+    ],
+    "te": [
+      "పాల పొడి"
+    ]
+  },
+  "soft-drinks": {
+    "en": [
+      "soft drinks",
+      "soda",
+      "coke",
+      "pepsi",
+      "sprite"
+    ],
+    "te": [
+      "శీతల పానీయాలు",
+      "సోడా"
+    ]
+  },
+  "juices": {
+    "en": [
+      "juices",
+      "juice",
+      "fruit juice"
+    ],
+    "te": [
+      "రసాలు",
+      "జ్యూస్"
+    ]
+  },
+  "coconut-water": {
+    "en": [
+      "coconut water"
+    ],
+    "te": [
+      "కొబ్బరి నీళ్ళు",
+      "బోండం"
+    ]
+  },
+  "energy-drinks": {
+    "en": [
+      "energy drinks",
+      "energy drink"
+    ],
+    "te": [
+      "ఎనర్జీ డ్రింక్స్"
+    ]
+  },
+  "dairy-&-bakery": {
+    "en": [
+      "dairy & bakery",
+      "dairy",
+      "bakery"
+    ],
+    "te": [
+      "డైరీ & బేకరీ",
+      "డైరీ",
+      "బేకరీ"
+    ]
+  },
+  "milk": {
+    "en": [
+      "Milk",
+      "Cow Milk"
+    ],
+    "te": [
+      "పాలు"
+    ]
+  },
+  "curd/yogurt": {
+    "en": [
+      "Curd",
+      "Yogurt"
+    ],
+    "te": [
+      "పెరుగు",
+      "దహీ"
+    ]
+  },
+  "paneer-(cottage-cheese)": {
+    "en": [
+      "paneer",
+      "cottage cheese"
+    ],
+    "te": [
+      "పన్నీర్",
+      "paneer"
+    ]
+  },
+  "cheese": {
+    "en": [
+      "cheese"
+    ],
+    "te": [
+      "చీజ్",
+      "జున్ను"
+    ]
+  },
+  "fresh-cream": {
+    "en": [
+      "fresh cream",
+      "cream"
+    ],
+    "te": [
+      "ఫ్రెష్ క్రీమ్",
+      "క్రీమ్",
+      "మీగడ"
+    ]
+  },
+  "bread-(white,-brown,-multigrain)": {
+    "en": [
+      "bread",
+      "white bread",
+      "brown bread",
+      "multigrain bread"
+    ],
+    "te": [
+      "బ్రెడ్",
+      "రొట్టె"
+    ]
+  },
+  "buns": {
+    "en": [
+      "buns",
+      "bun"
+    ],
+    "te": [
+      "బన్స్",
+      "బన్"
+    ]
+  },
+  "pav": {
+    "en": [
+      "pav"
+    ],
+    "te": [
+      "పావ్"
+    ]
+  },
+  "biscuits": {
+    "en": [
+      "biscuits",
+      "biscuit",
+      "cookies"
+    ],
+    "te": [
+      "బిస్కెట్లు",
+      "బిస్కట్"
+    ]
+  },
+  "rusks": {
+    "en": [
+      "rusks",
+      "rusk",
+      "toast"
+    ],
+    "te": [
+      "రస్క్"
+    ]
+  },
+  "cakes": {
+    "en": [
+      "cakes",
+      "cake"
+    ],
+    "te": [
+      "కేకులు",
+      "కేక్"
+    ]
+  },
+  "muffins": {
+    "en": [
+      "muffins",
+      "muffin"
+    ],
+    "te": [
+      "మఫిన్లు",
+      "మఫిన్"
+    ]
+  },
+  "fresh-cut": {
+    "en": "Fresh Cut",
+    "te": [
+      "తాజా కోతలు"
+    ]
+  },
+  "chicken": {
+    "en": [
+      "Chicken"
+    ],
+    "te": [
+      "చికెన్",
+      "కోడి మాంసం"
+    ]
+  },
+  "whole-chicken-(with-skin)": {
+    "en": [
+      "Whole Chicken (With Skin)",
+      "Whole chicken skin on"
+    ],
+    "te": [
+      "చర్మంతో ఉన్న పూర్తి చికెన్"
+    ]
+  },
+  "whole-chicken-(without-skin)": {
+    "en": [
+      "Whole Chicken (Without Skin)",
+      "Whole chicken skinless",
+      "chicken skin-less"
+    ],
+    "te": [
+      "చర్మం లేని పూర్తి చికెన్"
+    ]
+  },
+  "country-chicken-(desi)": {
+    "en": [
+      "Country Chicken",
+      "Desi Chicken",
+      "country hen"
+    ],
+    "te": [
+      "నాటు కోడి",
+      "దేశీ కోడి",
+      "country kodi"
+    ]
+  },
+  "chicken-breast-(boneless)": {
+    "en": [
+      "Chicken Breast (Boneless)",
+      "Boneless Chicken Breast"
+    ],
+    "te": [
+      "చికెన్ బ్రెస్ట్ (ఎముకలు లేనిది)",
+      "బోన్‌లెస్ చికెన్ బ్రెస్ట్"
+    ]
+  },
+  "chicken-thigh-(boneless)": {
+    "en": [
+      "Chicken Thigh (Boneless)",
+      "Boneless Chicken Thigh"
+    ],
+    "te": [
+      "చికెన్ తొడ (ఎముకలు లేనిది)",
+      "బోన్‌లెస్ చికెన్ తొడ"
+    ]
+  },
+  "chicken-leg-(drumstick)": {
+    "en": [
+      "Chicken Leg",
+      "Chicken Drumstick"
+    ],
+    "te": [
+      "చికెన్ లెగ్",
+      "చికెన్ డ్రమ్‌స్టిక్"
+    ]
+  },
+  "chicken-wings": {
+    "en": [
+      "Chicken Wings"
+    ],
+    "te": [
+      "చికెన్ రెక్కలు"
+    ]
+  },
+  "chicken-lollipop": {
+    "en": [
+      "Chicken Lollipop"
+    ],
+    "te": [
+      "చికెన్ లాలిపాప్"
+    ]
+  },
+  "chicken-liver": {
+    "en": [
+      "Chicken Liver"
+    ],
+    "te": [
+      "చికెన్ లివర్",
+      "చికెన్ కాలేయం"
+    ]
+  },
+  "chicken-gizzard": {
+    "en": [
+      "Chicken Gizzard"
+    ],
+    "te": [
+      "చికెన్ గిజార్డ్"
+    ]
+  },
+  "chicken-mince-(keema)": {
+    "en": [
+      "Chicken Mince",
+      "Chicken Keema"
+    ],
+    "te": [
+      "చికెన్ కీమా"
+    ]
+  },
+  "chicken-curry-cut": {
+    "en": [
+      "Chicken Curry Cut"
+    ],
+    "te": [
+      "చికెన్ కర్రీ కట్"
+    ]
+  }
+}
