@@ -523,34 +523,31 @@ export function VoiceCommander({
 
     const commandLower = commandText.toLowerCase();
 
-    // --- Language Detection & Welcome ---
+    // --- Language Detection & Context Management ---
     const spokenLang = determinePhraseLanguage(commandText);
-    if (spokenLang === 'te' && language !== 'te') {
-      setLanguage('te');
-      const langWithRegion = 'te-IN';
-      speak(t('telugu-welcome-speech', 'te'), langWithRegion);
-      updateRecognitionLanguage(langWithRegion);
-      return; // Stop processing this command, wait for the next one after welcome.
-    }
-    if (spokenLang === 'en' && language !== 'en') {
-      setLanguage('en');
-      const langWithRegion = 'en-IN';
-      speak('Hello, how can I help you?', langWithRegion);
-      updateRecognitionLanguage(langWithRegion);
-      return; // Stop processing this command, wait for the next one after welcome.
-    }
     const langWithRegion = spokenLang === 'en' ? 'en-IN' : `${spokenLang}-IN`;
+    const didLanguageChange = spokenLang !== language;
 
-
+    if (didLanguageChange) {
+        setLanguage(spokenLang);
+        updateRecognitionLanguage(langWithRegion);
+    }
+    
     // --- PRIORITY 0: Check for product/item command first ---
     const { product, variant, requestedQty, matchedAlias, lang: itemLang } = await findProductAndVariant(commandLower);
 
     if (product && variant) {
         const productLang = itemLang || spokenLang;
         const replyProductName = matchedAlias || getProductName(product);
-        const speech = t('adding-item-speech', productLang)
+        let speech = t('adding-item-speech', productLang)
             .replace('{quantity}', `${requestedQty}`)
             .replace('{productName}', replyProductName);
+            
+        // If language changed, add a confirmation to the speech.
+        if (didLanguageChange) {
+            speech += spokenLang === 'te' ? " నేను మీ కోసం తెలుగుకి మారాను." : " I've switched to English for you.";
+        }
+            
         speak(speech, productLang + '-IN');
         addItemToCart(product, variant, requestedQty);
         onOpenCart();
@@ -701,7 +698,7 @@ export function VoiceCommander({
     }
     resetAllContext();
 
-  }, [firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, onStatusUpdate, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp.length]);
+  }, [firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, onStatusUpdate, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp.length, setLanguage, addItemToCart, onOpenCart]);
 
 
   useEffect(() => {
@@ -1121,7 +1118,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-
-
-
