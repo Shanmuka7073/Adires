@@ -53,10 +53,10 @@ export default function VoiceCommandsPage() {
     const { toast } = useToast();
 
     useEffect(() => {
+        if (!firestore) return; // Wait for firestore to be available
+
         startTransition(async () => {
-            if (firestore) {
-                await fetchInitialData(firestore);
-            }
+            await fetchInitialData(firestore);
             const [fetchedCommands, fetchedLocales] = await Promise.all([getCommands(), getLocales()]);
             setCommands(fetchedCommands);
             setLocales(fetchedLocales);
