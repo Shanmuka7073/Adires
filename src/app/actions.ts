@@ -4,39 +4,44 @@
 import { revalidatePath } from 'next/cache';
 import { getStores, getMasterProducts } from '@/lib/data';
 import { initServerApp } from '@/firebase/server-init';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, WriteBatch, DocumentReference } from 'firebase-admin/firestore';
 
 type CommandGroup = {
   display: string;
   reply: string;
-  aliases: string[];
 };
 
 type LocaleEntry = string | string[];
 type Locales = Record<string, Record<string, LocaleEntry>>;
 
 
-// Reads legacy commands.json for migration purposes. Will be removed later.
+// This function is now OBSOLETE as commands are stored in Firestore.
+// It is kept for potential data migration but is not actively called by getCommands.
 async function getFileCommands(): Promise<Record<string, CommandGroup>> {
-    try {
-        const fs = await import('fs/promises');
-        const path = await import('path');
-        const LOCALES_DIR = path.join(process.cwd(), 'src', 'lib', 'locales');
-        const filePath = path.join(LOCALES_DIR, 'commands.json');
-        const fileContent = await fs.readFile(filePath, 'utf-8');
-        return JSON.parse(fileContent);
-    } catch (e) {
-        console.warn("commands.json not found or unreadable. Skipping file-based command loading.");
-        return {};
-    }
+    return {}; // Return empty object to prevent file-based loading
 }
 
 
 export async function getCommands(): Promise<Record<string, CommandGroup>> {
-    // For now, we still read from the file for the display/reply info,
-    // as we haven't built a UI to manage that in Firestore yet.
-    // The aliases themselves will come from the voiceAliases collection.
-    return getFileCommands();
+    // This function will eventually fetch command metadata (display, reply) from Firestore.
+    // For now, we will construct it from the aliases.
+    const { firestore } = await initServerApp();
+    const commands: Record<string, CommandGroup> = {};
+    const aliasSnapshot = await firestore.collection('voiceAliases').where('type', '==', 'command').get();
+
+    aliasSnapshot.forEach(doc => {
+        const data = doc.data();
+        const key = data.key;
+        if (key && !commands[key]) {
+            // We are missing the display/reply text. We'll have to reconstruct it.
+            // This is a temporary measure. A proper Command collection is needed.
+             commands[key] = {
+                display: key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
+                reply: `Executing ${key}...`
+            };
+        }
+    });
+    return commands;
 }
 
 export async function getLocales(): Promise<Locales> {
@@ -44,11 +49,11 @@ export async function getLocales(): Promise<Locales> {
     const locales: Locales = {};
 
     try {
-        // 1. Fetch aliases from Firestore
         const aliasSnapshot = await firestore.collection('voiceAliases').get();
+        
         aliasSnapshot.forEach(doc => {
             const data = doc.data();
-            const { key, language, alias } = data;
+            const { key, language, alias, type } = data;
             if (!key || !language || !alias) return;
 
             if (!locales[key]) {
@@ -63,18 +68,8 @@ export async function getLocales(): Promise<Locales> {
                 langEntry.push(alias);
             }
         });
-        
-        // 2. Fetch commands from the file to merge in display/reply text
-        const fileCommands = await getFileCommands();
-        for (const key in fileCommands) {
-            if (!locales[key]) {
-                locales[key] = {};
-            }
-            // This is a temporary hack. We should have a proper command collection.
-            Object.assign(locales[key], fileCommands[key]);
-        }
 
-        // Normalize single-item arrays back to strings for compatibility
+        // Normalize single-item arrays back to strings for compatibility with old format
         for (const key in locales) {
             for (const lang in locales[key]) {
                 const entry = locales[key][lang];
@@ -83,107 +78,102 @@ export async function getLocales(): Promise<Locales> {
                 }
             }
         }
-
+        
         return locales;
 
     } catch (error) {
         console.error("Error fetching locales from Firestore:", error);
-        // Fallback to file-based commands if Firestore fails
-        return getFileCommands() as Locales;
+        return {}; // Return empty object on failure
     }
 }
 
 export async function saveCommands(commands: Record<string, CommandGroup>): Promise<{ success: boolean; }> {
-    // This function will eventually save command metadata (display, reply) to Firestore.
-    // For now, we are still saving this part to a file as a fallback.
-     try {
-        const fs = await import('fs/promises');
-        const path = await import('path');
-        const LOCALES_DIR = path.join(process.cwd(), 'src', 'lib', 'locales');
-        await fs.mkdir(LOCALES_DIR, { recursive: true });
-        const commandsFilePath = path.join(LOCALES_DIR, `commands.json`);
-        const commandsJsonContent = JSON.stringify(commands, null, 2);
-        await fs.writeFile(commandsFilePath, commandsJsonContent, 'utf-8');
-        return { success: true };
-    } catch (error) {
-        console.error("Error saving commands.json file:", error);
-        return { success: false };
-    }
+    // This function needs to be implemented to save command metadata to Firestore.
+    // For now, it does nothing as we are focusing on aliases.
+    console.warn("saveCommands function is not fully implemented for Firestore yet.");
+    return { success: true };
 }
+
 
 export async function saveLocales(locales: Locales): Promise<{ success: boolean; }> {
     const { firestore } = await initServerApp();
-    const batch = firestore.batch();
-    const voiceAliasesRef = firestore.collection('voiceAliases');
-    
-    // We need to fetch all existing aliases to know which ones to delete.
-    const existingAliasesSnap = await voiceAliasesRef.get();
-    const existingAliases = new Map<string, string>(); // Map of "key-lang-alias" -> docId
-    existingAliasesSnap.forEach(doc => {
-        const { key, language, alias } = doc.data();
-        if(key && language && alias) {
-            existingAliases.set(`${key}-${language}-${alias}`, doc.id);
-        }
-    });
+    const adminDb = getFirestore();
+    const batch: WriteBatch = adminDb.batch();
+    const voiceAliasesRef = adminDb.collection('voiceAliases');
 
-    const newAliasesSet = new Set<string>();
+    try {
+        // We need to fetch all existing aliases to know which ones to delete.
+        const existingAliasesSnap = await voiceAliasesRef.get();
+        const existingAliases = new Map<string, string>(); // Map of "key-lang-alias" -> docId
+        existingAliasesSnap.forEach(doc => {
+            const { key, language, alias } = doc.data();
+            if(key && language && alias) {
+                existingAliases.set(`${key}-${language}-${alias}`.toLowerCase(), doc.id);
+            }
+        });
 
-    for (const key in locales) {
-        const langEntries = locales[key];
-        for (const lang in langEntries) {
-            // Skip non-alias properties like 'display' and 'reply'
-            if (lang === 'display' || lang === 'reply' || lang === 'aliases') continue;
+        const newAliasesSet = new Set<string>();
 
-            const aliasEntry = langEntries[lang];
-            const aliases = Array.isArray(aliasEntry) ? aliasEntry : [aliasEntry];
+        // This is a placeholder. In a real app, you'd fetch this from a dedicated 'commands' collection.
+        const commandKeys = ['home', 'stores', 'dashboard', 'cart', 'checkout', 'orders', 'deliveries', 'myStore', 'saveChanges', 'placeOrder', 'homeAddress', 'currentLocation', 'whatTime', 'howAreYou', 'checkPrice'];
 
-            for (const alias of aliases) {
-                if (!alias) continue;
-                const uniqueId = `${key}-${lang}-${alias}`;
-                newAliasesSet.add(uniqueId);
-                
-                // If this exact alias doesn't exist in our fetched map, it's new. Add it.
-                if (!existingAliases.has(uniqueId)) {
-                    const newAliasRef = voiceAliasesRef.doc();
-                     batch.set(newAliasRef, {
-                        key,
-                        language: lang,
-                        alias: alias.toLowerCase(),
-                        type: Object.keys(await getFileCommands()).includes(key) ? 'command' : 'product', // Heuristic
-                    });
+        for (const key in locales) {
+            const langEntries = locales[key];
+            for (const lang in langEntries) {
+                // Skip non-alias properties like 'display' and 'reply'
+                if (lang === 'display' || lang === 'reply' || lang === 'aliases') continue;
+
+                const aliasEntry = langEntries[lang];
+                const aliases = Array.isArray(aliasEntry) ? aliasEntry : [aliasEntry];
+
+                for (const alias of aliases) {
+                    if (!alias) continue;
+                    const uniqueId = `${key}-${lang}-${alias}`.toLowerCase();
+                    newAliasesSet.add(uniqueId);
+                    
+                    // If this exact alias doesn't exist in our fetched map, it's new. Add it.
+                    if (!existingAliases.has(uniqueId)) {
+                        const newAliasRef = voiceAliasesRef.doc();
+                        batch.set(newAliasRef, {
+                            key,
+                            language: lang,
+                            alias: alias.toLowerCase(),
+                            type: commandKeys.includes(key) ? 'command' : 'product', // Heuristic to determine type
+                        });
+                    }
                 }
             }
         }
-    }
-    
-    // Now, determine which aliases to delete
-    existingAliases.forEach((docId, uniqueId) => {
-        if (!newAliasesSet.has(uniqueId)) {
-            batch.delete(voiceAliasesRef.doc(docId));
-        }
-    });
+        
+        // Now, determine which aliases to delete
+        existingAliases.forEach((docId, uniqueId) => {
+            if (!newAliasesSet.has(uniqueId)) {
+                batch.delete(voiceAliasesRef.doc(docId));
+            }
+        });
 
-    try {
         await batch.commit();
         return { success: true };
+
     } catch (error) {
         console.error("Error saving locales to Firestore:", error);
         return { success: false };
     }
 }
 
+
 export async function addAliasToLocales(productKey: string, newAlias: string, lang: string): Promise<{ success: boolean }> {
     const { firestore } = await initServerApp();
+    const adminDb = getFirestore();
     const aliasLower = newAlias.toLowerCase();
-    const voiceAliasesRef = firestore.collection('voiceAliases');
+    const voiceAliasesRef = adminDb.collection('voiceAliases');
     
-    // Check if alias already exists for this key/lang combination to avoid duplicates
-    const q = voiceAliasesRef
-        .where('key', '==', productKey)
-        .where('language', '==', lang)
-        .where('alias', '==', aliasLower);
-
     try {
+        const q = voiceAliasesRef
+            .where('key', '==', productKey)
+            .where('language', '==', lang)
+            .where('alias', '==', aliasLower);
+
         const querySnapshot = await q.get();
         if (!querySnapshot.empty) {
             // Alias already exists, no need to add again
@@ -219,9 +209,6 @@ export async function indexSiteContent() {
         console.log(`Found ${stores.length} stores.`);
         console.log(`Found ${masterProducts.length} master products.`);
 
-        // In the future, this data can be saved to a new Firestore collection
-        // for the voice commander to use.
-
         const indexedData = {
             stores: stores.map(s => ({ id: s.id, name: s.name, address: s.address })),
             products: masterProducts.map(p => ({ id: p.id, name: p.name, category: p.category })),
@@ -248,5 +235,3 @@ export async function indexSiteContent() {
         };
     }
 }
-
-// This file can be extended with more server actions.

@@ -1,4 +1,5 @@
 
+
 import { getLocales as fetchAllLocales } from '@/app/actions';
 
 type LocaleEntry = string | string[];
@@ -16,11 +17,18 @@ async function getTranslations(): Promise<Locales> {
     return translations;
 }
 
+// Function to initialize or refresh the translations cache
+export async function initializeTranslations() {
+    translations = await fetchAllLocales();
+}
+
+
 // Client-side synchronous translation function
 // Note: This relies on the data being pre-fetched and available.
 export function t(key: string, lang: string = 'en'): string {
     const allTranslations = translations;
     if (!allTranslations || Object.keys(allTranslations).length === 0) {
+        // Fallback for when translations aren't loaded yet.
         return key.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     }
     const langCode = lang.split('-')[0];
@@ -30,6 +38,10 @@ export function t(key: string, lang: string = 'en'): string {
         const regionalEntry = entry[langCode];
         // Return the first alias if it's an array
         return Array.isArray(regionalEntry) ? regionalEntry[0] : regionalEntry;
+    }
+     if (entry && entry['en']) {
+        const fallbackEntry = entry['en'];
+        return Array.isArray(fallbackEntry) ? fallbackEntry[0] : fallbackEntry;
     }
     
     // Fallback for keys that might not be in the JSON, like dynamic product names
@@ -45,6 +57,7 @@ export function getAllAliases(key: string): Record<string, string[]> {
 
     if (entry) {
         for (const langCode in entry) {
+             if (langCode === 'display' || langCode === 'reply' || langCode === 'aliases') continue;
             const langAliases = entry[langCode];
             result[langCode] = (Array.isArray(langAliases) ? langAliases : [langAliases]).filter(Boolean);
         }
@@ -52,3 +65,6 @@ export function getAllAliases(key: string): Record<string, string[]> {
     
     return result;
 }
+
+// Initialize translations on server startup
+initializeTranslations();

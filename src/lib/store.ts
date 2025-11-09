@@ -131,3 +131,34 @@ export const useMyStorePageStore = create<MyStorePageState>((set) => ({
   saveInventoryBtnRef: null,
   setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
 }));
+
+// --- Store for Checkout Page ---
+interface CheckoutPageState {
+  placeOrderBtnRef: RefObject<HTMLButtonElement> | null;
+  setPlaceOrderBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
+  isWaitingForQuickOrderConfirmation: boolean;
+  setIsWaitingForQuickOrderConfirmation: (isWaiting: boolean) => void;
+  homeAddressBtnRef: RefObject<HTMLButtonElement> | null;
+  setHomeAddressBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
+  currentLocationBtnRef: RefObject<HTMLButtonElement> | null;
+  setCurrentLocationBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
+  homeAddress: string | null;
+  setHomeAddress: (address: string | null) => void;
+  shouldPlaceOrderDirectly: boolean;
+  setShouldPlaceOrderDirectly: (shouldPlace: boolean) => void;
+}
+
+export const useCheckoutStore = create<CheckoutPageState>((set) => ({
+  placeOrderBtnRef: null,
+  setPlaceOrderBtnRef: (placeOrderBtnRef) => set({ placeOrderBtnRef }),
+  isWaitingForQuickOrderConfirmation: false,
+  setIsWaitingForQuickOrderConfirmation: (isWaiting) => set({ isWaitingForQuickOrderConfirmation: isWaiting }),
+  homeAddressBtnRef: null,
+  setHomeAddressBtnRef: (ref) => set({ homeAddressBtnRef: ref }),
+  currentLocationBtnRef: null,
+  setCurrentLocationBtnRef: (ref) => set({ currentLocationBtnRef: ref }),
+  homeAddress: null,
+  setHomeAddress: (address) => set({ homeAddress: address }),
+  shouldPlaceOrderDirectly: false,
+  setShouldPlaceOrderDirectly: (shouldPlace) => set({ shouldPlaceOrderDirectly: shouldPlace }),
+}));

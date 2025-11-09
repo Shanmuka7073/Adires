@@ -11,7 +11,7 @@ import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
 import { useAppStore, useProfileFormStore, useMyStorePageStore } from '@/lib/store';
 import { ProfileFormValues } from '@/app/dashboard/customer/my-profile/page';
-import { useCheckoutStore } from '@/app/checkout/page';
+import { useCheckoutStore } from '@/lib/store';
 import { getCommands, getLocales } from '@/app/actions';
 import { t, getAllAliases } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection } from 'firebase/firestore';
@@ -82,7 +82,7 @@ export function VoiceCommander({
   const isEnabledRef = useRef(enabled);
   const commandsRef = useRef<Command[]>([]);
   const commandActionsRef = useRef<any>({});
-  const fileCommandsRef = useRef<any>({});
+  const fileCommandsRef = useRef<Record<string, { display: string, reply: string, aliases: string[] }>>({});
   const allAliasesRef = useRef<Record<string, Record<string, string[]>>>({});
 
   const formFieldToFillRef = useRef<keyof ProfileFormValues | null>(null);
@@ -116,7 +116,7 @@ export function VoiceCommander({
       map.set(normalizedCanonicalName.replace(/\s+/g, ''), { product: p, lang: 'en' });
 
 
-      // Add all aliases from locales.json
+      // Add all aliases from locales
       for (const lang in productAliasesByLang) {
         for (const alias of productAliasesByLang[lang]) {
           const normalizedAlias = alias.toLowerCase();
@@ -229,7 +229,9 @@ export function VoiceCommander({
             aliasMap[key] = {};
             for(const lang in locales[key]) {
                 const value = locales[key][lang];
-                aliasMap[key][lang] = Array.isArray(value) ? value : [value];
+                if (lang !== 'display' && lang !== 'reply' && lang !== 'aliases') {
+                    aliasMap[key][lang] = Array.isArray(value) ? value : [value];
+                }
             }
         }
         allAliasesRef.current = aliasMap;
@@ -535,6 +537,15 @@ export function VoiceCommander({
     }
     
     // --- PRIORITY 0: Check for product/item command first ---
+    const multiItemSeparators = new RegExp(`\\s+(${['and', 'మరియు', 'aur'].join('|')})\\s+`, 'i');
+    const potentialItems = commandLower.split(multiItemSeparators).filter(s => s && !['and', 'మరియు', 'aur'].includes(s));
+
+    if (potentialItems.length > 1) {
+        await commandActionsRef.current.orderMultipleItems(potentialItems, spokenLang, commandText);
+        resetAllContext();
+        return;
+    }
+    
     const { product, variant, requestedQty, matchedAlias, lang: itemLang } = await findProductAndVariant(commandLower);
 
     if (product && variant) {
@@ -547,13 +558,13 @@ export function VoiceCommander({
         const replyProductName = matchedAlias || getProductName(product);
 
         let speech = t('adding-item-speech', productLang)
-            .replace('{quantity}', `${requestedQty} ${variant.weight}`)
+            .replace('{quantity}', `${requestedQty}`)
+            .replace('{weight}', `${variant.weight}`)
             .replace('{productName}', replyProductName);
 
         // If the language changed during this command, add the confirmation to the speech.
         if (didLanguageChange) {
             speech += spokenLang === 'te' ? " నేను మీ కోసం తెలుగుకి మారాను." : " I've also switched to English for you.";
-            // Since we're now in a new language, play the welcome speech after a delay.
         }
             
         speak(speech, productLang + '-IN');
@@ -922,7 +933,7 @@ export function VoiceCommander({
             if (product && variant) {
                 addItemToCart(product, variant, requestedQty);
                 const replyProductName = matchedAlias || getProductName(product);
-                addedItems.push(`${requestedQty} ${replyProductName}`);
+                addedItems.push(`${requestedQty} ${variant.weight} of ${replyProductName}`);
             } else {
                 failedItems.push(phrase);
             }
@@ -934,7 +945,7 @@ export function VoiceCommander({
             onOpenCart();
         }
         if (failedItems.length > 0) {
-            if (speech) speech += " ";
+            if (speech) speech += ". ";
             speech += t('but-i-couldnt-find', detectedLang).replace('{items}', failedItems.join(', '));
             if (firestore && user) {
                addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: detectedLang, reason: `Multi-item match failed for: "${failedItems.join(', ')}"`, timestamp: serverTimestamp() });
@@ -977,7 +988,7 @@ export function VoiceCommander({
         const productPhrase = remainingCommand.replace(/^(order|buy|get|send|need|want)/, '').trim();
         const productPhrases = productPhrase.split(multiItemSeparators);
         
-        let addedItems: {name: string, qty: number}[] = [];
+        let addedItems: {name: string, qty: number, weight: string}[] = [];
         let failedItems: string[] = [];
 
         for (const phrase of productPhrases) {
@@ -988,7 +999,7 @@ export function VoiceCommander({
             if (product && variant) {
                 addItemToCart(product, variant, requestedQty);
                 const replyProductName = matchedAlias || getProductName(product);
-                addedItems.push({ name: replyProductName, qty: requestedQty });
+                addedItems.push({ name: replyProductName, qty: requestedQty, weight: variant.weight });
             } else {
                 failedItems.push(phrase);
             }
@@ -1013,8 +1024,7 @@ export function VoiceCommander({
         }
 
         const speech = t('preparing-order-speech', detectedLang)
-            .replace('{qty}', '') // Quantity is plural, so we remove it
-            .replace('{productName}', addedItems.map(i => `${i.qty} ${i.name}`).join(', '))
+            .replace('{items}', addedItems.map(i => `${i.qty} ${i.weight} of ${i.name}`).join(', '))
             .replace('{storeName}', bestStoreMatch.store.name);
         speak(speech, detectedLang + '-IN');
 
@@ -1124,4 +1134,3 @@ export function VoiceCommander({
 
   return null;
 }
-
