@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useTransition, useEffect, useMemo, useRef } from 'react';
@@ -62,7 +63,7 @@ import {
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
 import groceryData from '@/lib/grocery-data.json';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Camera, CameraOff, Sparkles, PlusCircle, Edit, Link2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
@@ -893,13 +894,16 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {groceryData.categories.map(cat => (
-                        cat.items.map(item => (
-                            <SelectItem key={`${cat.categoryName}-${item}`} value={`${item}::${cat.categoryName}`}>
-                                {item} ({cat.categoryName})
-                            </SelectItem>
-                        ))
-                      ))}
+                        {groceryData.categories.map(cat => (
+                            <SelectGroup key={cat.categoryName}>
+                                <SelectLabel>{cat.categoryName}</SelectLabel>
+                                {cat.items.map(item => (
+                                    <SelectItem key={`${cat.categoryName}-${item}`} value={`${item}::${cat.categoryName}`}>
+                                        {item}
+                                    </SelectItem>
+                                ))}
+                            </SelectGroup>
+                        ))}
                     </SelectContent>
                 </Select>
                 <FormDescription>
@@ -1967,3 +1971,4 @@ export default function MyStorePage() {
         </div>
     );
 }
+
