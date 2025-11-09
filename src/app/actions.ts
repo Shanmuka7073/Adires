@@ -4,7 +4,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { firestore as adminFirestore } from '@/firebase/admin-init';
-import { collection, getDocs, writeBatch, doc, addDoc, deleteDoc, query, where } from 'firebase/firestore';
+// Use only the admin SDK on the server. The client 'firebase/firestore' imports were incorrect.
 
 type CommandGroup = {
   display: string;
@@ -16,11 +16,15 @@ type Locales = Record<string, Record<string, LocaleEntry>>;
 type VoiceAlias = { id?: string; key: string; language: string; alias: string; type: string };
 
 
-// --- NEW FIRESTORE-BASED DATA FETCHING ---
+// --- REWRITTEN FIRESTORE-BASED DATA FETCHING using ADMIN SDK ---
 
 async function fetchAliasesFromFirestore(): Promise<VoiceAlias[]> {
-    const aliasCollection = collection(adminFirestore, 'voiceAliases');
-    const snapshot = await getDocs(aliasCollection);
+    // CORRECT: Use adminFirestore.collection() syntax for the Admin SDK
+    const aliasCollection = adminFirestore.collection('voiceAliases');
+    const snapshot = await aliasCollection.get();
+    if (snapshot.empty) {
+        return [];
+    }
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAlias));
 }
 
@@ -81,16 +85,16 @@ export async function getLocales(): Promise<Locales> {
 }
 
 
-// --- REFACTORED FIRESTORE-BASED SAVING ---
+// --- REFACTORED FIRESTORE-BASED SAVING using ADMIN SDK ---
 
 export async function saveCommands(commands: Record<string, CommandGroup>): Promise<{ success: boolean; }> {
     try {
-        const batch = writeBatch(adminFirestore);
-        const aliasCollection = collection(adminFirestore, 'voiceAliases');
+        const batch = adminFirestore.batch();
+        const aliasCollection = adminFirestore.collection('voiceAliases');
         
         // Query existing command display/reply docs to delete them before writing new ones
-        const q = query(aliasCollection, where('type', '==', 'command'), where('language', 'in', ['display', 'reply']));
-        const existingDocs = await getDocs(q);
+        const q = aliasCollection.where('type', '==', 'command').where('language', 'in', ['display', 'reply']);
+        const existingDocs = await q.get();
 
         existingDocs.forEach(doc => {
             batch.delete(doc.ref);
@@ -101,11 +105,11 @@ export async function saveCommands(commands: Record<string, CommandGroup>): Prom
             const { display, reply } = commands[key];
             
             // Add display name as a special alias
-            const displayDocRef = doc(aliasCollection);
+            const displayDocRef = aliasCollection.doc();
             batch.set(displayDocRef, { key, language: 'display', alias: display, type: 'command' });
             
             // Add reply as a special alias
-            const replyDocRef = doc(aliasCollection);
+            const replyDocRef = aliasCollection.doc();
             batch.set(replyDocRef, { key, language: 'reply', alias: reply, type: 'command' });
         }
         
@@ -121,12 +125,12 @@ export async function saveCommands(commands: Record<string, CommandGroup>): Prom
 
 export async function saveLocales(locales: Locales): Promise<{ success: boolean; }> {
      try {
-        const batch = writeBatch(adminFirestore);
-        const aliasCollection = collection(adminFirestore, 'voiceAliases');
+        const batch = adminFirestore.batch();
+        const aliasCollection = adminFirestore.collection('voiceAliases');
 
         // First, delete all existing aliases that are not 'display' or 'reply'
-        const q = query(aliasCollection, where('language', 'not-in', ['display', 'reply']));
-        const existingDocs = await getDocs(q);
+        const q = aliasCollection.where('language', 'not-in', ['display', 'reply']);
+        const existingDocs = await q.get();
         existingDocs.forEach(doc => {
             batch.delete(doc.ref);
         });
@@ -140,7 +144,7 @@ export async function saveLocales(locales: Locales): Promise<{ success: boolean;
                 const aliases = Array.isArray(langMap[lang]) ? langMap[lang] as string[] : [langMap[lang] as string];
                 for (const alias of aliases) {
                     if (alias) { // Ensure alias is not empty
-                        const newDocRef = doc(aliasCollection);
+                        const newDocRef = aliasCollection.doc();
                         batch.set(newDocRef, { key, language: lang, alias, type: itemType });
                     }
                 }
@@ -169,10 +173,10 @@ export async function addAliasToLocales(productKey: string, newAlias: string, la
     // This function is no longer the primary way to add aliases, but we can adapt it.
     // It's simpler to just add a new document.
     try {
-        const aliasCollection = collection(adminFirestore, 'voiceAliases');
+        const aliasCollection = adminFirestore.collection('voiceAliases');
         const itemType = determineItemType(productKey);
 
-        await addDoc(aliasCollection, {
+        await aliasCollection.add({
             key: productKey,
             language: lang,
             alias: newAlias.toLowerCase(),
