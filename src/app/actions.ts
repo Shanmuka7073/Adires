@@ -165,7 +165,8 @@ export async function saveLocales(locales: Locales): Promise<{ success: boolean;
         groceryData.categories.forEach(category => {
             const categorySlug = category.categoryName.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-');
             category.items.forEach(item => {
-                const productSlug = item.toLowerCase().replace(/\s*\(.*\)\s*/g, '').replace(/ /g, '-');
+                // This slug generation MUST match the keys in the locale files (e.g., 'potatoes', 'green-chilies')
+                const productSlug = item.toLowerCase().replace(/\s*\(.*\)\s*/g, '').replace(/\s+/g, '-');
                  productToCategoryMap.set(productSlug, categorySlug);
             });
         });
@@ -173,11 +174,10 @@ export async function saveLocales(locales: Locales): Promise<{ success: boolean;
         const newCategoryFiles: Record<string, Locales> = {};
 
         for (const key in locales) {
-            const productSlug = key.toLowerCase().replace(/\s*\(.*\)\s*/g, '').replace(/ /g, '-');
-            let category = productToCategoryMap.get(productSlug);
+            let category = productToCategoryMap.get(key);
 
             if (!category) {
-                // If not found, try to find it in the existing categorized data
+                // If not in the grocery-data map, check which existing file it belongs to.
                 for(const cat in localesByCategory) {
                     if (localesByCategory[cat][key]) {
                         category = cat;
@@ -195,7 +195,7 @@ export async function saveLocales(locales: Locales): Promise<{ success: boolean;
                 }
             }
             
-            // Special handling for category names themselves
+            // Special handling for category names themselves, which are their own files
             const isCategoryKey = groceryData.categories.some(c => c.categoryName.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-') === key);
             if (isCategoryKey) {
                 category = key;
