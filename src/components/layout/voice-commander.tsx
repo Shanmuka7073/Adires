@@ -252,20 +252,21 @@ export function VoiceCommander({
   useEffect(() => {
     isEnabledRef.current = enabled;
     if (recognition) {
-      if (enabled) {
-        // Set initial language from the sticky state
-        recognition.lang = language === 'te' ? 'te-IN' : 'en-IN';
-        recognition.continuous = true;
-        try {
-          recognition.start();
-        } catch (e) {
-          // Already started
+        if (enabled) {
+            recognition.lang = language === 'te' ? 'te-IN' : 'en-IN';
+            recognition.continuous = true;
+            recognition.interimResults = false;
+            try {
+                recognition.start();
+            } catch (e) {
+                // Ignore if already started
+            }
+        } else {
+            recognition.onend = null; // Prevent restart on manual disable
+            recognition.abort();
         }
-      } else {
-        recognition.abort();
-      }
     }
-  }, [enabled, language]);
+}, [enabled, language]);
 
   const speak = useCallback((text: string, lang: string, onEndCallback?: () => void) => {
     if (typeof window === 'undefined' || !window.speechSynthesis) {
@@ -274,9 +275,8 @@ export function VoiceCommander({
     }
 
     window.speechSynthesis.cancel();
-    isSpeakingRef.current = false;
+    isSpeakingRef.current = true; // Set speaking flag
     
-    const langCode = lang.split('-')[0]; // 'en' from 'en-IN'
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.pitch = 1;
     utterance.rate = 1.1;
@@ -289,6 +289,7 @@ export function VoiceCommander({
     if (desiredVoice) {
       utterance.voice = desiredVoice;
     } else {
+      const langCode = lang.split('-')[0];
       const langVoices = speechSynthesisVoices.filter(v => v.lang.startsWith(langCode));
       if (langVoices.length > 0) {
         utterance.voice = langVoices[0];
@@ -298,33 +299,31 @@ export function VoiceCommander({
     utterance.onend = () => {
       isSpeakingRef.current = false;
       if (onEndCallback) onEndCallback();
-      // Restart recognition if it was stopped by speech synthesis
-      if (isEnabledRef.current) {
+       // After speaking, check if recognition should be restarted.
+      if (isEnabledRef.current && recognition) {
         try {
-          recognition?.start();
+            recognition.start();
         } catch(e) {
-          // ignore if already started
+            // Can happen if it's already starting. Safe to ignore.
         }
       }
     };
 
     utterance.onerror = (e) => {
-      if (e.error === 'interrupted') {
-        console.log('Speech was interrupted.');
-      } else {
-        console.error("Speech synthesis error:", e.error || 'Unknown speech error');
+      if (e.error !== 'interrupted') {
+          console.error("Speech synthesis error:", e.error || 'Unknown speech error');
       }
       isSpeakingRef.current = false;
       if (onEndCallback) onEndCallback();
-       if (isEnabledRef.current) {
-        try {
-          recognition?.start();
-        } catch(e) {}
+      if (isEnabledRef.current && recognition) {
+          try {
+              recognition.start();
+          } catch(e) {}
       }
     };
     
-    isSpeakingRef.current = true;
-    recognition?.stop(); // Temporarily stop listening while we speak
+    // Temporarily stop recognition. The onend handler for synthesis will restart it.
+    if(recognition) recognition.stop();
     window.speechSynthesis.speak(utterance);
   }, [speechSynthesisVoices]);
 
@@ -691,9 +690,6 @@ export function VoiceCommander({
       return;
     }
 
-    recognition.continuous = true;
-    recognition.interimResults = false;
-
     recognition.onstart = () => {
       onStatusUpdate(`Listening... (${language}-IN)`);
     };
@@ -710,21 +706,23 @@ export function VoiceCommander({
       }
     };
 
+    // This is the key change: the onend handler.
     recognition.onend = () => {
-      // Only restart if the mic was intentionally enabled and is not currently speaking.
-      // This prevents the restart loop when the user manually disables the mic.
-      if (isEnabledRef.current && !isSpeakingRef.current) {
-        setTimeout(() => {
-          if (isEnabledRef.current && !isSpeakingRef.current) {
+        // Only restart if the mic was intentionally enabled by the user
+        // and we are not in the middle of speaking a reply.
+        if (isEnabledRef.current && !isSpeakingRef.current) {
             try {
-              recognition?.start();
+                // A brief delay can help prevent rapid restart loops on some systems.
+                setTimeout(() => {
+                    if (isEnabledRef.current && !isSpeakingRef.current) {
+                        recognition?.start();
+                    }
+                }, 100); 
             } catch (e) {
-              // This can happen if start() is called while it's already starting.
-              // It's safe to ignore in this context.
+                // This can happen if start() is called while it's already starting.
+                // It's safe to ignore in this context.
             }
-          }
-        }, 250); // A small delay to prevent frantic restarting.
-      }
+        }
     };
 
     commandActionsRef.current = {
