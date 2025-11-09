@@ -532,6 +532,13 @@ export function VoiceCommander({
       updateRecognitionLanguage(langWithRegion);
       return; // Stop processing this command, wait for the next one after welcome.
     }
+    if (spokenLang === 'en' && language !== 'en') {
+      setLanguage('en');
+      const langWithRegion = 'en-IN';
+      speak('Hello, how can I help you?', langWithRegion);
+      updateRecognitionLanguage(langWithRegion);
+      return; // Stop processing this command, wait for the next one after welcome.
+    }
     const langWithRegion = spokenLang === 'en' ? 'en-IN' : `${spokenLang}-IN`;
 
 
@@ -1114,6 +1121,7 @@ export function VoiceCommander({
 
   return null;
 }
+
 
 
 
