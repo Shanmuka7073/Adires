@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useTransition, useEffect, useRef } from 'react';
+import { useState, useTransition, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,28 +52,30 @@ export default function VoiceCommandsPage() {
 
     const { toast } = useToast();
 
-    useEffect(() => {
-        const loadAllData = async () => {
-            if (!firestore) return; // Wait for firestore to be available
-            startTransition(async () => {
-                try {
-                    // First, fetch the store and product data, which is needed for the other tabs.
-                    await fetchInitialData(firestore);
-                    // Then, fetch the command and locale data.
-                    const [fetchedCommands, fetchedLocales] = await Promise.all([getCommands(), getLocales()]);
-                    setCommands(fetchedCommands);
-                    setLocales(fetchedLocales);
-                } catch(error) {
-                    console.error("Failed to load voice command data:", error);
-                    toast({
-                        variant: 'destructive',
-                        title: 'Data Load Failed',
-                        description: 'Could not load voice commands and aliases. Please refresh the page.'
-                    });
-                }
-            });
-        };
+    const loadAllData = useCallback(async () => {
+        if (!firestore) return;
+        startTransition(async () => {
+            try {
+                // Fetch all data concurrently
+                const [fetchedCommands, fetchedLocales] = await Promise.all([
+                    getCommands(), 
+                    getLocales(),
+                    fetchInitialData(firestore) // This populates stores and masterProducts
+                ]);
+                setCommands(fetchedCommands);
+                setLocales(fetchedLocales);
+            } catch(error) {
+                console.error("Failed to load voice command data:", error);
+                toast({
+                    variant: 'destructive',
+                    title: 'Data Load Failed',
+                    description: 'Could not load voice commands and aliases. Please refresh the page.'
+                });
+            }
+        });
+    }, [firestore, fetchInitialData, toast]);
 
+    useEffect(() => {
         loadAllData();
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -94,7 +96,7 @@ export default function VoiceCommandsPage() {
         } else {
             console.warn("Speech recognition not supported in this browser.");
         }
-    }, [firestore, fetchInitialData, toast]);
+    }, [loadAllData]);
 
 
     const handleAddAlias = (itemKey: string, lang: string) => {
@@ -392,7 +394,7 @@ export default function VoiceCommandsPage() {
                               {currentAliases.length === 0 && <p className="text-xs text-muted-foreground">No aliases yet.</p>}
                             </div>
                             <div className="flex items-center gap-2 pt-2 border-t">
-                              <Input placeholder={`Add ${lang} alias(es), comma-separated...`} value={newAliases[itemKey]?.[lang] || ''} onChange={(e) => setNewAliases(p => ({ ...p, [itemKey]: { ...p[key], [lang]: e.target.value } }))} onKeyDown={(e) => {if (e.key === 'Enter') { e.preventDefault(); handleAddAlias(itemKey, lang); }}} />
+                              <Input placeholder={`Add ${lang} alias(es), comma-separated...`} value={newAliases[itemKey]?.[lang] || ''} onChange={(e) => setNewAliases(p => ({ ...p, [itemKey]: { ...(p[itemKey] || {}), [lang]: e.target.value } }))} onKeyDown={(e) => {if (e.key === 'Enter') { e.preventDefault(); handleAddAlias(itemKey, lang); }}} />
                               <Button size="sm" onClick={() => handleAddAlias(itemKey, lang)}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
                               <Button size="sm" variant="outline" onClick={() => handleVoiceAdd(itemKey, lang === 'te' ? 'te-IN' : 'en-IN')} disabled={isListening}><Mic className="h-4 w-4" /><span className="sr-only">Add by voice</span></Button>
                             </div>
@@ -422,7 +424,7 @@ export default function VoiceCommandsPage() {
                 <Button variant={activeTab === 'stores' ? 'default' : 'outline'} onClick={() => setActiveTab('stores')}>Store Aliases</Button>
             </div>
 
-            {isProcessing && Object.keys(commands).length === 0 && Object.keys(locales).length === 0 ? (
+            {isProcessing ? (
                 <div className="flex items-center justify-center h-64">
                     <Loader2 className="mr-2 h-8 w-8 animate-spin" />
                     <span className="text-lg">Loading voice settings...</span>

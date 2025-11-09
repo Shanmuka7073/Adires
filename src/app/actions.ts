@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -86,51 +87,68 @@ export async function saveCommands(commands: Record<string, CommandGroup>): Prom
     const voiceAliasesRef = firestore.collection('voiceAliases');
 
     try {
-        // Create a map to hold command data, keyed by the command key.
+        // Create a map from the incoming command data.
         const commandDataMap = new Map<string, { display: string, reply: string }>();
         for (const key in commands) {
             commandDataMap.set(key, commands[key]);
         }
 
-        // Query for all existing command documents to update them or find their IDs.
+        // Query for all existing command documents.
         const existingCommandsSnap = await voiceAliasesRef.where('type', '==', 'command').get();
         const existingDocsByKey = new Map<string, { id: string, data: any }>();
+        
         existingCommandsSnap.forEach(doc => {
-            existingDocsByKey.set(doc.data().key, { id: doc.id, data: doc.data() });
+            // Because a command can have multiple aliases (rows), we only care about one entry per key.
+            if (!existingDocsByKey.has(doc.data().key)) {
+                existingDocsByKey.set(doc.data().key, { id: doc.id, data: doc.data() });
+            }
         });
 
         for (const [key, data] of commandDataMap) {
             if (existingDocsByKey.has(key)) {
-                // If command exists, update its display name and reply.
+                // If command key exists, update its display name and reply.
+                // We assume one primary document per command key holds this info.
                 const existingDoc = existingDocsByKey.get(key)!;
                 const docRef = voiceAliasesRef.doc(existingDoc.id);
-                // Only update if there's a change to avoid unnecessary writes.
-                if (existingDoc.data.display !== data.display || existingDoc.data.reply !== data.reply) {
-                    batch.update(docRef, { display: data.display, reply: data.reply });
+
+                const updateData: any = {};
+                if (existingDoc.data.display !== data.display) updateData.display = data.display;
+                if (existingDoc.data.reply !== data.reply) updateData.reply = data.reply;
+                
+                if (Object.keys(updateData).length > 0) {
+                    batch.update(docRef, updateData);
                 }
-                // Mark this key as handled.
-                existingDocsByKey.delete(key);
             } else {
                 // If command is new, create a new document for it.
+                // This will be the "primary" document for this command key.
                 const newDocRef = voiceAliasesRef.doc(); // Firestore will auto-generate an ID.
                 batch.set(newDocRef, {
                     key: key,
                     type: 'command',
                     display: data.display,
                     reply: data.reply,
-                    // Aliases are handled by saveLocales, but we create the command doc here.
-                    language: 'en', // default language
+                    language: 'en', // default language for the primary doc
                     alias: key.toLowerCase().replace(/_/g, ' ') // a default alias
                 });
             }
         }
+        
+        // Find which keys were deleted by the user.
+        const keysToDelete = new Set<string>();
+        existingDocsByKey.forEach((value, key) => {
+            if (!commandDataMap.has(key)) {
+                keysToDelete.add(key);
+            }
+        });
 
-        // Any keys remaining in existingDocsByKey were deleted by the user.
-        for (const [key, docInfo] of existingDocsByKey) {
-            const docToDeleteRef = voiceAliasesRef.doc(docInfo.id);
-            batch.delete(docToDeleteRef);
+        if (keysToDelete.size > 0) {
+            // We need to fetch ALL documents for the keys to be deleted, not just the primary one.
+            const docsToDeleteSnap = await voiceAliasesRef.where('key', 'in', Array.from(keysToDelete)).where('type', '==', 'command').get();
+            docsToDeleteSnap.forEach(doc => {
+                batch.delete(doc.ref);
+            });
         }
-
+        
         await batch.commit();
         return { success: true };
     } catch (error) {
