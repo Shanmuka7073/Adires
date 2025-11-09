@@ -60,7 +60,6 @@ export default function VoiceCommandsPage() {
                 const [fetchedCommands, fetchedLocales] = await Promise.all([
                     getCommands(), 
                     getLocales(),
-                    fetchInitialData(firestore) // This populates stores and masterProducts
                 ]);
                 setCommands(fetchedCommands);
                 setLocales(fetchedLocales);
@@ -73,7 +72,7 @@ export default function VoiceCommandsPage() {
                 });
             }
         });
-    }, [firestore, fetchInitialData, toast]);
+    }, [firestore, toast]);
 
     useEffect(() => {
         loadAllData();
@@ -96,7 +95,7 @@ export default function VoiceCommandsPage() {
         } else {
             console.warn("Speech recognition not supported in this browser.");
         }
-    }, [loadAllData]);
+    }, [loadAllData, toast]);
 
 
     const handleAddAlias = (itemKey: string, lang: string) => {
@@ -464,3 +463,5 @@ export default function VoiceCommandsPage() {
     );
 }
 
+
+    
