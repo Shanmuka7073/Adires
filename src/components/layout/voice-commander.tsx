@@ -335,54 +335,65 @@ export function VoiceCommander({
     }
   }, [profileForm, speak]);
 
- const runCheckoutPrompt = useCallback(() => {
-    if (pathname !== '/checkout' || !hasMounted || !enabled || isSpeakingRef.current) {
+  const promptTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const runCheckoutPrompt = useCallback(() => {
+      if (pathname !== '/checkout' || !hasMounted || !enabled || isSpeakingRef.current) {
+          return;
+      }
+      // If a prompt is already scheduled, don't schedule another one.
+      if (promptTimeoutRef.current) {
         return;
-    }
+      }
 
-    const detectedLang = language;
-    const langWithRegion = detectedLang === 'en' ? 'en-IN' : `${detectedLang}-IN`;
+      promptTimeoutRef.current = setTimeout(() => {
+        const detectedLang = language;
+        const langWithRegion = detectedLang === 'en' ? 'en-IN' : `${detectedLang}-IN`;
 
-    const addressInput = typeof document !== 'undefined' ? (document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement) : null;
-    const currentAddress = addressInput?.value || '';
+        const addressInput = typeof document !== 'undefined' ? (document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement) : null;
+        const currentAddress = addressInput?.value || '';
+        const currentStoreId = useCart.getState().activeStoreId; // Get latest from Zustand
 
-    if (cartItemsProp.length === 0) {
-        speak(t('your-cart-is-empty-speech', detectedLang), langWithRegion);
-    } else if (!currentAddress || currentAddress.length < 10) {
-        speak(t('should-i-deliver-to-home-or-current-speech', detectedLang), langWithRegion);
-        setIsWaitingForAddressType(true);
-    } else if (!activeStoreId) {
-        speak(t('which-store-should-fulfill-speech', detectedLang), langWithRegion);
-        setIsWaitingForStoreName(true);
-    } else {
-        const total = cartTotal + 30;
-        const speech = t('finalConfirmPrompt', detectedLang).replace('{total}', `₹${total.toFixed(2)}`);
-        speak(speech, langWithRegion);
-    }
-}, [
-    pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation,
-    cartItemsProp.length, activeStoreId, language, speak,
-    setIsWaitingForAddressType, setIsWaitingForStoreName, cartTotal, t
-]);
+        if (cartItemsProp.length === 0 && !isWaitingForQuickOrderConfirmation) {
+            speak(t('your-cart-is-empty-speech', detectedLang), langWithRegion);
+        } else if (!currentAddress || currentAddress.length < 10) {
+            speak(t('should-i-deliver-to-home-or-current-speech', detectedLang), langWithRegion);
+            setIsWaitingForAddressType(true);
+        } else if (!currentStoreId) {
+            speak(t('which-store-should-fulfill-speech', detectedLang), langWithRegion);
+            setIsWaitingForStoreName(true);
+        } else {
+            const total = cartTotal + 30;
+            const speech = t('finalConfirmPrompt', detectedLang).replace('{total}', `₹${total.toFixed(2)}`);
+            speak(speech, langWithRegion);
+        }
+        promptTimeoutRef.current = null; // Clear the ref after the prompt runs
+      }, 250); // Small delay to allow state to settle
+  }, [
+      pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation,
+      cartItemsProp.length, language, speak,
+      setIsWaitingForAddressType, setIsWaitingForStoreName, cartTotal, t
+  ]);
   
   useEffect(() => {
       if (pathname === '/checkout' && hasMounted && enabled && voiceTrigger > 0) {
-          const timeoutId = setTimeout(() => {
-              runCheckoutPrompt();
-          }, 1000); 
-          return () => clearTimeout(timeoutId);
+        runCheckoutPrompt();
       }
   }, [voiceTrigger, pathname, hasMounted, enabled, runCheckoutPrompt]);
 
   useEffect(() => {
-    if (pathname !== '/checkout' || !enabled || isSpeakingRef.current) return;
-    
-    const handler = setTimeout(() => {
+    if (pathname === '/checkout' && enabled && !isSpeakingRef.current) {
       runCheckoutPrompt();
-    }, 500);
-
-    return () => clearTimeout(handler);
-  }, [activeStoreId, runCheckoutPrompt, enabled]);
+    }
+    
+    // Cleanup timeout on unmount or when dependencies change
+    return () => {
+      if (promptTimeoutRef.current) {
+        clearTimeout(promptTimeoutRef.current);
+        promptTimeoutRef.current = null;
+      }
+    };
+  }, [activeStoreId, runCheckoutPrompt, enabled, pathname]);
 
 
   useEffect(() => {
