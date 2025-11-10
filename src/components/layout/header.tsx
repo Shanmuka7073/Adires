@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Package2, Menu, UserCircle, Store, ShoppingBag, Truck, LayoutDashboard, Mic, MicOff } from 'lucide-react';
+import { Package2, Menu, UserCircle, Store, ShoppingBag, Truck, LayoutDashboard, Mic, MicOff, Globe, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -23,6 +23,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
 import { getAuth, signOut } from 'firebase/auth';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -30,6 +32,8 @@ import { useState, useEffect } from 'react';
 import { Command } from './voice-commander';
 import { useToast } from '@/hooks/use-toast';
 import { t } from '@/lib/locales';
+import { useAppStore } from '@/lib/store';
+
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -45,6 +49,32 @@ const dashboardLinks = [
     { href: '/dashboard/owner/orders', label: 'store-orders', icon: ShoppingBag },
     { href: '/dashboard/delivery/deliveries', label: 'deliveries', icon: Truck },
 ]
+
+function LanguageSwitcher() {
+    const { language, setLanguage } = useAppStore();
+
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon">
+                    <Globe className="h-5 w-5" />
+                    <span className="sr-only">Change language</span>
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Select Language</DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={language} onValueChange={setLanguage}>
+                    <DropdownMenuRadioItem value="en">
+                        English
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="te">
+                        Telugu
+                    </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    )
+}
 
 function UserMenu() {
   const { user, isUserLoading } = useFirebase();
@@ -267,6 +297,7 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
       </Sheet>
       
       <div className="flex w-full items-center justify-end gap-4 md:ml-auto md:gap-2 lg:gap-4">
+        <LanguageSwitcher />
         <Button variant={voiceEnabled ? 'secondary' : 'outline'} size="icon" onClick={handleToggleVoiceWithCheck} className="relative">
           {voiceEnabled ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
           {voiceEnabled && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>}
