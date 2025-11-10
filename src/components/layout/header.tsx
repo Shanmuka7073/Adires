@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Package2, Menu, UserCircle, Store, ShoppingBag, Truck, LayoutDashboard, Mic, MicOff, Globe, Check } from 'lucide-react';
+import { Package2, Menu, UserCircle, Store, ShoppingBag, Truck, LayoutDashboard, Mic, MicOff, Globe, Check, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -33,7 +33,7 @@ import { Command } from './voice-commander';
 import { useToast } from '@/hooks/use-toast';
 import { t } from '@/lib/locales';
 import { useAppStore } from '@/lib/store';
-
+import { getRecipeIngredients } from '@/ai/flows/recipe-ingredients-flow';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -187,6 +187,22 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
     command.action();
   }
 
+  const handleLiveClick = async () => {
+    const dishName = prompt("What dish would you like the ingredients for?");
+    if (dishName) {
+        toast({ title: 'Finding ingredients...', description: `Asking the AI for a recipe for ${dishName}.`});
+        try {
+            const result = await getRecipeIngredients({ dishName });
+            const ingredientsList = result.ingredients.join('\n');
+            alert(`Ingredients for ${dishName}:\n\n${ingredientsList}`);
+            toast({ title: 'Success!', description: `Found ingredients for ${dishName}.`});
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'AI Error', description: 'Could not fetch ingredients.' });
+        }
+    }
+  };
+
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
       <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
@@ -297,6 +313,10 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
       </Sheet>
       
       <div className="flex w-full items-center justify-end gap-4 md:ml-auto md:gap-2 lg:gap-4">
+        <Button variant="outline" size="sm" onClick={handleLiveClick}>
+            <Sparkles className="h-4 w-4 mr-2" />
+            Live
+        </Button>
         <LanguageSwitcher />
         <Button variant={voiceEnabled ? 'secondary' : 'outline'} size="icon" onClick={handleToggleVoiceWithCheck} className="relative">
           {voiceEnabled ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}

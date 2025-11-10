@@ -1,2 +1,16 @@
-// This file is intentionally left empty to resolve a build error.
-// The voice command engine in this application does not use Genkit or external AI services.
+
+'use server';
+
+import { genkit } from 'genkit';
+import { googleAI } from '@genkit-ai/google-genai';
+
+// Initialize the AI plugin with Google AI
+export const ai = genkit({
+  plugins: [
+    googleAI({
+      apiKey: process.env.GEMINI_API_KEY,
+    }),
+  ],
+  logLevel: 'debug',
+  enableTracingAndMetrics: true,
+});
