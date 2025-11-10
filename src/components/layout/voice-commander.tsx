@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -9,7 +10,7 @@ import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, 
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
 import { useAppStore } from '@/lib/store';
-import { ProfileFormValues, useProfileFormStore } from '@/app/dashboard/customer/my-profile/page';
+import { useProfileFormStore } from '@/lib/store';
 import { useCheckoutStore } from '@/app/checkout/page';
 import { useMyStorePageStore } from '@/lib/store';
 import { t, initializeTranslations } from '@/lib/locales';
@@ -61,7 +62,7 @@ export function VoiceCommander({
   const { firestore, user } = useFirebase();
   const { clearCart, addItem: addItemToCart, updateQuantity, activeStoreId, setActiveStoreId, cartTotal } = useCart();
 
-  const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales } = useAppStore();
+  const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands } = useAppStore();
 
   const { form: profileForm } = useProfileFormStore();
   const { saveInventoryBtnRef } = useMyStorePageStore();
@@ -81,7 +82,7 @@ export function VoiceCommander({
   const isEnabledRef = useRef(enabled);
   const commandActionsRef = useRef<any>({});
 
-  const formFieldToFillRef = useRef<keyof ProfileFormValues | null>(null);
+  const formFieldToFillRef = useRef<any>(null);
   const [isWaitingForStoreName, setIsWaitingForStoreName] = useState(false);
   const [isWaitingForVoiceOrder, setIsWaitingForVoiceOrder] = useState(false);
   const [clarificationStores, setClarificationStores] = useState<Store[]>([]);
@@ -528,23 +529,21 @@ export function VoiceCommander({
         return;
     }
     
-    const allCommandKeys = Object.keys(locales);
-    
-    // Combine aliases from all languages for matching
+    const allCommandKeys = Object.keys(commands);
     let bestCommandMatch: { key: string, similarity: number, reply: string, display: string } | null = null;
-
+    
     for (const key of allCommandKeys) {
         const commandAliases = getAllAliases(key);
         const allAliasStrings = Object.values(commandAliases).flat();
-        
+
         for (const alias of allAliasStrings) {
             const similarity = calculateSimilarity(commandLower, alias.toLowerCase());
             if (similarity > (bestCommandMatch?.similarity || 0.75)) {
-                 bestCommandMatch = {
+                bestCommandMatch = {
                     key,
                     similarity,
-                    reply: t(key, spokenLang, 'reply'),
-                    display: t(key, spokenLang, 'display')
+                    reply: commands[key].reply || `Executing ${commands[key].display}.`,
+                    display: commands[key].display
                 };
             }
         }
@@ -629,7 +628,7 @@ export function VoiceCommander({
     }
     resetAllContext();
 
-  }, [firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, onStatusUpdate, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp.length, setLanguage, addItemToCart, onOpenCart, locales, getAllAliases, t]);
+  }, [firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, onStatusUpdate, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp.length, setLanguage, addItemToCart, onOpenCart, locales, commands, getAllAliases, t]);
 
 
   useEffect(() => {

@@ -16,30 +16,37 @@ export function initializeTranslations(initialData: Locales) {
 }
 
 // Client-side synchronous translation function
-export function t(key: string, lang: string = 'en', type: 'display' | 'reply' | 'alias' = 'alias'): string {
+export function t(key: string, lang: string = 'en', type: 'alias' | 'display' | 'reply' = 'alias'): string {
     if (!translations) {
+        // Fallback for when translations are not yet loaded
         return key.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     }
-    const langCode = lang.split('-')[0];
+
     const entry = translations[key];
-    
-    // For 'display' or 'reply', we expect a single string.
+    if (!entry) {
+        return key.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
+
+    // For 'display' or 'reply', we expect a single string under that specific key.
     if (type === 'display' || type === 'reply') {
-      return (entry?.[type] as string) || key.replace(/-/g, ' ');
+      return (entry[type] as string) || key.replace(/-/g, ' ');
     }
 
     // For 'alias', we check the specific language, then fallback to English.
-    if (entry && entry[langCode]) {
-        const regionalEntry = entry[langCode];
+    const langCode = lang.split('-')[0];
+    const regionalEntry = entry[langCode];
+    if (regionalEntry) {
         return Array.isArray(regionalEntry) ? regionalEntry[0] : regionalEntry;
     }
-    if (entry && entry['en']) {
-        const fallbackEntry = entry['en'];
+    
+    const fallbackEntry = entry['en'];
+    if (fallbackEntry) {
         return Array.isArray(fallbackEntry) ? fallbackEntry[0] : fallbackEntry;
     }
     
     return key.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 }
+
 
 export function getAllAliases(key: string): Record<string, string[]> {
     if (!translations) return {};
@@ -61,9 +68,15 @@ export function getAllAliases(key: string): Record<string, string[]> {
 export function buildLocalesFromAliases(aliases: VoiceAlias[]): Locales {
     const locales: Locales = {};
     aliases.forEach(aliasDoc => {
+        // Exclude display/reply from the main alias structure
+        if (aliasDoc.language === 'display' || aliasDoc.language === 'reply') {
+            return;
+        }
+
         if (!locales[aliasDoc.key]) {
             locales[aliasDoc.key] = {};
         }
+        
         const langEntry = locales[aliasDoc.key][aliasDoc.language];
         if (Array.isArray(langEntry)) {
             langEntry.push(aliasDoc.alias);

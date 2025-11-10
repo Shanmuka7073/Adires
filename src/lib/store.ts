@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { create } from 'zustand';
@@ -8,7 +9,6 @@ import { getStores, getMasterProducts, getProductPrice } from './data';
 import { useFirebase } from '@/firebase';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import { ProfileFormValues } from '@/app/dashboard/customer/my-profile/page';
 import { t as translate, initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliases } from '@/lib/locales';
 import { generalCommands as defaultGeneralCommands, CommandGroup } from '@/lib/locales/commands';
 
@@ -143,29 +143,16 @@ export const useInitializeApp = () => {
 
 // --- Store for Profile Page Form ---
 interface ProfileFormState {
-  form: UseFormReturn<ProfileFormValues> | null;
-  setForm: (form: UseFormReturn<ProfileFormValues> | null) => void;
-  fieldRefs: Record<keyof ProfileFormValues, RefObject<HTMLInputElement>>;
-  setFieldRef: (fieldName: keyof ProfileFormValues, ref: RefObject<HTMLInputElement>) => void;
+  form: any | null; // Using 'any' for simplicity as UseFormReturn is complex
+  setForm: (form: any | null) => void;
+  // This can be simplified or removed if not strictly needed by voice commander
 }
 
 export const useProfileFormStore = create<ProfileFormState>((set) => ({
   form: null,
   setForm: (form) => set({ form }),
-  fieldRefs: {
-      firstName: { current: null },
-      lastName: { current: null },
-      email: { current: null },
-      phone: { current: null },
-      address: { current: null },
-  },
-  setFieldRef: (fieldName, ref) => set(state => ({
-    fieldRefs: {
-        ...state.fieldRefs,
-        [fieldName]: ref,
-    }
-  })),
 }));
+
 
 // --- Store for My Store Page ---
 interface MyStorePageState {
@@ -177,4 +164,3 @@ export const useMyStorePageStore = create<MyStorePageState>((set) => ({
   saveInventoryBtnRef: null,
   setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
 }));
-
