@@ -442,9 +442,9 @@ export function VoiceCommander({
       'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
       // Telugu (script)
       'ఒకటి': 1, 'రెండు': 2, 'మూడు': 3, 'నాలుగు': 4, 'ఐదు': 5, 'ఆరు': 6, 'ఏడు': 7, 'ఎనిమిది': 8, 'తొమ్మిది': 9, 'పది': 10,
-      // Phonetic Telugu in English Script - CRITICAL for mixed-language recognition
-      'okati': 1, 'okate': 1, 'vocati': 1, 'vondu': 1, // Common misinterpretations of ఒకటి
-      'rendu': 2, 'rangu': 2, // Common misinterpretations of రెండు
+      // Phonetic Telugu in English Script (for en-IN mode)
+      'okati': 1, 'okate': 1, 'vocati': 1, 'vondu': 1,
+      'rendu': 2, 'rangu': 2,
       'moodu': 3, 'mudu': 3,
       'nalugu': 4,
       'aidu': 5, 'idu': 5,
@@ -453,6 +453,8 @@ export function VoiceCommander({
       'enimidi': 8,
       'tommidi': 9,
       'padi': 10,
+      // Phonetic English in Telugu Script (for te-IN mode)
+      'వన్': 1, 'టూ': 2, 'త్రీ': 3, 'ఫోర్': 4, 'ఫైవ్': 5, 'సిక్స్': 6, 'సెవెన్': 7, 'ఎయిట్': 8, 'నైన్': 9, 'టెన్': 10,
       // Hindi
       'ek': 1, 'do': 2, 'teen': 3, 'char': 4, 'paanch': 5, 'chhe': 6, 'saat': 7, 'aath': 8, 'nau': 9, 'das': 10
     };
