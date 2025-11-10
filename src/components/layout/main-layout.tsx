@@ -64,6 +64,7 @@ export function MainLayout({
                 isCartOpen={isCartOpen}
                 cartItems={cartItems}
                 voiceTrigger={voiceTrigger}
+                triggerVoicePrompt={triggerVoicePrompt}
             />
         )}
         <ProfileCompletionChecker />

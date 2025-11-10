@@ -35,6 +35,7 @@ interface VoiceCommanderProps {
   isCartOpen: boolean;
   cartItems: CartItem[];
   voiceTrigger: number;
+  triggerVoicePrompt: () => void;
 }
 
 let recognition: SpeechRecognition | null = null;
@@ -55,6 +56,7 @@ export function VoiceCommander({
   isCartOpen,
   cartItems: cartItemsProp,
   voiceTrigger,
+  triggerVoicePrompt,
 }: VoiceCommanderProps) {
   const router = useRouter();
   const pathname = usePathname();
