@@ -272,19 +272,40 @@ export function VoiceCommander({
     utterance.rate = 1.1;
     utterance.lang = lang;
 
-    const desiredVoice = speechSynthesisVoices.find(voice => 
-      voice.lang === lang && voice.localService
-    );
-    
-    if (desiredVoice) {
-      utterance.voice = desiredVoice;
+    // --- New Intelligent Voice Selection Logic ---
+    const allVoices = speechSynthesisVoices;
+    let selectedVoice: SpeechSynthesisVoice | null = null;
+
+    if (lang.startsWith('en')) {
+        // 1. Prioritize specific, high-quality local English (India) voices by name
+        const preferredIndianVoice = allVoices.find(voice => voice.lang === 'en-IN' && voice.name.includes('Rishi'));
+        if (preferredIndianVoice) {
+            selectedVoice = preferredIndianVoice;
+        } else {
+            // 2. Fallback: Find any local 'en-IN' voice.
+            const localIndianVoice = allVoices.find(voice => voice.lang === 'en-IN' && voice.localService);
+            if (localIndianVoice) {
+                selectedVoice = localIndianVoice;
+            } else {
+                // 3. Fallback: Find any 'en-IN' voice.
+                const anyIndianVoice = allVoices.find(voice => voice.lang === 'en-IN');
+                if (anyIndianVoice) {
+                    selectedVoice = anyIndianVoice;
+                } else {
+                    // 4. Ultimate fallback to any available English voice if no en-IN is found
+                    selectedVoice = allVoices.find(voice => voice.lang.startsWith('en') && voice.localService) || allVoices.find(voice => voice.lang.startsWith('en')) || null;
+                }
+            }
+        }
     } else {
-      const langCode = lang.split('-')[0];
-      const langVoices = speechSynthesisVoices.filter(v => v.lang.startsWith(langCode));
-      if (langVoices.length > 0) {
-        utterance.voice = langVoices[0];
-      }
+        // For other languages like Telugu, find the best match for the language code.
+        selectedVoice = allVoices.find(voice => voice.lang === lang && voice.localService) || allVoices.find(voice => voice.lang === lang) || null;
     }
+    
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+    }
+    // --- End of New Logic ---
 
     utterance.onend = () => {
       isSpeakingRef.current = false;
