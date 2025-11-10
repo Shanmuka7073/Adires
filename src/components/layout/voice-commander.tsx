@@ -23,7 +23,7 @@ export interface Command {
   command: string;
   action: (params?: any) => void;
   display: string;
-  reply: string;
+  reply: string | string[]; // Can now be an array
 }
 
 interface VoiceCommanderProps {
@@ -282,7 +282,7 @@ export function VoiceCommander({
     }
 }, [enabled, language]);
 
-  const speak = useCallback((text: string, lang: string, onEndCallback?: () => void) => {
+  const speak = useCallback((textOrReplies: string | string[], lang: string, onEndCallback?: () => void) => {
     if (typeof window === 'undefined' || !window.speechSynthesis) {
       if (onEndCallback) onEndCallback();
       return;
@@ -294,6 +294,9 @@ export function VoiceCommander({
     window.speechSynthesis.cancel();
     isSpeakingRef.current = true;
     
+    // If an array of replies is given, pick one at random.
+    const text = Array.isArray(textOrReplies) ? textOrReplies[Math.floor(Math.random() * textOrReplies.length)] : textOrReplies;
+
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.pitch = 1;
     utterance.rate = 1.1;
