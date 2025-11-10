@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -559,17 +560,26 @@ export function VoiceCommander({
         return;
     }
     
-    // --- PRIORITY 2: Check for a general command first ---
+    // --- PRIORITY 2: Check for a highly specific command first (like check price) ---
+    const checkPriceAliases = getAllAliases('checkPrice')[spokenLang] || [];
+    if (checkPriceAliases.some(alias => commandLower.startsWith(alias))) {
+        await commandActionsRef.current.checkPrice({ phrase: commandLower, lang: spokenLang, originalText: commandText });
+        resetAllContext();
+        return;
+    }
+
+    // --- PRIORITY 3: Check for general commands ---
     const allCommandKeys = Object.keys(commands);
     let bestCommandMatch: { key: string, similarity: number, reply: string, display: string } | null = null;
     
     for (const key of allCommandKeys) {
+        if (key === 'checkPrice') continue; // Already handled
         const commandAliases = getAllAliases(key);
         const allAliasStrings = Object.values(commandAliases).flat();
 
         for (const alias of allAliasStrings) {
             const similarity = calculateSimilarity(commandLower, alias.toLowerCase());
-            if (similarity > (bestCommandMatch?.similarity || 0.75)) {
+            if (similarity > (bestCommandMatch?.similarity || 0.85)) { // Higher threshold for general commands
                 bestCommandMatch = {
                     key,
                     similarity,
@@ -582,10 +592,7 @@ export function VoiceCommander({
     
     if (bestCommandMatch) {
         const action = commandActionsRef.current[bestCommandMatch.key];
-        // Special case for checkPrice which needs the phrase
-        if (bestCommandMatch.key === 'checkPrice') {
-          speak(bestCommandMatch.reply, langWithRegion, () => action({ phrase: commandLower, lang: spokenLang, originalText: commandText }));
-        } else if (action) {
+        if (action) {
             speak(bestCommandMatch.reply, langWithRegion, () => action({ lang: spokenLang, phrase: commandLower, originalText: commandText }));
         } else {
             speak(bestCommandMatch.reply, langWithRegion);
@@ -594,7 +601,7 @@ export function VoiceCommander({
         return;
     }
     
-    // --- PRIORITY 3: Check for multi-item order ---
+    // --- PRIORITY 4: Check for multi-item order ---
     const multiItemSeparators = new RegExp(`\\s+(${['and', 'మరియు', 'aur'].join('|')})\\s+`, 'i');
     const potentialItems = commandLower.split(multiItemSeparators).filter(s => s && !['and', 'మరియు', 'aur'].includes(s));
 
@@ -604,7 +611,7 @@ export function VoiceCommander({
         return;
     }
     
-    // --- PRIORITY 4: Check for single product order OR smart order ---
+    // --- PRIORITY 5: Check for single product order OR smart order ---
     const locationKeywords = ['from', 'to'];
     if (locationKeywords.some(kw => commandLower.includes(kw))) {
         await commandActionsRef.current.smartOrder(commandLower, spokenLang, commandText);
@@ -981,8 +988,8 @@ export function VoiceCommander({
     checkPrice: async ({ phrase, lang, originalText }: { phrase?: string; lang: string, originalText: string }) => {
       if (!phrase) return;
 
-      const priceKeywords = [t('checkPrice', lang).toLowerCase(), ...getAllAliases('checkPrice')[lang] || []];
-      const productPhrase = priceKeywords.reduce((acc, keyword) => acc.replace(keyword, ''), phrase).trim();
+      const checkPriceAliases = getAllAliases('checkPrice')[lang] || [];
+      const productPhrase = checkPriceAliases.reduce((acc, keyword) => acc.replace(keyword, ''), phrase).trim();
 
       const { product, lang: detectedLang } = await findProductAndVariant(productPhrase);
 
@@ -1062,3 +1069,4 @@ export function VoiceCommander({
 
   return null;
 }
+
