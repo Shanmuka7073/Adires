@@ -9,7 +9,8 @@ import { useFirebase } from '@/firebase';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { ProfileFormValues } from '@/app/dashboard/customer/my-profile/page';
-import { t as translate, initializeTranslations, Locales, getAllAliases as getAliasesFromLocales } from '@/lib/locales';
+import { t as translate, initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliases } from '@/lib/locales';
+import { generalCommands as defaultGeneralCommands, CommandGroup } from '@/lib/locales/commands';
 
 
 export interface AppState {
@@ -18,6 +19,7 @@ export interface AppState {
   productPrices: Record<string, ProductPrice | null>;
   voiceAliases: VoiceAlias[];
   locales: Locales;
+  commands: Record<string, CommandGroup>;
   loading: boolean;
   error: Error | null;
   language: string;
@@ -28,31 +30,13 @@ export interface AppState {
   getAllAliases: (key: string) => Record<string, string[]>;
 }
 
-const buildLocalesFromAliases = (aliases: VoiceAlias[]): Locales => {
-    const locales: Locales = {};
-    aliases.forEach(aliasDoc => {
-        if (!locales[aliasDoc.key]) {
-            locales[aliasDoc.key] = {};
-        }
-        const langEntry = locales[aliasDoc.key][aliasDoc.language];
-        if (Array.isArray(langEntry)) {
-            langEntry.push(aliasDoc.alias);
-        } else if (typeof langEntry === 'string') {
-            locales[aliasDoc.key][aliasDoc.language] = [langEntry, aliasDoc.alias];
-        } else {
-            locales[aliasDoc.key][aliasDoc.language] = aliasDoc.alias;
-        }
-    });
-    return locales;
-}
-
-
 export const useAppStore = create<AppState>((set, get) => ({
   stores: [],
   masterProducts: [],
   productPrices: {},
   voiceAliases: [],
   locales: {},
+  commands: {},
   loading: true,
   error: null,
   language: 'en', // Default language is English
@@ -68,7 +52,23 @@ export const useAppStore = create<AppState>((set, get) => ({
       const aliasSnapshot = await getDocs(aliasCollection);
       const voiceAliases = aliasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAlias));
       const locales = buildLocalesFromAliases(voiceAliases);
-      initializeTranslations(locales); // Initialize the t() function
+      
+      const enrichedCommands = { ...defaultGeneralCommands };
+      voiceAliases.forEach(alias => {
+          if (alias.type === 'command') {
+              if (!enrichedCommands[alias.key]) {
+                  enrichedCommands[alias.key] = { display: alias.key, reply: '' };
+              }
+              if (alias.language === 'display') {
+                  enrichedCommands[alias.key].display = alias.alias;
+              }
+              if (alias.language === 'reply') {
+                  enrichedCommands[alias.key].reply = alias.alias;
+              }
+          }
+      });
+
+      initializeTranslations(locales); 
 
       const [stores, masterProducts] = await Promise.all([
         getStores(db),
@@ -80,6 +80,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         masterProducts,
         voiceAliases,
         locales,
+        commands: enrichedCommands,
         loading: false,
       });
     } catch (error) {
@@ -176,3 +177,4 @@ export const useMyStorePageStore = create<MyStorePageState>((set) => ({
   saveInventoryBtnRef: null,
   setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
 }));
+

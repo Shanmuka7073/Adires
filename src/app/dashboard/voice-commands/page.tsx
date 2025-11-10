@@ -17,7 +17,7 @@ import { useFirebase } from '@/firebase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { collection, writeBatch, doc } from 'firebase/firestore';
 import type { VoiceAlias, Locales } from '@/lib/locales';
-import { generalCommands as defaultGeneralCommands, CommandGroup } from '@/lib/locales/commands';
+import { CommandGroup } from '@/lib/locales/commands';
 
 const createSlug = (text: string) => text.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-');
 
@@ -29,11 +29,11 @@ export default function VoiceCommandsPage() {
     const [activeTab, setActiveTab] = useState('general');
 
     // Data from the global store
-    const { masterProducts, stores, locales: initialLocales, voiceAliases: initialAliases, fetchInitialData } = useAppStore();
+    const { masterProducts, stores, locales: initialLocales, commands: initialCommands, voiceAliases: initialAliases, fetchInitialData } = useAppStore();
 
     // Local state for UI edits, initialized from the global store
     const [locales, setLocales] = useState<Locales>(initialLocales);
-    const [commands, setCommands] = useState<Record<string, CommandGroup>>(defaultGeneralCommands);
+    const [commands, setCommands] = useState<Record<string, CommandGroup>>(initialCommands);
     
     // Local state for UI interactions
     const [newAliases, setNewAliases] = useState<Record<string, Record<string, string>>>({});
@@ -47,24 +47,8 @@ export default function VoiceCommandsPage() {
     // Re-initialize local state whenever the global store's data changes
     useEffect(() => {
         setLocales(initialLocales);
-
-        // Start with default commands, then enrich with data from Firestore
-        const enrichedCommands = { ...defaultGeneralCommands };
-        initialAliases.forEach(alias => {
-            if (alias.type === 'command') {
-                if (!enrichedCommands[alias.key]) {
-                    enrichedCommands[alias.key] = { display: '', reply: '' };
-                }
-                if (alias.language === 'display') {
-                    enrichedCommands[alias.key].display = alias.alias;
-                }
-                if (alias.language === 'reply') {
-                    enrichedCommands[alias.key].reply = alias.alias;
-                }
-            }
-        });
-        setCommands(enrichedCommands);
-    }, [initialLocales, initialAliases]);
+        setCommands(initialCommands);
+    }, [initialLocales, initialCommands]);
 
 
     useEffect(() => {
@@ -209,23 +193,22 @@ export default function VoiceCommandsPage() {
 
         startTransition(async () => {
             const batch = writeBatch(firestore);
-            const aliasCollection = collection(firestore, 'voiceAliases');
+            const aliasCollectionRef = collection(firestore, 'voiceAliases');
 
-            // 1. Delete all existing documents
+            // 1. Delete all existing alias documents
             initialAliases.forEach(aliasDoc => {
                 if(aliasDoc.id) {
                     batch.delete(doc(firestore, 'voiceAliases', aliasDoc.id));
                 }
             });
-
+            
             const allItemsMap = new Map([
                 ...masterProducts.map(p => [createSlug(p.name), 'product']),
                 ...stores.map(s => [createSlug(s.name), 'store']),
                 ...Object.keys(commands).map(c => [c, 'command'])
             ]);
 
-
-            // 2. Add all new aliases from the combined 'locales' and 'commands' state
+            // 2. Add all new aliases from the local 'locales' state
             for (const key in locales) {
                 const type = allItemsMap.get(key) || 'command';
                 const langMap = locales[key];
@@ -233,25 +216,25 @@ export default function VoiceCommandsPage() {
                     const aliases = Array.isArray(langMap[lang]) ? langMap[lang] as string[] : [langMap[lang] as string];
                     aliases.forEach(alias => {
                         if (alias) {
-                            const newAliasDocRef = doc(aliasCollection);
+                            const newAliasDocRef = doc(aliasCollectionRef);
                             batch.set(newAliasDocRef, { key, language: lang, alias, type });
                         }
                     });
                 }
             }
 
-            // Also add display/reply from commands state as aliases
+            // 3. Add display/reply from the local 'commands' state as aliases
             for (const key in commands) {
                 const { display, reply } = commands[key];
-                if (display) batch.set(doc(aliasCollection), { key, language: 'display', alias: display, type: 'command' });
-                if (reply) batch.set(doc(aliasCollection), { key, language: 'reply', alias: reply, type: 'command' });
+                if (display) batch.set(doc(aliasCollectionRef), { key, language: 'display', alias: display, type: 'command' });
+                if (reply) batch.set(doc(aliasCollectionRef), { key, language: 'reply', alias: reply, type: 'command' });
             }
 
             try {
                 await batch.commit();
                 toast({
                     title: 'All Changes Saved!',
-                    description: 'Your voice commands and aliases have been updated.',
+                    description: 'Your voice commands and aliases have been updated in the database.',
                 });
                 // Trigger a re-fetch of the global data to get the new state
                 await fetchInitialData(firestore);
@@ -506,3 +489,4 @@ export default function VoiceCommandsPage() {
         </div>
     );
 }
+
