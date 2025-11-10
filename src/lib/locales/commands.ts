@@ -21,5 +21,8 @@ export const generalCommands: Record<string, CommandGroup> = {
     'refresh': { display: 'Refresh Page', reply: 'Refreshing the page now.' },
     'acceptDeliveryJob': { display: 'Accept Delivery Job', reply: 'Accepting the first available job.' },
     'homeAddress': { display: 'Use Home Address', reply: 'Setting delivery to your home address.' },
-    'currentLocation': { display: 'Use Current Location', reply: 'Using your current location for delivery.' }
+    'currentLocation': { display: 'Use Current Location', reply: 'Using your current location for delivery.' },
+    'help': { display: 'Help / Commands', reply: 'You can say things like "order 1 kilo of onions", "go to my cart", "check price of tomatoes", or "find stores near me". What would you like to do?' },
+    'who-are-you': { display: 'Who Are You?', reply: 'I am the LocalBasket voice assistant, here to make your grocery shopping faster and easier.' },
+    'how-it-works': { display: 'How It Works', reply: 'Just tell me what you want to order, which store you want it from, and where to deliver it. I will handle the rest!' }
 };
