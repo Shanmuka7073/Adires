@@ -439,19 +439,20 @@ export function VoiceCommander({
 
     const numberWords: Record<string, number> = { 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10, 'ఒకటి': 1, 'రెండు': 2, 'మూడు': 3, 'నాలుగు': 4, 'ఐదు': 5, 'ఆరు': 6, 'ఏడు': 7, 'ఎనిమిది': 8, 'తొమ్మిది': 9, 'పది': 10, 'एक': 1, 'दो': 2, 'तीन': 3, 'चार': 4, 'पांच': 5, 'छह': 6, 'सात': 7, 'आठ': 8, 'नौ': 9, 'दस': 10 };
     const unitKeywords: Record<string, { aliases: string[], type: 'kg' | 'gm' | 'pc' | 'pack' }> = {
-      'kg': { aliases: ['kg', 'kilo', 'kilos', 'కిలో', 'కేజీ'], type: 'kg'},
-      'gm': { aliases: ['gm', 'g', 'grams', 'గ్రాములు'], type: 'gm'},
-      'pc': { aliases: ['pc', 'piece', 'pieces'], type: 'pc'},
-      'pack': { aliases: ['pack', 'packet', 'ప్యాక్'], type: 'pack'}
+      'kg': { aliases: ['kg', 'kilo', 'kilos', 'కిలో', 'కేజీ', 'किलो', 'kilo'], type: 'kg'},
+      'gm': { aliases: ['gm', 'g', 'grams', 'గ్రాములు', 'ग्राम'], type: 'gm'},
+      'pc': { aliases: ['pc', 'piece', 'pieces', 'పీస్', 'पीस'], type: 'pc'},
+      'pack': { aliases: ['pack', 'packet', 'ప్యాక్', 'पैकेट'], type: 'pack'}
     };
 
     let requestedQty = 1;
     let requestedUnit: string | null = null;
     let matchedUnitKeyword: string | null = null;
 
-    // 1. Extract numbers (digit or word)
+    // 1. Extract numbers (digit or word) from all languages
+    const allNumberWords = Object.keys(numberWords).join('|');
     const numMatch = lowerPhrase.match(/(\d+)/);
-    const wordNumMatch = lowerPhrase.match(new RegExp(`\\b(${Object.keys(numberWords).join('|')})\\b`, 'i'));
+    const wordNumMatch = lowerPhrase.match(new RegExp(`\\b(${allNumberWords})\\b`, 'i'));
 
     if (numMatch) {
       requestedQty = parseInt(numMatch[0], 10);
@@ -461,7 +462,7 @@ export function VoiceCommander({
       lowerPhrase = lowerPhrase.replace(wordNumMatch[0], '').trim();
     }
 
-    // 2. Extract units
+    // 2. Extract units from all languages
     for (const unitType in unitKeywords) {
         const { aliases, type } = unitKeywords[unitType];
         const unitRegex = new RegExp(`\\b(${aliases.join('|')})\\b`, 'i');
@@ -473,7 +474,6 @@ export function VoiceCommander({
         }
     }
     
-    // Remove the matched unit keyword from the phrase to clean it for product matching
     if (matchedUnitKeyword) {
       lowerPhrase = lowerPhrase.replace(new RegExp(`\\b${matchedUnitKeyword}\\b`, 'i'), '').trim();
     }
@@ -503,17 +503,15 @@ export function VoiceCommander({
     // 4. Select the best variant based on the extracted unit
     let chosenVariant: ProductVariant | null = null;
     if (requestedUnit) {
-      // Find a variant that explicitly matches the unit type (e.g., contains 'kg')
       chosenVariant = priceData.variants.find(v => v.weight.toLowerCase().includes(requestedUnit)) || null;
     }
 
-    // Fallback logic if no unit was spoken or no variant matched the unit
     if (!chosenVariant) {
       chosenVariant = 
         priceData.variants.find(v => v.weight === '1kg') ||
         priceData.variants.find(v => v.weight.includes('kg')) ||
         priceData.variants.find(v => v.weight.includes('pc')) ||
-        priceData.variants[0]; // Default to the first available variant
+        priceData.variants[0];
     }
     
     return { product: productMatch, variant: chosenVariant, requestedQty, remainingPhrase, matchedAlias, lang: detectedLang };
@@ -1107,3 +1105,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
