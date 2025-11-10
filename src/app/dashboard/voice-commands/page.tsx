@@ -194,49 +194,72 @@ export default function VoiceCommandsPage() {
         if (!firestore) return;
 
         startTransition(async () => {
-            const batch = writeBatch(firestore);
-            const aliasCollectionRef = collection(firestore, 'voiceAliases');
-
-            // 1. Delete all existing alias documents
-            initialAliases.forEach(aliasDoc => {
-                if(aliasDoc.id) {
-                    batch.delete(doc(firestore, 'voiceAliases', aliasDoc.id));
-                }
-            });
-            
             const allItemsMap = new Map([
                 ...masterProducts.map(p => [createSlug(p.name), 'product']),
                 ...stores.map(s => [createSlug(s.name), 'store']),
                 ...Object.keys(commands).map(c => [c, 'command'])
             ]);
 
-            // 2. Add all new aliases from the local 'locales' state
+            // --- 1. Create Sets of current and new alias states for efficient lookup ---
+            const originalAliasSet = new Set(initialAliases.map(a => `${a.key}|${a.language}|${a.alias}`));
+            const currentAliasSet = new Set<string>();
+
             for (const key in locales) {
-                const type = allItemsMap.get(key) || 'command';
                 const langMap = locales[key];
                 for (const lang in langMap) {
                     const aliases = Array.isArray(langMap[lang]) ? langMap[lang] as string[] : [langMap[lang] as string];
                     aliases.forEach(alias => {
-                        if (alias) {
-                            const newAliasDocRef = doc(aliasCollectionRef);
-                            batch.set(newAliasDocRef, { key, language: lang, alias, type });
-                        }
+                        if (alias) currentAliasSet.add(`${key}|${lang}|${alias}`);
                     });
                 }
             }
-
-            // 3. Add display/reply from the local 'commands' state as aliases
             for (const key in commands) {
-                const { display, reply } = commands[key];
-                if (display) batch.set(doc(aliasCollectionRef), { key, language: 'display', alias: display, type: 'command' });
-                if (reply) batch.set(doc(aliasCollectionRef), { key, language: 'reply', alias: reply, type: 'command' });
+                if (commands[key].display) currentAliasSet.add(`${key}|display|${commands[key].display}`);
+                if (commands[key].reply) currentAliasSet.add(`${key}|reply|${commands[key].reply}`);
             }
 
+            // --- 2. Calculate the "diff" ---
+            const aliasesToAdd: Omit<VoiceAlias, 'id'>[] = [];
+            currentAliasSet.forEach(aliasString => {
+                if (!originalAliasSet.has(aliasString)) {
+                    const [key, language, alias] = aliasString.split('|');
+                    aliasesToAdd.push({ key, language, alias, type: allItemsMap.get(key) || 'command' });
+                }
+            });
+
+            const aliasesToDelete: VoiceAlias[] = [];
+            initialAliases.forEach(aliasDoc => {
+                const aliasString = `${aliasDoc.key}|${aliasDoc.language}|${aliasDoc.alias}`;
+                if (!currentAliasSet.has(aliasString)) {
+                    aliasesToDelete.push(aliasDoc);
+                }
+            });
+            
+            if (aliasesToAdd.length === 0 && aliasesToDelete.length === 0) {
+                toast({ title: 'No Changes to Save', description: 'There were no new or removed aliases to update.' });
+                return;
+            }
+
+            // --- 3. Execute the batch write ---
+            const batch = writeBatch(firestore);
+            const aliasCollectionRef = collection(firestore, 'voiceAliases');
+
+            aliasesToDelete.forEach(aliasDoc => {
+                if (aliasDoc.id) {
+                    batch.delete(doc(firestore, 'voiceAliases', aliasDoc.id));
+                }
+            });
+
+            aliasesToAdd.forEach(newAliasData => {
+                const newAliasDocRef = doc(aliasCollectionRef);
+                batch.set(newAliasDocRef, newAliasData);
+            });
+            
             try {
                 await batch.commit();
                 toast({
-                    title: 'All Changes Saved!',
-                    description: 'Your voice commands and aliases have been updated in the database.',
+                    title: 'Changes Saved!',
+                    description: `Added ${aliasesToAdd.length} and removed ${aliasesToDelete.length} aliases.`,
                 });
                 // Trigger a re-fetch of the global data to get the new state
                 await fetchInitialData(firestore);
