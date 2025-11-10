@@ -278,7 +278,7 @@ export function VoiceCommander({
 
     if (lang.startsWith('en')) {
         // 1. Prioritize specific, high-quality local English (India) voices by name
-        const preferredIndianVoice = allVoices.find(voice => voice.lang === 'en-IN' && voice.name.includes('Rishi'));
+        const preferredIndianVoice = allVoices.find(voice => voice.lang === 'en-IN' && /rishi|veena|aditi/i.test(voice.name));
         if (preferredIndianVoice) {
             selectedVoice = preferredIndianVoice;
         } else {
@@ -437,7 +437,26 @@ export function VoiceCommander({
   const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null; variant: ProductVariant | null; requestedQty: number; remainingPhrase: string; matchedAlias: string | null; lang: string; }> => {
     let lowerPhrase = phrase.toLowerCase();
 
-    const numberWords: Record<string, number> = { 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10, 'ఒకటి': 1, 'రెండు': 2, 'మూడు': 3, 'నాలుగు': 4, 'ఐదు': 5, 'ఆరు': 6, 'ఏడు': 7, 'ఎనిమిది': 8, 'తొమ్మిది': 9, 'పది': 10, 'एक': 1, 'दो': 2, 'तीन': 3, 'चार': 4, 'पांच': 5, 'छह': 6, 'सात': 7, 'आठ': 8, 'नौ': 9, 'दस': 10 };
+    const numberWords: Record<string, number> = {
+      // English
+      'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+      // Telugu (script)
+      'ఒకటి': 1, 'రెండు': 2, 'మూడు': 3, 'నాలుగు': 4, 'ఐదు': 5, 'ఆరు': 6, 'ఏడు': 7, 'ఎనిమిది': 8, 'తొమ్మిది': 9, 'పది': 10,
+      // Phonetic Telugu in English Script - CRITICAL for mixed-language recognition
+      'okati': 1, 'okate': 1, 'vocati': 1, 'vondu': 1, // Common misinterpretations of ఒకటి
+      'rendu': 2, 'rangu': 2, // Common misinterpretations of రెండు
+      'moodu': 3, 'mudu': 3,
+      'nalugu': 4,
+      'aidu': 5, 'idu': 5,
+      'aaru': 6, 'aru': 6,
+      'yedu': 7,
+      'enimidi': 8,
+      'tommidi': 9,
+      'padi': 10,
+      // Hindi
+      'ek': 1, 'do': 2, 'teen': 3, 'char': 4, 'paanch': 5, 'chhe': 6, 'saat': 7, 'aath': 8, 'nau': 9, 'das': 10
+    };
+    
     const unitKeywords: Record<string, { aliases: string[], type: 'kg' | 'gm' | 'pc' | 'pack' }> = {
       'kg': { aliases: ['kg', 'kilo', 'kilos', 'కిలో', 'కేజీ', 'किलो', 'kilo'], type: 'kg'},
       'gm': { aliases: ['gm', 'g', 'grams', 'గ్రాములు', 'ग्राम'], type: 'gm'},
@@ -1105,5 +1124,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    
