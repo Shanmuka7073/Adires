@@ -604,19 +604,19 @@ export function VoiceCommander({
         handleProfileFormInteraction();
         return;
     }
+    
+    // --- REFACTORED LOGIC ---
 
-    // --- PRIORITY 1: GENERAL COMMANDS ---
+    // 1. Find best general command match
     let bestCommandMatch: { key: string, similarity: number, reply: string, display: string } | null = null;
-
     for (const key in commands) {
       const commandAliases = getAllAliases(key);
       const allAliasStrings = Object.values(commandAliases).flat();
-      // Also check the command key itself and its display name
       allAliasStrings.push(key, commands[key].display.toLowerCase());
 
-      for (const alias of [...new Set(allAliasStrings)]) { // Use Set to avoid duplicates
+      for (const alias of [...new Set(allAliasStrings)]) {
         const similarity = calculateSimilarity(commandLower, alias.toLowerCase());
-        if (similarity > (bestCommandMatch?.similarity || 0.80)) {
+        if (similarity > (bestCommandMatch?.similarity || 0)) { // Find the absolute best match
           bestCommandMatch = {
             key,
             similarity,
@@ -626,12 +626,12 @@ export function VoiceCommander({
         }
       }
     }
-    
-    if (bestCommandMatch) {
+
+    // 2. If a confident command match is found, execute it and stop.
+    if (bestCommandMatch && bestCommandMatch.similarity > 0.80) {
       const action = commandActionsRef.current[bestCommandMatch.key];
       const actionParams = { lang: spokenLang, phrase: commandLower, originalText: commandText };
       
-      // Execute the action and stop further processing.
       if (action) {
         speak(bestCommandMatch.reply, langWithRegion, () => action(actionParams));
       } else {
@@ -641,10 +641,10 @@ export function VoiceCommander({
       return;
     }
 
-    // --- PRIORITY 2: PRODUCT-RELATED COMMANDS (if no general command matched) ---
+
+    // 3. If no confident command found, proceed to product/complex order logic
     const { product, variant, requestedQty, matchedAlias, lang: itemLang } = await findProductAndVariant(commandLower);
     
-    // Complex order checks (multi-item, smart order)
     const multiItemSeparators = new RegExp(`\\s+(${['and', 'మరియు', 'aur'].join('|')})\\s+`, 'i');
     if (multiItemSeparators.test(commandLower)) {
         const potentialItems = commandLower.split(multiItemSeparators).filter(s => s && !['and', 'మరియు', 'aur'].includes(s));
