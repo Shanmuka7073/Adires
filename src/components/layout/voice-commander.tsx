@@ -9,9 +9,10 @@ import { useFirebase, errorEmitter } from '@/firebase';
 import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, VoiceAlias } from '@/lib/types';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
-import { useAppStore, useMyStorePageStore } from '@/lib/store';
+import { useAppStore } from '@/lib/store';
 import { useProfileFormStore } from '@/app/dashboard/customer/my-profile/page';
 import { useCheckoutStore } from '@/app/checkout/page';
+import { useMyStorePageStore } from '@/lib/store';
 import { t, initializeTranslations } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -345,9 +346,7 @@ export function VoiceCommander({
     const addressInput = typeof document !== 'undefined' ? (document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement) : null;
     const currentAddress = addressInput?.value || '';
 
-    if (isWaitingForQuickOrderConfirmation) {
-        speak(t('confirm-the-quick-order-speech', detectedLang), langWithRegion);
-    } else if (cartItemsProp.length === 0) {
+    if (cartItemsProp.length === 0) {
         speak(t('your-cart-is-empty-speech', detectedLang), langWithRegion);
     } else if (!currentAddress || currentAddress.length < 10) {
         speak(t('should-i-deliver-to-home-or-current-speech', detectedLang), langWithRegion);
@@ -628,13 +627,25 @@ export function VoiceCommander({
     }
 
     // --- LAST RESORT: Failure ---
-    speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
+    let failSpeech = t('sorry-i-didnt-understand-that', spokenLang);
+    if(matchedAlias && !variant) {
+        failSpeech = t('no-price-found-speech', spokenLang).replace('{productName}', product?.name || 'that item');
+    }
+    else if (product && !variant) {
+         failSpeech = t('no-price-found-speech', spokenLang).replace('{productName}', product.name);
+    }
+    else {
+        failSpeech = t('could-not-find-item-speech', spokenLang).replace('{itemName}', commandText);
+    }
+    
+    speak(failSpeech, langWithRegion);
+
     if (firestore && user) {
         addDoc(collection(firestore, 'failedCommands'), {
             userId: user.uid,
             commandText: commandText,
             language: spokenLang,
-            reason: `No product or command matched for phrase: "${commandLower}"`,
+            reason: product && !variant ? `Product "${product.name}" found but no variants available.` : `No product or command matched for phrase: "${commandLower}"`,
             timestamp: serverTimestamp(),
         });
     }

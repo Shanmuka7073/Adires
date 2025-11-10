@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useCart } from '@/lib/cart';
@@ -503,4 +504,3 @@ export default function CheckoutPage() {
     </div>
   );
 }
-
