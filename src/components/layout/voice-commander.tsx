@@ -260,7 +260,6 @@ export function VoiceCommander({
       return;
     }
 
-    // Stop recognition before speaking to prevent feedback loops.
     if (recognition) {
         recognition.stop();
     }
@@ -290,12 +289,10 @@ export function VoiceCommander({
       isSpeakingRef.current = false;
       if (onEndCallback) onEndCallback();
       
-      // IMPORTANT: Restart recognition only if the voice commander is still supposed to be active.
       if (isEnabledRef.current && recognition) {
         try {
             recognition.start();
         } catch(e) {
-            // Can happen if it's already starting. Safe to ignore.
         }
       }
     };
@@ -345,7 +342,6 @@ export function VoiceCommander({
       if (pathname !== '/checkout' || !hasMounted || !enabled || isSpeakingRef.current) {
           return;
       }
-      // If a prompt is already scheduled, don't schedule another one.
       if (promptTimeoutRef.current) {
         return;
       }
@@ -370,8 +366,8 @@ export function VoiceCommander({
             const speech = t('finalConfirmPrompt', detectedLang).replace('{total}', `₹${total.toFixed(2)}`);
             speak(speech, langWithRegion);
         }
-        promptTimeoutRef.current = null; // Clear the ref after the prompt runs
-      }, 250); // Small delay to allow state to settle
+        promptTimeoutRef.current = null;
+      }, 250);
   }, [
       pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation,
       cartItemsProp.length, language, speak,
@@ -389,7 +385,6 @@ export function VoiceCommander({
       runCheckoutPrompt();
     }
     
-    // Cleanup timeout on unmount or when dependencies change
     return () => {
       if (promptTimeoutRef.current) {
         clearTimeout(promptTimeoutRef.current);
@@ -512,7 +507,59 @@ export function VoiceCommander({
         updateRecognitionLanguage(langWithRegion);
     }
     
-    // --- PRIORITY 1: Check for a general command first ---
+     // --- PRIORITY 1: Contextual/Page-Specific Logic ---
+    if (isWaitingForAddressType) {
+      const homeKeywords = getAllAliases('homeAddress')[spokenLang] || [];
+      const locationKeywords = getAllAliases('currentLocation')[spokenLang] || [];
+      
+      if (homeKeywords.some(keyword => commandLower.includes(keyword))) {
+          homeAddressBtnRef?.current?.click();
+          speak(t('setting-delivery-to-home-speech', spokenLang), langWithRegion);
+      } else if (locationKeywords.some(keyword => commandLower.includes(keyword))) {
+          currentLocationBtnRef?.current?.click();
+          speak(t('using-current-location-speech', spokenLang), langWithRegion);
+      } else {
+          speak(t('did-not-understand-address-type-speech', spokenLang), langWithRegion);
+          resetAllContext();
+          return;
+      }
+      setIsWaitingForAddressType(false);
+      triggerVoicePrompt();
+      return;
+    }
+
+    if (isWaitingForStoreName) {
+        let bestMatch: { store: Store, similarity: number, term: string } | null = null;
+        for (const [alias, store] of storeAliasMap.entries()) {
+            if (commandLower.includes(alias)) {
+                const similarity = calculateSimilarity(commandLower, alias);
+                if (!bestMatch || similarity > bestMatch.similarity) {
+                    bestMatch = { store, similarity: similarity, term: alias };
+                }
+            }
+        }
+
+       if (bestMatch && bestMatch.similarity > 0.6) {
+           const store = bestMatch.store;
+           speak(t('okay-ordering-from-speech', spokenLang).replace('{storeName}', store.name), langWithRegion, () => {
+               setActiveStoreId(store.id);
+               triggerVoicePrompt();
+           });
+       } else {
+           speak(t('could-not-find-store-speech', spokenLang).replace('{storeName}', commandText), langWithRegion);
+       }
+       resetAllContext();
+       return;
+    }
+    
+    if (formFieldToFillRef.current && profileForm) {
+        profileForm.setValue(formFieldToFillRef.current, commandText, { shouldValidate: true });
+        formFieldToFillRef.current = null;
+        handleProfileFormInteraction();
+        return;
+    }
+    
+    // --- PRIORITY 2: Check for a general command first ---
     const allCommandKeys = Object.keys(commands);
     let bestCommandMatch: { key: string, similarity: number, reply: string, display: string } | null = null;
     
@@ -534,17 +581,20 @@ export function VoiceCommander({
     }
     
     if (bestCommandMatch) {
-         const action = commandActionsRef.current[bestCommandMatch.key];
-         if (action) {
-             speak(bestCommandMatch.reply, langWithRegion, () => action({ lang: spokenLang, phrase: commandLower, originalText: commandText }));
-         } else {
-             speak(bestCommandMatch.reply, langWithRegion);
-         }
-         resetAllContext();
-         return; // IMPORTANT: Exit after handling a general command
+        const action = commandActionsRef.current[bestCommandMatch.key];
+        // Special case for checkPrice which needs the phrase
+        if (bestCommandMatch.key === 'checkPrice') {
+          speak(bestCommandMatch.reply, langWithRegion, () => action({ phrase: commandLower, lang: spokenLang, originalText: commandText }));
+        } else if (action) {
+            speak(bestCommandMatch.reply, langWithRegion, () => action({ lang: spokenLang, phrase: commandLower, originalText: commandText }));
+        } else {
+            speak(bestCommandMatch.reply, langWithRegion);
+        }
+        resetAllContext();
+        return;
     }
     
-    // --- PRIORITY 2: Check for multi-item order ---
+    // --- PRIORITY 3: Check for multi-item order ---
     const multiItemSeparators = new RegExp(`\\s+(${['and', 'మరియు', 'aur'].join('|')})\\s+`, 'i');
     const potentialItems = commandLower.split(multiItemSeparators).filter(s => s && !['and', 'మరియు', 'aur'].includes(s));
 
@@ -554,7 +604,14 @@ export function VoiceCommander({
         return;
     }
     
-    // --- PRIORITY 3: Check for single product order ---
+    // --- PRIORITY 4: Check for single product order OR smart order ---
+    const locationKeywords = ['from', 'to'];
+    if (locationKeywords.some(kw => commandLower.includes(kw))) {
+        await commandActionsRef.current.smartOrder(commandLower, spokenLang, commandText);
+        resetAllContext();
+        return;
+    }
+
     const { product, variant, requestedQty, matchedAlias, lang: itemLang } = await findProductAndVariant(commandLower);
 
     if (product && variant) {
@@ -578,67 +635,6 @@ export function VoiceCommander({
         return;
     }
     
-    // --- PRIORITY 4: Contextual/Page-Specific Logic ---
-    if (isWaitingForAddressType) {
-        const homeKeywords = getAllAliases('homeAddress')[spokenLang] || [];
-        const locationKeywords = getAllAliases('currentLocation')[spokenLang] || [];
-        
-        if (homeKeywords.some(keyword => commandLower.includes(keyword))) {
-            homeAddressBtnRef?.current?.click();
-            speak(t('setting-delivery-to-home-speech', spokenLang), langWithRegion);
-        } else if (locationKeywords.some(keyword => commandLower.includes(keyword))) {
-            currentLocationBtnRef?.current?.click();
-            speak(t('using-current-location-speech', spokenLang), langWithRegion);
-        } else {
-            speak(t('did-not-understand-address-type-speech', spokenLang), langWithRegion);
-            resetAllContext();
-            return;
-        }
-        setIsWaitingForAddressType(false);
-        // Do not return here, let the prompt run again
-        triggerVoicePrompt();
-        return;
-    }
-
-    if (isWaitingForStoreName) {
-         let bestMatch: { store: Store, similarity: number, term: string } | null = null;
-         for (const [alias, store] of storeAliasMap.entries()) {
-             if (commandLower.includes(alias)) {
-                 const similarity = calculateSimilarity(commandLower, alias);
-                 if (!bestMatch || similarity > bestMatch.similarity) {
-                     bestMatch = { store, similarity: similarity, term: alias };
-                 }
-             }
-         }
-
-        if (bestMatch && bestMatch.similarity > 0.6) {
-            const store = bestMatch.store;
-            speak(t('okay-ordering-from-speech', spokenLang).replace('{storeName}', store.name), langWithRegion, () => {
-                setActiveStoreId(store.id);
-                 // After setting store, immediately re-trigger checkout prompt
-                triggerVoicePrompt();
-            });
-        } else {
-            speak(t('could-not-find-store-speech', spokenLang).replace('{storeName}', commandText), langWithRegion);
-        }
-        resetAllContext();
-        return;
-    }
-    
-    if (formFieldToFillRef.current && profileForm) {
-        profileForm.setValue(formFieldToFillRef.current, commandText, { shouldValidate: true });
-        formFieldToFillRef.current = null;
-        handleProfileFormInteraction();
-        return;
-    }
-    
-    const locationKeywords = ['from', 'to'];
-    if (locationKeywords.some(kw => commandLower.includes(kw))) {
-        await commandActionsRef.current.smartOrder(commandLower, spokenLang, commandText);
-        resetAllContext();
-        return;
-    }
-
     // --- LAST RESORT: Failure ---
     let failSpeech = t('sorry-i-didnt-understand-that', spokenLang);
     if(matchedAlias && !variant) {
@@ -664,7 +660,7 @@ export function VoiceCommander({
     }
     resetAllContext();
 
-  }, [firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, onStatusUpdate, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp.length, setLanguage, addItemToCart, onOpenCart, locales, commands, getAllAliases, t, triggerVoicePrompt]);
+  }, [firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp.length, setLanguage, addItemToCart, onOpenCart, locales, commands, getAllAliases, t, triggerVoicePrompt]);
 
 
   useEffect(() => {
@@ -691,19 +687,14 @@ export function VoiceCommander({
     };
     
     recognition.onend = () => {
-        // Only restart if the feature is still enabled and we are not in the middle of speaking.
-        // This prevents the mic from restarting automatically after it stops due to silence,
-        // which could cause it to listen to its own speech synthesis.
         if (isEnabledRef.current && !isSpeakingRef.current) {
             try {
-                // A short delay can help with stability on some browsers.
                 setTimeout(() => {
                     if (isEnabledRef.current && !isSpeakingRef.current && recognition) {
                          recognition.start();
                     }
                 }, 250); 
             } catch (e) {
-                // This can happen if it's already starting. It's safe to ignore.
             }
         }
     };
@@ -1071,5 +1062,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    
