@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -271,40 +272,33 @@ export function VoiceCommander({
     utterance.rate = 1.1;
     utterance.lang = lang;
 
-    // --- New Intelligent Voice Selection Logic ---
     const allVoices = speechSynthesisVoices;
     let selectedVoice: SpeechSynthesisVoice | null = null;
 
     if (lang.startsWith('en')) {
-        // 1. Prioritize specific, high-quality local English (India) voices by name
         const preferredIndianVoice = allVoices.find(voice => voice.lang === 'en-IN' && /rishi|veena|aditi/i.test(voice.name));
         if (preferredIndianVoice) {
             selectedVoice = preferredIndianVoice;
         } else {
-            // 2. Fallback: Find any local 'en-IN' voice.
             const localIndianVoice = allVoices.find(voice => voice.lang === 'en-IN' && voice.localService);
             if (localIndianVoice) {
                 selectedVoice = localIndianVoice;
             } else {
-                // 3. Fallback: Find any 'en-IN' voice.
                 const anyIndianVoice = allVoices.find(voice => voice.lang === 'en-IN');
                 if (anyIndianVoice) {
                     selectedVoice = anyIndianVoice;
                 } else {
-                    // 4. Ultimate fallback to any available English voice if no en-IN is found
                     selectedVoice = allVoices.find(voice => voice.lang.startsWith('en') && voice.localService) || allVoices.find(voice => voice.lang.startsWith('en')) || null;
                 }
             }
         }
     } else {
-        // For other languages like Telugu, find the best match for the language code.
         selectedVoice = allVoices.find(voice => voice.lang === lang && voice.localService) || allVoices.find(voice => voice.lang === lang) || null;
     }
     
     if (selectedVoice) {
       utterance.voice = selectedVoice;
     }
-    // --- End of New Logic ---
 
     utterance.onend = () => {
       isSpeakingRef.current = false;
@@ -554,6 +548,21 @@ export function VoiceCommander({
         updateRecognitionLanguage(langWithRegion);
     }
     
+    // --- PRIORITY 0: EXACT MATCH STOP WORDS ---
+    const stopWords = ['help', 'home', 'stores', 'dashboard', 'cart', 'orders', 'checkout', 'refresh'];
+    if (stopWords.includes(commandLower)) {
+        const action = commandActionsRef.current[commandLower];
+        const reply = commands[commandLower]?.reply || `Executing ${commandLower}.`;
+        if (action) {
+            speak(reply, langWithRegion, () => action({ lang: spokenLang }));
+        } else {
+            speak(reply, langWithRegion);
+        }
+        resetAllContext();
+        return; // Hard stop
+    }
+
+
      // --- PRIORITY 1: CONTEXTUAL RESPONSES (The State Machine) ---
     if (isWaitingForAddressType) {
         const homeKeywords = getAllAliases('homeAddress')[spokenLang] || ['home'];
@@ -611,31 +620,11 @@ export function VoiceCommander({
         return;
     }
     
-    // --- PRIORITY 2: GLOBAL & GENERAL COMMANDS ---
-    
-    // New "Stop Word" check for exact matches
-    const exactMatchCommandKey = Object.keys(commands).find(key => {
-        const aliases = getAllAliases(key);
-        const allAliasStrings = Object.values(aliases).flat();
-        return allAliasStrings.some(alias => alias.toLowerCase() === commandLower);
-    });
-
-    if (exactMatchCommandKey) {
-        const action = commandActionsRef.current[exactMatchCommandKey];
-        const reply = commands[exactMatchCommandKey].reply || `Executing ${commands[exactMatchCommandKey].display}.`;
-        const actionParams = { lang: spokenLang, phrase: commandLower, originalText: commandText };
-        if (action) {
-            speak(reply, langWithRegion, () => action(actionParams));
-        } else {
-            speak(reply, langWithRegion);
-        }
-        resetAllContext();
-        return; // IMPORTANT: Stop processing after an exact command match.
-    }
-    
-    // Fallback to fuzzy matching if no exact match was found
+    // --- PRIORITY 2: GENERAL & CONVERSATIONAL COMMANDS (FUZZY MATCH) ---
     let bestCommandMatch: { key: string, similarity: number, reply: string, display: string } | null = null;
     for (const key of Object.keys(commands)) {
+        if (stopWords.includes(key)) continue;
+
         const commandAliases = getAllAliases(key);
         const allAliasStrings = Object.values(commandAliases).flat();
         for (const alias of allAliasStrings) {
@@ -650,21 +639,11 @@ export function VoiceCommander({
             }
         }
     }
-    
-    if (bestCommandMatch && bestCommandMatch.key === 'checkPrice') {
-        await commandActionsRef.current.checkPrice({ lang: spokenLang, phrase: commandLower, originalText: commandText });
-        resetAllContext();
-        return;
-    }
 
-    // --- PRIORITY 3: PRODUCT-RELATED COMMANDS ---
-    const { product, variant, requestedQty, matchedAlias, lang: itemLang } = await findProductAndVariant(commandLower);
-
-    // If we have a better fuzzy match for a command than for a product, execute the command.
-    if (bestCommandMatch && (!matchedAlias || bestCommandMatch.similarity > calculateSimilarity(commandLower, matchedAlias))) {
-        const action = commandActionsRef.current[bestCommandMatch.key];
-        const actionParams = { lang: spokenLang, phrase: commandLower, originalText: commandText };
-        if (action) {
+    if (bestCommandMatch) {
+      const action = commandActionsRef.current[bestCommandMatch.key];
+      const actionParams = { lang: spokenLang, phrase: commandLower, originalText: commandText };
+       if (action) {
             speak(bestCommandMatch.reply, langWithRegion, () => action(actionParams));
         } else {
             speak(bestCommandMatch.reply, langWithRegion);
@@ -672,7 +651,10 @@ export function VoiceCommander({
         resetAllContext();
         return;
     }
-    
+
+    // --- PRIORITY 3: PRODUCT-RELATED COMMANDS ---
+    const { product, variant, requestedQty, matchedAlias, lang: itemLang } = await findProductAndVariant(commandLower);
+
     const multiItemSeparators = new RegExp(`\\s+(${['and', 'మరియు', 'aur'].join('|')})\\s+`, 'i');
     if (multiItemSeparators.test(commandLower)) {
         const potentialItems = commandLower.split(multiItemSeparators).filter(s => s && !['and', 'మరియు', 'aur'].includes(s));
@@ -922,7 +904,6 @@ export function VoiceCommander({
                         bestGuess = { product: p, similarity: similarity };
                     }
                 }
-                
                 const logData: Partial<FailedVoiceCommand> = {
                     userId: user.uid,
                     commandText: originalText,
@@ -1103,7 +1084,6 @@ export function VoiceCommander({
                 bestGuess = { product: p, similarity: similarity };
             }
         }
-        
         const logData: Partial<FailedVoiceCommand> = {
             userId: user.uid,
             commandText: originalText,
@@ -1115,7 +1095,7 @@ export function VoiceCommander({
         };
         addDoc(collection(firestore, 'failedCommands'), logData);
       }
-    },
+    }
     };
 
     if (firestore && user) {
@@ -1140,3 +1120,4 @@ export function VoiceCommander({
 
   return null;
 }
+
