@@ -612,17 +612,7 @@ export function VoiceCommander({
         return;
     }
     
-    // --- PRIORITY 2: CHECK FOR SPECIFIC COMMANDS (PRICE CHECK) FIRST ---
-    const checkPriceKeywords = [...(getAllAliases('checkPrice')['en'] || []), ...(getAllAliases('checkPrice')['te'] || []), 'cost of', 'price of'];
-    const isPriceCheck = checkPriceKeywords.some(kw => commandLower.includes(kw));
-
-    if (isPriceCheck) {
-        await commandActionsRef.current.checkPrice({ phrase: commandLower, lang: spokenLang, originalText: commandText });
-        resetAllContext();
-        return;
-    }
-
-    // --- PRIORITY 3: GLOBAL & GENERAL COMMANDS ---
+    // --- PRIORITY 2: GLOBAL & GENERAL COMMANDS ---
     const allCommandKeys = Object.keys(commands);
     let bestCommandMatch: { key: string, similarity: number, reply: string, display: string } | null = null;
     
@@ -632,7 +622,7 @@ export function VoiceCommander({
 
         for (const alias of allAliasStrings) {
             const similarity = calculateSimilarity(commandLower, alias.toLowerCase());
-            if (similarity > (bestCommandMatch?.similarity || 0.85)) { // Higher threshold for general commands
+            if (similarity > (bestCommandMatch?.similarity || 0.80)) { // Lowered threshold
                 bestCommandMatch = {
                     key,
                     similarity,
@@ -650,6 +640,16 @@ export function VoiceCommander({
         } else {
             speak(bestCommandMatch.reply, langWithRegion);
         }
+        resetAllContext();
+        return;
+    }
+    
+    // --- PRIORITY 3: CHECK FOR SPECIFIC COMMANDS (PRICE CHECK) ---
+    const checkPriceKeywords = [...(getAllAliases('checkPrice')['en'] || []), ...(getAllAliases('checkPrice')['te'] || []), 'cost of', 'price of'];
+    const isPriceCheck = checkPriceKeywords.some(kw => commandLower.includes(kw));
+
+    if (isPriceCheck) {
+        await commandActionsRef.current.checkPrice({ phrase: commandLower, lang: spokenLang, originalText: commandText });
         resetAllContext();
         return;
     }
@@ -1126,3 +1126,4 @@ export function VoiceCommander({
 
   return null;
 }
+
