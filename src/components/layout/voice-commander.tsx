@@ -352,14 +352,13 @@ export function VoiceCommander({
 
         const addressInput = typeof document !== 'undefined' ? (document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement) : null;
         const currentAddress = addressInput?.value || '';
-        const currentStoreId = useCart.getState().activeStoreId; // Get latest from Zustand
-
+        
         if (cartItemsProp.length === 0 && !isWaitingForQuickOrderConfirmation) {
             speak(t('your-cart-is-empty-speech', detectedLang), langWithRegion);
         } else if (!currentAddress || currentAddress.length < 10) {
             speak(t('should-i-deliver-to-home-or-current-speech', detectedLang), langWithRegion);
             setIsWaitingForAddressType(true);
-        } else if (!currentStoreId) {
+        } else if (!activeStoreId) {
             speak(t('which-store-should-fulfill-speech', detectedLang), langWithRegion);
             setIsWaitingForStoreName(true);
         } else {
@@ -372,7 +371,7 @@ export function VoiceCommander({
   }, [
       pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation,
       cartItemsProp.length, language, speak,
-      setIsWaitingForAddressType, setIsWaitingForStoreName, cartTotal, t
+      setIsWaitingForAddressType, setIsWaitingForStoreName, cartTotal, t, activeStoreId
   ]);
   
   useEffect(() => {
