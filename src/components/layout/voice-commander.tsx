@@ -290,8 +290,7 @@ export function VoiceCommander({
       isSpeakingRef.current = false;
       if (onEndCallback) onEndCallback();
       
-      // IMPORTANT: The restart logic is now *only* here.
-      // Restart recognition only if the voice commander is supposed to be active.
+      // IMPORTANT: Restart recognition only if the voice commander is still supposed to be active.
       if (isEnabledRef.current && recognition) {
         try {
             recognition.start();
@@ -498,7 +497,6 @@ export function VoiceCommander({
   }, [firestore, productPrices, fetchProductPrices, universalProductAliasMap]);
 
   const handleCommand = useCallback(async (commandText: string) => {
-    onStatusUpdate(`Processing: "${commandText}"`);
     if (!firestore || !user) {
         speak("I can't process commands without being connected. Please log in.", 'en-IN');
         return;
@@ -681,6 +679,7 @@ export function VoiceCommander({
 
     recognition.onresult = (event) => {
       const transcript = event.results[event.results.length - 1][0].transcript.trim();
+      onStatusUpdate(`Processing: "${transcript}"`);
       handleCommand(transcript);
     };
 
@@ -692,10 +691,21 @@ export function VoiceCommander({
     };
     
     recognition.onend = () => {
-        // The restart logic is now handled exclusively by the `speak` function's `onend` handler.
+        // Only restart if the feature is still enabled and we are not in the middle of speaking.
         // This prevents the mic from restarting automatically after it stops due to silence,
         // which could cause it to listen to its own speech synthesis.
-        // It will only restart after speech synthesis is fully complete.
+        if (isEnabledRef.current && !isSpeakingRef.current) {
+            try {
+                // A short delay can help with stability on some browsers.
+                setTimeout(() => {
+                    if (isEnabledRef.current && !isSpeakingRef.current && recognition) {
+                         recognition.start();
+                    }
+                }, 250); 
+            } catch (e) {
+                // This can happen if it's already starting. It's safe to ignore.
+            }
+        }
     };
 
     commandActionsRef.current = {
@@ -1061,3 +1071,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
