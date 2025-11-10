@@ -10,6 +10,8 @@ import { VoiceCommander } from '@/components/layout/voice-commander';
 import { ProfileCompletionChecker } from '@/components/profile-completion-checker';
 import { NotificationPermissionManager } from '@/components/layout/notification-permission-manager';
 import { useInitializeApp, useAppStore } from '@/lib/store';
+import { getLanguageForLocation } from '@/lib/location-service';
+import { useToast } from '@/hooks/use-toast';
 
 // Create a context to provide the trigger function
 const VoiceCommandContext = createContext<{ triggerVoicePrompt: () => void } | undefined>(undefined);
@@ -32,12 +34,41 @@ export function MainLayout({
   const [suggestedCommands, setSuggestedCommands] = useState<any[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { cartItems } = useCart();
+  const { toast } = useToast();
   
   // Initialize the app data and get the loading status from the global store
   const isAppLoading = useInitializeApp();
+  const { setLanguage } = useAppStore();
 
   // State to trigger re-evaluation in VoiceCommander
   const [voiceTrigger, setVoiceTrigger] = useState(0);
+
+  // --- New: Location-based language detection ---
+  useEffect(() => {
+    // Only run this check once when the component mounts
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const detectedLang = getLanguageForLocation(latitude, longitude);
+          setLanguage(detectedLang);
+          toast({
+            title: 'Location Detected',
+            description: `Voice assistant language set to ${detectedLang === 'te' ? 'Telugu' : 'English'}.`,
+          });
+        },
+        (error) => {
+          // Can't get location, so we'll just use the default language (English)
+          console.warn(`Could not get location: ${error.message}`);
+        },
+        {
+          timeout: 10000,
+          maximumAge: 600000, // Use a cached position up to 10 minutes old
+        }
+      );
+    }
+  }, [setLanguage, toast]); // Dependencies ensure this runs only once with stable functions.
+
 
   // Stable callback to trigger the voice prompt check
   const triggerVoicePrompt = useCallback(() => {
