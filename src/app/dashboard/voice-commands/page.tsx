@@ -15,13 +15,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useFirebase } from '@/firebase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
-import { collection, getDocs, writeBatch, doc, query, where, deleteDoc } from 'firebase/firestore';
+import { collection, writeBatch, doc } from 'firebase/firestore';
 import type { VoiceAlias, Locales } from '@/lib/locales';
-
-type CommandGroup = {
-  display: string;
-  reply: string;
-};
+import { generalCommands as defaultGeneralCommands, CommandGroup } from '@/lib/locales/commands';
 
 const createSlug = (text: string) => text.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-');
 
@@ -37,7 +33,7 @@ export default function VoiceCommandsPage() {
 
     // Local state for UI edits, initialized from the global store
     const [locales, setLocales] = useState<Locales>(initialLocales);
-    const [commands, setCommands] = useState<Record<string, CommandGroup>>({});
+    const [commands, setCommands] = useState<Record<string, CommandGroup>>(defaultGeneralCommands);
     
     // Local state for UI interactions
     const [newAliases, setNewAliases] = useState<Record<string, Record<string, string>>>({});
@@ -48,26 +44,26 @@ export default function VoiceCommandsPage() {
     const [isListening, setIsListening] = useState(false);
     const recognitionRef = useRef<SpeechRecognition | null>(null);
 
-    // Re-initialize local state whenever the global store's data changes (e.g., after a save and refresh)
+    // Re-initialize local state whenever the global store's data changes
     useEffect(() => {
         setLocales(initialLocales);
 
-        const initialCommands: Record<string, CommandGroup> = {};
-        // Correctly derive commands from the raw aliases list
+        // Start with default commands, then enrich with data from Firestore
+        const enrichedCommands = { ...defaultGeneralCommands };
         initialAliases.forEach(alias => {
             if (alias.type === 'command') {
-                if (!initialCommands[alias.key]) {
-                    initialCommands[alias.key] = { display: '', reply: '' };
+                if (!enrichedCommands[alias.key]) {
+                    enrichedCommands[alias.key] = { display: '', reply: '' };
                 }
                 if (alias.language === 'display') {
-                    initialCommands[alias.key].display = alias.alias;
+                    enrichedCommands[alias.key].display = alias.alias;
                 }
                 if (alias.language === 'reply') {
-                    initialCommands[alias.key].reply = alias.alias;
+                    enrichedCommands[alias.key].reply = alias.alias;
                 }
             }
         });
-        setCommands(initialCommands);
+        setCommands(enrichedCommands);
     }, [initialLocales, initialAliases]);
 
 
