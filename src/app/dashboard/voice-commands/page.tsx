@@ -17,7 +17,7 @@ import { useFirebase } from '@/firebase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { collection, writeBatch, doc } from 'firebase/firestore';
 import type { VoiceAlias, Locales } from '@/lib/locales';
-import { CommandGroup } from '@/lib/locales/commands';
+import { CommandGroup, generalCommands as defaultGeneralCommands } from '@/lib/locales/commands';
 
 const createSlug = (text: string) => text.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-');
 
@@ -80,7 +80,9 @@ export default function VoiceCommandsPage() {
             return;
         }
 
-        const aliasesToAdd = newAliasInput.split(',').map(alias => alias.trim().toLowerCase()).filter(Boolean);
+        // Use a Set to ensure all new aliases are unique before processing
+        const aliasesToAdd = [...new Set(newAliasInput.split(',').map(alias => alias.trim().toLowerCase()).filter(Boolean))];
+        
         if (aliasesToAdd.length === 0) return;
 
         let addedCount = 0;
