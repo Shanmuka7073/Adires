@@ -315,7 +315,7 @@ export function VoiceCommander({
       speak("I can't seem to access the profile form right now.", 'en-IN');
       return;
     }
-    const fields: { name: keyof ProfileFormValues; label: string }[] = [
+    const fields: { name: keyof typeof profileForm.getValues; label: string }[] = [
       { name: 'firstName', label: 'first name' },
       { name: 'lastName', label: 'last name' },
       { name: 'phone', label: 'phone number' },
@@ -496,39 +496,8 @@ export function VoiceCommander({
         setLanguage(spokenLang);
         updateRecognitionLanguage(langWithRegion);
     }
-    
-    const multiItemSeparators = new RegExp(`\\s+(${['and', 'మరియు', 'aur'].join('|')})\\s+`, 'i');
-    const potentialItems = commandLower.split(multiItemSeparators).filter(s => s && !['and', 'మరియు', 'aur'].includes(s));
 
-    if (potentialItems.length > 1) {
-        await commandActionsRef.current.orderMultipleItems(potentialItems, spokenLang, commandText);
-        resetAllContext();
-        return;
-    }
-    
-    const { product, variant, requestedQty, matchedAlias, lang: itemLang } = await findProductAndVariant(commandLower);
-
-    if (product && variant) {
-        addItemToCart(product, variant, requestedQty);
-        onOpenCart();
-        
-        const productLang = itemLang || spokenLang;
-        const replyProductName = matchedAlias || getProductName(product);
-
-        let speech = t('adding-item-speech', productLang)
-            .replace('{quantity}', `${requestedQty}`)
-            .replace('{weight}', `${variant.weight}`)
-            .replace('{productName}', replyProductName);
-
-        if (didLanguageChange) {
-            speech += spokenLang === 'te' ? " నేను మీ కోసం తెలుగుకి మారాను." : " I've also switched to English for you.";
-        }
-            
-        speak(speech, productLang + '-IN');
-        resetAllContext();
-        return;
-    }
-    
+    // --- PRIORITY 1: Check for a general command first ---
     const allCommandKeys = Object.keys(commands);
     let bestCommandMatch: { key: string, similarity: number, reply: string, display: string } | null = null;
     
@@ -557,9 +526,44 @@ export function VoiceCommander({
              speak(bestCommandMatch.reply, langWithRegion);
          }
          resetAllContext();
-         return;
+         return; // IMPORTANT: Exit after handling a general command
     }
+    
+    // --- PRIORITY 2: Check for multi-item order ---
+    const multiItemSeparators = new RegExp(`\\s+(${['and', 'మరియు', 'aur'].join('|')})\\s+`, 'i');
+    const potentialItems = commandLower.split(multiItemSeparators).filter(s => s && !['and', 'మరియు', 'aur'].includes(s));
 
+    if (potentialItems.length > 1) {
+        await commandActionsRef.current.orderMultipleItems(potentialItems, spokenLang, commandText);
+        resetAllContext();
+        return;
+    }
+    
+    // --- PRIORITY 3: Check for single product order ---
+    const { product, variant, requestedQty, matchedAlias, lang: itemLang } = await findProductAndVariant(commandLower);
+
+    if (product && variant) {
+        addItemToCart(product, variant, requestedQty);
+        onOpenCart();
+        
+        const productLang = itemLang || spokenLang;
+        const replyProductName = matchedAlias || getProductName(product);
+
+        let speech = t('adding-item-speech', productLang)
+            .replace('{quantity}', `${requestedQty}`)
+            .replace('{weight}', `${variant.weight}`)
+            .replace('{productName}', replyProductName);
+
+        if (didLanguageChange) {
+            speech += spokenLang === 'te' ? " నేను మీ కోసం తెలుగుకి మారాను." : " I've also switched to English for you.";
+        }
+            
+        speak(speech, productLang + '-IN');
+        resetAllContext();
+        return;
+    }
+    
+    // --- PRIORITY 4: Contextual/Page-Specific Logic ---
     if (isWaitingForAddressType) {
         const homeKeywords = getAllAliases('homeAddress')['en'] || [];
         const locationKeywords = getAllAliases('currentLocation')['en'] || [];
@@ -616,6 +620,7 @@ export function VoiceCommander({
         return;
     }
 
+    // --- LAST RESORT: Failure ---
     speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
     if (firestore && user) {
         addDoc(collection(firestore, 'failedCommands'), {
