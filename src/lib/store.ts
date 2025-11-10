@@ -53,20 +53,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       const voiceAliases = aliasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAlias));
       const locales = buildLocalesFromAliases(voiceAliases);
       
-      const enrichedCommands = { ...defaultGeneralCommands };
-      voiceAliases.forEach(alias => {
-          if (alias.type === 'command') {
-              if (!enrichedCommands[alias.key]) {
-                  enrichedCommands[alias.key] = { display: alias.key, reply: '' };
-              }
-              if (alias.language === 'display') {
-                  enrichedCommands[alias.key].display = alias.alias;
-              }
-              if (alias.language === 'reply') {
-                  enrichedCommands[alias.key].reply = alias.alias;
-              }
-          }
-      });
+      const commandsCollection = collection(db, 'voiceCommands');
+      const commandsSnapshot = await getDocs(commandsCollection);
+      const dbCommands = commandsSnapshot.docs.reduce((acc, doc) => {
+          acc[doc.id] = doc.data() as CommandGroup;
+          return acc;
+      }, {} as Record<string, CommandGroup>);
+      
+      const enrichedCommands = { ...defaultGeneralCommands, ...dbCommands };
 
       initializeTranslations(locales); 
 
@@ -164,3 +158,5 @@ export const useMyStorePageStore = create<MyStorePageState>((set) => ({
   saveInventoryBtnRef: null,
   setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
 }));
+
+    

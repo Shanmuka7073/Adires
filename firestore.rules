@@ -132,6 +132,11 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin(); // Only the admin can write to this collection
     }
+    
+    match /voiceCommands/{commandKey} {
+      allow read: if true;
+      allow write: if isAdmin(); // Only the admin can write to this collection
+    }
   }
 }
 
@@ -146,3 +151,5 @@ service firebase.storage {
     }
   }
 }
+
+    

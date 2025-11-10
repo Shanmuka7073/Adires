@@ -612,6 +612,27 @@
         }
       },
       "required": ["key", "language", "alias", "type"]
+    },
+    "VoiceCommand": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "VoiceCommand",
+      "type": "object",
+      "description": "Represents the core information for a general voice command.",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "The unique key for the command (e.g., 'go-to-cart'). Serves as the document ID."
+        },
+        "display": {
+          "type": "string",
+          "description": "The user-friendly display name for the command (e.g., 'Go To Cart')."
+        },
+        "reply": {
+          "type": "string",
+          "description": "The text the voice assistant should speak in response (e.g., 'Opening your cart.')."
+        }
+      },
+      "required": ["key", "display", "reply"]
     }
   },
   "auth": {
@@ -864,7 +885,25 @@
             }
           ]
         }
+      },
+      {
+        "path": "/voiceCommands/{commandKey}",
+        "definition": {
+          "entityName": "VoiceCommand",
+          "schema": {
+            "$ref": "#/backend/entities/VoiceCommand"
+          },
+          "description": "Stores the core information for general voice commands.",
+          "params": [
+            {
+              "name": "commandKey",
+              "description": "The unique key for the command (e.g., 'go-to-cart')."
+            }
+          ]
+        }
       }
     ]
   }
 }
+
+    
