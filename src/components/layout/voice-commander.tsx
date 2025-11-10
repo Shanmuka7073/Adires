@@ -548,22 +548,7 @@ export function VoiceCommander({
         updateRecognitionLanguage(langWithRegion);
     }
     
-    // --- PRIORITY 0: EXACT MATCH STOP WORDS ---
-    const stopWords = ['help', 'home', 'stores', 'dashboard', 'cart', 'orders', 'checkout', 'refresh'];
-    if (stopWords.includes(commandLower)) {
-        const action = commandActionsRef.current[commandLower];
-        const reply = commands[commandLower]?.reply || `Executing ${commandLower}.`;
-        if (action) {
-            speak(reply, langWithRegion, () => action({ lang: spokenLang }));
-        } else {
-            speak(reply, langWithRegion);
-        }
-        resetAllContext();
-        return; // Hard stop
-    }
-
-
-     // --- PRIORITY 1: CONTEXTUAL RESPONSES (The State Machine) ---
+    // --- PRIORITY 0: CONTEXTUAL RESPONSES (State Machine) ---
     if (isWaitingForAddressType) {
         const homeKeywords = getAllAliases('homeAddress')[spokenLang] || ['home'];
         const locationKeywords = getAllAliases('currentLocation')[spokenLang] || ['current'];
@@ -619,42 +604,47 @@ export function VoiceCommander({
         handleProfileFormInteraction();
         return;
     }
-    
-    // --- PRIORITY 2: GENERAL & CONVERSATIONAL COMMANDS (FUZZY MATCH) ---
+
+    // --- PRIORITY 1: GENERAL COMMANDS ---
     let bestCommandMatch: { key: string, similarity: number, reply: string, display: string } | null = null;
-    for (const key of Object.keys(commands)) {
-        if (stopWords.includes(key)) continue;
 
-        const commandAliases = getAllAliases(key);
-        const allAliasStrings = Object.values(commandAliases).flat();
-        for (const alias of allAliasStrings) {
-            const similarity = calculateSimilarity(commandLower, alias.toLowerCase());
-            if (similarity > (bestCommandMatch?.similarity || 0.80)) {
-                bestCommandMatch = {
-                    key,
-                    similarity,
-                    reply: commands[key].reply || `Executing ${commands[key].display}.`,
-                    display: commands[key].display
-                };
-            }
+    for (const key in commands) {
+      const commandAliases = getAllAliases(key);
+      const allAliasStrings = Object.values(commandAliases).flat();
+      // Also check the command key itself and its display name
+      allAliasStrings.push(key, commands[key].display.toLowerCase());
+
+      for (const alias of [...new Set(allAliasStrings)]) { // Use Set to avoid duplicates
+        const similarity = calculateSimilarity(commandLower, alias.toLowerCase());
+        if (similarity > (bestCommandMatch?.similarity || 0.80)) {
+          bestCommandMatch = {
+            key,
+            similarity,
+            reply: commands[key].reply || `Executing ${commands[key].display}.`,
+            display: commands[key].display
+          };
         }
+      }
     }
-
+    
     if (bestCommandMatch) {
       const action = commandActionsRef.current[bestCommandMatch.key];
       const actionParams = { lang: spokenLang, phrase: commandLower, originalText: commandText };
-       if (action) {
-            speak(bestCommandMatch.reply, langWithRegion, () => action(actionParams));
-        } else {
-            speak(bestCommandMatch.reply, langWithRegion);
-        }
-        resetAllContext();
-        return;
+      
+      // Execute the action and stop further processing.
+      if (action) {
+        speak(bestCommandMatch.reply, langWithRegion, () => action(actionParams));
+      } else {
+        speak(bestCommandMatch.reply, langWithRegion);
+      }
+      resetAllContext();
+      return;
     }
 
-    // --- PRIORITY 3: PRODUCT-RELATED COMMANDS ---
+    // --- PRIORITY 2: PRODUCT-RELATED COMMANDS (if no general command matched) ---
     const { product, variant, requestedQty, matchedAlias, lang: itemLang } = await findProductAndVariant(commandLower);
-
+    
+    // Complex order checks (multi-item, smart order)
     const multiItemSeparators = new RegExp(`\\s+(${['and', 'మరియు', 'aur'].join('|')})\\s+`, 'i');
     if (multiItemSeparators.test(commandLower)) {
         const potentialItems = commandLower.split(multiItemSeparators).filter(s => s && !['and', 'మరియు', 'aur'].includes(s));
