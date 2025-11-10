@@ -171,9 +171,9 @@ export function VoiceCommander({
     }
 
     const langKeywords = [
-        { lang: 'te', keywords: ['నాకు', 'కావాలి', 'naku', 'naaku', 'kavali'] },
+        { lang: 'te', keywords: ['నాకు', 'కావాలి', 'naku', 'naaku', 'kavali', 'ధర'] },
         { lang: 'hi', keywords: ['मुझे', 'चाहिए', 'mujhe', 'chahiye'] },
-        { lang: 'en', keywords: ['i want', 'i need', 'get me', 'add', 'get', 'buy', 'order', 'send', 'go', 'open', 'what is', 'how'] }
+        { lang: 'en', keywords: ['i want', 'i need', 'get me', 'add', 'get', 'buy', 'order', 'send', 'go', 'open', 'what is', 'how', 'price', 'cost'] }
     ];
      for (const langInfo of langKeywords) {
         if (langInfo.keywords.some(keyword => lowerText.includes(keyword))) {
@@ -415,19 +415,13 @@ export function VoiceCommander({
 
   const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null; variant: ProductVariant | null; requestedQty: number; remainingPhrase: string; matchedAlias: string | null; lang: string; }> => {
     const lowerPhrase = phrase.toLowerCase();
-    const normalizedPhrase = lowerPhrase.replace(/\s+/g, '');
     let bestMatch: { product: Product, alias: string, similarity: number, lang: string } | null = null;
 
-    const searchTerms = [lowerPhrase, normalizedPhrase];
-
-    for (const term of searchTerms) {
-        for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
-            if (term.includes(alias)) {
-                const similarity = calculateSimilarity(term, alias);
-                if (!bestMatch || similarity > bestMatch.similarity) {
-                    bestMatch = { product, alias, similarity, lang };
-                }
-            }
+    // Iterate through all known product aliases to find the best fuzzy match
+    for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
+        const similarity = calculateSimilarity(lowerPhrase, alias);
+        if (similarity > (bestMatch?.similarity || 0.6)) { // Use a threshold
+            bestMatch = { product, alias, similarity, lang };
         }
     }
     
@@ -565,7 +559,17 @@ export function VoiceCommander({
         return;
     }
     
-    // --- PRIORITY 2: GLOBAL & GENERAL COMMANDS ---
+    // --- PRIORITY 2: CHECK FOR SPECIFIC COMMANDS (PRICE CHECK) FIRST ---
+    const checkPriceKeywords = [...(getAllAliases('checkPrice')['en'] || []), ...(getAllAliases('checkPrice')['te'] || [])];
+    const isPriceCheck = checkPriceKeywords.some(kw => commandLower.includes(kw));
+
+    if (isPriceCheck) {
+        await commandActionsRef.current.checkPrice({ phrase: commandLower, lang: spokenLang, originalText: commandText });
+        resetAllContext();
+        return;
+    }
+
+    // --- PRIORITY 3: GLOBAL & GENERAL COMMANDS ---
     const allCommandKeys = Object.keys(commands);
     let bestCommandMatch: { key: string, similarity: number, reply: string, display: string } | null = null;
     
@@ -597,7 +601,7 @@ export function VoiceCommander({
         return;
     }
     
-    // --- PRIORITY 3: ORDERING & PRODUCT-RELATED COMMANDS ---
+    // --- PRIORITY 4: ORDERING & PRODUCT-RELATED COMMANDS ---
     const multiItemSeparators = new RegExp(`\\s+(${['and', 'మరియు', 'aur'].join('|')})\\s+`, 'i');
     const potentialItems = commandLower.split(multiItemSeparators).filter(s => s && !['and', 'మరియు', 'aur'].includes(s));
 
@@ -1069,6 +1073,7 @@ export function VoiceCommander({
 
   return null;
 }
+
 
 
 
