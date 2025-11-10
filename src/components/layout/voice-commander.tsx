@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -71,7 +72,17 @@ export function VoiceCommander({
   cartItems: cartItemsProp,
   voiceTrigger,
   triggerVoicePrompt,
-}: VoiceCommanderProps) {
+}: {
+  enabled: boolean;
+  onStatusUpdate: (status: string) => void;
+  onSuggestions: (suggestions: any[]) => void;
+  onOpenCart: () => void;
+  onCloseCart: () => void;
+  isCartOpen: boolean;
+  cartItems: CartItem[];
+  voiceTrigger: number;
+  triggerVoicePrompt: () => void;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
@@ -681,8 +692,20 @@ export function VoiceCommander({
         handleProfileFormInteraction();
         return;
     }
+    
+    // --- New Multi-Item Logic ---
+    const multiItemSeparators = ['and', 'మరియు'];
+    const separatorUsed = multiItemSeparators.find(sep => commandText.toLowerCase().includes(` ${sep} `));
+    
+    if (separatorUsed && recognizeIntent(commandText, spokenLang).type === 'ORDER_ITEM') {
+        const phrases = commandText.split(new RegExp(` ${separatorUsed} `, 'i'));
+        await commandActionsRef.current.orderMultipleItems(phrases, spokenLang, commandText);
+        resetAllContext();
+        return;
+    }
 
-    // --- NEW: INTENT-BASED LOGIC ---
+
+    // --- INTENT-BASED LOGIC ---
     const intent = recognizeIntent(commandText, spokenLang);
 
     switch (intent.type) {
@@ -950,8 +973,42 @@ export function VoiceCommander({
       if (firestore && user) {
         addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: lang, reason: `Price check: product not found in phrase "${phrase}".`, timestamp: serverTimestamp() });
       }
+    },
+    orderMultipleItems: async (phrases: string[], lang: string, originalText: string) => {
+        let addedItems: string[] = [];
+        let failedItems: string[] = [];
+
+        for (const phrase of phrases) {
+            const { product, variant, requestedQty, lang: itemLang } = await findProductAndVariant(phrase);
+            if (product && variant) {
+                addItemToCart(product, variant, requestedQty);
+                addedItems.push(getProductName(product));
+            } else {
+                failedItems.push(phrase.trim());
+            }
+        }
+        
+        const langToUse = lang || 'en';
+        const langWithRegion = langToUse === 'en' ? 'en-IN' : `${langToUse}-IN`;
+        
+        if (addedItems.length > 0) {
+            onOpenCart();
+            let speech;
+            if (failedItems.length > 0) {
+                speech = `${t('ive-added-to-your-cart', langToUse).replace('{items}', addedItems.join(', '))} ${t('but-i-couldnt-find', langToUse).replace('{items}', failedItems.join(', '))}`;
+            } else {
+                speech = t('ive-added-to-your-cart', langToUse).replace('{items}', addedItems.join(', '));
+            }
+            speak(speech, langWithRegion);
+        } else {
+            speak(t('sorry-i-couldnt-find-any-items', langToUse), langWithRegion);
+            if (firestore && user) {
+                addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: lang, reason: `Multi-order: No products found. Failed items: ${failedItems.join(', ')}`, timestamp: serverTimestamp() });
+            }
+        }
     }
-    };
+  };
+
 
     if (firestore && user) {
         const userDocRef = doc(firestore, 'users', user.uid);
