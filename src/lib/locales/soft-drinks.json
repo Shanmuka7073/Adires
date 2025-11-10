@@ -1,8 +1,10 @@
 {
   "soft-drinks": {
     "en": [
-      "soft drinks"
-    ],
-    "te": []
+      "soft drink",
+      "soft drinks",
+      "coke",
+      "pepsi"
+    ]
   }
 }

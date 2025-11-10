@@ -1,8 +1,9 @@
 {
   "dog-foodcat-food": {
     "en": [
-      "dog foodcat food"
-    ],
-    "te": []
+      "dog food",
+      "cat food",
+      "pet food"
+    ]
   }
 }

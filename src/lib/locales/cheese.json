@@ -1,8 +1,9 @@
 {
   "cheese": {
     "en": [
-      "cheese"
-    ],
-    "te": []
+      "cheese",
+      "cheese slice",
+      "cheese block"
+    ]
   }
 }

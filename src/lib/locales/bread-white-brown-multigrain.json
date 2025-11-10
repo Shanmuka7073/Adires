@@ -1,8 +1,10 @@
 {
   "bread-white-brown-multigrain": {
     "en": [
-      "bread white brown multigrain"
-    ],
-    "te": []
+      "bread",
+      "white bread",
+      "brown bread",
+      "multigrain bread"
+    ]
   }
 }

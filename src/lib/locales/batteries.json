@@ -1,8 +1,9 @@
 {
   "batteries": {
     "en": [
-      "batteries"
-    ],
-    "te": []
+      "battery",
+      "batteries",
+      "cell"
+    ]
   }
 }
