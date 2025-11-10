@@ -560,14 +560,13 @@ export function VoiceCommander({
         return;
     }
     
-    // --- PRIORITY 2: Check for a highly specific command first (like check price) ---
-    const checkPriceAliases = getAllAliases('checkPrice')[spokenLang] || [];
-    if (checkPriceAliases.some(alias => commandLower.startsWith(alias))) {
+    const priceCheckKeywords = getAllAliases('checkPrice')[spokenLang] || [];
+    if (priceCheckKeywords.some(alias => commandLower.startsWith(alias))) {
         await commandActionsRef.current.checkPrice({ phrase: commandLower, lang: spokenLang, originalText: commandText });
         resetAllContext();
         return;
     }
-
+    
     // --- PRIORITY 3: Check for general commands ---
     const allCommandKeys = Object.keys(commands);
     let bestCommandMatch: { key: string, similarity: number, reply: string, display: string } | null = null;
@@ -1069,5 +1068,6 @@ export function VoiceCommander({
 
   return null;
 }
+
 
 
