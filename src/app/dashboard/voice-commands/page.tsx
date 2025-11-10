@@ -51,18 +51,24 @@ export default function VoiceCommandsPage() {
     // Re-initialize local state whenever the global store's data changes (e.g., after a save and refresh)
     useEffect(() => {
         setLocales(initialLocales);
+
         const initialCommands: Record<string, CommandGroup> = {};
-        Object.keys(initialLocales).forEach(key => {
-            const entry = initialLocales[key];
-            if (entry.display || entry.reply) {
-                initialCommands[key] = {
-                    display: Array.isArray(entry.display) ? entry.display[0] : (entry.display || ''),
-                    reply: Array.isArray(entry.reply) ? entry.reply[0] : (entry.reply || ''),
-                };
+        // Correctly derive commands from the raw aliases list
+        initialAliases.forEach(alias => {
+            if (alias.type === 'command') {
+                if (!initialCommands[alias.key]) {
+                    initialCommands[alias.key] = { display: '', reply: '' };
+                }
+                if (alias.language === 'display') {
+                    initialCommands[alias.key].display = alias.alias;
+                }
+                if (alias.language === 'reply') {
+                    initialCommands[alias.key].reply = alias.alias;
+                }
             }
         });
         setCommands(initialCommands);
-    }, [initialLocales]);
+    }, [initialLocales, initialAliases]);
 
 
     useEffect(() => {
