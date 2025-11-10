@@ -544,7 +544,7 @@ export function VoiceCommander({
         return;
     }
 
-    const commandLower = commandText.toLowerCase();
+    const commandLower = commandText.toLowerCase().trim();
     const spokenLang = determinePhraseLanguage(commandText);
     const langWithRegion = spokenLang === 'en' ? 'en-IN' : `${spokenLang}-IN`;
     const didLanguageChange = spokenLang !== language;
@@ -612,13 +612,32 @@ export function VoiceCommander({
     }
     
     // --- PRIORITY 2: GLOBAL & GENERAL COMMANDS ---
-    const allCommandKeys = Object.keys(commands);
-    let bestCommandMatch: { key: string, similarity: number, reply: string, display: string } | null = null;
     
-    for (const key of allCommandKeys) {
+    // New "Stop Word" check for exact matches
+    const exactMatchCommandKey = Object.keys(commands).find(key => {
+        const aliases = getAllAliases(key);
+        const allAliasStrings = Object.values(aliases).flat();
+        return allAliasStrings.some(alias => alias.toLowerCase() === commandLower);
+    });
+
+    if (exactMatchCommandKey) {
+        const action = commandActionsRef.current[exactMatchCommandKey];
+        const reply = commands[exactMatchCommandKey].reply || `Executing ${commands[exactMatchCommandKey].display}.`;
+        const actionParams = { lang: spokenLang, phrase: commandLower, originalText: commandText };
+        if (action) {
+            speak(reply, langWithRegion, () => action(actionParams));
+        } else {
+            speak(reply, langWithRegion);
+        }
+        resetAllContext();
+        return; // IMPORTANT: Stop processing after an exact command match.
+    }
+    
+    // Fallback to fuzzy matching if no exact match was found
+    let bestCommandMatch: { key: string, similarity: number, reply: string, display: string } | null = null;
+    for (const key of Object.keys(commands)) {
         const commandAliases = getAllAliases(key);
         const allAliasStrings = Object.values(commandAliases).flat();
-
         for (const alias of allAliasStrings) {
             const similarity = calculateSimilarity(commandLower, alias.toLowerCase());
             if (similarity > (bestCommandMatch?.similarity || 0.80)) {
@@ -632,7 +651,17 @@ export function VoiceCommander({
         }
     }
     
-    if (bestCommandMatch) {
+    if (bestCommandMatch && bestCommandMatch.key === 'checkPrice') {
+        await commandActionsRef.current.checkPrice({ lang: spokenLang, phrase: commandLower, originalText: commandText });
+        resetAllContext();
+        return;
+    }
+
+    // --- PRIORITY 3: PRODUCT-RELATED COMMANDS ---
+    const { product, variant, requestedQty, matchedAlias, lang: itemLang } = await findProductAndVariant(commandLower);
+
+    // If we have a better fuzzy match for a command than for a product, execute the command.
+    if (bestCommandMatch && (!matchedAlias || bestCommandMatch.similarity > calculateSimilarity(commandLower, matchedAlias))) {
         const action = commandActionsRef.current[bestCommandMatch.key];
         const actionParams = { lang: spokenLang, phrase: commandLower, originalText: commandText };
         if (action) {
@@ -641,29 +670,24 @@ export function VoiceCommander({
             speak(bestCommandMatch.reply, langWithRegion);
         }
         resetAllContext();
-        return; // IMPORTANT: Stop processing after a command match.
+        return;
     }
     
-    // --- PRIORITY 3: PRODUCT-RELATED COMMANDS ---
     const multiItemSeparators = new RegExp(`\\s+(${['and', 'మరియు', 'aur'].join('|')})\\s+`, 'i');
-    const potentialItems = commandLower.split(multiItemSeparators).filter(s => s && !['and', 'మరియు', 'aur'].includes(s));
-
-    if (potentialItems.length > 1) {
+    if (multiItemSeparators.test(commandLower)) {
+        const potentialItems = commandLower.split(multiItemSeparators).filter(s => s && !['and', 'మరియు', 'aur'].includes(s));
         await commandActionsRef.current.orderMultipleItems(potentialItems, spokenLang, commandText);
         resetAllContext();
         return;
     }
     
-    // Check for smart order keywords like "from" and "to"
     const locationKeywords = ['from', 'to', 'నుండి', 'కి'];
     if (locationKeywords.some(kw => commandLower.includes(kw))) {
         await commandActionsRef.current.smartOrder(commandLower, spokenLang, commandText);
         resetAllContext();
         return;
     }
-
-    const { product, variant, requestedQty, matchedAlias, lang: itemLang } = await findProductAndVariant(commandLower);
-
+    
     if (product && variant) {
         addItemToCart(product, variant, requestedQty);
         onOpenCart();
@@ -1116,5 +1140,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    
