@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -261,6 +260,10 @@ export function VoiceCommander({
       return;
     }
 
+    // Stop recognition before speaking to prevent feedback loops.
+    if (recognition) {
+        recognition.stop();
+    }
     window.speechSynthesis.cancel();
     isSpeakingRef.current = true;
     
@@ -286,6 +289,9 @@ export function VoiceCommander({
     utterance.onend = () => {
       isSpeakingRef.current = false;
       if (onEndCallback) onEndCallback();
+      
+      // IMPORTANT: The restart logic is now *only* here.
+      // Restart recognition only if the voice commander is supposed to be active.
       if (isEnabledRef.current && recognition) {
         try {
             recognition.start();
@@ -308,7 +314,6 @@ export function VoiceCommander({
       }
     };
     
-    if(recognition) recognition.stop();
     window.speechSynthesis.speak(utterance);
   }, [speechSynthesisVoices]);
 
@@ -444,7 +449,7 @@ export function VoiceCommander({
     
     if (!priceData?.variants?.length) return { product: productMatch, variant: null, requestedQty: 1, remainingPhrase, matchedAlias, lang: detectedLang };
     
-    const numberWords: Record<string, number> = { 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10, 'ఒకటి': 1, 'రెండు': 2, 'మూడు': 3, 'నాలుగు': 4, 'ఐదు': 5, 'ఆరు': 6, 'ఏడు': 7, 'ఎనిమిది': 8, 'తొమ్మిది': 9, 'పది': 10, 'एक': 1, 'दो': 2, 'तीन': 3, 'चार': 4, 'पांच': 5, 'छह': 6, 'सात': 7, 'आठ': 8, 'नौ': 9, 'दस': 10 };
+    const numberWords: Record<string, number> = { 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10, 'ఒకటి': 1, 'రెండు': 2, 'మూడు': 3, 'నాలుగు': 4, 'ఐదు': 5, 'ఆరు': 6, 'ఏడు': 7, 'ఎనిమిది': 8, 'తొమ్మిది': 9, 'పది': 10, 'एक': 1, 'दो': 2, 'तीन': 3, 'चार': 4, 'पांच': 5, 'छह': 6, 'सात': 8, 'नौ': 9, 'दस': 10 };
     const unitKeywords: Record<string, string[]> = {
         'kg': ['kg', 'kilo', 'kilos', 'కేజీ', 'కిలో'],
         'gm': ['gm', 'g', 'grams', 'గ్రాములు'],
@@ -687,17 +692,10 @@ export function VoiceCommander({
     };
     
     recognition.onend = () => {
-        if (isEnabledRef.current && !isSpeakingRef.current) {
-            try {
-                setTimeout(() => {
-                    if (isEnabledRef.current && !isSpeakingRef.current && recognition) {
-                         recognition.start();
-                    }
-                }, 250); 
-            } catch (e) {
-                // Ignore error
-            }
-        }
+        // The restart logic is now handled exclusively by the `speak` function's `onend` handler.
+        // This prevents the mic from restarting automatically after it stops due to silence,
+        // which could cause it to listen to its own speech synthesis.
+        // It will only restart after speech synthesis is fully complete.
     };
 
     commandActionsRef.current = {

@@ -267,9 +267,9 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
       </Sheet>
       
       <div className="flex w-full items-center justify-end gap-4 md:ml-auto md:gap-2 lg:gap-4">
-        <Button variant={voiceEnabled ? 'destructive' : 'outline'} size="icon" onClick={handleToggleVoiceWithCheck} className="relative">
+        <Button variant={voiceEnabled ? 'secondary' : 'outline'} size="icon" onClick={handleToggleVoiceWithCheck} className="relative">
           {voiceEnabled ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-          {voiceEnabled && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>}
+          {voiceEnabled && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>}
           <span className="sr-only">{voiceEnabled ? 'Stop voice commands' : 'Start voice commands'}</span>
         </Button>
         <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />
