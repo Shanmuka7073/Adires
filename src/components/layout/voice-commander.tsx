@@ -508,35 +508,37 @@ export function VoiceCommander({
         updateRecognitionLanguage(langWithRegion);
     }
     
-     // --- PRIORITY 1: Contextual/Page-Specific Logic ---
+     // --- PRIORITY 1: CONTEXTUAL RESPONSES (The State Machine) ---
     if (isWaitingForAddressType) {
-      const homeKeywords = getAllAliases('homeAddress')[spokenLang] || [];
-      const locationKeywords = getAllAliases('currentLocation')[spokenLang] || [];
-      
-      if (homeKeywords.some(keyword => commandLower.includes(keyword))) {
-          homeAddressBtnRef?.current?.click();
-          speak(t('setting-delivery-to-home-speech', spokenLang), langWithRegion);
-      } else if (locationKeywords.some(keyword => commandLower.includes(keyword))) {
-          currentLocationBtnRef?.current?.click();
-          speak(t('using-current-location-speech', spokenLang), langWithRegion);
-      } else {
-          speak(t('did-not-understand-address-type-speech', spokenLang), langWithRegion);
-          resetAllContext();
-          return;
-      }
-      setIsWaitingForAddressType(false);
-      triggerVoicePrompt();
-      return;
+        const homeKeywords = getAllAliases('homeAddress')[spokenLang] || ['home'];
+        const locationKeywords = getAllAliases('currentLocation')[spokenLang] || ['current'];
+        
+        const homeSimilarity = Math.max(...homeKeywords.map(kw => calculateSimilarity(commandLower, kw)));
+        const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(commandLower, kw)));
+
+        if (homeSimilarity > 0.6 && homeSimilarity > locationSimilarity) {
+            homeAddressBtnRef?.current?.click();
+            speak(t('setting-delivery-to-home-speech', spokenLang), langWithRegion);
+        } else if (locationSimilarity > 0.6) {
+            currentLocationBtnRef?.current?.click();
+            speak(t('using-current-location-speech', spokenLang), langWithRegion);
+        } else {
+            speak(t('did-not-understand-address-type-speech', spokenLang), langWithRegion);
+            if (firestore && user) {
+                addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: commandText, language: spokenLang, reason: `Address type clarification failed. Similarities: Home=${homeSimilarity.toFixed(2)}, Location=${locationSimilarity.toFixed(2)}`, timestamp: serverTimestamp() });
+            }
+        }
+        resetAllContext();
+        triggerVoicePrompt(); // Ask the next question
+        return;
     }
 
     if (isWaitingForStoreName) {
-        let bestMatch: { store: Store, similarity: number, term: string } | null = null;
+        let bestMatch: { store: Store, similarity: number } | null = null;
         for (const [alias, store] of storeAliasMap.entries()) {
-            if (commandLower.includes(alias)) {
-                const similarity = calculateSimilarity(commandLower, alias);
-                if (!bestMatch || similarity > bestMatch.similarity) {
-                    bestMatch = { store, similarity: similarity, term: alias };
-                }
+            const similarity = calculateSimilarity(commandLower, alias);
+            if (!bestMatch || similarity > bestMatch.similarity) {
+                bestMatch = { store, similarity: similarity };
             }
         }
 
@@ -548,6 +550,9 @@ export function VoiceCommander({
            });
        } else {
            speak(t('could-not-find-store-speech', spokenLang).replace('{storeName}', commandText), langWithRegion);
+            if (firestore && user) {
+                addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: commandText, language: spokenLang, reason: `Store clarification failed. Best match: ${bestMatch?.store.name} (${bestMatch?.similarity.toFixed(2)})`, timestamp: serverTimestamp() });
+            }
        }
        resetAllContext();
        return;
@@ -560,19 +565,11 @@ export function VoiceCommander({
         return;
     }
     
-    const priceCheckKeywords = getAllAliases('checkPrice')[spokenLang] || [];
-    if (priceCheckKeywords.some(alias => commandLower.startsWith(alias))) {
-        await commandActionsRef.current.checkPrice({ phrase: commandLower, lang: spokenLang, originalText: commandText });
-        resetAllContext();
-        return;
-    }
-    
-    // --- PRIORITY 3: Check for general commands ---
+    // --- PRIORITY 2: GLOBAL & GENERAL COMMANDS ---
     const allCommandKeys = Object.keys(commands);
     let bestCommandMatch: { key: string, similarity: number, reply: string, display: string } | null = null;
     
     for (const key of allCommandKeys) {
-        if (key === 'checkPrice') continue; // Already handled
         const commandAliases = getAllAliases(key);
         const allAliasStrings = Object.values(commandAliases).flat();
 
@@ -600,7 +597,7 @@ export function VoiceCommander({
         return;
     }
     
-    // --- PRIORITY 4: Check for multi-item order ---
+    // --- PRIORITY 3: ORDERING & PRODUCT-RELATED COMMANDS ---
     const multiItemSeparators = new RegExp(`\\s+(${['and', 'మరియు', 'aur'].join('|')})\\s+`, 'i');
     const potentialItems = commandLower.split(multiItemSeparators).filter(s => s && !['and', 'మరియు', 'aur'].includes(s));
 
@@ -610,8 +607,8 @@ export function VoiceCommander({
         return;
     }
     
-    // --- PRIORITY 5: Check for single product order OR smart order ---
-    const locationKeywords = ['from', 'to'];
+    // Check for smart order keywords like "from" and "to"
+    const locationKeywords = ['from', 'to', 'నుండి', 'కి'];
     if (locationKeywords.some(kw => commandLower.includes(kw))) {
         await commandActionsRef.current.smartOrder(commandLower, spokenLang, commandText);
         resetAllContext();
@@ -641,13 +638,17 @@ export function VoiceCommander({
         return;
     }
     
-    // --- LAST RESORT: Failure ---
+    // --- LAST RESORT: FAILURE ---
     let failSpeech = t('sorry-i-didnt-understand-that', spokenLang);
+    let reason = `No product or command matched for phrase: "${commandLower}"`;
+
     if(matchedAlias && !variant) {
         failSpeech = t('no-price-found-speech', spokenLang).replace('{productName}', product?.name || 'that item');
+        reason = `Product "${product?.name}" found but no variants available.`;
     }
     else if (product && !variant) {
          failSpeech = t('no-price-found-speech', spokenLang).replace('{productName}', product.name);
+         reason = `Product "${product.name}" found but no variants available.`;
     }
     else {
         failSpeech = t('could-not-find-item-speech', spokenLang).replace('{itemName}', commandText);
@@ -660,7 +661,7 @@ export function VoiceCommander({
             userId: user.uid,
             commandText: commandText,
             language: spokenLang,
-            reason: product && !variant ? `Product "${product.name}" found but no variants available.` : `No product or command matched for phrase: "${commandLower}"`,
+            reason: reason,
             timestamp: serverTimestamp(),
         });
     }
@@ -1068,6 +1069,7 @@ export function VoiceCommander({
 
   return null;
 }
+
 
 
 
