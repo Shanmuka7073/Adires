@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -622,7 +621,7 @@ export function VoiceCommander({
 
         for (const alias of allAliasStrings) {
             const similarity = calculateSimilarity(commandLower, alias.toLowerCase());
-            if (similarity > (bestCommandMatch?.similarity || 0.80)) { // Lowered threshold
+            if (similarity > (bestCommandMatch?.similarity || 0.80)) {
                 bestCommandMatch = {
                     key,
                     similarity,
@@ -635,26 +634,17 @@ export function VoiceCommander({
     
     if (bestCommandMatch) {
         const action = commandActionsRef.current[bestCommandMatch.key];
+        const actionParams = { lang: spokenLang, phrase: commandLower, originalText: commandText };
         if (action) {
-            speak(bestCommandMatch.reply, langWithRegion, () => action({ lang: spokenLang, phrase: commandLower, originalText: commandText }));
+            speak(bestCommandMatch.reply, langWithRegion, () => action(actionParams));
         } else {
             speak(bestCommandMatch.reply, langWithRegion);
         }
         resetAllContext();
-        return;
+        return; // IMPORTANT: Stop processing after a command match.
     }
     
-    // --- PRIORITY 3: CHECK FOR SPECIFIC COMMANDS (PRICE CHECK) ---
-    const checkPriceKeywords = [...(getAllAliases('checkPrice')['en'] || []), ...(getAllAliases('checkPrice')['te'] || []), 'cost of', 'price of'];
-    const isPriceCheck = checkPriceKeywords.some(kw => commandLower.includes(kw));
-
-    if (isPriceCheck) {
-        await commandActionsRef.current.checkPrice({ phrase: commandLower, lang: spokenLang, originalText: commandText });
-        resetAllContext();
-        return;
-    }
-    
-    // --- PRIORITY 4: ORDERING & PRODUCT-RELATED COMMANDS ---
+    // --- PRIORITY 3: PRODUCT-RELATED COMMANDS ---
     const multiItemSeparators = new RegExp(`\\s+(${['and', 'మరియు', 'aur'].join('|')})\\s+`, 'i');
     const potentialItems = commandLower.split(multiItemSeparators).filter(s => s && !['and', 'మరియు', 'aur'].includes(s));
 
@@ -1127,3 +1117,4 @@ export function VoiceCommander({
   return null;
 }
 
+    
