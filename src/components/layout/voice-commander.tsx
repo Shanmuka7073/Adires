@@ -828,11 +828,16 @@ export function VoiceCommander({
 
         case 'UNKNOWN':
         default:
-            speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
-            if (firestore && user) {
-                addDoc(collection(firestore, 'failedCommands'), {
-                    userId: user.uid, commandText, language: spokenLang, reason: 'UNKNOWN intent & AI mode not active', timestamp: serverTimestamp(),
-                });
+            const cachedAnswer = await getCachedAIResponse(firestore, commandText);
+            if (cachedAnswer) {
+                speak(cachedAnswer, langWithRegion);
+            } else {
+                speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
+                if (firestore && user) {
+                    addDoc(collection(firestore, 'failedCommands'), {
+                        userId: user.uid, commandText, language: spokenLang, reason: 'UNKNOWN intent & AI mode not active', timestamp: serverTimestamp(),
+                    });
+                }
             }
             break;
     }
