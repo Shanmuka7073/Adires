@@ -1,52 +1,59 @@
 {
-  "name": "LocalBasket: AI Voice Shopping",
+  "name": "LocalBasket",
   "short_name": "LocalBasket",
-  "description": "The smartest way to order groceries from your local neighborhood stores using just your voice. Supports English, Telugu, and more.",
+  "description": "Shop Fresh, Shop Local, Just by Voice",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F0FFF4",
-  "theme_color": "#2F855A",
+  "background_color": "#f0fff4",
+  "theme_color": "#2f855a",
   "icons": [
     {
-      "src": "https://i.ibb.co/R0g1x1b/icon-72x72.png",
+      "src": "https://i.ibb.co/8Y53Y9s/icon-72x72.jpg",
       "sizes": "72x72",
-      "type": "image/png"
-    },
-    {
-      "src": "https://i.ibb.co/PGFvB57/icon-96x96.png",
-      "sizes": "96x96",
-      "type": "image/png"
-    },
-    {
-      "src": "https://i.ibb.co/pwn5v0g/icon-128x128.png",
-      "sizes": "128x128",
-      "type": "image/png"
-    },
-    {
-      "src": "https://i.ibb.co/qF4jT00/icon-144x144.png",
-      "sizes": "144x144",
-      "type": "image/png"
-    },
-    {
-      "src": "https://i.ibb.co/fHn1M4h/icon-152x152.png",
-      "sizes": "152x152",
-      "type": "image/png"
-    },
-    {
-      "src": "https://i.ibb.co/1n09x14/icon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
+      "type": "image/jpeg",
       "purpose": "any maskable"
     },
     {
-      "src": "https://i.ibb.co/CBrzTVS/icon-384x384.png",
-      "sizes": "384x384",
-      "type": "image/png"
+      "src": "https://i.ibb.co/55dGKLf/icon-96x96.jpg",
+      "sizes": "96x96",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
     },
     {
-      "src": "https://i.ibb.co/P94C7s9/icon-512x512.png",
+      "src": "https://i.ibb.co/PchLd5K/icon-128x128.jpg",
+      "sizes": "128x128",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://i.ibb.co/Y0Vj0jH/icon-144x144.jpg",
+      "sizes": "144x144",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://i.ibb.co/WcSzq2b/icon-152x152.jpg",
+      "sizes": "152x152",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://i.ibb.co/WkFkQGr/icon-192x192.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://i.ibb.co/GcvYn4f/icon-384x384.jpg",
+      "sizes": "384x384",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://i.ibb.co/k2h0k3J/icon-512x512.jpg",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/jpeg",
+      "purpose": "any maskable"
     }
   ]
 }
