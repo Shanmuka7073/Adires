@@ -124,6 +124,7 @@ export function VoiceCommander({
 
   const [isWaitingForQuantity, setIsWaitingForQuantity] = useState(false);
   const itemToUpdateSkuRef = useRef<string | null>(null);
+  const [isAiModeActive, setIsAiModeActive] = useState(false);
 
   const userProfileRef = useRef<User | null>(null);
 
@@ -192,6 +193,7 @@ export function VoiceCommander({
     formFieldToFillRef.current = null;
     setShouldPlaceOrderDirectly(false);
     setItemForPriceCheck(null);
+    setIsAiModeActive(false);
   }, [onSuggestions, setIsWaitingForQuickOrderConfirmation, setShouldPlaceOrderDirectly]);
 
 
@@ -642,6 +644,31 @@ export function VoiceCommander({
         updateRecognitionLanguage(langWithRegion);
     }
     
+    // --- WAKE WORD & AI MODE ---
+    const wakeWordAliases = getAllAliases('who-are-you')[spokenLang] || ['shan', 'ai shan'];
+    const saidWakeWord = wakeWordAliases.some(alias => commandText.toLowerCase().includes(alias.toLowerCase()));
+
+    if (isAiModeActive) {
+      try {
+        const result = await answerGeneralQuestion({ question: commandText });
+        speak(result.answer, langWithRegion);
+      } catch (error) {
+        console.error("General question failed:", error);
+        speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
+      }
+      setIsAiModeActive(false); // Go back to command mode after answering
+      return;
+    }
+
+    if (saidWakeWord) {
+      speak(t('who-are-you', spokenLang), langWithRegion, () => {
+        setIsAiModeActive(true); // Switch to AI mode after greeting
+      });
+      return;
+    }
+    // --- END WAKE WORD & AI MODE ---
+
+
     // --- PRIORITY 0: CONTEXTUAL RESPONSES (State Machine) ---
     if (itemForPriceCheck) {
         const yesKeywords = ['yes', 'add', 'buy', 'okay', 'yep', 'yeah', 'సరే', 'అవును'];
@@ -753,6 +780,7 @@ export function VoiceCommander({
         
         case 'NAVIGATE':
         case 'CONVERSATIONAL':
+            // The wake word now handles conversational commands, so this part can be simplified.
             const action = commandActionsRef.current[intent.commandKey];
             const reply = commands[intent.commandKey]?.reply || `Executing ${commands[intent.commandKey]?.display}`;
             if (action) {
@@ -798,17 +826,11 @@ export function VoiceCommander({
 
         case 'UNKNOWN':
         default:
-            try {
-                const result = await answerGeneralQuestion({ question: commandText });
-                speak(result.answer, langWithRegion);
-            } catch (error) {
-                console.error("General question failed:", error);
-                speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
-                if (firestore && user) {
-                    addDoc(collection(firestore, 'failedCommands'), {
-                        userId: user.uid, commandText, language: spokenLang, reason: 'UNKNOWN intent & AI fallback failed', timestamp: serverTimestamp(),
-                    });
-                }
+            speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
+            if (firestore && user) {
+                addDoc(collection(firestore, 'failedCommands'), {
+                    userId: user.uid, commandText, language: spokenLang, reason: 'UNKNOWN intent & no AI mode', timestamp: serverTimestamp(),
+                });
             }
             break;
     }
@@ -818,7 +840,7 @@ export function VoiceCommander({
         resetAllContext();
     }
 
-  }, [firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp.length, setLanguage, addItemToCart, onOpenCart, locales, commands, getAllAliases, t, triggerVoicePrompt, itemForPriceCheck, recognizeIntent]);
+  }, [firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp.length, setLanguage, addItemToCart, onOpenCart, locales, commands, getAllAliases, t, triggerVoicePrompt, itemForPriceCheck, recognizeIntent, isAiModeActive]);
 
 
   useEffect(() => {
@@ -828,7 +850,11 @@ export function VoiceCommander({
     }
 
     recognition.onstart = () => {
-      onStatusUpdate(`Listening... (${language}-IN)`);
+      if (isAiModeActive) {
+        onStatusUpdate("I'm listening for your question...");
+      } else {
+        onStatusUpdate(`Listening... (${language}-IN)`);
+      }
     };
 
     recognition.onresult = (event) => {
@@ -1109,7 +1135,7 @@ export function VoiceCommander({
         recognition.stop();
       }
     };
-  }, [handleCommand, cartTotal, cartItemsProp, pathname, masterProducts, t]);
+  }, [handleCommand, cartTotal, cartItemsProp, pathname, masterProducts, t, isAiModeActive]);
 
   useEffect(() => {
     console.log('Current language changed to:', language);
