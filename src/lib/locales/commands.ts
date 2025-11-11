@@ -68,6 +68,10 @@ export const generalCommands: Record<string, CommandGroup> = {
         display: 'Accept Delivery Job', 
         reply: 'Accepting the first available job.' 
     },
+    'showDetails': {
+        display: 'Show Details',
+        reply: 'Showing details for the first item.'
+    },
     'homeAddress': { 
         display: 'Use Home Address', 
         reply: 'Setting delivery to your home address.' 

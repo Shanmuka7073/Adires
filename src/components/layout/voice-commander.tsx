@@ -55,6 +55,7 @@ type Intent =
   | { type: 'NAVIGATE', destination: string, originalText: string, lang: string }
   | { type: 'CONVERSATIONAL', commandKey: string, originalText: string, lang: string }
   | { type: 'GET_RECIPE', dishName: string, originalText: string, lang: string }
+  | { type: 'SHOW_DETAILS', target: string, originalText: string, lang: string }
   | { type: 'UNKNOWN', originalText: string, lang: string };
 
 const intentKeywords = {
@@ -63,6 +64,7 @@ const intentKeywords = {
   NAVIGATE: ['go to', 'open', 'show', 'వెళ్ళు', 'చూపించు'],
   CONVERSATIONAL: ['help', 'what can', 'who are you', 'how does'],
   GET_RECIPE: ['recipe for', 'ingredients for', 'how to make', 'కోసం కావలసినవి', 'ఎలా చేయాలి'],
+  SHOW_DETAILS: ['details for', 'show details', 'view details', 'వివరాలు చూపించు'],
 };
 
 
@@ -582,6 +584,14 @@ export function VoiceCommander({
         const productPhrase = lowerText.replace(priceKeyword, '').trim();
         return { type: 'CHECK_PRICE', productPhrase, originalText: text, lang: spokenLang };
     }
+    
+    // Check for "show details" intent
+    const detailsKeyword = intentKeywords.SHOW_DETAILS.find(kw => lowerText.includes(kw));
+    if (detailsKeyword) {
+        const target = lowerText.replace(detailsKeyword, '').trim();
+        return { type: 'SHOW_DETAILS', target, originalText: text, lang: spokenLang };
+    }
+
 
     // Check for conversational commands
     let bestCommandMatch: { key: string, similarity: number } | null = null;
@@ -729,6 +739,10 @@ export function VoiceCommander({
             
         case 'CHECK_PRICE':
             await commandActionsRef.current.checkPrice({ phrase: intent.productPhrase, lang: intent.lang, originalText: intent.originalText });
+            break;
+        
+        case 'SHOW_DETAILS':
+            commandActionsRef.current.showDetails({ target: intent.target, lang: intent.lang });
             break;
         
         case 'NAVIGATE':
@@ -943,6 +957,20 @@ export function VoiceCommander({
           } else {
               speak("You can only accept jobs from the deliveries page.", lang + '-IN');
           }
+      },
+      showDetails: ({ target, lang }) => {
+        if (pathname === '/dashboard/delivery/deliveries') {
+            // Very simple logic: click the first details button it finds.
+            const detailsButton = document.querySelector('[id^="details-btn-"]') as HTMLButtonElement | null;
+            if (detailsButton) {
+                speak("Showing details for the first group.", lang + '-IN');
+                detailsButton.click();
+            } else {
+                speak("I couldn't find any details to show.", lang + '-IN');
+            }
+        } else {
+            speak("You can only view delivery details on the deliveries page.", lang + '-IN');
+        }
       },
       refresh: (params) => {
          window.location.reload();

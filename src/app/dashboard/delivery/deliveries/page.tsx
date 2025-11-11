@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { MapPin, Check, Banknote, History, Landmark, Receipt, CreditCard, ChevronDown, ChevronUp, Route, Package, Bot } from 'lucide-react';
+import { MapPin, Check, Banknote, History, Landmark, Receipt, CreditCard, ChevronDown, ChevronUp, Route, Package, Bot, Info } from 'lucide-react';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, doc, updateDoc, Timestamp, increment, writeBatch, orderBy, setDoc } from 'firebase/firestore';
 import { useEffect, useState, useMemo, useTransition } from 'react';
@@ -721,6 +721,17 @@ export default function DeliveriesPage() {
     }
 };
 
+  const handleShowDetails = (order: Order) => {
+    const distance = haversineDistance(
+        order.store!.latitude,
+        order.store!.longitude,
+        order.deliveryLat,
+        order.deliveryLng
+    );
+    setSelectedOrder(order);
+    setSelectedOrderDistance(distance);
+  }
+
 
   const isLoading = activeDeliveriesLoading || availableDeliveriesLoading || completedDeliveriesLoading || stores.length === 0;
 
@@ -882,13 +893,23 @@ export default function DeliveriesPage() {
                                             ))}
                                         </TableBody>
                                     </Table>
-                                     <Button 
-                                        className="w-full mt-4" 
-                                        onClick={() => handleConfirmPickup(group.orders.map(o => o.id))}
-                                        disabled={isUpdating}
-                                    >
-                                        {isUpdating ? 'Accepting...' : `Accept Group (${group.totalJobs} Orders)`}
-                                    </Button>
+                                     <div className="flex justify-end gap-2 mt-4">
+                                        <Button 
+                                            variant="outline"
+                                            onClick={() => handleShowDetails(group.orders[0])}
+                                            id={`details-btn-${index}`}
+                                        >
+                                            <Info className="mr-2 h-4 w-4" />
+                                            Details
+                                        </Button>
+                                        <Button 
+                                            className="w-full" 
+                                            onClick={() => handleConfirmPickup(group.orders.map(o => o.id))}
+                                            disabled={isUpdating}
+                                        >
+                                            {isUpdating ? 'Accepting...' : `Accept Group (${group.totalJobs} Orders)`}
+                                        </Button>
+                                     </div>
                                 </div>
                             </AccordionContent>
                          </AccordionItem>
@@ -948,5 +969,3 @@ export default function DeliveriesPage() {
     </div>
   );
 }
-
-    
