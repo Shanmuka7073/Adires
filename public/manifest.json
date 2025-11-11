@@ -1,35 +1,52 @@
 {
-  "name": "LocalBasket",
+  "name": "LocalBasket: AI Voice Shopping",
   "short_name": "LocalBasket",
-  "description": "Shop Fresh, Shop Local, Just by Voice",
+  "description": "The smartest way to order groceries from your local neighborhood stores using just your voice. Supports English, Telugu, and more.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F0FFF0",
-  "theme_color": "#2E8B57",
+  "background_color": "#F0FFF4",
+  "theme_color": "#2F855A",
   "icons": [
     {
-      "src": "/icons/icon-192x192.png",
+      "src": "https://i.ibb.co/R0g1x1b/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "https://i.ibb.co/PGFvB57/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "https://i.ibb.co/pwn5v0g/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "https://i.ibb.co/qF4jT00/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "https://i.ibb.co/fHn1M4h/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png"
+    },
+    {
+      "src": "https://i.ibb.co/1n09x14/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icons/icon-256x256.png",
-      "sizes": "256x256",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icons/icon-384x384.png",
+      "src": "https://i.ibb.co/CBrzTVS/icon-384x384.png",
       "sizes": "384x384",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     },
     {
-      "src": "/icons/icon-512x512.png",
+      "src": "https://i.ibb.co/P94C7s9/icon-512x512.png",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     }
   ]
 }
