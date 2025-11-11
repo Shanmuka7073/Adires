@@ -14,6 +14,7 @@ const ptSans = PT_Sans({
 export const metadata: Metadata = {
     title: 'LocalBasket',
     description: 'Shop Fresh, Shop Local, Just by Voice',
+    manifest: '/manifest.json'
 };
 
 export default function RootLayout({
