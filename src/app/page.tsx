@@ -6,7 +6,6 @@ import { Store } from '@/lib/types';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { ArrowRight, ShoppingCart, Send, Map, Target, Eye, Heart } from 'lucide-react';
-import Image from 'next/image';
 
 function InfoCard({ icon: Icon, title, description }: { icon: React.ElementType, title: string, description: string }) {
     return (
@@ -28,12 +27,6 @@ export default function Home() {
     <div className="flex flex-col">
        <section className="relative w-full h-[60vh] min-h-[400px] md:h-[70vh] flex items-center justify-center text-center text-white">
         <div className="absolute inset-0 bg-black/50 z-10" />
-         <Image
-            src="https://images.unsplash.com/photo-1601614393967-a2f6dd023f74?q=80&w=2070&auto=format&fit=crop"
-            alt="Fresh groceries"
-            fill
-            className="object-cover"
-        />
         <div className="container relative z-20 px-4 md:px-6">
           <div className="flex flex-col items-center space-y-6">
              <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl font-headline drop-shadow-md">

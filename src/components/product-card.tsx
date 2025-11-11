@@ -2,7 +2,6 @@
 
 'use client'
 
-import Image from 'next/image';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/lib/cart';
@@ -16,14 +15,10 @@ import { t } from '@/lib/locales';
 
 interface ProductCardProps {
   product: Product;
-  image: {
-    imageUrl: string;
-    imageHint: string;
-  };
   priceData?: ProductPrice | null; // Price data is now passed as a prop
 }
 
-export default function ProductCard({ product, image, priceData }: ProductCardProps) {
+export default function ProductCard({ product, priceData }: ProductCardProps) {
   const { addItem } = useCart();
   const { toast } = useToast();
   
@@ -41,9 +36,6 @@ export default function ProductCard({ product, image, priceData }: ProductCardPr
       setSelectedVariant(null);
     }
   }, [priceVariants]);
-  
-  // Use the AI-generated data URI if available, otherwise use the placeholder
-  const displayImageUrl = product.imageUrl ? product.imageUrl : image.imageUrl;
   
   const handleAddToCart = () => {
     if (selectedVariant) {
@@ -68,14 +60,7 @@ export default function ProductCard({ product, image, priceData }: ProductCardPr
   return (
     <Card className="flex flex-col h-full overflow-hidden transition-all hover:shadow-lg">
       <CardHeader className="p-0">
-        <Image
-          src={displayImageUrl}
-          alt={product.name}
-          data-ai-hint={image.imageHint}
-          width={300}
-          height={300}
-          className="w-full h-36 object-cover"
-        />
+        <div className="w-full h-36 bg-muted" />
       </CardHeader>
       <CardContent className="p-2 pb-1 flex-1 text-center">
         <CardTitle className="text-sm font-headline truncate">{product.name}</CardTitle>

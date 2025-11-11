@@ -7,27 +7,17 @@ import { SheetHeader, SheetTitle, SheetFooter, SheetClose, SheetDescription } fr
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Trash2, Plus, Minus } from 'lucide-react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { getProductImage } from '@/lib/data';
 import { Input } from '../ui/input';
 import { useEffect, useState } from 'react';
 import { t } from '@/lib/locales';
 
 // A component to render each item, now receiving image data directly
-function CartSheetItem({ item, image }) {
+function CartSheetItem({ item }) {
     const { removeItem, updateQuantity } = useCart();
     const { product, variant, quantity } = item;
 
     return (
         <div className="flex items-center gap-4 py-3">
-            <Image
-                src={image.imageUrl}
-                alt={product.name}
-                data-ai-hint={image.imageHint}
-                width={64}
-                height={64}
-                className="rounded-md object-cover"
-            />
             <div className="flex-1 grid gap-1">
                 <p className="font-medium leading-tight line-clamp-2">{product.name} <span className="text-sm text-muted-foreground">({variant.weight})</span></p>
                 <p className="text-sm font-semibold">₹{(variant.price * quantity).toFixed(2)}</p>
@@ -58,23 +48,7 @@ function CartSheetItem({ item, image }) {
 
 export function CartSheetContent() {
   const { cartItems, cartTotal, cartCount } = useCart();
-  const [images, setImages] = useState({});
-
-  useEffect(() => {
-    const fetchImages = async () => {
-        if (cartItems.length === 0) return;
-        const imagePromises = cartItems.map(item => getProductImage(item.product.imageId));
-        const resolvedImages = await Promise.all(imagePromises);
-        const imageMap = cartItems.reduce((acc, item, index) => {
-            acc[item.variant.sku] = resolvedImages[index];
-            return acc;
-        }, {});
-        setImages(imageMap);
-    };
-
-    fetchImages();
-  }, [cartItems]);
-
+  
   return (
     <>
       <SheetHeader>
@@ -89,8 +63,7 @@ export function CartSheetContent() {
         <ScrollArea className="flex-1 my-4 pr-4">
             <div className="flex flex-col divide-y">
               {cartItems.map((item) => {
-                const image = images[item.variant.sku] || { imageUrl: 'https://placehold.co/64x64/E2E8F0/64748B?text=...', imageHint: 'loading' };
-                return <CartSheetItem key={item.variant.sku} item={item} image={image} />
+                return <CartSheetItem key={item.variant.sku} item={item} />
               })}
             </div>
         </ScrollArea>

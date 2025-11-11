@@ -13,9 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Trash2, Mic, Minus, Plus } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
-import { getProductImage } from '@/lib/data';
 import {
   Card,
   CardContent,
@@ -28,7 +26,7 @@ import { t } from '@/lib/locales';
 
 const DELIVERY_FEE = 30;
 
-function CartRow({ item, image }) {
+function CartRow({ item }) {
   const { removeItem, updateQuantity } = useCart();
   const { product, variant, quantity } = item;
 
@@ -36,14 +34,6 @@ function CartRow({ item, image }) {
     <TableRow>
       <TableCell>
         <div className="flex items-center gap-4">
-          <Image
-            src={image.imageUrl}
-            alt={product.name}
-            data-ai-hint={image.imageHint}
-            width={64}
-            height={64}
-            className="rounded-md object-cover"
-          />
           <div>
             <span className="font-medium">{product.name}</span>
             <p className="text-sm text-muted-foreground">{variant.weight}</p>
@@ -74,21 +64,13 @@ function CartRow({ item, image }) {
   );
 }
 
-function MobileCartItem({ item, image }) {
+function MobileCartItem({ item }) {
     const { removeItem, updateQuantity } = useCart();
     const { product, variant, quantity } = item;
 
     return (
         <Card>
             <CardContent className="flex items-center gap-4 p-4">
-                <Image
-                    src={image.imageUrl}
-                    alt={product.name}
-                    data-ai-hint={image.imageHint}
-                    width={80}
-                    height={80}
-                    className="rounded-lg object-cover"
-                />
                 <div className="flex-1 space-y-2">
                     <p className="font-semibold">{product.name} <span className="font-normal text-muted-foreground">({variant.weight})</span></p>
                     <p className="font-bold text-lg">₹{(variant.price * quantity).toFixed(2)}</p>
@@ -119,26 +101,7 @@ function MobileCartItem({ item, image }) {
 
 export default function CartPage() {
   const { cartItems, cartTotal, cartCount } = useCart();
-  const [images, setImages] = useState({});
-
-  useEffect(() => {
-    const fetchImages = async () => {
-      if (cartItems.length > 0) {
-        const imagePromises = cartItems.map((item) =>
-          getProductImage(item.product.imageId)
-        );
-        const resolvedImages = await Promise.all(imagePromises);
-        const imageMap = cartItems.reduce((acc, item, index) => {
-          acc[item.variant.sku] = resolvedImages[index];
-          return acc;
-        }, {});
-        setImages(imageMap);
-      }
-    };
-
-    fetchImages();
-  }, [cartItems]);
-
+  
   if (cartCount === 0) {
     return (
       <div className="container mx-auto py-24 text-center">
@@ -167,8 +130,7 @@ export default function CartPage() {
             {/* Mobile View */}
             <div className="lg:hidden space-y-4">
                  {cartItems.map((item) => {
-                    const image = images[item.variant.sku] || { imageUrl: 'https://placehold.co/80x80/E2E8F0/64748B?text=...', imageHint: 'loading' };
-                    return <MobileCartItem key={item.variant.sku} item={item} image={image} />
+                    return <MobileCartItem key={item.variant.sku} item={item} />
                 })}
             </div>
 
@@ -188,8 +150,7 @@ export default function CartPage() {
                     </TableHeader>
                     <TableBody>
                       {cartItems.map((item) => {
-                        const image = images[item.variant.sku] || { imageUrl: 'https://placehold.co/64x64/E2E8F0/64748B?text=...', imageHint: 'loading' };
-                        return <CartRow key={item.variant.sku} item={item} image={image} />;
+                        return <CartRow key={item.variant.sku} item={item} />;
                       })}
                     </TableBody>
                   </Table>

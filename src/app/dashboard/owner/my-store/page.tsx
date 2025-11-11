@@ -40,7 +40,6 @@ import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, Fire
 import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import {
   Table,
   TableBody,
@@ -260,12 +259,8 @@ function StoreImageUploader({ store }: { store: Store }) {
             </CardHeader>
             <CardContent className="space-y-4">
                  <div className="w-full aspect-video relative rounded-md overflow-hidden border bg-muted">
-                    {capturedImage ? (
-                        <Image src={capturedImage} alt="Captured preview" fill className="object-cover" />
-                    ) : isCameraOn ? (
+                    {isCameraOn ? (
                          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-                    ) : store.imageUrl ? (
-                        <Image src={store.imageUrl} alt={store.name} fill className="object-cover" />
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full bg-muted/50 text-muted-foreground">
                             <ImageIcon className="h-10 w-10 mb-2" />
@@ -894,11 +889,9 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
                     </FormControl>
                     <SelectContent>
                       {groceryData.categories.map(cat => (
-                        cat.items.map(item => (
-                            <SelectItem key={`${cat.categoryName}-${item}`} value={`${item}::${cat.categoryName}`}>
-                                {item} ({cat.categoryName})
-                            </SelectItem>
-                        ))
+                        <SelectItem key={cat.categoryName} value={`${cat.items[0]}::${cat.categoryName}`}>
+                            {cat.categoryName}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                 </Select>
@@ -1406,13 +1399,6 @@ function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Prod
         <TableRow>
             <TableCell>
                  <div className="flex items-start gap-4">
-                    <Image
-                        src={product.imageUrl || 'https://placehold.co/40x40/E2E8F0/64748B?text=?'}
-                        alt={product.name}
-                        width={40}
-                        height={40}
-                        className="rounded-sm object-cover mt-1"
-                    />
                     <div>
                         <span className="font-semibold">{t(product.name.toLowerCase().replace(/ /g, '-'), language)}</span>
                          <div className="flex flex-wrap gap-1 mt-1">
@@ -1619,13 +1605,6 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
                                 <TableRow key={product.id}>
                                      <TableCell>
                                         <div className="flex items-center gap-4">
-                                            <Image
-                                                src={product.imageUrl || 'https://placehold.co/40x40/E2E8F0/64748B?text=?'}
-                                                alt={product.name}
-                                                width={40}
-                                                height={40}
-                                                className="rounded-sm object-cover"
-                                            />
                                             <span>{t(product.name.toLowerCase().replace(/ /g, '-'), language)}</span>
                                         </div>
                                     </TableCell>

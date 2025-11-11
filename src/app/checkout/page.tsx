@@ -26,7 +26,6 @@ import {
 } from '@/components/ui/form';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import Image from 'next/image';
 import { getProductImage, getStore, getStores } from '@/lib/data';
 import { useTransition, useState, useCallback, useEffect, useMemo, RefObject, useRef } from 'react';
 import { useFirebase, errorEmitter, useDoc, useMemoFirebase } from '@/firebase';
@@ -52,13 +51,12 @@ type CheckoutFormValues = z.infer<typeof checkoutSchema>;
 
 const DELIVERY_FEE = 30;
 
-function OrderSummaryItem({ item, image }) {
+function OrderSummaryItem({ item }) {
     const { product, variant, quantity } = item;
 
     return (
         <div className="flex justify-between items-center">
             <div className="flex items-center gap-4">
-                <Image src={image.imageUrl} alt={product.name} data-ai-hint={image.imageHint} width={48} height={48} className="rounded-md" />
                 <div>
                     <p className="font-medium">{product.name} <span className="text-sm text-muted-foreground">({variant.weight})</span></p>
                     <p className="text-sm text-muted-foreground">Qty: {quantity}</p>
@@ -112,7 +110,6 @@ export default function CheckoutPage() {
   });
 
   const [deliveryCoords, setDeliveryCoords] = useState<{lat: number, lng: number} | null>(null);
-  const [images, setImages] = useState({});
   const placeOrderBtnRef = useRef<HTMLButtonElement>(null);
   const homeAddressBtnRef = useRef<HTMLButtonElement>(null);
   const currentLocationBtnRef = useRef<HTMLButtonElement>(null);
@@ -239,23 +236,6 @@ export default function CheckoutPage() {
     }
   }, [userData, form]);
 
-  useEffect(() => {
-    const fetchImages = async () => {
-        if (cartItems.length === 0) return;
-        const imagePromises = cartItems.map(item => getProductImage(item.product.imageId));
-        const resolvedImages = await Promise.all(imagePromises);
-        const imageMap = cartItems.reduce((acc, item, index) => {
-            acc[item.variant.sku] = resolvedImages[index];
-            return acc;
-        }, {});
-        setImages(imageMap);
-    };
-
-    if (cartItems.length > 0) {
-        fetchImages();
-    }
-  }, [cartItems]);
-
   const onSubmit = (data: CheckoutFormValues) => {
     if (!firestore || !user) {
         toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to place an order.' });
@@ -376,8 +356,7 @@ export default function CheckoutPage() {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {cartItems.map((item) => {
-                                const image = images[item.variant.sku] || { imageUrl: 'https://placehold.co/48x48/E2E8F0/64748B?text=...', imageHint: 'loading' };
-                                return <OrderSummaryItem key={item.variant.sku} item={item} image={image} />
+                                return <OrderSummaryItem key={item.variant.sku} item={item} />
                             })}
                             {cartItems.length === 0 && (
                                 <div className="text-center text-muted-foreground py-8">
