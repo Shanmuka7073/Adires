@@ -4,84 +4,53 @@
   "description": "Shop Fresh, Shop Local, Just by Voice",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F0FFF0",
-  "theme_color": "#90EE90",
-  "categories": ["shopping", "food", "groceries"],
-  "shortcuts": [
-    {
-      "name": "My Orders",
-      "short_name": "Orders",
-      "description": "View your order history",
-      "url": "/dashboard/customer/my-orders",
-      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
-    },
-    {
-      "name": "Browse Stores",
-      "short_name": "Stores",
-      "description": "Find local grocery stores",
-      "url": "/stores",
-      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "/screenshots/screenshot1.png",
-      "type": "image/png",
-      "sizes": "1080x1920",
-      "form_factor": "narrow"
-    },
-    {
-      "src": "/screenshots/screenshot2.png",
-      "type": "image/png",
-      "sizes": "1080x1920",
-      "form_factor": "narrow"
-    }
-  ],
+  "background_color": "#F0FFF4",
+  "theme_color": "#2E8540",
   "icons": [
     {
-      "src": "/icons/icon-72x72.png",
+      "src": "https://i.ibb.co/dwNMyf91/1000235642.png",
       "sizes": "72x72",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-96x96.png",
+      "src": "https://i.ibb.co/dwNMyf91/1000235642.png",
       "sizes": "96x96",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-128x128.png",
+      "src": "https://i.ibb.co/dwNMyf91/1000235642.png",
       "sizes": "128x128",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-144x144.png",
+      "src": "https://i.ibb.co/dwNMyf91/1000235642.png",
       "sizes": "144x144",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-152x152.png",
+      "src": "https://i.ibb.co/dwNMyf91/1000235642.png",
       "sizes": "152x152",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-192x192.png",
+      "src": "https://i.ibb.co/dwNMyf91/1000235642.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-384x384.png",
+      "src": "https://i.ibb.co/dwNMyf91/1000235642.png",
       "sizes": "384x384",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-512x512.png",
+      "src": "https://i.ibb.co/dwNMyf91/1000235642.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
