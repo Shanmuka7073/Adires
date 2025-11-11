@@ -566,8 +566,8 @@ export function VoiceCommander({
     // --- INTENT RECOGNITION (REBUILT FOR RELIABILITY) ---
 
     // 1. WAKE WORD (Highest Priority): Check for an exact match to wake the AI.
-    const wakeWordAliases = (getAllAliases('who-are-you')['en'] || []).concat(getAllAliases('who-are-you')['te'] || []);
-    if (wakeWordAliases.some(alias => lowerText === alias.toLowerCase())) {
+    const wakeWords = ["smart"];
+    if (wakeWords.some(word => lowerText === word)) {
         return { type: 'WAKE_WORD', originalText: text, lang: spokenLang };
     }
 
@@ -1137,11 +1137,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    
-
-    
-
-    
-
-    
