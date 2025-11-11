@@ -17,7 +17,7 @@ import { t, initializeTranslations } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import groceryData from '@/lib/grocery-data.json';
-import { getIngredientsForRecipe } from '@/ai/flows/recipe-ingredients-flow';
+import { getIngredientsForRecipe } from '@/app/actions';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 
 

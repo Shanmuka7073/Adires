@@ -1,19 +1,16 @@
-
-'use server';
 /**
  * @fileOverview A flow to get ingredients for a recipe.
- *
- * - getIngredientsForRecipe - An async function to get ingredients for a given dish.
+ * This file defines the Genkit flow and is intended for server-side use only.
  */
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 
-// Define the schema for the flow's input. This is not exported.
+// Define the schema for the flow's input.
 const RecipeIngredientsInputSchema = z.object({
   dishName: z.string().describe('The name of the dish for which to get ingredients.'),
 });
 
-// Define the schema for the flow's output. This is not exported.
+// Define the schema for the flow's output.
 const RecipeIngredientsOutputSchema = z.object({
   ingredients: z.array(z.string()).describe('A list of ingredients for the dish.'),
 });
@@ -21,7 +18,6 @@ const RecipeIngredientsOutputSchema = z.object({
 // Infer the input and output types for use within this file.
 export type RecipeIngredientsInput = z.infer<typeof RecipeIngredientsInputSchema>;
 export type RecipeIngredientsOutput = z.infer<typeof RecipeIngredientsOutputSchema>;
-
 
 const getIngredientsPrompt = ai.definePrompt(
   {
@@ -35,7 +31,8 @@ const getIngredientsPrompt = ai.definePrompt(
   }
 );
 
-const recipeIngredientsFlow = ai.defineFlow(
+// Define the Genkit flow. This is not exported directly as a server action.
+export const recipeIngredientsFlow = ai.defineFlow(
   {
     name: 'recipeIngredientsFlow',
     inputSchema: RecipeIngredientsInputSchema,
@@ -46,13 +43,3 @@ const recipeIngredientsFlow = ai.defineFlow(
     return output!;
   }
 );
-
-/**
- * An async function that runs the Genkit flow to get ingredients for a recipe.
- * This is the only function exported from this server module.
- * @param input The dish name.
- * @returns A promise that resolves to the list of ingredients.
- */
-export async function getIngredientsForRecipe(input: RecipeIngredientsInput): Promise<RecipeIngredientsOutput> {
-    return recipeIngredientsFlow(input);
-}

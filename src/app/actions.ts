@@ -6,6 +6,7 @@
 // All Firebase-related logic has been moved to the client to ensure stability.
 
 import { revalidatePath } from 'next/cache';
+import { recipeIngredientsFlow, RecipeIngredientsInput, RecipeIngredientsOutput } from '@/ai/flows/recipe-ingredients-flow';
 
 // This function is for demonstration and does not use Firebase.
 export async function indexSiteContent() {
@@ -44,4 +45,13 @@ export async function getSystemStatus(): Promise<{ userCount: number, status: 'o
     }
 }
 
+/**
+ * An async function that runs the Genkit flow to get ingredients for a recipe.
+ * This is the server action that the client will call.
+ * @param input The dish name.
+ * @returns A promise that resolves to the list of ingredients.
+ */
+export async function getIngredientsForRecipe(input: RecipeIngredientsInput): Promise<RecipeIngredientsOutput> {
+    return recipeIngredientsFlow(input);
+}
     
