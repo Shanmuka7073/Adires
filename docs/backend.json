@@ -429,6 +429,32 @@
       },
       "required": ["id", "dishName", "ingredients", "createdAt"]
     },
+    "CachedAIResponse": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CachedAIResponse",
+      "type": "object",
+      "description": "Represents a cached AI response for a general knowledge question.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier, typically the normalized question."
+        },
+        "question": {
+          "type": "string",
+          "description": "The original user question."
+        },
+        "answer": {
+          "type": "string",
+          "description": "The AI's generated answer."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the response was cached."
+        }
+      },
+      "required": ["id", "question", "answer", "createdAt"]
+    },
     "DeliveryPartner": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "DeliveryPartner",
@@ -803,6 +829,22 @@
         }
       },
       {
+        "path": "/cachedAIResponses/{responseId}",
+        "definition": {
+            "entityName": "CachedAIResponse",
+            "schema": {
+                "$ref": "#/backend/entities/CachedAIResponse"
+            },
+            "description": "Stores cached AI responses to general questions.",
+            "params": [
+                {
+                    "name": "responseId",
+                    "description": "The unique identifier for the cached response, usually the normalized question."
+                }
+            ]
+        }
+      },
+      {
         "path": "/deliveryPartners/{partnerId}",
         "definition": {
           "entityName": "DeliveryPartner",
@@ -905,5 +947,3 @@
     ]
   }
 }
-
-    

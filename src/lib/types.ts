@@ -131,3 +131,17 @@ export type VoiceAlias = {
     alias: string; // 'go to my cart', 'టమోటాలు', 'Go To Cart', 'Navigating...'
     type: 'command' | 'product' | 'store';
 };
+
+export type CachedRecipe = {
+    id: string;
+    dishName: string;
+    ingredients: string[];
+    createdAt: any; // Allow serverTimestamp
+}
+
+export type CachedAIResponse = {
+    id: string;
+    question: string;
+    answer: string;
+    createdAt: any; // Allow serverTimestamp
+}

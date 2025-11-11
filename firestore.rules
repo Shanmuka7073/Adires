@@ -103,6 +103,12 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /cachedAIResponses/{responseId} {
+        allow get, list: if true;
+        allow create: if true; // Allow any authenticated user to create cache entries
+        allow update, delete: if false;
+    }
+
     match /deliveryPartners/{partnerId} {
       allow get, update: if isOwner(partnerId);
       allow list: if isAdmin();
@@ -151,5 +157,3 @@ service firebase.storage {
     }
   }
 }
-
-    
