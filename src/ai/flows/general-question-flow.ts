@@ -2,26 +2,27 @@
  * @fileOverview A flow to answer general knowledge questions.
  */
 
+'use server';
+
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
-import { getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache';
+import { 
+  GeneralQuestionInputSchema, 
+  GeneralQuestionOutputSchema,
+  type GeneralQuestionInput,
+  type GeneralQuestionOutput,
+} from './schemas';
 
+// The function exported to the client side.
+export async function answerGeneralQuestion(input: GeneralQuestionInput): Promise<GeneralQuestionOutput> {
+  // Caching is now handled on the client-side before this action is called.
+  return generalQuestionFlow(input);
+}
 
-export const GeneralQuestionInputSchema = z.object({
-  question: z.string().describe('The user\'s question.'),
-});
-
-export const GeneralQuestionOutputSchema = z.object({
-  answer: z.string().describe('The AI\'s answer to the question.'),
-});
-
-export type GeneralQuestionInput = z.infer<typeof GeneralQuestionInputSchema>;
-export type GeneralQuestionOutput = z.infer<typeof GeneralQuestionOutputSchema>;
 
 const generalQuestionPrompt = ai.definePrompt(
   {
     name: 'generalQuestionPrompt',
-    model: 'googleai/gemini-1.5-flash-latest',
+    model: 'googleai/gemini-2.5-flash-preview',
     input: { schema: GeneralQuestionInputSchema },
     output: { schema: GeneralQuestionOutputSchema },
     prompt: `You are a helpful voice assistant. Answer the following question concisely.
@@ -31,16 +32,16 @@ const generalQuestionPrompt = ai.definePrompt(
   }
 );
 
-export const generalQuestionFlow = ai.defineFlow(
+// The internal Genkit flow, not exported to the client.
+const generalQuestionFlow = ai.defineFlow(
   {
     name: 'generalQuestionFlow',
     inputSchema: GeneralQuestionInputSchema,
     outputSchema: GeneralQuestionOutputSchema,
   },
   async (input) => {
-    // NOTE: Caching logic has been temporarily removed from the flow
-    // because it was incorrectly calling a client-side function from the server.
-    // This will be reimplemented correctly in a separate step.
+    // The client-side logic in VoiceCommander now handles caching.
+    // This flow simply gets the answer from the AI.
     console.log('Calling Gemini API for general question.');
     const { output } = await generalQuestionPrompt(input);
     const answer = output!.answer;

@@ -1,13 +1,11 @@
-
-
 'use server';
 
 // This file is being repurposed to only contain non-Firebase server actions.
 // All Firebase-related logic has been moved to the client to ensure stability.
 
 import { revalidatePath } from 'next/cache';
-import { recipeIngredientsFlow, RecipeIngredientsInput, RecipeIngredientsOutput } from '@/ai/flows/recipe-ingredients-flow';
-import { generalQuestionFlow, GeneralQuestionInput, GeneralQuestionOutput } from '@/ai/flows/general-question-flow';
+import { getIngredientsForRecipe } from '@/ai/flows/recipe-ingredients-flow';
+import { answerGeneralQuestion } from '@/ai/flows/general-question-flow';
 
 
 // This function is for demonstration and does not use Firebase.
@@ -47,22 +45,6 @@ export async function getSystemStatus(): Promise<{ userCount: number, status: 'o
     }
 }
 
-/**
- * An async function that runs the Genkit flow to get ingredients for a recipe.
- * This is the server action that the client will call.
- * @param input The dish name.
- * @returns A promise that resolves to the list of ingredients.
- */
-export async function getIngredientsForRecipe(input: RecipeIngredientsInput): Promise<RecipeIngredientsOutput> {
-    return recipeIngredientsFlow(input);
-}
-    
-/**
- * An async function that runs the Genkit flow to answer a general question.
- * @param input The user's question.
- * @returns A promise that resolves to the AI's answer.
- */
-export async function answerGeneralQuestion(input: GeneralQuestionInput): Promise<GeneralQuestionOutput> {
-    // Caching is now handled on the client-side before this action is called.
-    return generalQuestionFlow(input);
-}
+// We re-export the server actions from the flow files here to keep a single
+// point of entry for client-side calls.
+export { getIngredientsForRecipe, answerGeneralQuestion };

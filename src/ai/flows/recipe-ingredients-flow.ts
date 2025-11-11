@@ -2,28 +2,30 @@
  * @fileOverview A flow to get ingredients for a recipe.
  * This file defines the Genkit flow and is intended for server-side use only.
  */
+'use server';
 
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
+import { 
+  RecipeIngredientsInputSchema, 
+  RecipeIngredientsOutputSchema,
+  type RecipeIngredientsInput,
+  type RecipeIngredientsOutput
+} from './schemas';
 
-// Define the schema for the flow's input.
-export const RecipeIngredientsInputSchema = z.object({
-  dishName: z.string().describe('The name of the dish for which to get ingredients.'),
-});
-
-// Define the schema for the flow's output.
-export const RecipeIngredientsOutputSchema = z.object({
-  ingredients: z.array(z.string()).describe('A list of ingredients for the dish.'),
-});
-
-// Infer the input and output types from the schemas.
-export type RecipeIngredientsInput = z.infer<typeof RecipeIngredientsInputSchema>;
-export type RecipeIngredientsOutput = z.infer<typeof RecipeIngredientsOutputSchema>;
+/**
+ * An async function that runs the Genkit flow to get ingredients for a recipe.
+ * This is the server action that the client will call.
+ * @param input The dish name.
+ * @returns A promise that resolves to the list of ingredients.
+ */
+export async function getIngredientsForRecipe(input: RecipeIngredientsInput): Promise<RecipeIngredientsOutput> {
+    return recipeIngredientsFlow(input);
+}
 
 const getIngredientsPrompt = ai.definePrompt(
   {
     name: 'getIngredientsPrompt',
-    model: 'googleai/gemini-1.5-flash-latest',
+    model: 'googleai/gemini-2.5-flash-preview',
     input: { schema: RecipeIngredientsInputSchema },
     output: { schema: RecipeIngredientsOutputSchema },
     prompt: `You are an expert chef. Provide a list of ingredients for the following dish: {{{dishName}}}.
@@ -33,8 +35,8 @@ const getIngredientsPrompt = ai.definePrompt(
   }
 );
 
-// This is the Genkit flow, which is not exported directly as it contains configuration.
-export const recipeIngredientsFlow = ai.defineFlow(
+// This is the Genkit flow, which is not exported directly to the client.
+const recipeIngredientsFlow = ai.defineFlow(
   {
     name: 'recipeIngredientsFlow',
     inputSchema: RecipeIngredientsInputSchema,
