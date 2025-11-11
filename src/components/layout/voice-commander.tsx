@@ -10,7 +10,6 @@ import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
 import { useAppStore } from '@/lib/store';
 import { useProfileFormStore } from '@/app/dashboard/customer/my-profile/page';
-import { useCheckoutStore } from '@/app/checkout/page';
 import { useMyStorePageStore } from '@/lib/store';
 import { t, initializeTranslations } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection, query, where, getDocs } from 'firebase/firestore';
@@ -19,6 +18,7 @@ import groceryData from '@/lib/grocery-data.json';
 import { getIngredientsForRecipe, answerGeneralQuestion, generatePack } from '@/app/actions';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache';
+import { useCheckoutStore } from '@/app/checkout/page';
 
 
 export interface Command {
@@ -1163,48 +1163,51 @@ export function VoiceCommander({
             }
         }
     },
-    addPackToCart: async ({ packType, familySize, lang, storeId: forcedStoreId }) => {
-        const storeId = forcedStoreId || activeStoreId;
+    addPackToCart: async ({ packType, familySize, lang }) => {
         const langWithRegion = lang === 'en' ? 'en-IN' : `${lang}-IN`;
 
         if (!firestore) return;
-        if (!storeId) {
-            speak("Which store would you like to order that pack from?", langWithRegion);
-            setIsWaitingForPackStoreConfirmation(true);
-            pendingPackRequestRef.current = { packType, familySize, lang };
+
+        // Find the admin "LocalBasket" store to get the canonical pack definition
+        const adminStore = stores.find(s => s.name === 'LocalBasket');
+        if (!adminStore) {
+            speak("I'm sorry, I can't find the master pack list right now. The administrator needs to create a 'LocalBasket' store.", langWithRegion);
             return;
         }
 
         const packName = `${packType.charAt(0).toUpperCase() + packType.slice(1)} Pack for ${familySize}`;
-        const q = query(collection(firestore, `stores/${storeId}/packages`), where('name', '==', packName));
+        const q = query(collection(firestore, `stores/${adminStore.id}/packages`), where('name', '==', packName));
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
-            speak(`I'm sorry, I couldn't find a ${packType} pack for ${familySize} members in this store.`, lang + '-IN');
+            speak(`I'm sorry, I couldn't find a ${packType} pack for ${familySize} members. You can ask the store owner to create one.`, langWithRegion);
             return;
         }
 
         const pack = querySnapshot.docs[0].data() as MonthlyPackage;
-        speak(`Found the ${pack.name}. Adding ${pack.items.length} items to your cart now.`, lang + '-IN');
+        speak(`Found the ${pack.name}. Adding ${pack.items.length} items to your cart. Please select a store at checkout.`, langWithRegion);
         
-        // Ensure all required product prices are fetched
         const productNamesToFetch = pack.items.map(item => item.name);
         await fetchProductPrices(firestore, productNamesToFetch);
 
-        // A short delay to allow state to update with prices
         await new Promise(resolve => setTimeout(resolve, 200)); 
 
         const latestPrices = useAppStore.getState().productPrices;
 
         let itemsAdded = 0;
         for (const item of pack.items) {
+            // Important: We need to find the product in masterProducts to get its full details
             const product = masterProducts.find(p => p.name === item.name);
             const priceData = latestPrices[item.name.toLowerCase()];
+            
             if (product && priceData?.variants) {
-                // Find a variant that somewhat matches the quantity string
+                // Since this is a master pack, we add the product with the master store's ID.
+                // The cart logic will handle starting a new cart if needed.
+                const productWithCorrectStore = { ...product, storeId: adminStore.id };
+
                 const bestVariant = priceData.variants.find(v => item.quantity.includes(v.weight)) || priceData.variants[0];
                 if (bestVariant) {
-                    addItemToCart(product, bestVariant, 1);
+                    addItemToCart(productWithCorrectStore, bestVariant, 1);
                     itemsAdded++;
                 }
             }
