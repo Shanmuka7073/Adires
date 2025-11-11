@@ -602,12 +602,14 @@ export function VoiceCommander({
       for (const alias of [...new Set(allAliasStrings)]) {
         const similarity = calculateSimilarity(lowerText, alias.toLowerCase());
         if (!bestCommandMatch || similarity > bestCommandMatch.similarity) {
-          bestCommandMatch = { key, similarity };
+          if (similarity > 0.8) {
+            bestCommandMatch = { key, similarity };
+          }
         }
       }
     }
     
-    if (bestCommandMatch && bestCommandMatch.similarity > 0.8) {
+    if (bestCommandMatch) {
       if (intentKeywords.NAVIGATE.some(kw => lowerText.includes(kw))) {
         return { type: 'NAVIGATE', destination: bestCommandMatch.key, originalText: text, lang: spokenLang };
       }
@@ -951,8 +953,9 @@ export function VoiceCommander({
       placeOrder: (params) => {
         const lang = params?.lang || language;
         if (pathname === '/checkout' && placeOrderBtnRef?.current) {
-          speak(t('placing-your-order-now-speech', lang), lang + '-IN');
-          placeOrderBtnRef.current.click();
+          speak(t('placing-your-order-now-speech', lang), lang + '-IN', () => {
+              placeOrderBtnRef?.current?.click();
+          });
         } else if (cartItemsProp.length > 0) {
           commandActionsRef.current.checkout({ lang });
         } else {
@@ -1134,6 +1137,8 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
 
     
 
