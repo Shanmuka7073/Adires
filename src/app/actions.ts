@@ -3,15 +3,12 @@
 import { revalidatePath } from 'next/cache';
 import { getIngredientsForRecipe as getIngredientsFlow } from '@/ai/flows/recipe-ingredients-flow';
 import { answerGeneralQuestion as answerGeneralQuestionFlow } from '@/ai/flows/general-question-flow';
-import { textToSpeech as textToSpeechFlow } from '@/ai/flows/text-to-speech-flow';
 
 import type { 
     RecipeIngredientsInput, 
     RecipeIngredientsOutput, 
     GeneralQuestionInput, 
     GeneralQuestionOutput,
-    TextToSpeechInput,
-    TextToSpeechOutput
 } from '@/ai/flows/schemas';
 
 
@@ -58,11 +55,6 @@ export async function getIngredientsForRecipe(input: RecipeIngredientsInput): Pr
 
 export async function answerGeneralQuestion(input: GeneralQuestionInput): Promise<GeneralQuestionOutput> {
     return withRetries(answerGeneralQuestionFlow, input);
-}
-
-export async function textToSpeech(input: TextToSpeechInput): Promise<TextToSpeechOutput> {
-    // Retries might not be ideal for TTS as it's time-sensitive, but we'll include it for consistency.
-    return withRetries(textToSpeechFlow, input);
 }
 
 

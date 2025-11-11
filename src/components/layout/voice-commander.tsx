@@ -17,7 +17,7 @@ import { t, initializeTranslations } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import groceryData from '@/lib/grocery-data.json';
-import { getIngredientsForRecipe, answerGeneralQuestion, textToSpeech } from '@/app/actions';
+import { getIngredientsForRecipe, answerGeneralQuestion } from '@/app/actions';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache';
 
@@ -253,16 +253,16 @@ export function VoiceCommander({
     setHasMounted(true);
     initializeTranslations(locales);
 
-    // Create a single audio element to be reused
-    audioRef.current = new Audio();
-
-    // Cleanup
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-    };
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      const getVoices = () => {
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+          setSpeechSynthesisVoices(voices);
+        }
+      };
+      getVoices();
+      window.speechSynthesis.onvoiceschanged = getVoices;
+    }
   }, [locales]);
 
   useEffect(() => {
@@ -286,54 +286,59 @@ export function VoiceCommander({
     }
 }, [enabled, language]);
 
-  const speak = useCallback(async (textOrReplies: string | string[], lang: string, onEndCallback?: () => void) => {
-    if (typeof window === 'undefined' || !audioRef.current) {
-        if (onEndCallback) onEndCallback();
-        return;
+  const speak = useCallback((textOrReplies: string | string[], lang: string, onEndCallback?: () => void) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      if (onEndCallback) onEndCallback();
+      return;
     }
-
+    
     if (recognition) {
-        recognition.stop();
+      recognition.stop();
     }
 
     isSpeakingRef.current = true;
-    audioRef.current.pause();
+    window.speechSynthesis.cancel();
+    
+    const text = Array.isArray(textOrReplies) 
+      ? textOrReplies[Math.floor(Math.random() * textOrReplies.length)] 
+      : textOrReplies;
 
-    const text = Array.isArray(textOrReplies)
-        ? textOrReplies[Math.floor(Math.random() * textOrReplies.length)]
-        : textOrReplies;
-
-    try {
-        const { audioDataUri } = await textToSpeech({ text, language: lang });
-        audioRef.current.src = audioDataUri;
-
-        const playPromise = audioRef.current.play();
-
-        if (playPromise !== undefined) {
-            playPromise.catch(error => {
-                console.error("Audio playback error:", error);
-                // Fallback to browser's native speech synthesis if AI TTS fails to play
-                isSpeakingRef.current = false;
-                 if (onEndCallback) onEndCallback();
-            });
-        }
-
-        audioRef.current.onended = () => {
-            isSpeakingRef.current = false;
-            if (onEndCallback) onEndCallback();
-            if (isEnabledRef.current && recognition) {
-                try {
-                    recognition.start();
-                } catch (e) {}
-            }
-        };
-
-    } catch (error) {
-        console.error("Text-to-speech API call failed:", error);
-        isSpeakingRef.current = false;
-        if (onEndCallback) onEndCallback();
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    const targetLang = lang.split('-')[0];
+    let voice = speechSynthesisVoices.find(v => v.lang.startsWith(targetLang) && v.name.includes('Google')) ||
+                speechSynthesisVoices.find(v => v.lang.startsWith(targetLang)) ||
+                speechSynthesisVoices.find(v => v.default);
+    
+    if (voice) {
+      utterance.voice = voice;
+    } else {
+      console.warn(`No voice found for language: ${lang}`);
     }
-}, []);
+
+    utterance.onend = () => {
+      isSpeakingRef.current = false;
+      if (onEndCallback) onEndCallback();
+      if (isEnabledRef.current && recognition) {
+        try {
+          recognition.start();
+        } catch(e) {}
+      }
+    };
+    
+    utterance.onerror = (e) => {
+      console.error('Speech synthesis error', e);
+      isSpeakingRef.current = false;
+      if (onEndCallback) onEndCallback();
+      if (isEnabledRef.current && recognition) {
+        try {
+          recognition.start();
+        } catch(e) {}
+      }
+    };
+
+    window.speechSynthesis.speak(utterance);
+  }, [speechSynthesisVoices]);
 
   const handleProfileFormInteraction = useCallback(() => {
     if (!profileForm) {
