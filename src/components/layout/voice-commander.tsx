@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -539,8 +538,8 @@ export function VoiceCommander({
     // --- INTENT RECOGNITION (REBUILT FOR RELIABILITY) ---
 
     // 1. WAKE WORD (Highest Priority): Check for an exact match to wake the AI.
-    const wakeWords = getAllAliases('who-are-you')['en'] || [];
-    if (wakeWords.some(word => lowerText === word)) {
+    const wakeWords = (getAllAliases('who-are-you')['en'] || []).concat(['smart', 'ai']);
+    if (wakeWords.some(word => lowerText.includes(word))) {
         return { type: 'WAKE_WORD', originalText: text, lang: spokenLang };
     }
 
@@ -1123,3 +1122,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
