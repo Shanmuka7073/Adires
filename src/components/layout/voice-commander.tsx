@@ -56,6 +56,7 @@ type Intent =
   | { type: 'CONVERSATIONAL', commandKey: string, originalText: string, lang: string }
   | { type: 'GET_RECIPE', dishName: string, originalText: string, lang: string }
   | { type: 'SHOW_DETAILS', target: string, originalText: string, lang: string }
+  | { type: 'WAKE_WORD', originalText: string, lang: string }
   | { type: 'UNKNOWN', originalText: string, lang: string };
 
 const intentKeywords = {
@@ -193,7 +194,7 @@ export function VoiceCommander({
     formFieldToFillRef.current = null;
     setShouldPlaceOrderDirectly(false);
     setItemForPriceCheck(null);
-    setIsAiModeActive(false);
+    // Don't reset AI mode here, it's persistent now
   }, [onSuggestions, setIsWaitingForQuickOrderConfirmation, setShouldPlaceOrderDirectly]);
 
 
@@ -534,8 +535,10 @@ export function VoiceCommander({
     let bestMatch: { product: Product, alias: string, similarity: number, lang: string } | null = null;
     for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
       const similarity = calculateSimilarity(lowerPhrase, alias);
-      if (similarity > (bestMatch?.similarity || 0.6)) {
-        bestMatch = { product, alias, similarity, lang };
+      if (!bestMatch || similarity > bestMatch.similarity) {
+          if (similarity > 0.7) { // Set a higher threshold
+            bestMatch = { product, alias, similarity, lang };
+        }
       }
     }
     
@@ -572,6 +575,11 @@ export function VoiceCommander({
 
   const recognizeIntent = useCallback((text: string, spokenLang: string): Intent => {
     const lowerText = text.toLowerCase();
+    
+    const wakeWordAliases = getAllAliases('who-are-you')[spokenLang] || [];
+    if (wakeWordAliases.some(alias => lowerText.includes(alias.toLowerCase()))) {
+        return { type: 'WAKE_WORD', originalText: text, lang: spokenLang };
+    }
 
     // Check for recipe intent first, as it's very specific
     const recipeKeyword = intentKeywords.GET_RECIPE.find(kw => lowerText.includes(kw));
@@ -618,7 +626,7 @@ export function VoiceCommander({
     }
     
     // Default to ORDER_ITEM if no other intent is strongly matched and it contains order keywords
-    if (intentKeywords.ORDER_ITEM.some(kw => lowerText.includes(kw))) {
+    if (intentKeywords.ORDER_ITEM.some(kw => lowerText.includes(kw)) || universalProductAliasMap.has(lowerText)) {
         return { type: 'ORDER_ITEM', originalText: text, lang: spokenLang };
     }
 
@@ -626,7 +634,7 @@ export function VoiceCommander({
     return { type: 'UNKNOWN', originalText: text, lang: spokenLang };
 
 
-  }, [commands, getAllAliases]);
+  }, [commands, getAllAliases, universalProductAliasMap]);
 
 
   const handleCommand = useCallback(async (commandText: string) => {
@@ -644,30 +652,25 @@ export function VoiceCommander({
         updateRecognitionLanguage(langWithRegion);
     }
     
-    // --- WAKE WORD & AI MODE ---
-    const wakeWordAliases = getAllAliases('who-are-you')[spokenLang] || ['shan', 'ai shan'];
-    const saidWakeWord = wakeWordAliases.some(alias => commandText.toLowerCase().includes(alias.toLowerCase()));
-
+    // --- PERSISTENT AI MODE LOGIC ---
     if (isAiModeActive) {
-      try {
-        const result = await answerGeneralQuestion({ question: commandText });
-        speak(result.answer, langWithRegion);
-      } catch (error) {
-        console.error("General question failed:", error);
-        speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
-      }
-      setIsAiModeActive(false); // Go back to command mode after answering
-      return;
-    }
+        const quitKeywords = ['quit', 'exit', 'stop', 'ఆపు', 'బయటకు రా'];
+        if (quitKeywords.some(kw => commandText.toLowerCase().includes(kw))) {
+            setIsAiModeActive(false);
+            speak("Okay, back to regular commands.", langWithRegion);
+            return;
+        }
 
-    if (saidWakeWord) {
-      speak(t('who-are-you', spokenLang), langWithRegion, () => {
-        setIsAiModeActive(true); // Switch to AI mode after greeting
-      });
-      return;
+        // Send to Gemini for a general answer
+        try {
+            const result = await answerGeneralQuestion({ question: commandText });
+            speak(result.answer, langWithRegion);
+        } catch (error) {
+            console.error("General question failed:", error);
+            speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
+        }
+        return; // Stay in AI mode
     }
-    // --- END WAKE WORD & AI MODE ---
-
 
     // --- PRIORITY 0: CONTEXTUAL RESPONSES (State Machine) ---
     if (itemForPriceCheck) {
@@ -750,7 +753,7 @@ export function VoiceCommander({
         return;
     }
     
-    // --- New Multi-Item Logic ---
+    // --- Multi-Item Logic ---
     const multiItemSeparators = ['and', 'మరియు'];
     const separatorUsed = multiItemSeparators.find(sep => commandText.toLowerCase().includes(` ${sep} `));
     
@@ -766,6 +769,11 @@ export function VoiceCommander({
     const intent = recognizeIntent(commandText, spokenLang);
 
     switch (intent.type) {
+        case 'WAKE_WORD':
+            setIsAiModeActive(true);
+            speak("I'm here to help. You can ask me anything. Just say 'quit' to exit.", langWithRegion);
+            return; // Important: return here to wait for the next command in AI mode
+
         case 'GET_RECIPE':
             await commandActionsRef.current.getRecipe({ dishName: intent.dishName, lang: intent.lang });
             break;
@@ -780,7 +788,6 @@ export function VoiceCommander({
         
         case 'NAVIGATE':
         case 'CONVERSATIONAL':
-            // The wake word now handles conversational commands, so this part can be simplified.
             const action = commandActionsRef.current[intent.commandKey];
             const reply = commands[intent.commandKey]?.reply || `Executing ${commands[intent.commandKey]?.display}`;
             if (action) {
@@ -829,7 +836,7 @@ export function VoiceCommander({
             speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
             if (firestore && user) {
                 addDoc(collection(firestore, 'failedCommands'), {
-                    userId: user.uid, commandText, language: spokenLang, reason: 'UNKNOWN intent & no AI mode', timestamp: serverTimestamp(),
+                    userId: user.uid, commandText, language: spokenLang, reason: 'UNKNOWN intent & AI mode not active', timestamp: serverTimestamp(),
                 });
             }
             break;
@@ -1143,3 +1150,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
