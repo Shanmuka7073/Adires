@@ -67,8 +67,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
       'sorry-i-couldnt-find-any-items': "క్షమించండి, మీరు చెప్పిన వస్తువులలో ఏదీ నేను కనుగొనలేకపోయాను.",
       'could-not-find-product-in-order-speech': "క్షమించండి, మీ ఆర్డర్‌లో నేను ఉత్పత్తిని గుర్తించలేకపోయాను. దయచేసి మళ్లీ ప్రయత్నించండి, ఉదాహరణకు '1kg ఉల్లిపాయలు ఆర్డర్ చేయండి'.",
       'could-not-identify-store-speech': "నేను మీ వస్తువులను కనుగొన్నాను, కానీ స్టోర్‌ను గుర్తించలేకపోయాను. కొనసాగించడానికి దయచేసి ఒక స్టోర్‌ను ఎంచుకోండి.",
-      'cannot-deliver-home-no-address-speech': "మీరు చిరునామాను சேవ్ చేయనందున నేను మీ ఇంటికి డెలివరీ చేయలేను. ఒకటి జోడించడానికి నేను మిమ్మల్ని మీ ప్రొఫైల్ పేజీకి తీసుకెళ్తున్నాను.",
-      'preparing-order-speech': "{storeName} నుండి {items} కోసం ఆర్డర్‌ను సిద్ధం చేస్తున్నాను. உறுதிப்படுத்தడానికి నేను మిమ్మల్ని చెక్అవుట్ పేజీకి తీసుకెళ్తున్నాను.",
+      'cannot-deliver-home-no-address-speech': "మీరు చిరునామాను సేవ్ చేయనందున నేను మీ ఇంటికి డెలివరీ చేయలేను. ఒకటి జోడించడానికి నేను మిమ్మల్ని మీ ప్రొఫైల్ పేజీకి తీసుకెళ్తున్నాను.",
+      'preparing-order-speech': "{storeName} నుండి {items} కోసం ఆర్డర్‌ను సిద్ధం చేస్తున్నాను. నేను మిమ్మల్ని చెక్అవుట్ పేజీకి తీసుకెళ్తున్నాను.",
       'price-check-reply-speech': "{productName} ధర {prices}.",
       'price-check-variant-speech': "{weight} కి {price}",
   },
@@ -162,4 +162,5 @@ export function buildLocalesFromAliases(aliases: VoiceAlias[]): Locales {
     });
     return locales;
 }
+
 
