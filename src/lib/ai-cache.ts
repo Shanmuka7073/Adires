@@ -1,4 +1,3 @@
-
 'use client';
 import { Firestore, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import type { CachedAIResponse } from './types';
@@ -25,10 +24,12 @@ export async function getCachedAIResponse(db: Firestore, question: string): Prom
     try {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
+            console.log("AI Cache HIT for:", question);
             const data = docSnap.data() as CachedAIResponse;
             // Optional: You could add logic here to check data.createdAt and re-fetch if it's too old.
             return data.answer;
         }
+        console.log("AI Cache MISS for:", question);
         return null;
     } catch (error) {
         console.error("Error retrieving cached AI response:", error);
@@ -56,6 +57,7 @@ export async function cacheAIResponse(db: Firestore, question: string, answer: s
 
     try {
         // Use setDoc to create or overwrite the document with the new answer.
+        console.log("Caching AI response for:", question);
         await setDoc(docRef, responseData);
     } catch (error) {
         // Log the error, but don't block the user's flow.

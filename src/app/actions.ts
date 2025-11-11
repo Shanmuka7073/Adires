@@ -63,5 +63,6 @@ export async function getIngredientsForRecipe(input: RecipeIngredientsInput): Pr
  * @returns A promise that resolves to the AI's answer.
  */
 export async function answerGeneralQuestion(input: GeneralQuestionInput): Promise<GeneralQuestionOutput> {
+    // Caching is now handled on the client-side before this action is called.
     return generalQuestionFlow(input);
 }

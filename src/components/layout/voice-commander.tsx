@@ -19,6 +19,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import groceryData from '@/lib/grocery-data.json';
 import { getIngredientsForRecipe, answerGeneralQuestion } from '@/app/actions';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
+import { getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache';
 
 
 export interface Command {
@@ -647,13 +648,21 @@ export function VoiceCommander({
             return;
         }
 
-        // Send to Gemini for a general answer
-        try {
-            const result = await answerGeneralQuestion({ question: commandText });
-            speak(result.answer, langWithRegion);
-        } catch (error) {
-            console.error("General question failed:", error);
-            speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
+        // --- Caching Logic ---
+        const cachedAnswer = await getCachedAIResponse(firestore, commandText);
+        if (cachedAnswer) {
+            speak(cachedAnswer, langWithRegion);
+        } else {
+            // Send to Gemini for a general answer
+            try {
+                const result = await answerGeneralQuestion({ question: commandText });
+                speak(result.answer, langWithRegion);
+                // Cache the new response
+                await cacheAIResponse(firestore, commandText, result.answer);
+            } catch (error) {
+                console.error("General question failed:", error);
+                speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
+            }
         }
         return; // Stay in AI mode
     }
