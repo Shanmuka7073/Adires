@@ -17,6 +17,8 @@ import { t, initializeTranslations } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import groceryData from '@/lib/grocery-data.json';
+import { getIngredientsForRecipe } from '@/ai/flows/recipe-ingredients-flow';
+import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 
 
 export interface Command {
@@ -52,6 +54,7 @@ type Intent =
   | { type: 'ORDER_ITEM', originalText: string, lang: string }
   | { type: 'NAVIGATE', destination: string, originalText: string, lang: string }
   | { type: 'CONVERSATIONAL', commandKey: string, originalText: string, lang: string }
+  | { type: 'GET_RECIPE', dishName: string, originalText: string, lang: string }
   | { type: 'UNKNOWN', originalText: string, lang: string };
 
 const intentKeywords = {
@@ -59,6 +62,7 @@ const intentKeywords = {
   ORDER_ITEM: ['order', 'add', 'buy', 'get', 'send', 'నాకు', 'కావాలి'],
   NAVIGATE: ['go to', 'open', 'show', 'వెళ్ళు', 'చూపించు'],
   CONVERSATIONAL: ['help', 'what can', 'who are you', 'how does'],
+  GET_RECIPE: ['recipe for', 'ingredients for', 'how to make', 'కోసం కావలసినవి', 'ఎలా చేయాలి'],
 };
 
 
@@ -565,6 +569,13 @@ export function VoiceCommander({
   const recognizeIntent = useCallback((text: string, spokenLang: string): Intent => {
     const lowerText = text.toLowerCase();
 
+    // Check for recipe intent first, as it's very specific
+    const recipeKeyword = intentKeywords.GET_RECIPE.find(kw => lowerText.includes(kw));
+    if (recipeKeyword) {
+        const dishName = lowerText.replace(recipeKeyword, '').trim();
+        return { type: 'GET_RECIPE', dishName, originalText: text, lang: spokenLang };
+    }
+
     // Check for "check price" intent
     const priceKeyword = intentKeywords.CHECK_PRICE.find(kw => lowerText.includes(kw));
     if (priceKeyword) {
@@ -712,6 +723,10 @@ export function VoiceCommander({
     const intent = recognizeIntent(commandText, spokenLang);
 
     switch (intent.type) {
+        case 'GET_RECIPE':
+            await commandActionsRef.current.getRecipe({ dishName: intent.dishName, lang: intent.lang });
+            break;
+            
         case 'CHECK_PRICE':
             await commandActionsRef.current.checkPrice({ phrase: intent.productPhrase, lang: intent.lang, originalText: intent.originalText });
             break;
@@ -978,6 +993,32 @@ export function VoiceCommander({
         addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: lang, reason: `Price check: product not found in phrase "${phrase}".`, timestamp: serverTimestamp() });
       }
     },
+    getRecipe: async ({ dishName, lang }: { dishName: string, lang: string }) => {
+        if (!dishName) return;
+        const langWithRegion = lang === 'en' ? 'en-IN' : `${lang}-IN`;
+        speak(`Let me check the ingredients for ${dishName}.`, langWithRegion);
+        
+        try {
+            if (!firestore) throw new Error("Firestore not available");
+            // Check cache first
+            let ingredients = await getCachedRecipe(firestore, dishName);
+
+            if (ingredients) {
+                speak(`I found a cached recipe. The ingredients for ${dishName} are: ${ingredients.join(', ')}`, langWithRegion);
+            } else {
+                // If not in cache, call the AI flow
+                const result = await getIngredientsForRecipe({ dishName });
+                ingredients = result.ingredients;
+                speak(`The ingredients for ${dishName} are: ${ingredients.join(', ')}`, langWithRegion);
+                // Cache the new recipe
+                await cacheRecipe(firestore, dishName, ingredients);
+            }
+
+        } catch (error) {
+            console.error("Error getting recipe:", error);
+            speak(`I'm sorry, I couldn't get the ingredients for ${dishName} right now.`, langWithRegion);
+        }
+    },
     orderMultipleItems: async (phrases: string[], lang: string, originalText: string) => {
         let addedItems: string[] = [];
         let failedItems: string[] = [];
@@ -1036,5 +1077,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    
