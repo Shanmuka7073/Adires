@@ -2,18 +2,20 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, Truck, ShoppingBag, AlertCircle, ArrowRight, Settings, Mic, MessageSquareWarning, List, FileText, Server } from 'lucide-react';
+import { Users, Store, Truck, ShoppingBag, AlertCircle, ArrowRight, Settings, Mic, MessageSquareWarning, List, FileText, Server, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useEffect, useState, useTransition } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { collection, query, where } from 'firebase/firestore';
 import type { Order, Store as StoreType } from '@/lib/types';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { t } from '@/lib/locales';
-import { getSystemStatus } from '@/app/actions';
+import { getSystemStatus, getIngredientsForRecipe } from '@/app/actions';
+import { useToast } from '@/hooks/use-toast';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -67,6 +69,66 @@ function AdminActionCard({ title, description, href, icon: Icon }: { title: stri
             </Card>
         </Link>
     );
+}
+
+function AiTestCard() {
+    const [dish, setDish] = useState('');
+    const [ingredients, setIngredients] = useState<string[]>([]);
+    const [isPending, startTransition] = useTransition();
+    const { toast } = useToast();
+
+    const handleGetIngredients = () => {
+        if (!dish) {
+            toast({ variant: 'destructive', title: 'Please enter a dish name.' });
+            return;
+        }
+        startTransition(async () => {
+            try {
+                const result = await getIngredientsForRecipe({ dishName: dish });
+                setIngredients(result.ingredients);
+            } catch (error) {
+                console.error(error);
+                toast({ variant: 'destructive', title: 'AI Error', description: 'Could not fetch ingredients.' });
+            }
+        });
+    };
+
+    return (
+        <Card className="lg:col-span-3 border-primary/50">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Sparkles className="h-6 w-6 text-primary" />
+                    Test Gemini AI
+                </CardTitle>
+                <CardDescription>
+                    Enter a dish name to verify that the Genkit flow and Gemini API are working correctly.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                    <Input 
+                        placeholder="e.g., Chicken Biryani" 
+                        value={dish}
+                        onChange={(e) => setDish(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleGetIngredients()}
+                    />
+                    <Button onClick={handleGetIngredients} disabled={isPending}>
+                        {isPending ? 'Loading...' : 'Get Ingredients'}
+                    </Button>
+                </div>
+                {ingredients.length > 0 && (
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                        <h4 className="font-semibold mb-2">Ingredients for {dish}:</h4>
+                        <ul className="list-disc list-inside space-y-1 text-sm">
+                            {ingredients.map((item, i) => (
+                                <li key={i}>{item}</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    )
 }
 
 export default function AdminDashboardPage() {
@@ -134,6 +196,10 @@ export default function AdminDashboardPage() {
                         loading={statsLoading}
                     />
                 ))}
+            </div>
+
+             <div className="mt-12">
+                <AiTestCard />
             </div>
 
             <div className="mt-16">
