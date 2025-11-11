@@ -470,6 +470,7 @@ export function VoiceCommander({
         let lowerPhrase = phrase.toLowerCase();
         let requestedQty = 1;
         let requestedUnit: 'kg' | 'gm' | 'pc' | 'pack' | null = null;
+        let productNamePhrase = lowerPhrase;
 
         const numberWords: { [key: string]: number } = {
             'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
@@ -485,40 +486,33 @@ export function VoiceCommander({
             'pack': { type: 'pack' }, 'packet': { type: 'pack' }, 'ప్యాక్': { type: 'pack' }, 'पैकेट': { type: 'pack' }
         };
 
-        // 1. Extract quantity and unit
-        const words = lowerPhrase.split(' ');
-        let productNamePhrase = '';
-
-        for (let i = 0; i < words.length; i++) {
-            const word = words[i];
-            const nextWord = words[i + 1];
-
+        const words = lowerPhrase.split(' ').filter(Boolean);
+        const remainingWords = [];
+        
+        for (const word of words) {
+            let consumed = false;
             // Check for digit quantity
             if (!isNaN(parseInt(word))) {
                 requestedQty = parseInt(word);
-                // Check if next word is a unit
-                if (nextWord && unitKeywords[nextWord]) {
-                    requestedUnit = unitKeywords[nextWord].type;
-                    i++; // Skip the next word as it's a unit
-                }
-                continue;
+                consumed = true;
             }
-
             // Check for word quantity
-            if (numberWords[word]) {
+            else if (numberWords[word]) {
                 requestedQty = numberWords[word];
-                continue;
+                consumed = true;
             }
-
             // Check for unit
-            if (unitKeywords[word]) {
+            else if (unitKeywords[word]) {
                 requestedUnit = unitKeywords[word].type;
-                continue;
+                consumed = true;
             }
 
-            productNamePhrase += word + ' ';
+            if (!consumed) {
+                remainingWords.push(word);
+            }
         }
-        productNamePhrase = productNamePhrase.trim();
+        productNamePhrase = remainingWords.join(' ');
+
 
         // 2. Fuzzy match the remaining phrase for the product name
         let bestMatch: { product: Product, alias: string, similarity: number, lang: string } | null = null;
@@ -567,10 +561,12 @@ export function VoiceCommander({
     }, [firestore, productPrices, fetchProductPrices, universalProductAliasMap]);
 
   const recognizeIntent = useCallback((text: string, spokenLang: string): Intent => {
-    const lowerText = text.toLowerCase();
+    const lowerText = text.toLowerCase().trim();
     
-    const wakeWordAliases = getAllAliases('who-are-you')[spokenLang] || [];
-    if (wakeWordAliases.some(alias => lowerText.includes(alias.toLowerCase()))) {
+    const wakeWordAliases = (getAllAliases('who-are-you')['en'] || []).concat(getAllAliases('who-are-you')['te'] || []);
+    
+    // Check for exact match on wake words first
+    if (wakeWordAliases.some(alias => lowerText === alias.toLowerCase())) {
         return { type: 'WAKE_WORD', originalText: text, lang: spokenLang };
     }
 
@@ -1143,5 +1139,7 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
 
     
