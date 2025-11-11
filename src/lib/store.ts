@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { create } from 'zustand';
@@ -30,6 +29,13 @@ export interface AppState {
   getAllAliases: (key: string) => Record<string, string[]>;
 }
 
+const getInitialLanguage = (): string => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('app-language') || 'en';
+  }
+  return 'en';
+};
+
 export const useAppStore = create<AppState>((set, get) => ({
   stores: [],
   masterProducts: [],
@@ -39,9 +45,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   commands: {},
   loading: true,
   error: null,
-  language: 'en', // Default language is English
+  language: getInitialLanguage(),
 
-  setLanguage: (lang: string) => set({ language: lang }),
+  setLanguage: (lang: string) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('app-language', lang);
+    }
+    set({ language: lang });
+  },
 
   fetchInitialData: async (db: Firestore) => {
     if (!get().loading && get().stores.length > 0) return; // Already fetched

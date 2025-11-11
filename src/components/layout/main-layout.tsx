@@ -43,23 +43,30 @@ export function MainLayout({
   // State to trigger re-evaluation in VoiceCommander
   const [voiceTrigger, setVoiceTrigger] = useState(0);
 
-  // --- New: Location-based language detection ---
+  // --- Location-based language detection ---
   useEffect(() => {
-    // Only run this check once when the component mounts
+    // Only run this check if no language has been manually set by the user.
+    const savedLanguage = localStorage.getItem('app-language');
+    if (savedLanguage) {
+      return;
+    }
+
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
           const detectedLang = getLanguageForLocation(latitude, longitude);
-          setLanguage(detectedLang);
-          toast({
-            title: 'Location Detected',
-            description: `Voice assistant language set to ${detectedLang === 'te' ? 'Telugu' : 'English'}.`,
-          });
+          // Only set the language if it hasn't been set by the user yet.
+          if (!localStorage.getItem('app-language')) {
+            setLanguage(detectedLang);
+            toast({
+              title: 'Language Detected',
+              description: `Voice assistant language set to ${detectedLang === 'te' ? 'Telugu' : 'English'}. You can change this anytime.`,
+            });
+          }
         },
         (error) => {
-          // Can't get location, so we'll just use the default language (English)
-          console.warn(`Could not get location: ${error.message}`);
+          console.warn(`Could not get location for language detection: ${error.message}`);
         },
         {
           timeout: 10000,
