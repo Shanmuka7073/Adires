@@ -52,6 +52,7 @@ type AliasToProductMap = Map<string, { product: Product; lang: string }>;
 type Intent = 
   | { type: 'CHECK_PRICE', productPhrase: string, originalText: string, lang: string }
   | { type: 'ORDER_ITEM', originalText: string, lang: string }
+  | { type: 'REMOVE_ITEM', productPhrase: string, originalText: string, lang: string }
   | { type: 'NAVIGATE', destination: string, originalText: string, lang: string }
   | { type: 'CONVERSATIONAL', commandKey: string, originalText: string, lang: string }
   | { type: 'GET_RECIPE', dishName: string, originalText: string, lang: string }
@@ -63,6 +64,7 @@ type Intent =
 const intentKeywords = {
   CHECK_PRICE: ['price of', 'cost of', 'how much for', 'rate for', 'ధర', 'రేటు'],
   ORDER_ITEM: ['order', 'add', 'buy', 'get', 'send', 'నాకు', 'కావాలి'],
+  REMOVE_ITEM: ['remove', 'delete', 'take out', 'తీసివేయి', 'తొలగించు'],
   NAVIGATE: ['go to', 'open', 'show', 'వెళ్ళు', 'చూపించు'],
   CONVERSATIONAL: ['help', 'what can', 'who are you', 'how does'],
   GET_RECIPE: ['recipe for', 'ingredients for', 'how to make', 'కోసం కావలసినవి', 'ఎలా చేయాలి'],
@@ -96,7 +98,7 @@ export function VoiceCommander({
   const pathname = usePathname();
   const { toast } = useToast();
   const { firestore, user } = useFirebase();
-  const { clearCart, addItem: addItemToCart, updateQuantity, activeStoreId, setActiveStoreId, cartTotal } = useCart();
+  const { clearCart, addItem: addItemToCart, removeItem, updateQuantity, activeStoreId, setActiveStoreId, cartTotal } = useCart();
 
   const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands } = useAppStore();
 
@@ -571,15 +573,22 @@ export function VoiceCommander({
         const productPhrase = lowerText.replace(priceKeyword, '').trim();
         return { type: 'CHECK_PRICE', productPhrase, originalText: text, lang: spokenLang };
     }
+
+    // 5. REMOVE ITEM
+    const removeKeyword = intentKeywords.REMOVE_ITEM.find(kw => lowerText.includes(kw));
+    if (removeKeyword) {
+        const productPhrase = lowerText.replace(removeKeyword, '').trim();
+        return { type: 'REMOVE_ITEM', productPhrase, originalText: text, lang: spokenLang };
+    }
     
-    // 5. SHOW DETAILS
+    // 6. SHOW DETAILS
     const detailsKeyword = intentKeywords.SHOW_DETAILS.find(kw => lowerText.includes(kw));
     if (detailsKeyword) {
         const target = lowerText.replace(detailsKeyword, '').trim();
         return { type: 'SHOW_DETAILS', target, originalText: text, lang: spokenLang };
     }
 
-    // 6. CONVERSATIONAL/NAVIGATIONAL COMMANDS
+    // 7. CONVERSATIONAL/NAVIGATIONAL COMMANDS
     let bestCommandMatch: { key: string, similarity: number } | null = null;
     for (const key in commands) {
       const commandAliases = getAllAliases(key);
@@ -603,7 +612,7 @@ export function VoiceCommander({
       return { type: 'CONVERSATIONAL', commandKey: bestCommandMatch.key, originalText: text, lang: spokenLang };
     }
 
-    // 7. ORDER ITEM (Default Action)
+    // 8. ORDER ITEM (Default Action)
     return { type: 'ORDER_ITEM', originalText: text, lang: spokenLang };
 
   }, [commands, getAllAliases]);
@@ -778,6 +787,10 @@ export function VoiceCommander({
         case 'CHECK_PRICE':
             await commandActionsRef.current.checkPrice({ phrase: intent.productPhrase, lang: intent.lang, originalText: intent.originalText });
             break;
+
+        case 'REMOVE_ITEM':
+            await commandActionsRef.current.removeItemFromCart({ phrase: intent.productPhrase, lang: intent.lang });
+            break;
         
         case 'SHOW_DETAILS':
             commandActionsRef.current.showDetails({ target: intent.target, lang: intent.lang });
@@ -852,7 +865,7 @@ export function VoiceCommander({
         resetAllContext();
     }
 
-  }, [firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp.length, setLanguage, addItemToCart, onOpenCart, locales, commands, getAllAliases, t, triggerVoicePrompt, itemForPriceCheck, recognizeIntent, isAiModeActive, isWaitingForPackStoreConfirmation]);
+  }, [firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp, setLanguage, addItemToCart, removeItem, onOpenCart, locales, commands, getAllAliases, t, triggerVoicePrompt, itemForPriceCheck, recognizeIntent, isAiModeActive, isWaitingForPackStoreConfirmation]);
 
 
   useEffect(() => {
@@ -1070,6 +1083,29 @@ export function VoiceCommander({
       if (firestore && user) {
         addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: lang, reason: `Price check: product not found in phrase "${phrase}".`, timestamp: serverTimestamp() });
       }
+    },
+    removeItemFromCart: async ({ phrase, lang }: { phrase?: string; lang: string }) => {
+        if (!phrase) return;
+        if (cartItemsProp.length === 0) {
+            speak("Your cart is already empty.", lang + '-IN');
+            return;
+        }
+
+        let bestMatch: { item: CartItem, similarity: number } | null = null;
+        for (const item of cartItemsProp) {
+            const similarity = calculateSimilarity(phrase.toLowerCase(), item.product.name.toLowerCase());
+            if (!bestMatch || similarity > bestMatch.similarity) {
+                bestMatch = { item, similarity };
+            }
+        }
+        
+        if (bestMatch && bestMatch.similarity > 0.6) {
+            const { item } = bestMatch;
+            removeItem(item.variant.sku);
+            speak(`Okay, I've removed ${getProductName(item.product)} from your cart.`, lang + '-IN');
+        } else {
+            speak(`I couldn't find "${phrase}" in your cart.`, lang + '-IN');
+        }
     },
     getRecipe: async ({ dishName, lang }: { dishName: string, lang: string }) => {
         if (!dishName) return;
