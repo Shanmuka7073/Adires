@@ -466,112 +466,105 @@ export function VoiceCommander({
     };
   }, [pathname, hasMounted, enabled, profileForm, handleProfileFormInteraction]);
 
-  const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null; variant: ProductVariant | null; requestedQty: number; remainingPhrase: string; matchedAlias: string | null; lang: string; }> => {
-    let lowerPhrase = phrase.toLowerCase();
+    const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null; variant: ProductVariant | null; requestedQty: number; remainingPhrase: string; matchedAlias: string | null; lang: string; }> => {
+        let lowerPhrase = phrase.toLowerCase();
+        let requestedQty = 1;
+        let requestedUnit: 'kg' | 'gm' | 'pc' | 'pack' | null = null;
 
-    const numberWords: Record<string, number> = {
-      // English
-      'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
-      // Telugu (script)
-      'ఒకటి': 1, 'రెండు': 2, 'మూడు': 3, 'నాలుగు': 4, 'ఐదు': 5, 'ఆరు': 6, 'ఏడు': 7, 'ఎనిమిది': 8, 'తొమ్మిది': 9, 'పది': 10,
-      // Phonetic Telugu in English Script (for en-IN mode)
-      'okati': 1, 'okate': 1, 'vocati': 1, 'vondu': 1,
-      'rendu': 2, 'rangu': 2,
-      'moodu': 3, 'mudu': 3,
-      'nalugu': 4,
-      'aidu': 5, 'idu': 5,
-      'aaru': 6, 'aru': 6,
-      'yedu': 7,
-      'enimidi': 8,
-      'tommidi': 9,
-      'padi': 10,
-      // Phonetic English in Telugu Script (for te-IN mode)
-      'వన్': 1, 'టూ': 2, 'త్రీ': 3, 'ఫోర్': 4, 'ఫైవ్': 5, 'సిక్స్': 6, 'సెవెన్': 7, 'ఎయిట్': 8, 'నైన్': 9, 'టెన్': 10,
-      // Hindi
-      'ek': 1, 'do': 2, 'teen': 3, 'char': 4, 'paanch': 5, 'chhe': 6, 'saat': 7, 'aath': 8, 'nau': 9, 'das': 10
-    };
-    
-    const unitKeywords: Record<string, { aliases: string[], type: 'kg' | 'gm' | 'pc' | 'pack' }> = {
-      'kg': { aliases: ['kg', 'kilo', 'kilos', 'కిలో', 'కేజీ', 'किलो', 'kilo'], type: 'kg'},
-      'gm': { aliases: ['gm', 'g', 'grams', 'గ్రాములు', 'ग्राम'], type: 'gm'},
-      'pc': { aliases: ['pc', 'piece', 'pieces', 'పీస్', 'पीस'], type: 'pc'},
-      'pack': { aliases: ['pack', 'packet', 'ప్యాక్', 'पैकेट'], type: 'pack'}
-    };
+        const numberWords: { [key: string]: number } = {
+            'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+            'ఒకటి': 1, 'రెండు': 2, 'మూడు': 3, 'నాలుగు': 4, 'ఐదు': 5, 'ఆరు': 6, 'ఏడు': 7, 'ఎనిమిది': 8, 'తొమ్మిది': 9, 'పది': 10,
+            'okati': 1, 'rendu': 2, 'moodu': 3, 'nalugu': 4, 'aidu': 5, 'aaru': 6, 'yedu': 7, 'enimidi': 8, 'tommidi': 9, 'padi': 10,
+            'ek': 1, 'do': 2, 'teen': 3, 'char': 4, 'paanch': 5, 'chhe': 6, 'saat': 7, 'aath': 8, 'nau': 9, 'das': 10,
+        };
 
-    let requestedQty = 1;
-    let requestedUnit: string | null = null;
-    let matchedUnitKeyword: string | null = null;
+        const unitKeywords: { [key: string]: { type: 'kg' | 'gm' | 'pc' | 'pack' } } = {
+            'kg': { type: 'kg' }, 'kilo': { type: 'kg' }, 'kilos': { type: 'kg' }, 'కిలో': { type: 'kg' }, 'కేజీ': { type: 'kg' }, 'किलो': { type: 'kg' },
+            'gm': { type: 'gm' }, 'g': { type: 'gm' }, 'grams': { type: 'gm' }, 'గ్రాములు': { type: 'gm' }, 'ग्राम': { type: 'gm' },
+            'pc': { type: 'pc' }, 'piece': { type: 'pc' }, 'pieces': { type: 'pc' }, 'పీస్': { type: 'pc' }, 'पीस': { type: 'pc' },
+            'pack': { type: 'pack' }, 'packet': { type: 'pack' }, 'ప్యాక్': { type: 'pack' }, 'पैकेट': { type: 'pack' }
+        };
 
-    // 1. Extract numbers (digit or word) from all languages
-    const allNumberWords = Object.keys(numberWords).join('|');
-    const numMatch = lowerPhrase.match(/(\d+)/);
-    const wordNumMatch = lowerPhrase.match(new RegExp(`\\b(${allNumberWords})\\b`, 'i'));
+        // 1. Extract quantity and unit
+        const words = lowerPhrase.split(' ');
+        let productNamePhrase = '';
 
-    if (numMatch) {
-      requestedQty = parseInt(numMatch[0], 10);
-      lowerPhrase = lowerPhrase.replace(numMatch[0], '').trim();
-    } else if (wordNumMatch) {
-      requestedQty = numberWords[wordNumMatch[0].toLowerCase()];
-      lowerPhrase = lowerPhrase.replace(wordNumMatch[0], '').trim();
-    }
+        for (let i = 0; i < words.length; i++) {
+            const word = words[i];
+            const nextWord = words[i + 1];
 
-    // 2. Extract units from all languages
-    for (const unitType in unitKeywords) {
-        const { aliases, type } = unitKeywords[unitType];
-        const unitRegex = new RegExp(`\\b(${aliases.join('|')})\\b`, 'i');
-        const unitMatch = lowerPhrase.match(unitRegex);
-        if (unitMatch) {
-            requestedUnit = type;
-            matchedUnitKeyword = unitMatch[0];
-            break;
+            // Check for digit quantity
+            if (!isNaN(parseInt(word))) {
+                requestedQty = parseInt(word);
+                // Check if next word is a unit
+                if (nextWord && unitKeywords[nextWord]) {
+                    requestedUnit = unitKeywords[nextWord].type;
+                    i++; // Skip the next word as it's a unit
+                }
+                continue;
+            }
+
+            // Check for word quantity
+            if (numberWords[word]) {
+                requestedQty = numberWords[word];
+                continue;
+            }
+
+            // Check for unit
+            if (unitKeywords[word]) {
+                requestedUnit = unitKeywords[word].type;
+                continue;
+            }
+
+            productNamePhrase += word + ' ';
         }
-    }
-    
-    if (matchedUnitKeyword) {
-      lowerPhrase = lowerPhrase.replace(new RegExp(`\\b${matchedUnitKeyword}\\b`, 'i'), '').trim();
-    }
+        productNamePhrase = productNamePhrase.trim();
 
-    // 3. Fuzzy match the remaining phrase for the product name
-    let bestMatch: { product: Product, alias: string, similarity: number, lang: string } | null = null;
-    for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
-      const similarity = calculateSimilarity(lowerPhrase, alias);
-      if (!bestMatch || similarity > bestMatch.similarity) {
-          if (similarity > 0.7) { // Set a higher threshold
-            bestMatch = { product, alias, similarity, lang };
+        // 2. Fuzzy match the remaining phrase for the product name
+        let bestMatch: { product: Product, alias: string, similarity: number, lang: string } | null = null;
+        for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
+            const similarity = calculateSimilarity(productNamePhrase, alias);
+            if (!bestMatch || similarity > bestMatch.similarity) {
+                if (similarity > 0.6) { // Lowered threshold for flexibility
+                    bestMatch = { product, alias, similarity, lang };
+                }
+            }
         }
-      }
-    }
-    
-    if (!bestMatch) return { product: null, variant: null, requestedQty: 1, remainingPhrase: phrase, matchedAlias: null, lang: 'en' };
 
-    const { product: productMatch, alias: matchedAlias, lang: detectedLang } = bestMatch;
-    let remainingPhrase = lowerPhrase.replace(matchedAlias, '').trim();
+        if (!bestMatch) {
+            return { product: null, variant: null, requestedQty: 1, remainingPhrase: phrase, matchedAlias: null, lang: 'en' };
+        }
 
-    let priceData = productPrices[productMatch.name.toLowerCase()];
-    if (priceData === undefined && firestore) {
-      await fetchProductPrices(firestore, [productMatch.name]);
-      priceData = useAppStore.getState().productPrices[productMatch.name.toLowerCase()];
-    }
-    
-    if (!priceData?.variants?.length) return { product: productMatch, variant: null, requestedQty: 1, remainingPhrase, matchedAlias, lang: detectedLang };
-    
-    // 4. Select the best variant based on the extracted unit
-    let chosenVariant: ProductVariant | null = null;
-    if (requestedUnit) {
-      chosenVariant = priceData.variants.find(v => v.weight.toLowerCase().includes(requestedUnit)) || null;
-    }
+        const { product: productMatch, alias: matchedAlias, lang: detectedLang } = bestMatch;
 
-    if (!chosenVariant) {
-      chosenVariant = 
-        priceData.variants.find(v => v.weight === '1kg') ||
-        priceData.variants.find(v => v.weight.includes('kg')) ||
-        priceData.variants.find(v => v.weight.includes('pc')) ||
-        priceData.variants[0];
-    }
-    
-    return { product: productMatch, variant: chosenVariant, requestedQty, remainingPhrase, matchedAlias, lang: detectedLang };
+        // 3. Find the best variant
+        let priceData = productPrices[productMatch.name.toLowerCase()];
+        if (!priceData && firestore) {
+            await fetchProductPrices(firestore, [productMatch.name]);
+            priceData = useAppStore.getState().productPrices[productMatch.name.toLowerCase()];
+        }
 
-  }, [firestore, productPrices, fetchProductPrices, universalProductAliasMap]);
+        if (!priceData?.variants?.length) {
+            return { product: productMatch, variant: null, requestedQty, remainingPhrase: productNamePhrase, matchedAlias, lang: detectedLang };
+        }
+
+        let chosenVariant: ProductVariant | null = null;
+        if (requestedUnit) {
+            chosenVariant = priceData.variants.find(v => v.weight.toLowerCase().includes(requestedUnit)) || null;
+        }
+
+        // Fallback variant logic
+        if (!chosenVariant) {
+            chosenVariant =
+                priceData.variants.find(v => v.weight === '1kg') ||
+                priceData.variants.find(v => v.weight.includes('kg')) ||
+                priceData.variants.find(v => v.weight.includes('pc')) ||
+                priceData.variants[0];
+        }
+
+        return { product: productMatch, variant: chosenVariant, requestedQty, remainingPhrase: productNamePhrase, matchedAlias, lang: detectedLang };
+
+    }, [firestore, productPrices, fetchProductPrices, universalProductAliasMap]);
 
   const recognizeIntent = useCallback((text: string, spokenLang: string): Intent => {
     const lowerText = text.toLowerCase();
@@ -1150,3 +1143,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
