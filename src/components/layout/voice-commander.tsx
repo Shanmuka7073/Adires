@@ -17,7 +17,7 @@ import { t, initializeTranslations } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import groceryData from '@/lib/grocery-data.json';
-import { getIngredientsForRecipe, answerGeneralQuestion } from '@/app/actions';
+import { getIngredientsForRecipe, answerGeneralQuestion, textToSpeech } from '@/app/actions';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache';
 
@@ -116,6 +116,7 @@ export function VoiceCommander({
   const isSpeakingRef = useRef(false);
   const isEnabledRef = useRef(enabled);
   const commandActionsRef = useRef<any>({});
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const formFieldToFillRef = useRef<any>(null);
   const [isWaitingForStoreName, setIsWaitingForStoreName] = useState(false);
@@ -252,21 +253,14 @@ export function VoiceCommander({
     setHasMounted(true);
     initializeTranslations(locales);
 
-    const getVoices = () => {
-      const allVoices = window.speechSynthesis.getVoices();
-      if (allVoices.length > 0) {
-        setSpeechSynthesisVoices(allVoices);
-      }
-    };
+    // Create a single audio element to be reused
+    audioRef.current = new Audio();
 
-    if ('onvoiceschanged' in window.speechSynthesis) {
-      window.speechSynthesis.onvoiceschanged = getVoices;
-    }
-    getVoices();
-
+    // Cleanup
     return () => {
-      if ('onvoiceschanged' in window.speechSynthesis) {
-        window.speechSynthesis.onvoiceschanged = null;
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
       }
     };
   }, [locales]);
@@ -292,81 +286,54 @@ export function VoiceCommander({
     }
 }, [enabled, language]);
 
-  const speak = useCallback((textOrReplies: string | string[], lang: string, onEndCallback?: () => void) => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) {
-      if (onEndCallback) onEndCallback();
-      return;
+  const speak = useCallback(async (textOrReplies: string | string[], lang: string, onEndCallback?: () => void) => {
+    if (typeof window === 'undefined' || !audioRef.current) {
+        if (onEndCallback) onEndCallback();
+        return;
     }
 
     if (recognition) {
         recognition.stop();
     }
-    window.speechSynthesis.cancel();
+
     isSpeakingRef.current = true;
-    
-    // If an array of replies is given, pick one at random.
-    const text = Array.isArray(textOrReplies) ? textOrReplies[Math.floor(Math.random() * textOrReplies.length)] : textOrReplies;
+    audioRef.current.pause();
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.pitch = 1;
-    utterance.rate = 1.1;
-    utterance.lang = lang;
+    const text = Array.isArray(textOrReplies)
+        ? textOrReplies[Math.floor(Math.random() * textOrReplies.length)]
+        : textOrReplies;
 
-    const allVoices = speechSynthesisVoices;
-    let selectedVoice: SpeechSynthesisVoice | null = null;
+    try {
+        const { audioDataUri } = await textToSpeech({ text, language: lang });
+        audioRef.current.src = audioDataUri;
 
-    if (lang.startsWith('en')) {
-        const preferredIndianVoice = allVoices.find(voice => voice.lang === 'en-IN' && /rishi|veena|aditi/i.test(voice.name));
-        if (preferredIndianVoice) {
-            selectedVoice = preferredIndianVoice;
-        } else {
-            const localIndianVoice = allVoices.find(voice => voice.lang === 'en-IN' && voice.localService);
-            if (localIndianVoice) {
-                selectedVoice = localIndianVoice;
-            } else {
-                const anyIndianVoice = allVoices.find(voice => voice.lang === 'en-IN');
-                if (anyIndianVoice) {
-                    selectedVoice = anyIndianVoice;
-                } else {
-                    selectedVoice = allVoices.find(voice => voice.lang.startsWith('en') && voice.localService) || allVoices.find(voice => voice.lang.startsWith('en')) || null;
-                }
+        const playPromise = audioRef.current.play();
+
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                console.error("Audio playback error:", error);
+                // Fallback to browser's native speech synthesis if AI TTS fails to play
+                isSpeakingRef.current = false;
+                 if (onEndCallback) onEndCallback();
+            });
+        }
+
+        audioRef.current.onended = () => {
+            isSpeakingRef.current = false;
+            if (onEndCallback) onEndCallback();
+            if (isEnabledRef.current && recognition) {
+                try {
+                    recognition.start();
+                } catch (e) {}
             }
-        }
-    } else {
-        selectedVoice = allVoices.find(voice => voice.lang === lang && voice.localService) || allVoices.find(voice => voice.lang === lang) || null;
-    }
-    
-    if (selectedVoice) {
-      utterance.voice = selectedVoice;
-    }
+        };
 
-    utterance.onend = () => {
-      isSpeakingRef.current = false;
-      if (onEndCallback) onEndCallback();
-      
-      if (isEnabledRef.current && recognition) {
-        try {
-            recognition.start();
-        } catch(e) {
-        }
-      }
-    };
-
-    utterance.onerror = (e) => {
-      if (e.error !== 'interrupted') {
-          console.error("Speech synthesis error:", e.error || 'Unknown speech error');
-      }
-      isSpeakingRef.current = false;
-      if (onEndCallback) onEndCallback();
-      if (isEnabledRef.current && recognition) {
-          try {
-              recognition.start();
-          } catch(e) {}
-      }
-    };
-    
-    window.speechSynthesis.speak(utterance);
-  }, [speechSynthesisVoices]);
+    } catch (error) {
+        console.error("Text-to-speech API call failed:", error);
+        isSpeakingRef.current = false;
+        if (onEndCallback) onEndCallback();
+    }
+}, []);
 
   const handleProfileFormInteraction = useCallback(() => {
     if (!profileForm) {
@@ -567,7 +534,7 @@ export function VoiceCommander({
     // --- INTENT RECOGNITION (REBUILT FOR RELIABILITY) ---
 
     // 1. WAKE WORD (Highest Priority): Check for an exact match to wake the AI.
-    const wakeWords = ["smart"];
+    const wakeWords = getAllAliases('who-are-you')['en'] || [];
     if (wakeWords.some(word => lowerText === word)) {
         return { type: 'WAKE_WORD', originalText: text, lang: spokenLang };
     }
