@@ -96,7 +96,8 @@ export const generalCommands: Record<string, CommandGroup> = {
         reply: [
             'I am the LocalBasket voice assistant, here to make your grocery shopping faster and easier. Now we are using AI.',
             'I\'m your personal shopping assistant for LocalBasket.',
-            'Yes, this is Shan. How can I help you today?'
+            'Yes, this is Shan. How can I help you today?',
+            'Hi, I am here. How can I help you?'
         ]
     },
     'how-it-works': { 
