@@ -16,7 +16,7 @@ import { t, initializeTranslations } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import groceryData from '@/lib/grocery-data.json';
-import { getIngredientsForRecipe, answerGeneralQuestion } from '@/app/actions';
+import { getIngredientsForRecipe, answerGeneralQuestion, generatePack } from '@/app/actions';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache';
 
@@ -129,6 +129,9 @@ export function VoiceCommander({
   const [isWaitingForQuantity, setIsWaitingForQuantity] = useState(false);
   const itemToUpdateSkuRef = useRef<string | null>(null);
   const [isAiModeActive, setIsAiModeActive] = useState(false);
+  
+  const [isWaitingForPackStoreConfirmation, setIsWaitingForPackStoreConfirmation] = useState(false);
+  const pendingPackRequestRef = useRef<{ packType: string; familySize: number; lang: string } | null>(null);
 
   const userProfileRef = useRef<User | null>(null);
 
@@ -197,6 +200,8 @@ export function VoiceCommander({
     formFieldToFillRef.current = null;
     setShouldPlaceOrderDirectly(false);
     setItemForPriceCheck(null);
+    setIsWaitingForPackStoreConfirmation(false);
+    pendingPackRequestRef.current = null;
     // Don't reset AI mode here, it's persistent now
   }, [onSuggestions, setIsWaitingForQuickOrderConfirmation, setShouldPlaceOrderDirectly]);
 
@@ -547,7 +552,7 @@ export function VoiceCommander({
     const packKeyword = intentKeywords.ADD_PACK.find(kw => lowerText.includes(kw));
     if (packKeyword) {
         const packTypeMatch = lowerText.match(/3-day|weekly|monthly/);
-        const packType = packTypeMatch ? packTypeMatch[0] : 'weekly';
+        const packType = packTypeMatch ? packTypeMatch[0] as "3-day" | "weekly" | "monthly" : 'weekly';
         const familySizeMatch = lowerText.match(/\d+/);
         const familySize = familySizeMatch ? parseInt(familySizeMatch[0]) : 2;
         return { type: 'ADD_PACK', packType, familySize, originalText: text, lang: spokenLang };
@@ -644,6 +649,31 @@ export function VoiceCommander({
     }
 
     // --- CONTEXTUAL RESPONSES ---
+    if (isWaitingForPackStoreConfirmation) {
+        let bestMatch: { store: Store, similarity: number } | null = null;
+        for (const [alias, store] of storeAliasMap.entries()) {
+            const similarity = calculateSimilarity(commandText.toLowerCase(), alias);
+            if (!bestMatch || similarity > bestMatch.similarity) {
+                bestMatch = { store, similarity: similarity };
+            }
+        }
+
+        if (bestMatch && bestMatch.similarity > 0.6 && pendingPackRequestRef.current) {
+            const store = bestMatch.store;
+            speak(t('okay-ordering-from-speech', spokenLang).replace('{storeName}', store.name), langWithRegion, async () => {
+                setActiveStoreId(store.id);
+                // Now execute the pending pack request
+                await commandActionsRef.current.addPackToCart({
+                    ...pendingPackRequestRef.current,
+                    storeId: store.id // Pass the newly selected store ID
+                });
+            });
+        } else {
+             speak(t('could-not-find-store-speech', spokenLang).replace('{storeName}', commandText), langWithRegion);
+        }
+        resetAllContext();
+        return;
+    }
     if (itemForPriceCheck) {
         const yesKeywords = ['yes', 'add', 'buy', 'okay', 'yep', 'yeah', 'సరే', 'అవును'];
         const noKeywords = ['no', 'cancel', 'stop', 'వద్దు', 'cancel'];
@@ -818,11 +848,11 @@ export function VoiceCommander({
             break;
     }
     
-    if (!itemForPriceCheck) {
+    if (!itemForPriceCheck && !isWaitingForPackStoreConfirmation) {
         resetAllContext();
     }
 
-  }, [firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp.length, setLanguage, addItemToCart, onOpenCart, locales, commands, getAllAliases, t, triggerVoicePrompt, itemForPriceCheck, recognizeIntent, isAiModeActive]);
+  }, [firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp.length, setLanguage, addItemToCart, onOpenCart, locales, commands, getAllAliases, t, triggerVoicePrompt, itemForPriceCheck, recognizeIntent, isAiModeActive, isWaitingForPackStoreConfirmation]);
 
 
   useEffect(() => {
@@ -1097,14 +1127,20 @@ export function VoiceCommander({
             }
         }
     },
-     addPackToCart: async ({ packType, familySize, lang }) => {
-        if (!firestore || !activeStoreId) {
-            speak("Please select a store before adding a pack.", lang + '-IN');
+    addPackToCart: async ({ packType, familySize, lang, storeId: forcedStoreId }) => {
+        const storeId = forcedStoreId || activeStoreId;
+        const langWithRegion = lang === 'en' ? 'en-IN' : `${lang}-IN`;
+
+        if (!firestore) return;
+        if (!storeId) {
+            speak("Which store would you like to order that pack from?", langWithRegion);
+            setIsWaitingForPackStoreConfirmation(true);
+            pendingPackRequestRef.current = { packType, familySize, lang };
             return;
         }
 
         const packName = `${packType.charAt(0).toUpperCase() + packType.slice(1)} Pack for ${familySize}`;
-        const q = query(collection(firestore, `stores/${activeStoreId}/packages`), where('name', '==', packName));
+        const q = query(collection(firestore, `stores/${storeId}/packages`), where('name', '==', packName));
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
@@ -1115,13 +1151,26 @@ export function VoiceCommander({
         const pack = querySnapshot.docs[0].data() as MonthlyPackage;
         speak(`Found the ${pack.name}. Adding ${pack.items.length} items to your cart now.`, lang + '-IN');
         
+        // Ensure all required product prices are fetched
+        const productNamesToFetch = pack.items.map(item => item.name);
+        await fetchProductPrices(firestore, productNamesToFetch);
+
+        // A short delay to allow state to update with prices
+        await new Promise(resolve => setTimeout(resolve, 200)); 
+
+        const latestPrices = useAppStore.getState().productPrices;
+
         let itemsAdded = 0;
         for (const item of pack.items) {
-            // A simplified findProductAndVariant for packs
-            const { product, variant } = await findProductAndVariant(item.name);
-            if(product && variant) {
-                addItemToCart(product, variant, 1); // Assume qty 1 for simplicity from pack
-                itemsAdded++;
+            const product = masterProducts.find(p => p.name === item.name);
+            const priceData = latestPrices[item.name.toLowerCase()];
+            if (product && priceData?.variants) {
+                // Find a variant that somewhat matches the quantity string
+                const bestVariant = priceData.variants.find(v => item.quantity.includes(v.weight)) || priceData.variants[0];
+                if (bestVariant) {
+                    addItemToCart(product, bestVariant, 1);
+                    itemsAdded++;
+                }
             }
         }
         if (itemsAdded > 0) {
