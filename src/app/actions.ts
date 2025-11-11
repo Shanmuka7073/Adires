@@ -7,6 +7,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { recipeIngredientsFlow, RecipeIngredientsInput, RecipeIngredientsOutput } from '@/ai/flows/recipe-ingredients-flow';
+import { generalQuestionFlow, GeneralQuestionInput, GeneralQuestionOutput } from '@/ai/flows/general-question-flow';
+
 
 // This function is for demonstration and does not use Firebase.
 export async function indexSiteContent() {
@@ -55,3 +57,11 @@ export async function getIngredientsForRecipe(input: RecipeIngredientsInput): Pr
     return recipeIngredientsFlow(input);
 }
     
+/**
+ * An async function that runs the Genkit flow to answer a general question.
+ * @param input The user's question.
+ * @returns A promise that resolves to the AI's answer.
+ */
+export async function answerGeneralQuestion(input: GeneralQuestionInput): Promise<GeneralQuestionOutput> {
+    return generalQuestionFlow(input);
+}

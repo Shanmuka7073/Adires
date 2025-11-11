@@ -17,7 +17,7 @@ import { t, initializeTranslations } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import groceryData from '@/lib/grocery-data.json';
-import { getIngredientsForRecipe } from '@/app/actions';
+import { getIngredientsForRecipe, answerGeneralQuestion } from '@/app/actions';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 
 
@@ -615,8 +615,14 @@ export function VoiceCommander({
       return { type: 'CONVERSATIONAL', commandKey: bestCommandMatch.key, originalText: text, lang: spokenLang };
     }
     
-    // Default to ORDER_ITEM if no other intent is strongly matched
-    return { type: 'ORDER_ITEM', originalText: text, lang: spokenLang };
+    // Default to ORDER_ITEM if no other intent is strongly matched and it contains order keywords
+    if (intentKeywords.ORDER_ITEM.some(kw => lowerText.includes(kw))) {
+        return { type: 'ORDER_ITEM', originalText: text, lang: spokenLang };
+    }
+
+    // If nothing else matches, it's an UNKNOWN/general question
+    return { type: 'UNKNOWN', originalText: text, lang: spokenLang };
+
 
   }, [commands, getAllAliases]);
 
@@ -792,11 +798,17 @@ export function VoiceCommander({
 
         case 'UNKNOWN':
         default:
-            speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
-            if (firestore && user) {
-                addDoc(collection(firestore, 'failedCommands'), {
-                    userId: user.uid, commandText, language: spokenLang, reason: 'Unknown intent', timestamp: serverTimestamp(),
-                });
+            try {
+                const result = await answerGeneralQuestion({ question: commandText });
+                speak(result.answer, langWithRegion);
+            } catch (error) {
+                console.error("General question failed:", error);
+                speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
+                if (firestore && user) {
+                    addDoc(collection(firestore, 'failedCommands'), {
+                        userId: user.uid, commandText, language: spokenLang, reason: 'UNKNOWN intent & AI fallback failed', timestamp: serverTimestamp(),
+                    });
+                }
             }
             break;
     }
