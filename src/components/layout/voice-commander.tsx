@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -1168,7 +1169,6 @@ export function VoiceCommander({
 
         if (!firestore) return;
 
-        // Find the admin "LocalBasket" store to get the canonical pack definition
         const adminStore = stores.find(s => s.name === 'LocalBasket');
         if (!adminStore) {
             speak("I'm sorry, I can't find the master pack list right now. The administrator needs to create a 'LocalBasket' store.", langWithRegion);
@@ -1176,11 +1176,20 @@ export function VoiceCommander({
         }
 
         const packName = `${packType} pack for ${familySize}`;
-        const q = query(collection(firestore, `stores/${adminStore.id}/packages`), where('name', '==', packName));
-        const querySnapshot = await getDocs(q);
+        const packCollectionRef = collection(firestore, `stores/${adminStore.id}/packages`);
+
+        // First, try to find the specific pack (e.g., 'weekly pack for 5')
+        let q = query(packCollectionRef, where('name', '==', packName));
+        let querySnapshot = await getDocs(q);
+
+        // If not found, try a more general search for the same family size
+        if (querySnapshot.empty) {
+            q = query(packCollectionRef, where('memberCount', '==', familySize));
+            querySnapshot = await getDocs(q);
+        }
 
         if (querySnapshot.empty) {
-            speak(`I'm sorry, I couldn't find a ${packType} pack for ${familySize} members. You can ask the store owner to create one.`, langWithRegion);
+            speak(`I'm sorry, I couldn't find a pack for ${familySize} members. You can ask the store owner to create one.`, langWithRegion);
             return;
         }
 
@@ -1196,15 +1205,11 @@ export function VoiceCommander({
 
         let itemsAdded = 0;
         for (const item of pack.items) {
-            // Important: We need to find the product in masterProducts to get its full details
             const product = masterProducts.find(p => p.name === item.name);
             const priceData = latestPrices[item.name.toLowerCase()];
             
             if (product && priceData?.variants) {
-                // Since this is a master pack, we add the product with the master store's ID.
-                // The cart logic will handle starting a new cart if needed.
                 const productWithCorrectStore = { ...product, storeId: adminStore.id };
-
                 const bestVariant = priceData.variants.find(v => item.quantity.includes(v.weight)) || priceData.variants[0];
                 if (bestVariant) {
                     addItemToCart(productWithCorrectStore, bestVariant, 1);
@@ -1241,3 +1246,4 @@ export function VoiceCommander({
 
   return null;
 }
+
