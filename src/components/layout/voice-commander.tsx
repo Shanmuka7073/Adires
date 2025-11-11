@@ -1175,7 +1175,7 @@ export function VoiceCommander({
             return;
         }
 
-        const packName = `${packType.charAt(0).toUpperCase() + packType.slice(1)} Pack for ${familySize}`;
+        const packName = `${packType} pack for ${familySize}`;
         const q = query(collection(firestore, `stores/${adminStore.id}/packages`), where('name', '==', packName));
         const querySnapshot = await getDocs(q);
 

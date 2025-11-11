@@ -41,7 +41,7 @@ function PackGenerator({ storeId }: { storeId: string }) {
     const handleSavePack = async () => {
         if (!firestore || !generatedItems || !storeId) return;
 
-        const packName = `${duration.charAt(0).toUpperCase() + duration.slice(1)} Pack for ${familySize}`;
+        const packName = `${duration} pack for ${familySize}`;
         const newPack: Omit<MonthlyPackage, 'id' | 'price'> = {
             storeId,
             name: packName,
