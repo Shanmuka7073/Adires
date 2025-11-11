@@ -563,36 +563,36 @@ export function VoiceCommander({
   const recognizeIntent = useCallback((text: string, spokenLang: string): Intent => {
     const lowerText = text.toLowerCase().trim();
     
+    // --- INTENT RECOGNITION (REBUILT FOR RELIABILITY) ---
+
+    // 1. WAKE WORD (Highest Priority): Check for an exact match to wake the AI.
     const wakeWordAliases = (getAllAliases('who-are-you')['en'] || []).concat(getAllAliases('who-are-you')['te'] || []);
-    
-    // Check for exact match on wake words first
     if (wakeWordAliases.some(alias => lowerText === alias.toLowerCase())) {
         return { type: 'WAKE_WORD', originalText: text, lang: spokenLang };
     }
 
-    // Check for recipe intent first, as it's very specific
+    // 2. RECIPE (Specific keywords): Check for recipe requests.
     const recipeKeyword = intentKeywords.GET_RECIPE.find(kw => lowerText.includes(kw));
     if (recipeKeyword) {
         const dishName = lowerText.replace(recipeKeyword, '').trim();
         return { type: 'GET_RECIPE', dishName, originalText: text, lang: spokenLang };
     }
 
-    // Check for "check price" intent
+    // 3. CHECK PRICE (Specific keywords):
     const priceKeyword = intentKeywords.CHECK_PRICE.find(kw => lowerText.includes(kw));
     if (priceKeyword) {
         const productPhrase = lowerText.replace(priceKeyword, '').trim();
         return { type: 'CHECK_PRICE', productPhrase, originalText: text, lang: spokenLang };
     }
     
-    // Check for "show details" intent
+    // 4. SHOW DETAILS (Specific keywords):
     const detailsKeyword = intentKeywords.SHOW_DETAILS.find(kw => lowerText.includes(kw));
     if (detailsKeyword) {
         const target = lowerText.replace(detailsKeyword, '').trim();
         return { type: 'SHOW_DETAILS', target, originalText: text, lang: spokenLang };
     }
 
-
-    // Check for conversational commands
+    // 5. CONVERSATIONAL/NAVIGATIONAL COMMANDS: Match against defined commands.
     let bestCommandMatch: { key: string, similarity: number } | null = null;
     for (const key in commands) {
       const commandAliases = getAllAliases(key);
@@ -613,17 +613,12 @@ export function VoiceCommander({
       }
       return { type: 'CONVERSATIONAL', commandKey: bestCommandMatch.key, originalText: text, lang: spokenLang };
     }
-    
-    // Default to ORDER_ITEM if no other intent is strongly matched and it contains order keywords
-    if (intentKeywords.ORDER_ITEM.some(kw => lowerText.includes(kw)) || universalProductAliasMap.has(lowerText)) {
-        return { type: 'ORDER_ITEM', originalText: text, lang: spokenLang };
-    }
 
-    // If nothing else matches, it's an UNKNOWN/general question
-    return { type: 'UNKNOWN', originalText: text, lang: spokenLang };
+    // 6. ORDER ITEM (Default Action): If it's not a wake word or a specific command, assume it's an item to order.
+    // This is the most common action, so it's a safe fallback.
+    return { type: 'ORDER_ITEM', originalText: text, lang: spokenLang };
 
-
-  }, [commands, getAllAliases, universalProductAliasMap]);
+  }, [commands, getAllAliases]);
 
 
   const handleCommand = useCallback(async (commandText: string) => {
@@ -1139,6 +1134,8 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
 
     
 
