@@ -1,11 +1,55 @@
 'use server';
 
-// This file is being repurposed to only contain non-Firebase server actions.
-// All Firebase-related logic has been moved to the client to ensure stability.
-
 import { revalidatePath } from 'next/cache';
-import { getIngredientsForRecipe } from '@/ai/flows/recipe-ingredients-flow';
-import { answerGeneralQuestion } from '@/ai/flows/general-question-flow';
+import { getIngredientsForRecipe as getIngredientsFlow } from '@/ai/flows/recipe-ingredients-flow';
+import { answerGeneralQuestion as answerGeneralQuestionFlow } from '@/ai/flows/general-question-flow';
+import type { RecipeIngredientsInput, RecipeIngredientsOutput, GeneralQuestionInput, GeneralQuestionOutput } from '@/ai/flows/schemas';
+
+
+const MAX_RETRIES = 5;
+const INITIAL_BACKOFF_MS = 1000; // Start with 1 second
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+
+async function withRetries<T, U>(flowFunction: (input: T) => Promise<U>, input: T): Promise<U> {
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      // Attempt to run the Genkit flow
+      const response = await flowFunction(input);
+      // Success! Return the response immediately
+      return response;
+    } catch (error) {
+      const errorString = error instanceof Error ? error.message : String(error);
+      
+      // Check for the specific 503 error message
+      if (errorString.includes('[503 Service Unavailable]') && attempt < MAX_RETRIES - 1) {
+        
+        // Calculate exponential backoff time
+        const backoffTime = INITIAL_BACKOFF_MS * Math.pow(2, attempt);
+        const jitter = Math.random() * 500; // Add some randomness
+        const waitTime = backoffTime + jitter;
+
+        console.warn(`Attempt ${attempt + 1} failed (503). Retrying in ${Math.round(waitTime / 1000)}s...`);
+        await delay(waitTime); // Wait before the next attempt
+
+      } else {
+        // Final attempt failed OR it's a non-retryable error
+        console.error(`Final flow attempt failed on attempt ${attempt + 1} or received a non-retryable error:`, error);
+        throw new Error('AI service failed after multiple retries. Please try again later.');
+      }
+    }
+  }
+  // This should be unreachable if MAX_RETRIES > 0, but included for type safety
+  throw new Error('Failed to connect to AI service.');
+}
+
+export async function getIngredientsForRecipe(input: RecipeIngredientsInput): Promise<RecipeIngredientsOutput> {
+    return withRetries(getIngredientsFlow, input);
+}
+
+export async function answerGeneralQuestion(input: GeneralQuestionInput): Promise<GeneralQuestionOutput> {
+    return withRetries(answerGeneralQuestionFlow, input);
+}
 
 
 // This function is for demonstration and does not use Firebase.
@@ -44,7 +88,3 @@ export async function getSystemStatus(): Promise<{ userCount: number, status: 'o
         };
     }
 }
-
-// We re-export the server actions from the flow files here to keep a single
-// point of entry for client-side calls.
-export { getIngredientsForRecipe, answerGeneralQuestion };

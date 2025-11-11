@@ -41,7 +41,6 @@ const recipeIngredientsFlow = ai.defineFlow(
     name: 'recipeIngredientsFlow',
     inputSchema: RecipeIngredientsInputSchema,
     outputSchema: RecipeIngredientsOutputSchema,
-    retries: 3, // Add retry logic for server-side errors
   },
   async (input) => {
     const { output } = await getIngredientsPrompt(input);

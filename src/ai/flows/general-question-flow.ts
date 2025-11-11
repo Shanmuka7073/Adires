@@ -38,7 +38,6 @@ const generalQuestionFlow = ai.defineFlow(
     name: 'generalQuestionFlow',
     inputSchema: GeneralQuestionInputSchema,
     outputSchema: GeneralQuestionOutputSchema,
-    retries: 3, // Add retry logic for server-side errors
   },
   async (input) => {
     // The client-side logic in VoiceCommander now handles caching.
