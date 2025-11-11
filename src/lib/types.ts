@@ -1,4 +1,5 @@
 
+
 import { Timestamp } from "firebase/firestore";
 
 export type ProductVariant = {
@@ -145,3 +146,15 @@ export type CachedAIResponse = {
     answer: string;
     createdAt: any; // Allow serverTimestamp
 }
+
+export type MonthlyPackage = {
+    id: string;
+    storeId: string;
+    name: string;
+    memberCount: number;
+    price: number;
+    items: {
+        name: string;
+        quantity: string;
+    }[];
+};

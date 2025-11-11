@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Package2, Menu, UserCircle, Store, ShoppingBag, Truck, LayoutDashboard, Mic, MicOff, Globe, Check, Sparkles } from 'lucide-react';
+import { Package2, Menu, UserCircle, Store, ShoppingBag, Truck, LayoutDashboard, Mic, MicOff, Globe, Check, Sparkles, Box } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -128,6 +128,12 @@ function UserMenu() {
                     </DropdownMenuItem>
                 </Link>
             ))}
+             <Link href="/dashboard/owner/packs" passHref>
+                <DropdownMenuItem>
+                    <Box className="mr-2 h-4 w-4" />
+                    <span>Manage Packs</span>
+                </DropdownMenuItem>
+            </Link>
           </>
         )}
         {isAdmin && (
@@ -138,6 +144,12 @@ function UserMenu() {
                     <DropdownMenuItem>
                         <Store className="mr-2 h-4 w-4" />
                         <span>{t('master-store')}</span>
+                    </DropdownMenuItem>
+                </Link>
+                 <Link href="/dashboard/owner/packs" passHref>
+                    <DropdownMenuItem>
+                        <Box className="mr-2 h-4 w-4" />
+                        <span>Manage Packs</span>
                     </DropdownMenuItem>
                 </Link>
             </>
@@ -286,6 +298,15 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
                                 >
                                     <Store className="h-4 w-4" />
                                     {t('master-store')}
+                                </Link>
+                            </SheetClose>
+                             <SheetClose asChild>
+                                <Link
+                                    href="/dashboard/owner/packs"
+                                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary"
+                                >
+                                    <Box className="h-4 w-4" />
+                                    <span>Manage Packs</span>
                                 </Link>
                             </SheetClose>
                         </>

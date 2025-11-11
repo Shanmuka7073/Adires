@@ -1,8 +1,9 @@
 
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, Truck, ShoppingBag, AlertCircle, ArrowRight, Settings, Mic, MessageSquareWarning, List, FileText, Server, Sparkles } from 'lucide-react';
+import { Users, Store, Truck, ShoppingBag, AlertCircle, ArrowRight, Settings, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -216,6 +217,12 @@ export default function AdminDashboardPage() {
                         description="See a complete list of all products available on the platform."
                         href="/dashboard/admin/product-list"
                         icon={List}
+                    />
+                    <AdminActionCard 
+                        title="Manage Grocery Packs"
+                        description="Use AI to generate and manage weekly or monthly grocery packs."
+                        href="/dashboard/owner/packs"
+                        icon={Box}
                     />
                     <AdminActionCard 
                         title="voice-commands-control"

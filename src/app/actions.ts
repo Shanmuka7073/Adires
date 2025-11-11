@@ -1,14 +1,18 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import { getIngredientsForRecipe as getIngredientsFlow } from '@/ai/flows/recipe-ingredients-flow';
 import { answerGeneralQuestion as answerGeneralQuestionFlow } from '@/ai/flows/general-question-flow';
+import { generatePack as generatePackFlow } from '@/ai/flows/generate-pack-flow';
 
 import type { 
     RecipeIngredientsInput, 
     RecipeIngredientsOutput, 
     GeneralQuestionInput, 
     GeneralQuestionOutput,
+    GeneratePackInput,
+    GeneratePackOutput
 } from '@/ai/flows/schemas';
 
 
@@ -55,6 +59,10 @@ export async function getIngredientsForRecipe(input: RecipeIngredientsInput): Pr
 
 export async function answerGeneralQuestion(input: GeneralQuestionInput): Promise<GeneralQuestionOutput> {
     return withRetries(answerGeneralQuestionFlow, input);
+}
+
+export async function generatePack(input: GeneratePackInput): Promise<GeneratePackOutput> {
+    return withRetries(generatePackFlow, input);
 }
 
 

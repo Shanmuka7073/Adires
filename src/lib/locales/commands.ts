@@ -40,6 +40,10 @@ export const generalCommands: Record<string, CommandGroup> = {
         display: 'My Profile', 
         reply: ['Here is your profile information.', 'Opening your profile for you to edit.'] 
     },
+     'managePacks': {
+        display: 'Manage Packs',
+        reply: 'Opening the pack management page.'
+    },
     'checkout': { 
         display: 'Proceed to Checkout', 
         reply: 'Okay, let\'s complete your order.' // This one is better as a single, clear action.

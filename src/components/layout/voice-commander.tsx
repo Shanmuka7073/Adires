@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, errorEmitter } from '@/firebase';
-import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, VoiceAlias } from '@/lib/types';
+import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, VoiceAlias, MonthlyPackage } from '@/lib/types';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
 import { useAppStore } from '@/lib/store';
@@ -13,7 +13,7 @@ import { useProfileFormStore } from '@/app/dashboard/customer/my-profile/page';
 import { useCheckoutStore } from '@/app/checkout/page';
 import { useMyStorePageStore } from '@/lib/store';
 import { t, initializeTranslations } from '@/lib/locales';
-import { doc, getDoc, serverTimestamp, addDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, addDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import groceryData from '@/lib/grocery-data.json';
 import { getIngredientsForRecipe, answerGeneralQuestion } from '@/app/actions';
@@ -56,6 +56,7 @@ type Intent =
   | { type: 'CONVERSATIONAL', commandKey: string, originalText: string, lang: string }
   | { type: 'GET_RECIPE', dishName: string, originalText: string, lang: string }
   | { type: 'SHOW_DETAILS', target: string, originalText: string, lang: string }
+  | { type: 'ADD_PACK', packType: string, familySize: number, originalText: string, lang: string }
   | { type: 'WAKE_WORD', originalText: string, lang: string }
   | { type: 'UNKNOWN', originalText: string, lang: string };
 
@@ -66,6 +67,7 @@ const intentKeywords = {
   CONVERSATIONAL: ['help', 'what can', 'who are you', 'how does'],
   GET_RECIPE: ['recipe for', 'ingredients for', 'how to make', 'కోసం కావలసినవి', 'ఎలా చేయాలి'],
   SHOW_DETAILS: ['details for', 'show details', 'view details', 'వివరాలు చూపించు'],
+  ADD_PACK: ['pack for', 'package for', 'ప్యాక్'],
 };
 
 
@@ -535,36 +537,44 @@ export function VoiceCommander({
   const recognizeIntent = useCallback((text: string, spokenLang: string): Intent => {
     const lowerText = text.toLowerCase().trim();
     
-    // --- INTENT RECOGNITION (REBUILT FOR RELIABILITY) ---
-
-    // 1. WAKE WORD (Highest Priority): Check for an exact match to wake the AI.
+    // 1. WAKE WORD
     const wakeWords = (getAllAliases('who-are-you')['en'] || []).concat(['smart', 'ai']);
     if (wakeWords.some(word => lowerText.includes(word))) {
         return { type: 'WAKE_WORD', originalText: text, lang: spokenLang };
     }
 
-    // 2. RECIPE (Specific keywords): Check for recipe requests.
+    // 2. ADD PACK
+    const packKeyword = intentKeywords.ADD_PACK.find(kw => lowerText.includes(kw));
+    if (packKeyword) {
+        const packTypeMatch = lowerText.match(/3-day|weekly|monthly/);
+        const packType = packTypeMatch ? packTypeMatch[0] : 'weekly';
+        const familySizeMatch = lowerText.match(/\d+/);
+        const familySize = familySizeMatch ? parseInt(familySizeMatch[0]) : 2;
+        return { type: 'ADD_PACK', packType, familySize, originalText: text, lang: spokenLang };
+    }
+
+    // 3. RECIPE
     const recipeKeyword = intentKeywords.GET_RECIPE.find(kw => lowerText.includes(kw));
     if (recipeKeyword) {
         const dishName = lowerText.replace(recipeKeyword, '').trim();
         return { type: 'GET_RECIPE', dishName, originalText: text, lang: spokenLang };
     }
 
-    // 3. CHECK PRICE (Specific keywords):
+    // 4. CHECK PRICE
     const priceKeyword = intentKeywords.CHECK_PRICE.find(kw => lowerText.includes(kw));
     if (priceKeyword) {
         const productPhrase = lowerText.replace(priceKeyword, '').trim();
         return { type: 'CHECK_PRICE', productPhrase, originalText: text, lang: spokenLang };
     }
     
-    // 4. SHOW DETAILS (Specific keywords):
+    // 5. SHOW DETAILS
     const detailsKeyword = intentKeywords.SHOW_DETAILS.find(kw => lowerText.includes(kw));
     if (detailsKeyword) {
         const target = lowerText.replace(detailsKeyword, '').trim();
         return { type: 'SHOW_DETAILS', target, originalText: text, lang: spokenLang };
     }
 
-    // 5. CONVERSATIONAL/NAVIGATIONAL COMMANDS: Match against defined commands.
+    // 6. CONVERSATIONAL/NAVIGATIONAL COMMANDS
     let bestCommandMatch: { key: string, similarity: number } | null = null;
     for (const key in commands) {
       const commandAliases = getAllAliases(key);
@@ -588,8 +598,7 @@ export function VoiceCommander({
       return { type: 'CONVERSATIONAL', commandKey: bestCommandMatch.key, originalText: text, lang: spokenLang };
     }
 
-    // 6. ORDER ITEM (Default Action): If it's not a wake word or a specific command, assume it's an item to order.
-    // This is the most common action, so it's a safe fallback.
+    // 7. ORDER ITEM (Default Action)
     return { type: 'ORDER_ITEM', originalText: text, lang: spokenLang };
 
   }, [commands, getAllAliases]);
@@ -610,7 +619,6 @@ export function VoiceCommander({
         updateRecognitionLanguage(langWithRegion);
     }
     
-    // --- PERSISTENT AI MODE LOGIC ---
     if (isAiModeActive) {
         const quitKeywords = ['quit', 'exit', 'stop', 'ఆపు', 'బయటకు రా'];
         if (quitKeywords.some(kw => commandText.toLowerCase().includes(kw))) {
@@ -619,26 +627,23 @@ export function VoiceCommander({
             return;
         }
 
-        // --- Caching Logic ---
         const cachedAnswer = await getCachedAIResponse(firestore, commandText);
         if (cachedAnswer) {
             speak(cachedAnswer, langWithRegion);
         } else {
-            // Send to Gemini for a general answer
             try {
                 const result = await answerGeneralQuestion({ question: commandText });
                 speak(result.answer, langWithRegion);
-                // Cache the new response
                 await cacheAIResponse(firestore, commandText, result.answer);
             } catch (error) {
                 console.error("General question failed:", error);
                 speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
             }
         }
-        return; // Stay in AI mode
+        return;
     }
 
-    // --- PRIORITY 0: CONTEXTUAL RESPONSES (State Machine) ---
+    // --- CONTEXTUAL RESPONSES ---
     if (itemForPriceCheck) {
         const yesKeywords = ['yes', 'add', 'buy', 'okay', 'yep', 'yeah', 'సరే', 'అవును'];
         const noKeywords = ['no', 'cancel', 'stop', 'వద్దు', 'cancel'];
@@ -655,9 +660,8 @@ export function VoiceCommander({
         } else if (noKeywords.some(kw => commandText.toLowerCase().includes(kw))) {
             speak("Okay.", langWithRegion);
         } else {
-            // If it's not a yes/no, treat it as a new command
             setItemForPriceCheck(null);
-            handleCommand(commandText); // Re-process the command
+            handleCommand(commandText);
             return;
         }
         resetAllContext();
@@ -683,7 +687,7 @@ export function VoiceCommander({
             }
         }
         resetAllContext();
-        triggerVoicePrompt(); // Ask the next question
+        triggerVoicePrompt();
         return;
     }
 
@@ -719,7 +723,6 @@ export function VoiceCommander({
         return;
     }
     
-    // --- Multi-Item Logic ---
     const multiItemSeparators = ['and', 'మరియు'];
     const separatorUsed = multiItemSeparators.find(sep => commandText.toLowerCase().includes(` ${sep} `));
     
@@ -730,15 +733,13 @@ export function VoiceCommander({
         return;
     }
 
-
-    // --- INTENT-BASED LOGIC ---
     const intent = recognizeIntent(commandText, spokenLang);
 
     switch (intent.type) {
         case 'WAKE_WORD':
             setIsAiModeActive(true);
             speak("I'm here to help. You can ask me anything. Just say 'quit' to exit.", langWithRegion);
-            return; // Important: return here to wait for the next command in AI mode
+            return;
 
         case 'GET_RECIPE':
             await commandActionsRef.current.getRecipe({ dishName: intent.dishName, lang: intent.lang });
@@ -750,6 +751,10 @@ export function VoiceCommander({
         
         case 'SHOW_DETAILS':
             commandActionsRef.current.showDetails({ target: intent.target, lang: intent.lang });
+            break;
+        
+        case 'ADD_PACK':
+            await commandActionsRef.current.addPackToCart({ packType: intent.packType, familySize: intent.familySize, lang: intent.lang });
             break;
         
         case 'NAVIGATE':
@@ -813,7 +818,6 @@ export function VoiceCommander({
             break;
     }
     
-    // Do not reset context if we are now waiting for a price check response
     if (!itemForPriceCheck) {
         resetAllContext();
     }
@@ -870,7 +874,7 @@ export function VoiceCommander({
       deliveries: (params) => router.push('/dashboard/delivery/deliveries'),
       myStore: (params) => router.push('/dashboard/owner/my-store'),
       myProfile: (params) => router.push('/dashboard/customer/my-profile'),
-      installApp: (params) => router.push('/install'),
+      managePacks: (params) => router.push('/dashboard/owner/packs'),
       checkout: (params: { lang: string }) => {
         const lang = params.lang || language;
         onCloseCart();
@@ -977,7 +981,6 @@ export function VoiceCommander({
       },
       showDetails: ({ target, lang }) => {
         if (pathname === '/dashboard/delivery/deliveries') {
-            // Very simple logic: click the first details button it finds.
             const detailsButton = document.querySelector('[id^="details-btn-"]') as HTMLButtonElement | null;
             if (detailsButton) {
                 speak("Showing details for the first group.", lang + '-IN');
@@ -1021,7 +1024,7 @@ export function VoiceCommander({
             .replace('{prices}', pricesString);
           
           speak(`${reply} Would you like to add it to your cart?`, detectedLang + '-IN');
-          setItemForPriceCheck(product); // --- NEW: Set context for next command ---
+          setItemForPriceCheck(product);
           return;
 
         } else {
@@ -1045,17 +1048,14 @@ export function VoiceCommander({
         
         try {
             if (!firestore) throw new Error("Firestore not available");
-            // Check cache first
             let ingredients = await getCachedRecipe(firestore, dishName);
 
             if (ingredients) {
                 speak(`I found a cached recipe. The ingredients for ${dishName} are: ${ingredients.join(', ')}`, langWithRegion);
             } else {
-                // If not in cache, call the AI flow
                 const result = await getIngredientsForRecipe({ dishName });
                 ingredients = result.ingredients;
                 speak(`The ingredients for ${dishName} are: ${ingredients.join(', ')}`, langWithRegion);
-                // Cache the new recipe
                 await cacheRecipe(firestore, dishName, ingredients);
             }
 
@@ -1096,7 +1096,38 @@ export function VoiceCommander({
                 addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: lang, reason: `Multi-order: No products found. Failed items: ${failedItems.join(', ')}`, timestamp: serverTimestamp() });
             }
         }
-    }
+    },
+     addPackToCart: async ({ packType, familySize, lang }) => {
+        if (!firestore || !activeStoreId) {
+            speak("Please select a store before adding a pack.", lang + '-IN');
+            return;
+        }
+
+        const packName = `${packType.charAt(0).toUpperCase() + packType.slice(1)} Pack for ${familySize}`;
+        const q = query(collection(firestore, `stores/${activeStoreId}/packages`), where('name', '==', packName));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            speak(`I'm sorry, I couldn't find a ${packType} pack for ${familySize} members in this store.`, lang + '-IN');
+            return;
+        }
+
+        const pack = querySnapshot.docs[0].data() as MonthlyPackage;
+        speak(`Found the ${pack.name}. Adding ${pack.items.length} items to your cart now.`, lang + '-IN');
+        
+        let itemsAdded = 0;
+        for (const item of pack.items) {
+            // A simplified findProductAndVariant for packs
+            const { product, variant } = await findProductAndVariant(item.name);
+            if(product && variant) {
+                addItemToCart(product, variant, 1); // Assume qty 1 for simplicity from pack
+                itemsAdded++;
+            }
+        }
+        if (itemsAdded > 0) {
+            onOpenCart();
+        }
+    },
   };
 
 
@@ -1122,5 +1153,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    
