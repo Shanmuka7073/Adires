@@ -23,7 +23,7 @@ export type RecipeIngredientsOutput = z.infer<typeof RecipeIngredientsOutputSche
 const getIngredientsPrompt = ai.definePrompt(
   {
     name: 'getIngredientsPrompt',
-    model: 'googleai/gemini-2.5-flash',
+    model: 'googleai/gemini-1.5-pro',
     input: { schema: RecipeIngredientsInputSchema },
     output: { schema: RecipeIngredientsOutputSchema },
     prompt: `You are an expert chef. Provide a list of ingredients for the following dish: {{{dishName}}}.
