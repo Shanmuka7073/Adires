@@ -33,6 +33,7 @@ import { Command } from './voice-commander';
 import { useToast } from '@/hooks/use-toast';
 import { t } from '@/lib/locales';
 import { useAppStore } from '@/lib/store';
+import { InstallPwaButton } from './install-pwa-button';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -295,7 +296,8 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
         </SheetContent>
       </Sheet>
       
-      <div className="flex w-full items-center justify-end gap-4 md:ml-auto md:gap-2 lg:gap-4">
+      <div className="flex w-full items-center justify-end gap-2 md:ml-auto md:gap-2 lg:gap-4">
+        <InstallPwaButton />
         <LanguageSwitcher />
         <Button variant={voiceEnabled ? 'secondary' : 'outline'} size="icon" onClick={handleToggleVoiceWithCheck} className="relative">
           {voiceEnabled ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
