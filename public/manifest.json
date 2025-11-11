@@ -1,52 +1,59 @@
 {
-  "name": "LocalBasket",
-  "short_name": "LocalBasket",
+  "name": "S-mart",
+  "short_name": "S-mart",
   "description": "Shop Fresh, Shop Local, Just by Voice",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F0FFF4",
-  "theme_color": "#2E7D32",
+  "background_color": "#FFFFFF",
+  "theme_color": "#3B82F6",
   "icons": [
     {
-      "src": "https://i.ibb.co/3sWp9c7/icon-72x72.png",
+      "src": "https://storage.googleapis.com/project-12345-files/user/e9b11b7b-8b5e-4b13-8888-e215f7959f63/20120120_115350_978.jpg",
       "sizes": "72x72",
-      "type": "image/png"
+      "type": "image/jpeg",
+      "purpose": "any"
     },
     {
-      "src": "https://i.ibb.co/TKY3r3W/icon-96x96.png",
+      "src": "https://storage.googleapis.com/project-12345-files/user/e9b11b7b-8b5e-4b13-8888-e215f7959f63/20120120_115350_978.jpg",
       "sizes": "96x96",
-      "type": "image/png"
+      "type": "image/jpeg",
+      "purpose": "any"
     },
     {
-      "src": "https://i.ibb.co/fHn3K2b/icon-128x128.png",
+      "src": "https://storage.googleapis.com/project-12345-files/user/e9b11b7b-8b5e-4b13-8888-e215f7959f63/20120120_115350_978.jpg",
       "sizes": "128x128",
-      "type": "image/png"
+      "type": "image/jpeg",
+      "purpose": "any"
     },
     {
-      "src": "https://i.ibb.co/MfZg7t9/icon-144x144.png",
+      "src": "https://storage.googleapis.com/project-12345-files/user/e9b11b7b-8b5e-4b13-8888-e215f7959f63/20120120_115350_978.jpg",
       "sizes": "144x144",
-      "type": "image/png"
+      "type": "image/jpeg",
+      "purpose": "any"
     },
     {
-      "src": "https://i.ibb.co/sK0K5jR/icon-152x152.png",
+      "src": "https://storage.googleapis.com/project-12345-files/user/e9b11b7b-8b5e-4b13-8888-e215f7959f63/20120120_115350_978.jpg",
       "sizes": "152x152",
-      "type": "image/png"
+      "type": "image/jpeg",
+      "purpose": "any"
     },
     {
-      "src": "https://i.ibb.co/fD7sRz6/icon-192x192.png",
+      "src": "https://storage.googleapis.com/project-12345-files/user/e9b11b7b-8b5e-4b13-8888-e215f7959f63/20120120_115350_978.jpg",
       "sizes": "192x192",
-      "type": "image/png",
+      "type": "image/jpeg",
       "purpose": "any maskable"
     },
     {
-      "src": "https://i.ibb.co/XjP6mJd/icon-384x384.png",
+      "src": "https://storage.googleapis.com/project-12345-files/user/e9b11b7b-8b5e-4b13-8888-e215f7959f63/20120120_115350_978.jpg",
       "sizes": "384x384",
-      "type": "image/png"
+      "type": "image/jpeg",
+      "purpose": "any"
     },
     {
-      "src": "https://i.ibb.co/Jq5Y4sC/icon-512x512.png",
+      "src": "https://storage.googleapis.com/project-12345-files/user/e9b11b7b-8b5e-4b13-8888-e215f7959f63/20120120_115350_978.jpg",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/jpeg",
+      "purpose": "any"
     }
   ]
 }
