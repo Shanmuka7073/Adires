@@ -76,6 +76,10 @@ export const generalCommands: Record<string, CommandGroup> = {
         display: 'Use Current Location', 
         reply: 'Using your current location for delivery.' 
     },
+    'installApp': {
+        display: 'Install App',
+        reply: ['Opening the app installation page.', 'Here is the QR code to install the app.']
+    },
     'help': { 
         display: 'Help / Commands', 
         reply: [

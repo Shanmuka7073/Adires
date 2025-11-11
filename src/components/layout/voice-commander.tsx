@@ -825,6 +825,7 @@ export function VoiceCommander({
       deliveries: (params) => router.push('/dashboard/delivery/deliveries'),
       myStore: (params) => router.push('/dashboard/owner/my-store'),
       myProfile: (params) => router.push('/dashboard/customer/my-profile'),
+      installApp: (params) => router.push('/install'),
       checkout: (params: { lang: string }) => {
         const lang = params.lang || language;
         onCloseCart();
