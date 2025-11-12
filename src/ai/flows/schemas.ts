@@ -46,3 +46,20 @@ export const GeneratePackOutputSchema = z.object({
   ).describe("A list of grocery items and their quantities for the pack.")
 });
 export type GeneratePackOutput = z.infer<typeof GeneratePackOutputSchema>;
+
+
+// --- Suggest Alias Target Flow ---
+export const AliasTargetSuggestionInputSchema = z.object({
+    failedCommand: z.string().describe("The voice command text that the system failed to understand."),
+    language: z.string().describe("The detected language of the command (e.g., 'en', 'te')."),
+    possibleTargets: z.array(z.object({
+        key: z.string().describe("The unique system key for the target (e.g., 'tomatoes' or 'go-to-cart')."),
+        display: z.string().describe("The English display name for the target (e.g., 'Tomatoes' or 'Go To Cart')."),
+    })).describe("A list of all possible items (products, commands, etc.) that the user could have meant.")
+});
+export type AliasTargetSuggestionInput = z.infer<typeof AliasTargetSuggestionInputSchema>;
+
+export const AliasTargetSuggestionOutputSchema = z.object({
+    suggestedTargetKey: z.string().optional().describe("The unique key of the item that the AI suggests is the best match. This can be undefined if no good match is found."),
+});
+export type AliasTargetSuggestionOutput = z.infer<typeof AliasTargetSuggestionOutputSchema>;

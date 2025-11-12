@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { getIngredientsForRecipe as getIngredientsFlow } from '@/ai/flows/recipe-ingredients-flow';
 import { answerGeneralQuestion as answerGeneralQuestionFlow } from '@/ai/flows/general-question-flow';
 import { generatePack as generatePackFlow } from '@/ai/flows/generate-pack-flow';
+import { suggestAliasTarget as suggestAliasTargetFlow } from '@/ai/flows/suggest-alias-flow';
 
 import type { 
     RecipeIngredientsInput, 
@@ -12,7 +13,9 @@ import type {
     GeneralQuestionInput, 
     GeneralQuestionOutput,
     GeneratePackInput,
-    GeneratePackOutput
+    GeneratePackOutput,
+    AliasTargetSuggestionInput,
+    AliasTargetSuggestionOutput
 } from '@/ai/flows/schemas';
 
 
@@ -63,6 +66,11 @@ export async function answerGeneralQuestion(input: GeneralQuestionInput): Promis
 
 export async function generatePack(input: GeneratePackInput): Promise<GeneratePackOutput> {
     return withRetries(generatePackFlow, input);
+}
+
+export async function suggestAliasTarget(input: AliasTargetSuggestionInput): Promise<AliasTargetSuggestionOutput> {
+    // This flow is for suggestions, so we don't need aggressive retries. A single attempt is fine.
+    return suggestAliasTargetFlow(input);
 }
 
 
