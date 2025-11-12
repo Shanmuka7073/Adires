@@ -1,3 +1,4 @@
+
 /**
  * @fileOverview A flow to get ingredients for a recipe.
  * This file defines the Genkit flow and is intended for server-side use only.
@@ -19,6 +20,7 @@ import {
  * @returns A promise that resolves to the list of ingredients.
  */
 export async function getIngredientsForRecipe(input: RecipeIngredientsInput): Promise<RecipeIngredientsOutput> {
+    // Caching is now handled on the client-side before this action is called.
     return recipeIngredientsFlow(input);
 }
 
@@ -43,6 +45,8 @@ const recipeIngredientsFlow = ai.defineFlow(
     outputSchema: RecipeIngredientsOutputSchema,
   },
   async (input) => {
+    // The client-side logic now handles caching. This flow simply gets the answer from the AI.
+    console.log('Calling Gemini API for new recipe.');
     const { output } = await getIngredientsPrompt(input);
     return output!;
   }
