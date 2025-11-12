@@ -131,7 +131,7 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow list: if isAdmin();
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if false;
+      allow update, delete: if isAdmin();
     }
 
     match /voiceAliases/{aliasId} {
