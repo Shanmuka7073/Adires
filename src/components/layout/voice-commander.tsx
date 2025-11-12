@@ -1258,7 +1258,8 @@ export function VoiceCommander({
             // This is a special case. We will set a placeholder and let the checkout page handle the geolocation.
             deliveryAddress = 'use-current-location';
         } else {
-            deliveryAddress = addressPhrase; // Treat as a literal address
+            // If it's not clearly home or current, leave it empty and let the checkout page prompt for clarification.
+            deliveryAddress = '';
         }
 
         // 4. Execute Actions
