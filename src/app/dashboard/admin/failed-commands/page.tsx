@@ -11,7 +11,7 @@ import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { X, Check, BrainCircuit, Edit, Loader2, ArrowRight, Trash2, Wand2 } from 'lucide-react';
+import { X, Check, BrainCircuit, Edit, Loader2, ArrowRight, Trash2, Wand2, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useTransition, useMemo, useEffect, useCallback } from 'react';
 import { useAppStore } from '@/lib/store';
@@ -37,6 +37,8 @@ async function saveAlias(firestore: any, command: FailedVoiceCommand, targetKey:
     const aliasCollectionRef = collection(firestore, 'voiceAliases');
     await addDoc(aliasCollectionRef, newAlias);
     const failedCommandRef = doc(firestore, 'failedCommands', command.id);
+    // The component will handle UI state, we still delete the command after learning.
+    // A more advanced system might move it to an "archive" collection.
     await deleteDoc(failedCommandRef);
 }
 
@@ -128,6 +130,7 @@ function FailedCommandRow({ command, allTargets, onAutoLearn }: { command: Faile
     const { toast } = useToast();
     const [isProcessing, startTransition] = useTransition();
     const [suggestion, setSuggestion] = useState<{ key: string, display: string, type: string } | null | 'loading'>('loading');
+    const [isLearned, setIsLearned] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
     const getSuggestion = useCallback(async () => {
@@ -145,6 +148,7 @@ function FailedCommandRow({ command, allTargets, onAutoLearn }: { command: Faile
                     setSuggestion(newSuggestion);
                     // Automatically learn if a good suggestion is found
                     onAutoLearn(command, newSuggestion);
+                    setIsLearned(true); // Set local state to indicate learning
                 } else {
                     setSuggestion(null); // No valid target found for the key
                 }
@@ -158,6 +162,7 @@ function FailedCommandRow({ command, allTargets, onAutoLearn }: { command: Faile
     }, [command, allTargets, onAutoLearn]);
 
     useEffect(() => {
+        // Only run suggestion if it hasn't been run before.
         if (suggestion === 'loading') {
             getSuggestion();
         }
@@ -185,7 +190,7 @@ function FailedCommandRow({ command, allTargets, onAutoLearn }: { command: Faile
                 onOpenChange={setIsDialogOpen}
                 initialSuggestion={suggestion && typeof suggestion !== 'string' ? `${suggestion.type}::${suggestion.key}` : undefined}
             />
-            <TableRow>
+            <TableRow className={isLearned ? 'bg-green-100/50 dark:bg-green-900/20' : ''}>
                 <TableCell className="font-mono text-base">"{command.commandText}"</TableCell>
                 <TableCell className="text-sm">
                     <Badge variant="outline">{command.language}</Badge>
@@ -195,6 +200,11 @@ function FailedCommandRow({ command, allTargets, onAutoLearn }: { command: Faile
                         <div className="flex items-center gap-2 text-muted-foreground">
                             <Loader2 className="h-4 w-4 animate-spin" />
                             <span>AI is thinking...</span>
+                        </div>
+                    ) : isLearned && suggestion ? (
+                         <div className="flex items-center gap-2 text-green-600 font-semibold">
+                           <CheckCircle className="h-4 w-4" />
+                           <span>Learned: "{suggestion.display}"</span>
                         </div>
                     ) : suggestion ? (
                         <div className="flex items-center gap-2">
@@ -210,7 +220,7 @@ function FailedCommandRow({ command, allTargets, onAutoLearn }: { command: Faile
                         variant="secondary"
                         size="sm"
                         onClick={() => setIsDialogOpen(true)}
-                        disabled={isProcessing}
+                        disabled={isProcessing || isLearned}
                         className="mr-2"
                     >
                         <Edit className="mr-2 h-4 w-4" />
@@ -255,10 +265,20 @@ export default function FailedCommandsPage() {
     const handleAutoLearn = useCallback(async (command: FailedVoiceCommand, suggestion: { key: string, display: string, type: string }) => {
         if (!firestore) return;
         try {
-            await saveAlias(firestore, command, suggestion.key, suggestion.type as 'product' | 'store' | 'command');
+             // Create the new alias without deleting the original command
+            const newAlias: Omit<VoiceAlias, 'id'> = {
+                key: suggestion.key,
+                language: command.language,
+                alias: command.commandText.toLowerCase(),
+                type: suggestion.type as 'product' | 'store' | 'command',
+            };
+            const aliasCollectionRef = collection(firestore, 'voiceAliases');
+            await addDoc(aliasCollectionRef, newAlias);
+
             toast({
                 title: 'AI Auto-Learned!',
                 description: `Mapped "${command.commandText}" to "${suggestion.display}".`,
+                className: 'bg-green-100 border-green-300 dark:bg-green-900 dark:border-green-700'
             });
             // Re-fetch aliases in the background
             fetchInitialData(firestore);
@@ -301,7 +321,7 @@ export default function FailedCommandsPage() {
                         <div>
                             <CardTitle className="flex items-center gap-2"><BrainCircuit className="h-6 w-6 text-primary" /> AI Self-Learning Center</CardTitle>
                             <CardDescription>
-                                Failed commands appear here. The AI will automatically process them, create a new alias, and remove them from the list.
+                                Failed commands appear here. The AI will automatically process them, create a new alias, and mark them as "Learned".
                             </CardDescription>
                         </div>
                         {failedCommands && failedCommands.length > 0 && (
@@ -349,7 +369,7 @@ export default function FailedCommandsPage() {
                                 <TableRow>
                                     <TableHead>User Said</TableHead>
                                     <TableHead>Language</TableHead>
-                                    <TableHead>AI Suggestion</TableHead>
+                                    <TableHead>AI Suggestion / Status</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -365,4 +385,3 @@ export default function FailedCommandsPage() {
         </div>
     )
 }
-
