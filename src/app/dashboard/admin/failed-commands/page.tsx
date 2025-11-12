@@ -129,33 +129,35 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
     const [suggestion, setSuggestion] = useState<{ key: string, display: string, type: string } | null | 'loading'>('loading');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-    const getSuggestion = useCallback(async () => {
-        try {
-            const res = await suggestAliasTarget({
-                failedCommand: command.commandText,
-                language: command.language,
-                possibleTargets: allTargets,
-            });
-
-            if (res.suggestedTargetKey) {
-                const target = allTargets.find(t => t.key === res.suggestedTargetKey);
-                if (target) {
-                    setSuggestion({ key: target.key, display: target.display, type: target.type });
-                } else {
-                    setSuggestion(null); // No valid target found for the key
-                }
-            } else {
-                setSuggestion(null); // AI returned no suggestion
-            }
-        } catch (error) {
-            console.error("Suggestion AI failed:", error);
-            setSuggestion(null); // If AI fails, fallback to no suggestion
-        }
-    }, [command, allTargets]);
-
     useEffect(() => {
-        getSuggestion();
-    }, [getSuggestion]);
+        // Only fetch suggestion if it hasn't been fetched yet for this component instance
+        if (suggestion === 'loading') {
+            const getSuggestion = async () => {
+                try {
+                    const res = await suggestAliasTarget({
+                        failedCommand: command.commandText,
+                        language: command.language,
+                        possibleTargets: allTargets,
+                    });
+
+                    if (res.suggestedTargetKey) {
+                        const target = allTargets.find(t => t.key === res.suggestedTargetKey);
+                        if (target) {
+                            setSuggestion({ key: target.key, display: target.display, type: target.type });
+                        } else {
+                            setSuggestion(null); // No valid target found for the key
+                        }
+                    } else {
+                        setSuggestion(null); // AI returned no suggestion
+                    }
+                } catch (error) {
+                    console.error("Suggestion AI failed:", error);
+                    setSuggestion(null); // If AI fails, fallback to no suggestion
+                }
+            };
+            getSuggestion();
+        }
+    }, [command, allTargets, suggestion]);
 
     const handleReject = () => {
         if (!firestore) return;
