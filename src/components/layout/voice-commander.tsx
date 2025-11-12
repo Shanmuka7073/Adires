@@ -843,43 +843,16 @@ export function VoiceCommander({
 
                 speak(speech, productLang + '-IN');
             } else {
-                speak("Just a moment, let me learn that...", langWithRegion);
-                // --- AUTO-LEARNING LOGIC ---
-                const productTargets = masterProducts.map(p => ({ key: p.name.toLowerCase().replace(/ /g, '-'), display: p.name, type: 'product' as const }));
-                const suggestionResult = await suggestAliasTarget({ failedCommand: remainingPhrase, language: spokenLang, possibleTargets: productTargets });
-                
-                if (suggestionResult.suggestedTargetKey) {
-                    const newAlias: Omit<VoiceAlias, 'id'> = {
-                        key: suggestionResult.suggestedTargetKey,
+                // Log the failure and inform the user.
+                speak("I'm sorry, I'm still learning that item. I will make sure to remember it for next time.", langWithRegion);
+                if (firestore && user) {
+                    addDoc(collection(firestore, 'failedCommands'), {
+                        userId: user.uid,
+                        commandText: commandText,
                         language: spokenLang,
-                        alias: remainingPhrase.toLowerCase(),
-                        type: 'product',
-                    };
-                    const aliasCollectionRef = collection(firestore, 'voiceAliases');
-                    await addDoc(aliasCollectionRef, newAlias);
-                    await fetchInitialData(firestore); // Force a refresh of aliases
-                    
-                    // Now retry the command
-                    speak(`Got it. "${remainingPhrase}" means "${suggestionResult.suggestedTargetKey}". Let me try adding that again.`, langWithRegion, () => {
-                         handleCommand(commandText); // Re-run the original command
+                        reason: `ORDER_ITEM intent failed. Product not found or no variants. Phrase: "${remainingPhrase}"`,
+                        timestamp: serverTimestamp(),
                     });
-                } else {
-                     let failSpeech = t('sorry-i-didnt-understand-that', spokenLang);
-                    if(matchedAlias && !variant) {
-                        failSpeech = t('no-price-found-speech', spokenLang).replace('{productName}', product?.name || 'that item');
-                    }
-                    else if (product && !variant) {
-                        failSpeech = t('could-not-find-item-speech', spokenLang).replace('{itemName}', product.name);
-                    }
-                    speak(failSpeech, langWithRegion);
-
-                    if (firestore && user) {
-                        addDoc(collection(firestore, 'failedCommands'), {
-                            userId: user.uid, commandText, language: spokenLang,
-                            reason: `ORDER_ITEM intent failed. Product: ${product?.name || 'null'}, Variant: ${variant || 'null'}`,
-                            timestamp: serverTimestamp(),
-                        });
-                    }
                 }
             }
             break;
@@ -1280,8 +1253,8 @@ export function VoiceCommander({
             // This is a special case. We will set a placeholder and let the checkout page handle the geolocation.
             deliveryAddress = 'use-current-location';
         } else {
-            // If it's not clearly home or current, leave it empty and let the checkout page prompt for clarification.
-            deliveryAddress = '';
+            // If it's not clearly home or current, set it to the raw phrase and let the user fix it.
+            deliveryAddress = addressPhrase;
         }
 
         // 4. Execute Actions
