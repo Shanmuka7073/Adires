@@ -125,7 +125,7 @@ function TrainDialog({ command, isOpen, onOpenChange, initialSuggestion }: { com
     );
 }
 
-function FailedCommandRow({ command, allTargets, onAutoLearn }: { command: FailedVoiceCommand, allTargets: { key: string, display: string, type: 'product' | 'store' | 'command' }[], onAutoLearn: (command: FailedVoiceCommand, suggestion: { key: string, display: string, type: string }) => void }) {
+function FailedCommandRow({ command, allTargets, voiceAliases, onAutoLearn }: { command: FailedVoiceCommand, allTargets: { key: string, display: string, type: 'product' | 'store' | 'command' }[], voiceAliases: VoiceAlias[], onAutoLearn: (command: FailedVoiceCommand, suggestion: { key: string, display: string, type: string }) => void }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isProcessing, startTransition] = useTransition();
@@ -134,6 +134,21 @@ function FailedCommandRow({ command, allTargets, onAutoLearn }: { command: Faile
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
     const getSuggestion = useCallback(async () => {
+        // First, check if this alias already exists in our database.
+        const existingAlias = voiceAliases.find(va => va.alias === command.commandText.toLowerCase() && va.language === command.language);
+        if (existingAlias) {
+            const target = allTargets.find(t => t.key === existingAlias.key);
+            if (target) {
+                setSuggestion({ key: target.key, display: target.display, type: target.type });
+                setIsLearned(true);
+            } else {
+                setSuggestion(null); // Alias exists but target doesn't, treat as not learned
+                setIsLearned(false);
+            }
+            return; // Stop here if already learned
+        }
+
+        // If not learned, proceed to get AI suggestion.
         try {
             const res = await suggestAliasTarget({
                 failedCommand: command.commandText,
@@ -159,14 +174,15 @@ function FailedCommandRow({ command, allTargets, onAutoLearn }: { command: Faile
             console.error("Suggestion AI failed:", error);
             setSuggestion(null); // If AI fails, fallback to no suggestion
         }
-    }, [command, allTargets, onAutoLearn]);
+    }, [command, allTargets, onAutoLearn, voiceAliases]);
 
     useEffect(() => {
-        // Only run suggestion if it hasn't been run before.
+        // Only run suggestion logic if it hasn't been run before for this row.
         if (suggestion === 'loading') {
             getSuggestion();
         }
     }, [suggestion, getSuggestion]);
+
 
     const handleReject = () => {
         if (!firestore) return;
@@ -244,7 +260,7 @@ function FailedCommandRow({ command, allTargets, onAutoLearn }: { command: Faile
 export default function FailedCommandsPage() {
     const { user, isUserLoading, firestore } = useFirebase();
     const router = useRouter();
-    const { masterProducts, stores, commands, fetchInitialData } = useAppStore();
+    const { masterProducts, stores, commands, voiceAliases, fetchInitialData } = useAppStore();
     const { toast } = useToast();
     const [isClearing, startClearingTransition] = useTransition();
 
@@ -375,7 +391,7 @@ export default function FailedCommandsPage() {
                             </TableHeader>
                             <TableBody>
                                 {failedCommands.map(cmd => (
-                                    <FailedCommandRow key={cmd.id} command={cmd} allTargets={allPossibleTargets} onAutoLearn={handleAutoLearn} />
+                                    <FailedCommandRow key={cmd.id} command={cmd} allTargets={allPossibleTargets} voiceAliases={voiceAliases} onAutoLearn={handleAutoLearn} />
                                 ))}
                             </TableBody>
                         </Table>
