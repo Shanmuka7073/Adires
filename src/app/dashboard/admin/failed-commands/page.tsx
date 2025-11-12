@@ -5,18 +5,19 @@ import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { collection, query, orderBy, doc, deleteDoc, addDoc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, deleteDoc, addDoc, getDocs, writeBatch } from 'firebase/firestore';
 import type { FailedVoiceCommand, VoiceAlias } from '@/lib/types';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { X, Check, BrainCircuit, Edit, Loader2, ArrowRight } from 'lucide-react';
+import { X, Check, BrainCircuit, Edit, Loader2, ArrowRight, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useTransition, useMemo, useEffect, useCallback } from 'react';
 import { useAppStore } from '@/lib/store';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { suggestAliasTarget } from '@/app/actions';
 import { generalCommands } from '@/lib/locales/commands';
 
@@ -257,6 +258,8 @@ export default function FailedCommandsPage() {
     const { user, isUserLoading, firestore } = useFirebase();
     const router = useRouter();
     const { masterProducts, stores, commands } = useAppStore();
+    const { toast } = useToast();
+    const [isClearing, startClearingTransition] = useTransition();
 
     const failedCommandsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -278,14 +281,61 @@ export default function FailedCommandsPage() {
         return <p>Redirecting...</p>;
     }
 
+    const handleClearAll = async () => {
+        if (!firestore) return;
+        startClearingTransition(async () => {
+            try {
+                const commandsQuery = query(collection(firestore, 'failedCommands'));
+                const querySnapshot = await getDocs(commandsQuery);
+                const batch = writeBatch(firestore);
+                querySnapshot.forEach((doc) => {
+                    batch.delete(doc.ref);
+                });
+                await batch.commit();
+                toast({ title: 'Success', description: 'All failed command logs have been cleared.' });
+            } catch (error) {
+                console.error("Error clearing failed commands:", error);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not clear failed command logs.' });
+            }
+        });
+    };
+
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
             <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><BrainCircuit className="h-6 w-6 text-primary" /> AI Self-Learning Center</CardTitle>
-                    <CardDescription>
-                        Review voice commands the AI failed to understand. The AI will suggest a possible match. Approve the suggestion or manually edit it to train the system.
-                    </CardDescription>
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <CardTitle className="flex items-center gap-2"><BrainCircuit className="h-6 w-6 text-primary" /> AI Self-Learning Center</CardTitle>
+                            <CardDescription>
+                                Review voice commands the AI failed to understand. The AI will suggest a possible match. Approve the suggestion or manually edit it to train the system.
+                            </CardDescription>
+                        </div>
+                        {failedCommands && failedCommands.length > 0 && (
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" disabled={isClearing}>
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        Clear All Logs
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This will permanently delete all {failedCommands.length} failed command logs. This action cannot be undone.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleClearAll} disabled={isClearing}>
+                                            {isClearing ? 'Clearing...' : 'Yes, clear all'}
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        )}
+                    </div>
                 </CardHeader>
                 <CardContent>
                     {isLoading ? (
