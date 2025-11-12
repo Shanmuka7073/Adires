@@ -559,7 +559,7 @@ export function VoiceCommander({
 
     // 2. WAKE WORD
     const wakeWords = (getAllAliases('who-are-you')['en'] || []).concat(['smart', 'ai']);
-    if (wakeWords.some(word => lowerText.includes(word))) {
+    if (wakeWords.some(word => lowerText === word)) {
         return { type: 'WAKE_WORD', originalText: text, lang: spokenLang };
     }
 
