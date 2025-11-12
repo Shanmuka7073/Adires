@@ -20,24 +20,28 @@ const suggestAliasPrompt = ai.definePrompt({
   model: 'googleai/gemini-2.5-flash',
   input: { schema: AliasTargetSuggestionInputSchema },
   output: { schema: AliasTargetSuggestionOutputSchema },
-  prompt: `You are an intelligent mapping assistant for a grocery voice command system. Your job is to determine the correct item a user intended to say based on their failed command.
+  prompt: `You are an expert linguistic mapping assistant for an Indian grocery voice command system. Your task is to accurately map a user's failed voice command to the correct item (product, command, or store).
 
-  User's language: {{{language}}}
-  The command that failed was: "{{{failedCommand}}}"
+  You are provided with:
+  1. The user's failed command.
+  2. The detected language of the command.
+  3. A list of all possible target items, each with a unique 'key' and a 'display' name in English.
+
+  **CRITICAL INSTRUCTIONS:**
+  1.  **High Confidence Only:** You MUST only return a \`suggestedTargetKey\` if you are highly confident in the match. If there is any ambiguity, or if the command could refer to multiple items, it is better to return an undefined \`suggestedTargetKey\`.
+  2.  **Do Not Guess:** If the failed command does not closely match any target, do not attempt to find a "best fit". A wrong mapping is worse than no mapping. For example, "venkaya" means "brinjal/eggplant", so mapping it to "onions" is a critical error. You must avoid such mistakes.
+  3.  **Prioritize Known Translations:** If the command is a known word in the given language, prioritize its direct translation over phonetic similarity to other English words.
+
+  Here is the context for your task:
+  - User's language: {{{language}}}
+  - The command that failed was: "{{{failedCommand}}}"
 
   Here is a list of all possible items they could have meant. Each has a 'key' and a 'display' name.
   {{#each possibleTargets}}
   - Key: {{this.key}}, Display Name: "{{this.display}}"
   {{/each}}
 
-  Analyze the failed command. Consider the language, common misspellings, synonyms, and phonetic similarities.
-  
-  Your task:
-  Identify the single most likely target 'key' from the provided list.
-  If the failed command is "ullipayalu" and one of the targets has the display name "Onions" and the key "onions", you should identify "onions" as the suggestedTargetKey.
-  If there is no reasonably close match in the list, you MUST return an undefined 'suggestedTargetKey'. Do not guess.
-  
-  Return ONLY the JSON object with the 'suggestedTargetKey' field.
+  Based on your analysis and the critical instructions above, identify the single most likely target 'key' from the provided list. Return ONLY the JSON object with the 'suggestedTargetKey' field. If no high-confidence match is found, return a JSON object with the 'suggestedTargetKey' field being explicitly undefined.
   `,
 });
 
