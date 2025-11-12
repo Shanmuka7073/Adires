@@ -16,7 +16,7 @@ import { t, initializeTranslations } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import groceryData from '@/lib/grocery-data.json';
-import { getIngredientsForRecipe, answerGeneralQuestion, generatePack } from '@/app/actions';
+import { getIngredientsForRecipe, answerGeneralQuestion, generatePack, suggestAliasTarget } from '@/app/actions';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache';
 import { useCheckoutStore } from '@/app/checkout/page';
@@ -103,7 +103,7 @@ export function VoiceCommander({
   const { firestore, user } = useFirebase();
   const { clearCart, addItem: addItemToCart, removeItem, updateQuantity, activeStoreId, setActiveStoreId, cartTotal } = useCart();
 
-  const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands } = useAppStore();
+  const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands, fetchInitialData } = useAppStore();
 
   const { form: profileForm } = useProfileFormStore();
   const { saveInventoryBtnRef } = useMyStorePageStore();
@@ -829,7 +829,7 @@ export function VoiceCommander({
             break;
 
         case 'ORDER_ITEM':
-            const { product, variant, requestedQty, matchedAlias, lang: itemLang } = await findProductAndVariant(commandText);
+            const { product, variant, requestedQty, matchedAlias, lang: itemLang, remainingPhrase } = await findProductAndVariant(commandText);
             if (product && variant) {
                 addItemToCart(product, variant, requestedQty);
                 onOpenCart();
@@ -843,21 +843,43 @@ export function VoiceCommander({
 
                 speak(speech, productLang + '-IN');
             } else {
-                 let failSpeech = t('sorry-i-didnt-understand-that', spokenLang);
-                if(matchedAlias && !variant) {
-                    failSpeech = t('no-price-found-speech', spokenLang).replace('{productName}', product?.name || 'that item');
-                }
-                else if (product && !variant) {
-                    failSpeech = t('could-not-find-item-speech', spokenLang).replace('{itemName}', product.name);
-                }
-                speak(failSpeech, langWithRegion);
-
-                if (firestore && user) {
-                    addDoc(collection(firestore, 'failedCommands'), {
-                        userId: user.uid, commandText, language: spokenLang,
-                        reason: `ORDER_ITEM intent failed. Product: ${product?.name || 'null'}, Variant: ${variant || 'null'}`,
-                        timestamp: serverTimestamp(),
+                speak("Just a moment, let me learn that...", langWithRegion);
+                // --- AUTO-LEARNING LOGIC ---
+                const productTargets = masterProducts.map(p => ({ key: p.name.toLowerCase().replace(/ /g, '-'), display: p.name, type: 'product' as const }));
+                const suggestionResult = await suggestAliasTarget({ failedCommand: remainingPhrase, language: spokenLang, possibleTargets: productTargets });
+                
+                if (suggestionResult.suggestedTargetKey) {
+                    const newAlias: Omit<VoiceAlias, 'id'> = {
+                        key: suggestionResult.suggestedTargetKey,
+                        language: spokenLang,
+                        alias: remainingPhrase.toLowerCase(),
+                        type: 'product',
+                    };
+                    const aliasCollectionRef = collection(firestore, 'voiceAliases');
+                    await addDoc(aliasCollectionRef, newAlias);
+                    await fetchInitialData(firestore); // Force a refresh of aliases
+                    
+                    // Now retry the command
+                    speak(`Got it. "${remainingPhrase}" means "${suggestionResult.suggestedTargetKey}". Let me try adding that again.`, langWithRegion, () => {
+                         handleCommand(commandText); // Re-run the original command
                     });
+                } else {
+                     let failSpeech = t('sorry-i-didnt-understand-that', spokenLang);
+                    if(matchedAlias && !variant) {
+                        failSpeech = t('no-price-found-speech', spokenLang).replace('{productName}', product?.name || 'that item');
+                    }
+                    else if (product && !variant) {
+                        failSpeech = t('could-not-find-item-speech', spokenLang).replace('{itemName}', product.name);
+                    }
+                    speak(failSpeech, langWithRegion);
+
+                    if (firestore && user) {
+                        addDoc(collection(firestore, 'failedCommands'), {
+                            userId: user.uid, commandText, language: spokenLang,
+                            reason: `ORDER_ITEM intent failed. Product: ${product?.name || 'null'}, Variant: ${variant || 'null'}`,
+                            timestamp: serverTimestamp(),
+                        });
+                    }
                 }
             }
             break;
@@ -882,7 +904,7 @@ export function VoiceCommander({
         resetAllContext();
     }
 
-  }, [firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp, setLanguage, addItemToCart, removeItem, onOpenCart, locales, commands, getAllAliases, t, triggerVoicePrompt, itemForPriceCheck, recognizeIntent, isAiModeActive, isWaitingForPackStoreConfirmation]);
+  }, [firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp, setLanguage, addItemToCart, removeItem, onOpenCart, locales, commands, getAllAliases, t, triggerVoicePrompt, itemForPriceCheck, recognizeIntent, isAiModeActive, isWaitingForPackStoreConfirmation, masterProducts, fetchInitialData]);
 
 
   useEffect(() => {
