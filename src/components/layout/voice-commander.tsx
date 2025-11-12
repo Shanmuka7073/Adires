@@ -51,6 +51,7 @@ type AliasToProductMap = Map<string, { product: Product; lang: string }>;
 
 // --- NEW: Intent Recognition System ---
 type Intent = 
+  | { type: 'SMART_ORDER', originalText: string, lang: string }
   | { type: 'CHECK_PRICE', productPhrase: string, originalText: string, lang: string }
   | { type: 'ORDER_ITEM', originalText: string, lang: string }
   | { type: 'REMOVE_ITEM', productPhrase: string, originalText: string, lang: string }
@@ -63,6 +64,7 @@ type Intent =
   | { type: 'UNKNOWN', originalText: string, lang: string };
 
 const intentKeywords = {
+  SMART_ORDER: ['order', 'buy', 'get', 'send'],
   CHECK_PRICE: ['price of', 'cost of', 'how much for', 'rate for', 'ధర', 'రేటు'],
   ORDER_ITEM: ['order', 'add', 'buy', 'get', 'send', 'నాకు', 'కావాలి'],
   REMOVE_ITEM: ['remove', 'delete', 'take out', 'తీసివేయి', 'తొలగించు'],
@@ -545,13 +547,23 @@ export function VoiceCommander({
   const recognizeIntent = useCallback((text: string, spokenLang: string): Intent => {
     const lowerText = text.toLowerCase().trim();
     
-    // 1. WAKE WORD
+    // 1. SMART ORDER - check for "from" and "to" keywords
+    const fromKeywords = ['from', 'at', 'in'];
+    const toKeywords = ['to', 'at'];
+    const hasFrom = fromKeywords.some(kw => lowerText.includes(` ${kw} `));
+    const hasTo = toKeywords.some(kw => lowerText.includes(` ${kw} `));
+
+    if (intentKeywords.SMART_ORDER.some(kw => lowerText.startsWith(kw)) && hasFrom && hasTo) {
+        return { type: 'SMART_ORDER', originalText: text, lang: spokenLang };
+    }
+
+    // 2. WAKE WORD
     const wakeWords = (getAllAliases('who-are-you')['en'] || []).concat(['smart', 'ai']);
     if (wakeWords.some(word => lowerText.includes(word))) {
         return { type: 'WAKE_WORD', originalText: text, lang: spokenLang };
     }
 
-    // 2. ADD PACK
+    // 3. ADD PACK
     const packKeyword = intentKeywords.ADD_PACK.find(kw => lowerText.includes(kw));
     if (packKeyword) {
         const packTypeMatch = lowerText.match(/3-day|weekly|monthly/);
@@ -561,35 +573,35 @@ export function VoiceCommander({
         return { type: 'ADD_PACK', packType, familySize, originalText: text, lang: spokenLang };
     }
 
-    // 3. RECIPE
+    // 4. RECIPE
     const recipeKeyword = intentKeywords.GET_RECIPE.find(kw => lowerText.includes(kw));
     if (recipeKeyword) {
         const dishName = lowerText.replace(recipeKeyword, '').trim();
         return { type: 'GET_RECIPE', dishName, originalText: text, lang: spokenLang };
     }
 
-    // 4. CHECK PRICE
+    // 5. CHECK PRICE
     const priceKeyword = intentKeywords.CHECK_PRICE.find(kw => lowerText.includes(kw));
     if (priceKeyword) {
         const productPhrase = lowerText.replace(priceKeyword, '').trim();
         return { type: 'CHECK_PRICE', productPhrase, originalText: text, lang: spokenLang };
     }
 
-    // 5. REMOVE ITEM
+    // 6. REMOVE ITEM
     const removeKeyword = intentKeywords.REMOVE_ITEM.find(kw => lowerText.includes(kw));
     if (removeKeyword) {
         const productPhrase = lowerText.replace(removeKeyword, '').trim();
         return { type: 'REMOVE_ITEM', productPhrase, originalText: text, lang: spokenLang };
     }
     
-    // 6. SHOW DETAILS
+    // 7. SHOW DETAILS
     const detailsKeyword = intentKeywords.SHOW_DETAILS.find(kw => lowerText.includes(kw));
     if (detailsKeyword) {
         const target = lowerText.replace(detailsKeyword, '').trim();
         return { type: 'SHOW_DETAILS', target, originalText: text, lang: spokenLang };
     }
 
-    // 7. CONVERSATIONAL/NAVIGATIONAL COMMANDS
+    // 8. CONVERSATIONAL/NAVIGATIONAL COMMANDS
     let bestCommandMatch: { key: string, similarity: number } | null = null;
     for (const key in commands) {
       const commandAliases = getAllAliases(key);
@@ -613,7 +625,7 @@ export function VoiceCommander({
       return { type: 'CONVERSATIONAL', commandKey: bestCommandMatch.key, originalText: text, lang: spokenLang };
     }
 
-    // 8. ORDER ITEM (Default Action)
+    // 9. ORDER ITEM (Default Action)
     return { type: 'ORDER_ITEM', originalText: text, lang: spokenLang };
 
   }, [commands, getAllAliases]);
@@ -776,6 +788,10 @@ export function VoiceCommander({
     const intent = recognizeIntent(commandText, spokenLang);
 
     switch (intent.type) {
+        case 'SMART_ORDER':
+            await commandActionsRef.current.handleSmartOrder(intent.originalText, intent.lang);
+            break;
+
         case 'WAKE_WORD':
             setIsAiModeActive(true);
             speak("I'm here to help. You can ask me anything. Just say 'quit' to exit.", langWithRegion);
@@ -1164,59 +1180,160 @@ export function VoiceCommander({
             }
         }
     },
-    addPackToCart: async ({ packType, familySize, lang }) => {
+    handleSmartOrder: async (text: string, lang: string) => {
         const langWithRegion = lang === 'en' ? 'en-IN' : `${lang}-IN`;
+        clearCart(); // Start with a fresh cart for a smart order
+        
+        const fromKeywords = ['from', 'at', 'in'];
+        const toKeywords = ['to', 'at'];
 
-        if (!firestore) return;
+        let fromIndex = -1;
+        let fromKeyword = '';
+        for (const kw of fromKeywords) {
+            const index = text.toLowerCase().lastIndexOf(` ${kw} `);
+            if (index > fromIndex) {
+                fromIndex = index;
+                fromKeyword = kw;
+            }
+        }
+        
+        let toIndex = -1;
+        let toKeyword = '';
+        for (const kw of toKeywords) {
+            const index = text.toLowerCase().lastIndexOf(` ${kw} `);
+            if (index > toIndex) {
+                toIndex = index;
+                toKeyword = kw;
+            }
+        }
 
-        const adminStore = stores.find(s => s.name === 'LocalBasket');
-        if (!adminStore) {
-            speak("I'm sorry, I can't find the master pack list right now. The administrator needs to create a 'LocalBasket' store.", langWithRegion);
+        if (fromIndex === -1 || toIndex === -1) {
+            speak(t('could-not-find-product-in-order-speech', lang), langWithRegion);
             return;
         }
 
-        const packName = `${packType} pack for ${familySize}`;
-        const packCollectionRef = collection(firestore, `stores/${adminStore.id}/packages`);
+        const productPhrase = text.substring(0, fromIndex).replace(/^(order|buy|get|send)\s+/i, '').trim();
+        const storePhrase = text.substring(fromIndex + fromKeyword.length + 1, toIndex).trim();
+        const addressPhrase = text.substring(toIndex + toKeyword.length + 1).trim();
 
-        // First, try to find the specific pack (e.g., 'weekly pack for 5')
+        // 1. Process Product
+        const { product, variant, requestedQty } = await findProductAndVariant(productPhrase);
+        if (!product || !variant) {
+            speak(t('could-not-find-item-speech', lang).replace('{itemName}', productPhrase), langWithRegion);
+            return;
+        }
+
+        // 2. Process Store
+        let bestStoreMatch: Store | null = null;
+        let bestSimilarity = 0;
+        for (const [alias, store] of storeAliasMap.entries()) {
+            const similarity = calculateSimilarity(storePhrase.toLowerCase(), alias);
+            if (similarity > bestSimilarity) {
+                bestSimilarity = similarity;
+                bestStoreMatch = store;
+            }
+        }
+
+        if (!bestStoreMatch || bestSimilarity < 0.6) {
+            speak(t('could-not-identify-store-speech', lang), langWithRegion);
+            return;
+        }
+
+        // 3. Process Address
+        const homeKeywords = getAllAliases('homeAddress')[lang] || ['home'];
+        const locationKeywords = getAllAliases('currentLocation')[lang] || ['current', 'location'];
+        const homeSimilarity = Math.max(...homeKeywords.map(kw => calculateSimilarity(addressPhrase.toLowerCase(), kw)));
+        const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(addressPhrase.toLowerCase(), kw)));
+
+        let deliveryAddress = '';
+        if (homeSimilarity > 0.7 && homeSimilarity > locationSimilarity) {
+            if (userProfileRef.current?.address) {
+                deliveryAddress = userProfileRef.current.address;
+            } else {
+                speak(t('cannot-deliver-home-no-address-speech', lang), langWithRegion);
+                router.push('/dashboard/customer/my-profile');
+                return;
+            }
+        } else if (locationSimilarity > 0.7) {
+            // This is a special case. We will set a placeholder and let the checkout page handle the geolocation.
+            deliveryAddress = 'use-current-location';
+        } else {
+            deliveryAddress = addressPhrase; // Treat as a literal address
+        }
+
+        // 4. Execute Actions
+        const speech = t('preparing-order-speech', lang)
+            .replace('{items}', `${requestedQty} ${variant.weight} of ${getProductName(product)}`)
+            .replace('{storeName}', bestStoreMatch.name);
+
+        speak(speech, langWithRegion, () => {
+            setIsWaitingForQuickOrderConfirmation(true); // Prevents checkout page from prompting
+            addItemToCart(product, variant, requestedQty);
+            setActiveStoreId(bestStoreMatch!.id);
+            setHomeAddress(deliveryAddress); // Pass the address to the checkout page store
+            setShouldPlaceOrderDirectly(true); // Signal the checkout page to auto-submit
+            router.push('/checkout');
+        });
+    },
+    addPackToCart: async ({ packType, familySize, lang, storeId }) => {
+        const langWithRegion = lang === 'en' ? 'en-IN' : `${lang}-IN`;
+    
+        if (!firestore) return;
+    
+        const masterStore = stores.find(s => s.name === 'LocalBasket');
+        if (!masterStore) {
+            speak("I'm sorry, I can't find the master pack list right now.", langWithRegion);
+            return;
+        }
+    
+        const packName = `${packType} pack for ${familySize}`;
+        const packCollectionRef = collection(firestore, `stores/${masterStore.id}/packages`);
+    
+        // First, try to find the specific pack
         let q = query(packCollectionRef, where('name', '==', packName));
         let querySnapshot = await getDocs(q);
-
+    
         // If not found, try a more general search for the same family size
         if (querySnapshot.empty) {
             q = query(packCollectionRef, where('memberCount', '==', familySize));
             querySnapshot = await getDocs(q);
         }
-
+    
         if (querySnapshot.empty) {
             speak(`I'm sorry, I couldn't find a pack for ${familySize} members. You can ask the store owner to create one.`, langWithRegion);
             return;
         }
-
+    
         const pack = querySnapshot.docs[0].data() as MonthlyPackage;
-        speak(`Found the ${pack.name}. Adding ${pack.items.length} items to your cart. Please select a store at checkout.`, langWithRegion);
-        
+        speak(`Found the ${pack.name}. Adding ${pack.items.length} items to your cart. You can select a store at checkout.`, langWithRegion);
+    
+        // Fetch prices for all items in the pack at once
         const productNamesToFetch = pack.items.map(item => item.name);
         await fetchProductPrices(firestore, productNamesToFetch);
-
+        
+        // Give Zustand a moment to update state after the async price fetch
         await new Promise(resolve => setTimeout(resolve, 200)); 
-
+    
         const latestPrices = useAppStore.getState().productPrices;
-
+    
         let itemsAdded = 0;
         for (const item of pack.items) {
             const product = masterProducts.find(p => p.name === item.name);
             const priceData = latestPrices[item.name.toLowerCase()];
             
             if (product && priceData?.variants) {
-                const productWithCorrectStore = { ...product, storeId: adminStore.id };
+                // Since this is a generic pack, the storeId is not tied to a specific user store yet
+                const productWithCorrectStore = { ...product, storeId: masterStore.id }; 
+                
                 const bestVariant = priceData.variants.find(v => item.quantity.includes(v.weight)) || priceData.variants[0];
+                
                 if (bestVariant) {
                     addItemToCart(productWithCorrectStore, bestVariant, 1);
                     itemsAdded++;
                 }
             }
         }
+    
         if (itemsAdded > 0) {
             onOpenCart();
         }
@@ -1246,4 +1363,3 @@ export function VoiceCommander({
 
   return null;
 }
-

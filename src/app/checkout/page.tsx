@@ -219,11 +219,15 @@ export default function CheckoutPage() {
    // Effect for smart order: set home address if provided
   useEffect(() => {
     if (homeAddress) {
-        form.setValue('deliveryAddress', homeAddress, { shouldValidate: true });
+        if (homeAddress === 'use-current-location') {
+            handleUseCurrentLocation();
+        } else {
+            form.setValue('deliveryAddress', homeAddress, { shouldValidate: true });
+        }
         // Clean up the state so it doesn't persist
         setHomeAddress(null);
     }
-  }, [homeAddress, form, setHomeAddress]);
+  }, [homeAddress, form, setHomeAddress, handleUseCurrentLocation]);
 
   // Effect to pre-fill form with user data
   useEffect(() => {
