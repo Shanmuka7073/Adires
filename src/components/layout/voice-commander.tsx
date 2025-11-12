@@ -39,6 +39,8 @@ interface VoiceCommanderProps {
   cartItems: CartItem[];
   voiceTrigger: number;
   triggerVoicePrompt: () => void;
+  retryCommandText: string | null;
+  onRetryHandled: () => void;
 }
 
 let recognition: SpeechRecognition | null = null;
@@ -86,17 +88,9 @@ export function VoiceCommander({
   cartItems: cartItemsProp,
   voiceTrigger,
   triggerVoicePrompt,
-}: {
-  enabled: boolean;
-  onStatusUpdate: (status: string) => void;
-  onSuggestions: (suggestions: any[]) => void;
-  onOpenCart: () => void;
-  onCloseCart: () => void;
-  isCartOpen: boolean;
-  cartItems: CartItem[];
-  voiceTrigger: number;
-  triggerVoicePrompt: () => void;
-}) {
+  retryCommandText,
+  onRetryHandled,
+}: VoiceCommanderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
@@ -844,7 +838,7 @@ export function VoiceCommander({
                 speak(speech, productLang + '-IN');
             } else {
                 // Log the failure and inform the user.
-                speak("I'm sorry, I'm still learning that item. I will make sure to remember it for next time.", langWithRegion);
+                speak("I'm sorry, I'm still learning that item. I will try to remember it for next time.", langWithRegion);
                 if (firestore && user) {
                     addDoc(collection(firestore, 'failedCommands'), {
                         userId: user.uid,
@@ -879,6 +873,13 @@ export function VoiceCommander({
 
   }, [firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp, setLanguage, addItemToCart, removeItem, onOpenCart, locales, commands, getAllAliases, t, triggerVoicePrompt, itemForPriceCheck, recognizeIntent, isAiModeActive, isWaitingForPackStoreConfirmation, masterProducts, fetchInitialData]);
 
+    // Effect to handle retrying a command
+    useEffect(() => {
+        if (retryCommandText) {
+            handleCommand(retryCommandText);
+            onRetryHandled(); // Signal that the retry has been processed
+        }
+    }, [retryCommandText, handleCommand, onRetryHandled]);
 
   useEffect(() => {
     if (!recognition) {

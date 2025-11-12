@@ -14,7 +14,7 @@ import { getLanguageForLocation } from '@/lib/location-service';
 import { useToast } from '@/hooks/use-toast';
 
 // Create a context to provide the trigger function
-const VoiceCommandContext = createContext<{ triggerVoicePrompt: () => void } | undefined>(undefined);
+const VoiceCommandContext = createContext<{ triggerVoicePrompt: () => void, retryCommand?: (command: string) => void; } | undefined>(undefined);
 
 export function useVoiceCommander() {
     const context = useContext(VoiceCommandContext);
@@ -42,6 +42,7 @@ export function MainLayout({
 
   // State to trigger re-evaluation in VoiceCommander
   const [voiceTrigger, setVoiceTrigger] = useState(0);
+  const [retryCommandText, setRetryCommandText] = useState<string | null>(null);
 
   // --- Location-based language detection ---
   useEffect(() => {
@@ -82,8 +83,13 @@ export function MainLayout({
     setVoiceTrigger(v => v + 1);
   }, []);
 
+  const retryCommand = useCallback((command: string) => {
+    setRetryCommandText(command);
+  }, []);
+
+
   return (
-    <VoiceCommandContext.Provider value={{ triggerVoicePrompt }}>
+    <VoiceCommandContext.Provider value={{ triggerVoicePrompt, retryCommand }}>
         <div className="relative flex min-h-dvh flex-col bg-background">
         <Header 
             voiceEnabled={voiceEnabled}
@@ -104,6 +110,8 @@ export function MainLayout({
                 cartItems={cartItems}
                 voiceTrigger={voiceTrigger}
                 triggerVoicePrompt={triggerVoicePrompt}
+                retryCommandText={retryCommandText}
+                onRetryHandled={() => setRetryCommandText(null)}
             />
         )}
         <ProfileCompletionChecker />
