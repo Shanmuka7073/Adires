@@ -55,6 +55,7 @@ export const AliasTargetSuggestionInputSchema = z.object({
     possibleTargets: z.array(z.object({
         key: z.string().describe("The unique system key for the target (e.g., 'tomatoes' or 'go-to-cart')."),
         display: z.string().describe("The English display name for the target (e.g., 'Tomatoes' or 'Go To Cart')."),
+        aliases: z.array(z.string()).describe("A list of known aliases and translations for this target."),
     })).describe("A list of all possible items (products, commands, etc.) that the user could have meant.")
 });
 export type AliasTargetSuggestionInput = z.infer<typeof AliasTargetSuggestionInputSchema>;
@@ -63,5 +64,3 @@ export const AliasTargetSuggestionOutputSchema = z.object({
     suggestedTargetKey: z.string().optional().describe("The unique key of the item that the AI suggests is the best match. This can be undefined if no good match is found."),
 });
 export type AliasTargetSuggestionOutput = z.infer<typeof AliasTargetSuggestionOutputSchema>;
-
-    

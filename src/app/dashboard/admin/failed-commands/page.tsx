@@ -125,7 +125,7 @@ function TrainDialog({ command, isOpen, onOpenChange, initialSuggestion }: { com
     );
 }
 
-function FailedCommandRow({ command, allTargets, voiceAliases }: { command: FailedVoiceCommand, allTargets: { key: string, display: string, type: 'product' | 'store' | 'command' }[], voiceAliases: VoiceAlias[]}) {
+function FailedCommandRow({ command, allTargets, voiceAliases }: { command: FailedVoiceCommand, allTargets: { key: string, display: string, type: 'product' | 'store' | 'command', aliases: string[] }[], voiceAliases: VoiceAlias[]}) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isProcessing, startTransition] = useTransition();
@@ -153,7 +153,7 @@ function FailedCommandRow({ command, allTargets, voiceAliases }: { command: Fail
             const res = await suggestAliasTarget({
                 failedCommand: command.commandText,
                 language: command.language,
-                possibleTargets: allTargets.map(({ type, ...rest }) => rest), // Remove 'type' before sending to AI
+                possibleTargets: allTargets,
             });
 
             if (res.suggestedTargetKey) {
@@ -281,7 +281,7 @@ function FailedCommandRow({ command, allTargets, voiceAliases }: { command: Fail
 export default function FailedCommandsPage() {
     const { user, isUserLoading, firestore } = useFirebase();
     const router = useRouter();
-    const { masterProducts, stores, commands, voiceAliases, fetchInitialData } = useAppStore();
+    const { masterProducts, stores, commands, voiceAliases, fetchInitialData, getAllAliases } = useAppStore();
     const { toast } = useToast();
     const [isClearing, startClearingTransition] = useTransition();
 
@@ -293,11 +293,22 @@ export default function FailedCommandsPage() {
     const { data: failedCommands, isLoading } = useCollection<FailedVoiceCommand>(failedCommandsQuery);
 
     const allPossibleTargets = useMemo(() => {
-        const productTargets = masterProducts.map(p => ({ key: createSlug(p.name), display: p.name, type: 'product' as const }));
-        const storeTargets = stores.map(s => ({ key: createSlug(s.name), display: s.name, type: 'store' as const }));
-        const commandTargets = Object.entries(commands).map(([key, value]) => ({ key, display: value.display, type: 'command' as const }));
+        const productTargets = masterProducts.map(p => {
+            const key = createSlug(p.name);
+            const aliases = Object.values(getAllAliases(key)).flat();
+            return { key, display: p.name, type: 'product' as const, aliases };
+        });
+        const storeTargets = stores.map(s => {
+            const key = createSlug(s.name);
+            const aliases = Object.values(getAllAliases(key)).flat();
+            return { key, display: s.name, type: 'store' as const, aliases };
+        });
+        const commandTargets = Object.entries(commands).map(([key, value]) => {
+            const aliases = Object.values(getAllAliases(key)).flat();
+            return { key, display: value.display, type: 'command' as const, aliases };
+        });
         return [...productTargets, ...storeTargets, ...commandTargets];
-    }, [masterProducts, stores, commands]);
+    }, [masterProducts, stores, commands, getAllAliases]);
 
     if (!isUserLoading && (!user || user.email !== ADMIN_EMAIL)) {
         router.replace('/dashboard');
@@ -395,5 +406,3 @@ export default function FailedCommandsPage() {
         </div>
     )
 }
-
-    

@@ -25,20 +25,20 @@ const suggestAliasPrompt = ai.definePrompt({
   You are provided with:
   1. The user's failed command.
   2. The detected language of the command.
-  3. A list of all possible target items, each with a unique 'key' and a 'display' name in English.
+  3. A list of all possible target items, each with a unique 'key', a 'display' name in English, and a list of its own known aliases.
 
   **CRITICAL INSTRUCTIONS:**
   1.  **High Confidence Only:** You MUST only return a \`suggestedTargetKey\` if you are highly confident in the match. If there is any ambiguity, or if the command could refer to multiple items, it is better to return an undefined \`suggestedTargetKey\`.
-  2.  **Do Not Guess:** If the failed command does not closely match any target, do not attempt to find a "best fit". A wrong mapping is worse than no mapping. For example, "venkaya" means "brinjal/eggplant", so mapping it to "onions" is a critical error. You must avoid such mistakes.
-  3.  **Prioritize Known Translations:** If the command is a known word in the given language, prioritize its direct translation over phonetic similarity to other English words.
+  2.  **Do Not Guess:** If the failed command does not closely match any target or its known aliases, do not attempt to find a "best fit". A wrong mapping is worse than no mapping. For example, "venkaya" means "brinjal/eggplant", so mapping it to "onions" is a critical error. You must avoid such mistakes.
+  3.  **Prioritize Known Aliases:** Your primary method for matching should be to see if the user's command is present in the list of known aliases for any of the targets. This is the most reliable signal.
 
   Here is the context for your task:
   - User's language: {{{language}}}
   - The command that failed was: "{{{failedCommand}}}"
 
-  Here is a list of all possible items they could have meant. Each has a 'key' and a 'display' name.
+  Here is a list of all possible items they could have meant. Each has a 'key', a 'display' name, and its own 'aliases'.
   {{#each possibleTargets}}
-  - Key: {{this.key}}, Display Name: "{{this.display}}"
+  - Key: {{this.key}}, Display Name: "{{this.display}}", Known Aliases: [{{#each this.aliases}}"{{this}}"{{#unless @last}}, {{/unless}}{{/each}}]
   {{/each}}
 
   Based on your analysis and the critical instructions above, identify the single most likely target 'key' from the provided list. Return ONLY the JSON object with the 'suggestedTargetKey' field. If no high-confidence match is found, return a JSON object with the 'suggestedTargetKey' field being explicitly undefined.
@@ -59,5 +59,3 @@ const suggestAliasTargetFlow = ai.defineFlow(
     return output;
   }
 );
-
-    
