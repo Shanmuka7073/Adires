@@ -1,24 +1,12 @@
 
+'use client';
 
-import { promises as fs } from 'fs';
-import path from 'path';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PitchDisplay } from './pitch-display';
+import { pitchText } from './pitch-text'; // Store text in a separate file
 
-async function getPitchContent(): Promise<string> {
-    const filePath = path.join(process.cwd(), 'docs', 'pitch.md');
-    try {
-        const fileContent = await fs.readFile(filePath, 'utf-8');
-        return fileContent;
-    } catch (error) {
-        console.error("Error reading pitch file:", error);
-        return "Could not load the pitch content. Please check the server logs.";
-    }
-}
-
-export default async function PitchPage() {
-    const pitchContent = await getPitchContent();
-
+// This is now a client component.
+export default function PitchPage() {
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
             <Card className="max-w-4xl mx-auto">
@@ -29,7 +17,7 @@ export default async function PitchPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                   <PitchDisplay pitchText={pitchContent} />
+                   <PitchDisplay pitchText={pitchText} />
                 </CardContent>
             </Card>
         </div>

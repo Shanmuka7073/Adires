@@ -1,50 +1,72 @@
 
-import ProductCard from '@/components/product-card';
+'use client';
+
 import { Store, Product, ProductPrice } from '@/lib/types';
 import groceryData from '@/lib/grocery-data.json';
-import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
-import { getAdminServices } from '@/firebase/admin-init';
-import { notFound } from 'next/navigation';
-import { getProductPrice, getProducts } from '@/lib/data';
+import { useParams, notFound } from 'next/navigation';
+import { getProductPrice, getProducts, getStore } from '@/lib/data';
 import { CategoryClient } from './category-client';
+import { useFirebase } from '@/firebase';
+import { useEffect, useState } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
 
+export default function StoreDetailPage() {
+  const { firestore } = useFirebase();
+  const params = useParams();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
 
-async function getStoreAndProducts(id: string): Promise<{ store: Store; products: Product[]; productPrices: Record<string, ProductPrice | null> } | null> {
-    const { db } = getAdminServices();
-    if (!db) {
-        console.error("Admin DB not available");
-        return null;
-    }
+  const [data, setData] = useState<{ store: Store; products: Product[]; productPrices: Record<string, ProductPrice | null> } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-    const storeRef = doc(db, 'stores', id);
-    const storeSnap = await getDoc(storeRef);
+  useEffect(() => {
+    if (!firestore || !id) return;
 
-    if (!storeSnap.exists()) {
-        return null;
-    }
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        const store = await getStore(firestore, id);
+        if (!store) {
+          setError(true);
+          return;
+        }
 
-    const store = { id: storeSnap.id, ...storeSnap.data() } as Store;
-    const products = await getProducts(db, id);
+        const products = await getProducts(firestore, id);
+        const pricePromises = products.map(p => getProductPrice(firestore, p.name));
+        const priceResults = await Promise.all(pricePromises);
+        const productPrices = products.reduce((acc, product, index) => {
+          acc[product.name.toLowerCase()] = priceResults[index];
+          return acc;
+        }, {} as Record<string, ProductPrice | null>);
 
-    // Fetch all prices for the products in this store
-    const pricePromises = products.map(p => getProductPrice(db, p.name));
-    const priceResults = await Promise.all(pricePromises);
+        setData({ store, products, productPrices });
+      } catch (e) {
+        console.error(e);
+        setError(true);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    const productPrices = products.reduce((acc, product, index) => {
-        acc[product.name.toLowerCase()] = priceResults[index];
-        return acc;
-    }, {} as Record<string, ProductPrice | null>);
+    fetchData();
+  }, [firestore, id]);
 
-
-    return { store, products, productPrices };
-}
-
-
-export default async function StoreDetailPage({ params }: { params: { id: string } }) {
-  const data = await getStoreAndProducts(params.id);
-
-  if (!data) {
+  if (error) {
     notFound();
+  }
+
+  if (isLoading || !data) {
+    return (
+      <div className="container mx-auto py-12 px-4 md:px-6">
+        <Skeleton className="h-12 w-1/2 mb-8" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <Skeleton className="h-64 w-full" />
+          <Skeleton className="h-64 w-full" />
+          <Skeleton className="h-64 w-full" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </div>
+    );
   }
 
   const { store, products, productPrices } = data;

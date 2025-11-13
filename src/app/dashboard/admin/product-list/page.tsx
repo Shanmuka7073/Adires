@@ -1,51 +1,14 @@
 
-import { promises as fs } from 'fs';
-import path from 'path';
+'use client';
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import groceryData from '@/lib/grocery-data.json';
+import { useMemo } from 'react';
 
-type Category = {
-    name: string;
-    items: string[];
-};
-
-// This function will parse the markdown file into a structured array
-async function parseProductList(): Promise<Category[]> {
-    const filePath = path.join(process.cwd(), 'docs', 'product-list.md');
-    try {
-        const fileContent = await fs.readFile(filePath, 'utf-8');
-        const lines = fileContent.split('\n');
-
-        const categories: Category[] = [];
-        let currentCategory: Category | null = null;
-
-        for (const line of lines) {
-            if (line.startsWith('### ')) {
-                // If there's a current category, push it before starting a new one
-                if (currentCategory) {
-                    categories.push(currentCategory);
-                }
-                currentCategory = { name: line.substring(4).trim(), items: [] };
-            } else if (line.startsWith('*   ') && currentCategory) {
-                currentCategory.items.push(line.substring(4).trim());
-            }
-        }
-        // Push the last category
-        if (currentCategory) {
-            categories.push(currentCategory);
-        }
-
-        return categories;
-
-    } catch (error) {
-        console.error("Error reading product list file:", error);
-        return [];
-    }
-}
-
-
-export default async function ProductListPage() {
-    const productCategories = await parseProductList();
+// This is now a client component and reads from the imported JSON.
+export default function ProductListPage() {
+    const productCategories = useMemo(() => groceryData.categories, []);
     const totalProducts = productCategories.reduce((sum, cat) => sum + cat.items.length, 0);
 
     return (
@@ -76,7 +39,7 @@ export default async function ProductListPage() {
                             ))}
                         </Accordion>
                     ) : (
-                        <p className="text-muted-foreground">Could not load the product list. Please check the server logs.</p>
+                        <p className="text-muted-foreground">Could not load the product list.</p>
                     )}
                 </CardContent>
             </Card>

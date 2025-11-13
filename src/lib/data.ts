@@ -1,6 +1,6 @@
 
+'use client';
 import type { Store, Product, ProductPrice, SiteConfig } from './types';
-// Do not import placeholderData directly anymore to avoid caching issues.
 import {
   collection,
   doc,
@@ -11,29 +11,10 @@ import {
   Firestore,
 } from 'firebase/firestore';
 
-async function getImages() {
-    // Dynamically import the JSON file to get the latest version.
-    const placeholderData = await import('./placeholder-images.json');
-    return placeholderData.default.placeholderImages;
-}
-
-const getImage = async (id: string) => {
-  const images = await getImages();
-  const image = images.find((img) => img.id === id);
-  return (
-    image || {
-      imageUrl: 'https://picsum.photos/seed/placeholder/300/300',
-      imageHint: 'placeholder',
-    }
-  );
-};
-
-// --- Firestore-based functions ---
+// --- Firestore-based functions for CLIENT-SIDE ---
 
 export async function getStores(db: Firestore): Promise<Store[]> {
   const storesCol = collection(db, 'stores');
-  // Firestore does not allow combining 'not-in' with '!=' or multiple 'not-in's.
-  // We query for stores that are not closed, and then filter out the master store on the client.
   const q = query(storesCol, where('isClosed', '!=', true));
   const storeSnapshot = await getDocs(q);
   const storeList = storeSnapshot.docs
@@ -41,7 +22,7 @@ export async function getStores(db: Firestore): Promise<Store[]> {
         id: doc.id,
         ...doc.data(),
     }) as Store)
-    .filter((store) => store.name !== 'LocalBasket'); // Filter client-side
+    .filter((store) => store.name !== 'LocalBasket');
   return storeList;
 }
 
@@ -52,10 +33,7 @@ export async function getStore(
   const storeDocRef = doc(db, 'stores', id);
   const storeSnap = await getDoc(storeDocRef);
   if (storeSnap.exists()) {
-    const storeData = { id: storeSnap.id, ...storeSnap.data() } as Store;
-    // For internal use (like creating an order), we should return the store even if closed.
-    // The getStores function for public listing already filters out closed stores.
-    return storeData;
+    return { id: storeSnap.id, ...storeSnap.data() } as Store;
   }
   return undefined;
 }
@@ -73,11 +51,6 @@ export async function getProducts(
   return productList;
 }
 
-/**
- * Fetches all products from the master "LocalBasket" store.
- * @param db The Firestore instance.
- * @returns A list of master Product objects.
- */
 export async function getMasterProducts(db: Firestore): Promise<Product[]> {
     const storesQuery = query(collection(db, 'stores'), where('name', '==', 'LocalBasket'));
     const storeSnapshot = await getDocs(storesQuery);
@@ -108,12 +81,6 @@ export async function getProduct(
   return undefined;
 }
 
-/**
- * Fetches the canonical price for a given product from the `productPrices` collection.
- * @param db The Firestore instance.
- * @param productName The name of the product (case-insensitive).
- * @returns The ProductPrice object or null if not found.
- */
 export async function getProductPrice(db: Firestore, productName: string): Promise<ProductPrice | null> {
     if (!productName) return null;
     const priceDocRef = doc(db, 'productPrices', productName.toLowerCase());
@@ -123,13 +90,3 @@ export async function getProductPrice(db: Firestore, productName: string): Promi
     }
     return null;
 }
-
-// --- Placeholder image functions ---
-
-export const getProductImage = async (imageId: string) => await getImage(imageId);
-export const getStoreImage = async (store: Store) => {
-    if (store.imageUrl) {
-        return { imageUrl: store.imageUrl, imageHint: 'store image' };
-    }
-    return await getImage(store.imageId);
-};
