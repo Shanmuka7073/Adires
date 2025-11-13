@@ -214,6 +214,12 @@ export default function AdminDashboardPage() {
             <div className="mt-16">
                  <h2 className="text-2xl font-bold text-center mb-8 font-headline">{t('admin-tools')}</h2>
                 <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
+                     <AdminActionCard 
+                        title="System Status"
+                        description="Check the health of backend services and APIs."
+                        href="/dashboard/admin/system-status"
+                        icon={Server}
+                    />
                     <AdminActionCard 
                         title="manage-master-store-and-products"
                         description="add-or-edit-products-in-the-master-catalog"
