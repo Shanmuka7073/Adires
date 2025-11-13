@@ -1,22 +1,15 @@
 
-import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
+import { initializeApp, getApps, cert, App, getApp } from 'firebase-admin/app';
 import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
-let adminApp: App | null = null;
+const ADMIN_APP_NAME = 'firebase-admin-app';
 
 /**
- * Ensures the Firebase Admin SDK is initialized and returns services.
- * This version uses individual environment variables to avoid JSON parsing issues.
+ * Ensures the Firebase Admin SDK is initialized and returns the auth and firestore services.
+ * This function caches the initialized app for reuse.
  */
 export function getAdminServices(): { auth: Auth; db: Firestore } {
-  if (adminApp) {
-    return {
-      auth: getAuth(adminApp),
-      db: getFirestore(adminApp),
-    };
-  }
-
   const projectId = process.env.FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   // The private key needs to have its escaped newlines replaced with actual newlines.
@@ -33,22 +26,19 @@ export function getAdminServices(): { auth: Auth; db: Firestore } {
     clientEmail,
     privateKey,
   };
-
-  try {
-    if (getApps().length) {
-      adminApp = getApps()[0];
-    } else {
-      adminApp = initializeApp({
-        credential: cert(serviceAccount),
-      });
-    }
-
-    return {
-      auth: getAuth(adminApp),
-      db: getFirestore(adminApp),
-    };
-  } catch (e: any) {
-    console.error('Firebase Admin Init Failed:', e.message);
-    throw new Error('Could not initialize Firebase Admin SDK. ' + e.message);
+  
+  // Get or initialize the uniquely named admin app
+  let adminApp: App;
+  if (!getApps().some(app => app.name === ADMIN_APP_NAME)) {
+    adminApp = initializeApp({
+      credential: cert(serviceAccount),
+    }, ADMIN_APP_NAME);
+  } else {
+    adminApp = getApp(ADMIN_APP_NAME);
   }
+
+  return {
+    auth: getAuth(adminApp),
+    db: getFirestore(adminApp),
+  };
 }
