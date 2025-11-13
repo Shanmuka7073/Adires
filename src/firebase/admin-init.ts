@@ -9,7 +9,7 @@ let adminApp: App | null = null;
 let initializedDb = null;
 let initializedAuth = null;
 
-if (process.env.NODE_ENV === 'production' && serviceAccountString) {
+if (serviceAccountString) {
   if (!getApps().length) {
     try {
       const serviceAccount = JSON.parse(serviceAccountString);
