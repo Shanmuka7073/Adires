@@ -659,6 +659,30 @@
         }
       },
       "required": ["key", "display", "reply"]
+    },
+    "SiteConfig": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "SiteConfig",
+        "type": "object",
+        "description": "Stores global site configuration, like feature flags for AI.",
+        "properties": {
+            "isPackGeneratorEnabled": {
+                "type": "boolean",
+                "description": "Controls the AI Grocery Pack Generator feature."
+            },
+            "isRecipeApiEnabled": {
+                "type": "boolean",
+                "description": "Controls the AI Recipe Ingredients feature."
+            },
+            "isGeneralQuestionApiEnabled": {
+                "type": "boolean",
+                "description": "Controls the general knowledge Q&A feature."
+            },
+            "isAliasSuggesterEnabled": {
+                "type": "boolean",
+                "description": "Controls the AI for suggesting fixes to failed commands."
+            }
+        }
     }
   },
   "auth": {
@@ -940,6 +964,22 @@
             {
               "name": "commandKey",
               "description": "The unique key for the command (e.g., 'go-to-cart')."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/siteConfig/{configId}",
+        "definition": {
+          "entityName": "SiteConfig",
+          "schema": {
+            "$ref": "#/backend/entities/SiteConfig"
+          },
+          "description": "Stores global site configuration settings, like feature flags for AI.",
+          "params": [
+            {
+              "name": "configId",
+              "description": "The unique identifier for the configuration document (e.g., 'aiFeatures')."
             }
           ]
         }

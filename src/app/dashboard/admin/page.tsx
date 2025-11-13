@@ -102,7 +102,7 @@ function AiTestCard() {
                     Test Gemini AI
                 </CardTitle>
                 <CardDescription>
-                    Enter a dish name to verify that the Genkit flow and Gemini API are working correctly.
+                    Enter a dish name to verify that the Genkit flow and Gemini API are working correctly. This may be disabled by the admin.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -241,6 +241,12 @@ export default function AdminDashboardPage() {
                         description="View the current Gemini API configuration and code for debugging."
                         href="/dashboard/admin/debug-genai"
                         icon={Code}
+                    />
+                     <AdminActionCard 
+                        title="AI Feature Controls"
+                        description="Enable or disable specific AI features across the entire site."
+                        href="/dashboard/admin/site-config"
+                        icon={Settings}
                     />
                 </div>
             </div>

@@ -17,6 +17,15 @@ import type {
     AliasTargetSuggestionInput,
     AliasTargetSuggestionOutput
 } from '@/ai/flows/schemas';
+import { getAiConfig } from '@/lib/data';
+import { firestore } from 'firebase-admin';
+
+
+// A helper function to check if a specific AI feature is enabled
+async function isAiFeatureEnabled(feature: 'isPackGeneratorEnabled' | 'isRecipeApiEnabled' | 'isGeneralQuestionApiEnabled' | 'isAliasSuggesterEnabled'): Promise<boolean> {
+    const config = await getAiConfig();
+    return config[feature] ?? false; // Default to false if not set
+}
 
 
 const MAX_RETRIES = 5;
@@ -63,18 +72,30 @@ async function withRetries<T, U>(flowFunction: (input: T) => Promise<U>, input: 
 }
 
 export async function getIngredientsForRecipe(input: RecipeIngredientsInput): Promise<RecipeIngredientsOutput> {
+    if (!await isAiFeatureEnabled('isRecipeApiEnabled')) {
+        throw new Error('Recipe AI is currently disabled by the admin.');
+    }
     return withRetries(getIngredientsFlow, input);
 }
 
 export async function answerGeneralQuestion(input: GeneralQuestionInput): Promise<GeneralQuestionOutput> {
+    if (!await isAiFeatureEnabled('isGeneralQuestionApiEnabled')) {
+        throw new Error('General Q&A AI is currently disabled by the admin.');
+    }
     return withRetries(answerGeneralQuestionFlow, input);
 }
 
 export async function generatePack(input: GeneratePackInput): Promise<GeneratePackOutput> {
+    if (!await isAiFeatureEnabled('isPackGeneratorEnabled')) {
+        throw new Error('Pack Generator AI is currently disabled by the admin.');
+    }
     return withRetries(generatePackFlow, input);
 }
 
 export async function suggestAliasTarget(input: AliasTargetSuggestionInput): Promise<AliasTargetSuggestionOutput> {
+    if (!await isAiFeatureEnabled('isAliasSuggesterEnabled')) {
+        throw new Error('Alias Suggester AI is currently disabled by the admin.');
+    }
     // This flow is for suggestions, so we don't need aggressive retries. A single attempt is fine.
     return suggestAliasTargetFlow(input);
 }

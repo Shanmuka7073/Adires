@@ -158,3 +158,10 @@ export type MonthlyPackage = {
         quantity: string;
     }[];
 };
+
+export type SiteConfig = {
+    isPackGeneratorEnabled?: boolean;
+    isRecipeApiEnabled?: boolean;
+    isGeneralQuestionApiEnabled?: boolean;
+    isAliasSuggesterEnabled?: boolean;
+};

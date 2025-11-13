@@ -1,23 +1,24 @@
 
 'use client';
 
-import { useState, useTransition, useMemo } from 'react';
-import { useFirebase, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useState, useTransition, useMemo, useEffect } from 'react';
+import { useFirebase, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError, useDoc } from '@/firebase';
 import { collection, query, where, addDoc, doc, deleteDoc, limit } from 'firebase/firestore';
-import type { Store, MonthlyPackage } from '@/lib/types';
+import type { Store, MonthlyPackage, SiteConfig } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { generatePack } from '@/app/actions';
-import { Loader2, Sparkles, PlusCircle, Trash2 } from 'lucide-react';
+import { Loader2, Sparkles, PlusCircle, Trash2, AlertCircle } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
-function PackGenerator({ storeId }: { storeId: string }) {
+function PackGenerator({ storeId, isEnabled }: { storeId: string, isEnabled: boolean }) {
     const { toast } = useToast();
     const [isGenerating, startGeneration] = useTransition();
     const [familySize, setFamilySize] = useState(2);
@@ -26,6 +27,10 @@ function PackGenerator({ storeId }: { storeId: string }) {
     const { firestore } = useFirebase();
 
     const handleGenerate = () => {
+        if (!isEnabled) {
+            toast({ variant: 'destructive', title: "Feature Disabled", description: "The AI Pack Generator is currently turned off by the admin." });
+            return;
+        }
         startGeneration(async () => {
             try {
                 const result = await generatePack({ packType: duration, familySize });
@@ -64,6 +69,16 @@ function PackGenerator({ storeId }: { storeId: string }) {
             errorEmitter.emit('permission-error', permissionError);
         }
     };
+
+    if (!isEnabled) {
+        return (
+             <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>AI Pack Generator Disabled</AlertTitle>
+                <AlertDescription>This feature is currently turned off by the site administrator.</AlertDescription>
+            </Alert>
+        )
+    }
 
     return (
         <Card>
@@ -214,10 +229,15 @@ export default function ManagePacksPage() {
         }
         return query(collection(firestore, 'stores'), where('ownerId', '==', user.uid), limit(1));
     }, [firestore, user]);
+    
+    const configDoc = useMemoFirebase(() => firestore ? doc(firestore, 'siteConfig', 'aiFeatures') : null, [firestore]);
 
-    const { data: stores, isLoading } = useCollection<Store>(storeQuery);
+    const { data: stores, isLoading: storeLoading } = useCollection<Store>(storeQuery);
+    const { data: aiConfig, isLoading: configLoading } = useDoc<SiteConfig>(configDoc);
 
     const store = useMemo(() => stores?.[0], [stores]);
+
+    const isLoading = storeLoading || configLoading;
 
     if (isLoading) {
         return <div className="container mx-auto py-12 px-4 md:px-6">Loading store information...</div>;
@@ -233,7 +253,7 @@ export default function ManagePacksPage() {
                 <h1 className="text-4xl font-bold font-headline">Manage Grocery Packs</h1>
                 <p className="text-lg text-muted-foreground mt-2">Create and manage AI-generated packs for your store: {store.name}</p>
             </div>
-            <PackGenerator storeId={store.id} />
+            <PackGenerator storeId={store.id} isEnabled={aiConfig?.isPackGeneratorEnabled ?? false} />
             <ExistingPacks storeId={store.id} />
         </div>
     );
