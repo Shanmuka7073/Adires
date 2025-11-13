@@ -18,8 +18,10 @@ import type {
     AliasTargetSuggestionOutput,
     SiteConfig
 } from '@/lib/types';
-import { getAdminServices } from '@/firebase/admin-init';
-import { getAuth } from 'firebase-admin/auth';
+
+import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
+import { getAuth, Auth } from 'firebase-admin/auth';
+
 
 const MAX_RETRIES = 5;
 const INITIAL_BACKOFF_MS = 1000; // Start with 1 second
@@ -104,12 +106,33 @@ export async function indexSiteContent() {
     }
 }
 
+function getAdminAuth(): Auth | null {
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+  if (!projectId || !clientEmail || !privateKey) {
+    console.error("Required Firebase Admin environment variables are not set.");
+    return null;
+  }
+
+  const serviceAccount = { projectId, clientEmail, privateKey };
+
+  if (getApps().length > 0) {
+    return getAuth(getApps()[0]);
+  }
+  
+  const adminApp = initializeApp({ credential: cert(serviceAccount) });
+  return getAuth(adminApp);
+}
+
 export async function getSystemStatus(): Promise<{ status: 'ok' | 'error'; message: string }> {
+    const auth = getAdminAuth();
+    if (!auth) {
+      return { status: 'error', message: 'Could not initialize Firebase Admin for authentication.' };
+    }
+    
     try {
-        const { auth } = getAdminServices();
-        if (!auth) {
-            throw new Error("Admin authentication is not initialized.");
-        }
         const userRecords = await auth.listUsers();
         const userCount = userRecords.users.length;
         return {
