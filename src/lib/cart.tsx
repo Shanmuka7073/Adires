@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
@@ -59,25 +58,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
 
   const addItem = useCallback((product: Product, variant: ProductVariant, quantity = 1) => {
-    
-    // Check if the new item is from a different store
-    if (activeStoreId && product.storeId !== activeStoreId) {
-        if (window.confirm("You have items from another store. Do you want to clear your current cart and start a new one with this item?")) {
-            // Clear cart and then add the new item
-            setCartItems([{ product, variant, quantity }]);
-            setActiveStoreId(product.storeId);
-            toast({
-                title: 'New cart started!',
-                description: `${product.name} (${variant.weight}) has been added.`,
-            });
-        }
-        // If user cancels, do nothing
-        return; 
-    }
-
-    // If no active store, set it to this item's store
-    if (!activeStoreId) {
+    // If there are already items in the cart, ensure the new item is from the same store.
+    if (cartItems.length > 0 && activeStoreId && product.storeId !== activeStoreId) {
+      if (window.confirm("You have items from another store. Do you want to clear your current cart and start a new one with this item?")) {
+        // Clear cart and then add the new item
+        setCartItems([{ product, variant, quantity }]);
         setActiveStoreId(product.storeId);
+        toast({
+          title: 'New cart started!',
+          description: `${product.name} (${variant.weight}) has been added.`,
+        });
+      }
+      // If user cancels, do nothing
+      return;
+    }
+  
+    // If cart is empty, set the active store ID
+    if (cartItems.length === 0) {
+      setActiveStoreId(product.storeId);
     }
 
     setCartItems((prevItems) => {
@@ -96,7 +94,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       title: 'Item added to cart',
       description: `${product.name} (${variant.weight}) has been added.`,
     });
-  }, [toast, activeStoreId]);
+  }, [toast, activeStoreId, cartItems]);
 
   const removeItem = useCallback((variantSku: string) => {
     setCartItems((prevItems) => {

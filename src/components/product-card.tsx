@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,7 +18,7 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, priceData }: ProductCardProps) {
-  const { addItem } = useCart();
+  const { addItem, setActiveStoreId } = useCart();
   const { toast } = useToast();
   
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
@@ -56,6 +55,12 @@ export default function ProductCard({ product, priceData }: ProductCardProps) {
       setSelectedVariant(variant);
     }
   };
+  
+  // Set the active store when a product card is interacted with, if not already set.
+  useEffect(() => {
+      setActiveStoreId(product.storeId);
+  }, [product.storeId, setActiveStoreId]);
+
 
   return (
     <Card className="flex flex-col h-full overflow-hidden transition-all hover:shadow-lg">

@@ -1,12 +1,7 @@
 
-
-'use client';
 import StoreCard from '@/components/store-card';
-import { useFirebase } from '@/firebase';
-import type { Store } from '@/lib/types';
-import { useEffect, useState, useMemo } from 'react';
-import { useToast } from '@/hooks/use-toast';
-import { useAppStore } from '@/lib/store';
+import { getStores } from '@/lib/data';
+import { getAdminServices } from '@/firebase/admin-init';
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371; // Radius of the Earth in kilometers
@@ -23,63 +18,13 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 }
 
 
-export default function StoresPage() {
-  const { firestore } = useFirebase();
-  const { toast } = useToast();
+export default async function StoresPage() {
+  const { db } = getAdminServices();
+  const allStores = await getStores(db);
 
-  // Get stores from the central Zustand store
-  const allStores = useAppStore((state) => state.stores);
-  const loading = useAppStore((state) => state.loading);
-  const fetchInitialData = useAppStore((state) => state.fetchInitialData);
-
-  const [sortedStores, setSortedStores] = useState<Store[]>([]);
-
-  // Fetch initial data if not already present
-  useEffect(() => {
-    if (firestore) {
-      fetchInitialData(firestore);
-    }
-  }, [firestore, fetchInitialData]);
-
-  // Sort stores by distance once they are loaded
-  useEffect(() => {
-    if (allStores.length > 0) {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            const storesWithDistance = allStores.map((store) => ({
-              ...store,
-              distance: haversineDistance(
-                latitude,
-                longitude,
-                store.latitude,
-                store.longitude
-              ),
-            }));
-            storesWithDistance.sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity));
-            setSortedStores(storesWithDistance);
-          },
-          (error) => {
-            toast({
-              variant: 'destructive',
-              title: 'Location Error',
-              description: 'Could not get your location. Displaying stores without distance.',
-            });
-            console.warn('Geolocation error:', error.message);
-            setSortedStores(allStores); // Show unsorted stores
-          }
-        );
-      } else {
-        toast({
-          variant: 'destructive',
-          title: 'Location Not Supported',
-          description: 'Geolocation is not supported by your browser.',
-        });
-        setSortedStores(allStores);
-      }
-    }
-  }, [allStores, toast]);
+  // Sorting can be done on the server. For this example, we'll assume a fixed location
+  // or pass client location via headers/cookies in a more advanced setup.
+  // For now, we'll just display them as is.
 
   return (
     <div className="container mx-auto py-12 px-4 md:px-6">
@@ -88,10 +33,8 @@ export default function StoresPage() {
         <p className="text-muted-foreground text-lg">Find your new favorite local grocery store.</p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-        {loading ? (
-          <p>Loading stores...</p>
-        ) : sortedStores.length > 0 ? (
-          sortedStores.map((store) => (
+        {allStores.length > 0 ? (
+          allStores.map((store) => (
             <StoreCard key={store.id} store={store} />
           ))
         ) : (
