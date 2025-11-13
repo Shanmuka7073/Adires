@@ -1,11 +1,46 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Server, BrainCircuit, Database, ShieldAlert, Store as StoreIcon, Users } from 'lucide-react';
-import { collection, getCountFromServer } from 'firebase-admin/firestore'; 
-import { getAdminServices } from '@/firebase/admin-init'; 
+import { collection, getCountFromServer, getFirestore } from 'firebase-admin/firestore'; 
+import { initializeApp, getApps, cert, getApp } from 'firebase-admin/app';
 import { ServerStatusCard, ClientStatusCard } from './status-cards';
 
-// Define the system status interface
+// Self-contained Firebase Admin initialization
+function getAdminServices() {
+  const apps = getApps();
+  const adminApp = apps.find(app => app?.name === 'firebase-admin-app-system-status');
+  
+  if (adminApp) {
+    return { 
+      db: getFirestore(adminApp),
+    };
+  }
+  
+  try {
+    // These variables are only available in a server environment.
+    const serviceAccount = {
+      projectId: process.env.FIREBASE_PROJECT_ID!,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY!.replace(/\\n/g, '\n'),
+    };
+
+    if (!serviceAccount.projectId || !serviceAccount.clientEmail || !serviceAccount.privateKey) {
+      throw new Error("Firebase Admin environment variables are not set.");
+    }
+    
+    const newAdminApp = initializeApp({
+      credential: cert(serviceAccount),
+    }, 'firebase-admin-app-system-status');
+
+    return {
+      db: getFirestore(newAdminApp),
+    };
+  } catch (e: any) {
+    console.error("Admin SDK initialization failed:", e.message);
+    return { db: null };
+  }
+}
+
 interface SystemStatus {
   llmStatus: 'Online' | 'Offline' | 'Degraded';
   adminDbStatus: 'Online' | 'Offline' | 'Unavailable';
@@ -13,29 +48,22 @@ interface SystemStatus {
   storeCount: number | 'N/A';
 }
 
-/**
- * Fetches real-time status data from the Firebase Admin SDK.
- */
 async function fetchSystemStatus(): Promise<SystemStatus> {
-  // Use the centralized initialization function
   const { db } = getAdminServices();
 
-  // NULL GUARD: Check if the database was initialized successfully
   if (!db) {
     return {
-      llmStatus: 'Degraded', // Assume LLM works but data access is degraded
+      llmStatus: 'Degraded',
       adminDbStatus: 'Unavailable',
       userCount: 'N/A',
       storeCount: 'N/A',
     };
   }
   
-  // Database initialized successfully
   let userCount: number | 'N/A' = 'N/A';
   let storeCount: number | 'N/A' = 'N/A';
 
   try {
-    // 1. Get User Count (from the root 'users' collection)
     const usersCollectionRef = collection(db, 'users'); 
     const userSnapshot = await getCountFromServer(usersCollectionRef);
     userCount = userSnapshot.data().count;
@@ -44,7 +72,6 @@ async function fetchSystemStatus(): Promise<SystemStatus> {
   }
   
   try {
-    // 2. Get Store Count (from the root 'stores' collection)
     const storesCollectionRef = collection(db, 'stores'); 
     const storeSnapshot = await getCountFromServer(storesCollectionRef);
     storeCount = storeSnapshot.data().count;
@@ -52,7 +79,6 @@ async function fetchSystemStatus(): Promise<SystemStatus> {
     console.error('Failed to get store count:', e);
   }
 
-  // NOTE: LLM Status is typically checked via an external health check, but we'll mock it here.
   return {
     llmStatus: 'Online',
     adminDbStatus: 'Online',
@@ -75,7 +101,6 @@ export default async function SystemStatusPage() {
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* 1. LLM Status */}
         <ServerStatusCard
           title="LLM Service"
           status={status.llmStatus}
@@ -83,7 +108,6 @@ export default async function SystemStatusPage() {
           description="Status of the Generative AI Model serving the application."
         />
 
-        {/* 2. Admin Database Status */}
         <ServerStatusCard
           title="Admin Database (Firestore)"
           status={status.adminDbStatus}
@@ -91,7 +115,6 @@ export default async function SystemStatusPage() {
           description="Connection health to the centralized server database."
         />
 
-        {/* 3. Authentication/Security Status */}
         <ServerStatusCard
           title="Authentication Service"
           status={'Online'} 
@@ -99,7 +122,6 @@ export default async function SystemStatusPage() {
           description="Status of Firebase Admin Auth and user token verification."
         />
 
-        {/* 4. Client-side Environment Status */}
         <ClientStatusCard
           title="Client Environment"
           icon={Server}
@@ -112,7 +134,6 @@ export default async function SystemStatusPage() {
           Usage Metrics
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* 5. Active User Count */}
           <Card className="shadow-lg">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Users</CardTitle>
@@ -124,7 +145,6 @@ export default async function SystemStatusPage() {
             </CardContent>
           </Card>
 
-          {/* 6. Total Stores */}
           <Card className="shadow-lg">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Stores</CardTitle>
