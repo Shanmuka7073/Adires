@@ -11,15 +11,33 @@ import { ServerStatusCard, ClientStatusCard } from './status-cards';
 // Self-contained admin initialization
 function getDb() {
     const apps = getApps();
-    const adminApp = apps.find(app => app?.name === 'firebase-admin-app') || initializeApp({
-        credential: cert({
-            projectId: process.env.FIREBASE_PROJECT_ID,
-            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-            privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-        }),
-    }, 'firebase-admin-app');
+    const adminApp = apps.find(app => app?.name === 'firebase-admin-app-db');
+    if (adminApp) {
+        return getFirestore(adminApp);
+    }
     
-    return getFirestore(adminApp);
+    const projectId = process.env.FIREBASE_PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+    if (!projectId || !clientEmail || !privateKey) {
+        console.error('Required Firebase Admin environment variables for db are not set.');
+        return null;
+    }
+
+    try {
+        const newAdminApp = initializeApp({
+            credential: cert({
+                projectId,
+                clientEmail,
+                privateKey: privateKey.replace(/\\n/g, '\n'),
+            }),
+        }, 'firebase-admin-app-db');
+        return getFirestore(newAdminApp);
+    } catch(e: any) {
+        console.error("Failed to initialize admin db in SystemStatusPage:", e.message);
+        return null;
+    }
 }
 
 
@@ -56,12 +74,7 @@ async function getErrorLogStatus(db: Firestore | null) {
 }
 
 export default async function SystemStatusPage() {
-  let db: Firestore | null = null;
-  try {
-      db = getDb();
-  } catch (e: any) {
-      console.error("Failed to initialize admin db in SystemStatusPage:", e.message);
-  }
+  const db = getDb();
 
   const [
     backendStatus,

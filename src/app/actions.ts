@@ -22,18 +22,36 @@ import type {
     SiteConfig
 } from '@/lib/types';
 
-// Self-contained admin initialization
+// Self-contained admin initialization for authentication
 function getAdminAuth() {
     const apps = getApps();
-    const adminApp = apps.find(app => app?.name === 'firebase-admin-app-auth') || initializeApp({
-        credential: cert({
-            projectId: process.env.FIREBASE_PROJECT_ID,
-            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-            privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-        }),
-    }, 'firebase-admin-app-auth');
+    const adminApp = apps.find(app => app?.name === 'firebase-admin-app-auth');
+    if (adminApp) {
+        return getAuth(adminApp);
+    }
     
-    return getAuth(adminApp);
+    const projectId = process.env.FIREBASE_PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+    if (!projectId || !clientEmail || !privateKey) {
+        console.error('Required Firebase Admin environment variables for auth are not set.');
+        return null;
+    }
+    
+    try {
+        const newAdminApp = initializeApp({
+            credential: cert({
+                projectId,
+                clientEmail,
+                privateKey: privateKey.replace(/\\n/g, '\n'),
+            }),
+        }, 'firebase-admin-app-auth');
+        return getAuth(newAdminApp);
+    } catch(e: any) {
+        console.error("Failed to initialize admin auth in actions.ts:", e.message);
+        return null;
+    }
 }
 
 
@@ -121,12 +139,9 @@ export async function indexSiteContent() {
 }
 
 export async function getSystemStatus(): Promise<{ status: 'ok' | 'error'; message: string }> {
-    let auth;
-    try {
-        auth = getAdminAuth();
-    } catch(e: any) {
-         console.error("System Status Check Failed to get Auth:", e);
-         return { status: 'error', message: `Could not initialize Firebase Admin for authentication: ${e.message}`};
+    const auth = getAdminAuth();
+    if (!auth) {
+        return { status: 'error', message: 'Could not initialize Firebase Admin for authentication.' };
     }
     
     try {
