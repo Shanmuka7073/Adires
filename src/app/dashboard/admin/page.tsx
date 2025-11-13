@@ -89,7 +89,7 @@ function AiTestCard() {
                 setIngredients(result.ingredients);
             } catch (error) {
                 console.error(error);
-                toast({ variant: 'destructive', title: 'AI Error', description: 'Could not fetch ingredients.' });
+                toast({ variant: 'destructive', title: 'AI Error', description: (error as Error).message || 'Could not fetch ingredients.' });
             }
         });
     };
@@ -102,7 +102,7 @@ function AiTestCard() {
                     Test Gemini AI
                 </CardTitle>
                 <CardDescription>
-                    Enter a dish name to verify that the Genkit flow and Gemini API are working correctly. This may be disabled by the admin.
+                    Enter a dish name to verify that the Genkit flow and Gemini API are working correctly. This will fail if the corresponding feature is disabled in AI Feature Controls.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
