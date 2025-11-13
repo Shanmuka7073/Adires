@@ -1,8 +1,8 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Server, BrainCircuit, Database, ShieldAlert, Store as StoreIcon, Users } from 'lucide-react';
-import { collection, getCountFromServer, getFirestore } from 'firebase-admin/firestore'; 
-import { initializeApp, getApps, cert, getApp } from 'firebase-admin/app';
+import { getFirestore, getCountFromServer } from 'firebase-admin/firestore'; 
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { ServerStatusCard, ClientStatusCard } from './status-cards';
 
 // Self-contained Firebase Admin initialization
@@ -17,7 +17,6 @@ function getAdminServices() {
   }
   
   try {
-    // These variables are only available in a server environment.
     const serviceAccount = {
       projectId: process.env.FIREBASE_PROJECT_ID!,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
@@ -64,7 +63,7 @@ async function fetchSystemStatus(): Promise<SystemStatus> {
   let storeCount: number | 'N/A' = 'N/A';
 
   try {
-    const usersCollectionRef = collection(db, 'users'); 
+    const usersCollectionRef = db.collection('users'); 
     const userSnapshot = await getCountFromServer(usersCollectionRef);
     userCount = userSnapshot.data().count;
   } catch (e) {
@@ -72,7 +71,7 @@ async function fetchSystemStatus(): Promise<SystemStatus> {
   }
   
   try {
-    const storesCollectionRef = collection(db, 'stores'); 
+    const storesCollectionRef = db.collection('stores'); 
     const storeSnapshot = await getCountFromServer(storesCollectionRef);
     storeCount = storeSnapshot.data().count;
   } catch (e) {
@@ -103,30 +102,26 @@ export default async function SystemStatusPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <ServerStatusCard
           title="LLM Service"
-          status={status.llmStatus}
-          icon={BrainCircuit}
+          status={{status: status.llmStatus === 'Online' ? 'ok' : 'error', message: status.llmStatus}}
+          iconName="BrainCircuit"
           description="Status of the Generative AI Model serving the application."
         />
 
         <ServerStatusCard
           title="Admin Database (Firestore)"
-          status={status.adminDbStatus}
-          icon={Database}
+          status={{status: status.adminDbStatus === 'Online' ? 'ok' : 'error', message: status.adminDbStatus}}
+          iconName="Database"
           description="Connection health to the centralized server database."
         />
 
         <ServerStatusCard
           title="Authentication Service"
-          status={'Online'} 
-          icon={ShieldAlert}
+          status={{status: 'ok', message: 'Online'}} 
+          iconName="ShieldAlert"
           description="Status of Firebase Admin Auth and user token verification."
         />
 
-        <ClientStatusCard
-          title="Client Environment"
-          icon={Server}
-          description="Ensures all client-side configurations are correctly loaded."
-        />
+        <ClientStatusCard />
       </div>
 
       <div className="pt-4">

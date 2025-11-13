@@ -11,7 +11,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 interface Status {
-  status: 'ok' | 'error' | 'loading';
+  status: 'ok' | 'error' | 'loading' | 'Online' | 'Offline' | 'Degraded' | 'Unavailable';
   message: string;
 }
 
@@ -20,7 +20,8 @@ const iconMap = {
     StoreIcon,
     ShieldAlert,
     Database,
-    // Add other icons here as needed
+    BrainCircuit,
+    Server
 };
 
 
@@ -37,16 +38,28 @@ export function ServerStatusCard({ title, description, status, iconName, link }:
 
   const getStatusColor = () => {
     switch (status.status) {
-      case 'ok': return 'text-green-500';
-      case 'error': return 'text-destructive';
+      case 'ok':
+      case 'Online':
+        return 'text-green-500';
+      case 'error':
+      case 'Offline':
+      case 'Degraded':
+      case 'Unavailable':
+        return 'text-destructive';
       default: return 'text-muted-foreground';
     }
   };
 
   const getStatusIcon = () => {
     switch (status.status) {
-      case 'ok': return <CheckCircle className={`h-6 w-6 ${getStatusColor()}`} />;
-      case 'error': return <AlertCircle className={`h-6 w-6 ${getStatusColor()}`} />;
+      case 'ok':
+      case 'Online':
+        return <CheckCircle className={`h-6 w-6 ${getStatusColor()}`} />;
+      case 'error':
+      case 'Offline':
+      case 'Degraded':
+      case 'Unavailable':
+        return <AlertCircle className={`h-6 w-6 ${getStatusColor()}`} />;
       default: return <Skeleton className="h-6 w-6 rounded-full" />;
     }
   };
