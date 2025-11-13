@@ -22,54 +22,8 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { firebaseConfig } from '@/firebase/config';
 
-// --- Server-side Firestore Admin Initialization ---
-
-// This function is no longer needed for getAiConfig but may be used by other server actions.
-function getAdminApp() {
-    if (getApps().length) {
-        return getApp();
-    }
-    return initializeApp(firebaseConfig, 'server-admin-app');
-}
-
-
-/**
- * Fetches the global AI feature configuration from Firestore.
- * This function is designed to run on the server and guarantees a fresh read
- * by using `getDocFromServer` to bypass any client or server-side caching.
- * @returns The SiteConfig object with AI feature flags.
- */
-export async function getAiConfig(): Promise<SiteConfig> {
-    try {
-        // Use client SDK but with getDocFromServer for a guaranteed fresh read
-        const serverApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-        const db = getFirestore(serverApp);
-        const configDocRef = doc(db, 'siteConfig', 'aiFeatures');
-        const configDoc = await getDocFromServer(configDocRef); // Use getDocFromServer
-
-        if (configDoc.exists()) {
-            return configDoc.data() as SiteConfig;
-        }
-    } catch (error) {
-        console.error("Failed to fetch AI config:", error);
-    }
-    
-    // Default to all features being disabled if the config doc doesn't exist or an error occurs.
-    return {
-        isPackGeneratorEnabled: false,
-        isRecipeApiEnabled: false,
-        isGeneralQuestionApiEnabled: false,
-        isAliasSuggesterEnabled: false,
-    };
-}
-
-
-// A helper function to check if a specific AI feature is enabled
-async function isAiFeatureEnabled(feature: keyof SiteConfig): Promise<boolean> {
-    const config = await getAiConfig();
-    return config[feature] ?? false; // Default to false if not set
-}
-
+// getAiConfig has been moved to the client-side where needed.
+// Server actions will now assume the client has already checked for feature enablement.
 
 const MAX_RETRIES = 5;
 const INITIAL_BACKOFF_MS = 1000; // Start with 1 second
@@ -114,32 +68,23 @@ async function withRetries<T, U>(flowFunction: (input: T) => Promise<U>, input: 
   throw new Error('Failed to connect to AI service.');
 }
 
+// The client is now responsible for checking if the feature is enabled.
 export async function getIngredientsForRecipe(input: RecipeIngredientsInput): Promise<RecipeIngredientsOutput> {
-    if (!await isAiFeatureEnabled('isRecipeApiEnabled')) {
-        throw new Error('Recipe AI is currently disabled by the admin.');
-    }
     return withRetries(getIngredientsFlow, input);
 }
 
+// The client is now responsible for checking if the feature is enabled.
 export async function answerGeneralQuestion(input: GeneralQuestionInput): Promise<GeneralQuestionOutput> {
-    if (!await isAiFeatureEnabled('isGeneralQuestionApiEnabled')) {
-        throw new Error('General Q&A AI is currently disabled by the admin.');
-    }
     return withRetries(answerGeneralQuestionFlow, input);
 }
 
+// The client is now responsible for checking if the feature is enabled.
 export async function generatePack(input: GeneratePackInput): Promise<GeneratePackOutput> {
-    if (!await isAiFeatureEnabled('isPackGeneratorEnabled')) {
-        throw new Error('Pack Generator AI is currently disabled by the admin.');
-    }
     return withRetries(generatePackFlow, input);
 }
 
+// The client is now responsible for checking if the feature is enabled.
 export async function suggestAliasTarget(input: AliasTargetSuggestionInput): Promise<AliasTargetSuggestionOutput> {
-    if (!await isAiFeatureEnabled('isAliasSuggesterEnabled')) {
-        console.warn("Alias Suggester AI is disabled by admin. Returning empty suggestion.");
-        return { suggestedTargetKey: undefined };
-    }
     // This flow is for suggestions, so we don't need aggressive retries. A single attempt is fine.
     return suggestAliasTargetFlow(input);
 }

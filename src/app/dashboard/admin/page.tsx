@@ -1,17 +1,16 @@
 
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Users, Store, Truck, ShoppingBag, AlertCircle, ArrowRight, Settings, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box, Code } from 'lucide-react';
 import Link from 'next/link';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useMemo, useEffect, useState, useTransition } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { collection, query, where } from 'firebase/firestore';
-import type { Order, Store as StoreType } from '@/lib/types';
+import { collection, query, where, doc } from 'firebase/firestore';
+import type { Order, Store as StoreType, SiteConfig } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { t } from '@/lib/locales';
@@ -73,12 +72,21 @@ function AdminActionCard({ title, description, href, icon: Icon }: { title: stri
 }
 
 function AiTestCard() {
+    const { firestore } = useFirebase();
     const [dish, setDish] = useState('');
     const [ingredients, setIngredients] = useState<string[]>([]);
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
+    
+    // Fetch AI config on the client-side
+    const configDocRef = useMemoFirebase(() => firestore ? doc(firestore, 'siteConfig', 'aiFeatures') : null, [firestore]);
+    const { data: aiConfig } = useDoc<SiteConfig>(configDocRef);
 
     const handleGetIngredients = () => {
+        if (!aiConfig?.isRecipeApiEnabled) {
+            toast({ variant: 'destructive', title: 'Feature Disabled', description: 'The Recipe AI feature is currently disabled by the admin.' });
+            return;
+        }
         if (!dish) {
             toast({ variant: 'destructive', title: 'Please enter a dish name.' });
             return;

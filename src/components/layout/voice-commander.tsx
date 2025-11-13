@@ -1,12 +1,11 @@
 
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, errorEmitter } from '@/firebase';
-import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, VoiceAlias, MonthlyPackage } from '@/lib/types';
+import { useFirebase, errorEmitter, useDoc, useMemoFirebase } from '@/firebase';
+import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, VoiceAlias, MonthlyPackage, SiteConfig } from '@/lib/types';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
 import { useAppStore } from '@/lib/store';
@@ -185,6 +184,10 @@ export function VoiceCommander({
     }
     return map;
   }, [stores, getAllAliases]);
+  
+  // Client-side AI config fetching
+  const configDocRef = useMemoFirebase(() => firestore ? doc(firestore, 'siteConfig', 'aiFeatures') : null, [firestore]);
+  const { data: aiConfig } = useDoc<SiteConfig>(configDocRef);
 
 
   const resetAllContext = useCallback(() => {
@@ -641,6 +644,11 @@ export function VoiceCommander({
     }
     
     if (isAiModeActive) {
+        if (!aiConfig?.isGeneralQuestionApiEnabled) {
+            speak("I'm sorry, the general knowledge feature is currently disabled by the admin.", langWithRegion);
+            setIsAiModeActive(false);
+            return;
+        }
         const quitKeywords = ['quit', 'exit', 'stop', 'ఆపు', 'బయటకు రా'];
         if (quitKeywords.some(kw => commandText.toLowerCase().includes(kw))) {
             setIsAiModeActive(false);
@@ -773,8 +781,7 @@ export function VoiceCommander({
     const separatorUsed = multiItemSeparators.find(sep => commandText.toLowerCase().includes(` ${sep} `));
     
     if (separatorUsed && recognizeIntent(commandText, spokenLang).type === 'ORDER_ITEM') {
-        const phrases = commandText.split(new RegExp(` ${separatorUsed} `, 'i'));
-        await commandActionsRef.current.orderMultipleItems(phrases, spokenLang, commandText);
+        await commandActionsRef.current.orderMultipleItems(commandText.split(new RegExp(` ${separatorUsed} `, 'i')), spokenLang, commandText);
         resetAllContext();
         return;
     }
@@ -792,6 +799,10 @@ export function VoiceCommander({
             return;
 
         case 'GET_RECIPE':
+            if (!aiConfig?.isRecipeApiEnabled) {
+                speak("I'm sorry, the recipe feature is currently disabled.", langWithRegion);
+                return;
+            }
             await commandActionsRef.current.getRecipe({ dishName: intent.dishName, lang: intent.lang });
             break;
             
@@ -808,6 +819,10 @@ export function VoiceCommander({
             break;
         
         case 'ADD_PACK':
+            if (!aiConfig?.isPackGeneratorEnabled) {
+                speak("I'm sorry, the grocery pack feature is currently disabled.", langWithRegion);
+                return;
+            }
             await commandActionsRef.current.addPackToCart({ packType: intent.packType, familySize: intent.familySize, lang: intent.lang });
             break;
         
@@ -853,12 +868,24 @@ export function VoiceCommander({
 
         case 'UNKNOWN':
         default:
-            const cachedAnswer = await getCachedAIResponse(firestore, commandText);
-            if (cachedAnswer) {
-                speak(cachedAnswer, langWithRegion);
+            if (aiConfig?.isGeneralQuestionApiEnabled) {
+                const cachedAnswer = await getCachedAIResponse(firestore, commandText);
+                 if (cachedAnswer) {
+                    speak(cachedAnswer, langWithRegion);
+                } else {
+                    speak("That's a good question. Let me think...", langWithRegion, async () => {
+                        try {
+                            const result = await answerGeneralQuestion({ question: commandText });
+                            speak(result.answer, langWithRegion);
+                            await cacheAIResponse(firestore, commandText, result.answer);
+                        } catch (e) {
+                            speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
+                        }
+                    });
+                }
             } else {
                 speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
-                if (firestore && user) {
+                 if (firestore && user) {
                     addDoc(collection(firestore, 'failedCommands'), {
                         userId: user.uid, commandText, language: spokenLang, reason: 'UNKNOWN intent & AI mode not active', timestamp: serverTimestamp(),
                     });
@@ -871,7 +898,7 @@ export function VoiceCommander({
         resetAllContext();
     }
 
-  }, [firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp, setLanguage, addItemToCart, removeItem, onOpenCart, locales, commands, getAllAliases, t, triggerVoicePrompt, itemForPriceCheck, recognizeIntent, isAiModeActive, isWaitingForPackStoreConfirmation, masterProducts, fetchInitialData]);
+  }, [firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp, setLanguage, addItemToCart, removeItem, onOpenCart, locales, commands, getAllAliases, t, triggerVoicePrompt, itemForPriceCheck, recognizeIntent, isAiModeActive, isWaitingForPackStoreConfirmation, masterProducts, fetchInitialData, aiConfig]);
 
     // Effect to handle retrying a command
     useEffect(() => {
@@ -1352,7 +1379,7 @@ export function VoiceCommander({
         recognition.stop();
       }
     };
-  }, [handleCommand, cartTotal, cartItemsProp, pathname, masterProducts, t, isAiModeActive]);
+  }, [handleCommand, cartTotal, cartItemsProp, pathname, masterProducts, t, isAiModeActive, aiConfig]);
 
   useEffect(() => {
     console.log('Current language changed to:', language);
