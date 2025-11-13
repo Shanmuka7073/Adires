@@ -18,12 +18,8 @@ import type {
     AliasTargetSuggestionOutput,
     SiteConfig
 } from '@/lib/types';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
-import { firebaseConfig } from '@/firebase/config';
-
-// getAiConfig has been moved to the client-side where needed.
-// Server actions will now assume the client has already checked for feature enablement.
+import { initializeAdminApp } from '@/firebase/admin-init';
+import { getAuth } from 'firebase-admin/auth';
 
 const MAX_RETRIES = 5;
 const INITIAL_BACKOFF_MS = 1000; // Start with 1 second
@@ -108,21 +104,20 @@ export async function indexSiteContent() {
     }
 }
 
-// This function is a placeholder as Admin SDK is no longer used.
-export async function getSystemStatus(): Promise<{ userCount: number, status: 'ok' | 'error' }> {
+export async function getSystemStatus(): Promise<{ status: 'ok' | 'error'; message: string }> {
     try {
-        // Since we removed the Admin SDK, we can't get the user count from the server.
-        // We will return a placeholder value. A real implementation might call a
-        // secure cloud function if this count was still needed.
+        const { auth } = initializeAdminApp();
+        const userRecords = await auth.listUsers();
+        const userCount = userRecords.users.length;
         return {
             status: 'ok',
-            userCount: 0, // Placeholder
+            message: `Server is responsive. User count: ${userCount}`,
         };
     } catch (error) {
         console.error("System Status Check Failed:", error);
         return {
             status: 'error',
-            userCount: 0,
+            message: 'Could not connect to backend services.',
         };
     }
 }
