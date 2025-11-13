@@ -7,9 +7,8 @@ import { answerGeneralQuestion as answerGeneralQuestionFlow } from '@/ai/flows/g
 import { generatePack as generatePackFlow } from '@/ai/flows/generate-pack-flow';
 import { suggestAliasTarget as suggestAliasTargetFlow } from '@/ai/flows/suggest-alias-flow';
 
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, getCountFromServer, collection } from 'firebase-admin/firestore';
+import { getAuth, getFirestore, getCountFromServer, collection } from 'firebase-admin/firestore';
+import { getAdminServices } from '@/firebase/admin-init'; // Updated import
 
 import type { 
     RecipeIngredientsInput, 
@@ -22,44 +21,6 @@ import type {
     AliasTargetSuggestionOutput,
     SiteConfig
 } from '@/lib/types';
-
-// Self-contained admin initialization
-function getAdminServices() {
-    const apps = getApps();
-    const adminApp = apps.find(app => app?.name === 'firebase-admin-app-actions');
-    if (adminApp) {
-        return { 
-            auth: getAuth(adminApp),
-            db: getFirestore(adminApp)
-        };
-    }
-    
-    const projectId = process.env.FIREBASE_PROJECT_ID;
-    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-    const privateKey = process.env.FIREBASE_PRIVATE_KEY;
-
-    if (!projectId || !clientEmail || !privateKey) {
-        console.error('Required Firebase Admin environment variables are not set.');
-        return { auth: null, db: null };
-    }
-    
-    try {
-        const newAdminApp = initializeApp({
-            credential: cert({
-                projectId,
-                clientEmail,
-                privateKey: privateKey.replace(/\\n/g, '\n'),
-            }),
-        }, 'firebase-admin-app-actions');
-        return {
-            auth: getAuth(newAdminApp),
-            db: getFirestore(newAdminApp)
-        };
-    } catch(e: any) {
-        console.error("Failed to initialize admin auth in actions.ts:", e.message);
-        return { auth: null, db: null };
-    }
-}
 
 
 const MAX_RETRIES = 5;
