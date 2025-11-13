@@ -18,7 +18,7 @@ import type {
     AliasTargetSuggestionOutput,
     SiteConfig
 } from '@/lib/types';
-import { auth } from '@/firebase/admin-init';
+import { getAdminServices } from '@/firebase/admin-init';
 import { getAuth } from 'firebase-admin/auth';
 
 const MAX_RETRIES = 5;
@@ -106,6 +106,7 @@ export async function indexSiteContent() {
 
 export async function getSystemStatus(): Promise<{ status: 'ok' | 'error'; message: string }> {
     try {
+        const { auth } = getAdminServices();
         if (!auth) {
             throw new Error("Admin authentication is not initialized.");
         }
@@ -117,9 +118,10 @@ export async function getSystemStatus(): Promise<{ status: 'ok' | 'error'; messa
         };
     } catch (error) {
         console.error("System Status Check Failed:", error);
+        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
         return {
             status: 'error',
-            message: 'Could not connect to backend services.',
+            message: `Could not connect to backend services: ${errorMessage}`,
         };
     }
 }

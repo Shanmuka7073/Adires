@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Server, BrainCircuit, Database, ShieldAlert, Store as StoreIcon, Users } from 'lucide-react';
 import { getSystemStatus } from '@/app/actions';
 import { collection, query, where, limit, getDocs, getCountFromServer } from 'firebase/firestore';
-import { db } from '@/firebase/admin-init'; // Import db directly
+import { getAdminServices } from '@/firebase/admin-init';
 import { ServerStatusCard, ClientStatusCard } from './status-cards';
 import type { Firestore } from 'firebase-admin/firestore';
 
@@ -40,6 +40,8 @@ async function getErrorLogStatus(db: Firestore | null) {
 }
 
 export default async function SystemStatusPage() {
+  const { db } = getAdminServices();
+
   const [
     backendStatus,
     masterStoreStatus,
