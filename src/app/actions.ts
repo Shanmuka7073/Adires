@@ -7,6 +7,9 @@ import { answerGeneralQuestion as answerGeneralQuestionFlow } from '@/ai/flows/g
 import { generatePack as generatePackFlow } from '@/ai/flows/generate-pack-flow';
 import { suggestAliasTarget as suggestAliasTargetFlow } from '@/ai/flows/suggest-alias-flow';
 
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
+
 import type { 
     RecipeIngredientsInput, 
     RecipeIngredientsOutput, 
@@ -19,7 +22,19 @@ import type {
     SiteConfig
 } from '@/lib/types';
 
-import { getAdminServices } from '@/firebase/admin-init';
+// Self-contained admin initialization
+function getAdminAuth() {
+    const apps = getApps();
+    const adminApp = apps.find(app => app?.name === 'firebase-admin-app-auth') || initializeApp({
+        credential: cert({
+            projectId: process.env.FIREBASE_PROJECT_ID,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+            privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        }),
+    }, 'firebase-admin-app-auth');
+    
+    return getAuth(adminApp);
+}
 
 
 const MAX_RETRIES = 5;
@@ -106,9 +121,12 @@ export async function indexSiteContent() {
 }
 
 export async function getSystemStatus(): Promise<{ status: 'ok' | 'error'; message: string }> {
-    const { auth } = getAdminServices();
-    if (!auth) {
-      return { status: 'error', message: 'Could not initialize Firebase Admin for authentication.' };
+    let auth;
+    try {
+        auth = getAdminAuth();
+    } catch(e: any) {
+         console.error("System Status Check Failed to get Auth:", e);
+         return { status: 'error', message: `Could not initialize Firebase Admin for authentication: ${e.message}`};
     }
     
     try {

@@ -3,8 +3,25 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Server, BrainCircuit, Database, ShieldAlert, Store as StoreIcon, Users } from 'lucide-react';
 import { getSystemStatus } from '@/app/actions';
 import { collection, query, where, limit, getDocs, getCountFromServer, Firestore } from 'firebase/firestore';
-import { getAdminServices } from '@/firebase/admin-init';
+import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 import { ServerStatusCard, ClientStatusCard } from './status-cards';
+
+
+// Self-contained admin initialization
+function getDb() {
+    const apps = getApps();
+    const adminApp = apps.find(app => app?.name === 'firebase-admin-app') || initializeApp({
+        credential: cert({
+            projectId: process.env.FIREBASE_PROJECT_ID,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+            privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        }),
+    }, 'firebase-admin-app');
+    
+    return getFirestore(adminApp);
+}
+
 
 async function getMasterStoreStatus(db: Firestore | null) {
     if (!db) return { status: 'error', message: 'Admin Firestore not initialized.' };
@@ -15,9 +32,9 @@ async function getMasterStoreStatus(db: Firestore | null) {
             return { status: 'error', message: 'Master "LocalBasket" store not found.' };
         }
         return { status: 'ok', message: 'Master store is configured.' };
-    } catch (e) {
+    } catch (e: any) {
         console.error("Master store check failed:", e);
-        return { status: 'error', message: 'Error checking for master store.' };
+        return { status: 'error', message: 'Error checking for master store: ' + e.message };
     }
 }
 
@@ -32,14 +49,19 @@ async function getErrorLogStatus(db: Firestore | null) {
             return { status: 'error', message: `${errorCount} error(s) logged. Review required.` };
         }
         return { status: 'ok', message: 'No errors logged.' };
-    } catch (e) {
+    } catch (e: any) {
         console.error("Error log check failed:", e);
-        return { status: 'error', message: 'Could not check error logs.' };
+        return { status: 'error', message: 'Could not check error logs: ' + e.message };
     }
 }
 
 export default async function SystemStatusPage() {
-  const { db } = getAdminServices();
+  let db: Firestore | null = null;
+  try {
+      db = getDb();
+  } catch (e: any) {
+      console.error("Failed to initialize admin db in SystemStatusPage:", e.message);
+  }
 
   const [
     backendStatus,
