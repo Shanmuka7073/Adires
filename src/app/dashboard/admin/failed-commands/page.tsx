@@ -140,16 +140,21 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
         if (!firestore) return;
         
         try {
+            // 1. Save the new alias to the database
             await saveAlias(firestore, command, suggestedKey, suggestionType as 'product' | 'store' | 'command');
+            
+            // 2. IMPORTANT: Force a refresh of the entire app's knowledge base (aliases, etc.)
             await fetchInitialData(firestore);
-            await new Promise(resolve => setTimeout(resolve, 100));
-
+            
+            // 3. Mark the UI as 'learned'
             setIsLearned(true);
             
-            if(retryCommand) {
+            // 4. Now that state is fresh, retry the command
+            if (retryCommand) {
                retryCommand(command.commandText);
             }
 
+            // 5. After a delay, remove the processed command from the queue
             setTimeout(async () => {
                 const commandRef = doc(firestore, 'failedCommands', command.id);
                 await deleteDoc(commandRef);
@@ -424,5 +429,7 @@ export default function FailedCommandsPage() {
         </div>
     )
 }
+
+    
 
     
