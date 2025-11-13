@@ -10,7 +10,7 @@ import type { FailedVoiceCommand, VoiceAlias } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { X, Check, BrainCircuit, Edit, Loader2, ArrowRight, Trash2, Wand2, CheckCircle } from 'lucide-react';
+import { X, Check, BrainCircuit, Edit, Loader2, ArrowRight, Trash2, Wand2, CheckCircle, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useTransition, useMemo, useEffect, useCallback } from 'react';
 import { useAppStore } from '@/lib/store';
@@ -124,13 +124,14 @@ function TrainDialog({ command, isOpen, onOpenChange, initialSuggestion }: { com
 }
 
 function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand, allTargets: { key: string, display: string, type: 'product' | 'store' | 'command', aliases: string[] }[]}) {
-    const { firestore, user } = useFirebase();
+    const { firestore } = useFirebase();
     const { toast } = useToast();
     const { retryCommand } = useVoiceCommander();
     const { fetchInitialData } = useAppStore();
 
     const [isProcessing, startTransition] = useTransition();
-    const [suggestion, setSuggestion] = useState<'loading' | 'no-suggestion' | { key: string, display: string, type: string }>('loading');
+    const [suggestionStatus, setSuggestionStatus] = useState<'idle' | 'loading' | 'no-suggestion'>('idle');
+    const [suggestion, setSuggestion] = useState<{ key: string, display: string, type: string } | null>(null);
     const [isLearned, setIsLearned] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     
@@ -139,28 +140,20 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
         if (!firestore) return;
         
         try {
-            // 1. Save the new alias
             await saveAlias(firestore, command, suggestedKey, suggestionType as 'product' | 'store' | 'command');
-            
-            // 2. Refresh the global alias store to include the new alias
             await fetchInitialData(firestore);
-            
-            // Give a moment for state propagation
             await new Promise(resolve => setTimeout(resolve, 100));
 
-            // 3. Set UI state to "Learned"
             setIsLearned(true);
             
-            // 4. Retry the original command with the new knowledge
             if(retryCommand) {
                retryCommand(command.commandText);
             }
 
-            // 5. After a short delay, remove the command from Firestore
             setTimeout(async () => {
                 const commandRef = doc(firestore, 'failedCommands', command.id);
                 await deleteDoc(commandRef);
-            }, 2000); // 2-second delay to show the "Learned" status
+            }, 2000); 
 
         } catch (error) {
             console.error("Auto-learn and retry failed:", error);
@@ -168,47 +161,32 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
         }
     }, [firestore, command, fetchInitialData, retryCommand, toast]);
 
-    // This effect runs once to get the AI suggestion
-    useEffect(() => {
-        let isMounted = true;
-        const getSuggestion = async () => {
-            try {
-                const res = await suggestAliasTarget({
-                    failedCommand: command.commandText,
-                    language: command.language,
-                    possibleTargets: allTargets,
-                });
+    const handleGetSuggestion = async () => {
+        setSuggestionStatus('loading');
+        setSuggestion(null);
+        try {
+            const res = await suggestAliasTarget({
+                failedCommand: command.commandText,
+                language: command.language,
+                possibleTargets: allTargets,
+            });
 
-                if (!isMounted) return;
-
-                if (res.suggestedTargetKey) {
-                    const target = allTargets.find(t => t.key === res.suggestedTargetKey);
-                    if (target) {
-                        // ** AUTO-LEARN & RETRY **
-                        // If it's a product or store, we can auto-learn and execute
-                        if (target.type === 'product' || target.type === 'store') {
-                             handleAutoLearnAndRetry(target.key, target.type);
-                        } else {
-                            // For commands, we still suggest for manual approval
-                            setSuggestion({ key: target.key, display: target.display, type: target.type });
-                        }
-                    } else {
-                        setSuggestion('no-suggestion');
-                    }
+            if (res.suggestedTargetKey) {
+                const target = allTargets.find(t => t.key === res.suggestedTargetKey);
+                if (target) {
+                    setSuggestion({ key: target.key, display: target.display, type: target.type });
+                    setSuggestionStatus('idle'); // Has a suggestion now
                 } else {
-                    setSuggestion('no-suggestion');
+                    setSuggestionStatus('no-suggestion');
                 }
-            } catch (error) {
-                if(isMounted) {
-                    console.error("Suggestion AI failed:", error);
-                    setSuggestion('no-suggestion');
-                }
+            } else {
+                setSuggestionStatus('no-suggestion');
             }
-        };
-
-        getSuggestion();
-        return () => { isMounted = false; };
-    }, [command, allTargets, handleAutoLearnAndRetry]);
+        } catch (error) {
+            console.error("Suggestion AI failed:", error);
+            setSuggestionStatus('no-suggestion');
+        }
+    };
 
 
     const handleReject = () => {
@@ -226,7 +204,7 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
     }
 
     const handleApprove = () => {
-        if (typeof suggestion === 'string' || !suggestion.key) return;
+        if (!suggestion || !suggestion.key) return;
         startTransition(() => {
             handleAutoLearnAndRetry(suggestion.key, suggestion.type);
         });
@@ -239,7 +217,7 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
                 command={command}
                 isOpen={isDialogOpen}
                 onOpenChange={setIsDialogOpen}
-                initialSuggestion={suggestion && typeof suggestion !== 'string' ? `${suggestion.type}::${suggestion.key}` : undefined}
+                initialSuggestion={suggestion ? `${suggestion.type}::${suggestion.key}` : undefined}
             />
             <TableRow className={isLearned ? 'bg-green-100/50 dark:bg-green-900/20' : ''}>
                 <TableCell className="font-mono text-base">"{command.commandText}"</TableCell>
@@ -252,22 +230,35 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
                            <CheckCircle className="h-4 w-4" />
                            <span>Learned & Retrying...</span>
                         </div>
-                    ) : suggestion === 'loading' ? (
+                    ) : suggestionStatus === 'loading' ? (
                         <div className="flex items-center gap-2 text-muted-foreground">
                             <Loader2 className="h-4 w-4 animate-spin" />
                             <span>AI is thinking...</span>
                         </div>
-                    ) : suggestion === 'no-suggestion' ? (
-                         <span className="text-muted-foreground">No suggestion found</span>
-                    ) : (
+                    ) : suggestionStatus === 'no-suggestion' ? (
+                         <span className="text-muted-foreground">No suggestion found.</span>
+                    ) : suggestion ? (
                         <div className="flex items-center gap-2">
                            <ArrowRight className="h-4 w-4 text-muted-foreground" />
                            <Badge variant="secondary" className="text-base">{suggestion.display}</Badge>
                         </div>
+                    ) : (
+                        <span className="text-muted-foreground italic">Awaiting review</span>
                     )}
                 </TableCell>
                 <TableCell className="text-right space-x-2">
-                    {suggestion && typeof suggestion !== 'string' && !isLearned && (
+                    {!suggestion && suggestionStatus !== 'loading' && (
+                        <Button 
+                            variant="outline"
+                            size="sm"
+                            onClick={handleGetSuggestion}
+                            disabled={isProcessing}
+                        >
+                            <Sparkles className="mr-2 h-4 w-4" />
+                            Suggest Fix
+                        </Button>
+                    )}
+                    {suggestion && !isLearned && (
                          <Button 
                             variant="default"
                             size="sm"
@@ -369,7 +360,7 @@ export default function FailedCommandsPage() {
                         <div>
                             <CardTitle className="flex items-center gap-2"><BrainCircuit className="h-6 w-6 text-primary" /> AI Training Queue</CardTitle>
                             <CardDescription>
-                                Commands the AI cannot auto-learn appear here. Approve suggestions or provide a manual fix.
+                                Review misunderstood commands. Manually map them or use the AI to suggest a fix.
                             </CardDescription>
                         </div>
                         {failedCommands && failedCommands.length > 0 && (
@@ -433,3 +424,5 @@ export default function FailedCommandsPage() {
         </div>
     )
 }
+
+    
