@@ -39,11 +39,11 @@ export function getAdminServices(): { auth: Auth; db: Firestore } {
       cleanedString = cleanedString.substring(1, cleanedString.length - 1);
     }
 
-    // 2. Un-escape characters that are often double-escaped in env vars.
-    // Replace literal "\\n" with actual newline "\n"
-    cleanedString = cleanedString.replace(/\\n/g, '\n');
-    // Replace literal '\"' with actual quote '"'
-    cleanedString = cleanedString.replace(/\\"/g, '"');
+    // 2. Un-escape characters that are double-escaped.
+    // Replace literal "\\n" with escaped "\n" (which JSON.parse needs)
+    cleanedString = cleanedString.replace(/\\\\n/g, '\\n');
+    // Replace literal '\"' with literal '"'
+    cleanedString = cleanedString.replace(/\\\\"/g, '"');
     
     // --- End of String Cleaning ---
 
