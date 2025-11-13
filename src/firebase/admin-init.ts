@@ -5,9 +5,9 @@ import { getFirestore } from 'firebase-admin/firestore';
 
 const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 
-let adminApp: App | null = null;
-let initializedDb = null;
-let initializedAuth = null;
+let adminApp: App;
+let initializedDb: ReturnType<typeof getFirestore> | null = null;
+let initializedAuth: ReturnType<typeof getAuth> | null = null;
 
 if (serviceAccountString) {
   if (!getApps().length) {
@@ -16,19 +16,21 @@ if (serviceAccountString) {
       adminApp = initializeApp({
         credential: cert(serviceAccount),
       });
-      console.log('Firebase Admin SDK initialized successfully.');
     } catch (e) {
       console.error('Failed to initialize Firebase Admin SDK:', e);
+      // Fallback to a default app if initialization fails but an app exists.
+      adminApp = getApps()[0];
     }
   } else {
     adminApp = getApps()[0];
   }
-}
 
-if (adminApp) {
   initializedDb = getFirestore(adminApp);
   initializedAuth = getAuth(adminApp);
+} else {
+    console.error("FIREBASE_SERVICE_ACCOUNT_KEY is not set. Server-side Firebase services will not be available.");
 }
+
 
 export const db = initializedDb;
 export const auth = initializedAuth;
