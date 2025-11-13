@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, Truck, ShoppingBag, ArrowRight, Settings, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box, Code, ShieldAlert } from 'lucide-react';
+import { Users, Store, Truck, ShoppingBag, ArrowRight, Settings, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box, Code, ShieldAlert, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
