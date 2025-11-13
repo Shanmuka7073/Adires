@@ -3,7 +3,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, Truck, ShoppingBag, AlertCircle, ArrowRight, Settings, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box } from 'lucide-react';
+import { Users, Store, Truck, ShoppingBag, AlertCircle, ArrowRight, Settings, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box, Code } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -236,11 +236,11 @@ export default function AdminDashboardPage() {
                         href="/dashboard/admin/failed-commands"
                         icon={MessageSquareWarning}
                     />
-                    <AdminActionCard
-                        title="View App Pitch"
-                        description="Review and share the application's marketing pitch."
-                        href="/dashboard/admin/pitch"
-                        icon={FileText}
+                     <AdminActionCard 
+                        title="Debug GenAI API"
+                        description="View the current Gemini API configuration and code for debugging."
+                        href="/dashboard/admin/debug-genai"
+                        icon={Code}
                     />
                 </div>
             </div>

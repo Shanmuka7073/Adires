@@ -1,4 +1,5 @@
 
+
 import { promises as fs } from 'fs';
 import path from 'path';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -22,9 +23,9 @@ export default async function PitchPage() {
         <div className="container mx-auto py-12 px-4 md:px-6">
             <Card className="max-w-4xl mx-auto">
                 <CardHeader>
-                    <CardTitle className="text-3xl font-headline">App Pitch</CardTitle>
+                    <CardTitle className="text-3xl font-headline">App Pitch & Vision</CardTitle>
                     <CardDescription>
-                        This is the comprehensive pitch for the LocalBasket application. Use the button to share it.
+                        This is the comprehensive pitch for the LocalBasket application, outlining the problem, solution, and vision.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
