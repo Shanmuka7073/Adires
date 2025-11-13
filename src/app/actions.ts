@@ -18,50 +18,40 @@ import type {
     AliasTargetSuggestionOutput,
     SiteConfig
 } from '@/lib/types';
-import admin from 'firebase-admin';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { firebaseConfig } from '@/firebase/config';
 
 // --- Server-side Firestore Admin Initialization ---
 
+// This function is no longer needed for getAiConfig but may be used by other server actions.
 function getAdminApp() {
-    // If the default app is already initialized, return it.
-    if (admin.apps.length > 0 && admin.apps[0]) {
-        return admin.apps[0];
+    if (getApps().length) {
+        return getApp();
     }
-    
-    // This private key is a placeholder and should be replaced with a secure method
-    // for production environments, such as environment variables or a secret manager.
-    const serviceAccount = {
-        projectId: firebaseConfig.projectId,
-        clientEmail: `firebase-adminsdk-placeholder@${firebaseConfig.projectId}.iam.gserviceaccount.com`,
-        privateKey: `-----BEGIN PRIVATE KEY-----\n-----END PRIVATE KEY-----\n`,
-    }
-
-    // Initialize the app if it doesn't exist.
-    return admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-    });
+    return initializeApp(firebaseConfig, 'server-admin-app');
 }
 
 
 /**
- * Fetches the global AI feature configuration from Firestore using the Admin SDK.
+ * Fetches the global AI feature configuration from Firestore.
+ * This function is designed to run on the server and guarantees a fresh read
+ * by using the client SDK in a server context, bypassing any server-side caching issues.
  * @returns The SiteConfig object with AI feature flags.
  */
 export async function getAiConfig(): Promise<SiteConfig> {
     try {
-        const adminApp = getAdminApp();
-        if (!adminApp) {
-            throw new Error("Admin SDK not initialized");
-        }
-        const firestore = adminApp.firestore();
-        const configDoc = await firestore.collection('siteConfig').doc('aiFeatures').get();
+        // Use client SDK for a guaranteed fresh read to bypass server caching
+        const serverApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+        const db = getFirestore(serverApp);
+        const configDocRef = doc(db, 'siteConfig', 'aiFeatures');
+        const configDoc = await getDoc(configDocRef);
 
-        if (configDoc.exists) {
+        if (configDoc.exists()) {
             return configDoc.data() as SiteConfig;
         }
     } catch (error) {
-        console.error("Failed to fetch AI config with Admin SDK:", error);
+        console.error("Failed to fetch AI config:", error);
     }
     
     // Default to all features being disabled if the config doc doesn't exist or an error occurs.
