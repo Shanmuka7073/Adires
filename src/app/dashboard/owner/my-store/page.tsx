@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useTransition, useEffect, useMemo, useRef } from 'react';
+import { useState, useTransition, useEffect, useMemo, useRef, RefObject } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -36,10 +36,11 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import type { Store, Product, ProductPrice, User as AppUser } from '@/lib/types';
-import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import {
   Table,
   TableBody,
@@ -62,12 +63,12 @@ import {
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
 import groceryData from '@/lib/grocery-data.json';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Camera, CameraOff, Sparkles, PlusCircle, Edit, Link2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import Link from 'next/link';
-import { t, getAllAliases } from '@/lib/locales';
+import { t } from '@/lib/locales';
 import { useAppStore, useMyStorePageStore } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
 
@@ -77,6 +78,7 @@ const standardWeights = ["100gm", "250gm", "500gm", "1kg", "2kg", "5kg", "1 pack
 
 const storeSchema = z.object({
   name: z.string().min(3, 'Store name must be at least 3 characters'),
+  teluguName: z.string().optional(),
   description: z
     .string()
     .min(10, 'Description must be at least 10 characters'),
@@ -259,8 +261,12 @@ function StoreImageUploader({ store }: { store: Store }) {
             </CardHeader>
             <CardContent className="space-y-4">
                  <div className="w-full aspect-video relative rounded-md overflow-hidden border bg-muted">
-                    {isCameraOn ? (
+                    {capturedImage ? (
+                        <Image src={capturedImage} alt="Captured preview" fill className="object-cover" />
+                    ) : isCameraOn ? (
                          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                    ) : store.imageUrl ? (
+                        <Image src={store.imageUrl} alt={store.name} fill className="object-cover" />
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full bg-muted/50 text-muted-foreground">
                             <ImageIcon className="h-10 w-10 mb-2" />
@@ -888,11 +894,16 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {groceryData.categories.map(cat => (
-                        <SelectItem key={cat.categoryName} value={`${cat.items[0]}::${cat.categoryName}`}>
-                            {cat.categoryName}
-                        </SelectItem>
-                      ))}
+                        {groceryData.categories.map(cat => (
+                            <SelectGroup key={cat.categoryName}>
+                                <SelectLabel>{cat.categoryName}</SelectLabel>
+                                {cat.items.map(item => (
+                                    <SelectItem key={`${cat.categoryName}-${item}`} value={`${item}::${cat.categoryName}`}>
+                                        {item}
+                                    </SelectItem>
+                                ))}
+                            </SelectGroup>
+                        ))}
                     </SelectContent>
                 </Select>
                 <FormDescription>
@@ -1170,18 +1181,10 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
                     <div className="flex items-end gap-4">
                         <div className="grid grid-cols-2 gap-4 flex-1">
                             <FormField control={form.control} name="latitude" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>{t('latitude')}</FormLabel>
-                                    <FormControl><Input type="number" {...field} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
+                                <FormItem><FormLabel>{t('latitude')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                             <FormField control={form.control} name="longitude" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>{t('longitude')}</FormLabel>
-                                    <FormControl><Input type="number" {...field} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
+                                <FormItem><FormLabel>{t('longitude')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                         </div>
                          <Button type="button" variant="outline" onClick={handleGetLocation}>
@@ -1268,11 +1271,13 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
     const [isOpen, setIsOpen] = useState(false);
+    const { getAllAliases } = useAppStore();
 
     const form = useForm<Omit<StoreFormValues, 'latitude' | 'longitude'>>({
         resolver: zodResolver(storeSchema.omit({ latitude: true, longitude: true })),
         defaultValues: {
             name: store.name,
+            teluguName: store.teluguName || '',
             description: store.description,
             address: store.address,
         },
@@ -1298,6 +1303,11 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
             }
         });
     };
+
+    const storeAliases = useMemo(() => {
+        const key = createSlug(store.name);
+        return getAllAliases(key);
+    }, [store.name, getAllAliases]);
 
     return (
         <Card>
@@ -1326,6 +1336,20 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                                                 <FormControl>
                                                     <Input {...field} disabled={store.name === 'LocalBasket'} />
                                                 </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="teluguName"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Store Name (Telugu)</FormLabel>
+                                                <FormControl>
+                                                    <Input {...field} placeholder="e.g., పటేల్ కిరాణా స్టోర్" />
+                                                </FormControl>
+                                                 <FormDescription>This name will be used for Telugu voice commands.</FormDescription>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -1362,19 +1386,30 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                     </Dialog>
                 </div>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm">
+            <CardContent className="space-y-4 text-sm">
                 <p><strong>{t('description')}:</strong> {store.description}</p>
                 <p><strong>{t('address')}:</strong> {store.address}</p>
+                 <p><strong>Telugu Name:</strong> {store.teluguName || 'Not set'}</p>
                 <p><strong>{t('location')}:</strong> {store.latitude}, {store.longitude}</p>
+                <div>
+                  <strong>Voice Aliases:</strong>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                      {Object.entries(storeAliases).flatMap(([lang, aliases]) =>
+                          aliases.map(alias => (
+                              <Badge key={`${lang}-${alias}`} variant="secondary">{alias} ({lang})</Badge>
+                          ))
+                      )}
+                      {Object.keys(storeAliases).length === 0 && <span className="text-muted-foreground ml-2">None set. Add aliases in the Voice Commands admin page.</span>}
+                  </div>
+                </div>
             </CardContent>
         </Card>
     );
 }
 
-// New component to fetch and display variants for a single product row in the admin table
 function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Product; storeId: string; onEdit: () => void; onDelete: () => void; }) {
     const { firestore } = useFirebase();
-    const { getProductName, language } = useAppStore(state => ({ getProductName: state.getProductName, language: state.language }));
+    const { getProductName, language, getAllAliases } = useAppStore();
 
     const priceDocRef = useMemoFirebase(() => {
         if (!firestore || !product.name) return null;
@@ -1384,10 +1419,9 @@ function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Prod
     const { data: priceData, isLoading: pricesLoading } = useDoc<ProductPrice>(priceDocRef);
     
     const productAliases = useMemo(() => {
-        const aliases = getAllAliases(product.name.toLowerCase().replace(/ /g, '-'));
-        // Flatten the object of arrays into a single array, but only get the first one for display
-        return Object.values(aliases).flat();
-    }, [product.name]);
+        const key = createSlug(product.name);
+        return getAllAliases(key);
+    }, [product.name, getAllAliases]);
 
     const variantsString = useMemo(() => {
         if (pricesLoading) return "Loading prices...";
@@ -1399,17 +1433,26 @@ function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Prod
         <TableRow>
             <TableCell>
                  <div className="flex items-start gap-4">
+                    <Image
+                        src={product.imageUrl || 'https://placehold.co/40x40/E2E8F0/64748B?text=?'}
+                        alt={product.name}
+                        width={40}
+                        height={40}
+                        className="rounded-sm object-cover mt-1"
+                    />
                     <div>
-                        <span className="font-semibold">{t(product.name.toLowerCase().replace(/ /g, '-'), language)}</span>
+                        <span className="font-semibold">{getProductName(product)}</span>
                          <div className="flex flex-wrap gap-1 mt-1">
-                            {productAliases.map((alias, index) => (
-                                <Badge key={index} variant="secondary" className="font-normal">{alias}</Badge>
-                            ))}
+                            {Object.entries(productAliases).flatMap(([lang, aliases]) => 
+                                aliases.map(alias => (
+                                    <Badge key={`${lang}-${alias}`} variant="outline">{alias} ({lang})</Badge>
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>
             </TableCell>
-            <TableCell>{t(product.category.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</TableCell>
+            <TableCell>{t(product.category?.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</TableCell>
             <TableCell>{variantsString}</TableCell>
             <TableCell className="text-right">
                 <Button variant="ghost" size="icon" onClick={onEdit}>
@@ -1449,6 +1492,7 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
     const [isOpening, startOpenTransition] = useTransition();
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const { getProductName, language } = useAppStore(state => ({ getProductName: state.getProductName, language: state.language }));
+    const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
     const productsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -1458,6 +1502,12 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
     const { data: products, isLoading } = useCollection<Product>(productsQuery);
     
     const needsLocationUpdate = !store.latitude || !store.longitude;
+    
+    const filteredProducts = useMemo(() => {
+        if (!products) return [];
+        if (selectedCategory === 'all') return products;
+        return products.filter(p => p.category === selectedCategory);
+    }, [products, selectedCategory]);
 
     const handleOpenStore = () => {
         if (!firestore) return;
@@ -1573,10 +1623,29 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
 
         <Card>
             <CardHeader>
-                <CardTitle>{t('your-products')}</CardTitle>
-                 <CardDescription>
-                    {isAdmin ? t('this-is-the-master-list-of-products') : t('this-is-your-current-store-inventory')}
-                </CardDescription>
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                    <div>
+                        <CardTitle>{t('your-products')}</CardTitle>
+                        <CardDescription>
+                            {isAdmin ? t('this-is-the-master-list-of-products') : t('this-is-your-current-store-inventory')}
+                        </CardDescription>
+                    </div>
+                    {isAdmin && (
+                        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                            <SelectTrigger className="w-full sm:w-[200px]">
+                                <SelectValue placeholder="Filter by category..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Categories</SelectItem>
+                                {groceryData.categories.map(cat => (
+                                    <SelectItem key={cat.categoryName} value={cat.categoryName}>
+                                        {t(cat.categoryName.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
+                </div>
             </CardHeader>
             <CardContent>
                 {isLoading ? (
@@ -1592,7 +1661,7 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {products.map(product => 
+                        {filteredProducts.map(product => 
                             isAdmin ? (
                                 <AdminProductRow 
                                     key={product.id}
@@ -1605,10 +1674,17 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
                                 <TableRow key={product.id}>
                                      <TableCell>
                                         <div className="flex items-center gap-4">
+                                            <Image
+                                                src={product.imageUrl || 'https://placehold.co/40x40/E2E8F0/64748B?text=?'}
+                                                alt={product.name}
+                                                width={40}
+                                                height={40}
+                                                className="rounded-sm object-cover"
+                                            />
                                             <span>{t(product.name.toLowerCase().replace(/ /g, '-'), language)}</span>
                                         </div>
                                     </TableCell>
-                                    <TableCell>{t(product.category.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</TableCell>
+                                    <TableCell>{t(product.category?.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</TableCell>
                                 </TableRow>
                             )
                         )}
@@ -1639,6 +1715,7 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
             address: isAdmin ? 'Platform-wide' : (profile?.address || ''),
             latitude: 0,
             longitude: 0,
+            teluguName: ''
         },
     });
 
@@ -1757,6 +1834,20 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                             </FormItem>
                             )}
                         />
+                         <FormField
+                            control={form.control}
+                            name="teluguName"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Store Name (Telugu)</FormLabel>
+                                <FormControl>
+                                <Input placeholder="e.g., పటేల్ కిరాణా స్టోర్" {...field} />
+                                </FormControl>
+                                <FormDescription>This name will be used for Telugu voice commands.</FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
                         <FormField
                             control={form.control}
                             name="description"
@@ -1851,6 +1942,7 @@ export default function MyStorePage() {
         startCreationTransition(async () => {
              const storeData = {
                 name: `${userProfile.firstName}'s Store`,
+                teluguName: `${userProfile.firstName} గారి స్టోర్`,
                 description: `Groceries and goods from ${userProfile.firstName}'s Store.`,
                 address: userProfile.address,
                 latitude: coords.lat,
@@ -1922,3 +2014,4 @@ export default function MyStorePage() {
         </div>
     );
 }
+
