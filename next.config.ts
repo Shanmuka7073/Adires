@@ -49,10 +49,6 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: '4.5mb',
     },
-    // Fix for Cross-Origin errors in Firebase Studio/Cloud Workstations
-    allowedDevOrigins: [
-      "https://*.cloudworkstations.dev",
-    ],
   },
 };
 
