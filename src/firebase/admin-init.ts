@@ -23,7 +23,14 @@ export function getAdminServices() {
   }
 
   try {
-    const serviceAccount = JSON.parse(serviceAccountString);
+    // Clean the string before parsing. This handles issues where the env var might be double-quoted or escaped.
+    let cleanedString = serviceAccountString;
+    if (cleanedString.startsWith('"') && cleanedString.endsWith('"')) {
+      cleanedString = cleanedString.substring(1, cleanedString.length - 1);
+    }
+    cleanedString = cleanedString.replace(/\\n/g, '\n').replace(/\\"/g, '"');
+
+    const serviceAccount = JSON.parse(cleanedString);
 
     if (getApps().length) {
         adminApp = getApps()[0];
