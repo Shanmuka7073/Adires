@@ -4,7 +4,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CheckCircle, AlertCircle, Server, BrainCircuit, Database } from 'lucide-react';
+import { CheckCircle, AlertCircle, Server, BrainCircuit, Database, Users, Store as StoreIcon, ShieldAlert } from 'lucide-react';
 import { useFirebase, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
@@ -15,15 +15,26 @@ interface Status {
   message: string;
 }
 
+const iconMap = {
+    Users,
+    StoreIcon,
+    ShieldAlert,
+    Database,
+    // Add other icons here as needed
+};
+
+
 interface ServerStatusCardProps {
     title: string;
     description: string;
     status: Status;
-    icon: React.ElementType;
+    iconName: keyof typeof iconMap;
     link?: string;
 }
 
-function ServerStatusCard({ title, description, status, icon: Icon, link }: ServerStatusCardProps) {
+function ServerStatusCard({ title, description, status, iconName, link }: ServerStatusCardProps) {
+  const Icon = iconMap[iconName] || Server; // Fallback to a default icon
+
   const getStatusColor = () => {
     switch (status.status) {
       case 'ok': return 'text-green-500';
@@ -83,7 +94,7 @@ function ClientStatusCard() {
             title="Client Firestore Connection"
             description="Verifies that the user's browser can connect to the database."
             status={firestoreStatus}
-            icon={Database}
+            iconName="Database"
         />
     )
 }

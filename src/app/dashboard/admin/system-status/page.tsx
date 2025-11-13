@@ -54,19 +54,19 @@ export default async function SystemStatusPage() {
         title: "Backend Services & User Count", 
         description: "Checks if server actions are responsive and gets total users from Firebase Auth.", 
         status: backendStatus, 
-        icon: Users 
+        iconName: "Users" 
     },
     { 
         title: "Master Store", 
         description: "Ensures the master 'LocalBasket' store for canonical products exists.", 
         status: masterStoreStatus, 
-        icon: StoreIcon 
+        iconName: "StoreIcon"
     },
     { 
         title: "Application Error Log", 
         description: "Monitors for logged application or permission errors in Firestore.", 
         status: errorLogStatus, 
-        icon: ShieldAlert,
+        iconName: "ShieldAlert",
         link: '/dashboard/admin/errors'
     },
   ];
@@ -89,7 +89,7 @@ export default async function SystemStatusPage() {
                 title={s.title}
                 description={s.description}
                 status={s.status}
-                icon={s.icon}
+                iconName={s.iconName}
                 link={s.link}
             />
           ))}
