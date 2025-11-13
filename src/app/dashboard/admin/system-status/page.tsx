@@ -1,94 +1,68 @@
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+'use client';
+
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Server, BrainCircuit, Database, ShieldAlert, Store as StoreIcon, Users } from 'lucide-react';
-import { getFirestore, getCountFromServer } from 'firebase-admin/firestore'; 
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { ServerStatusCard, ClientStatusCard } from './status-cards';
-
-// Self-contained Firebase Admin initialization
-function getAdminServices() {
-  const apps = getApps();
-  const adminApp = apps.find(app => app?.name === 'firebase-admin-app-system-status');
-  
-  if (adminApp) {
-    return { 
-      db: getFirestore(adminApp),
-    };
-  }
-  
-  try {
-    const serviceAccount = {
-      projectId: process.env.FIREBASE_PROJECT_ID!,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY!.replace(/\\n/g, '\n'),
-    };
-
-    if (!serviceAccount.projectId || !serviceAccount.clientEmail || !serviceAccount.privateKey) {
-      throw new Error("Firebase Admin environment variables are not set.");
-    }
-    
-    const newAdminApp = initializeApp({
-      credential: cert(serviceAccount),
-    }, 'firebase-admin-app-system-status');
-
-    return {
-      db: getFirestore(newAdminApp),
-    };
-  } catch (e: any) {
-    console.error("Admin SDK initialization failed:", e.message);
-    return { db: null };
-  }
-}
+import { getSystemStatus } from '@/app/actions';
+import { useState, useEffect } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface SystemStatus {
   llmStatus: 'Online' | 'Offline' | 'Degraded';
-  adminDbStatus: 'Online' | 'Offline' | 'Unavailable';
+  serverDbStatus: 'Online' | 'Offline' | 'Unavailable' | 'Loading';
   userCount: number | 'N/A';
   storeCount: number | 'N/A';
 }
 
-async function fetchSystemStatus(): Promise<SystemStatus> {
-  const { db } = getAdminServices();
+export default function SystemStatusPage() {
+  const [status, setStatus] = useState<SystemStatus>({
+    llmStatus: 'Online', // Assumed online initially
+    serverDbStatus: 'Loading',
+    userCount: 'N/A',
+    storeCount: 'N/A',
+  });
+  const [isLoading, setIsLoading] = useState(true);
 
-  if (!db) {
-    return {
-      llmStatus: 'Degraded',
-      adminDbStatus: 'Unavailable',
-      userCount: 'N/A',
-      storeCount: 'N/A',
+  useEffect(() => {
+    const fetchStatus = async () => {
+      setIsLoading(true);
+      try {
+        const serverStatus = await getSystemStatus();
+        if (serverStatus.status === 'ok') {
+            setStatus({
+                llmStatus: 'Online',
+                serverDbStatus: 'Online',
+                userCount: serverStatus.counts.users,
+                storeCount: serverStatus.counts.stores,
+            });
+        } else {
+             setStatus({
+                llmStatus: 'Degraded',
+                serverDbStatus: 'Unavailable',
+                userCount: 'N/A',
+                storeCount: 'N/A',
+            });
+        }
+      } catch (error) {
+        console.error("Failed to fetch system status:", error);
+        setStatus({
+            llmStatus: 'Degraded',
+            serverDbStatus: 'Unavailable',
+            userCount: 'N/A',
+            storeCount: 'N/A',
+        });
+      } finally {
+        setIsLoading(false);
+      }
     };
-  }
-  
-  let userCount: number | 'N/A' = 'N/A';
-  let storeCount: number | 'N/A' = 'N/A';
 
-  try {
-    const usersCollectionRef = db.collection('users'); 
-    const userSnapshot = await getCountFromServer(usersCollectionRef);
-    userCount = userSnapshot.data().count;
-  } catch (e) {
-    console.error('Failed to get user count:', e);
-  }
-  
-  try {
-    const storesCollectionRef = db.collection('stores'); 
-    const storeSnapshot = await getCountFromServer(storesCollectionRef);
-    storeCount = storeSnapshot.data().count;
-  } catch (e) {
-    console.error('Failed to get store count:', e);
-  }
+    fetchStatus();
+  }, []);
 
-  return {
-    llmStatus: 'Online',
-    adminDbStatus: 'Online',
-    userCount,
-    storeCount,
+  const StatusDisplay = ({ isLoading, children }) => {
+    return isLoading ? <Skeleton className="h-8 w-24" /> : <div className="text-3xl font-bold">{children}</div>;
   };
-}
-
-
-export default async function SystemStatusPage() {
-  const status = await fetchSystemStatus();
 
   return (
     <div className="p-8 space-y-8 bg-gray-50 min-h-screen">
@@ -96,32 +70,32 @@ export default async function SystemStatusPage() {
         System Status Dashboard
       </h1>
       <p className="text-gray-600">
-        Real-time health check of critical server components.
+        Real-time health check of critical application components.
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <ServerStatusCard
-          title="LLM Service"
-          status={{status: status.llmStatus === 'Online' ? 'ok' : 'error', message: status.llmStatus}}
+          title="LLM Service (Gemini)"
+          status={{status: status.llmStatus, message: `Generative AI model is ${status.llmStatus.toLowerCase()}.`}}
           iconName="BrainCircuit"
           description="Status of the Generative AI Model serving the application."
         />
 
         <ServerStatusCard
-          title="Admin Database (Firestore)"
-          status={{status: status.adminDbStatus === 'Online' ? 'ok' : 'error', message: status.adminDbStatus}}
+          title="Server Database (Admin)"
+          status={{status: status.serverDbStatus, message: `Admin SDK connection is ${status.serverDbStatus.toLowerCase()}.`}}
           iconName="Database"
-          description="Connection health to the centralized server database."
+          description="Connection health for server-side actions."
         />
+        
+        <ClientStatusCard />
 
         <ServerStatusCard
           title="Authentication Service"
-          status={{status: 'ok', message: 'Online'}} 
+          status={{status: 'Online', message: "Client and Admin Auth services are online."}} 
           iconName="ShieldAlert"
-          description="Status of Firebase Admin Auth and user token verification."
+          description="Status of Firebase Authentication services."
         />
-
-        <ClientStatusCard />
       </div>
 
       <div className="pt-4">
@@ -135,7 +109,7 @@ export default async function SystemStatusPage() {
               <Users className="h-5 w-5 text-indigo-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{status.userCount}</div>
+              <StatusDisplay isLoading={isLoading}>{status.userCount}</StatusDisplay>
               <p className="text-xs text-gray-500">Users with stored credentials</p>
             </CardContent>
           </Card>
@@ -146,7 +120,7 @@ export default async function SystemStatusPage() {
               <StoreIcon className="h-5 w-5 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{status.storeCount}</div>
+              <StatusDisplay isLoading={isLoading}>{status.storeCount}</StatusDisplay>
               <p className="text-xs text-gray-500">Stores created on the platform</p>
             </CardContent>
           </Card>

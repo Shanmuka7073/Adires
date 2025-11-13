@@ -9,6 +9,7 @@ import { suggestAliasTarget as suggestAliasTargetFlow } from '@/ai/flows/suggest
 
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
+import { getFirestore, getCountFromServer, collection } from 'firebase-admin/firestore';
 
 import type { 
     RecipeIngredientsInput, 
@@ -22,12 +23,15 @@ import type {
     SiteConfig
 } from '@/lib/types';
 
-// Self-contained admin initialization for authentication
-function getAdminAuth() {
+// Self-contained admin initialization
+function getAdminServices() {
     const apps = getApps();
-    const adminApp = apps.find(app => app?.name === 'firebase-admin-app-auth');
+    const adminApp = apps.find(app => app?.name === 'firebase-admin-app-actions');
     if (adminApp) {
-        return getAuth(adminApp);
+        return { 
+            auth: getAuth(adminApp),
+            db: getFirestore(adminApp)
+        };
     }
     
     const projectId = process.env.FIREBASE_PROJECT_ID;
@@ -35,8 +39,8 @@ function getAdminAuth() {
     const privateKey = process.env.FIREBASE_PRIVATE_KEY;
 
     if (!projectId || !clientEmail || !privateKey) {
-        console.error('Required Firebase Admin environment variables for auth are not set.');
-        return null;
+        console.error('Required Firebase Admin environment variables are not set.');
+        return { auth: null, db: null };
     }
     
     try {
@@ -46,11 +50,14 @@ function getAdminAuth() {
                 clientEmail,
                 privateKey: privateKey.replace(/\\n/g, '\n'),
             }),
-        }, 'firebase-admin-app-auth');
-        return getAuth(newAdminApp);
+        }, 'firebase-admin-app-actions');
+        return {
+            auth: getAuth(newAdminApp),
+            db: getFirestore(newAdminApp)
+        };
     } catch(e: any) {
         console.error("Failed to initialize admin auth in actions.ts:", e.message);
-        return null;
+        return { auth: null, db: null };
     }
 }
 
@@ -138,25 +145,37 @@ export async function indexSiteContent() {
     }
 }
 
-export async function getSystemStatus(): Promise<{ status: 'ok' | 'error'; message: string }> {
-    const auth = getAdminAuth();
-    if (!auth) {
-        return { status: 'error', message: 'Could not initialize Firebase Admin for authentication.' };
+export async function getSystemStatus(): Promise<{ status: 'ok' | 'error'; message: string; counts: { users: number | 'N/A'; stores: number | 'N/A' } }> {
+    const { auth, db } = getAdminServices();
+    if (!auth || !db) {
+        return { status: 'error', message: 'Could not initialize Firebase Admin SDK.', counts: { users: 'N/A', stores: 'N/A' } };
+    }
+    
+    let userCount: number | 'N/A' = 'N/A';
+    let storeCount: number | 'N/A' = 'N/A';
+
+    try {
+        const usersCollectionRef = collection(db, 'users'); 
+        const userSnapshot = await getCountFromServer(usersCollectionRef);
+        userCount = userSnapshot.data().count;
+    } catch (e) {
+        console.error('Failed to get user count:', e);
     }
     
     try {
-        const userRecords = await auth.listUsers();
-        const userCount = userRecords.users.length;
-        return {
-            status: 'ok',
-            message: `Server is responsive. User count: ${userCount}`,
-        };
-    } catch (error) {
-        console.error("System Status Check Failed:", error);
-        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
-        return {
-            status: 'error',
-            message: `Could not connect to backend services: ${errorMessage}`,
-        };
+        const storesCollectionRef = collection(db, 'stores'); 
+        const storeSnapshot = await getCountFromServer(storesCollectionRef);
+        storeCount = storeSnapshot.data().count;
+    } catch (e) {
+        console.error('Failed to get store count:', e);
     }
+
+    return {
+        status: 'ok',
+        message: 'Server-side services are responsive.',
+        counts: {
+            users: userCount,
+            stores: storeCount
+        }
+    };
 }
