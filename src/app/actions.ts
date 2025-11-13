@@ -19,7 +19,7 @@ import type {
     SiteConfig
 } from '@/lib/types';
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { firebaseConfig } from '@/firebase/config';
 
 // --- Server-side Firestore Admin Initialization ---
@@ -36,16 +36,16 @@ function getAdminApp() {
 /**
  * Fetches the global AI feature configuration from Firestore.
  * This function is designed to run on the server and guarantees a fresh read
- * by using the client SDK in a server context, bypassing any server-side caching issues.
+ * by using `getDocFromServer` to bypass any client or server-side caching.
  * @returns The SiteConfig object with AI feature flags.
  */
 export async function getAiConfig(): Promise<SiteConfig> {
     try {
-        // Use client SDK for a guaranteed fresh read to bypass server caching
+        // Use client SDK but with getDocFromServer for a guaranteed fresh read
         const serverApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
         const db = getFirestore(serverApp);
         const configDocRef = doc(db, 'siteConfig', 'aiFeatures');
-        const configDoc = await getDoc(configDocRef);
+        const configDoc = await getDocFromServer(configDocRef); // Use getDocFromServer
 
         if (configDoc.exists()) {
             return configDoc.data() as SiteConfig;
