@@ -34,16 +34,22 @@ async function withRetries<T, U>(flowFunction: (input: T) => Promise<U>, input: 
     } catch (error) {
       const errorString = error instanceof Error ? error.message : String(error);
       
-      // Check for the specific 503 error message
-      if (errorString.includes('[503 Service Unavailable]') && attempt < MAX_RETRIES - 1) {
+      // Check for 503 OR 429 error messages
+      if ((errorString.includes('[503 Service Unavailable]') || errorString.includes('[429 Too Many Requests]')) && attempt < MAX_RETRIES - 1) {
         
-        // Calculate exponential backoff time
-        const backoffTime = INITIAL_BACKOFF_MS * Math.pow(2, attempt);
-        const jitter = Math.random() * 500; // Add some randomness
+        // Use a longer backoff time for 429 errors
+        let backoffTime = INITIAL_BACKOFF_MS * Math.pow(2, attempt);
+
+        // CRITICAL: If it's a 429 error, enforce a minimum 30-second wait on the first few attempts
+        if (errorString.includes('[429 Too Many Requests]')) {
+             backoffTime = Math.max(backoffTime, 30000); // Wait at least 30 seconds
+        }
+
+        const jitter = Math.random() * 500;
         const waitTime = backoffTime + jitter;
 
-        console.warn(`Attempt ${attempt + 1} failed (503). Retrying in ${Math.round(waitTime / 1000)}s...`);
-        await delay(waitTime); // Wait before the next attempt
+        console.warn(`Attempt ${attempt + 1} failed (${errorString.includes('429') ? '429 Quota' : '503'}). Retrying in ${Math.round(waitTime / 1000)}s...`);
+        await delay(waitTime);
 
       } else {
         // Final attempt failed OR it's a non-retryable error
