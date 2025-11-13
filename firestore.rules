@@ -145,7 +145,7 @@ service cloud.firestore {
     }
 
     match /siteConfig/{configId} {
-        allow get: if true;
+        allow get: if isSignedIn();
         allow write: if isAdmin();
     }
   }
