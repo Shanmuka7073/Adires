@@ -413,7 +413,7 @@ export function VoiceCommander({
       if (pathname === '/checkout' && hasMounted && enabled && voiceTrigger > 0) {
         runCheckoutPrompt();
       }
-  }, [voiceTrigger, pathname, hasMounted, enabled, runCheckoutPrompt]);
+  }, [voiceTrigger, pathname, hasMounted, enabled]); // Removed runCheckoutPrompt
 
   useEffect(() => {
     if (pathname === '/checkout' && enabled && !isSpeakingRef.current) {
