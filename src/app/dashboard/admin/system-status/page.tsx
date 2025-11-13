@@ -3,10 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Server, BrainCircuit, Database, ShieldAlert, Store as StoreIcon, Users } from 'lucide-react';
 import { getSystemStatus } from '@/app/actions';
 import { collection, query, where, limit, getDocs, getCountFromServer } from 'firebase/firestore';
-import { initializeAdminApp } from '@/firebase/admin-init';
+import { db } from '@/firebase/admin-init'; // Import db directly
 import { ServerStatusCard, ClientStatusCard } from './status-cards';
+import type { Firestore } from 'firebase-admin/firestore';
 
-async function getMasterStoreStatus(db) {
+async function getMasterStoreStatus(db: Firestore | null) {
+    if (!db) return { status: 'error', message: 'Admin Firestore not initialized.' };
     try {
         const adminStoreQuery = query(collection(db, 'stores'), where('name', '==', 'LocalBasket'), limit(1));
         const adminStoresSnap = await getDocs(adminStoreQuery);
@@ -20,7 +22,8 @@ async function getMasterStoreStatus(db) {
     }
 }
 
-async function getErrorLogStatus(db) {
+async function getErrorLogStatus(db: Firestore | null) {
+     if (!db) return { status: 'error', message: 'Admin Firestore not initialized.' };
     try {
         const errorsQuery = collection(db, 'appErrors');
         const snapshot = await getCountFromServer(errorsQuery);
@@ -37,8 +40,6 @@ async function getErrorLogStatus(db) {
 }
 
 export default async function SystemStatusPage() {
-  const { db } = initializeAdminApp();
-  
   const [
     backendStatus,
     masterStoreStatus,

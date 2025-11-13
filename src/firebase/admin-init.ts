@@ -6,38 +6,29 @@ import { getFirestore } from 'firebase-admin/firestore';
 const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 
 let adminApp: App | null = null;
+let initializedDb = null;
+let initializedAuth = null;
 
-const getAdminApp = (): App => {
-    if (adminApp) {
-        return adminApp;
-    }
-    
-    if (getApps().length > 0) {
-        adminApp = getApps()[0];
-        return adminApp;
-    }
-
-    if (!serviceAccountString) {
-        throw new Error('The FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set. The System Status page cannot function without it.');
-    }
-
+if (process.env.NODE_ENV === 'production' && serviceAccountString) {
+  if (!getApps().length) {
     try {
-        const serviceAccount = JSON.parse(serviceAccountString);
-        adminApp = initializeApp({
-            credential: cert(serviceAccount),
-        });
-        return adminApp;
-    } catch (error: any) {
-        console.error("Failed to parse or use service account credentials:", error.message);
-        throw new Error("Could not initialize Firebase Admin SDK. Please check your service account credentials.");
+      const serviceAccount = JSON.parse(serviceAccountString);
+      adminApp = initializeApp({
+        credential: cert(serviceAccount),
+      });
+      console.log('Firebase Admin SDK initialized successfully.');
+    } catch (e) {
+      console.error('Failed to initialize Firebase Admin SDK:', e);
     }
-};
+  } else {
+    adminApp = getApps()[0];
+  }
+}
 
-export const initializeAdminApp = () => {
-    const app = getAdminApp();
-    return {
-        app,
-        auth: getAuth(app),
-        db: getFirestore(app)
-    };
-};
+if (adminApp) {
+  initializedDb = getFirestore(adminApp);
+  initializedAuth = getAuth(adminApp);
+}
+
+export const db = initializedDb;
+export const auth = initializedAuth;

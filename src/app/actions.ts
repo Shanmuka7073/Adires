@@ -18,7 +18,7 @@ import type {
     AliasTargetSuggestionOutput,
     SiteConfig
 } from '@/lib/types';
-import { initializeAdminApp } from '@/firebase/admin-init';
+import { auth } from '@/firebase/admin-init';
 import { getAuth } from 'firebase-admin/auth';
 
 const MAX_RETRIES = 5;
@@ -106,7 +106,9 @@ export async function indexSiteContent() {
 
 export async function getSystemStatus(): Promise<{ status: 'ok' | 'error'; message: string }> {
     try {
-        const { auth } = initializeAdminApp();
+        if (!auth) {
+            throw new Error("Admin authentication is not initialized.");
+        }
         const userRecords = await auth.listUsers();
         const userCount = userRecords.users.length;
         return {
