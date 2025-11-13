@@ -66,8 +66,9 @@ export async function getAiConfig(): Promise<SiteConfig> {
 
 // A helper function to check if a specific AI feature is enabled
 async function isAiFeatureEnabled(feature: keyof SiteConfig): Promise<boolean> {
-    const config = await getAiConfig();
-    return config[feature] ?? false; // Default to false if not set
+    // const config = await getAiConfig();
+    // return config[feature] ?? false; // Default to false if not set
+    return true;
 }
 
 
