@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Server, BrainCircuit, Database, ShieldAlert, Store as StoreIcon, Users } from 'lucide-react';
 import { getSystemStatus } from '@/app/actions';
 import { collection, query, where, limit, getDocs, getCountFromServer } from 'firebase/firestore';
-import { initializeAdminApp } from '@/firebase/admin-init'; // Will create this
+import { initializeAdminApp } from '@/firebase/admin-init';
 import { StatusCards } from './status-cards';
 
 async function getMasterStoreStatus(db) {
