@@ -23,10 +23,9 @@ export function getAdminServices(): { auth: Auth | null; db: Firestore | null } 
   // Check for environment variables.
   const projectId = process.env.FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
   if (!projectId || !clientEmail || !privateKey) {
-    // Log an error but do not throw, so the app doesn't crash on build.
     console.error(
       'Firebase Admin environment variables (FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY) are not set. Server-side Firebase services will be unavailable.'
     );
@@ -37,7 +36,7 @@ export function getAdminServices(): { auth: Auth | null; db: Firestore | null } 
     const serviceAccount = {
       projectId,
       clientEmail,
-      privateKey: privateKey.replace(/\\n/g, '\n'), // Replace escaped newlines
+      privateKey,
     };
 
     // Initialize the app or get the existing one.

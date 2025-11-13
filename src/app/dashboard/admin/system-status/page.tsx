@@ -2,31 +2,9 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Server, BrainCircuit, Database, ShieldAlert, Store as StoreIcon, Users } from 'lucide-react';
 import { getSystemStatus } from '@/app/actions';
-import { collection, query, where, limit, getDocs, getCountFromServer } from 'firebase/firestore';
-import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
-import { getFirestore, Firestore } from 'firebase-admin/firestore';
+import { collection, query, where, limit, getDocs, getCountFromServer, Firestore } from 'firebase/firestore';
+import { getAdminServices } from '@/firebase/admin-init';
 import { ServerStatusCard, ClientStatusCard } from './status-cards';
-
-function getAdminDb(): Firestore | null {
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
-
-  if (!projectId || !clientEmail || !privateKey) {
-    console.error("Required Firebase Admin environment variables are not set for Firestore.");
-    return null;
-  }
-
-  const serviceAccount = { projectId, clientEmail, privateKey };
-  
-  if (getApps().length > 0) {
-    return getFirestore(getApps()[0]);
-  }
-  
-  const adminApp = initializeApp({ credential: cert(serviceAccount) });
-  return getFirestore(adminApp);
-}
-
 
 async function getMasterStoreStatus(db: Firestore | null) {
     if (!db) return { status: 'error', message: 'Admin Firestore not initialized.' };
@@ -61,7 +39,7 @@ async function getErrorLogStatus(db: Firestore | null) {
 }
 
 export default async function SystemStatusPage() {
-  const db = getAdminDb();
+  const { db } = getAdminServices();
 
   const [
     backendStatus,

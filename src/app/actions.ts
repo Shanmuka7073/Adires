@@ -19,8 +19,7 @@ import type {
     SiteConfig
 } from '@/lib/types';
 
-import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
-import { getAuth, Auth } from 'firebase-admin/auth';
+import { getAdminServices } from '@/firebase/admin-init';
 
 
 const MAX_RETRIES = 5;
@@ -106,28 +105,8 @@ export async function indexSiteContent() {
     }
 }
 
-function getAdminAuth(): Auth | null {
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
-
-  if (!projectId || !clientEmail || !privateKey) {
-    console.error("Required Firebase Admin environment variables are not set.");
-    return null;
-  }
-
-  const serviceAccount = { projectId, clientEmail, privateKey };
-
-  if (getApps().length > 0) {
-    return getAuth(getApps()[0]);
-  }
-  
-  const adminApp = initializeApp({ credential: cert(serviceAccount) });
-  return getAuth(adminApp);
-}
-
 export async function getSystemStatus(): Promise<{ status: 'ok' | 'error'; message: string }> {
-    const auth = getAdminAuth();
+    const { auth } = getAdminServices();
     if (!auth) {
       return { status: 'error', message: 'Could not initialize Firebase Admin for authentication.' };
     }
