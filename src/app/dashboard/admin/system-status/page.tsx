@@ -2,10 +2,10 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CheckCircle, AlertCircle, Users, Server, BrainCircuit, Database, ShieldAlert } from 'lucide-react';
+import { CheckCircle, AlertCircle, Users, Server, BrainCircuit, Database, ShieldAlert, Store as StoreIcon } from 'lucide-react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getSystemStatus } from '@/app/actions';
 import { collection, query, where, limit } from 'firebase/firestore';
@@ -20,7 +20,7 @@ interface Status {
   message: string;
 }
 
-function StatusCard({ title, description, status, onTest, testLabel }: { title: string; description: string; status: Status; onTest?: () => void; testLabel?: string; }) {
+function StatusCard({ title, description, status, onTest, testLabel, icon: Icon }: { title: string; description: string; status: Status; onTest?: () => void; testLabel?: string; icon: React.ElementType }) {
   const getStatusColor = () => {
     switch (status.status) {
       case 'ok': return 'text-green-500';
@@ -40,11 +40,14 @@ function StatusCard({ title, description, status, onTest, testLabel }: { title: 
   return (
     <Card>
       <CardHeader>
-        <div className="flex justify-between items-center">
-            <CardTitle className="text-lg">{title}</CardTitle>
+        <div className="flex justify-between items-start">
+            <div className="flex items-center gap-3">
+                <Icon className="h-6 w-6 text-muted-foreground" />
+                <CardTitle className="text-lg">{title}</CardTitle>
+            </div>
             {getStatusIcon()}
         </div>
-        <CardDescription>{description}</CardDescription>
+        <CardDescription className="pt-2">{description}</CardDescription>
       </CardHeader>
       <CardContent>
         <p className={`font-mono text-sm ${getStatusColor()}`}>{status.message}</p>
@@ -77,7 +80,7 @@ export default function SystemStatusPage() {
   useEffect(() => {
     getSystemStatus().then(result => {
       if (result.status === 'ok') {
-        setBackendStatus({ status: 'ok', message: `${result.userCount} users registered.` });
+        setBackendStatus({ status: 'ok', message: `Server is responsive.` });
       } else {
         setBackendStatus({ status: 'error', message: 'Could not connect to backend services.' });
       }
@@ -110,7 +113,7 @@ export default function SystemStatusPage() {
 
   const errorLogStatus = useMemo((): Status => {
     if (isErrorsLoading) return { status: 'loading', message: 'Checking error logs...' };
-    if (!errors) return { status: 'ok', message: 'No errors logged.' };
+    if (!errors || errors.length === 0) return { status: 'ok', message: 'No errors logged.' };
     return { status: 'error', message: `${errors.length} error(s) logged. Review required.` };
   }, [isErrorsLoading, errors]);
 
@@ -130,7 +133,7 @@ export default function SystemStatusPage() {
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
         <StatusCard 
             title="Backend Services"
-            description="Checks server functions and user authentication status."
+            description="Checks if server actions are responsive."
             status={backendStatus}
             icon={Server}
         />
@@ -142,7 +145,7 @@ export default function SystemStatusPage() {
         />
         <StatusCard 
             title="GenAI API"
-            description="Checks if the GenAI services are configured. Test with the AI Test Card on the main admin dashboard."
+            description="Checks if the GenAI services are configured. Test on the main admin dashboard."
             status={{ status: 'ok', message: 'GenAI provider configured.'}}
             icon={BrainCircuit}
             onTest={() => router.push('/dashboard/admin')}
@@ -152,13 +155,7 @@ export default function SystemStatusPage() {
             title="Master Store"
             description="Ensures the master 'LocalBasket' store for canonical products exists."
             status={masterStoreStatus}
-            icon={Store}
-        />
-         <StatusCard 
-            title="User Count"
-            description="Total number of registered users in the system."
-            status={backendStatus.status === 'error' ? {status: 'error', message: 'Could not fetch count.'} : {status: backendStatus.status, message: backendStatus.message}}
-            icon={Users}
+            icon={StoreIcon}
         />
          <StatusCard 
             title="Application Error Log"
