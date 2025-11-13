@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Store, Product, ProductPrice } from '@/lib/types';

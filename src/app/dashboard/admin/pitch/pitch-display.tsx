@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -45,7 +44,7 @@ function formatPitch(text: string) {
              elements.push(<blockquote key={index} className="pl-4 border-l-4 italic my-2">{line.substring(2)}</blockquote>);
         }
         else {
-             const content = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+             const content = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1-</strong>');
              elements.push(<p key={index} dangerouslySetInnerHTML={{ __html: content }} />);
         }
     });
