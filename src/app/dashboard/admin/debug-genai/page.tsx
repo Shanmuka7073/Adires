@@ -1,8 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'fs';
-import path from 'path';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { CodeBlock } from './code-block';
 import { Skeleton } from '@/components/ui/skeleton';
