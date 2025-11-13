@@ -4,7 +4,7 @@ import { Server, BrainCircuit, Database, ShieldAlert, Store as StoreIcon, Users 
 import { getSystemStatus } from '@/app/actions';
 import { collection, query, where, limit, getDocs, getCountFromServer } from 'firebase/firestore';
 import { initializeAdminApp } from '@/firebase/admin-init';
-import { StatusCards } from './status-cards';
+import { ServerStatusCard, ClientStatusCard } from './status-cards';
 
 async function getMasterStoreStatus(db) {
     try {
@@ -54,19 +54,19 @@ export default async function SystemStatusPage() {
         title: "Backend Services & User Count", 
         description: "Checks if server actions are responsive and gets total users from Firebase Auth.", 
         status: backendStatus, 
-        iconName: "Users" 
+        iconName: "Users" as const
     },
     { 
         title: "Master Store", 
         description: "Ensures the master 'LocalBasket' store for canonical products exists.", 
         status: masterStoreStatus, 
-        iconName: "StoreIcon"
+        iconName: "StoreIcon" as const
     },
     { 
         title: "Application Error Log", 
         description: "Monitors for logged application or permission errors in Firestore.", 
         status: errorLogStatus, 
-        iconName: "ShieldAlert",
+        iconName: "ShieldAlert" as const,
         link: '/dashboard/admin/errors'
     },
   ];
@@ -84,7 +84,7 @@ export default async function SystemStatusPage() {
         <h2 className="text-xl font-bold mb-4">Server-Side Checks</h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {serverStatuses.map(s => (
-            <StatusCards.ServerStatusCard 
+            <ServerStatusCard 
                 key={s.title}
                 title={s.title}
                 description={s.description}
@@ -97,7 +97,7 @@ export default async function SystemStatusPage() {
 
         <h2 className="text-xl font-bold mb-4 mt-12">Client-Side Checks</h2>
          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <StatusCards.ClientStatusCard />
+            <ClientStatusCard />
          </div>
       </div>
     </div>

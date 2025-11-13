@@ -32,7 +32,7 @@ interface ServerStatusCardProps {
     link?: string;
 }
 
-function ServerStatusCard({ title, description, status, iconName, link }: ServerStatusCardProps) {
+export function ServerStatusCard({ title, description, status, iconName, link }: ServerStatusCardProps) {
   const Icon = iconMap[iconName] || Server; // Fallback to a default icon
 
   const getStatusColor = () => {
@@ -76,7 +76,7 @@ function ServerStatusCard({ title, description, status, iconName, link }: Server
 }
 
 
-function ClientStatusCard() {
+export function ClientStatusCard() {
     const { firestore, isUserLoading } = useFirebase();
     const [firestoreStatus, setFirestoreStatus] = useState<Status>({ status: 'loading', message: 'Checking client connection...' });
 
@@ -98,5 +98,3 @@ function ClientStatusCard() {
         />
     )
 }
-
-export const StatusCards = { ServerStatusCard, ClientStatusCard };
