@@ -24,8 +24,9 @@ import { firebaseConfig } from '@/firebase/config';
 // --- Server-side Firestore Admin Initialization ---
 
 function getAdminApp() {
-    if (admin.apps.length > 0) {
-        return admin.apps[0]!;
+    // If the default app is already initialized, return it.
+    if (admin.apps.length > 0 && admin.apps[0]) {
+        return admin.apps[0];
     }
     
     // This private key is a placeholder and should be replaced with a secure method
@@ -36,6 +37,7 @@ function getAdminApp() {
         privateKey: `-----BEGIN PRIVATE KEY-----\n-----END PRIVATE KEY-----\n`,
     }
 
+    // Initialize the app if it doesn't exist.
     return admin.initializeApp({
         credential: admin.credential.cert(serviceAccount)
     });
@@ -48,7 +50,11 @@ function getAdminApp() {
  */
 export async function getAiConfig(): Promise<SiteConfig> {
     try {
-        const firestore = getAdminApp().firestore();
+        const adminApp = getAdminApp();
+        if (!adminApp) {
+            throw new Error("Admin SDK not initialized");
+        }
+        const firestore = adminApp.firestore();
         const configDoc = await firestore.collection('siteConfig').doc('aiFeatures').get();
 
         if (configDoc.exists) {
