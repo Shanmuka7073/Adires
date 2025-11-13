@@ -165,3 +165,13 @@ export type SiteConfig = {
     isGeneralQuestionApiEnabled?: boolean;
     isAliasSuggesterEnabled?: boolean;
 };
+
+export type AppError = {
+    id: string;
+    userId: string;
+    userEmail: string;
+    timestamp: Timestamp | Date | string;
+    errorMessage: string;
+    errorDetails: any;
+    path: string;
+};

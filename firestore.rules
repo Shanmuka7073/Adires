@@ -23,12 +23,7 @@ service cloud.firestore {
      * - /deliveryPartners/{partnerId}/payouts/{payoutId}: Payout requests for delivery partners.
      * - /store-images/{storeId}/{fileName}: User uploaded store images.
      * - /productPrices/{productName}: Admin-managed canonical pricing for product variants.
-     *
-     * Key Security Decisions:
-     * - User listing is disallowed, except for the admin.
-     * - Stores are owned by a user, and only the owner can modify them.
-     * - Products are managed within the scope of a store, by the store owner.
-     * - Orders include the userId, storeId, and storeOwnerId for simpler authorization.
+     * - /appErrors/{errorId}: Application error logs.
      */
     function isSignedIn() {
       return request.auth != null;
@@ -145,8 +140,14 @@ service cloud.firestore {
     }
 
     match /siteConfig/{configId} {
-        allow get: if isSignedIn();
+        allow read: if isSignedIn();
         allow write: if isAdmin();
+    }
+
+    match /appErrors/{errorId} {
+      allow create: if isSignedIn(); // Any signed-in user can log an error they encounter
+      allow read, list, delete: if isAdmin(); // Only the admin can read or clear error logs
+      allow update: if false;
     }
   }
 }

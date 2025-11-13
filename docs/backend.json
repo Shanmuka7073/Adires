@@ -683,6 +683,50 @@
                 "description": "Controls the AI for suggesting fixes to failed commands."
             }
         }
+    },
+    "AppError": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "AppError",
+        "type": "object",
+        "description": "Represents a logged application error.",
+        "properties": {
+            "id": {
+                "type": "string",
+                "description": "Unique identifier for the error log."
+            },
+            "userId": {
+                "type": "string",
+                "description": "The UID of the user who encountered the error."
+            },
+            "userEmail": {
+                "type": "string",
+                "description": "The email of the user."
+            },
+            "timestamp": {
+                "type": "string",
+                "format": "date-time",
+                "description": "The timestamp when the error occurred."
+            },
+            "errorMessage": {
+                "type": "string",
+                "description": "The error message."
+            },
+            "errorDetails": {
+                "type": "object",
+                "description": "A JSON object containing detailed error context."
+            },
+            "path": {
+                "type": "string",
+                "description": "The application path or component where the error occurred."
+            }
+        },
+        "required": [
+            "id",
+            "userId",
+            "timestamp",
+            "errorMessage",
+            "errorDetails"
+        ]
     }
   },
   "auth": {
@@ -980,6 +1024,22 @@
             {
               "name": "configId",
               "description": "The unique identifier for the configuration document (e.g., 'aiFeatures')."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/appErrors/{errorId}",
+        "definition": {
+          "entityName": "AppError",
+          "schema": {
+            "$ref": "#/backend/entities/AppError"
+          },
+          "description": "Logs application errors for admin review.",
+          "params": [
+            {
+              "name": "errorId",
+              "description": "The unique identifier for the error log."
             }
           ]
         }

@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, Truck, ShoppingBag, AlertCircle, ArrowRight, Settings, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box, Code } from 'lucide-react';
+import { Users, Store, Truck, ShoppingBag, ArrowRight, Settings, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box, Code, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -225,6 +225,12 @@ export default function AdminDashboardPage() {
                         description="See a complete list of all products available on the platform."
                         href="/dashboard/admin/product-list"
                         icon={List}
+                    />
+                     <AdminActionCard
+                        title="Application Error Log"
+                        description="Review errors caught in the application, such as permission denials."
+                        href="/dashboard/admin/errors"
+                        icon={ShieldAlert}
                     />
                     <AdminActionCard 
                         title="Manage Grocery Packs"
