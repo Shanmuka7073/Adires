@@ -15,14 +15,61 @@ import type {
     GeneratePackInput,
     GeneratePackOutput,
     AliasTargetSuggestionInput,
-    AliasTargetSuggestionOutput
-} from '@/ai/flows/schemas';
-import { getAiConfig } from '@/lib/data';
-import { firestore } from 'firebase-admin';
+    AliasTargetSuggestionOutput,
+    SiteConfig
+} from '@/lib/types';
+import admin from 'firebase-admin';
+import { firebaseConfig } from '@/firebase/config';
+
+// --- Server-side Firestore Admin Initialization ---
+
+function getAdminApp() {
+    if (admin.apps.length > 0) {
+        return admin.apps[0]!;
+    }
+    
+    // This private key is a placeholder and should be replaced with a secure method
+    // for production environments, such as environment variables or a secret manager.
+    const serviceAccount = {
+        projectId: firebaseConfig.projectId,
+        clientEmail: `firebase-adminsdk-placeholder@${firebaseConfig.projectId}.iam.gserviceaccount.com`,
+        privateKey: `-----BEGIN PRIVATE KEY-----\n-----END PRIVATE KEY-----\n`,
+    }
+
+    return admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+    });
+}
+
+
+/**
+ * Fetches the global AI feature configuration from Firestore using the Admin SDK.
+ * @returns The SiteConfig object with AI feature flags.
+ */
+export async function getAiConfig(): Promise<SiteConfig> {
+    try {
+        const firestore = getAdminApp().firestore();
+        const configDoc = await firestore.collection('siteConfig').doc('aiFeatures').get();
+
+        if (configDoc.exists) {
+            return configDoc.data() as SiteConfig;
+        }
+    } catch (error) {
+        console.error("Failed to fetch AI config with Admin SDK:", error);
+    }
+    
+    // Default to all features being disabled if the config doc doesn't exist or an error occurs.
+    return {
+        isPackGeneratorEnabled: false,
+        isRecipeApiEnabled: false,
+        isGeneralQuestionApiEnabled: false,
+        isAliasSuggesterEnabled: false,
+    };
+}
 
 
 // A helper function to check if a specific AI feature is enabled
-async function isAiFeatureEnabled(feature: 'isPackGeneratorEnabled' | 'isRecipeApiEnabled' | 'isGeneralQuestionApiEnabled' | 'isAliasSuggesterEnabled'): Promise<boolean> {
+async function isAiFeatureEnabled(feature: keyof SiteConfig): Promise<boolean> {
     const config = await getAiConfig();
     return config[feature] ?? false; // Default to false if not set
 }
@@ -94,7 +141,8 @@ export async function generatePack(input: GeneratePackInput): Promise<GeneratePa
 
 export async function suggestAliasTarget(input: AliasTargetSuggestionInput): Promise<AliasTargetSuggestionOutput> {
     if (!await isAiFeatureEnabled('isAliasSuggesterEnabled')) {
-        throw new Error('Alias Suggester AI is currently disabled by the admin.');
+        console.warn("Alias Suggester AI is disabled by admin. Returning empty suggestion.");
+        return { suggestedTargetKey: undefined };
     }
     // This flow is for suggestions, so we don't need aggressive retries. A single attempt is fine.
     return suggestAliasTargetFlow(input);

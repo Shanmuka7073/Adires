@@ -124,31 +124,6 @@ export async function getProductPrice(db: Firestore, productName: string): Promi
     return null;
 }
 
-/**
- * Fetches the global AI feature configuration from Firestore.
- * @returns The SiteConfig object with AI feature flags.
- */
-export async function getAiConfig(): Promise<SiteConfig> {
-  // This is a placeholder. In a real app, you would initialize the
-  // admin SDK here to fetch the config securely on the server.
-  // For now, we assume a client-side fetch, which requires proper security rules.
-  console.warn("getAiConfig is using a placeholder implementation. For production, fetch this securely on the server.");
-  const { initializeFirebase } = await import('@/firebase/index');
-  const { firestore } = initializeFirebase();
-  const configDoc = await getDoc(doc(firestore, 'siteConfig', 'aiFeatures'));
-  if (configDoc.exists()) {
-      return configDoc.data() as SiteConfig;
-  }
-  // Default to all features being disabled if the config document doesn't exist.
-  return {
-      isPackGeneratorEnabled: false,
-      isRecipeApiEnabled: false,
-      isGeneralQuestionApiEnabled: false,
-      isAliasSuggesterEnabled: false,
-  };
-}
-
-
 // --- Placeholder image functions ---
 
 export const getProductImage = async (imageId: string) => await getImage(imageId);
