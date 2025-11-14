@@ -2,11 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-<<<<<<< HEAD
-import { Package2, Menu, UserCircle, Store, ShoppingBag, Truck, LayoutDashboard, Mic, MicOff, Globe, Check, Sparkles, Box } from 'lucide-react';
-=======
-import { Package2, Menu, UserCircle, Store, ShoppingBag, Truck, LayoutDashboard, Mic, MicOff } from 'lucide-react';
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
+import { Package2, Menu, UserCircle, Store, ShoppingBag, Truck, LayoutDashboard, Mic, MicOff, Globe, Sparkles, Box } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -27,11 +23,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-<<<<<<< HEAD
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 } from '@/components/ui/dropdown-menu';
 import { getAuth, signOut } from 'firebase/auth';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -39,11 +32,8 @@ import { useState, useEffect } from 'react';
 import { Command } from './voice-commander';
 import { useToast } from '@/hooks/use-toast';
 import { t } from '@/lib/locales';
-<<<<<<< HEAD
 import { useAppStore } from '@/lib/store';
 import { InstallPwaButton } from './install-pwa-button';
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -59,7 +49,6 @@ const dashboardLinks = [
     { href: '/dashboard/owner/orders', label: 'store-orders', icon: ShoppingBag },
     { href: '/dashboard/delivery/deliveries', label: 'deliveries', icon: Truck },
 ]
-<<<<<<< HEAD
 
 function LanguageSwitcher() {
     const { language, setLanguage } = useAppStore();
@@ -86,8 +75,6 @@ function LanguageSwitcher() {
         </DropdownMenu>
     )
 }
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 
 function UserMenu() {
   const { user, isUserLoading } = useFirebase();
@@ -141,15 +128,12 @@ function UserMenu() {
                     </DropdownMenuItem>
                 </Link>
             ))}
-<<<<<<< HEAD
              <Link href="/dashboard/owner/packs" passHref>
                 <DropdownMenuItem>
                     <Box className="mr-2 h-4 w-4" />
                     <span>Manage Packs</span>
                 </DropdownMenuItem>
             </Link>
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
           </>
         )}
         {isAdmin && (
@@ -162,15 +146,12 @@ function UserMenu() {
                         <span>{t('master-store')}</span>
                     </DropdownMenuItem>
                 </Link>
-<<<<<<< HEAD
                  <Link href="/dashboard/owner/packs" passHref>
                     <DropdownMenuItem>
                         <Box className="mr-2 h-4 w-4" />
                         <span>Manage Packs</span>
                     </DropdownMenuItem>
                 </Link>
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
             </>
         )}
         <DropdownMenuSeparator />
@@ -195,15 +176,11 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
   const isAdmin = user && user.email === ADMIN_EMAIL;
   const dashboardHref = isAdmin ? '/dashboard/admin' : '/dashboard';
   const { toast } = useToast();
-<<<<<<< HEAD
   const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
     setHasMounted(true);
   }, []);
-
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 
   const handleToggleVoiceWithCheck = () => {
     if (!user) {
@@ -322,7 +299,6 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
                                     {t('master-store')}
                                 </Link>
                             </SheetClose>
-<<<<<<< HEAD
                              <SheetClose asChild>
                                 <Link
                                     href="/dashboard/owner/packs"
@@ -332,8 +308,6 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
                                     <span>Manage Packs</span>
                                 </Link>
                             </SheetClose>
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
                         </>
                     )}
                 </div>
@@ -342,25 +316,17 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
         </SheetContent>
       </Sheet>
       
-<<<<<<< HEAD
       <div className="flex w-full items-center justify-end gap-2 md:ml-auto md:gap-2 lg:gap-4">
         <InstallPwaButton />
         <LanguageSwitcher />
         <Button variant={voiceEnabled ? 'secondary' : 'outline'} size="icon" onClick={handleToggleVoiceWithCheck} className="relative">
           {voiceEnabled ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
           {voiceEnabled && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>}
-=======
-      <div className="flex w-full items-center justify-end gap-4 md:ml-auto md:gap-2 lg:gap-4">
-        <Button variant={voiceEnabled ? 'secondary' : 'outline'} size="icon" onClick={handleToggleVoiceWithCheck} className="relative">
-          {voiceEnabled ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-          {voiceEnabled && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>}
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
           <span className="sr-only">{voiceEnabled ? 'Stop voice commands' : 'Start voice commands'}</span>
         </Button>
         <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />
         <UserMenu />
       </div>
-<<<<<<< HEAD
         {hasMounted && (
             <>
                 <div className="absolute top-16 left-0 w-full bg-secondary text-secondary-foreground text-center py-1 text-sm font-mono z-40">
@@ -385,30 +351,6 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
                 )}
             </>
         )}
-=======
-       {voiceEnabled && (
-        <div className="absolute top-16 left-0 w-full bg-secondary text-secondary-foreground text-center py-1 text-sm font-mono z-40">
-            {voiceStatus}
-        </div>
-      )}
-      {suggestedCommands.length > 0 && (
-         <div className="absolute top-24 left-1/2 -translate-x-1/2 w-full max-w-md bg-background border rounded-lg shadow-lg z-50 p-2">
-            <p className="text-sm font-semibold text-muted-foreground px-2 pb-2">Did you mean...?</p>
-            <div className="flex flex-col gap-1">
-                {suggestedCommands.map((cmd, index) => (
-                    <Button 
-                        key={index}
-                        variant="ghost"
-                        className="justify-start"
-                        onClick={() => handleSuggestionClick(cmd)}
-                    >
-                        {cmd.display}
-                    </Button>
-                ))}
-            </div>
-         </div>
-      )}
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
     </header>
   );
 }
