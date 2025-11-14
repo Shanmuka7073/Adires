@@ -6,7 +6,7 @@
 
 import {genkit, AIMiddleware} from 'genkit';
 import {googleAI} from '@genkit-ai/google-genai';
-import {firebase} from '@genkit-ai/firebase';
+import {firebasePlugin} from '@genkit-ai/firebase';
 import { googleCloud } from '@genkit-ai/google-cloud';
 import { getAdminServices } from '@/firebase/admin-init';
 import { cookies }from 'next/headers';
@@ -29,7 +29,7 @@ const addUserContext: AIMiddleware = async (input, next) => {
 
 export const ai = genkit({
   plugins: [
-    firebase(), // For Firestore state store
+    firebasePlugin(), // For Firestore state store
     googleAI({
       // You must also set the GEMINI_API_KEY environment variable.
       // You can get a key from Google AI Studio.
