@@ -7,7 +7,6 @@ import { answerGeneralQuestion as answerGeneralQuestionFlow } from '@/ai/flows/g
 import { generatePack as generatePackFlow } from '@/ai/flows/generate-pack-flow';
 import { suggestAliasTarget as suggestAliasTargetFlow } from '@/ai/flows/suggest-alias-flow';
 
-import { getCountFromServer, collection } from 'firebase-admin/firestore'; // Corrected import
 import { getAdminServices } from '@/firebase/admin-init';
 
 import type { 
@@ -116,16 +115,16 @@ export async function getSystemStatus(): Promise<{ status: 'ok' | 'error'; messa
     let storeCount: number | 'N/A' = 'N/A';
 
     try {
-        const usersCollectionRef = collection(db, 'users'); 
-        const userSnapshot = await getCountFromServer(usersCollectionRef);
+        const usersCollectionRef = db.collection('users'); 
+        const userSnapshot = await usersCollectionRef.count().get();
         userCount = userSnapshot.data().count;
     } catch (e) {
         console.error('Failed to get user count:', e);
     }
     
     try {
-        const storesCollectionRef = collection(db, 'stores'); 
-        const storeSnapshot = await getCountFromServer(storesCollectionRef);
+        const storesCollectionRef = db.collection('stores'); 
+        const storeSnapshot = await storesCollectionRef.count().get();
         storeCount = storeSnapshot.data().count;
     } catch (e) {
         console.error('Failed to get store count:', e);
