@@ -11,19 +11,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { doc, setDoc } from 'firebase/firestore';
-<<<<<<< HEAD
-import { useTransition, useEffect, useRef, RefObject } from 'react';
-import type { User as AppUser } from '@/lib/types';
-import { Loader2 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { create } from 'zustand';
-=======
-import { useTransition, useEffect, useRef } from 'react';
+import { useTransition, useEffect } from 'react';
 import type { User as AppUser } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useProfileFormStore } from '@/lib/store';
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 
 const profileSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -35,37 +27,6 @@ const profileSchema = z.object({
 
 export type ProfileFormValues = z.infer<typeof profileSchema>;
 
-<<<<<<< HEAD
-
-// --- Store for Profile Page Form ---
-interface ProfileFormState {
-  form: ReturnType<typeof useForm<ProfileFormValues>> | null;
-  setForm: (form: ReturnType<typeof useForm<ProfileFormValues>> | null) => void;
-  fieldRefs: Record<keyof ProfileFormValues, RefObject<HTMLInputElement>>;
-  setFieldRef: (fieldName: keyof ProfileFormValues, ref: RefObject<HTMLInputElement>) => void;
-}
-
-export const useProfileFormStore = create<ProfileFormState>((set) => ({
-  form: null,
-  setForm: (form) => set({ form }),
-   fieldRefs: {
-      firstName: { current: null },
-      lastName: { current: null },
-      email: { current: null },
-      phone: { current: null },
-      address: { current: null },
-  },
-  setFieldRef: (fieldName, ref) => set(state => ({
-    fieldRefs: {
-        ...state.fieldRefs,
-        [fieldName]: ref,
-    }
-  })),
-}));
-
-
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 export default function MyProfilePage() {
   const { user, isUserLoading, firestore } = useFirebase();
   const { toast } = useToast();
@@ -79,11 +40,7 @@ export default function MyProfilePage() {
 
   const { data: userData, isLoading: isProfileLoading } = useDoc<AppUser>(userDocRef);
   
-<<<<<<< HEAD
   const { setForm } = useProfileFormStore();
-=======
-  const { setForm, setFieldRef } = useProfileFormStore();
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -99,15 +56,8 @@ export default function MyProfilePage() {
   // Expose form instance to global state
   useEffect(() => {
     setForm(form);
-<<<<<<< HEAD
-    return () => {
-        setForm(null)
-    };
-}, [form, setForm]);
-=======
     return () => setForm(null); // Cleanup
   }, [form, setForm]);
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 
 
   useEffect(() => {
@@ -131,7 +81,7 @@ export default function MyProfilePage() {
   }, [isUserLoading, user, router]);
   
   const onSubmit = (data: ProfileFormValues) => {
-    if (!firestore || !user) {
+    if (!firestore || !user || !userDocRef) {
         toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
         return;
     }
@@ -147,36 +97,19 @@ export default function MyProfilePage() {
         };
 
         try {
-<<<<<<< HEAD
-            if (userDocRef) {
-              await setDoc(userDocRef, profileData, { merge: true });
-            }
-=======
             await setDoc(userDocRef, profileData, { merge: true });
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
             toast({
                 title: 'Profile Updated',
                 description: 'Your information has been saved successfully.',
             });
         } catch (error) {
             console.error("Error saving profile:", error);
-<<<<<<< HEAD
-            if (userDocRef) {
-              const permissionError = new FirestorePermissionError({
-                  path: userDocRef.path,
-                  operation: 'write',
-                  requestResourceData: profileData
-              });
-              errorEmitter.emit('permission-error', permissionError);
-            }
-=======
             const permissionError = new FirestorePermissionError({
-                path: userDocRef!.path,
+                path: userDocRef.path,
                 operation: 'write',
                 requestResourceData: profileData
             });
             errorEmitter.emit('permission-error', permissionError);
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
         }
     });
   };
