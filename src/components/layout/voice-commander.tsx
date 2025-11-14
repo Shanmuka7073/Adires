@@ -5,11 +5,10 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, errorEmitter, useDoc, useMemoFirebase } from '@/firebase';
-import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, VoiceAlias, MonthlyPackage, SiteConfig } from '@/lib/types';
+import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, VoiceAlias, MonthlyPackage, SiteConfig, RecipeIngredientsInput, RecipeIngredientsOutput, GeneralQuestionInput, GeneralQuestionOutput } from '@/lib/types';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
 import { useAppStore } from '@/lib/store';
-import { useProfileFormStore } from '@/app/dashboard/customer/my-profile/page';
 import { useMyStorePageStore } from '@/lib/store';
 import { t, initializeTranslations } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection, query, where, getDocs } from 'firebase/firestore';
@@ -19,6 +18,7 @@ import { getIngredientsForRecipe, answerGeneralQuestion } from '@/app/actions';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache';
 import { useCheckoutStore } from '@/app/checkout/page';
+import { useProfileFormStore, ProfileFormValues } from '@/app/dashboard/customer/my-profile/page';
 
 
 export interface Command {
@@ -98,7 +98,7 @@ export function VoiceCommander({
 
   const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands, fetchInitialData } = useAppStore();
 
-  const { form: profileForm } = useProfileFormStore();
+  const { form: profileForm, setFieldRef } = useProfileFormStore();
   const { saveInventoryBtnRef } = useMyStorePageStore();
   const { 
     placeOrderBtnRef, 
@@ -117,7 +117,7 @@ export function VoiceCommander({
   const commandActionsRef = useRef<any>({});
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const formFieldToFillRef = useRef<any>(null);
+  const formFieldToFillRef = useRef<keyof ProfileFormValues | null>(null);
   const [isWaitingForStoreName, setIsWaitingForStoreName] = useState(false);
   const [isWaitingForVoiceOrder, setIsWaitingForVoiceOrder] = useState(false);
   const [clarificationStores, setClarificationStores] = useState<Store[]>([]);
@@ -353,7 +353,7 @@ export function VoiceCommander({
       speak("I can't seem to access the profile form right now.", 'en-IN');
       return;
     }
-    const fields: { name: keyof ReturnType<typeof profileForm.getValues>; label: string }[] = [
+    const fields: { name: keyof ProfileFormValues; label: string }[] = [
       { name: 'firstName', label: 'first name' },
       { name: 'lastName', label: 'last name' },
       { name: 'phone', label: 'phone number' },
@@ -662,8 +662,12 @@ export function VoiceCommander({
         } else {
             try {
                 const result = await answerGeneralQuestion({ question: commandText });
-                speak(result.answer, langWithRegion);
-                await cacheAIResponse(firestore, commandText, result.answer);
+                if (result.answer) {
+                  speak(result.answer, langWithRegion);
+                  await cacheAIResponse(firestore, commandText, result.answer);
+                } else {
+                   speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
+                }
             } catch (error) {
                 console.error("General question failed:", error);
                 speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
@@ -770,7 +774,7 @@ export function VoiceCommander({
        return;
     }
     
-    if (formFieldToFillRef.current && profileForm?.setValue) {
+    if (formFieldToFillRef.current && profileForm) {
         profileForm.setValue(formFieldToFillRef.current, commandText, { shouldValidate: true });
         formFieldToFillRef.current = null;
         handleProfileFormInteraction();
@@ -878,9 +882,13 @@ export function VoiceCommander({
                 } else {
                     speak("That's a good question. Let me think...", langWithRegion, async () => {
                         try {
-                            const result = await answerGeneralQuestion({ question: commandText });
-                            speak(result.answer, langWithRegion);
-                            await cacheAIResponse(firestore, commandText, result.answer);
+                            const result: GeneralQuestionOutput = await answerGeneralQuestion({ question: commandText });
+                            if (result.answer) {
+                                speak(result.answer, langWithRegion);
+                                await cacheAIResponse(firestore, commandText, result.answer);
+                            } else {
+                                speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
+                            }
                         } catch (e) {
                             speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
                         }
@@ -1157,12 +1165,12 @@ export function VoiceCommander({
         
         try {
             if (!firestore) throw new Error("Firestore not available");
-            let ingredients = await getCachedRecipe(firestore, dishName);
+            let ingredients: string[] | null = await getCachedRecipe(firestore, dishName);
 
             if (ingredients) {
                 speak(`I found a cached recipe. The ingredients for ${dishName} are: ${ingredients.join(', ')}`, langWithRegion);
             } else {
-                const result = await getIngredientsForRecipe({ dishName });
+                const result: RecipeIngredientsOutput = await getIngredientsForRecipe({ dishName });
                 if (result?.ingredients) {
                     ingredients = result.ingredients;
                     speak(`The ingredients for ${dishName} are: ${ingredients.join(', ')}`, langWithRegion);
@@ -1375,7 +1383,10 @@ export function VoiceCommander({
     if (firestore && user) {
         const userDocRef = doc(firestore, 'users', user.uid);
         getDoc(userDocRef).then(docSnap => {
-            if (docSnap.exists()) userProfileRef.current = docSnap.data() as User;
+            if (docSnap.exists()) {
+                const data = docSnap.data() as User;
+                userProfileRef.current = data;
+            };
         });
     }
 
@@ -1394,5 +1405,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    

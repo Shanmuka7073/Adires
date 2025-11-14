@@ -10,6 +10,7 @@ import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { t as translate, initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliases } from '@/lib/locales';
 import { generalCommands as defaultGeneralCommands, CommandGroup } from '@/lib/locales/commands';
+import { ProfileFormValues } from '@/app/dashboard/customer/my-profile/page';
 
 
 export interface AppState {
@@ -148,8 +149,8 @@ export const useInitializeApp = () => {
 
 // --- Store for Profile Page Form ---
 interface ProfileFormState {
-  form: any | null; // Using 'any' for simplicity as UseFormReturn is complex
-  setForm: (form: any | null) => void;
+  form: UseFormReturn<ProfileFormValues> | null;
+  setForm: (form: UseFormReturn<ProfileFormValues> | null) => void;
   // This can be simplified or removed if not strictly needed by voice commander
 }
 
@@ -169,5 +170,3 @@ export const useMyStorePageStore = create<MyStorePageState>((set) => ({
   saveInventoryBtnRef: null,
   setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
 }));
-
-    

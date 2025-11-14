@@ -30,8 +30,8 @@ export type ProfileFormValues = z.infer<typeof profileSchema>;
 
 // --- Store for Profile Page Form ---
 interface ProfileFormState {
-  form: z.infer<typeof profileSchema> | null;
-  setForm: (form: z.infer<typeof profileSchema> | null) => void;
+  form: ReturnType<typeof useForm<ProfileFormValues>> | null;
+  setForm: (form: ReturnType<typeof useForm<ProfileFormValues>> | null) => void;
   fieldRefs: Record<keyof ProfileFormValues, RefObject<HTMLInputElement>>;
   setFieldRef: (fieldName: keyof ProfileFormValues, ref: RefObject<HTMLInputElement>) => void;
 }
@@ -68,7 +68,7 @@ export default function MyProfilePage() {
 
   const { data: userData, isLoading: isProfileLoading } = useDoc<AppUser>(userDocRef);
   
-  const { setForm, setFieldRef } = useProfileFormStore();
+  const { setForm } = useProfileFormStore();
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -83,10 +83,8 @@ export default function MyProfilePage() {
   
   // Expose form instance to global state
   useEffect(() => {
-    setForm(form.getValues());
-    const subscription = form.watch(() => setForm(form.getValues()));
+    setForm(form);
     return () => {
-        subscription.unsubscribe();
         setForm(null)
     };
 }, [form, setForm]);
@@ -129,19 +127,23 @@ export default function MyProfilePage() {
         };
 
         try {
-            await setDoc(userDocRef!, profileData, { merge: true });
+            if (userDocRef) {
+              await setDoc(userDocRef, profileData, { merge: true });
+            }
             toast({
                 title: 'Profile Updated',
                 description: 'Your information has been saved successfully.',
             });
         } catch (error) {
             console.error("Error saving profile:", error);
-            const permissionError = new FirestorePermissionError({
-                path: userDocRef!.path,
-                operation: 'write',
-                requestResourceData: profileData
-            });
-            errorEmitter.emit('permission-error', permissionError);
+            if (userDocRef) {
+              const permissionError = new FirestorePermissionError({
+                  path: userDocRef.path,
+                  operation: 'write',
+                  requestResourceData: profileData
+              });
+              errorEmitter.emit('permission-error', permissionError);
+            }
         }
     });
   };
