@@ -7,12 +7,12 @@ import { answerGeneralQuestion as answerGeneralQuestionFlow } from '@/ai/flows/g
 import { generatePack as generatePackFlow } from '@/ai/flows/generate-pack-flow';
 import { suggestAliasTarget as suggestAliasTargetFlow } from '@/ai/flows/suggest-alias-flow';
 
-import { getAuth, getFirestore, getCountFromServer, collection } from 'firebase-admin/firestore';
-import { getAdminServices } from '@/firebase/admin-init'; // Updated import
+import { getCountFromServer, collection } from 'firebase-admin/firestore'; // Corrected import
+import { getAdminServices } from '@/firebase/admin-init';
 
 import type { 
     RecipeIngredientsInput, 
-    RecipeIngredientsOutput, 
+    RecipeIngredientsOutput,
     GeneralQuestionInput, 
     GeneralQuestionOutput,
     GeneratePackInput,
