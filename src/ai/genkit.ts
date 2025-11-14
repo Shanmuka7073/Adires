@@ -1,14 +1,3 @@
-<<<<<<< HEAD
-import { genkit } from 'genkit';
-import { googleAI } from '@genkit-ai/google-genai';
-
-export const ai = genkit({
-  plugins: [
-    googleAI(),
-  ],
-  logLevel: 'debug',
-  enableTracing: true,
-=======
 
 'use server';
 // This file is the single source of truth for Genkit AI-related configuration.
@@ -19,11 +8,13 @@ import {genkit, AIMiddleware} from 'genkit';
 import {googleAI} from '@genkit-ai/google-genai';
 import {firebase} from '@genkit-ai/firebase';
 import { googleCloud } from '@genkit-ai/google-cloud';
+import { getAdminServices } from '@/firebase/admin-init';
+import { cookies }from 'next/headers';
+
 
 // A middleware to add the current user's uid to the flow's input metadata.
 const addUserContext: AIMiddleware = async (input, next) => {
-  const { auth } = await import('@/firebase/server-init');
-  const { cookies } = await import('next/headers');
+  const { auth } = await getAdminServices();
   const sessionCookie = cookies().get('__session')?.value;
   if (sessionCookie) {
     try {
@@ -64,5 +55,4 @@ export const ai = genkit({
   },
   logLevel: 'debug',
   enableTracingAndMetrics: true,
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 });
