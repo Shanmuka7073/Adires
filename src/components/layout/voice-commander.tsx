@@ -258,7 +258,7 @@ export function VoiceCommander({
 
 
   useEffect(() => {
-    setHasMounted(true);
+    setHasMounted(hasMounted => true);
     initializeTranslations(locales);
 
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -413,7 +413,7 @@ export function VoiceCommander({
       if (pathname === '/checkout' && hasMounted && enabled && voiceTrigger > 0) {
         runCheckoutPrompt();
       }
-  }, [voiceTrigger, pathname, hasMounted, enabled]); // Removed runCheckoutPrompt
+  }, [voiceTrigger, pathname, hasMounted, enabled, runCheckoutPrompt]); 
 
   useEffect(() => {
     if (pathname === '/checkout' && enabled && !isSpeakingRef.current) {
@@ -827,16 +827,19 @@ export function VoiceCommander({
             break;
         
         case 'NAVIGATE':
-        case 'CONVERSATIONAL':
-            const action = commandActionsRef.current[intent.commandKey];
-            const reply = commands[intent.commandKey]?.reply || `Executing ${commands[intent.commandKey]?.display}`;
-            if (action) {
-                speak(reply, langWithRegion, () => action({ lang: intent.lang }));
-            } else {
-                speak(reply, langWithRegion);
+        case 'CONVERSATIONAL': {
+            const commandKey = 'commandKey' in intent ? intent.commandKey : ('destination' in intent ? intent.destination : '');
+            if(commandKey) {
+                const action = commandActionsRef.current[commandKey];
+                const reply = commands[commandKey]?.reply || `Executing ${commands[commandKey]?.display}`;
+                if (action) {
+                    speak(reply, langWithRegion, () => action({ lang: intent.lang }));
+                } else {
+                    speak(reply, langWithRegion);
+                }
             }
             break;
-
+        }
         case 'ORDER_ITEM':
             const { product, variant, requestedQty, matchedAlias, lang: itemLang, remainingPhrase } = await findProductAndVariant(commandText);
             if (product && variant) {
@@ -949,15 +952,15 @@ export function VoiceCommander({
     };
 
     commandActionsRef.current = {
-      home: (params) => router.push('/'),
-      stores: (params) => router.push('/stores'),
-      dashboard: (params) => router.push('/dashboard'),
-      cart: (params) => router.push('/cart'),
-      orders: (params) => router.push('/dashboard/customer/my-orders'),
-      deliveries: (params) => router.push('/dashboard/delivery/deliveries'),
-      myStore: (params) => router.push('/dashboard/owner/my-store'),
-      myProfile: (params) => router.push('/dashboard/customer/my-profile'),
-      managePacks: (params) => router.push('/dashboard/owner/packs'),
+      home: (params: {lang: string}) => router.push('/'),
+      stores: (params: {lang: string}) => router.push('/stores'),
+      dashboard: (params: {lang: string}) => router.push('/dashboard'),
+      cart: (params: {lang: string}) => router.push('/cart'),
+      orders: (params: {lang: string}) => router.push('/dashboard/customer/my-orders'),
+      deliveries: (params: {lang: string}) => router.push('/dashboard/delivery/deliveries'),
+      myStore: (params: {lang: string}) => router.push('/dashboard/owner/my-store'),
+      myProfile: (params: {lang: string}) => router.push('/dashboard/customer/my-profile'),
+      managePacks: (params: {lang: string}) => router.push('/dashboard/owner/packs'),
       checkout: (params: { lang: string }) => {
         const lang = params.lang || language;
         onCloseCart();
@@ -971,12 +974,12 @@ export function VoiceCommander({
             speak(t('your-cart-is-empty-speech', lang), lang + '-IN');
         }
       },
-      homeAddress: ({lang}) => {
+      homeAddress: ({lang}: {lang: string}) => {
         if(pathname === '/checkout' && homeAddressBtnRef?.current) {
           homeAddressBtnRef.current.click();
         }
       },
-      currentLocation: ({lang}) => {
+      currentLocation: ({lang}: {lang: string}) => {
         if(pathname === '/checkout' && currentLocationBtnRef?.current) {
           currentLocationBtnRef.current.click();
         }
@@ -1022,7 +1025,7 @@ export function VoiceCommander({
           errorEmitter.emit('permission-error', permissionError);
         }
       },
-      placeOrder: (params) => {
+      placeOrder: (params: {lang: string}) => {
         const lang = params?.lang || language;
         if (pathname === '/checkout' && placeOrderBtnRef?.current) {
           speak(t('placing-your-order-now-speech', lang), lang + '-IN', () => {
@@ -1034,7 +1037,7 @@ export function VoiceCommander({
           speak(t('your-cart-is-empty-speech', lang), lang + '-IN');
         }
       },
-      saveChanges: (params) => {
+      saveChanges: (params: {lang: string}) => {
         const lang = params?.lang || language;
         if (pathname === '/dashboard/owner/my-store' && saveInventoryBtnRef?.current) {
           saveInventoryBtnRef.current.click();
@@ -1049,7 +1052,7 @@ export function VoiceCommander({
           speak(t('no-changes-to-save-speech', lang), lang + '-IN');
         }
       },
-      acceptDeliveryJob: ({ lang }) => {
+      acceptDeliveryJob: ({ lang }: {lang: string}) => {
           if (pathname === '/dashboard/delivery/deliveries' && typeof document !== 'undefined') {
               const acceptButton = document.querySelector('.accordion-content button') as HTMLButtonElement | null;
               if (acceptButton) {
@@ -1062,7 +1065,7 @@ export function VoiceCommander({
               speak("You can only accept jobs from the deliveries page.", lang + '-IN');
           }
       },
-      showDetails: ({ target, lang }) => {
+      showDetails: ({ target, lang }: {target: string, lang: string}) => {
         if (pathname === '/dashboard/delivery/deliveries') {
             const detailsButton = document.querySelector('[id^="details-btn-"]') as HTMLButtonElement | null;
             if (detailsButton) {
@@ -1075,10 +1078,10 @@ export function VoiceCommander({
             speak("You can only view delivery details on the deliveries page.", lang + '-IN');
         }
       },
-      refresh: (params) => {
+      refresh: (params: {lang: string}) => {
          window.location.reload();
       },
-      goToStore: ({ store, lang }) => {
+      goToStore: ({ store, lang }: {store: Store, lang: string}) => {
         const langWithRegion = lang === 'en' ? 'en-IN' : `${lang}-IN`;
         speak(`Okay, opening ${store.name}.`, langWithRegion);
         router.push(`/stores/${store.id}`);
@@ -1299,7 +1302,7 @@ export function VoiceCommander({
             router.push('/checkout');
         });
     },
-    addPackToCart: async ({ packType, familySize, lang, storeId }) => {
+    addPackToCart: async ({ packType, familySize, lang, storeId }: { packType: string; familySize: number; lang: string, storeId?: string }) => {
         const langWithRegion = lang === 'en' ? 'en-IN' : `${lang}-IN`;
     
         if (!firestore) return;
@@ -1387,3 +1390,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    

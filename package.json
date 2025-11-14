@@ -54,6 +54,7 @@
     "zustand": "^4.5.4"
   },
   "devDependencies": {
+    "@types/dom-speech-recognition": "^0.0.7",
     "@types/node": "^20",
     "@types/qrcode.react": "^1.0.5",
     "@types/react": "^18",
