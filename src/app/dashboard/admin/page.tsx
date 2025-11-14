@@ -2,7 +2,6 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-<<<<<<< HEAD
 import { Users, Store, Truck, ShoppingBag, ArrowRight, Settings, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box, Code, ShieldAlert, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
@@ -21,35 +20,14 @@ import { useToast } from '@/hooks/use-toast';
 const ADMIN_EMAIL = 'admin@gmail.com';
 
 function StatCard({ title, value, icon: Icon, loading, isLive = false }: { title: string, value: string | number, icon: React.ElementType, loading?: boolean, isLive?: boolean }) {
-=======
-import { Users, Store, Truck, ShoppingBag, AlertCircle, ArrowRight, Settings, Mic } from 'lucide-react';
-import Link from 'next/link';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { useRouter } from 'next/navigation';
-import { useMemo } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { collection, query, where } from 'firebase/firestore';
-import type { Order, Store as StoreType } from '@/lib/types';
-import { Button } from '@/components/ui/button';
-import { t } from '@/lib/locales';
-
-const ADMIN_EMAIL = 'admin@gmail.com';
-
-function StatCard({ title, value, icon: Icon, loading }: { title: string, value: number, icon: React.ElementType, loading?: boolean }) {
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">{t(title)}</CardTitle>
-<<<<<<< HEAD
                  <div className="flex items-center gap-2">
                     {isLive && <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />}
                     <Icon className="h-4 w-4 text-muted-foreground" />
                 </div>
-=======
-                <Icon className="h-4 w-4 text-muted-foreground" />
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
             </CardHeader>
             <CardContent>
                 {loading ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{value}</div>}
@@ -93,7 +71,6 @@ function AdminActionCard({ title, description, href, icon: Icon }: { title: stri
     );
 }
 
-<<<<<<< HEAD
 function AiTestCard() {
     const { firestore } = useFirebase();
     const [dish, setDish] = useState('');
@@ -168,14 +145,6 @@ export default function AdminDashboardPage() {
     const router = useRouter();
     
     // Queries for stats
-=======
-export default function AdminDashboardPage() {
-    const { user, isUserLoading, firestore } = useFirebase();
-    const router = useRouter();
-
-    // Queries for stats
-    const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
     const storesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'stores'), where('isClosed', '!=', true)) : null, [firestore]);
     const partnersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'deliveryPartners') : null, [firestore]);
     const deliveredOrdersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'orders'), where('status', '==', 'Delivered')) : null, [firestore]);
@@ -186,11 +155,7 @@ export default function AdminDashboardPage() {
         return query(collection(firestore, 'stores'), where('name', '==', 'LocalBasket'));
     }, [firestore]);
 
-<<<<<<< HEAD
-=======
 
-    const { data: users, isLoading: usersLoading } = useCollection(usersQuery);
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
     const { data: stores, isLoading: storesLoading } = useCollection(storesQuery);
     const { data: partners, isLoading: partnersLoading } = useCollection(partnersQuery);
     const { data: deliveredOrders, isLoading: ordersLoading } = useCollection<Order>(deliveredOrdersQuery);
@@ -199,7 +164,6 @@ export default function AdminDashboardPage() {
     const masterStoreExists = useMemo(() => adminStores && adminStores.length > 0, [adminStores]);
 
     const stats = useMemo(() => ({
-<<<<<<< HEAD
         totalStores: stores?.length ?? 0,
         totalDeliveryPartners: partners?.length ?? 0,
         totalOrdersDelivered: deliveredOrders?.length ?? 0,
@@ -214,38 +178,16 @@ export default function AdminDashboardPage() {
     }, [isUserLoading, user, router]);
 
     if (isUserLoading || adminStoreLoading || !user || user.email !== ADMIN_EMAIL) {
-=======
-        totalUsers: users?.length ?? 0,
-        totalStores: stores?.length ?? 0,
-        totalDeliveryPartners: partners?.length ?? 0,
-        totalOrdersDelivered: deliveredOrders?.length ?? 0,
-    }), [users, stores, partners, deliveredOrders]);
-
-    const statsLoading = isUserLoading || usersLoading || storesLoading || partnersLoading || ordersLoading;
-
-    if (!isUserLoading && (!user || user.email !== ADMIN_EMAIL)) {
-        router.replace('/dashboard');
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
         return <p>Loading admin dashboard...</p>
     }
 
     const statItems = [
-<<<<<<< HEAD
-=======
-        { title: 'total-customers', value: stats.totalUsers, icon: Users },
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
         { title: 'total-stores', value: stats.totalStores, icon: Store },
         { title: 'delivery-partners', value: stats.totalDeliveryPartners, icon: Truck },
         { title: 'orders-delivered', value: stats.totalOrdersDelivered, icon: ShoppingBag },
     ];
 
-<<<<<<< HEAD
-=======
-    if (isUserLoading || adminStoreLoading) {
-        return <p>Loading admin dashboard...</p>
-    }
 
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
             <div className="text-center mb-12">
@@ -255,11 +197,7 @@ export default function AdminDashboardPage() {
             
             {!masterStoreExists && <CreateMasterStoreCard />}
 
-<<<<<<< HEAD
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
-=======
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
                 {statItems.map(item => (
                     <StatCard 
                         key={item.title} 
@@ -271,7 +209,6 @@ export default function AdminDashboardPage() {
                 ))}
             </div>
 
-<<<<<<< HEAD
              <div className="mt-12">
                 <AiTestCard />
             </div>
@@ -285,18 +222,12 @@ export default function AdminDashboardPage() {
                         href="/dashboard/admin/system-status"
                         icon={Server}
                     />
-=======
-            <div className="mt-16">
-                 <h2 className="text-2xl font-bold text-center mb-8 font-headline">{t('admin-tools')}</h2>
-                <div className="grid gap-8 md:grid-cols-2 max-w-4xl mx-auto">
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
                     <AdminActionCard 
                         title="manage-master-store-and-products"
                         description="add-or-edit-products-in-the-master-catalog"
                         href="/dashboard/owner/my-store"
                         icon={Store}
                     />
-<<<<<<< HEAD
                      <AdminActionCard 
                         title="View Product List"
                         description="See a complete list of all products available on the platform."
@@ -315,15 +246,12 @@ export default function AdminDashboardPage() {
                         href="/dashboard/owner/packs"
                         icon={Box}
                     />
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
                     <AdminActionCard 
                         title="voice-commands-control"
                         description="view-and-manage-the-voice-commands-users-can-say"
                         href="/dashboard/voice-commands"
                         icon={Mic}
                     />
-<<<<<<< HEAD
                     <AdminActionCard 
                         title="Failed Voice Commands"
                         description="Review voice commands that the system failed to understand."
@@ -342,8 +270,6 @@ export default function AdminDashboardPage() {
                         href="/dashboard/admin/site-config"
                         icon={Settings}
                     />
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
                 </div>
             </div>
         </div>
