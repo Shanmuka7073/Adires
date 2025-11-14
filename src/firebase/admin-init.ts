@@ -2,14 +2,14 @@
 'use server';
 
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getAuth, Auth } from 'firebase-admin/auth';
+import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
 // Define a type for the services to ensure consistency
 interface AdminServices {
   app: App;
-  auth: ReturnType<typeof getAuth>;
-  db: ReturnType<typeof getFirestore>;
+  auth: Auth;
+  db: Firestore;
 }
 
 // A global variable to hold the initialized services, acting as a singleton.
@@ -19,9 +19,9 @@ let adminServices: AdminServices | null = null;
  * Initializes the Firebase Admin SDK if not already initialized.
  * This function uses a singleton pattern to ensure that initialization
  * happens only once per server instance.
- * @returns An object containing the initialized Firebase Admin app, Auth, and Firestore services.
+ * @returns A promise that resolves to an object containing the initialized Firebase Admin app, Auth, and Firestore services.
  */
-export function getAdminServices(): AdminServices {
+export async function getAdminServices(): Promise<AdminServices> {
   if (adminServices) {
     return adminServices;
   }

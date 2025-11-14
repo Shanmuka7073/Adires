@@ -106,7 +106,7 @@ export async function indexSiteContent() {
 }
 
 export async function getSystemStatus(): Promise<{ status: 'ok' | 'error'; message: string; counts: { users: number | 'N/A'; stores: number | 'N/A' } }> {
-    const { auth, db } = getAdminServices();
+    const { auth, db } = await getAdminServices();
     if (!auth || !db) {
         return { status: 'error', message: 'Could not initialize Firebase Admin SDK.', counts: { users: 'N/A', stores: 'N/A' } };
     }
