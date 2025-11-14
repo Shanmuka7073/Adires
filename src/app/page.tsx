@@ -42,19 +42,19 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
                 {roleCards.map((card) => (
                      <Link href={card.href} key={card.title} className="block hover:shadow-xl transition-shadow rounded-lg">
-                        <div className="h-full flex flex-col p-4 border rounded-lg">
-                            <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <h2 className="text-2xl font-bold font-headline">{t(card.title)}</h2>
+                        <Card className="h-full flex flex-col">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-2xl font-bold font-headline">{t(card.title)}</CardTitle>
                                 <card.icon className="h-8 w-8 text-primary" />
-                            </div>
-                            <div className="flex-1 flex flex-col justify-between">
-                                <p>{t(card.description)}</p>
+                            </CardHeader>
+                            <CardContent className="flex-1 flex flex-col justify-between">
+                                <CardDescription>{t(card.description)}</CardDescription>
                                 <div className="flex items-center text-primary font-semibold mt-4">
                                     <span>{t('go-to')} {t(card.title)}</span>
                                     <ArrowRight className="ml-2 h-4 w-4" />
                                 </div>
-                            </div>
-                        </div>
+                            </CardContent>
+                        </Card>
                     </Link>
                 ))}
             </div>
