@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { PT_Sans } from "next/font/google";
 import "./globals.css";
-import { ClientRoot } from "@/components/layout/client-root";
 
 const ptSans = PT_Sans({
   subsets: ["latin"],
@@ -27,7 +26,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${ptSans.variable}`}>
       <body>
-        <ClientRoot>{children}</ClientRoot>
+        {children}
       </body>
     </html>
   );
