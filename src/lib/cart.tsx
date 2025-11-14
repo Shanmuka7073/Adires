@@ -1,8 +1,4 @@
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 'use client';
 
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
@@ -62,7 +58,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
 
   const addItem = useCallback((product: Product, variant: ProductVariant, quantity = 1) => {
-<<<<<<< HEAD
     // If there are already items in the cart, ensure the new item is from the same store.
     if (cartItems.length > 0 && activeStoreId && product.storeId !== activeStoreId) {
       if (window.confirm("You have items from another store. Do you want to clear your current cart and start a new one with this item?")) {
@@ -83,8 +78,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setActiveStoreId(product.storeId);
     }
 
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
     setCartItems((prevItems) => {
       const existingItem = prevItems.find((item) => item.variant.sku === variant.sku);
       if (existingItem) {
@@ -94,10 +87,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
             : item
         );
       }
-<<<<<<< HEAD
-=======
-      // Product no longer needs storeId at this stage, it will be associated at checkout
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
       return [...prevItems, { product, variant, quantity }];
     });
 
