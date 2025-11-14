@@ -1,4 +1,3 @@
-
 'use client';
 import type { Store, Product, ProductPrice, SiteConfig } from './types';
 import {
