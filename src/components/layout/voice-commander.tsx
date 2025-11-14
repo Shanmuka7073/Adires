@@ -18,7 +18,7 @@ import { getIngredientsForRecipe, answerGeneralQuestion } from '@/app/actions';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache';
 import { useCheckoutStore } from '@/app/checkout/page';
-import { useProfileFormStore, ProfileFormValues } from '@/app/dashboard/customer/my-profile/page';
+import { useProfileFormStore, ProfileFormValues } from '@/lib/store';
 
 
 export interface Command {
@@ -98,7 +98,7 @@ export function VoiceCommander({
 
   const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands, fetchInitialData } = useAppStore();
 
-  const { form: profileForm, setFieldRef } = useProfileFormStore();
+  const { form: profileForm } = useProfileFormStore();
   const { saveInventoryBtnRef } = useMyStorePageStore();
   const { 
     placeOrderBtnRef, 
@@ -1405,3 +1405,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
