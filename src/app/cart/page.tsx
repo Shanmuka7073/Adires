@@ -13,7 +13,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Trash2, Mic, Minus, Plus } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
+import { getProductImage } from '@/lib/data';
 import {
   Card,
   CardContent,
@@ -22,20 +24,30 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { useEffect, useState } from 'react';
+import { useAppStore } from '@/lib/store';
 import { t } from '@/lib/locales';
 
 const DELIVERY_FEE = 30;
 
-function CartRow({ item }) {
+function CartRow({ item, image }) {
   const { removeItem, updateQuantity } = useCart();
   const { product, variant, quantity } = item;
+  const getProductName = useAppStore(state => state.getProductName);
 
   return (
     <TableRow>
       <TableCell>
         <div className="flex items-center gap-4">
+          <Image
+            src={image.imageUrl}
+            alt={product.name}
+            data-ai-hint={image.imageHint}
+            width={64}
+            height={64}
+            className="rounded-md object-cover"
+          />
           <div>
-            <span className="font-medium">{product.name}</span>
+            <span className="font-medium">{getProductName(product)}</span>
             <p className="text-sm text-muted-foreground">{variant.weight}</p>
           </div>
         </div>
@@ -64,15 +76,24 @@ function CartRow({ item }) {
   );
 }
 
-function MobileCartItem({ item }) {
+function MobileCartItem({ item, image }) {
     const { removeItem, updateQuantity } = useCart();
     const { product, variant, quantity } = item;
+    const getProductName = useAppStore(state => state.getProductName);
 
     return (
         <Card>
             <CardContent className="flex items-center gap-4 p-4">
+                <Image
+                    src={image.imageUrl}
+                    alt={product.name}
+                    data-ai-hint={image.imageHint}
+                    width={80}
+                    height={80}
+                    className="rounded-lg object-cover"
+                />
                 <div className="flex-1 space-y-2">
-                    <p className="font-semibold">{product.name} <span className="font-normal text-muted-foreground">({variant.weight})</span></p>
+                    <p className="font-semibold">{getProductName(product)} <span className="font-normal text-muted-foreground">({variant.weight})</span></p>
                     <p className="font-bold text-lg">₹{(variant.price * quantity).toFixed(2)}</p>
                      <div className="flex items-center gap-2">
                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(variant.sku, quantity - 1)}>
@@ -102,6 +123,26 @@ function MobileCartItem({ item }) {
 export default function CartPage() {
   const { cartItems, cartTotal, cartCount } = useCart();
   
+  const [images, setImages] = useState({});
+
+  useEffect(() => {
+    const fetchImages = async () => {
+      if (cartItems.length > 0) {
+        const imagePromises = cartItems.map((item) =>
+          getProductImage(item.product.imageId)
+        );
+        const resolvedImages = await Promise.all(imagePromises);
+        const imageMap = cartItems.reduce((acc, item, index) => {
+          acc[item.variant.sku] = resolvedImages[index];
+          return acc;
+        }, {});
+        setImages(imageMap);
+      }
+    };
+
+    fetchImages();
+  }, [cartItems]);
+
   if (cartCount === 0) {
     return (
       <div className="container mx-auto py-24 text-center">
@@ -130,7 +171,8 @@ export default function CartPage() {
             {/* Mobile View */}
             <div className="lg:hidden space-y-4">
                  {cartItems.map((item) => {
-                    return <MobileCartItem key={item.variant.sku} item={item} />
+                    const image = images[item.variant.sku] || { imageUrl: 'https://placehold.co/80x80/E2E8F0/64748B?text=...', imageHint: 'loading' };
+                    return <MobileCartItem key={item.variant.sku} item={item} image={image} />
                 })}
             </div>
 
@@ -150,7 +192,8 @@ export default function CartPage() {
                     </TableHeader>
                     <TableBody>
                       {cartItems.map((item) => {
-                        return <CartRow key={item.variant.sku} item={item} />;
+                        const image = images[item.variant.sku] || { imageUrl: 'https://placehold.co/64x64/E2E8F0/64748B?text=...', imageHint: 'loading' };
+                        return <CartRow key={item.variant.sku} item={item} image={image} />;
                       })}
                     </TableBody>
                   </Table>

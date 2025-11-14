@@ -52,6 +52,7 @@
           "order": "ASCENDING"
         }
       ]
+<<<<<<< HEAD
     },
     {
       "collectionGroup": "failedCommands",
@@ -62,6 +63,8 @@
           "order": "DESCENDING"
         }
       ]
+=======
+>>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
     }
   ],
   "fieldOverrides": [

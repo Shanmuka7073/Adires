@@ -1,5 +1,6 @@
-'use client';
 
+
+'use client';
 import { Store, Product, ProductPrice } from '@/lib/types';
 import groceryData from '@/lib/grocery-data.json';
 import { useParams, notFound } from 'next/navigation';

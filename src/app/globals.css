@@ -4,8 +4,9 @@
 
 @layer base {
   :root {
-    --background: 120 100% 97%;
+    --background: 90 60% 95%;
     --foreground: 240 10% 3.9%;
+<<<<<<< HEAD
     --card: 0 0% 100%;
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
@@ -13,19 +14,37 @@
     --primary: 120 73% 45%;
     --primary-foreground: 0 0% 100%;
     --secondary: 120 20% 92%;
+=======
+    --card: 90 60% 98%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 90 60% 98%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 150 60% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 90 20% 92%;
+>>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
     --secondary-foreground: 240 5.9% 10%;
-    --muted: 120 20% 92%;
+    --muted: 90 20% 92%;
     --muted-foreground: 240 3.8% 46.1%;
-    --accent: 33 100% 64%;
-    --accent-foreground: 240 5.9% 10%;
+    --accent: 25 95% 53%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
+<<<<<<< HEAD
     --border: 120 20% 88%;
     --input: 120 20% 88%;
     --ring: 120 73% 45%;
     --radius: 0.5rem;
     --chart-1: 120 73% 45%;
     --chart-2: 33 100% 64%;
+=======
+    --border: 90 20% 88%;
+    --input: 90 20% 88%;
+    --ring: 25 95% 53%;
+    --radius: 0.5rem;
+    --chart-1: 150 60% 45%;
+    --chart-2: 25 95% 53%;
+>>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
     --chart-3: 180 55% 65%;
     --chart-4: 60 80% 70%;
     --chart-5: 20 80% 70%;
@@ -46,21 +65,31 @@
     --card-foreground: 0 0% 98%;
     --popover: 240 5% 12%;
     --popover-foreground: 0 0% 98%;
+<<<<<<< HEAD
     --primary: 120 73% 55%;
+=======
+    --primary: 150 60% 55%;
+>>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
     --primary-foreground: 0 0% 100%;
     --secondary: 240 3.7% 18%;
     --secondary-foreground: 0 0% 98%;
     --muted: 240 3.7% 18%;
     --muted-foreground: 0 0% 63.9%;
-    --accent: 33 100% 64%;
+    --accent: 25 95% 60%;
     --accent-foreground: 240 5.9% 10%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     --border: 240 3.7% 20%;
     --input: 240 3.7% 20%;
+<<<<<<< HEAD
     --ring: 120 73% 55%;
     --chart-1: 120 73% 55%;
     --chart-2: 33 100% 64%;
+=======
+    --ring: 25 95% 60%;
+    --chart-1: 150 60% 55%;
+    --chart-2: 25 95% 60%;
+>>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
     --chart-3: 180 55% 65%;
     --chart-4: 60 80% 70%;
     --chart-5: 20 80% 70%;

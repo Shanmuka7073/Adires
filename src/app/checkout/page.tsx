@@ -26,7 +26,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { getProductImage, getStore, getStores } from '@/lib/data';
+import { getProductImage, getStore } from '@/lib/data';
 import { useTransition, useState, useCallback, useEffect, useMemo, RefObject, useRef } from 'react';
 import { useFirebase, errorEmitter, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, doc } from 'firebase/firestore';
@@ -269,6 +269,7 @@ export default function CheckoutPage() {
     }
 
     startPlaceOrderTransition(async () => {
+        if (!firestore) return;
         const storeData = await getStore(firestore, activeStoreId);
         if (!storeData) {
             toast({ variant: 'destructive', title: 'Error', description: 'Selected store could not be found.' });

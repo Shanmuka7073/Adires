@@ -1,3 +1,4 @@
+
 'use client';
 import type { Store, Product, ProductPrice, SiteConfig } from './types';
 import {
@@ -9,6 +10,24 @@ import {
   where,
   Firestore,
 } from 'firebase/firestore';
+
+async function getImages() {
+    // Dynamically import the JSON file to get the latest version.
+    const placeholderData = await import('./placeholder-images.json');
+    return placeholderData.default.placeholderImages;
+}
+
+const getImage = async (id: string) => {
+  const images = await getImages();
+  const image = images.find((img) => img.id === id);
+  return (
+    image || {
+      imageUrl: 'https://picsum.photos/seed/placeholder/300/300',
+      imageHint: 'placeholder',
+    }
+  );
+};
+
 
 // --- Firestore-based functions for CLIENT-SIDE ---
 
@@ -32,7 +51,10 @@ export async function getStore(
   const storeDocRef = doc(db, 'stores', id);
   const storeSnap = await getDoc(storeDocRef);
   if (storeSnap.exists()) {
-    return { id: storeSnap.id, ...storeSnap.data() } as Store;
+    const storeData = { id: storeSnap.id, ...storeSnap.data() } as Store;
+    // For internal use (like creating an order), we should return the store even if closed.
+    // The getStores function for public listing already filters out closed stores.
+    return storeData;
   }
   return undefined;
 }
@@ -89,3 +111,13 @@ export async function getProductPrice(db: Firestore, productName: string): Promi
     }
     return null;
 }
+
+// --- Placeholder image functions ---
+
+export const getProductImage = async (imageId: string) => await getImage(imageId);
+export const getStoreImage = async (store: Store) => {
+    if (store.imageUrl) {
+        return { imageUrl: store.imageUrl, imageHint: 'store image' };
+    }
+    return await getImage(store.imageId);
+};

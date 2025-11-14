@@ -23,7 +23,16 @@ service cloud.firestore {
      * - /deliveryPartners/{partnerId}/payouts/{payoutId}: Payout requests for delivery partners.
      * - /store-images/{storeId}/{fileName}: User uploaded store images.
      * - /productPrices/{productName}: Admin-managed canonical pricing for product variants.
+<<<<<<< HEAD
      * - /appErrors/{errorId}: Application error logs.
+=======
+     *
+     * Key Security Decisions:
+     * - User listing is disallowed, except for the admin.
+     * - Stores are owned by a user, and only the owner can modify them.
+     * - Products are managed within the scope of a store, by the store owner.
+     * - Orders include the userId, storeId, and storeOwnerId for simpler authorization.
+>>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
      */
     function isSignedIn() {
       return request.auth != null;
@@ -98,12 +107,15 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+<<<<<<< HEAD
     match /cachedAIResponses/{responseId} {
         allow get, list: if true;
         allow create: if true; // Allow any authenticated user to create cache entries
         allow update, delete: if false;
     }
 
+=======
+>>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
     match /deliveryPartners/{partnerId} {
       allow get, update: if isOwner(partnerId);
       allow list: if isAdmin();
@@ -121,6 +133,7 @@ service cloud.firestore {
         allow get, list: if true;
         allow write: if isAdmin();
     }
+<<<<<<< HEAD
     
     match /failedCommands/{commandId} {
       allow read: if isAdmin();
@@ -149,6 +162,8 @@ service cloud.firestore {
       allow read, list, delete: if isAdmin(); // Only the admin can read or clear error logs
       allow update: if false;
     }
+=======
+>>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
   }
 }
 
@@ -163,3 +178,7 @@ service firebase.storage {
     }
   }
 }
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
