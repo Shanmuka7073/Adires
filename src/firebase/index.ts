@@ -6,17 +6,31 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
-// This is the correct, standard way to initialize a Firebase client app.
+// IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
-  // If an app is already initialized, return it.
-  if (getApps().length) {
-    const existingApp = getApp();
-    return getSdks(existingApp);
+  if (!getApps().length) {
+    // Important! initializeApp() is called without any arguments because Firebase App Hosting
+    // integrates with the initializeApp() function to provide the environment variables needed to
+    // populate the FirebaseOptions in production. It is critical that we attempt to call initializeApp()
+    // without arguments.
+    let firebaseApp;
+    try {
+      // Attempt to initialize via Firebase App Hosting environment variables
+      firebaseApp = initializeApp();
+    } catch (e) {
+      // Only warn in production because it's normal to use the firebaseConfig to initialize
+      // during development
+      if (process.env.NODE_ENV === "production") {
+        console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
+      }
+      firebaseApp = initializeApp(firebaseConfig);
+    }
+    
+    return getSdks(firebaseApp);
   }
 
-  // Otherwise, initialize a new app with the provided configuration.
-  const firebaseApp = initializeApp(firebaseConfig);
-  return getSdks(firebaseApp);
+  // If already initialized, return the SDKs with the already initialized App
+  return getSdks(getApp());
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
@@ -36,3 +50,6 @@ export * from './non-blocking-updates';
 export * from './non-blocking-login';
 export * from './errors';
 export * from './error-emitter';
+
+// Explicitly export useFirestore for clarity
+export { useFirestore } from './provider';
