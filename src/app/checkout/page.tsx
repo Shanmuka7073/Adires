@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useCart } from '@/lib/cart';
@@ -26,6 +25,7 @@ import {
 } from '@/components/ui/form';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import Image from 'next/image';
 import { getProductImage, getStore, getStores } from '@/lib/data';
 import { useTransition, useState, useCallback, useEffect, useMemo, RefObject, useRef } from 'react';
 import { useFirebase, errorEmitter, useDoc, useMemoFirebase } from '@/firebase';
@@ -51,14 +51,16 @@ type CheckoutFormValues = z.infer<typeof checkoutSchema>;
 
 const DELIVERY_FEE = 30;
 
-function OrderSummaryItem({ item }) {
+function OrderSummaryItem({ item, image }) {
     const { product, variant, quantity } = item;
+    const getProductName = useAppStore(state => state.getProductName);
 
     return (
         <div className="flex justify-between items-center">
             <div className="flex items-center gap-4">
+                <Image src={image.imageUrl} alt={product.name} data-ai-hint={image.imageHint} width={48} height={48} className="rounded-md" />
                 <div>
-                    <p className="font-medium">{product.name} <span className="text-sm text-muted-foreground">({variant.weight})</span></p>
+                    <p className="font-medium">{getProductName(product)} <span className="text-sm text-muted-foreground">({variant.weight})</span></p>
                     <p className="text-sm text-muted-foreground">Qty: {quantity}</p>
                 </div>
             </div>
@@ -110,6 +112,7 @@ export default function CheckoutPage() {
   });
 
   const [deliveryCoords, setDeliveryCoords] = useState<{lat: number, lng: number} | null>(null);
+  const [images, setImages] = useState({});
   const placeOrderBtnRef = useRef<HTMLButtonElement>(null);
   const homeAddressBtnRef = useRef<HTMLButtonElement>(null);
   const currentLocationBtnRef = useRef<HTMLButtonElement>(null);
@@ -193,41 +196,34 @@ export default function CheckoutPage() {
         // Note: We don't have lat/lng for home address in this version.
         // A real app would geocode the address to get coordinates.
         // For now, we'll clear coords if they were set.
-        setDeliveryCoords(null);
+        setDeliveryCoords(null); 
       } else {
         toast({ variant: 'destructive', title: 'No Home Address', description: 'Please set your home address in your profile first.' });
       }
     }
   }, [userData, form, toast]);
 
+  // Safely watch the delivery address and trigger voice prompt when it changes
   const deliveryAddressValue = form.watch('deliveryAddress');
-
-  // This effect will proactively trigger the voice commander when a key piece of information changes.
+  
   useEffect(() => {
+    // This effect will trigger the voice commander to re-evaluate the checkout page state.
+    // It runs when the address is filled out, OR when a store is selected.
     if ((deliveryAddressValue && deliveryAddressValue.length > 10) || activeStoreId) {
       if (triggerVoicePrompt) {
-        // Use a timeout to avoid calling it too frequently during typing and to give React time to update state
-        const handler = setTimeout(() => {
-          triggerVoicePrompt();
-        }, 300);
-        return () => clearTimeout(handler);
+        triggerVoicePrompt();
       }
     }
   }, [deliveryAddressValue, activeStoreId, triggerVoicePrompt]);
-  
 
    // Effect for smart order: set home address if provided
   useEffect(() => {
     if (homeAddress) {
-        if (homeAddress === 'use-current-location') {
-            handleUseCurrentLocation();
-        } else {
-            form.setValue('deliveryAddress', homeAddress, { shouldValidate: true });
-        }
+        form.setValue('deliveryAddress', homeAddress, { shouldValidate: true });
         // Clean up the state so it doesn't persist
         setHomeAddress(null);
     }
-  }, [homeAddress, form, setHomeAddress, handleUseCurrentLocation]);
+  }, [homeAddress, form, setHomeAddress]);
 
   // Effect to pre-fill form with user data
   useEffect(() => {
@@ -239,6 +235,23 @@ export default function CheckoutPage() {
       });
     }
   }, [userData, form]);
+
+  useEffect(() => {
+    const fetchImages = async () => {
+        if (cartItems.length === 0) return;
+        const imagePromises = cartItems.map(item => getProductImage(item.product.imageId));
+        const resolvedImages = await Promise.all(imagePromises);
+        const imageMap = cartItems.reduce((acc, item, index) => {
+            acc[item.variant.sku] = resolvedImages[index];
+            return acc;
+        }, {});
+        setImages(imageMap);
+    };
+
+    if (cartItems.length > 0) {
+        fetchImages();
+    }
+  }, [cartItems]);
 
   const onSubmit = (data: CheckoutFormValues) => {
     if (!firestore || !user) {
@@ -322,7 +335,7 @@ export default function CheckoutPage() {
 
   const areAllDetailsReady = useMemo(() => {
     return cartItems.length > 0 && activeStoreId && form.getValues('deliveryAddress').length > 10;
-  }, [cartItems.length, activeStoreId, form.watch('deliveryAddress')]); // Watch address for reactivity
+  }, [cartItems.length, activeStoreId, form.getValues('deliveryAddress')]);
 
   useEffect(() => {
       if (shouldPlaceOrderDirectly && areAllDetailsReady && placeOrderBtnRef.current) {
@@ -360,7 +373,8 @@ export default function CheckoutPage() {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {cartItems.map((item) => {
-                                return <OrderSummaryItem key={item.variant.sku} item={item} />
+                                const image = images[item.variant.sku] || { imageUrl: 'https://placehold.co/48x48/E2E8F0/64748B?text=...', imageHint: 'loading' };
+                                return <OrderSummaryItem key={item.variant.sku} item={item} image={image} />
                             })}
                             {cartItems.length === 0 && (
                                 <div className="text-center text-muted-foreground py-8">
