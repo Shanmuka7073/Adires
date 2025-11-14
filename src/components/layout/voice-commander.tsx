@@ -15,7 +15,7 @@ import { t, initializeTranslations } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import groceryData from '@/lib/grocery-data.json';
-import { getIngredientsForRecipe, answerGeneralQuestion, generatePack, suggestAliasTarget } from '@/app/actions';
+import { getIngredientsForRecipe, answerGeneralQuestion } from '@/app/actions';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache';
 import { useCheckoutStore } from '@/app/checkout/page';
@@ -349,11 +349,11 @@ export function VoiceCommander({
   }, [speechSynthesisVoices]);
 
   const handleProfileFormInteraction = useCallback(() => {
-    if (!profileForm) {
+    if (!profileForm?.getValues) {
       speak("I can't seem to access the profile form right now.", 'en-IN');
       return;
     }
-    const fields: { name: keyof typeof profileForm.getValues; label: string }[] = [
+    const fields: { name: keyof ReturnType<typeof profileForm.getValues>; label: string }[] = [
       { name: 'firstName', label: 'first name' },
       { name: 'lastName', label: 'last name' },
       { name: 'phone', label: 'phone number' },
@@ -723,7 +723,7 @@ export function VoiceCommander({
     }
     if (isWaitingForAddressType) {
         const homeKeywords = getAllAliases('homeAddress')[spokenLang] || ['home'];
-        const locationKeywords = getAllAliases('currentLocation')[spokenLang] || ['current'];
+        const locationKeywords = getAllAliases('currentLocation')[spokenLang] || ['current', 'location'];
         
         const homeSimilarity = Math.max(...homeKeywords.map(kw => calculateSimilarity(commandText.toLowerCase(), kw)));
         const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(commandText.toLowerCase(), kw)));
@@ -770,7 +770,7 @@ export function VoiceCommander({
        return;
     }
     
-    if (formFieldToFillRef.current && profileForm) {
+    if (formFieldToFillRef.current && profileForm?.setValue) {
         profileForm.setValue(formFieldToFillRef.current, commandText, { shouldValidate: true });
         formFieldToFillRef.current = null;
         handleProfileFormInteraction();
@@ -828,7 +828,7 @@ export function VoiceCommander({
         
         case 'NAVIGATE':
         case 'CONVERSATIONAL': {
-            const commandKey = 'commandKey' in intent ? intent.commandKey : ('destination' in intent ? intent.destination : '');
+            const commandKey = intent.type === 'NAVIGATE' ? intent.destination : intent.commandKey;
             if(commandKey) {
                 const action = commandActionsRef.current[commandKey];
                 const reply = commands[commandKey]?.reply || `Executing ${commands[commandKey]?.display}`;
@@ -1163,9 +1163,13 @@ export function VoiceCommander({
                 speak(`I found a cached recipe. The ingredients for ${dishName} are: ${ingredients.join(', ')}`, langWithRegion);
             } else {
                 const result = await getIngredientsForRecipe({ dishName });
-                ingredients = result.ingredients;
-                speak(`The ingredients for ${dishName} are: ${ingredients.join(', ')}`, langWithRegion);
-                await cacheRecipe(firestore, dishName, ingredients);
+                if (result?.ingredients) {
+                    ingredients = result.ingredients;
+                    speak(`The ingredients for ${dishName} are: ${ingredients.join(', ')}`, langWithRegion);
+                    await cacheRecipe(firestore, dishName, ingredients);
+                } else {
+                    speak(`I'm sorry, I couldn't find ingredients for ${dishName}.`, langWithRegion);
+                }
             }
 
         } catch (error) {
