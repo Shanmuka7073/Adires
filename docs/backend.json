@@ -732,6 +732,29 @@
             "errorMessage",
             "errorDetails"
         ]
+    },
+    "AshaConversation": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AshaConversation",
+      "type": "object",
+      "description": "Represents a single message in a conversation with the Asha AI agent.",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "The content of the message."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["user", "model"],
+          "description": "Who sent the message."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp of the message."
+        }
+      },
+      "required": ["text", "role", "timestamp"]
     }
   },
   "auth": {
@@ -1048,9 +1071,27 @@
             }
           ]
         }
+      },
+      {
+        "path": "/users/{userId}/ashaConversation/{messageId}",
+        "definition": {
+          "entityName": "AshaConversation",
+          "schema": {
+            "$ref": "#/backend/entities/AshaConversation"
+          },
+          "description": "Stores the conversation history for a user with the Asha AI agent.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            },
+            {
+              "name": "messageId",
+              "description": "The unique identifier for the message."
+            }
+          ]
+        }
       }
     ]
   }
 }
-
-    

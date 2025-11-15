@@ -24,6 +24,7 @@ service cloud.firestore {
      * - /store-images/{storeId}/{fileName}: User uploaded store images.
      * - /productPrices/{productName}: Admin-managed canonical pricing for product variants.
      * - /appErrors/{errorId}: Application error logs.
+     * - /users/{userId}/ashaConversation/{messageId}: Conversation history with Asha AI agent.
      */
     function isSignedIn() {
       return request.auth != null;
@@ -41,6 +42,10 @@ service cloud.firestore {
       allow get, update, delete: if isOwner(userId);
       allow list: if isAdmin();
       allow create: if isOwner(userId) && request.resource.data.id == userId;
+    }
+    
+    match /users/{userId}/ashaConversation/{messageId} {
+      allow read, write: if isOwner(userId);
     }
 
     match /stores/{storeId} {
@@ -163,5 +168,3 @@ service firebase.storage {
     }
   }
 }
-
-    

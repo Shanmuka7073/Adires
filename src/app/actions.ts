@@ -8,7 +8,11 @@ import { generatePack as generatePackFlow } from '@/ai/flows/generate-pack-flow'
 import { suggestAliasTarget as suggestAliasTargetFlow } from '@/ai/flows/suggest-alias-flow';
 
 import { getAdminServices } from '@/firebase/admin-init';
-import { getDocs } from 'firebase-admin/firestore';
+import { getDocs, addDoc, serverTimestamp } from 'firebase-admin/firestore';
+
+import { ai } from '@/ai/genkit';
+import { z } from 'zod';
+
 
 import type { 
     RecipeIngredientsInput, 
@@ -151,4 +155,68 @@ export async function getSystemStatus(): Promise<{ status: 'ok' | 'error'; messa
             counts: { users: 'N/A', stores: 'N/A' } 
         };
     }
+}
+
+const AskAshaInputSchema = z.object({
+  userMessage: z.string(),
+  chatHistory: z.array(z.object({
+    role: z.string(),
+    text: z.string(),
+  })),
+});
+
+const askAshaFlow = ai.defineFlow(
+  {
+    name: 'askAshaFlow',
+    inputSchema: AskAshaInputSchema,
+    outputSchema: z.string(),
+    system: `
+        You are 'Asha,' a friendly, knowledgeable, and proactive personal shopping assistant for a grocery app in India. 
+        Your primary goal is to understand and respond naturally to multilingual Indian users.
+        
+        CRITICAL MANDATES:
+        1. Multilingual & Slang: Seamlessly understand and process input in English, Hindi, Telugu, Roman Telugu (e.g., 'ullipayalu'), mixed language (e.g., 'add milk and konni onions'), and misspellings.
+        2. Persona: Your tone is warm, conversational, and culturally appropriate for Kurnool, Andhra Pradesh.
+        3. Context: You remember the last 5 messages.
+        4. Action Handling: When the user issues a clear action (like 'add'), confirm the action conversationally (e.g., 'Done! Adding that right away.') and maintain the dialogue. Your focus is dialogue and context management, not just list management.
+        
+        Keep your responses concise, helpful, and focused on assisting with their shopping needs.
+    `,
+  },
+  async ({ userMessage, chatHistory }) => {
+    
+    const history = chatHistory.map(msg => ({
+      role: msg.role === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.text }],
+    }));
+    history.push({ role: 'user', parts: [{ text: userMessage }] });
+
+    const llm = ai.getModel('googleai/gemini-2.5-flash-preview');
+
+    const result = await llm.generate({
+      history,
+    });
+    
+    return result.text();
+  }
+);
+
+
+export async function askAsha(userMessage: string, chatHistory: { role: string; text: string }[]): Promise<void> {
+    const { db, auth } = await getAdminServices();
+
+    // The genkit middleware will add the user's uid to the metadata.
+    const flowResult = await askAshaFlow({ userMessage, chatHistory });
+    const uid = (askAshaFlow as any).getFlowState().metadata.uid;
+    
+    if (!uid) {
+        throw new Error("User is not authenticated. Cannot save AI response.");
+    }
+    
+    const conversationRef = db.collection(`/users/${uid}/ashaConversation`);
+    await addDoc(conversationRef, {
+        text: flowResult,
+        role: 'model',
+        timestamp: serverTimestamp()
+    });
 }

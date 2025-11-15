@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, Truck, ShoppingBag, ArrowRight, Settings, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box, Code, ShieldAlert, AlertCircle } from 'lucide-react';
+import { Users, Store, Truck, ShoppingBag, ArrowRight, Settings, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box, Code, ShieldAlert, AlertCircle, Bot } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -216,6 +216,12 @@ export default function AdminDashboardPage() {
             <div className="mt-16">
                  <h2 className="text-2xl font-bold text-center mb-8 font-headline">{t('admin-tools')}</h2>
                 <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
+                    <AdminActionCard 
+                        title="Asha AI Chat"
+                        description="Talk with your conversational shopping agent, Asha."
+                        href="/dashboard/admin/asha"
+                        icon={Bot}
+                    />
                      <AdminActionCard 
                         title="System Status"
                         description="Check the health of backend services and APIs."
