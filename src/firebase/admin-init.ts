@@ -26,26 +26,12 @@ export async function getAdminServices(): Promise<AdminServices> {
     return adminServices;
   }
 
-  // Ensure environment variables are set. This is a critical check.
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.NEXT_PUBLIC_FIREBASE_CLIENT_EMAIL;
-  // The private key needs to have its newlines properly escaped when stored in an env var.
-  const privateKey = process.env.NEXT_PUBLIC_FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
-
-  if (!projectId || !clientEmail || !privateKey) {
-    throw new Error('Firebase Admin SDK environment variables are not set. Please check your .env file.');
-  }
-
   try {
+    // In a Google Cloud environment like Firebase App Hosting, initializeApp()
+    // with no arguments will automatically use the service account credentials.
     const apps = getApps();
-    const adminApp = apps.find(app => app.name === 'firebase-admin') || initializeApp({
-      credential: cert({
-        projectId,
-        clientEmail,
-        privateKey,
-      }),
-    }, 'firebase-admin');
-
+    const adminApp = apps.length > 0 ? apps[0] : initializeApp();
+    
     adminServices = {
       app: adminApp,
       auth: getAuth(adminApp),
