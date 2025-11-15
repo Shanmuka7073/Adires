@@ -1504,8 +1504,10 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
     
     const filteredProducts = useMemo(() => {
         if (!products) return [];
-        if (selectedCategory === 'all') return products;
-        return products.filter(p => p.category === selectedCategory);
+        // FIX: Ensure products are unique by ID before filtering
+        const uniqueProducts = Array.from(new Map(products.map(p => [p.id, p])).values());
+        if (selectedCategory === 'all') return uniqueProducts;
+        return uniqueProducts.filter(p => p.category === selectedCategory);
     }, [products, selectedCategory]);
 
     const handleOpenStore = () => {
@@ -2013,5 +2015,3 @@ export default function MyStorePage() {
         </div>
     );
 }
-
-    
