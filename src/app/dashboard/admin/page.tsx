@@ -222,6 +222,12 @@ export default function AdminDashboardPage() {
                         href="/dashboard/admin/system-status"
                         icon={Server}
                     />
+                     <AdminActionCard 
+                        title="View App Pitch"
+                        description="Review and share the official app pitch document."
+                        href="/dashboard/admin/pitch"
+                        icon={FileText}
+                    />
                     <AdminActionCard 
                         title="manage-master-store-and-products"
                         description="add-or-edit-products-in-the-master-catalog"
