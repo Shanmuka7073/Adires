@@ -57,26 +57,17 @@ const askAshaFlow = ai.defineFlow(
     
     // Map the input chat history to the format expected by the Gemini model.
     const history = chatHistory.map(msg => ({
-      role: msg.role === 'user' ? 'user' : 'model',
+      role: msg.role as 'user' | 'model', // Cast role to the expected type
       parts: [{ text: msg.text }],
     }));
 
-    let result;
-
-    if (history.length === 0) {
-      // For a new conversation, use the 'prompt' field.
-      result = await ai.generate({
-        model: 'googleai/gemini-2.5-flash-preview',
-        prompt: userMessage,
-      });
-    } else {
-      // For an ongoing conversation, add the new message and use 'history'.
-      history.push({ role: 'user', parts: [{ text: userMessage }] });
-      result = await ai.generate({
-        model: 'googleai/gemini-2.5-flash-preview',
-        history,
-      });
-    }
+    // The Genkit flow runner automatically combines the system prompt, history, and the new user message.
+    // We just need to pass the new user message in the 'prompt' field and the context in 'history'.
+    const result = await ai.generate({
+      model: 'googleai/gemini-2.5-flash-preview',
+      prompt: userMessage,
+      history,
+    });
     
     // Return the generated text directly.
     return result.text;
