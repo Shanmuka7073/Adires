@@ -4,7 +4,7 @@
 
 'use server';
 
-import { ai } from '@/ai/genkit';
+import { getAiInstance } from '@/ai/genkit';
 import { 
   GeneralQuestionInputSchema, 
   GeneralQuestionOutputSchema,
@@ -18,7 +18,7 @@ export async function answerGeneralQuestion(input: GeneralQuestionInput): Promis
   return generalQuestionFlow(input);
 }
 
-
+const ai = getAiInstance();
 const generalQuestionPrompt = ai.definePrompt(
   {
     name: 'generalQuestionPrompt',

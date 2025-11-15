@@ -3,7 +3,7 @@
 /**
  * @fileOverview An AI flow to suggest the correct target for a failed voice command.
  */
-import { ai } from '@/ai/genkit';
+import { getAiInstance } from '@/ai/genkit';
 import {
   AliasTargetSuggestionInputSchema,
   AliasTargetSuggestionOutputSchema,
@@ -15,6 +15,7 @@ export async function suggestAliasTarget(input: AliasTargetSuggestionInput): Pro
   return suggestAliasTargetFlow(input);
 }
 
+const ai = getAiInstance();
 const suggestAliasPrompt = ai.definePrompt({
   name: 'suggestAliasPrompt',
   model: 'googleai/gemini-2.5-flash',

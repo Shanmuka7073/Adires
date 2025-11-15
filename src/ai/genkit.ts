@@ -3,7 +3,7 @@
 // It is used by the /api/genkit route to expose flows to the Genkit developer UI.
 // It is also used by the app to call flows.
 
-import {genkit, AIMiddleware} from 'genkit';
+import {genkit, AIMiddleware, Genkit} from 'genkit';
 import {googleAI} from '@genkit-ai/google-genai';
 import { getAdminServices } from '@/firebase/admin-init';
 import { cookies }from 'next/headers';
@@ -24,26 +24,39 @@ const addUserContext: AIMiddleware = async (input, next) => {
   return next(input);
 };
 
-export const ai = genkit({
-  plugins: [
-    googleAI({
-      // You must also set the GEMINI_API_KEY environment variable.
-      // You can get a key from Google AI Studio.
-      // https://aistudio.google.com/app/apikey
-    }),
-  ],
-  // Open up all flows to the public. You should not do this in production.
-  // In production, you would want to use a more secure policy, e.g.
-  // to only allow authenticated users to run flows.
-  policy: {
-    run: {
-      action: 'allow',
-      subjects: 'all',
-      conditions: [],
-    },
-    // Add addUserContext middleware to all flows.
-    use: [addUserContext],
-  },
-  logLevel: 'debug',
-  enableTracingAndMetrics: true,
-});
+let aiInstance: Genkit | null = null;
+
+export async function getAiInstance(): Promise<Genkit> {
+    if (aiInstance) {
+        return aiInstance;
+    }
+
+    aiInstance = genkit({
+        plugins: [
+            googleAI({
+            // You must also set the GEMINI_API_KEY environment variable.
+            // You can get a key from Google AI Studio.
+            // https://aistudio.google.com/app/apikey
+            }),
+        ],
+        // Open up all flows to the public. You should not do this in production.
+        // In production, you would want to use a more secure policy, e.g.
+        // to only allow authenticated users to run flows.
+        policy: {
+            run: {
+            action: 'allow',
+            subjects: 'all',
+            conditions: [],
+            },
+            // Add addUserContext middleware to all flows.
+            use: [addUserContext],
+        },
+        logLevel: 'debug',
+        enableTracingAndMetrics: true,
+    });
+    
+    return aiInstance;
+}
+
+// For backwards compatibility with files that might still import 'ai' directly
+export const ai = await getAiInstance();

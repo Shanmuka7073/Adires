@@ -5,7 +5,7 @@
  */
 'use server';
 
-import { ai } from '@/ai/genkit';
+import { getAiInstance } from '@/ai/genkit';
 import { 
   RecipeIngredientsInputSchema, 
   RecipeIngredientsOutputSchema,
@@ -24,6 +24,7 @@ export async function getIngredientsForRecipe(input: RecipeIngredientsInput): Pr
     return recipeIngredientsFlow(input);
 }
 
+const ai = getAiInstance();
 const getIngredientsPrompt = ai.definePrompt(
   {
     name: 'getIngredientsPrompt',

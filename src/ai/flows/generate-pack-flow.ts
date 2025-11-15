@@ -4,7 +4,7 @@
  * @fileOverview A flow to generate a grocery pack list using AI.
  */
 
-import { ai } from '@/ai/genkit';
+import { getAiInstance } from '@/ai/genkit';
 import { 
   GeneratePackInputSchema,
   GeneratePackOutputSchema,
@@ -16,6 +16,7 @@ export async function generatePack(input: GeneratePackInput): Promise<GeneratePa
   return generatePackFlow(input);
 }
 
+const ai = getAiInstance();
 const generatePackPrompt = ai.definePrompt({
   name: 'generatePackPrompt',
   model: 'googleai/gemini-2.5-flash',
