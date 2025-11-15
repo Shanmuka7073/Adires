@@ -158,7 +158,9 @@ export async function getSystemStatus(): Promise<{ status: 'ok' | 'error'; messa
     }
 }
 
-// Correctly export the askAsha function as a server action
+
 export async function askAsha(input: AskAshaInput) {
-  return askAshaFlow(input);
+  // Directly call the flow. The middleware handles auth.
+  // The flow itself handles database writes.
+  return await askAshaFlow(input);
 }
