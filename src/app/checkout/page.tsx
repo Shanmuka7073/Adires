@@ -195,7 +195,7 @@ export default function CheckoutPage() {
         
         // Note: We don't have lat/lng for home address in this version.
         // A real app would geocode the address to get coordinates.
-        // For now, we'll clear coords if they were set.
+        // Clear coords if they were previously set by 'current location'.
         setDeliveryCoords(null); 
       } else {
         toast({ variant: 'destructive', title: 'No Home Address', description: 'Please set your home address in your profile first.' });
@@ -502,3 +502,5 @@ export default function CheckoutPage() {
     </div>
   );
 }
+
+    
