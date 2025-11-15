@@ -1,10 +1,11 @@
+
 'use server';
 /**
  * @fileOverview The Genkit flow for the Asha conversational agent.
  */
 import { genkit, type FlowContext } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
-import { addUserContext, getAuthenticatedUid } from '@/ai/genkit';
+import { addUserContext } from '@/ai/genkit';
 import { getAdminServices } from '@/firebase/admin-init';
 import { addDoc, collection, serverTimestamp } from 'firebase-admin/firestore';
 import { 
@@ -50,7 +51,7 @@ const askAshaFlow = ai.defineFlow(
   },
   async ({ userMessage, chatHistory }, context: FlowContext) => {
     
-    // The user's UID is now available on the context object.
+    // The user's UID is now available on the context object, thanks to the middleware.
     const uid = context.auth?.uid;
     if (!uid) {
         throw new Error("Flow Error: User is not authenticated.");
