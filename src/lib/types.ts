@@ -1,8 +1,4 @@
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 import { Timestamp } from "firebase/firestore";
 
 export type ProductVariant = {
@@ -23,19 +19,13 @@ export type Product = {
   category?: string;
   imageUrl?: string; // Data URI for AI-generated image
   imageHint?: string;
-<<<<<<< HEAD
   matchedAlias?: string; // The alias the user spoke
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 };
 
 export type Store = {
   id: string;
   name:string;
-<<<<<<< HEAD
   teluguName?: string;
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
   description: string;
   address: string;
   imageId: string;
@@ -123,7 +113,6 @@ export type ProductPrice = {
     variants: ProductVariant[];
 }
 
-<<<<<<< HEAD
 export type FailedVoiceCommand = {
     id: string;
     userId: string;
@@ -131,6 +120,7 @@ export type FailedVoiceCommand = {
     language: string;
     timestamp: Timestamp | Date | string;
     reason: string;
+    status: 'new' | 'no_suggestion';
     suggestedProduct?: string; // e.g., 'tomatoes'
     similarityScore?: number; // e.g., 0.75
 }
@@ -206,7 +196,3 @@ export type {
     AliasTargetSuggestionInput,
     AliasTargetSuggestionOutput,
 } from '@/ai/flows/schemas';
-
-=======
-    
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584

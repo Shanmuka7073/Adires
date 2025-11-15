@@ -429,7 +429,6 @@
       },
       "required": ["id", "dishName", "ingredients", "createdAt"]
     },
-<<<<<<< HEAD
     "CachedAIResponse": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "CachedAIResponse",
@@ -456,8 +455,6 @@
       },
       "required": ["id", "question", "answer", "createdAt"]
     },
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
     "DeliveryPartner": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "DeliveryPartner",
@@ -581,7 +578,6 @@
         }
       },
       "required": ["productName", "variants"]
-<<<<<<< HEAD
     },
     "FailedVoiceCommand": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -613,9 +609,14 @@
         "reason": {
           "type": "string",
           "description": "The reason why the command failed (e.g., 'Product not found', 'Incomplete command')."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["new", "no_suggestion"],
+          "description": "The processing status of the failed command."
         }
       },
-      "required": ["id", "userId", "commandText", "language", "timestamp", "reason"]
+      "required": ["id", "userId", "commandText", "language", "timestamp", "reason", "status"]
     },
     "VoiceAlias": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -731,8 +732,6 @@
             "errorMessage",
             "errorDetails"
         ]
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
     }
   },
   "auth": {
@@ -903,7 +902,6 @@
         }
       },
       {
-<<<<<<< HEAD
         "path": "/cachedAIResponses/{responseId}",
         "definition": {
             "entityName": "CachedAIResponse",
@@ -920,8 +918,6 @@
         }
       },
       {
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
         "path": "/deliveryPartners/{partnerId}",
         "definition": {
           "entityName": "DeliveryPartner",
@@ -972,7 +968,6 @@
             }
           ]
         }
-<<<<<<< HEAD
       },
       {
         "path": "/failedCommands/{commandId}",
@@ -1053,8 +1048,6 @@
             }
           ]
         }
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
       }
     ]
   }

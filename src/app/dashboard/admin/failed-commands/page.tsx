@@ -5,7 +5,7 @@ import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { collection, query, orderBy, doc, deleteDoc, addDoc, writeBatch, getDocs, where } from 'firebase/firestore';
+import { collection, query, orderBy, doc, deleteDoc, addDoc, writeBatch, getDocs, where, updateDoc } from 'firebase/firestore';
 import type { FailedVoiceCommand, VoiceAlias } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -149,10 +149,9 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
     const { fetchInitialData } = useAppStore();
 
     const [isProcessing, startTransition] = useTransition();
-    const [suggestionStatus, setSuggestionStatus] = useState<'loading' | 'no-suggestion' | 'has-suggestion' | 'learned'>('loading');
+    const [suggestionStatus, setSuggestionStatus] = useState<'loading' | 'no-suggestion' | 'has-suggestion' | 'learned'>(command.status === 'new' ? 'loading' : 'no-suggestion');
     const [suggestion, setSuggestion] = useState<{ key: string, display: string, type: string } | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const hasFetchedSuggestion = useRef(false);
     
     // Function to handle the full auto-learn and retry flow
     const handleAutoLearnAndRetry = useCallback(async (suggestedKey: string, suggestionType: string) => {
@@ -182,6 +181,7 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
         } catch (error) {
             console.error("Auto-learn and retry failed:", error);
             toast({ variant: 'destructive', title: 'Auto-Learn Failed', description: 'Could not process the command automatically.' });
+             setSuggestionStatus('no-suggestion'); // Revert status on failure
         }
     }, [firestore, command, fetchInitialData, retryCommand, toast]);
 
@@ -201,12 +201,13 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
 
     // Auto-run suggestion logic, now protected from re-running
     useEffect(() => {
-        if (hasFetchedSuggestion.current) {
+        // Only run for new commands
+        if (command.status !== 'new') {
             return;
         }
-        hasFetchedSuggestion.current = true;
 
         const getAndProcessSuggestion = async () => {
+            if (!firestore) return;
             try {
                 const res = await suggestAliasTarget({
                     failedCommand: command.commandText,
@@ -223,19 +224,28 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
                         handleAutoLearnAndRetry(target.key, target.type);
                     } else {
                         // This case is unlikely but handled
+                         const commandRef = doc(firestore, 'failedCommands', command.id);
+                        await updateDoc(commandRef, { status: 'no_suggestion' });
                         setSuggestionStatus('no-suggestion');
                     }
                 } else {
+                    const commandRef = doc(firestore, 'failedCommands', command.id);
+                    await updateDoc(commandRef, { status: 'no_suggestion' });
                     setSuggestionStatus('no-suggestion');
                 }
             } catch (error) {
                 console.error("Suggestion AI failed:", error);
+                if (firestore) {
+                    const commandRef = doc(firestore, 'failedCommands', command.id);
+                    await updateDoc(commandRef, { status: 'no_suggestion' });
+                }
                 setSuggestionStatus('no-suggestion');
             }
         };
 
         getAndProcessSuggestion();
-    }, [command, allTargets, handleAutoLearnAndRetry]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [command.id, command.status]); // Depend only on stable IDs
 
 
     const renderStatus = () => {
