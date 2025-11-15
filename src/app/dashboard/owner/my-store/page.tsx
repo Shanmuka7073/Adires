@@ -1,12 +1,7 @@
 
-
 'use client';
 
-<<<<<<< HEAD
 import { useState, useTransition, useEffect, useMemo, useRef, RefObject } from 'react';
-=======
-import { useState, useTransition, useEffect, useMemo, useRef } from 'react';
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -40,13 +35,8 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import type { Store, Product, ProductPrice, User as AppUser } from '@/lib/types';
-<<<<<<< HEAD
 import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
-=======
-import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc } from 'firebase/firestore';
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -72,22 +62,13 @@ import {
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
 import groceryData from '@/lib/grocery-data.json';
-<<<<<<< HEAD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
-=======
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Camera, CameraOff, Sparkles, PlusCircle, Edit, Link2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import Link from 'next/link';
-<<<<<<< HEAD
 import { t } from '@/lib/locales';
 import { useAppStore, useMyStorePageStore } from '@/lib/store';
-=======
-import { t, getAllAliases } from '@/lib/locales';
-import { useAppStore } from '@/lib/store';
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 import { Badge } from '@/components/ui/badge';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
@@ -96,10 +77,7 @@ const standardWeights = ["100gm", "250gm", "500gm", "1kg", "2kg", "5kg", "1 pack
 
 const storeSchema = z.object({
   name: z.string().min(3, 'Store name must be at least 3 characters'),
-<<<<<<< HEAD
   teluguName: z.string().optional(),
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
   description: z
     .string()
     .min(10, 'Description must be at least 10 characters'),
@@ -551,12 +529,9 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [isSaving, startSaveTransition] = useTransition();
-<<<<<<< HEAD
   const { setSaveInventoryBtnRef } = useMyStorePageStore();
   const saveBtnRef = useRef<HTMLButtonElement>(null);
   const { language } = useAppStore();
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 
   // Fetch all products from the master admin store
   const masterProductsQuery = useMemoFirebase(() => {
@@ -575,14 +550,11 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
   // State to manage which products are checked
   const [checkedProducts, setCheckedProducts] = useState<Record<string, boolean>>({});
 
-<<<<<<< HEAD
   useEffect(() => {
     setSaveInventoryBtnRef(saveBtnRef);
     return () => setSaveInventoryBtnRef(null);
   }, [setSaveInventoryBtnRef, saveBtnRef]);
 
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
   // When owner's products load, initialize the checked state
   useEffect(() => {
     if (ownerProducts) {
@@ -681,11 +653,7 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
               <Accordion type="multiple" className="w-full">
                   {Object.entries(productsByCategory).map(([category, products]: [string, Product[]]) => (
                        <AccordionItem value={category} key={category}>
-<<<<<<< HEAD
                           <AccordionTrigger>{t(category.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</AccordionTrigger>
-=======
-                          <AccordionTrigger>{t(category.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'))}</AccordionTrigger>
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
                           <AccordionContent>
                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4 p-4">
                                   {(products as Product[]).map((product) => (
@@ -696,11 +664,7 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
                                               onCheckedChange={(checked) => handleCheckChange(product.name, !!checked)}
                                           />
                                           <label htmlFor={product.id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-<<<<<<< HEAD
                                               {t(product.name.toLowerCase().replace(/ /g, '-'), language)}
-=======
-                                              {t(product.name.toLowerCase().replace(/ /g, '-'))}
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
                                           </label>
                                       </div>
                                   ))}
@@ -709,11 +673,7 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
                        </AccordionItem>
                   ))}
               </Accordion>
-<<<<<<< HEAD
                <Button ref={saveBtnRef} onClick={handleSaveChanges} disabled={isSaving} className="w-full">
-=======
-               <Button onClick={handleSaveChanges} disabled={isSaving} className="w-full">
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
                   {isSaving ? t('saving-changes') : t('save-inventory-changes')}
               </Button>
           </CardContent>
@@ -844,10 +804,7 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
   const { firestore } = useFirebase();
-<<<<<<< HEAD
   const { language } = useAppStore();
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -936,7 +893,6 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-<<<<<<< HEAD
                         {groceryData.categories.map(cat => (
                             <SelectGroup key={cat.categoryName}>
                                 <SelectLabel>{cat.categoryName}</SelectLabel>
@@ -947,15 +903,6 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
                                 ))}
                             </SelectGroup>
                         ))}
-=======
-                      {groceryData.categories.map(cat => (
-                        cat.items.map(item => (
-                            <SelectItem key={`${cat.categoryName}-${item}`} value={`${item}::${cat.categoryName}`}>
-                                {item} ({cat.categoryName})
-                            </SelectItem>
-                        ))
-                      ))}
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
                     </SelectContent>
                 </Select>
                 <FormDescription>
@@ -1009,11 +956,7 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
                     </FormControl>
                     <SelectContent>
                       {groceryData.categories.map(cat => (
-<<<<<<< HEAD
                         <SelectItem key={cat.categoryName} value={cat.categoryName}>{t(cat.categoryName.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</SelectItem>
-=======
-                        <SelectItem key={cat.categoryName} value={cat.categoryName}>{t(cat.categoryName.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'))}</SelectItem>
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
                       ))}
                     </SelectContent>
                   </Select>
@@ -1237,25 +1180,10 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
                     <div className="flex items-end gap-4">
                         <div className="grid grid-cols-2 gap-4 flex-1">
                             <FormField control={form.control} name="latitude" render={({ field }) => (
-<<<<<<< HEAD
                                 <FormItem><FormLabel>{t('latitude')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                             <FormField control={form.control} name="longitude" render={({ field }) => (
                                 <FormItem><FormLabel>{t('longitude')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-=======
-                                <FormItem>
-                                    <FormLabel>{t('latitude')}</FormLabel>
-                                    <FormControl><Input type="number" {...field} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                            <FormField control={form.control} name="longitude" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>{t('longitude')}</FormLabel>
-                                    <FormControl><Input type="number" {...field} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
                             )} />
                         </div>
                          <Button type="button" variant="outline" onClick={handleGetLocation}>
@@ -1342,19 +1270,13 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
     const [isOpen, setIsOpen] = useState(false);
-<<<<<<< HEAD
     const { getAllAliases } = useAppStore();
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 
     const form = useForm<Omit<StoreFormValues, 'latitude' | 'longitude'>>({
         resolver: zodResolver(storeSchema.omit({ latitude: true, longitude: true })),
         defaultValues: {
             name: store.name,
-<<<<<<< HEAD
             teluguName: store.teluguName || '',
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
             description: store.description,
             address: store.address,
         },
@@ -1381,14 +1303,11 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
         });
     };
 
-<<<<<<< HEAD
     const storeAliases = useMemo(() => {
         const key = createSlug(store.name);
         return getAllAliases(key);
     }, [store.name, getAllAliases]);
 
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
     return (
         <Card>
             <CardHeader>
@@ -1422,7 +1341,6 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                                     />
                                     <FormField
                                         control={form.control}
-<<<<<<< HEAD
                                         name="teluguName"
                                         render={({ field }) => (
                                             <FormItem>
@@ -1437,8 +1355,6 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                                     />
                                     <FormField
                                         control={form.control}
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
                                         name="description"
                                         render={({ field }) => (
                                             <FormItem>
@@ -1469,7 +1385,6 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                     </Dialog>
                 </div>
             </CardHeader>
-<<<<<<< HEAD
             <CardContent className="space-y-4 text-sm">
                 <p><strong>{t('description')}:</strong> {store.description}</p>
                 <p><strong>{t('address')}:</strong> {store.address}</p>
@@ -1486,27 +1401,14 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                       {Object.keys(storeAliases).length === 0 && <span className="text-muted-foreground ml-2">None set. Add aliases in the Voice Commands admin page.</span>}
                   </div>
                 </div>
-=======
-            <CardContent className="space-y-2 text-sm">
-                <p><strong>{t('description')}:</strong> {store.description}</p>
-                <p><strong>{t('address')}:</strong> {store.address}</p>
-                <p><strong>{t('location')}:</strong> {store.latitude}, {store.longitude}</p>
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
             </CardContent>
         </Card>
     );
 }
 
-<<<<<<< HEAD
 function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Product; storeId: string; onEdit: () => void; onDelete: () => void; }) {
     const { firestore } = useFirebase();
     const { getProductName, language, getAllAliases } = useAppStore();
-=======
-// New component to fetch and display variants for a single product row in the admin table
-function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Product; storeId: string; onEdit: () => void; onDelete: () => void; }) {
-    const { firestore } = useFirebase();
-    const getProductName = useAppStore(state => state.getProductName);
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 
     const priceDocRef = useMemoFirebase(() => {
         if (!firestore || !product.name) return null;
@@ -1516,16 +1418,9 @@ function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Prod
     const { data: priceData, isLoading: pricesLoading } = useDoc<ProductPrice>(priceDocRef);
     
     const productAliases = useMemo(() => {
-<<<<<<< HEAD
         const key = createSlug(product.name);
         return getAllAliases(key);
     }, [product.name, getAllAliases]);
-=======
-        const aliases = getAllAliases(product.name.toLowerCase().replace(/ /g, '-'));
-        // Flatten the object of arrays into a single array, but only get the first one for display
-        return Object.values(aliases).flat();
-    }, [product.name]);
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 
     const variantsString = useMemo(() => {
         if (pricesLoading) return "Loading prices...";
@@ -1547,26 +1442,16 @@ function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Prod
                     <div>
                         <span className="font-semibold">{getProductName(product)}</span>
                          <div className="flex flex-wrap gap-1 mt-1">
-<<<<<<< HEAD
                             {Object.entries(productAliases).flatMap(([lang, aliases]) => 
                                 aliases.map(alias => (
                                     <Badge key={`${lang}-${alias}`} variant="outline">{alias} ({lang})</Badge>
                                 ))
                             )}
-=======
-                            {productAliases.map((alias, index) => (
-                                <Badge key={index} variant="secondary" className="font-normal">{alias}</Badge>
-                            ))}
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
                         </div>
                     </div>
                 </div>
             </TableCell>
-<<<<<<< HEAD
             <TableCell>{t(product.category?.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</TableCell>
-=======
-            <TableCell>{t(product.category.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'))}</TableCell>
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
             <TableCell>{variantsString}</TableCell>
             <TableCell className="text-right">
                 <Button variant="ghost" size="icon" onClick={onEdit}>
@@ -1605,12 +1490,8 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
     const [isDeleting, startDeleteTransition] = useTransition();
     const [isOpening, startOpenTransition] = useTransition();
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-<<<<<<< HEAD
     const { getProductName, language } = useAppStore(state => ({ getProductName: state.getProductName, language: state.language }));
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
-=======
-    const getProductName = useAppStore(state => state.getProductName);
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 
     const productsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -1620,15 +1501,12 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
     const { data: products, isLoading } = useCollection<Product>(productsQuery);
     
     const needsLocationUpdate = !store.latitude || !store.longitude;
-<<<<<<< HEAD
     
     const filteredProducts = useMemo(() => {
         if (!products) return [];
         if (selectedCategory === 'all') return products;
         return products.filter(p => p.category === selectedCategory);
     }, [products, selectedCategory]);
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 
     const handleOpenStore = () => {
         if (!firestore) return;
@@ -1744,7 +1622,6 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
 
         <Card>
             <CardHeader>
-<<<<<<< HEAD
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                     <div>
                         <CardTitle>{t('your-products')}</CardTitle>
@@ -1768,12 +1645,6 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
                         </Select>
                     )}
                 </div>
-=======
-                <CardTitle>{t('your-products')}</CardTitle>
-                 <CardDescription>
-                    {isAdmin ? t('this-is-the-master-list-of-products') : t('this-is-your-current-store-inventory')}
-                </CardDescription>
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
             </CardHeader>
             <CardContent>
                 {isLoading ? (
@@ -1789,11 +1660,7 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-<<<<<<< HEAD
                         {filteredProducts.map(product => 
-=======
-                        {products.map(product => 
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
                             isAdmin ? (
                                 <AdminProductRow 
                                     key={product.id}
@@ -1813,17 +1680,10 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
                                                 height={40}
                                                 className="rounded-sm object-cover"
                                             />
-<<<<<<< HEAD
                                             <span>{t(product.name.toLowerCase().replace(/ /g, '-'), language)}</span>
                                         </div>
                                     </TableCell>
                                     <TableCell>{t(product.category?.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</TableCell>
-=======
-                                            <span>{getProductName(product)}</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>{t(product.category.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'))}</TableCell>
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
                                 </TableRow>
                             )
                         )}
@@ -1854,10 +1714,7 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
             address: isAdmin ? 'Platform-wide' : (profile?.address || ''),
             latitude: 0,
             longitude: 0,
-<<<<<<< HEAD
             teluguName: ''
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
         },
     });
 
@@ -1976,7 +1833,6 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                             </FormItem>
                             )}
                         />
-<<<<<<< HEAD
                          <FormField
                             control={form.control}
                             name="teluguName"
@@ -1991,8 +1847,6 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                             </FormItem>
                             )}
                         />
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
                         <FormField
                             control={form.control}
                             name="description"
@@ -2046,10 +1900,7 @@ export default function MyStorePage() {
     const router = useRouter();
     const { toast } = useToast();
     const [isCreating, startCreationTransition] = useTransition();
-<<<<<<< HEAD
     const { language } = useAppStore();
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 
     const isAdmin = useMemo(() => user?.email === ADMIN_EMAIL, [user]);
 
@@ -2090,10 +1941,7 @@ export default function MyStorePage() {
         startCreationTransition(async () => {
              const storeData = {
                 name: `${userProfile.firstName}'s Store`,
-<<<<<<< HEAD
                 teluguName: `${userProfile.firstName} గారి స్టోర్`,
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
                 description: `Groceries and goods from ${userProfile.firstName}'s Store.`,
                 address: userProfile.address,
                 latitude: coords.lat,
@@ -2165,7 +2013,5 @@ export default function MyStorePage() {
         </div>
     );
 }
-<<<<<<< HEAD
 
-=======
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
+    
