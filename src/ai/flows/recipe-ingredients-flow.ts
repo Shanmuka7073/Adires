@@ -24,7 +24,7 @@ export async function getIngredientsForRecipe(input: RecipeIngredientsInput): Pr
     return recipeIngredientsFlow(input);
 }
 
-const ai = getAiInstance();
+const ai = await getAiInstance();
 const getIngredientsPrompt = ai.definePrompt(
   {
     name: 'getIngredientsPrompt',

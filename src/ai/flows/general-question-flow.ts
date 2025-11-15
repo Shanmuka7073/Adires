@@ -18,7 +18,7 @@ export async function answerGeneralQuestion(input: GeneralQuestionInput): Promis
   return generalQuestionFlow(input);
 }
 
-const ai = getAiInstance();
+const ai = await getAiInstance();
 const generalQuestionPrompt = ai.definePrompt(
   {
     name: 'generalQuestionPrompt',

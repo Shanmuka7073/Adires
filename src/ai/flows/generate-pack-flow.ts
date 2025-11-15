@@ -16,7 +16,7 @@ export async function generatePack(input: GeneratePackInput): Promise<GeneratePa
   return generatePackFlow(input);
 }
 
-const ai = getAiInstance();
+const ai = await getAiInstance();
 const generatePackPrompt = ai.definePrompt({
   name: 'generatePackPrompt',
   model: 'googleai/gemini-2.5-flash',

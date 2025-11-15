@@ -15,7 +15,7 @@ export async function suggestAliasTarget(input: AliasTargetSuggestionInput): Pro
   return suggestAliasTargetFlow(input);
 }
 
-const ai = getAiInstance();
+const ai = await getAiInstance();
 const suggestAliasPrompt = ai.definePrompt({
   name: 'suggestAliasPrompt',
   model: 'googleai/gemini-2.5-flash',
