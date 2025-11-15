@@ -8,6 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { askAsha } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
+
+const ADMIN_EMAIL = 'admin@gmail.com';
 
 const Message = ({ text, role }: { text: string, role: string }) => (
     <div className={`flex w-full mt-2 ${role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -26,7 +29,8 @@ const Message = ({ text, role }: { text: string, role: string }) => (
 
 
 export default function AshaChatPage() {
-    const { user, firestore } = useFirebase();
+    const { user, firestore, isUserLoading } = useFirebase();
+    const router = useRouter();
     const [messages, setMessages] = useState<any[]>([]);
     const [input, setInput] = useState('');
     const [isThinking, setIsThinking] = useState(false);
@@ -34,6 +38,14 @@ export default function AshaChatPage() {
     const [isListening, setIsListening] = useState(false);
     const recognitionRef = useRef<SpeechRecognition | null>(null);
     const { toast } = useToast();
+
+    // --- Admin Check ---
+    useEffect(() => {
+        if (!isUserLoading && (!user || user.email !== ADMIN_EMAIL)) {
+            router.replace('/dashboard');
+        }
+    }, [isUserLoading, user, router]);
+
 
     // --- Speech Recognition Setup ---
     useEffect(() => {
@@ -146,6 +158,10 @@ export default function AshaChatPage() {
         }
     };
 
+    if (isUserLoading || !user || user.email !== ADMIN_EMAIL) {
+        return <div className="p-4">Loading and verifying admin access...</div>;
+    }
+
     return (
         <div className="flex flex-col h-[calc(100vh-4rem)] bg-background">
             <header className="p-4 bg-card border-b shadow-sm z-10">
@@ -157,12 +173,7 @@ export default function AshaChatPage() {
 
             {/* Chat Body */}
             <main className="flex-1 overflow-y-auto p-4 space-y-4">
-                {messages.length === 0 && !user && (
-                    <div className="text-center text-muted-foreground mt-20 p-4 border rounded-xl bg-card shadow-md">
-                        <p className="font-semibold">Please log in to start a conversation with Asha.</p>
-                    </div>
-                )}
-                {messages.length === 0 && user && (
+                {messages.length === 0 && (
                     <div className="text-center text-muted-foreground mt-20 p-4 border rounded-xl bg-card shadow-md">
                         <p className="font-semibold">Start the conversation!</p>
                         <p className="text-sm">Try using mixed language: "I need milk and konni ullipayalu."</p>
@@ -193,19 +204,19 @@ export default function AshaChatPage() {
                         onChange={(e) => setInput(e.target.value)}
                         placeholder="Ask Asha about products, recipes, or stores..."
                         className="flex-1 p-3 rounded-xl focus:ring-primary focus:border-primary transition"
-                        disabled={!user || isThinking}
+                        disabled={isThinking}
                     />
                     <Button
                         type="submit"
                         className="p-3 rounded-xl transition duration-150"
-                        disabled={!user || isThinking}
+                        disabled={isThinking}
                     >
                         <Send className="w-5 h-5" />
                     </Button>
                     <Button
                         type="button"
                         className={`p-3 rounded-xl transition duration-150 ${isListening ? 'bg-red-500 hover:bg-red-600' : 'bg-green-600 hover:bg-green-700'}`}
-                        disabled={!user || isThinking}
+                        disabled={isThinking}
                         onClick={handleMicClick}
                     >
                         <Mic className="w-5 h-5" />
