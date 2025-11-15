@@ -149,7 +149,7 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
     const { fetchInitialData } = useAppStore();
 
     const [isProcessing, startTransition] = useTransition();
-    const [suggestionStatus, setSuggestionStatus] = useState<'loading' | 'no-suggestion' | 'has-suggestion' | 'learned'>(command.status === 'new' ? 'loading' : 'no-suggestion');
+    const [suggestionStatus, setSuggestionStatus] = useState<'loading' | 'no-suggestion' | 'has-suggestion' | 'learned'>(command.status === 'new' ? 'loading' : 'no_suggestion');
     const [suggestion, setSuggestion] = useState<{ key: string, display: string, type: string } | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     
@@ -456,3 +456,5 @@ export default function FailedCommandsPage() {
         </div>
     )
 }
+
+    
