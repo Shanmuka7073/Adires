@@ -7,7 +7,6 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import ProductCard from '@/components/product-card';
-import ChickenAnimationPage from '@/app/chicken/page';
 
 interface CategoryClientProps {
   store: Store;
@@ -116,11 +115,9 @@ export function CategoryClient({ store, initialCategories, allProducts, productP
           <div className="flex justify-between items-start md:items-center mb-6 flex-col md:flex-row gap-4">
             <div>
               <h2 className="text-2xl font-bold font-headline">{searchTerm ? "Search Results" : selectedCategory}</h2>
-              {selectedCategory !== 'Fresh Cut' && (
-                <p className="text-sm text-muted-foreground">
-                  {searchTerm ? `Found ${filteredProducts.length} products` : `Showing ${filteredProducts.length} products in this category.`}
-                </p>
-              )}
+              <p className="text-sm text-muted-foreground">
+                {searchTerm ? `Found ${filteredProducts.length} products` : `Showing ${filteredProducts.length} products in this category.`}
+              </p>
             </div>
             <div className="w-full md:max-w-sm">
               <Input
@@ -131,20 +128,16 @@ export function CategoryClient({ store, initialCategories, allProducts, productP
             </div>
           </div>
 
-          {selectedCategory === 'Fresh Cut' ? (
-            <ChickenAnimationPage />
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
-              {filteredProducts.length > 0 ? (
-                filteredProducts.map((product) => {
-                  const priceData = productPrices[product.name.toLowerCase()];
-                  return <ProductCard key={product.id} product={product} priceData={priceData} />;
-                })
-              ) : (
-                <p className="text-muted-foreground col-span-full">No products found matching your criteria.</p>
-              )}
-            </div>
-          )}
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            {filteredProducts.length > 0 ? (
+              filteredProducts.map((product) => {
+                const priceData = productPrices[product.name.toLowerCase()];
+                return <ProductCard key={product.id} product={product} priceData={priceData} />;
+              })
+            ) : (
+              <p className="text-muted-foreground col-span-full">No products found matching your criteria.</p>
+            )}
+          </div>
         </main>
       </div>
     </div>
