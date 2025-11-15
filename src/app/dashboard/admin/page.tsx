@@ -270,6 +270,12 @@ export default function AdminDashboardPage() {
                         href="/dashboard/admin/site-config"
                         icon={Settings}
                     />
+                     <AdminActionCard 
+                        title="View Chicken Animation"
+                        description="Check out the fun, flashy, waddling chicken animation."
+                        href="/chicken"
+                        icon={Sparkles}
+                    />
                 </div>
             </div>
         </div>
