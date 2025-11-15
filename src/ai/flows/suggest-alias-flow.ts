@@ -32,8 +32,10 @@ async function createSuggestAliasTargetFlow() {
 
       **CRITICAL INSTRUCTIONS:**
       1.  **High Confidence Only:** You MUST only return a \`suggestedTargetKey\` if you are highly confident in the match. If there is any ambiguity, or if the command could refer to multiple items, it is better to return an undefined \`suggestedTargetKey\`.
-      2.  **Do Not Guess:** If the failed command does not closely match any target or its known aliases, do not attempt to find a "best fit". A wrong mapping is worse than no mapping. For example, "venkaya" means "brinjal/eggplant", so mapping it to "onions" is a critical error. You must avoid such mistakes.
-      3.  **Prioritize Known Aliases:** Your primary method for matching should be to see if the user's command is present in the list of known aliases for any of the targets. This is the most reliable signal.
+      2.  **Do Not Guess:** If the failed command does not closely match any target or its known aliases, do not attempt to find a "best fit". A wrong mapping is worse than no mapping. 
+      3.  **NEGATIVE EXAMPLE:** A user saying "allagadda" (which means ginger or potato in Telugu) should NOT be mapped to "ulligadda" (onions), even though they sound similar. This is a critical error. You MUST avoid these kinds of phonetic-only guesses.
+      4.  **POSITIVE EXAMPLE:** A user saying "venkaya" (a word for brinjal/eggplant) should be correctly mapped to "brinjal-eggplant".
+      5.  **Prioritize Known Aliases:** Your primary method for matching should be to see if the user's command is present in the list of known aliases for any of the targets. This is the most reliable signal.
 
       Here is the context for your task:
       - User's language: {{{language}}}
