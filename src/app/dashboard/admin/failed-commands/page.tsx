@@ -5,7 +5,7 @@ import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { collection, query, orderBy, doc, deleteDoc, addDoc, writeBatch, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, doc, deleteDoc, addDoc, writeBatch, getDocs, where } from 'firebase/firestore';
 import type { FailedVoiceCommand, VoiceAlias } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -28,14 +28,33 @@ const createSlug = (text: string) => text.toLowerCase().replace(/ & /g, '-').rep
 
 // Function to handle saving an alias (used by both approval and manual training)
 async function saveAlias(firestore: any, command: FailedVoiceCommand, targetKey: string, targetType: 'product' | 'store' | 'command') {
+    const aliasText = command.commandText.toLowerCase();
+    const aliasCollectionRef = collection(firestore, 'voiceAliases');
+
+    // 1. Check if this exact alias already exists for this key and language
+    const q = query(
+        aliasCollectionRef,
+        where('key', '==', targetKey),
+        where('language', '==', command.language),
+        where('alias', '==', aliasText)
+    );
+
+    const existingAliasSnapshot = await getDocs(q);
+
+    if (!existingAliasSnapshot.empty) {
+        console.log(`Alias "${aliasText}" already exists for key "${targetKey}". Skipping creation.`);
+        // Even if it exists, we treat it as a success for the UI flow.
+        return; 
+    }
+
+    // 2. If it doesn't exist, create it.
     const newAlias: Omit<VoiceAlias, 'id'> = {
         key: targetKey,
         language: command.language,
-        alias: command.commandText.toLowerCase(),
+        alias: aliasText,
         type: targetType,
     };
-    const aliasCollectionRef = collection(firestore, 'voiceAliases');
-    // We only add the new alias. Deleting the failed command happens after retry.
+    
     await addDoc(aliasCollectionRef, newAlias);
 }
 
@@ -429,7 +448,3 @@ export default function FailedCommandsPage() {
         </div>
     )
 }
-
-    
-
-    

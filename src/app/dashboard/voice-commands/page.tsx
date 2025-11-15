@@ -86,34 +86,37 @@ export default function VoiceCommandsPage() {
             return;
         }
 
-        // Use a Set to ensure all new aliases are unique before processing
-        const aliasesToAdd = [...new Set(newAliasInput.split(',').map(alias => alias.trim().toLowerCase()).filter(Boolean))];
-        
-        if (aliasesToAdd.length === 0) return;
-
         let addedCount = 0;
-        let duplicates: string[] = [];
-
+        const duplicates: string[] = [];
+        
         setLocales(currentLocales => {
             const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
-            if (!updatedLocales[itemKey]) updatedLocales[itemKey] = {};
+            if (!updatedLocales[itemKey]) {
+                updatedLocales[itemKey] = {};
+            }
             
-            const existingAliases = Array.isArray(updatedLocales[itemKey][lang]) ? updatedLocales[itemKey][lang] as string[] : ([updatedLocales[itemKey][lang]].filter(Boolean) as string[]);
+            const existingAliases = Array.isArray(updatedLocales[itemKey][lang]) 
+                ? updatedLocales[itemKey][lang] as string[] 
+                : (updatedLocales[itemKey][lang] ? [updatedLocales[itemKey][lang] as string] : []);
             
+            const existingAliasSet = new Set(existingAliases.map(a => a.toLowerCase()));
+            const aliasesToAdd = [...new Set(newAliasInput.split(',').map(alias => alias.trim().toLowerCase()).filter(Boolean))];
+
             aliasesToAdd.forEach(newAlias => {
-                if(!existingAliases.includes(newAlias)) {
+                if (!existingAliasSet.has(newAlias)) {
                     existingAliases.push(newAlias);
                     addedCount++;
                 } else {
                     duplicates.push(newAlias);
                 }
             });
+
             updatedLocales[itemKey][lang] = existingAliases.length === 1 ? existingAliases[0] : existingAliases;
             return updatedLocales;
         });
 
         if (duplicates.length > 0) {
-             toast({ variant: 'destructive', title: 'Duplicate Item(s)', description: `"${duplicates.join(', ')}" already exist.` });
+             toast({ variant: 'destructive', title: 'Duplicate Item(s)', description: `"${duplicates.join(', ')}" already exist(s).` });
         }
         if (addedCount > 0) {
             toast({ title: 'Alias Added Locally', description: `Added new alias(es). Remember to save your changes.` });
