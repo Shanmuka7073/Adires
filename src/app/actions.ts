@@ -8,6 +8,7 @@ import { generatePack as generatePackFlow } from '@/ai/flows/generate-pack-flow'
 import { suggestAliasTarget as suggestAliasTargetFlow } from '@/ai/flows/suggest-alias-flow';
 
 import { getAdminServices } from '@/firebase/admin-init';
+import { getDocs } from 'firebase-admin/firestore';
 
 import type { 
     RecipeIngredientsInput, 
@@ -115,17 +116,15 @@ export async function getSystemStatus(): Promise<{ status: 'ok' | 'error'; messa
     let storeCount: number | 'N/A' = 'N/A';
 
     try {
-        const usersCollectionRef = db.collection('users'); 
-        const userSnapshot = await usersCollectionRef.count().get();
-        userCount = userSnapshot.data().count;
+        const usersSnapshot = await getDocs(db.collection('users'));
+        userCount = usersSnapshot.size;
     } catch (e) {
         console.error('Failed to get user count:', e);
     }
     
     try {
-        const storesCollectionRef = db.collection('stores'); 
-        const storeSnapshot = await storesCollectionRef.count().get();
-        storeCount = storeSnapshot.data().count;
+        const storesSnapshot = await getDocs(db.collection('stores'));
+        storeCount = storesSnapshot.size;
     } catch (e) {
         console.error('Failed to get store count:', e);
     }
