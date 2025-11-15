@@ -131,13 +131,13 @@ const ShockwaveDemoPage = () => {
       </div>
 
       {/* --- Horizontal Store Display --- */}
-      <div className="w-full max-w-4xl overflow-x-scroll no-scrollbar py-2">
+      <div className="w-full max-w-4xl overflow-x-auto no-scrollbar py-2">
         <div className="flex space-x-4 pb-2"> {/* pb-2 gives space for the shadow/ring */}
           {stores.map((store) => (
             <div
               key={store.id}
               className={`
-                flex-none w-72 min-h-48 bg-white p-5 rounded-xl shadow-lg 
+                flex-none w-60 bg-white p-4 rounded-xl shadow-lg 
                 transition-all duration-300 transform 
                 cursor-pointer hover:shadow-xl hover:scale-[1.01] active:scale-[0.98]
                 ${getSelectedClass(store.id, selectedStoreId, selectedStore)}
@@ -150,10 +150,10 @@ const ShockwaveDemoPage = () => {
                 : {}
               }
             >
-              <div className="flex items-start justify-between mb-4">
+              <div className="flex items-start justify-between mb-3">
                 {/* Store Icon */}
-                <div className={`p-3 rounded-full text-white ${store.color} shadow-md`}>
-                  <store.icon className="w-6 h-6" />
+                <div className={`p-2 rounded-full text-white ${store.color} shadow-md`}>
+                  <store.icon className="w-5 h-5" />
                 </div>
                 {/* Distance Badge */}
                 <span className="text-xs font-semibold text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full">
@@ -162,17 +162,18 @@ const ShockwaveDemoPage = () => {
               </div>
               
               {/* Store Details */}
-              <h2 className="text-xl font-bold text-gray-900 truncate">{store.name}</h2>
-              <p className="text-sm text-gray-500 mb-3">{store.type}</p>
+              <h2 className="text-lg font-bold text-gray-900 truncate">{store.name}</h2>
+              <p className="text-sm text-gray-500 mb-2">{store.type}</p>
               
-              <div className="flex items-center text-sm text-gray-600">
-                <MapPin className="w-4 h-4 mr-1 text-red-500" />
+              <div className="flex items-center text-xs text-gray-600">
+                <MapPin className="w-3 h-3 mr-1 text-red-500" />
                 {store.location}
               </div>
 
               {/* Action Button */}
               <Button 
-                className="mt-4 w-full bg-indigo-500 hover:bg-indigo-600 text-white font-semibold rounded-lg transition duration-150"
+                size="sm"
+                className="mt-3 w-full bg-indigo-500 hover:bg-indigo-600 text-white font-semibold rounded-lg transition duration-150"
               >
                 Visit Store &rarr;
               </Button>
