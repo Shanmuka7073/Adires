@@ -63,14 +63,13 @@ const askAshaFlow = ai.defineFlow(
     // Add the user's latest message to the history.
     history.push({ role: 'user', parts: [{ text: userMessage }] });
 
-    const llm = ai.getModel('googleai/gemini-2.5-flash-preview');
-
-    const result = await llm.generate({
-      history,
+    const result = await ai.generate({
+        model: 'googleai/gemini-2.5-flash-preview',
+        history,
     });
     
     // Return the generated text directly.
-    return result.text();
+    return result.text;
   }
 );
 
