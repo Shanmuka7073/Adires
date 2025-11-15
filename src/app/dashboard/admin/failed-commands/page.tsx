@@ -149,9 +149,8 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
     const { fetchInitialData } = useAppStore();
 
     const [isProcessing, startTransition] = useTransition();
-    const [suggestionStatus, setSuggestionStatus] = useState<'idle' | 'loading' | 'no-suggestion'>('idle');
+    const [suggestionStatus, setSuggestionStatus] = useState<'loading' | 'no-suggestion' | 'has-suggestion' | 'learned'>('loading');
     const [suggestion, setSuggestion] = useState<{ key: string, display: string, type: string } | null>(null);
-    const [isLearned, setIsLearned] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     
     // Function to handle the full auto-learn and retry flow
@@ -166,7 +165,7 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
             await fetchInitialData(firestore);
             
             // 3. Mark the UI as 'learned'
-            setIsLearned(true);
+            setSuggestionStatus('learned');
             
             // 4. Now that state is fresh, retry the command
             if (retryCommand) {
@@ -185,34 +184,6 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
         }
     }, [firestore, command, fetchInitialData, retryCommand, toast]);
 
-    const handleGetSuggestion = async () => {
-        setSuggestionStatus('loading');
-        setSuggestion(null);
-        try {
-            const res = await suggestAliasTarget({
-                failedCommand: command.commandText,
-                language: command.language,
-                possibleTargets: allTargets,
-            });
-
-            if (res.suggestedTargetKey) {
-                const target = allTargets.find(t => t.key === res.suggestedTargetKey);
-                if (target) {
-                    setSuggestion({ key: target.key, display: target.display, type: target.type });
-                    setSuggestionStatus('idle'); // Has a suggestion now
-                } else {
-                    setSuggestionStatus('no-suggestion');
-                }
-            } else {
-                setSuggestionStatus('no-suggestion');
-            }
-        } catch (error) {
-            console.error("Suggestion AI failed:", error);
-            setSuggestionStatus('no-suggestion');
-        }
-    };
-
-
     const handleReject = () => {
         if (!firestore) return;
         startTransition(async () => {
@@ -227,13 +198,73 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
         });
     }
 
-    const handleApprove = () => {
-        if (!suggestion || !suggestion.key) return;
-        startTransition(() => {
-            handleAutoLearnAndRetry(suggestion.key, suggestion.type);
-        });
-    };
+    // Auto-run suggestion logic
+    useEffect(() => {
+        const getAndProcessSuggestion = async () => {
+            try {
+                const res = await suggestAliasTarget({
+                    failedCommand: command.commandText,
+                    language: command.language,
+                    possibleTargets: allTargets,
+                });
+    
+                if (res.suggestedTargetKey) {
+                    const target = allTargets.find(t => t.key === res.suggestedTargetKey);
+                    if (target) {
+                        setSuggestion({ key: target.key, display: target.display, type: target.type });
+                        setSuggestionStatus('has-suggestion');
+                        // Automatically approve and process
+                        handleAutoLearnAndRetry(target.key, target.type);
+                    } else {
+                        // This case is unlikely but handled
+                        setSuggestionStatus('no-suggestion');
+                    }
+                } else {
+                    setSuggestionStatus('no-suggestion');
+                }
+            } catch (error) {
+                console.error("Suggestion AI failed:", error);
+                setSuggestionStatus('no-suggestion');
+            }
+        };
 
+        // Trigger the process immediately on component mount
+        getAndProcessSuggestion();
+    }, [command, allTargets, handleAutoLearnAndRetry]);
+
+
+    const renderStatus = () => {
+        switch(suggestionStatus) {
+            case 'loading':
+                return (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>AI is thinking...</span>
+                    </div>
+                );
+            case 'learned':
+                return (
+                    <div className="flex items-center gap-2 text-green-600 font-semibold">
+                       <CheckCircle className="h-4 w-4" />
+                       <span>Learned & Retrying...</span>
+                    </div>
+                );
+            case 'has-suggestion': // This state is brief before 'learned'
+                if (suggestion) {
+                    return (
+                        <div className="flex items-center gap-2">
+                           <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                           <Badge variant="secondary" className="text-base">{suggestion.display}</Badge>
+                        </div>
+                    );
+                }
+                return null;
+            case 'no-suggestion':
+                return <span className="text-muted-foreground">No suggestion found.</span>;
+            default:
+                return <span className="text-muted-foreground italic">Awaiting review</span>;
+        }
+    };
 
     return (
         <>
@@ -243,75 +274,37 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
                 onOpenChange={setIsDialogOpen}
                 initialSuggestion={suggestion ? `${suggestion.type}::${suggestion.key}` : undefined}
             />
-            <TableRow className={isLearned ? 'bg-green-100/50 dark:bg-green-900/20' : ''}>
+            <TableRow className={suggestionStatus === 'learned' ? 'bg-green-100/50 dark:bg-green-900/20' : ''}>
                 <TableCell className="font-mono text-base">"{command.commandText}"</TableCell>
                 <TableCell className="text-sm">
                     <Badge variant="outline">{command.language}</Badge>
                 </TableCell>
                 <TableCell className="text-sm">
-                    {isLearned ? (
-                         <div className="flex items-center gap-2 text-green-600 font-semibold">
-                           <CheckCircle className="h-4 w-4" />
-                           <span>Learned & Retrying...</span>
-                        </div>
-                    ) : suggestionStatus === 'loading' ? (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            <span>AI is thinking...</span>
-                        </div>
-                    ) : suggestionStatus === 'no-suggestion' ? (
-                         <span className="text-muted-foreground">No suggestion found.</span>
-                    ) : suggestion ? (
-                        <div className="flex items-center gap-2">
-                           <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                           <Badge variant="secondary" className="text-base">{suggestion.display}</Badge>
-                        </div>
-                    ) : (
-                        <span className="text-muted-foreground italic">Awaiting review</span>
-                    )}
+                    {renderStatus()}
                 </TableCell>
                 <TableCell className="text-right space-x-2">
-                    {!suggestion && suggestionStatus !== 'loading' && (
-                        <Button 
-                            variant="outline"
-                            size="sm"
-                            onClick={handleGetSuggestion}
-                            disabled={isProcessing}
-                        >
-                            <Sparkles className="mr-2 h-4 w-4" />
-                            Suggest Fix
-                        </Button>
+                    {suggestionStatus === 'no-suggestion' && (
+                        <>
+                            <Button 
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => setIsDialogOpen(true)}
+                                disabled={isProcessing}
+                            >
+                                <Edit className="mr-2 h-4 w-4" />
+                                Manual Fix
+                            </Button>
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={handleReject}
+                                disabled={isProcessing}
+                                title="Reject & Remove Log Entry"
+                            >
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </>
                     )}
-                    {suggestion && !isLearned && (
-                         <Button 
-                            variant="default"
-                            size="sm"
-                            onClick={handleApprove}
-                            disabled={isProcessing}
-                            className="bg-green-600 hover:bg-green-700"
-                        >
-                            <Check className="mr-2 h-4 w-4" />
-                            Approve
-                        </Button>
-                    )}
-                    <Button 
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setIsDialogOpen(true)}
-                        disabled={isProcessing || isLearned}
-                    >
-                        <Edit className="mr-2 h-4 w-4" />
-                        Manual Fix
-                    </Button>
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={handleReject}
-                        disabled={isProcessing}
-                        title="Reject & Remove Log Entry"
-                    >
-                        <X className="h-4 w-4" />
-                    </Button>
                 </TableCell>
             </TableRow>
         </>
@@ -384,7 +377,7 @@ export default function FailedCommandsPage() {
                         <div>
                             <CardTitle className="flex items-center gap-2"><BrainCircuit className="h-6 w-6 text-primary" /> AI Training Queue</CardTitle>
                             <CardDescription>
-                                Review misunderstood commands. Manually map them or use the AI to suggest a fix.
+                                Review misunderstood commands. The system will automatically try to fix them.
                             </CardDescription>
                         </div>
                         {failedCommands && failedCommands.length > 0 && (
