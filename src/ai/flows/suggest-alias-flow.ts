@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI flow to suggest the correct target for a failed voice command.
@@ -10,6 +11,7 @@ import {
   type AliasTargetSuggestionOutput,
 } from './schemas';
 
+// 1. Define the Prompt (this must stay defined explicitly)
 const suggestAliasPrompt = ai.definePrompt({
   name: 'suggestAliasPrompt',
   model: 'googleai/gemini-2.5-flash',
@@ -41,6 +43,7 @@ const suggestAliasPrompt = ai.definePrompt({
   `,
 });
 
+// 2. Define the flow logic directly within the exported function
 const suggestAliasTargetFlow = ai.defineFlow(
   {
     name: 'suggestAliasTargetFlow',
@@ -56,6 +59,8 @@ const suggestAliasTargetFlow = ai.defineFlow(
   }
 );
 
+// 3. Export the Server Action wrapper function which calls the defined flow
 export async function suggestAliasTarget(input: AliasTargetSuggestionInput): Promise<AliasTargetSuggestionOutput> {
+  // Directly call the flow instance here
   return suggestAliasTargetFlow(input);
 }
