@@ -1,26 +1,13 @@
 
-
 'use client';
-<<<<<<< HEAD
 
 import StoreCard from '@/components/store-card';
 import { useFirebase } from '@/firebase';
-import { getStores } from '@/lib/data';
 import type { Store } from '@/lib/types';
 import { useEffect, useState } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
-
-export default function StoresPage() {
-  const { firestore } = useFirebase();
-  const [stores, setStores] = useState<Store[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-=======
-import StoreCard from '@/components/store-card';
-import { useFirebase } from '@/firebase';
-import type { Store } from '@/lib/types';
-import { useEffect, useState, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useAppStore } from '@/lib/store';
+import { Skeleton } from '@/components/ui/skeleton';
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371; // Radius of the Earth in kilometers
@@ -40,7 +27,6 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 export default function StoresPage() {
   const { firestore } = useFirebase();
   const { toast } = useToast();
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
 
   // Get stores from the central Zustand store
   const allStores = useAppStore((state) => state.stores);
@@ -52,14 +38,7 @@ export default function StoresPage() {
   // Fetch initial data if not already present
   useEffect(() => {
     if (firestore) {
-<<<<<<< HEAD
-      getStores(firestore).then((fetchedStores) => {
-        setStores(fetchedStores);
-        setIsLoading(false);
-      });
-=======
       fetchInitialData(firestore);
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
     }
   }, [firestore, fetchInitialData]);
 
@@ -110,21 +89,14 @@ export default function StoresPage() {
         <p className="text-muted-foreground text-lg">Find your new favorite local grocery store.</p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-<<<<<<< HEAD
-        {isLoading ? (
+        {loading ? (
           <>
             <Skeleton className="h-80 w-full" />
             <Skeleton className="h-80 w-full" />
             <Skeleton className="h-80 w-full" />
           </>
-        ) : stores.length > 0 ? (
-          stores.map((store) => (
-=======
-        {loading ? (
-          <p>Loading stores...</p>
         ) : sortedStores.length > 0 ? (
           sortedStores.map((store) => (
->>>>>>> 3c2a2b0ed2e745fafc80355bb5c4d0d2fed82584
             <StoreCard key={store.id} store={store} />
           ))
         ) : (
