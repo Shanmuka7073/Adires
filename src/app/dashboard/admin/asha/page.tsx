@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import { useFirebase } from '@/firebase';
@@ -6,7 +7,7 @@ import { Send, Mic, User, Bot, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { askAsha } from '@/app/actions';
-
+import { useToast } from '@/hooks/use-toast';
 
 const Message = ({ text, role }: { text: string, role: string }) => (
     <div className={`flex w-full mt-2 ${role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -30,12 +31,56 @@ export default function AshaChatPage() {
     const [input, setInput] = useState('');
     const [isThinking, setIsThinking] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [isListening, setIsListening] = useState(false);
+    const recognitionRef = useRef<SpeechRecognition | null>(null);
+    const { toast } = useToast();
+
+    // --- Speech Recognition Setup ---
+    useEffect(() => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            recognitionRef.current = new SpeechRecognition();
+            const recognition = recognitionRef.current;
+            recognition.continuous = false;
+            recognition.lang = 'en-IN'; // Default language
+            recognition.interimResults = false;
+
+            recognition.onstart = () => setIsListening(true);
+            recognition.onend = () => setIsListening(false);
+            
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                setInput(transcript); // Set the transcript into the input field
+                handleSend(undefined, transcript); // Automatically send after transcription
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Speech recognition error:", event.error);
+                toast({ variant: 'destructive', title: 'Voice Error', description: `An error occurred: ${event.error}` });
+                setIsListening(false);
+            };
+        } else {
+            console.warn("Speech recognition not supported in this browser.");
+        }
+    }, [toast]);
+
+    const handleMicClick = () => {
+        if (!recognitionRef.current) {
+            toast({ variant: 'destructive', title: 'Voice Not Supported', description: 'Your browser does not support speech recognition.' });
+            return;
+        }
+        if (isListening) {
+            recognitionRef.current.stop();
+        } else {
+            recognitionRef.current.start();
+        }
+    };
+
 
     // --- Real-time Message Listener (onSnapshot) ---
     useEffect(() => {
         if (!user || !firestore) return;
 
-        // Path is now based on the logged-in user's UID
         const userConversationPath = `/users/${user.uid}/ashaConversation`;
         const q = query(collection(firestore, userConversationPath), orderBy('timestamp', 'asc'));
 
@@ -59,11 +104,12 @@ export default function AshaChatPage() {
 
 
     // --- Handle User Submission ---
-    const handleSend = async (e?: React.FormEvent<HTMLFormElement>) => {
+    const handleSend = async (e?: React.FormEvent<HTMLFormElement>, text?: string) => {
         e?.preventDefault();
-        if (!input.trim() || isThinking || !user || !firestore) return;
+        const messageToSend = text || input;
+        if (!messageToSend.trim() || isThinking || !user || !firestore) return;
 
-        const userMessage = input.trim();
+        const userMessage = messageToSend.trim();
         setInput('');
         setIsThinking(true);
 
@@ -83,8 +129,9 @@ export default function AshaChatPage() {
                 text: msg.text 
             }));
 
+            // The call now goes through the server action, which calls the Genkit flow.
+            // The flow result is automatically saved to Firestore, triggering the onSnapshot listener.
             await askAsha(userMessage, recentMessages);
-            // The onSnapshot listener will automatically pick up the AI's response.
             
         } catch(error) {
              console.error("Error calling askAsha action:", error);
@@ -157,8 +204,9 @@ export default function AshaChatPage() {
                     </Button>
                     <Button
                         type="button"
-                        className="p-3 rounded-xl transition duration-150 bg-green-600 hover:bg-green-700"
+                        className={`p-3 rounded-xl transition duration-150 ${isListening ? 'bg-red-500 hover:bg-red-600' : 'bg-green-600 hover:bg-green-700'}`}
                         disabled={!user || isThinking}
+                        onClick={handleMicClick}
                     >
                         <Mic className="w-5 h-5" />
                     </Button>
