@@ -6,9 +6,14 @@
 import { genkit } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
 import { addUserContext } from '@/ai/genkit';
-import { z } from 'zod';
 import { getAdminServices } from '@/firebase/admin-init';
 import { addDoc, collection, serverTimestamp } from 'firebase-admin/firestore';
+import { 
+  AskAshaInputSchema, 
+  AskAshaOutputSchema,
+  type AskAshaInput,
+} from './schemas';
+
 
 const ai = genkit({
     plugins: [
@@ -29,20 +34,6 @@ const ai = genkit({
     logLevel: 'debug',
     enableTracingAndMetrics: true,
 });
-
-const AskAshaInputSchema = z.object({
-  userMessage: z.string().describe("The user's most recent message."),
-  chatHistory: z.array(z.object({
-    role: z.string().describe("The role, either 'user' or 'model'."),
-    text: z.string().describe("The content of the message."),
-  })).describe("The last 5 messages of the conversation for context."),
-});
-export type AskAshaInput = z.infer<typeof AskAshaInputSchema>;
-
-// The output schema is simple: just the string response.
-export const AskAshaOutputSchema = z.string();
-export type AskAshaOutput = z.infer<typeof AskAshaOutputSchema>;
-
 
 const askAshaFlow = ai.defineFlow(
   {
@@ -88,12 +79,12 @@ const askAshaFlow = ai.defineFlow(
  * The server action called by the client.
  * It runs the Genkit flow and saves the AI's response to Firestore.
  */
-export async function askAsha(userMessage: string, chatHistory: { role: string; text: string }[]): Promise<void> {
+export async function askAsha(input: AskAshaInput): Promise<void> {
     const { db } = await getAdminServices();
 
     // The middleware automatically adds the user's UID to the flow's metadata.
     // We can retrieve it from the flow's state after it runs.
-    const flowResult = await askAshaFlow({ userMessage, chatHistory });
+    const flowResult = await askAshaFlow(input);
     
     // The `getFlowState` is an internal Genkit mechanism to access metadata.
     const state = (ai as any).getFlowState();

@@ -23,7 +23,8 @@ import type {
     GeneratePackOutput,
     AliasTargetSuggestionInput,
     AliasTargetSuggestionOutput,
-    SiteConfig
+    SiteConfig,
+    AskAshaInput
 } from '@/lib/types';
 
 
@@ -158,6 +159,6 @@ export async function getSystemStatus(): Promise<{ status: 'ok' | 'error'; messa
 }
 
 // Correctly export the askAsha function as a server action
-export async function askAsha(userMessage: string, chatHistory: { role: string; text: string }[]): Promise<void> {
-  return askAshaFlow(userMessage, chatHistory);
+export async function askAsha(input: AskAshaInput): Promise<void> {
+  return askAshaFlow(input);
 }

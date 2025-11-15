@@ -64,3 +64,17 @@ export const AliasTargetSuggestionOutputSchema = z.object({
     suggestedTargetKey: z.string().optional().describe("The unique key of the item that the AI suggests is the best match. This can be undefined if no good match is found."),
 });
 export type AliasTargetSuggestionOutput = z.infer<typeof AliasTargetSuggestionOutputSchema>;
+
+
+// --- Asha Agent Flow ---
+export const AskAshaInputSchema = z.object({
+  userMessage: z.string().describe("The user's most recent message."),
+  chatHistory: z.array(z.object({
+    role: z.string().describe("The role, either 'user' or 'model'."),
+    text: z.string().describe("The content of the message."),
+  })).describe("The last 5 messages of the conversation for context."),
+});
+export type AskAshaInput = z.infer<typeof AskAshaInputSchema>;
+
+export const AskAshaOutputSchema = z.string();
+export type AskAshaOutput = z.infer<typeof AskAshaOutputSchema>;

@@ -143,7 +143,7 @@ export default function AshaChatPage() {
 
             // The call now goes through the server action, which calls the Genkit flow.
             // The flow result is automatically saved to Firestore, triggering the onSnapshot listener.
-            await askAsha(userMessage, recentMessages);
+            await askAsha({ userMessage, chatHistory: recentMessages });
             
         } catch(error) {
              console.error("Error calling askAsha action:", error);
