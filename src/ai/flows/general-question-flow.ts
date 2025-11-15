@@ -5,13 +5,22 @@
 
 'use server';
 
-import { ai } from '@/ai/genkit';
+import { genkit } from 'genkit';
+import { googleAI } from '@genkit-ai/google-genai';
 import { 
   GeneralQuestionInputSchema, 
   GeneralQuestionOutputSchema,
   type GeneralQuestionInput,
   type GeneralQuestionOutput,
 } from './schemas';
+
+// Configure the AI instance for this specific flow
+const ai = genkit({
+  plugins: [googleAI()],
+  logLevel: 'debug',
+  enableTracingAndMetrics: true,
+});
+
 
 const generalQuestionPrompt = ai.definePrompt(
   {

@@ -4,7 +4,9 @@
  * @fileOverview The Genkit flow for the Asha conversational agent.
  */
 import { type FlowContext } from 'genkit';
-import { ai } from '@/ai/genkit';
+import { genkit } from 'genkit';
+import { googleAI } from '@genkit-ai/google-genai';
+import { addUserContext } from '@/ai/genkit';
 import { getAdminServices } from '@/firebase/admin-init';
 import { addDoc, collection, serverTimestamp } from 'firebase-admin/firestore';
 import { 
@@ -13,6 +15,16 @@ import {
   type AskAshaInput,
 } from './schemas';
 
+// Configure the AI instance for this specific flow
+const ai = genkit({
+    plugins: [googleAI()],
+    policy: {
+        run: { action: 'allow', subjects: 'all' },
+        use: [addUserContext],
+    },
+    logLevel: 'debug',
+    enableTracingAndMetrics: true,
+});
 
 const askAshaFlow = ai.defineFlow(
   {
@@ -81,5 +93,5 @@ const askAshaFlow = ai.defineFlow(
 export async function askAsha(input: AskAshaInput) {
     // The middleware attached to the flow will handle adding the user's UID.
     // We just need to call the flow. The flow itself now handles all database writes.
-    await askAshaFlow(input);
+    return await askAshaFlow(input);
 }

@@ -3,13 +3,22 @@
 /**
  * @fileOverview An AI flow to suggest the correct target for a failed voice command.
  */
-import { ai } from '@/ai/genkit';
+import { genkit } from 'genkit';
+import { googleAI } from '@genkit-ai/google-genai';
 import {
   AliasTargetSuggestionInputSchema,
   AliasTargetSuggestionOutputSchema,
   type AliasTargetSuggestionInput,
   type AliasTargetSuggestionOutput,
 } from './schemas';
+
+
+// Configure the AI instance for this specific flow
+const ai = genkit({
+  plugins: [googleAI()],
+  logLevel: 'debug',
+  enableTracingAndMetrics: true,
+});
 
 
 // 1. Define the Prompt (this must stay defined explicitly)
