@@ -60,7 +60,7 @@ export default function SystemStatusPage() {
     fetchStatus();
   }, []);
 
-  const StatusDisplay = ({ isLoading, children }) => {
+  const StatusDisplay = ({ isLoading, children }: { isLoading: boolean, children: React.ReactNode }) => {
     return isLoading ? <Skeleton className="h-8 w-24" /> : <div className="text-3xl font-bold">{children}</div>;
   };
 

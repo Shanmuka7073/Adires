@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useEffect, useMemo, useRef, RefObject } from 'react';
@@ -639,7 +640,7 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
       }
       acc[category].push(product);
       return acc;
-  }, {});
+  }, {} as Record<string, Product[]>);
 
 
   return (
@@ -650,12 +651,12 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
           </CardHeader>
           <CardContent className="space-y-4">
               <Accordion type="multiple" className="w-full">
-                  {Object.entries(productsByCategory).map(([category, products]: [string, Product[]]) => (
+                  {Object.entries(productsByCategory).map(([category, products]) => (
                        <AccordionItem value={category} key={category}>
                           <AccordionTrigger>{t(category.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</AccordionTrigger>
                           <AccordionContent>
                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4 p-4">
-                                  {(products as Product[]).map((product) => (
+                                  {products.map((product) => (
                                       <div key={product.id} className="flex items-center space-x-2">
                                           <Checkbox
                                               id={product.id}
@@ -1062,14 +1063,14 @@ function PromoteStore({ store }: { store: Store }) {
         }
 
         try {
-            const contacts = await navigator.contacts.select(['name', 'email', 'tel'], { multiple: true });
+            const contacts = await (navigator as any).contacts.select(['name', 'email', 'tel'], { multiple: true });
 
             if (contacts.length === 0) {
                 toast({ title: 'No contacts selected.' });
                 return;
             }
 
-            const phoneNumbers = contacts.flatMap(c => c.tel || []);
+            const phoneNumbers = contacts.flatMap((c: { tel: any; }) => c.tel || []);
             const shareText = `Check out my store, ${store.name}, on the LocalBasket app! You can order groceries online and get them delivered right to your door. Visit my storefront here: ${window.location.origin}/stores/${store.id}`;
             
             if (phoneNumbers.length > 0) {
