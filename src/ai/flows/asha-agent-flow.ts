@@ -60,13 +60,23 @@ const askAshaFlow = ai.defineFlow(
       role: msg.role === 'user' ? 'user' : 'model',
       parts: [{ text: msg.text }],
     }));
-    // Add the user's latest message to the history.
-    history.push({ role: 'user', parts: [{ text: userMessage }] });
 
-    const result = await ai.generate({
+    let result;
+
+    if (history.length === 0) {
+      // For a new conversation, use the 'prompt' field.
+      result = await ai.generate({
+        model: 'googleai/gemini-2.5-flash-preview',
+        prompt: userMessage,
+      });
+    } else {
+      // For an ongoing conversation, add the new message and use 'history'.
+      history.push({ role: 'user', parts: [{ text: userMessage }] });
+      result = await ai.generate({
         model: 'googleai/gemini-2.5-flash-preview',
         history,
-    });
+      });
+    }
     
     // Return the generated text directly.
     return result.text;
