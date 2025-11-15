@@ -107,34 +107,48 @@ export async function indexSiteContent() {
 }
 
 export async function getSystemStatus(): Promise<{ status: 'ok' | 'error'; message: string; counts: { users: number | 'N/A'; stores: number | 'N/A' } }> {
-    const { auth, db } = await getAdminServices();
-    if (!auth || !db) {
-        return { status: 'error', message: 'Could not initialize Firebase Admin SDK.', counts: { users: 'N/A', stores: 'N/A' } };
-    }
-    
-    let userCount: number | 'N/A' = 'N/A';
-    let storeCount: number | 'N/A' = 'N/A';
-
     try {
-        const usersSnapshot = await getDocs(db.collection('users'));
-        userCount = usersSnapshot.size;
-    } catch (e) {
-        console.error('Failed to get user count:', e);
-    }
-    
-    try {
-        const storesSnapshot = await getDocs(db.collection('stores'));
-        storeCount = storesSnapshot.size;
-    } catch (e) {
-        console.error('Failed to get store count:', e);
-    }
-
-    return {
-        status: 'ok',
-        message: 'Server-side services are responsive.',
-        counts: {
-            users: userCount,
-            stores: storeCount
+        const { auth, db } = await getAdminServices();
+        if (!auth || !db) {
+            return { status: 'error', message: 'Could not initialize Firebase Admin SDK.', counts: { users: 'N/A', stores: 'N/A' } };
         }
-    };
+        
+        let userCount: number | 'N/A' = 'N/A';
+        let storeCount: number | 'N/A' = 'N/A';
+
+        try {
+            // Using listUsers() from Auth is more efficient for just getting a count
+            const listUsersResult = await auth.listUsers(1000); // Check first 1000
+            userCount = listUsersResult.users.length; 
+            // Note: For apps with >1000 users, you'd need to handle pagination.
+            // This is sufficient for this app's current scale.
+        } catch (e) {
+            console.error('Failed to get user count:', e);
+        }
+        
+        try {
+            const storesSnapshot = await getDocs(db.collection('stores'));
+            storeCount = storesSnapshot.size;
+        } catch (e) {
+            console.error('Failed to get store count:', e);
+        }
+
+        return {
+            status: 'ok',
+            message: 'Server-side services are responsive.',
+            counts: {
+                users: userCount,
+                stores: storeCount
+            }
+        };
+
+    } catch (e) {
+        const error = e as Error;
+        console.error('Critical failure in getSystemStatus:', error);
+        return { 
+            status: 'error', 
+            message: error.message, 
+            counts: { users: 'N/A', stores: 'N/A' } 
+        };
+    }
 }
