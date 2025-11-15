@@ -64,7 +64,7 @@ const askAshaFlow = ai.defineFlow(
     // The Genkit flow runner automatically combines the system prompt, history, and the new user message.
     // We just need to pass the new user message in the 'prompt' field and the context in 'history'.
     const result = await ai.generate({
-      model: 'googleai/gemini-2.5-flash-preview',
+      model: 'googleai/gemini-2.5-flash',
       prompt: userMessage,
       history,
     });
