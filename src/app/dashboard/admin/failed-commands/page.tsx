@@ -152,6 +152,7 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
     const [suggestionStatus, setSuggestionStatus] = useState<'loading' | 'no-suggestion' | 'has-suggestion' | 'learned'>(command.status === 'new' ? 'loading' : 'no_suggestion');
     const [suggestion, setSuggestion] = useState<{ key: string, display: string, type: string } | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const hasFetchedSuggestion = useRef(false);
     
     // Function to handle the full auto-learn and retry flow
     const handleAutoLearnAndRetry = useCallback(async (suggestedKey: string, suggestionType: string) => {
@@ -201,13 +202,17 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
 
     // Auto-run suggestion logic, now protected from re-running
     useEffect(() => {
-        // Only run for new commands
-        if (command.status !== 'new') {
+        if (command.status !== 'new' || hasFetchedSuggestion.current) {
             return;
         }
 
         const getAndProcessSuggestion = async () => {
-            if (!firestore) return;
+            hasFetchedSuggestion.current = true; // Mark as fetched immediately
+            if (!firestore) {
+                setSuggestionStatus('no-suggestion');
+                return;
+            };
+
             try {
                 const res = await suggestAliasTarget({
                     failedCommand: command.commandText,
@@ -220,11 +225,9 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
                     if (target) {
                         setSuggestion({ key: target.key, display: target.display, type: target.type });
                         setSuggestionStatus('has-suggestion');
-                        // Automatically approve and process
-                        handleAutoLearnAndRetry(target.key, target.type);
+                        await handleAutoLearnAndRetry(target.key, target.type);
                     } else {
-                        // This case is unlikely but handled
-                         const commandRef = doc(firestore, 'failedCommands', command.id);
+                        const commandRef = doc(firestore, 'failedCommands', command.id);
                         await updateDoc(commandRef, { status: 'no_suggestion' });
                         setSuggestionStatus('no-suggestion');
                     }
@@ -244,8 +247,7 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
         };
 
         getAndProcessSuggestion();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [command.id, command.status]); // Depend only on stable IDs
+    }, [command.status, firestore, command.id, command.commandText, command.language, allTargets, handleAutoLearnAndRetry]);
 
 
     const renderStatus = () => {
@@ -456,5 +458,3 @@ export default function FailedCommandsPage() {
         </div>
     )
 }
-
-    
