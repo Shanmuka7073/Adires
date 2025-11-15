@@ -1,4 +1,3 @@
-
 'use server';
 // This file is the single source of truth for Genkit AI-related configuration.
 // It is used by the /api/genkit route to expose flows to the Genkit developer UI.
@@ -6,8 +5,7 @@
 
 import {genkit, AIMiddleware} from 'genkit';
 import {googleAI} from '@genkit-ai/google-genai';
-// CRITICAL FIX: Use default import for the firebase plugin due to module bundling
-import firebasePlugin from '@genkit-ai/firebase'; 
+import { firebase } from '@genkit-ai/firebase'; 
 import { googleCloud } from '@genkit-ai/google-cloud';
 import { getAdminServices } from '@/firebase/admin-init';
 import { cookies }from 'next/headers';
@@ -30,7 +28,7 @@ const addUserContext: AIMiddleware = async (input, next) => {
 
 export const ai = genkit({
   plugins: [
-    firebasePlugin(), // For Firestore state store
+    firebase(), // For Firestore state store
     googleAI({
       // You must also set the GEMINI_API_KEY environment variable.
       // You can get a key from Google AI Studio.
