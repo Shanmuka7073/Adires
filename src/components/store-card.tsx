@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -6,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import type { Store } from '@/lib/types';
 import { getStoreImage } from '@/lib/data';
 import { Star, Clock } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 
 interface StoreCardProps {
   store: Store;
