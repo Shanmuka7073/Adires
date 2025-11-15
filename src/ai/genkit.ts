@@ -5,8 +5,6 @@
 
 import {genkit, AIMiddleware} from 'genkit';
 import {googleAI} from '@genkit-ai/google-genai';
-import firebasePlugin from '@genkit-ai/firebase'; 
-import { googleCloud } from '@genkit-ai/google-cloud';
 import { getAdminServices } from '@/firebase/admin-init';
 import { cookies }from 'next/headers';
 
@@ -28,18 +26,12 @@ const addUserContext: AIMiddleware = async (input, next) => {
 
 export const ai = genkit({
   plugins: [
-    firebasePlugin(), // For Firestore state store
     googleAI({
       // You must also set the GEMINI_API_KEY environment variable.
       // You can get a key from Google AI Studio.
       // https://aistudio.google.com/app/apikey
     }),
-    googleCloud({
-      // You must also set the GCLOUD_PROJECT environment variable.
-    }),
   ],
-  flowStateStore: 'firebase',
-  traceStore: 'firebase',
   // Open up all flows to the public. You should not do this in production.
   // In production, you would want to use a more secure policy, e.g.
   // to only allow authenticated users to run flows.
