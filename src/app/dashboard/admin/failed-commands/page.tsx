@@ -1,12 +1,12 @@
 
 'use client';
 
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { collection, query, orderBy, doc, deleteDoc, addDoc, writeBatch, getDocs, where, updateDoc } from 'firebase/firestore';
-import type { FailedVoiceCommand, VoiceAlias } from '@/lib/types';
+import type { FailedVoiceCommand, VoiceAlias, SiteConfig } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -142,19 +142,20 @@ function TrainDialog({ command, isOpen, onOpenChange, initialSuggestion }: { com
     );
 }
 
-function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand, allTargets: { key: string, display: string, type: 'product' | 'store' | 'command', aliases: string[] }[]}) {
+function FailedCommandRow({ command, allTargets, isAiEnabled, isAiConfigLoading }: { command: FailedVoiceCommand, allTargets: { key: string, display: string, type: 'product' | 'store' | 'command', aliases: string[] }[], isAiEnabled: boolean, isAiConfigLoading: boolean }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const { retryCommand } = useVoiceCommander();
     const { fetchInitialData } = useAppStore();
 
-    const [isProcessing, startTransition] = useTransition();
-    const [suggestionStatus, setSuggestionStatus] = useState<'loading' | 'no-suggestion' | 'has-suggestion' | 'learned' | 'awaiting'>(
-        command.status === 'new' ? 'loading' : 'no-suggestion'
-    );
     const [suggestion, setSuggestion] = useState<{ key: string, display: string, type: string } | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const hasFetchedSuggestion = useRef(false);
+    
+    // Determine initial state based on the command's status from Firestore
+    const [suggestionStatus, setSuggestionStatus] = useState<'loading' | 'no-suggestion' | 'has-suggestion' | 'learned' | 'awaiting'>(() =>
+        command.status === 'new' ? 'awaiting' : 'no-suggestion'
+    );
     
     // Function to handle the full auto-learn and retry flow
     const handleAutoLearnAndRetry = useCallback(async (suggestedKey: string, suggestionType: string) => {
@@ -188,28 +189,35 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
         }
     }, [firestore, command, fetchInitialData, retryCommand, toast]);
 
-    const handleReject = () => {
+    const handleReject = async () => {
         if (!firestore) return;
-        startTransition(async () => {
-            const commandRef = doc(firestore, 'failedCommands', command.id);
-            try {
-              await deleteDoc(commandRef);
-              toast({ title: "Log Entry Removed", description: "The failed command log has been removed." });
-            } catch (error) {
-              console.error("Failed to remove log:", error);
-              toast({ variant: 'destructive', title: "Deletion Failed", description: "Could not remove the log entry." });
-            }
-        });
+        
+        const commandRef = doc(firestore, 'failedCommands', command.id);
+        try {
+            // Instead of deleting, just update status so we don't process it again
+            await updateDoc(commandRef, { status: 'no_suggestion' });
+            setSuggestionStatus('no-suggestion'); // Update local state
+            toast({ title: "Suggestion Rejected", description: "This command will be ignored by the AI." });
+        } catch (error) {
+            console.error("Failed to reject log:", error);
+            toast({ variant: 'destructive', title: "Update Failed", description: "Could not update the log entry." });
+        }
     }
 
     // Auto-run suggestion logic, now protected from re-running
     useEffect(() => {
-        if (suggestionStatus !== 'loading' || hasFetchedSuggestion.current) {
+        // Don't run if AI is disabled, config is loading, status is not 'new', or we've already tried.
+        if (!isAiEnabled || isAiConfigLoading || command.status !== 'new' || hasFetchedSuggestion.current) {
+            if (command.status === 'new' && !isAiConfigLoading && !isAiEnabled) {
+                setSuggestionStatus('no-suggestion'); // If AI disabled, just move to no-suggestion
+            }
             return;
         }
 
         const getAndProcessSuggestion = async () => {
             hasFetchedSuggestion.current = true; // Mark as fetched immediately
+            setSuggestionStatus('loading');
+
             if (!firestore) {
                 setSuggestionStatus('no-suggestion');
                 return;
@@ -249,7 +257,7 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
         };
 
         getAndProcessSuggestion();
-    }, [suggestionStatus, firestore, command, allTargets, handleAutoLearnAndRetry]);
+    }, [isAiEnabled, isAiConfigLoading, command.status, firestore, command, allTargets, handleAutoLearnAndRetry]);
 
 
     const renderStatus = () => {
@@ -280,8 +288,9 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
                 return null;
             case 'no-suggestion':
                 return <span className="text-muted-foreground">No suggestion found.</span>;
+            case 'awaiting':
             default:
-                return <span className="text-muted-foreground italic">Awaiting review</span>;
+                return <span className="text-muted-foreground italic">Awaiting review...</span>;
         }
     };
 
@@ -308,7 +317,6 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
                                 variant="secondary"
                                 size="sm"
                                 onClick={() => setIsDialogOpen(true)}
-                                disabled={isProcessing}
                             >
                                 <Edit className="mr-2 h-4 w-4" />
                                 Manual Fix
@@ -317,7 +325,6 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
                                 variant="ghost" 
                                 size="icon" 
                                 onClick={handleReject}
-                                disabled={isProcessing}
                                 title="Reject & Remove Log Entry"
                             >
                                 <X className="h-4 w-4" />
@@ -343,6 +350,10 @@ export default function FailedCommandsPage() {
     }, [firestore]);
 
     const { data: failedCommands, isLoading: commandsLoading } = useCollection<FailedVoiceCommand>(failedCommandsQuery);
+
+    const configDocRef = useMemoFirebase(() => firestore ? doc(firestore, 'siteConfig', 'aiFeatures') : null, [firestore]);
+    const { data: aiConfig, isLoading: configLoading } = useDoc<SiteConfig>(configDocRef);
+
 
     const allPossibleTargets = useMemo(() => {
         const productTargets = masterProducts.map(p => {
@@ -386,7 +397,7 @@ export default function FailedCommandsPage() {
         });
     };
     
-    const isLoading = isUserLoading || commandsLoading || appLoading;
+    const isLoading = isUserLoading || commandsLoading || appLoading || configLoading;
 
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
@@ -396,7 +407,7 @@ export default function FailedCommandsPage() {
                         <div>
                             <CardTitle className="flex items-center gap-2"><BrainCircuit className="h-6 w-6 text-primary" /> AI Training Queue</CardTitle>
                             <CardDescription>
-                                Review misunderstood commands. The system will automatically try to fix them.
+                                Review misunderstood commands. The system will automatically try to fix them if the AI suggester is enabled.
                             </CardDescription>
                         </div>
                         {failedCommands && failedCommands.length > 0 && (
@@ -450,7 +461,13 @@ export default function FailedCommandsPage() {
                             </TableHeader>
                             <TableBody>
                                 {failedCommands.map(cmd => (
-                                    <FailedCommandRow key={cmd.id} command={cmd} allTargets={allPossibleTargets} />
+                                    <FailedCommandRow 
+                                        key={cmd.id} 
+                                        command={cmd} 
+                                        allTargets={allPossibleTargets} 
+                                        isAiEnabled={aiConfig?.isAliasSuggesterEnabled ?? false}
+                                        isAiConfigLoading={configLoading}
+                                    />
                                 ))}
                             </TableBody>
                         </Table>
