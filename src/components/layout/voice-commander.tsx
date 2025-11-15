@@ -977,6 +977,7 @@ export function VoiceCommander({
       myStore: (params: {lang: string}) => router.push('/dashboard/owner/my-store'),
       myProfile: (params: {lang: string}) => router.push('/dashboard/customer/my-profile'),
       managePacks: (params: {lang: string}) => router.push('/dashboard/owner/packs'),
+      chicken: (params: {lang: string}) => router.push('/chicken'),
       checkout: (params: { lang: string }) => {
         const lang = params.lang || language;
         onCloseCart();
@@ -1413,4 +1414,3 @@ export function VoiceCommander({
 
   return null;
 }
-

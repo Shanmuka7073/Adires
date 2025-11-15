@@ -88,6 +88,10 @@ export const generalCommands: Record<string, CommandGroup> = {
         display: 'Install App',
         reply: ['Opening the app installation page.', 'Here is the QR code to install the app.']
     },
+    'chicken': {
+        display: 'Show Chicken Animation',
+        reply: 'Here is the amazing chicken animation.'
+    },
     'help': { 
         display: 'Help / Commands', 
         reply: [

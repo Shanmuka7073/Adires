@@ -1,7 +1,15 @@
+
 {
   "chicken": {
     "en": [
-      "chicken"
+      "chicken",
+      "open chicken",
+      "show chicken",
+      "chicken page"
+    ],
+    "te": [
+      "చికెన్",
+      "చికెన్ పేజీ"
     ]
   }
 }
