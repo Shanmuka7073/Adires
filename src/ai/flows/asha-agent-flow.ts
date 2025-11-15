@@ -3,10 +3,32 @@
 /**
  * @fileOverview The Genkit flow for the Asha conversational agent.
  */
-import { ai } from '@/ai/genkit';
+import { genkit } from 'genkit';
+import { googleAI } from '@genkit-ai/google-genai';
+import { addUserContext } from '@/ai/genkit';
 import { z } from 'zod';
 import { getAdminServices } from '@/firebase/admin-init';
 import { addDoc, collection, serverTimestamp } from 'firebase-admin/firestore';
+
+const ai = genkit({
+    plugins: [
+        googleAI({
+            // You must also set the GEMINI_API_KEY environment variable.
+            // You can get a key from Google AI Studio.
+            // https://aistudio.google.com/app/apikey
+        }),
+    ],
+    policy: {
+        run: {
+            action: 'allow',
+            subjects: 'all',
+            conditions: [],
+        },
+        use: [addUserContext],
+    },
+    logLevel: 'debug',
+    enableTracingAndMetrics: true,
+});
 
 const AskAshaInputSchema = z.object({
   userMessage: z.string().describe("The user's most recent message."),

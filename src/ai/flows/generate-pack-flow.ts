@@ -3,13 +3,32 @@
  * @fileOverview A flow to generate a grocery pack list using AI.
  */
 
-import { ai } from '@/ai/genkit';
+import { genkit } from 'genkit';
+import { googleAI } from '@genkit-ai/google-genai';
+import { addUserContext } from '@/ai/genkit';
 import { 
   GeneratePackInputSchema,
   GeneratePackOutputSchema,
   type GeneratePackInput,
   type GeneratePackOutput,
 } from './schemas';
+
+const ai = genkit({
+    plugins: [
+        googleAI({
+        }),
+    ],
+    policy: {
+        run: {
+            action: 'allow',
+            subjects: 'all',
+            conditions: [],
+        },
+        use: [addUserContext],
+    },
+    logLevel: 'debug',
+    enableTracingAndMetrics: true,
+});
 
 const generatePackPrompt = ai.definePrompt({
   name: 'generatePackPrompt',

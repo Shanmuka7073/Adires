@@ -6,12 +6,11 @@ import { getIngredientsForRecipe as getIngredientsFlow } from '@/ai/flows/recipe
 import { answerGeneralQuestion as answerGeneralQuestionFlow } from '@/ai/flows/general-question-flow';
 import { generatePack as generatePackFlow } from '@/ai/flows/generate-pack-flow';
 import { suggestAliasTarget as suggestAliasTargetFlow } from '@/ai/flows/suggest-alias-flow';
-import { askAsha as askAshaFlow } from '@/ai/flows/asha-agent-flow'; // Import the flow
+import { askAsha as askAshaFlow } from '@/ai/flows/asha-agent-flow'; 
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { getDocs, addDoc, serverTimestamp } from 'firebase-admin/firestore';
 
-import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 
 
