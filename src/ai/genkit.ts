@@ -4,16 +4,14 @@
 // It is used by the /api/genkit route to expose flows to the Genkit developer UI.
 // It is also used by the app to call flows.
 
-import { AIMiddleware, GenkitError } from 'genkit';
+import { AIMiddleware } from 'genkit';
 import { genkit } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
 import { getAdminServices } from '@/firebase/admin-init';
 import { cookies } from 'next/headers';
-import { z } from 'zod';
-
 
 // A middleware to add the current user's uid to the flow's context.
-export const addUserContext: AIMiddleware = async (input, next, context) => {
+const addUserContext: AIMiddleware = async (input, next, context) => {
   const { auth } = await getAdminServices();
   const sessionCookie = cookies().get('__session')?.value;
   if (sessionCookie) {

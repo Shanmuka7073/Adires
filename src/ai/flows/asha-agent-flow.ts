@@ -78,7 +78,7 @@ const askAshaFlow = ai.defineFlow(
  * The server action called by the client.
  * It prepares the input and runs the Genkit flow.
  */
-export async function askAsha(input: AskAshaInput): Promise<void> {
+export async function askAsha(input: AskAshaInput) {
     // The middleware attached to the flow will handle adding the user's UID.
     // We just need to call the flow. The flow itself now handles all database writes.
     await askAshaFlow(input);

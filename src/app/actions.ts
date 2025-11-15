@@ -159,6 +159,6 @@ export async function getSystemStatus(): Promise<{ status: 'ok' | 'error'; messa
 }
 
 // Correctly export the askAsha function as a server action
-export async function askAsha(input: AskAshaInput): Promise<void> {
+export async function askAsha(input: AskAshaInput) {
   return askAshaFlow(input);
 }
