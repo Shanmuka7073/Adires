@@ -1,3 +1,4 @@
+
 'use client';
 import React from 'react';
 
@@ -5,7 +6,7 @@ import React from 'react';
 const ChickenAnimationPage = () => {
   return (
     <>
-      <style jsx global>{`
+      <style jsx>{`
         /* Custom CSS for the Chicken Body and Animation */
         
         .chicken-page-body {
@@ -13,9 +14,11 @@ const ChickenAnimationPage = () => {
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: calc(100vh - 128px); /* Adjust for header/footer */
+            min-height: calc(100vh - 400px); /* Adjust for header/footer */
             overflow: hidden;
             font-family: 'Inter', sans-serif;
+            position: relative;
+            border-radius: 0.5rem;
         }
 
         /* --- Chicken Container and Movement --- */
