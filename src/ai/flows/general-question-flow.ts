@@ -1,35 +1,17 @@
+
 /**
  * @fileOverview A flow to answer general knowledge questions.
  */
 
 'use server';
 
-import { genkit } from 'genkit';
-import { googleAI } from '@genkit-ai/google-genai';
-import { addUserContext } from '@/ai/genkit';
+import { ai } from '@/ai/genkit';
 import { 
   GeneralQuestionInputSchema, 
   GeneralQuestionOutputSchema,
   type GeneralQuestionInput,
   type GeneralQuestionOutput,
 } from './schemas';
-
-const ai = genkit({
-    plugins: [
-        googleAI({
-        }),
-    ],
-    policy: {
-        run: {
-            action: 'allow',
-            subjects: 'all',
-            conditions: [],
-        },
-        use: [addUserContext],
-    },
-    logLevel: 'debug',
-    enableTracingAndMetrics: true,
-});
 
 const generalQuestionPrompt = ai.definePrompt(
   {

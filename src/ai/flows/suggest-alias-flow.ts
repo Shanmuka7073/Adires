@@ -3,9 +3,7 @@
 /**
  * @fileOverview An AI flow to suggest the correct target for a failed voice command.
  */
-import { genkit } from 'genkit';
-import { googleAI } from '@genkit-ai/google-genai';
-import { addUserContext } from '@/ai/genkit';
+import { ai } from '@/ai/genkit';
 import {
   AliasTargetSuggestionInputSchema,
   AliasTargetSuggestionOutputSchema,
@@ -13,22 +11,6 @@ import {
   type AliasTargetSuggestionOutput,
 } from './schemas';
 
-const ai = genkit({
-    plugins: [
-        googleAI({
-        }),
-    ],
-    policy: {
-        run: {
-            action: 'allow',
-            subjects: 'all',
-            conditions: [],
-        },
-        use: [addUserContext],
-    },
-    logLevel: 'debug',
-    enableTracingAndMetrics: true,
-});
 
 // 1. Define the Prompt (this must stay defined explicitly)
 const suggestAliasPrompt = ai.definePrompt({

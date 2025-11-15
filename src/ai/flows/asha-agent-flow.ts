@@ -3,9 +3,8 @@
 /**
  * @fileOverview The Genkit flow for the Asha conversational agent.
  */
-import { genkit, type FlowContext } from 'genkit';
-import { googleAI } from '@genkit-ai/google-genai';
-import { addUserContext } from '@/ai/genkit';
+import { type FlowContext } from 'genkit';
+import { ai } from '@/ai/genkit';
 import { getAdminServices } from '@/firebase/admin-init';
 import { addDoc, collection, serverTimestamp } from 'firebase-admin/firestore';
 import { 
@@ -14,22 +13,6 @@ import {
   type AskAshaInput,
 } from './schemas';
 
-
-const ai = genkit({
-    plugins: [
-        googleAI(),
-    ],
-    policy: {
-        run: {
-            action: 'allow',
-            subjects: 'all',
-            conditions: [],
-        },
-        use: [addUserContext],
-    },
-    logLevel: 'debug',
-    enableTracingAndMetrics: true,
-});
 
 const askAshaFlow = ai.defineFlow(
   {

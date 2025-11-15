@@ -1,35 +1,17 @@
+
 /**
  * @fileOverview A flow to get ingredients for a recipe.
  * This file defines the Genkit flow and is intended for server-side use only.
  */
 'use server';
 
-import { genkit } from 'genkit';
-import { googleAI } from '@genkit-ai/google-genai';
-import { addUserContext } from '@/ai/genkit';
+import { ai } from '@/ai/genkit';
 import { 
   RecipeIngredientsInputSchema, 
   RecipeIngredientsOutputSchema,
   type RecipeIngredientsInput,
   type RecipeIngredientsOutput
 } from './schemas';
-
-const ai = genkit({
-    plugins: [
-        googleAI({
-        }),
-    ],
-    policy: {
-        run: {
-            action: 'allow',
-            subjects: 'all',
-            conditions: [],
-        },
-        use: [addUserContext],
-    },
-    logLevel: 'debug',
-    enableTracingAndMetrics: true,
-});
 
 const getIngredientsPrompt = ai.definePrompt(
   {
