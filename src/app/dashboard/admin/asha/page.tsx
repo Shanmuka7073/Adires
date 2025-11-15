@@ -2,7 +2,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import { useFirebase } from '@/firebase';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
 import { Send, Mic, User, Bot, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -102,8 +102,11 @@ export default function AshaChatPage() {
                 ...doc.data()
             }));
             setMessages(msgs);
+            // The AI is no longer "thinking" once a new message (its response) arrives.
+            setIsThinking(false);
         }, (error) => {
             console.error("Firestore error reading messages:", error);
+            setIsThinking(false);
         });
 
         return () => unsubscribe();
@@ -124,17 +127,7 @@ export default function AshaChatPage() {
         const userMessage = messageToSend.trim();
         setInput('');
         setIsThinking(true);
-
-        const userConversationPath = `/users/${user.uid}/ashaConversation`;
         
-        // 1. Save user message immediately for a snappy UI
-        await addDoc(collection(firestore, userConversationPath), {
-            text: userMessage,
-            role: 'user',
-            timestamp: serverTimestamp()
-        });
-        
-        // 2. Trigger the server-side AI response
         try {
             const recentMessages = messages.slice(-5).map(msg => ({ 
                 role: msg.role, 
@@ -142,19 +135,18 @@ export default function AshaChatPage() {
             }));
 
             // The call now goes through the server action, which calls the Genkit flow.
-            // The flow result is automatically saved to Firestore, triggering the onSnapshot listener.
+            // The flow now handles saving both the user's message and its own response.
+            // onSnapshot will then pick up the changes automatically.
             await askAsha({ userMessage, chatHistory: recentMessages });
             
         } catch(error) {
              console.error("Error calling askAsha action:", error);
-             // Optionally save an error message to Firestore
-             await addDoc(collection(firestore, userConversationPath), {
-                text: "My apologies, I'm having trouble connecting. Please try again in a moment.",
-                role: 'model',
-                timestamp: serverTimestamp()
-            });
-        } finally {
-            setIsThinking(false);
+             toast({
+                variant: 'destructive',
+                title: 'AI Error',
+                description: 'Failed to get a response from the assistant.'
+             });
+             setIsThinking(false);
         }
     };
 

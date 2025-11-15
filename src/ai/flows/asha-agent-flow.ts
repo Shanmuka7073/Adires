@@ -1,11 +1,10 @@
-
 'use server';
 /**
  * @fileOverview The Genkit flow for the Asha conversational agent.
  */
-import { genkit } from 'genkit';
+import { genkit, type FlowContext } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
-import { addUserContext } from '@/ai/genkit';
+import { addUserContext, getAuthenticatedUid } from '@/ai/genkit';
 import { getAdminServices } from '@/firebase/admin-init';
 import { addDoc, collection, serverTimestamp } from 'firebase-admin/firestore';
 import { 
@@ -17,11 +16,7 @@ import {
 
 const ai = genkit({
     plugins: [
-        googleAI({
-            // You must also set the GEMINI_API_KEY environment variable.
-            // You can get a key from Google AI Studio.
-            // https://aistudio.google.com/app/apikey
-        }),
+        googleAI(),
     ],
     policy: {
         run: {
@@ -53,52 +48,54 @@ const askAshaFlow = ai.defineFlow(
         Keep your responses concise, helpful, and focused on assisting with their shopping needs.
     `,
   },
-  async ({ userMessage, chatHistory }) => {
+  async ({ userMessage, chatHistory }, context: FlowContext) => {
     
-    // Map the input chat history to the format expected by the Gemini model.
-    const history = chatHistory.map(msg => ({
-      role: msg.role as 'user' | 'model', // Cast role to the expected type
-      parts: [{ text: msg.text }],
-    }));
-
+    // The user's UID is now available on the context object.
+    const uid = context.auth?.uid;
+    if (!uid) {
+        throw new Error("Flow Error: User is not authenticated.");
+    }
+    
     // The Genkit flow runner automatically combines the system prompt, history, and the new user message.
     // We just need to pass the new user message in the 'prompt' field and the context in 'history'.
     const result = await ai.generate({
       model: 'googleai/gemini-2.5-flash',
       prompt: userMessage,
-      history,
+      history: chatHistory,
     });
     
-    // Return the generated text directly.
-    return result.text;
+    const aiResponseText = result.text;
+    
+    // The flow now handles saving the conversation history.
+    const { db } = await getAdminServices();
+    const conversationRef = collection(db, `/users/${uid}/ashaConversation`);
+
+    // Save both user and model message in one go after getting the response.
+    await Promise.all([
+        addDoc(conversationRef, {
+            text: userMessage,
+            role: 'user',
+            timestamp: serverTimestamp()
+        }),
+        addDoc(conversationRef, {
+            text: aiResponseText,
+            role: 'model',
+            timestamp: serverTimestamp()
+        })
+    ]);
+
+    // The output schema is just a string, so we return the AI's text response.
+    return aiResponseText;
   }
 );
 
 
 /**
  * The server action called by the client.
- * It runs the Genkit flow and saves the AI's response to Firestore.
+ * It prepares the input and runs the Genkit flow.
  */
 export async function askAsha(input: AskAshaInput): Promise<void> {
-    const { db } = await getAdminServices();
-
-    // The middleware automatically adds the user's UID to the flow's metadata.
-    // We can retrieve it from the flow's state after it runs.
-    const flowResult = await askAshaFlow(input);
-    
-    // The `getFlowState` is an internal Genkit mechanism to access metadata.
-    const state = (ai as any).getFlowState();
-    const uid = state?.metadata?.uid;
-    
-    if (!uid) {
-        throw new Error("User is not authenticated. Cannot save AI response.");
-    }
-    
-    // Save the AI's response to the correct user's conversation subcollection.
-    const conversationRef = collection(db, `/users/${uid}/ashaConversation`);
-    await addDoc(conversationRef, {
-        text: flowResult,
-        role: 'model',
-        timestamp: serverTimestamp()
-    });
+    // The middleware attached to the flow will handle adding the user's UID.
+    // We just need to call the flow. The flow itself now handles all database writes.
+    await askAshaFlow(input);
 }
