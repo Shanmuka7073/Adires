@@ -12,7 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { X, Check, BrainCircuit, Edit, Loader2, ArrowRight, Trash2, Wand2, CheckCircle, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useState, useTransition, useMemo, useEffect, useCallback } from 'react';
+import { useState, useTransition, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useAppStore } from '@/lib/store';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -152,6 +152,7 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
     const [suggestionStatus, setSuggestionStatus] = useState<'loading' | 'no-suggestion' | 'has-suggestion' | 'learned'>('loading');
     const [suggestion, setSuggestion] = useState<{ key: string, display: string, type: string } | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const hasFetchedSuggestion = useRef(false);
     
     // Function to handle the full auto-learn and retry flow
     const handleAutoLearnAndRetry = useCallback(async (suggestedKey: string, suggestionType: string) => {
@@ -198,8 +199,13 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
         });
     }
 
-    // Auto-run suggestion logic
+    // Auto-run suggestion logic, now protected from re-running
     useEffect(() => {
+        if (hasFetchedSuggestion.current) {
+            return;
+        }
+        hasFetchedSuggestion.current = true;
+
         const getAndProcessSuggestion = async () => {
             try {
                 const res = await suggestAliasTarget({
@@ -228,7 +234,6 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
             }
         };
 
-        // Trigger the process immediately on component mount
         getAndProcessSuggestion();
     }, [command, allTargets, handleAutoLearnAndRetry]);
 
