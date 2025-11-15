@@ -1,13 +1,11 @@
-
 'use client';
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { Card, CardHeader, CardContent, CardFooter, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import type { Store } from '@/lib/types';
 import { getStoreImage } from '@/lib/data';
-import { ArrowRight, MapPin } from 'lucide-react';
+import { Star, Clock } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface StoreCardProps {
@@ -16,6 +14,11 @@ interface StoreCardProps {
 
 export default function StoreCard({ store }: StoreCardProps) {
     const [image, setImage] = useState({ imageUrl: 'https://placehold.co/400x300/E2E8F0/64748B?text=Loading...', imageHint: 'loading' });
+    
+    // Fake rating and time for visual similarity to the screenshot
+    const rating = useMemo(() => (4 + Math.random()).toFixed(1), [store.id]);
+    const deliveryTime = useMemo(() => Math.floor(Math.random() * 20) + 20, [store.id]);
+
 
     useEffect(() => {
         const fetchImage = async () => {
@@ -28,37 +31,33 @@ export default function StoreCard({ store }: StoreCardProps) {
     }, [store]);
 
   return (
-    <Card className="flex flex-col h-full overflow-hidden transition-all hover:shadow-lg">
-      <CardHeader className="p-0 relative">
-        <Link href={`/stores/${store.id}`}>
-          <Image
-            src={image.imageUrl}
-            alt={store.name}
-            data-ai-hint={image.imageHint}
-            width={400}
-            height={300}
-            className="w-full h-48 object-cover"
-          />
-        </Link>
-      </CardHeader>
-      <CardContent className="p-4 space-y-2 flex-1 flex flex-col">
-        <CardTitle className="text-xl font-headline">{store.name}</CardTitle>
-        <CardDescription className="flex-1">{store.description}</CardDescription>
-        <p className="text-sm text-muted-foreground">{store.address}</p>
-        {store.distance && (
-          <div className="flex items-center text-sm text-muted-foreground font-medium">
-            <MapPin className="mr-2 h-4 w-4 text-primary" />
-            <span>{store.distance.toFixed(2)} km away</span>
-          </div>
-        )}
-      </CardContent>
-      <CardFooter className="p-4 pt-0">
-        <Button asChild variant="outline" className="w-full mt-auto">
-          <Link href={`/stores/${store.id}`}>
-            Visit Store <ArrowRight className="ml-2 h-4 w-4" />
-          </Link>
-        </Button>
-      </CardFooter>
-    </Card>
+    <Link href={`/stores/${store.id}`} className="block overflow-hidden rounded-xl transition-all hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary">
+        <Card className="h-full border-0 shadow-md hover:shadow-xl transition-shadow">
+            <div className="relative">
+                <Image
+                    src={image.imageUrl}
+                    alt={store.name}
+                    data-ai-hint={image.imageHint}
+                    width={400}
+                    height={300}
+                    className="w-full h-36 object-cover"
+                />
+                 <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-green-600 px-2 py-1 text-xs font-bold text-white">
+                    <Star className="h-3 w-3 fill-white" />
+                    <span>{rating}</span>
+                </div>
+            </div>
+            <CardContent className="p-3">
+                <h3 className="font-semibold text-lg truncate">{store.name}</h3>
+                <p className="text-sm text-muted-foreground truncate">{store.description}</p>
+                <div className="flex items-center text-sm text-muted-foreground mt-2">
+                    <Clock className="h-4 w-4 mr-1.5" />
+                    <span>{deliveryTime}-{deliveryTime + 5} mins</span>
+                     {store.distance && <span className="mx-2">•</span>}
+                    {store.distance && <span>{store.distance.toFixed(1)} km</span>}
+                </div>
+            </CardContent>
+        </Card>
+    </Link>
   );
 }

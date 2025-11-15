@@ -30,7 +30,7 @@ export default function Home() {
 
 
   const displayedStores = useMemo(() => {
-    return allStores.slice(0, 3);
+    return allStores.slice(0, 4); // Show 4 stores on home page
   }, [allStores]);
 
 
@@ -71,7 +71,7 @@ export default function Home() {
               </p>
             </div>
           </div>
-          <div className="mx-auto grid grid-cols-1 gap-6 py-12 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mx-auto grid grid-cols-2 gap-4 md:gap-6 py-12 lg:grid-cols-4">
             {loading ? (
               <p>{t('loading-stores')}...</p>
             ) : displayedStores.length > 0 ? (

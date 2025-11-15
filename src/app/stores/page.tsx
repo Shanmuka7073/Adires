@@ -88,19 +88,20 @@ export default function StoresPage() {
         <h1 className="text-4xl font-bold font-headline">Browse All Stores</h1>
         <p className="text-muted-foreground text-lg">Find your new favorite local grocery store.</p>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-2 gap-4 md:gap-6">
         {loading ? (
           <>
-            <Skeleton className="h-80 w-full" />
-            <Skeleton className="h-80 w-full" />
-            <Skeleton className="h-80 w-full" />
+            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-64 w-full" />
           </>
         ) : sortedStores.length > 0 ? (
           sortedStores.map((store) => (
             <StoreCard key={store.id} store={store} />
           ))
         ) : (
-           <p className="text-muted-foreground">No stores have been created yet.</p>
+           <p className="text-muted-foreground col-span-2">No stores have been created yet.</p>
         )}
       </div>
     </div>
