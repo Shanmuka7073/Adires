@@ -1,192 +1,145 @@
-
 'use client';
 import React from 'react';
 
 // Main App Component
-const ChickenAnimationPage = () => {
+const FlashyChickenPage = () => {
   return (
     <>
       <style jsx>{`
-        /* Custom CSS for the Chicken Body and Animation */
-        
-        .chicken-page-body {
-            background-color: #e0f2f1; /* Light mint green background */
+        /* Setup */
+        .chicken-page-container {
+            background-color: #f0fdf4; /* Pale Green/Mint Background */
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: calc(100vh - 400px); /* Adjust for header/footer */
+            min-height: calc(100vh - 200px); /* Adjust for header/footer */
             overflow: hidden;
             font-family: 'Inter', sans-serif;
-            position: relative;
             border-radius: 0.5rem;
+            width: 100%;
         }
-
-        /* --- Chicken Container and Movement --- */
+        
+        /* --- 1. Movement Path (Horizontal Waddle) --- */
         .chicken-container {
             position: relative;
             width: 100%;
-            height: 150px;
-            /* Animation: Moves the chicken horizontally */
-            animation: waddle-path 10s linear infinite alternate;
+            height: 200px;
+            /* Moves chicken across the screen */
+            animation: waddle-path 12s ease-in-out infinite alternate;
         }
-        
-        /* Keyframes for the chicken's main travel path */
+
         @keyframes waddle-path {
-            0% { transform: translateX(-40vw); }
-            100% { transform: translateX(40vw); }
+            0% { transform: translateX(-45vw); }
+            100% { transform: translateX(45vw); }
         }
 
-        /* --- Individual Chicken Parts --- */
-        .chicken {
+        /* --- 2. Inner Wobble (Waddle Effect) --- */
+        .chicken-svg {
             position: absolute;
-            bottom: 0;
+            bottom: 20px;
             left: 50%;
-            transform: translateX(-50%);
-            /* Animation: Wobbles the entire body for a waddle effect */
-            animation: wobble 0.5s ease-in-out infinite;
+            transform-origin: bottom center;
+            /* Wobbles the body slightly */
+            animation: wobble 0.6s ease-in-out infinite;
         }
         
-        /* Keyframes for the waddle wobble */
         @keyframes wobble {
-            0% { transform: rotate(-3deg) translateX(-50%); }
-            50% { transform: rotate(3deg) translateX(-50%); }
-            100% { transform: rotate(-3deg) translateX(-50%); }
+            0% { transform: scale(1) rotate(-2deg); }
+            50% { transform: scale(1.02) rotate(2deg); }
+            100% { transform: scale(1) rotate(-2deg); }
         }
 
-        /* Body (White oval) */
-        .body {
-            width: 100px;
-            height: 80px;
-            background-color: #ffffff;
-            border-radius: 50%;
-            border: 4px solid #333;
+        /* --- 3. Wing Flap Animation --- */
+        #wing {
+            transform-origin: 50% 50%;
+            /* Flaps the wing up and down for movement */
+            animation: flap 0.3s ease-in-out infinite alternate;
         }
 
-        /* Head (Smaller white circle) */
-        .head {
-            position: absolute;
-            width: 35px;
-            height: 35px;
-            background-color: #ffffff;
-            border-radius: 50%;
-            border: 3px solid #333;
-            top: -25px;
-            right: -5px;
-            transform: rotate(15deg);
+        @keyframes flap {
+            0% { transform: rotate(-5deg); }
+            100% { transform: rotate(15deg); }
         }
 
-        /* Beak (Yellow triangle) */
-        .beak {
-            position: absolute;
-            width: 0;
-            height: 0;
-            border-left: 10px solid transparent;
-            border-right: 10px solid transparent;
-            border-top: 15px solid #ffcc00;
-            top: 20px;
-            right: -20px;
-            transform: rotate(90deg);
-        }
-
-        /* Comb (Red) */
-        .comb {
-            position: absolute;
-            width: 5px;
-            height: 15px;
-            background-color: #e74c3c; /* Red */
-            border-radius: 50% 50% 0 0;
-            top: -5px;
-            right: 10px;
-            transform: rotate(-15deg);
+        /* --- 4. Leg Stride Animation --- */
+        #left-leg {
+            animation: stride 0.6s ease-in-out infinite alternate;
+            transform-origin: top;
         }
         
-        /* Wattle/Gills (Small red shape) */
-        .wattle {
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            background-color: #e74c3c;
-            border-radius: 50%;
-            top: 30px;
-            right: -10px;
-            transform: rotate(30deg);
-        }
-
-        /* Eye (Black dot) */
-        .eye {
-            position: absolute;
-            width: 5px;
-            height: 5px;
-            background-color: #333;
-            border-radius: 50%;
-            top: 10px;
-            right: 10px;
-        }
-
-        /* Legs (Orange lines) */
-        .leg {
-            position: absolute;
-            width: 5px;
-            height: 15px;
-            background-color: #ffa500; /* Orange */
-            bottom: -15px;
-            border-radius: 0 0 5px 5px;
+        #right-leg {
+            animation: stride 0.6s ease-in-out infinite alternate-reverse;
+            transform-origin: top;
         }
         
-        /* Front Leg Animation */
-        .leg.front {
-            left: 20px;
-            /* Animation: Moves the leg back and forth */
-            animation: leg-swing 0.5s ease-in-out infinite alternate;
-        }
-        
-        /* Back Leg Animation */
-        .leg.back {
-            left: 60px;
-            /* Animation: Moves the leg in opposite phase */
-            animation: leg-swing 0.5s ease-in-out infinite alternate-reverse;
+        @keyframes stride {
+            0% { transform: rotate(-15deg); }
+            100% { transform: rotate(15deg); }
         }
 
-        /* Keyframes for leg movement */
-        @keyframes leg-swing {
-            0% { transform: rotate(-20deg); }
-            100% { transform: rotate(20deg); }
-        }
-
-        /* Tailwind utility for the banner */
+        /* Styles for the banner */
         .banner {
-            position: absolute;
-            top: 20px;
+            margin-bottom: 2rem;
             padding: 1rem 2rem;
-            background-color: #10b981; /* Emerald Green */
+            background: linear-gradient(135deg, #f97316, #ef4444); /* Orange to Red Gradient */
             color: white;
             border-radius: 0.75rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+            font-weight: bold;
+            text-align: center;
         }
       `}</style>
-      <div className="chicken-page-body">
+      <div className="chicken-page-container">
         <div className="banner">
-            <h1 className="text-2xl font-bold">The Waddling Groceries Chicken!</h1>
+            <h1 className="text-3xl">Flashy Animated Chicken!</h1>
+            <p className="text-sm">Using SVG for high-quality graphics and CSS for smooth motion.</p>
         </div>
 
         {/* The animated chicken container */}
         <div className="chicken-container">
-            <div className="chicken">
-                <div className="body">
-                    <div className="head">
-                        <div className="comb"></div>
-                        <div className="wattle"></div>
-                        <div className="eye"></div>
-                        <div className="beak"></div>
-                    </div>
-                </div>
-                <div className="leg front"></div>
-                <div className="leg back"></div>
-            </div>
+            {/* SVG Chicken Graphic */}
+            <svg className="chicken-svg" width="120" height="150" viewBox="0 0 120 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {/* Feet/Legs (Must be positioned first so they appear behind the body) */}
+                <g id="right-leg" transform="translate(70, 100)">
+                    <rect x="0" y="0" width="10" height="40" rx="3" fill="#ffa500" />
+                    <path d="M-5 40 L 15 40 L 5 50 L -15 50 Z" fill="#e67e22" />
+                </g>
+                <g id="left-leg" transform="translate(45, 100)">
+                    <rect x="0" y="0" width="10" height="40" rx="3" fill="#ffa500" />
+                    <path d="M-5 40 L 15 40 L 5 50 L -15 50 Z" fill="#e67e22" />
+                </g>
+                
+                {/* Body (Gradient Fill) */}
+                <defs>
+                    <radialGradient id="chickenGradient" cx="0.5" cy="0.5" r="0.5" fx="0.5" fy="0.5">
+                        <stop offset="0%" stopColor="#ffffff"/>
+                        <stop offset="100%" stopColor="#f0f0f0"/>
+                    </radialGradient>
+                </defs>
+                <ellipse cx="60" cy="70" rx="55" ry="60" fill="url(#chickenGradient)" stroke="#333333" strokeWidth="2"/>
+                
+                {/* Wing (Flapping) */}
+                <path id="wing" d="M 80 80 C 100 60, 100 100, 70 110 L 60 90 Z" fill="#fcfcfc" stroke="#333333" strokeWidth="2"/>
+
+                {/* Head */}
+                <circle cx="95" cy="40" r="20" fill="#ffffff" stroke="#333333" strokeWidth="2"/>
+                
+                {/* Beak */}
+                <path d="M 105 40 L 115 45 L 105 50 Z" fill="#ffcc00"/>
+                
+                {/* Comb (Wattles) */}
+                <path d="M 90 25 C 95 15, 105 15, 110 25" fill="#e74c3c" stroke="#333333" strokeWidth="1"/>
+                <path d="M 90 55 C 95 65, 105 65, 110 55" fill="#e74c3c"/>
+
+                {/* Eye */}
+                <circle cx="90" cy="40" r="3" fill="#333333"/>
+                
+            </svg>
         </div>
       </div>
     </>
   );
 };
 
-export default ChickenAnimationPage;
+export default FlashyChickenPage;
