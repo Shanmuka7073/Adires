@@ -1,3 +1,4 @@
+
 ---
 
 ONE-PAGE PITCH — India’s First AI Grocery Voice Assistant
@@ -42,6 +43,8 @@ Our app introduces a smart voice AI engine designed exclusively for groceries.
 - **Multilingual Voice Understanding**: English, Telugu, Hindi, Roman Telugu, slang, and misspellings.
 - **Natural Language AI**: Works with complex, multi-part sentences. Users can place a full order in one go:
   > “Order one kg chicken and a packet of milk from Chandra Store to my home.”
+- **AI-Powered Grocery Packs**: Automatically generates weekly or monthly grocery packs tailored to family size, simplifying regular shopping.
+- **Autonomous Self-Learning**: The AI engine learns from failed commands over time, constantly improving its accuracy and understanding of user-specific terms.
 - **Instant Store Onboarding**: Store owners can get their shop online in seconds. Just by visiting the "My Store" page, the app uses AI-assisted automation to create their digital storefront instantly.
 - **Category Smart Mapping**: Detects grocery categories instantly, like Google detects searches.
 - **Lightning Fast Matching**: Works smoothly on even low-end Android mobiles.
