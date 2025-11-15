@@ -6,7 +6,8 @@
 
 import {genkit, AIMiddleware} from 'genkit';
 import {googleAI} from '@genkit-ai/google-genai';
-import {firebasePlugin} from '@genkit-ai/firebase';
+// CRITICAL FIX: Use default import for the firebase plugin due to module bundling
+import firebasePlugin from '@genkit-ai/firebase'; 
 import { googleCloud } from '@genkit-ai/google-cloud';
 import { getAdminServices } from '@/firebase/admin-init';
 import { cookies }from 'next/headers';
