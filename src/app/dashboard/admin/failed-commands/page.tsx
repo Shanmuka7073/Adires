@@ -149,7 +149,9 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
     const { fetchInitialData } = useAppStore();
 
     const [isProcessing, startTransition] = useTransition();
-    const [suggestionStatus, setSuggestionStatus] = useState<'loading' | 'no-suggestion' | 'has-suggestion' | 'learned'>(command.status === 'new' ? 'loading' : 'no_suggestion');
+    const [suggestionStatus, setSuggestionStatus] = useState<'loading' | 'no-suggestion' | 'has-suggestion' | 'learned' | 'awaiting'>(
+        command.status === 'new' ? 'loading' : 'no-suggestion'
+    );
     const [suggestion, setSuggestion] = useState<{ key: string, display: string, type: string } | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const hasFetchedSuggestion = useRef(false);
@@ -202,7 +204,7 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
 
     // Auto-run suggestion logic, now protected from re-running
     useEffect(() => {
-        if (command.status !== 'new' || hasFetchedSuggestion.current) {
+        if (suggestionStatus !== 'loading' || hasFetchedSuggestion.current) {
             return;
         }
 
@@ -247,7 +249,7 @@ function FailedCommandRow({ command, allTargets }: { command: FailedVoiceCommand
         };
 
         getAndProcessSuggestion();
-    }, [command.status, firestore, command.id, command.commandText, command.language, allTargets, handleAutoLearnAndRetry]);
+    }, [suggestionStatus, firestore, command, allTargets, handleAutoLearnAndRetry]);
 
 
     const renderStatus = () => {
