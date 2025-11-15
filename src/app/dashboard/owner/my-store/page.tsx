@@ -1443,8 +1443,8 @@ function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Prod
                         <span className="font-semibold">{getProductName(product)}</span>
                          <div className="flex flex-wrap gap-1 mt-1">
                             {Object.entries(productAliases).flatMap(([lang, aliases]) => 
-                                aliases.map(alias => (
-                                    <Badge key={`${lang}-${alias}`} variant="outline">{alias} ({lang})</Badge>
+                                aliases.map((alias, index) => (
+                                    <Badge key={`${lang}-${alias}-${index}`} variant="outline">{alias} ({lang})</Badge>
                                 ))
                             )}
                         </div>
@@ -2015,3 +2015,5 @@ export default function MyStorePage() {
         </div>
     );
 }
+
+    
