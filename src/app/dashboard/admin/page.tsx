@@ -265,6 +265,12 @@ export default function AdminDashboardPage() {
                         href="/dashboard/admin/errors"
                         icon={ShieldAlert}
                     />
+                    <AdminActionCard
+                        title="Failed Voice Commands"
+                        description="Review failed commands and use AI to suggest fixes to improve accuracy."
+                        href="/dashboard/admin/failed-commands"
+                        icon={MessageSquareWarning}
+                    />
                     <AdminActionCard 
                         title="voice-commands-control"
                         description="view-and-manage-the-voice-commands-users-can-say"
