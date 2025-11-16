@@ -25,15 +25,6 @@ interface FirebaseAuthObject {
   token: FirebaseAuthToken;
 }
 
-interface SecurityRuleRequest {
-  auth: FirebaseAuthObject | null;
-  method: string;
-  path: string;
-  resource?: {
-    data: any;
-  };
-}
-
 /**
  * Builds a security-rule-compliant auth object from the Firebase User.
  * @param currentUser The currently authenticated Firebase user.
@@ -43,6 +34,14 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
   if (!currentUser) {
     return null;
   }
+  
+  const identities = currentUser.providerData.reduce((acc, provider) => {
+    if (provider.providerId && provider.uid) {
+      acc[provider.providerId] = [provider.uid];
+    }
+    return acc;
+  }, {} as Record<string, any>);
+
 
   const token: FirebaseAuthToken = {
     name: currentUser.displayName,
@@ -51,12 +50,7 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
     phone_number: currentUser.phoneNumber,
     sub: currentUser.uid,
     firebase: {
-      identities: currentUser.providerData.reduce((acc, p) => {
-        if (p.providerId) {
-          acc[p.providerId] = [p.uid];
-        }
-        return acc;
-      }, {} as Record<string, string[]>),
+      identities: identities,
       sign_in_provider: currentUser.providerData[0]?.providerId || 'custom',
       tenant: currentUser.tenantId,
     },
