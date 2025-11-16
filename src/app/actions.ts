@@ -41,7 +41,7 @@ export async function debugAtlasAction(userQuery: string, failedFunction: string
         await auth.verifyIdToken(idToken);
 
         // The user is authenticated. Now, run the Genkit flow.
-        const report = await ai.runFlow('atlasDebugFlow', { errorDetails: userQuery, failedFunction: failedFunction });
+        const report = await ai.run('atlasDebugFlow', { errorDetails: userQuery, failedFunction: failedFunction });
         return report;
 
     } catch (error: any) {
@@ -70,19 +70,19 @@ Error details: ${error.message}`
 // --- Re-exporting AI flows to be used as Server Actions ---
 
 export async function generatePack(input: GeneratePackInput): Promise<GeneratePackOutput> {
-  return ai.runFlow('generatePackFlow', input);
+  return ai.run('generatePackFlow', input);
 }
 
 export async function getIngredientsForRecipe(input: RecipeIngredientsInput): Promise<RecipeIngredientsOutput> {
-  return ai.runFlow('recipeIngredientsFlow', input);
+  return ai.run('recipeIngredientsFlow', input);
 }
 
 export async function answerGeneralQuestion(input: GeneralQuestionInput): Promise<GeneralQuestionOutput> {
-  return ai.runFlow('generalQuestionFlow', input);
+  return ai.run('generalQuestionFlow', input);
 }
 
 export async function suggestAliasTarget(input: AliasTargetSuggestionInput): Promise<AliasTargetSuggestionOutput> {
-  return ai.runFlow('suggestAliasTargetFlow', input);
+  return ai.run('suggestAliasTargetFlow', input);
 }
 
 
