@@ -1,6 +1,5 @@
-
 'use server';
-
+import 'dotenv/config'; // Load environment variables at the top.
 import { getAdminServices } from '@/firebase/admin-init';
 import { suggestAliasTarget as suggestAliasTargetFlow } from '@/ai/flows/alias-suggester-flow';
 import { z } from 'zod';
@@ -27,6 +26,7 @@ export async function getSystemStatus() {
         const counts = await getFirestoreCounts();
         let llmStatus: 'Online' | 'Offline' = 'Offline';
         
+        // Check if the API key is present in the environment variables
         if (process.env.GEMINI_API_KEY) {
             llmStatus = 'Online';
         }
