@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 interface SystemStatus {
   llmStatus: 'Online' | 'Offline' | 'Degraded' | 'Unknown';
   serverDbStatus: 'Online' | 'Offline' | 'Unavailable' | 'Loading';
+  errorMessage: string | null;
   userCount: number | 'N/A';
   storeCount: number | 'N/A';
 }
@@ -18,6 +19,7 @@ export default function SystemStatusPage() {
   const [status, setStatus] = useState<SystemStatus>({
     llmStatus: 'Offline',
     serverDbStatus: 'Loading',
+    errorMessage: null,
     userCount: 'N/A',
     storeCount: 'N/A',
   });
@@ -33,6 +35,7 @@ export default function SystemStatusPage() {
             setStatus({
                 llmStatus: serverStatus.llmStatus,
                 serverDbStatus: 'Online',
+                errorMessage: null,
                 userCount: serverStatus.counts.users,
                 storeCount: serverStatus.counts.stores,
             });
@@ -40,16 +43,18 @@ export default function SystemStatusPage() {
              setStatus({
                 llmStatus: 'Offline',
                 serverDbStatus: 'Unavailable',
+                errorMessage: serverStatus.errorMessage,
                 userCount: 'N/A',
                 storeCount: 'N/A',
             });
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to fetch system status:", error);
         setStatus(prev => ({
             ...prev,
             llmStatus: 'Offline',
             serverDbStatus: 'Unavailable',
+            errorMessage: error.message || 'Client-side fetch failed.',
             userCount: 'N/A',
             storeCount: 'N/A',
         }));
@@ -87,7 +92,10 @@ export default function SystemStatusPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <ServerStatusCard
           title="Server Database (Admin)"
-          status={{status: status.serverDbStatus, message: `Admin SDK connection is ${status.serverDbStatus.toLowerCase()}.`}}
+          status={{
+            status: status.serverDbStatus,
+            message: status.errorMessage || `Admin SDK connection is ${status.serverDbStatus.toLowerCase()}.`
+          }}
           iconName="Database"
           description="Connection health for server-side actions."
         />

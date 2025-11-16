@@ -1,7 +1,7 @@
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { collection, serverTimestamp, addDoc } from 'firebase/firestore';
 import { headers } from 'next/headers';
 
 async function getFirestoreCounts() {
@@ -26,14 +26,16 @@ export async function getSystemStatus() {
             status: 'ok',
             llmStatus: 'Offline', // Default to Offline since AI is removed.
             serverDbStatus: 'Online',
+            errorMessage: null,
             counts: counts,
         };
-    } catch (error) {
+    } catch (error: any) {
         console.error("System status check failed:", error);
         return {
             status: 'error',
             llmStatus: 'Offline',
-            serverDbStatus: 'Offline',
+            serverDbStatus: 'Unavailable',
+            errorMessage: error.message || 'An unknown error occurred during server initialization.',
             counts: { users: 0, stores: 0, deliveryPartners: 0, voiceCommands: 0 },
         };
     }
