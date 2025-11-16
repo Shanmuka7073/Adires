@@ -6,7 +6,7 @@
  */
 import { genkit } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
-import { firebase } from '@genkit-ai/firebase';
+import firebase from '@genkit-ai/firebase';
 
 // Dynamically import all flows to be registered
 import { answerGeneralQuestion } from '@/ai/flows/general-question-flow';
@@ -31,8 +31,7 @@ export const ai = genkit({
     firebase(),
   ],
   
-  // 2. Logging: Set log level and enable tracing
-  logLevel: 'debug',
+  // 2. Logging: Enable tracing
   enableTracingAndMetrics: true,
   
   // 3. The flows block is mandatory for registering all your AI agents.
