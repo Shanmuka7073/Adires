@@ -7,7 +7,8 @@
 import 'dotenv/config'; // Import and configure dotenv at the very top.
 import { genkit } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
-import { firebase } from '@genkit-ai/firebase';
+// FIX: Using * as firebasePlugin to force correct module loading and resolve bundling issues.
+import * as firebasePlugin from '@genkit-ai/firebase';
 
 // The googleAI() plugin will now automatically pick up the API key
 // from the process.env.GEMINI_API_KEY environment variable.
@@ -18,6 +19,7 @@ import { firebase } from '@genkit-ai/firebase';
 export const ai = genkit({
   plugins: [
     googleAI(),
-    firebase(), // CORRECT: The Firebase plugin must be called as a function.
+    // FIX: Accessing the function via the imported object's 'firebase' property.
+    (firebasePlugin as any).firebase(),
   ],
 });
