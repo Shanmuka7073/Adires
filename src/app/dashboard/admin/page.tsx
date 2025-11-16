@@ -62,7 +62,7 @@ function CoreServicesStatusCard({ status, loading }: { status: SystemStatus, loa
         { name: 'User System', icon: Users, isOnline: isDbOnline && status.counts.users >= 0 },
         { name: 'Store Owner System', icon: Store, isOnline: isDbOnline && status.counts.stores >= 0 },
         { name: 'Delivery Partner System', icon: Truck, isOnline: isDbOnline && status.counts.deliveryPartners >= 0 },
-        { name: 'Voice Commander', icon: Mic, isOnline: isDbOnline && status.counts.voiceCommands > 0 },
+        { name: 'Voice Commander', icon: Mic, isOnline: isDbOnline },
     ];
 
     return (
