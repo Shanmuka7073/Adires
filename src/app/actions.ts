@@ -6,7 +6,6 @@ import { getIngredientsForRecipe as getIngredientsFlow } from '@/ai/flows/recipe
 import { answerGeneralQuestion as answerGeneralQuestionFlow } from '@/ai/flows/general-question-flow';
 import { generatePack as generatePackFlow } from '@/ai/flows/generate-pack-flow';
 import { suggestAliasTarget as suggestAliasTargetFlow } from '@/ai/flows/suggest-alias-flow';
-import { askAsha as askAshaFlow } from '@/ai/flows/asha-agent-flow'; 
 import { getAuth } from 'firebase-admin/auth';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -24,8 +23,6 @@ import type {
     GeneratePackOutput,
     AliasTargetSuggestionInput,
     AliasTargetSuggestionOutput,
-    AskAshaInput,
-    AskAshaOutput,
     SiteConfig,
     VoiceAlias
 } from '@/lib/types';
@@ -69,10 +66,6 @@ export async function generatePack(input: GeneratePackInput): Promise<GeneratePa
 
 export async function suggestAliasTarget(input: AliasTargetSuggestionInput): Promise<AliasTargetSuggestionOutput> {
     return withRetries(suggestAliasTargetFlow, input);
-}
-
-export async function askAsha(input: AskAshaInput): Promise<AskAshaOutput> {
-    return withRetries(askAshaFlow, input);
 }
 
 export async function getSystemStatus() {

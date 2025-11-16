@@ -197,9 +197,4 @@ export type {
     AliasTargetSuggestionInput,
     AliasTargetSuggestionOutput,
 } from '@/ai/flows/schemas';
-
-export type {
-    AskAshaInput,
-    AskAshaOutput,
-} from '@/ai/flows/schemas';
     
