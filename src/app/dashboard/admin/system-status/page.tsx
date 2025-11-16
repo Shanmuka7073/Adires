@@ -36,8 +36,8 @@ export default function SystemStatusPage() {
                 llmStatus: serverStatus.llmStatus,
                 serverDbStatus: 'Online',
                 errorMessage: null,
-                userCount: serverStatus.counts.users,
-                storeCount: serverStatus.counts.stores,
+                userCount: 'N/A', // We no longer fetch counts from server
+                storeCount: 'N/A',
             });
         } else {
              setStatus({
@@ -122,7 +122,7 @@ export default function SystemStatusPage() {
             </CardHeader>
             <CardContent>
               <StatusDisplay isLoading={isLoading}>{status.userCount}</StatusDisplay>
-              <p className="text-xs text-gray-500">Users with stored credentials</p>
+              <p className="text-xs text-gray-500">Real-time count not available</p>
             </CardContent>
           </Card>
 
@@ -133,7 +133,7 @@ export default function SystemStatusPage() {
             </CardHeader>
             <CardContent>
               <StatusDisplay isLoading={isLoading}>{status.storeCount}</StatusDisplay>
-              <p className="text-xs text-gray-500">Stores created on the platform</p>
+              <p className="text-xs text-gray-500">Real-time count not available</p>
             </CardContent>
           </Card>
         </div>

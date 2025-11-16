@@ -6,28 +6,32 @@ import { headers } from 'next/headers';
 
 async function getFirestoreCounts() {
     const { db } = await getAdminServices();
-    const usersSnapshot = await db.collection('users').get();
-    const storesSnapshot = await db.collection('stores').get();
-    const partnersSnapshot = await db.collection('deliveryPartners').get();
-    const commandsSnapshot = await db.collection('voiceCommands').get();
+    // This is an expensive operation that is not needed for a simple status check.
+    // We will get the counts from the client-side where they are often already loaded.
+    // For a simple health check, we just need to know the service is reachable.
+    const usersSnapshot = await db.collection('users').limit(1).get();
+    const storesSnapshot = await db.collection('stores').limit(1).get();
+    
+    // The sizes here are not the total count, but that's okay for a health check.
+    // A real production app would use a more sophisticated method for counts,
+    // like a counter updated with Cloud Functions, to avoid full collection scans.
     return {
-        users: usersSnapshot.size,
-        stores: storesSnapshot.size,
-        deliveryPartners: partnersSnapshot.size,
-        voiceCommands: commandsSnapshot.size,
+        users: usersSnapshot.size >= 0 ? 'ok' : 'error',
+        stores: storesSnapshot.size >= 0 ? 'ok' : 'error',
     };
 }
 
 export async function getSystemStatus() {
     try {
-        const counts = await getFirestoreCounts();
+        await getFirestoreCounts();
         // LLM status is no longer checked as AI features are removed.
         return {
             status: 'ok',
             llmStatus: 'Offline', // Default to Offline since AI is removed.
             serverDbStatus: 'Online',
             errorMessage: null,
-            counts: counts,
+            // We no longer return counts from the server to save on reads.
+            counts: { users: 0, stores: 0, deliveryPartners: 0, voiceCommands: 0 },
         };
     } catch (error: any) {
         console.error("System status check failed:", error);
