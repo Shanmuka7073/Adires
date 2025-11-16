@@ -86,7 +86,7 @@ export default function MyProfilePage() {
         return;
     }
     
-    startSaveTransition(async () => {
+    startSaveTransition(() => {
         const profileData = {
             id: user.uid,
             firstName: data.firstName,
@@ -96,21 +96,22 @@ export default function MyProfilePage() {
             address: data.address,
         };
 
-        try {
-            await setDoc(userDocRef, profileData, { merge: true });
-            toast({
-                title: 'Profile Updated',
-                description: 'Your information has been saved successfully.',
+        setDoc(userDocRef, profileData, { merge: true })
+            .then(() => {
+                toast({
+                    title: 'Profile Updated',
+                    description: 'Your information has been saved successfully.',
+                });
+            })
+            .catch((error) => {
+                console.error("Error saving profile:", error);
+                const permissionError = new FirestorePermissionError({
+                    path: userDocRef.path,
+                    operation: 'write',
+                    requestResourceData: profileData
+                });
+                errorEmitter.emit('permission-error', permissionError);
             });
-        } catch (error) {
-            console.error("Error saving profile:", error);
-            const permissionError = new FirestorePermissionError({
-                path: userDocRef.path,
-                operation: 'write',
-                requestResourceData: profileData
-            });
-            errorEmitter.emit('permission-error', permissionError);
-        }
     });
   };
 

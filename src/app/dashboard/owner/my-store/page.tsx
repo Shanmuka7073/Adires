@@ -640,7 +640,7 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
       }
       acc[category].push(product);
       return acc;
-  }, {});
+  }, {} as Record<string, Product[]>);
 
 
   return (
@@ -651,12 +651,12 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
           </CardHeader>
           <CardContent className="space-y-4">
               <Accordion type="multiple" className="w-full">
-                  {Object.entries(productsByCategory).map(([category, products]: [string, Product[]]) => (
+                  {Object.entries(productsByCategory).map(([category, products]) => (
                        <AccordionItem value={category} key={category}>
                           <AccordionTrigger>{t(category.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</AccordionTrigger>
                           <AccordionContent>
                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4 p-4">
-                                  {(products as Product[]).map((product) => (
+                                  {products.map((product) => (
                                       <div key={product.id} className="flex items-center space-x-2">
                                           <Checkbox
                                               id={product.id}
@@ -1063,14 +1063,14 @@ function PromoteStore({ store }: { store: Store }) {
         }
 
         try {
-            const contacts = await navigator.contacts.select(['name', 'email', 'tel'], { multiple: true });
+            const contacts = await (navigator as any).contacts.select(['name', 'email', 'tel'], { multiple: true });
 
             if (contacts.length === 0) {
                 toast({ title: 'No contacts selected.' });
                 return;
             }
 
-            const phoneNumbers = contacts.flatMap(c => c.tel || []);
+            const phoneNumbers = contacts.flatMap((c: { tel: any; }) => c.tel || []);
             const shareText = `Check out my store, ${store.name}, on the LocalBasket app! You can order groceries online and get them delivered right to your door. Visit my storefront here: ${window.location.origin}/stores/${store.id}`;
             
             if (phoneNumbers.length > 0) {
@@ -1152,20 +1152,21 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
     
     const onSubmit = (data: LocationFormValues) => {
         if (!firestore) return;
-        startTransition(async () => {
+        startTransition(() => {
             const storeRef = doc(firestore, 'stores', store.id);
-            try {
-                await updateDoc(storeRef, data);
-                toast({ title: "Store Location Updated!", description: "Your store's location has been saved." });
-                onUpdate();
-            } catch (error) {
-                const permissionError = new FirestorePermissionError({
-                    path: storeRef.path,
-                    operation: 'update',
-                    requestResourceData: data,
+            updateDoc(storeRef, data)
+                .then(() => {
+                    toast({ title: "Store Location Updated!", description: "Your store's location has been saved." });
+                    onUpdate();
+                })
+                .catch((error) => {
+                    const permissionError = new FirestorePermissionError({
+                        path: storeRef.path,
+                        operation: 'update',
+                        requestResourceData: data,
+                    });
+                    errorEmitter.emit('permission-error', permissionError);
                 });
-                errorEmitter.emit('permission-error', permissionError);
-            }
         });
     };
 
@@ -1285,21 +1286,22 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
     const onSubmit = (data: Omit<StoreFormValues, 'latitude' | 'longitude'>) => {
         if (!firestore) return;
 
-        startTransition(async () => {
+        startTransition(() => {
             const storeRef = doc(firestore, 'stores', store.id);
-            try {
-                await updateDoc(storeRef, data);
-                toast({ title: "Store Details Updated!", description: "Your store's information has been saved." });
-                setIsOpen(false);
-                onUpdate(); // Trigger re-fetch in parent if needed
-            } catch (error) {
-                const permissionError = new FirestorePermissionError({
-                    path: storeRef.path,
-                    operation: 'update',
-                    requestResourceData: data,
+            updateDoc(storeRef, data)
+                .then(() => {
+                    toast({ title: "Store Details Updated!", description: "Your store's information has been saved." });
+                    setIsOpen(false);
+                    onUpdate(); // Trigger re-fetch in parent if needed
+                })
+                .catch((error) => {
+                    const permissionError = new FirestorePermissionError({
+                        path: storeRef.path,
+                        operation: 'update',
+                        requestResourceData: data,
+                    });
+                    errorEmitter.emit('permission-error', permissionError);
                 });
-                errorEmitter.emit('permission-error', permissionError);
-            }
         });
     };
 
@@ -1443,8 +1445,8 @@ function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Prod
                         <span className="font-semibold">{getProductName(product)}</span>
                          <div className="flex flex-wrap gap-1 mt-1">
                             {Object.entries(productAliases).flatMap(([lang, aliases]) => 
-                                aliases.map((alias, index) => (
-                                    <Badge key={`${lang}-${alias}-${index}`} variant="outline">{alias} ({lang})</Badge>
+                                aliases.map(alias => (
+                                    <Badge key={`${lang}-${alias}`} variant="outline">{alias} ({lang})</Badge>
                                 ))
                             )}
                         </div>
@@ -1774,15 +1776,16 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
             return;
         }
 
-        startTransition(async () => {
+        startTransition(() => {
             const storeData = { ...data, ownerId: user.uid, imageId: `store-${Math.floor(Math.random() * 3) + 1}`, isClosed: false };
-            try {
-                await addDoc(collection(firestore, 'stores'), storeData);
-                toast({ title: 'Store Created!', description: `Your store "${data.name}" is now live.` });
-            } catch (serverError) {
-                const permissionError = new FirestorePermissionError({ path: 'stores', operation: 'create', requestResourceData: storeData });
-                errorEmitter.emit('permission-error', permissionError);
-            }
+            addDoc(collection(firestore, 'stores'), storeData)
+                .then(() => {
+                    toast({ title: 'Store Created!', description: `Your store "${data.name}" is now live.` });
+                })
+                .catch((serverError) => {
+                    const permissionError = new FirestorePermissionError({ path: 'stores', operation: 'create', requestResourceData: storeData });
+                    errorEmitter.emit('permission-error', permissionError);
+                });
         });
     };
 
@@ -1940,7 +1943,7 @@ export default function MyStorePage() {
              return;
         }
 
-        startCreationTransition(async () => {
+        startCreationTransition(() => {
              const storeData = {
                 name: `${userProfile.firstName}'s Store`,
                 teluguName: `${userProfile.firstName} గారి స్టోర్`,
@@ -1952,13 +1955,14 @@ export default function MyStorePage() {
                 imageId: `store-${Math.floor(Math.random() * 3) + 1}`,
                 isClosed: false,
             };
-            try {
-                await addDoc(collection(firestore, 'stores'), storeData);
-                toast({ title: 'Store Created!', description: `Your store "${storeData.name}" is now live.` });
-            } catch (serverError) {
-                const permissionError = new FirestorePermissionError({ path: 'stores', operation: 'create', requestResourceData: storeData });
-                errorEmitter.emit('permission-error', permissionError);
-            }
+            addDoc(collection(firestore, 'stores'), storeData)
+                .then(() => {
+                    toast({ title: 'Store Created!', description: `Your store "${storeData.name}" is now live.` });
+                })
+                .catch((serverError) => {
+                    const permissionError = new FirestorePermissionError({ path: 'stores', operation: 'create', requestResourceData: storeData });
+                    errorEmitter.emit('permission-error', permissionError);
+                });
         });
     };
 
@@ -2015,5 +2019,3 @@ export default function MyStorePage() {
         </div>
     );
 }
-
-    
