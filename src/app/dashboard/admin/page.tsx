@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, Truck, ShoppingBag, ArrowRight, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box, Code, ShieldAlert, AlertCircle, Bot } from 'lucide-react';
+import { Users, Store, Truck, ShoppingBag, ArrowRight, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box, Code, ShieldAlert, AlertCircle, Bot, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -15,8 +15,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { t } from '@/lib/locales';
 import { useToast } from '@/hooks/use-toast';
+import { getSystemStatus } from '@/app/actions';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
+
+interface SystemStatus {
+  llmStatus: 'Online' | 'Offline' | 'Degraded' | 'Unknown';
+  serverDbStatus: 'Online' | 'Offline' | 'Unavailable' | 'Loading';
+}
 
 function StatCard({ title, value, icon: Icon, loading, isLive = false }: { title: string, value: string | number, icon: React.ElementType, loading?: boolean, isLive?: boolean }) {
     return (
@@ -34,6 +40,51 @@ function StatCard({ title, value, icon: Icon, loading, isLive = false }: { title
         </Card>
     )
 }
+
+function LiveStatusCard({ status, loading }: { status: SystemStatus, loading: boolean }) {
+    const getStatusInfo = (s: string) => {
+        switch (s) {
+            case 'Online': return { color: 'text-green-500', text: 'Online' };
+            case 'Offline': return { color: 'text-destructive', text: 'Offline' };
+            default: return { color: 'text-yellow-500', text: 'Checking...' };
+        }
+    };
+    
+    const dbStatus = getStatusInfo(status.serverDbStatus);
+
+    return (
+        <Card className="col-span-1 lg:col-span-3 border-primary/20 bg-primary/5">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Live System Status</CardTitle>
+                <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                    <Server className="h-4 w-4 text-muted-foreground" />
+                </div>
+            </CardHeader>
+            <CardContent>
+                {loading ? <Skeleton className="h-8 w-full" /> : (
+                    <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-2">
+                            <CheckCircle className={`h-5 w-5 ${dbStatus.color}`} />
+                            <div>
+                                <p className="text-sm font-medium">Backend DB</p>
+                                <p className={`text-xs ${dbStatus.color}`}>{dbStatus.text}</p>
+                            </div>
+                        </div>
+                         <div className="flex items-center gap-2">
+                            <Bot className="h-5 w-5 text-muted-foreground" />
+                            <div>
+                                <p className="text-sm font-medium">LLM Service</p>
+                                <p className="text-xs text-muted-foreground">Disabled</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    )
+}
+
 
 function CreateMasterStoreCard() {
     return (
@@ -73,33 +124,59 @@ function AdminActionCard({ title, description, href, icon: Icon }: { title: stri
 export default function AdminDashboardPage() {
     const { user, isUserLoading, firestore } = useFirebase();
     const router = useRouter();
-    
+     const [status, setStatus] = useState<SystemStatus>({
+        llmStatus: 'Offline',
+        serverDbStatus: 'Loading',
+    });
+    const [statusLoading, setStatusLoading] = useState(true);
+
     // Queries for stats
+    const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
     const storesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'stores'), where('isClosed', '!=', true)) : null, [firestore]);
-    const partnersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'deliveryPartners') : null, [firestore]);
     const deliveredOrdersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'orders'), where('status', '==', 'Delivered')) : null, [firestore]);
     
-    // Query to check for the master store
     const adminStoreQuery = useMemoFirebase(() => {
         if (!firestore) return null;
         return query(collection(firestore, 'stores'), where('name', '==', 'LocalBasket'));
     }, [firestore]);
 
 
+    const { data: users, isLoading: usersLoading } = useCollection(usersQuery);
     const { data: stores, isLoading: storesLoading } = useCollection(storesQuery);
-    const { data: partners, isLoading: partnersLoading } = useCollection(partnersQuery);
     const { data: deliveredOrders, isLoading: ordersLoading } = useCollection<Order>(deliveredOrdersQuery);
     const { data: adminStores, isLoading: adminStoreLoading } = useCollection<StoreType>(adminStoreQuery);
 
     const masterStoreExists = useMemo(() => adminStores && adminStores.length > 0, [adminStores]);
 
     const stats = useMemo(() => ({
+        totalUsers: users?.length ?? 0,
         totalStores: stores?.length ?? 0,
-        totalDeliveryPartners: partners?.length ?? 0,
         totalOrdersDelivered: deliveredOrders?.length ?? 0,
-    }), [stores, partners, deliveredOrders]);
+    }), [users, stores, deliveredOrders]);
 
-    const statsLoading = isUserLoading || storesLoading || partnersLoading || ordersLoading;
+    const statsLoading = isUserLoading || usersLoading || storesLoading || ordersLoading;
+    
+    // Effect to fetch system status periodically
+    useEffect(() => {
+        const fetchStatus = async () => {
+            try {
+                const serverStatus = await getSystemStatus();
+                setStatus(prev => ({
+                    ...prev,
+                    serverDbStatus: serverStatus.serverDbStatus,
+                }));
+            } catch (error) {
+                 setStatus(prev => ({ ...prev, serverDbStatus: 'Offline' }));
+            } finally {
+                if (statusLoading) setStatusLoading(false);
+            }
+        };
+
+        fetchStatus();
+        const intervalId = setInterval(fetchStatus, 5000);
+        return () => clearInterval(intervalId);
+    }, [statusLoading]);
+
 
     useEffect(() => {
         if (!isUserLoading && (!user || user.email !== ADMIN_EMAIL)) {
@@ -112,8 +189,8 @@ export default function AdminDashboardPage() {
     }
 
     const statItems = [
+        { title: 'total-users', value: stats.totalUsers, icon: Users },
         { title: 'total-stores', value: stats.totalStores, icon: Store },
-        { title: 'delivery-partners', value: stats.totalDeliveryPartners, icon: Truck },
         { title: 'orders-delivered', value: stats.totalOrdersDelivered, icon: ShoppingBag },
     ];
 
@@ -128,6 +205,7 @@ export default function AdminDashboardPage() {
             {!masterStoreExists && <CreateMasterStoreCard />}
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
+                 <LiveStatusCard status={status} loading={statusLoading} />
                 {statItems.map(item => (
                     <StatCard 
                         key={item.title} 
