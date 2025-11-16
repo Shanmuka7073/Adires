@@ -3,21 +3,21 @@
 /**
  * @fileOverview A flow to generate a grocery pack list using AI.
  */
-import { ai } from '@/ai/genkit';
-// Import schemas from the central file
 import { 
   GeneratePackInputSchema,
   GeneratePackOutputSchema,
   type GeneratePackInput,
   type GeneratePackOutput,
 } from './schemas';
+import { Genkit } from 'genkit';
 
-const generatePackPrompt = ai.definePrompt({
-  name: 'generatePackPrompt',
-  model: 'gemini-2.5-flash',
-  input: { schema: GeneratePackInputSchema },
-  output: { schema: GeneratePackOutputSchema },
-  prompt: `You are an expert Indian home needs planner. Your task is to generate a realistic grocery list for an Indian family.
+export const defineGeneratePackFlow = (ai: Genkit) => {
+    const generatePackPrompt = ai.definePrompt({
+        name: 'generatePackPrompt',
+        model: 'gemini-2.5-flash',
+        input: { schema: GeneratePackInputSchema },
+        output: { schema: GeneratePackOutputSchema },
+        prompt: `You are an expert Indian home needs planner. Your task is to generate a realistic grocery list for an Indian family.
 
   Details:
   - Duration: {{{packType}}}
@@ -33,23 +33,27 @@ const generatePackPrompt = ai.definePrompt({
   4. Item names should be common English names (e.g., "Onions", "Toor Dal", "Garam Masala").
   5. Quantities must be strings that include the unit (e.g., "2kg", "500g", "1 packet", "2 liters").
   `,
-});
+    });
 
-const generatePackFlow = ai.defineFlow(
-  {
-    name: 'generatePackFlow',
-    inputSchema: GeneratePackInputSchema,
-    outputSchema: GeneratePackOutputSchema,
-  },
-  async (input) => {
-    const { output } = await generatePackPrompt(input);
-    if (!output) {
-      throw new Error("Failed to generate pack from AI.");
-    }
-    return output;
-  }
-);
+    const generatePackFlow = ai.defineFlow(
+        {
+            name: 'generatePackFlow',
+            inputSchema: GeneratePackInputSchema,
+            outputSchema: GeneratePackOutputSchema,
+        },
+        async (input) => {
+            const { output } = await generatePackPrompt(input);
+            if (!output) {
+                throw new Error("Failed to generate pack from AI.");
+            }
+            return output;
+        }
+    );
+    return generatePackFlow;
+};
 
 export async function generatePack(input: GeneratePackInput): Promise<GeneratePackOutput> {
-  return generatePackFlow(input);
+  const { ai } = await import('@/ai/genkit');
+  const flow = defineGeneratePackFlow(ai);
+  return flow(input);
 }

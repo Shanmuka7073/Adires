@@ -1,3 +1,4 @@
+
 /**
  * Genkit v1.x configuration file
  */
@@ -5,13 +6,11 @@
 import { genkit } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
 import { enableFirebaseTelemetry } from '@genkit-ai/firebase';
-
-// IMPORT FLOWS (required for registration)
-import '@/ai/flows/general-question-flow';
-import '@/ai/flows/recipe-ingredients-flow';
-import '@/ai/flows/generate-pack-flow';
-import '@/ai/flows/suggest-alias-flow';
-import '@/ai/flows/atlas-debug-flow';
+import { defineGeneralQuestionFlow } from '@/ai/flows/general-question-flow';
+import { defineRecipeIngredientsFlow } from '@/ai/flows/recipe-ingredients-flow';
+import { defineGeneratePackFlow } from '@/ai/flows/generate-pack-flow';
+import { defineSuggestAliasTargetFlow } from '@/ai/flows/suggest-alias-flow';
+import { runAtlasDebugFlow } from '@/ai/flows/atlas-debug-flow';
 
 const GEMINI_API_KEY = "AIzaSyDlTc56bOOF_k_N53lRdnR7KU21e5E45Y";
 
@@ -20,7 +19,13 @@ export const ai = genkit({
     googleAI({
       apiKey: GEMINI_API_KEY,
     }),
-    // Just enable telemetry — no “firebase()” plugin call
     enableFirebaseTelemetry(),
   ],
 });
+
+// Initialize flows by passing the 'ai' object
+defineGeneralQuestionFlow(ai);
+defineRecipeIngredientsFlow(ai);
+defineGeneratePackFlow(ai);
+defineSuggestAliasTargetFlow(ai);
+runAtlasDebugFlow(ai);

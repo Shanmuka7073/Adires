@@ -6,8 +6,8 @@
  * - runAtlasDebugFlow - A function that handles the diagnostic process.
  */
 
-import { ai } from '@/ai/genkit';
 import { z } from 'zod';
+import { Genkit } from 'genkit';
 
 const DebugReportSchema = z.object({
     report: z.string().describe('A concise, technical analysis of the root cause.'),
@@ -18,7 +18,7 @@ const DebugReportSchema = z.object({
  * Genkit flow for the Atlas Debug Agent. 
  * It analyzes detailed error messages and provides a structured fix.
  */
-export const runAtlasDebugFlow = ai.defineFlow( 
+export const runAtlasDebugFlow = (ai: Genkit) => ai.defineFlow(
     {
         name: 'atlasDebugFlow',
         inputSchema: z.object({ errorDetails: z.string(), failedFunction: z.string() }),

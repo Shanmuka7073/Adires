@@ -3,23 +3,21 @@
 /**
  * @fileOverview An AI flow to suggest the correct target for a failed voice command.
  */
-import { ai } from '@/ai/genkit';
-// Import schemas from the central file
 import {
   AliasTargetSuggestionInputSchema,
   AliasTargetSuggestionOutputSchema,
   type AliasTargetSuggestionInput,
   type AliasTargetSuggestionOutput,
 } from './schemas';
+import { Genkit } from 'genkit';
 
-
-// 1. Define the Prompt (this must stay defined explicitly)
-const suggestAliasPrompt = ai.definePrompt({
-  name: 'suggestAliasPrompt',
-  model: 'gemini-2.5-flash',
-  input: { schema: AliasTargetSuggestionInputSchema },
-  output: { schema: AliasTargetSuggestionOutputSchema },
-  prompt: `You are an expert linguistic mapping assistant for an Indian grocery voice command system. Your task is to accurately map a user's failed voice command to the correct item (product, command, or store).
+export const defineSuggestAliasTargetFlow = (ai: Genkit) => {
+    const suggestAliasPrompt = ai.definePrompt({
+        name: 'suggestAliasPrompt',
+        model: 'gemini-2.5-flash',
+        input: { schema: AliasTargetSuggestionInputSchema },
+        output: { schema: AliasTargetSuggestionOutputSchema },
+        prompt: `You are an expert linguistic mapping assistant for an Indian grocery voice command system. Your task is to accurately map a user's failed voice command to the correct item (product, command, or store).
 
   You are provided with:
   1. The user's failed command.
@@ -44,26 +42,27 @@ const suggestAliasPrompt = ai.definePrompt({
 
   Based on your analysis and the critical instructions above, identify the single most likely target 'key' from the provided list. Return ONLY the JSON object with the 'suggestedTargetKey' field. If no high-confidence match is found, return a JSON object with the 'suggestedTargetKey' field being explicitly undefined.
   `,
-});
+    });
 
-// 2. Define the flow logic directly within the exported function
-const suggestAliasTargetFlow = ai.defineFlow(
-  {
-    name: 'suggestAliasTargetFlow',
-    inputSchema: AliasTargetSuggestionInputSchema,
-    outputSchema: AliasTargetSuggestionOutputSchema,
-  },
-  async (input) => {
-    const { output } = await suggestAliasPrompt(input);
-    if (!output) {
-      return { suggestedTargetKey: undefined };
-    }
-    return output;
-  }
-);
+    const suggestAliasTargetFlow = ai.defineFlow(
+        {
+            name: 'suggestAliasTargetFlow',
+            inputSchema: AliasTargetSuggestionInputSchema,
+            outputSchema: AliasTargetSuggestionOutputSchema,
+        },
+        async (input) => {
+            const { output } = await suggestAliasPrompt(input);
+            if (!output) {
+                return { suggestedTargetKey: undefined };
+            }
+            return output;
+        }
+    );
+    return suggestAliasTargetFlow;
+};
 
-// 3. Export the Server Action wrapper function which calls the defined flow
 export async function suggestAliasTarget(input: AliasTargetSuggestionInput): Promise<AliasTargetSuggestionOutput> {
-  // Directly call the flow instance here
-  return suggestAliasTargetFlow(input);
+  const { ai } = await import('@/ai/genkit');
+  const flow = defineSuggestAliasTargetFlow(ai);
+  return flow(input);
 }
