@@ -14,6 +14,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Loader2, Trash2, FileWarning, MessageSquareWarning, Sparkles, Lightbulb, Languages, PlusCircle, Save } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 // A simple component to display the static suggestion
 function SuggestionCard({ onSave }: { onSave: (alias: string, lang: string) => void }) {
