@@ -21,7 +21,7 @@ const suggestAliasPrompt = ai.definePrompt({
   prompt: `You are an expert linguistic mapping assistant for an Indian grocery voice command system. Your task is to accurately map a user's failed voice command to the correct item (product, command, or store).
 
   You will be given:
-  1. The user's failed command.
+  1. The user's failed voice command.
   2. The detected language of the command.
   3. A comprehensive list of all possible target items, each with a unique 'key', a 'display' name in English, and a list of its own known aliases.
 
@@ -65,6 +65,7 @@ export async function suggestAliasTarget(input: AliasTargetSuggestionInput): Pro
   // Directly call the flow instance here
   return suggestAliasTargetFlow(input);
 }
+
 
 
 
