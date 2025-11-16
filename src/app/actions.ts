@@ -20,10 +20,10 @@ async function getFirestoreCounts() {
 export async function getSystemStatus() {
     try {
         const counts = await getFirestoreCounts();
-        // LLM status is no longer checked as AI features are removed.
+        // LLM status is no longer checked as AI features are removed from server actions.
         return {
             status: 'ok',
-            llmStatus: 'Offline', // Default to Offline since AI is removed.
+            llmStatus: 'Offline', // AI is now client-side only.
             serverDbStatus: 'Online',
             counts: counts,
         };

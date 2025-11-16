@@ -1,1 +1,1 @@
-// This file has been removed as all AI functionality was disabled by the user.
+// This file has been removed as the AI flow was moved to the client-side.
