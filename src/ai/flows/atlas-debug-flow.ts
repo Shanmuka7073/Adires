@@ -1,8 +1,7 @@
 'use server';
 import { generate } from '@genkit-ai/ai';
-import { flow } from '@genkit-ai/core';
-import { googleAI } from '@genkit-ai/google-genai';
 import { z } from 'zod';
+import { ai } from '@/ai/genkit'; // Import the initialized AI object
 
 const DebugReportSchema = z.object({
     report: z.string().describe('A concise, technical analysis of the root cause.'),
@@ -13,10 +12,9 @@ type DebugReport = z.infer<typeof DebugReportSchema>;
 
 /**
  * This Genkit flow function is now the direct export.
- * NOTE: When calling this flow from the Server Action, you MUST pass 
- * the input as a single object: runAtlasDebugFlow({ errorDetails, failedFunction })
+ * It uses the central `ai` object to be defined correctly.
  */
-export const runAtlasDebugFlow = flow( 
+export const runAtlasDebugFlow = ai.defineFlow( 
     {
         name: 'atlasDebugFlow',
         inputSchema: z.object({ errorDetails: z.string(), failedFunction: z.string() }),
@@ -35,7 +33,7 @@ export const runAtlasDebugFlow = flow(
         const userPrompt = `Perform a full system diagnostic based on the provided context.`;
 
         const response = await generate({
-            model: googleAI('gemini-1.5-flash-preview'),
+            model: 'googleai/gemini-1.5-flash-preview',
             prompt: userPrompt,
             config: {
                 temperature: 0.1,
