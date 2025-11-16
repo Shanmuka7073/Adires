@@ -1,4 +1,3 @@
-
 'use client';
 import {
   Auth,
@@ -25,9 +24,11 @@ export function initiateAnonymousSignIn(authInstance: Auth): Promise<void> {
 /** Initiate email/password sign-up (non-blocking). */
 export function initiateEmailSignUp(authInstance: Auth, email: string, password: string): Promise<void> {
   return createUserWithEmailAndPassword(authInstance, email, password)
-    .then(() => {
+    .then(async (userCredential) => {
       // After sign-up, the user is automatically signed in.
-      // The onAuthStateChanged listener in the provider will handle session creation.
+      // Create the server-side session cookie immediately.
+      const idToken = await userCredential.user.getIdToken();
+      await sessionLogin(idToken);
     })
     .catch((err) => {
       console.error('Email sign-up failed:', err);
