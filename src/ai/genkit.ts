@@ -6,8 +6,8 @@
  */
 import { defineGenkit } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
-// CRITICAL FIX: Use a wildcard import to robustly handle module resolution in Next.js.
-import * as firebaseModule from '@genkit-ai/firebase'; 
+// CRITICAL FIX: Use the correct default import for the Firebase plugin.
+import firebase from '@genkit-ai/firebase'; 
 
 // Dynamically import all flows to be registered
 import { answerGeneralQuestion } from '@/ai/flows/general-question-flow';
@@ -16,13 +16,10 @@ import { generatePack } from '@/ai/flows/generate-pack-flow';
 import { suggestAliasTarget } from '@/ai/flows/suggest-alias-flow';
 import { runAtlasDebugFlow } from '@/ai/flows/atlas-debug-flow';
 
-// Extract the callable firebase function from the module object to handle Webpack quirks.
-const firebasePluginFunction = firebaseModule.default || firebaseModule.firebase;
-
 // IMPORTANT: Using the API Key provided by the user directly.
 const GEMINI_API_KEY = "AIzaSyDlTc56bOOF_k_N53lRdnR7KU21e5E45Y";
 
-// Define the core Genkit configuration using modern imports (defineGenkit/googleGenai)
+// Define the core Genkit configuration using modern imports
 const ai = defineGenkit({
   // 1. Plugins: Load required Genkit plugins
   plugins: [
@@ -33,8 +30,8 @@ const ai = defineGenkit({
       defaultModel: 'gemini-2.5-flash',
     }), 
     
-    // Initialize the Firebase plugin using the extracted, resolved function
-    firebasePluginFunction(),
+    // Initialize the Firebase plugin
+    firebase(),
   ],
   
   // 2. Logging: Set log level and enable tracing
