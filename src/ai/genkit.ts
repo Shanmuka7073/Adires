@@ -3,7 +3,7 @@
  * Genkit v1.x configuration file
  */
 
-import { genkit, type Genkit } from 'genkit';
+import { genkit } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
 import { enableFirebaseTelemetry } from '@genkit-ai/firebase';
 import { defineGeneralQuestionFlow } from '@/ai/flows/general-question-flow';

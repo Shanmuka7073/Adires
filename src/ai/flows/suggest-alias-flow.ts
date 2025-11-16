@@ -6,8 +6,6 @@
 import {
   AliasTargetSuggestionInputSchema,
   AliasTargetSuggestionOutputSchema,
-  type AliasTargetSuggestionInput,
-  type AliasTargetSuggestionOutput,
 } from './schemas';
 import { Genkit } from 'genkit';
 
@@ -44,7 +42,7 @@ export const defineSuggestAliasTargetFlow = (ai: Genkit) => {
   `,
     });
 
-    const suggestAliasTargetFlow = ai.defineFlow(
+    ai.defineFlow(
         {
             name: 'suggestAliasTargetFlow',
             inputSchema: AliasTargetSuggestionInputSchema,
@@ -58,11 +56,4 @@ export const defineSuggestAliasTargetFlow = (ai: Genkit) => {
             return output;
         }
     );
-    return suggestAliasTargetFlow;
 };
-
-export async function suggestAliasTarget(input: AliasTargetSuggestionInput): Promise<AliasTargetSuggestionOutput> {
-  const { ai } = await import('@/ai/genkit');
-  const flow = defineSuggestAliasTargetFlow(ai);
-  return flow(input);
-}

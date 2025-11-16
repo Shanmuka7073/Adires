@@ -7,8 +7,6 @@
 import { 
   GeneralQuestionInputSchema, 
   GeneralQuestionOutputSchema,
-  type GeneralQuestionInput,
-  type GeneralQuestionOutput,
 } from './schemas';
 import { Genkit } from 'genkit';
 
@@ -27,7 +25,7 @@ export const defineGeneralQuestionFlow = (ai: Genkit) => {
         }
     );
 
-    const generalQuestionFlow = ai.defineFlow(
+    ai.defineFlow(
         {
             name: 'generalQuestionFlow',
             inputSchema: GeneralQuestionInputSchema,
@@ -41,14 +39,4 @@ export const defineGeneralQuestionFlow = (ai: Genkit) => {
             return { answer };
         }
     );
-    return generalQuestionFlow;
-}
-
-
-// This is the actual server action that will be called from the client
-export async function answerGeneralQuestion(input: GeneralQuestionInput): Promise<GeneralQuestionOutput> {
-  // We need to re-import the ai object here, but only inside the action.
-  const { ai } = await import('@/ai/genkit');
-  const flow = defineGeneralQuestionFlow(ai);
-  return flow(input);
 }

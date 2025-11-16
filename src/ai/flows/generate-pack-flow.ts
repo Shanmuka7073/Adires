@@ -6,8 +6,6 @@
 import { 
   GeneratePackInputSchema,
   GeneratePackOutputSchema,
-  type GeneratePackInput,
-  type GeneratePackOutput,
 } from './schemas';
 import { Genkit } from 'genkit';
 
@@ -35,7 +33,7 @@ export const defineGeneratePackFlow = (ai: Genkit) => {
   `,
     });
 
-    const generatePackFlow = ai.defineFlow(
+    ai.defineFlow(
         {
             name: 'generatePackFlow',
             inputSchema: GeneratePackInputSchema,
@@ -49,11 +47,4 @@ export const defineGeneratePackFlow = (ai: Genkit) => {
             return output;
         }
     );
-    return generatePackFlow;
 };
-
-export async function generatePack(input: GeneratePackInput): Promise<GeneratePackOutput> {
-  const { ai } = await import('@/ai/genkit');
-  const flow = defineGeneratePackFlow(ai);
-  return flow(input);
-}

@@ -7,8 +7,6 @@
 import { 
   RecipeIngredientsInputSchema,
   RecipeIngredientsOutputSchema,
-  type RecipeIngredientsInput,
-  type RecipeIngredientsOutput
 } from './schemas';
 import { Genkit } from 'genkit';
 
@@ -26,7 +24,7 @@ export const defineRecipeIngredientsFlow = (ai: Genkit) => {
         }
     );
 
-    const recipeIngredientsFlow = ai.defineFlow(
+    ai.defineFlow(
         {
             name: 'recipeIngredientsFlow',
             inputSchema: RecipeIngredientsInputSchema,
@@ -38,17 +36,4 @@ export const defineRecipeIngredientsFlow = (ai: Genkit) => {
             return output!;
         }
     );
-    return recipeIngredientsFlow;
 };
-
-/**
- * An async function that runs the Genkit flow to get ingredients for a recipe.
- * This is the server action that the client will call.
- * @param input The dish name.
- * @returns A promise that resolves to the list of ingredients.
- */
-export async function getIngredientsForRecipe(input: RecipeIngredientsInput): Promise<RecipeIngredientsOutput> {
-    const { ai } = await import('@/ai/genkit');
-    const flow = defineRecipeIngredientsFlow(ai);
-    return flow(input);
-}

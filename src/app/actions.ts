@@ -2,15 +2,8 @@
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
-import { generatePack } from '@/ai/flows/generate-pack-flow';
-import { getIngredientsForRecipe } from '@/ai/flows/recipe-ingredients-flow';
-import { answerGeneralQuestion } from '@/ai/flows/general-question-flow';
-import { suggestAliasTarget } from '@/ai/flows/suggest-alias-flow';
-import { runAtlasDebugFlow } from '@/ai/flows/atlas-debug-flow';
-
-
-// Import all types from the new central schema file
-export type { 
+import { ai } from '@/ai/genkit';
+import type {
     GeneratePackInput, 
     GeneratePackOutput,
     RecipeIngredientsInput,
@@ -45,14 +38,10 @@ export async function debugAtlasAction(userQuery: string, failedFunction: string
     
     try {
         const { auth } = await getAdminServices();
-        const decodedToken = await auth.verifyIdToken(idToken);
-        
-        // Correctly initialize AI and get the flow function
-        const { ai } = await import('@/ai/genkit');
-        const atlasFlow = runAtlasDebugFlow(ai);
+        await auth.verifyIdToken(idToken);
 
         // The user is authenticated. Now, run the Genkit flow.
-        const report = await atlasFlow({ errorDetails: userQuery, failedFunction: failedFunction });
+        const report = await ai.runFlow('atlasDebugFlow', { errorDetails: userQuery, failedFunction: failedFunction });
         return report;
 
     } catch (error: any) {
@@ -77,13 +66,24 @@ Error details: ${error.message}`
     }
 }
 
-// Re-exporting AI flows to be used as Server Actions
-export { 
-    generatePack, 
-    getIngredientsForRecipe, 
-    answerGeneralQuestion, 
-    suggestAliasTarget
-};
+
+// --- Re-exporting AI flows to be used as Server Actions ---
+
+export async function generatePack(input: GeneratePackInput): Promise<GeneratePackOutput> {
+  return ai.runFlow('generatePackFlow', input);
+}
+
+export async function getIngredientsForRecipe(input: RecipeIngredientsInput): Promise<RecipeIngredientsOutput> {
+  return ai.runFlow('recipeIngredientsFlow', input);
+}
+
+export async function answerGeneralQuestion(input: GeneralQuestionInput): Promise<GeneralQuestionOutput> {
+  return ai.runFlow('generalQuestionFlow', input);
+}
+
+export async function suggestAliasTarget(input: AliasTargetSuggestionInput): Promise<AliasTargetSuggestionOutput> {
+  return ai.runFlow('suggestAliasTargetFlow', input);
+}
 
 
 async function getFirestoreCounts() {
