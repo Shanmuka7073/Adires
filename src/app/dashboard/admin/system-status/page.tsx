@@ -1,11 +1,12 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Server, BrainCircuit, Database, ShieldAlert, Store as StoreIcon, Users } from 'lucide-react';
+import { Server, BrainCircuit, Database, ShieldAlert, Store as StoreIcon, Users, RefreshCw } from 'lucide-react';
 import { ServerStatusCard, ClientStatusCard } from './status-cards';
 import { getSystemStatus } from '@/app/actions';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 
 interface SystemStatus {
   llmStatus: 'Online' | 'Offline' | 'Degraded' | 'Unknown';
@@ -23,11 +24,10 @@ export default function SystemStatusPage() {
     userCount: 'N/A',
     storeCount: 'N/A',
   });
-  const [isLoading, setIsLoading] = useState(true);
+  const [isFetching, startFetchingTransition] = useTransition();
 
-  useEffect(() => {
-    const fetchStatus = async () => {
-      // Don't set loading to true for background refreshes
+  const fetchStatus = async () => {
+    startFetchingTransition(async () => {
       try {
         const serverStatus = await getSystemStatus();
 
@@ -58,23 +58,15 @@ export default function SystemStatusPage() {
             userCount: 'N/A',
             storeCount: 'N/A',
         }));
-      } finally {
-        // Only set loading to false on the initial load
-        if (isLoading) {
-          setIsLoading(false);
-        }
       }
-    };
+    });
+  };
 
-    // Fetch immediately on mount
+  // Fetch immediately on mount
+  useEffect(() => {
     fetchStatus();
-
-    // Then, set up an interval to refetch every 5 seconds
-    const intervalId = setInterval(fetchStatus, 5000);
-
-    // Cleanup function to clear the interval when the component unmounts
-    return () => clearInterval(intervalId);
-  }, [isLoading]); // Rerunning this effect is safe if isLoading changes, but it won't after the first load.
+    // The interval has been removed.
+  }, []);
 
   const StatusDisplay = ({ isLoading, children }: { isLoading: boolean, children: React.ReactNode }) => {
     return isLoading ? <Skeleton className="h-8 w-24" /> : <div className="text-3xl font-bold">{children}</div>;
@@ -82,18 +74,27 @@ export default function SystemStatusPage() {
 
   return (
     <div className="p-8 space-y-8 bg-gray-50 min-h-screen">
-      <h1 className="text-3xl font-bold text-gray-800 border-b pb-4">
-        System Status Dashboard
-      </h1>
-      <p className="text-gray-600">
-        Real-time health check of critical application components. This page automatically refreshes every 5 seconds.
-      </p>
+       <div className="flex justify-between items-center border-b pb-4">
+        <div>
+            <h1 className="text-3xl font-bold text-gray-800">
+                System Status Dashboard
+            </h1>
+            <p className="text-gray-600">
+                Health check of critical application components. Click refresh to get the latest status.
+            </p>
+        </div>
+         <Button onClick={fetchStatus} disabled={isFetching}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+            {isFetching ? 'Refreshing...' : 'Refresh Status'}
+        </Button>
+      </div>
+
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <ServerStatusCard
           title="Server Database (Admin)"
           status={{
-            status: status.serverDbStatus,
+            status: isFetching ? 'Loading' : status.serverDbStatus,
             message: status.errorMessage || `Admin SDK connection is ${status.serverDbStatus.toLowerCase()}.`
           }}
           iconName="Database"
@@ -121,7 +122,7 @@ export default function SystemStatusPage() {
               <Users className="h-5 w-5 text-indigo-500" />
             </CardHeader>
             <CardContent>
-              <StatusDisplay isLoading={isLoading}>{status.userCount}</StatusDisplay>
+              <StatusDisplay isLoading={isFetching}>{status.userCount}</StatusDisplay>
               <p className="text-xs text-gray-500">Real-time count not available</p>
             </CardContent>
           </Card>
@@ -132,7 +133,7 @@ export default function SystemStatusPage() {
               <StoreIcon className="h-5 w-5 text-green-500" />
             </CardHeader>
             <CardContent>
-              <StatusDisplay isLoading={isLoading}>{status.storeCount}</StatusDisplay>
+              <StatusDisplay isLoading={isFetching}>{status.storeCount}</StatusDisplay>
               <p className="text-xs text-gray-500">Real-time count not available</p>
             </CardContent>
           </Card>
