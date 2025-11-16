@@ -13,8 +13,8 @@ import {
 const getIngredientsPrompt = ai.definePrompt(
     {
         name: 'getIngredientsPrompt',
-        inputSchema: RecipeIngredientsInputSchema,
-        outputSchema: RecipeIngredientsOutputSchema,
+        input: { schema: RecipeIngredientsInputSchema },
+        output: { schema: RecipeIngredientsOutputSchema },
         prompt: `You are an expert chef. Provide a list of ingredients for the following dish: {{{dishName}}}.
 
 Please only list the core ingredients. Do not include quantities, measurements, or instructions.
