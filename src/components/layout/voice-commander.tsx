@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, errorEmitter, useDoc, useMemoFirebase } from '@/firebase';
-import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, VoiceAlias, MonthlyPackage, SiteConfig, RecipeIngredientsInput, RecipeIngredientsOutput, GeneralQuestionInput, GeneralQuestionOutput } from '@/lib/types';
+import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, VoiceAlias, MonthlyPackage, SiteConfig, RecipeIngredientsInput, RecipeIngredientsOutput } from '@/lib/types';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
 import { useAppStore } from '@/lib/store';
@@ -14,7 +14,7 @@ import { t, initializeTranslations } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import groceryData from '@/lib/grocery-data.json';
-import { getIngredientsForRecipe, answerGeneralQuestion } from '@/app/actions';
+import { getIngredientsForRecipe } from '@/app/actions';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache';
 import { useCheckoutStore } from '@/app/checkout/page';
@@ -126,7 +126,6 @@ export function VoiceCommander({
 
   const [isWaitingForQuantity, setIsWaitingForQuantity] = useState(false);
   const itemToUpdateSkuRef = useRef<string | null>(null);
-  const [isAiModeActive, setIsAiModeActive] = useState(false);
   
   const [isWaitingForPackStoreConfirmation, setIsWaitingForPackStoreConfirmation] = useState(false);
   const pendingPackRequestRef = useRef<{ packType: string; familySize: number; lang: string } | null>(null);
@@ -204,7 +203,6 @@ export function VoiceCommander({
     setItemForPriceCheck(null);
     setIsWaitingForPackStoreConfirmation(false);
     pendingPackRequestRef.current = null;
-    // Don't reset AI mode here, it's persistent now
   }, [onSuggestions, setIsWaitingForQuickOrderConfirmation, setShouldPlaceOrderDirectly]);
 
 
@@ -650,39 +648,6 @@ export function VoiceCommander({
         setLanguage(spokenLang);
         updateRecognitionLanguage(langWithRegion);
     }
-    
-    if (isAiModeActive) {
-        if (!aiConfig?.isGeneralQuestionApiEnabled) {
-            speak("I'm sorry, the general knowledge feature is currently disabled by the admin.", langWithRegion);
-            setIsAiModeActive(false);
-            return;
-        }
-        const quitKeywords = ['quit', 'exit', 'stop', 'ఆపు', 'బయటకు రా'];
-        if (quitKeywords.some(kw => commandText.toLowerCase().includes(kw))) {
-            setIsAiModeActive(false);
-            speak("Okay, back to regular commands.", langWithRegion);
-            return;
-        }
-
-        const cachedAnswer = await getCachedAIResponse(firestore, commandText);
-        if (cachedAnswer) {
-            speak(cachedAnswer, langWithRegion);
-        } else {
-            try {
-                const result = await answerGeneralQuestion({ question: commandText });
-                if (result.answer) {
-                  speak(result.answer, langWithRegion);
-                  await cacheAIResponse(firestore, commandText, result.answer);
-                } else {
-                   speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
-                }
-            } catch (error) {
-                console.error("General question failed:", error);
-                speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
-            }
-        }
-        return;
-    }
 
     // --- CONTEXTUAL RESPONSES ---
     if (isWaitingForPackStoreConfirmation) {
@@ -806,8 +771,7 @@ export function VoiceCommander({
             break;
 
         case 'WAKE_WORD':
-            setIsAiModeActive(true);
-            speak("I'm here to help. You can ask me anything. Just say 'quit' to exit.", langWithRegion);
+            speak("I can only get recipe ingredients right now.", langWithRegion);
             return;
 
         case 'GET_RECIPE':
@@ -883,32 +847,11 @@ export function VoiceCommander({
 
         case 'UNKNOWN':
         default:
-            if (aiConfig?.isGeneralQuestionApiEnabled) {
-                const cachedAnswer = await getCachedAIResponse(firestore, commandText);
-                 if (cachedAnswer) {
-                    speak(cachedAnswer, langWithRegion);
-                } else {
-                    speak("That's a good question. Let me think...", langWithRegion, async () => {
-                        try {
-                            const result: GeneralQuestionOutput = await answerGeneralQuestion({ question: commandText });
-                            if (result.answer) {
-                                speak(result.answer, langWithRegion);
-                                await cacheAIResponse(firestore, commandText, result.answer);
-                            } else {
-                                speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
-                            }
-                        } catch (e) {
-                            speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
-                        }
-                    });
-                }
-            } else {
-                speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
-                 if (firestore && user) {
-                    addDoc(collection(firestore, 'failedCommands'), {
-                        userId: user.uid, commandText, language: spokenLang, reason: 'UNKNOWN intent & AI mode not active', timestamp: serverTimestamp(),
-                    });
-                }
+            speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
+            if (firestore && user) {
+                addDoc(collection(firestore, 'failedCommands'), {
+                    userId: user.uid, commandText, language: spokenLang, reason: 'UNKNOWN intent', timestamp: serverTimestamp(),
+                });
             }
             break;
     }
@@ -917,7 +860,7 @@ export function VoiceCommander({
         resetAllContext();
     }
 
-  }, [firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp, setLanguage, addItemToCart, removeItem, onOpenCart, locales, commands, getAllAliases, t, triggerVoicePrompt, itemForPriceCheck, recognizeIntent, isAiModeActive, isWaitingForPackStoreConfirmation, masterProducts, fetchInitialData, aiConfig]);
+  }, [firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp, setLanguage, addItemToCart, removeItem, onOpenCart, locales, commands, getAllAliases, t, triggerVoicePrompt, itemForPriceCheck, recognizeIntent, isWaitingForPackStoreConfirmation, masterProducts, fetchInitialData, aiConfig]);
 
     // Effect to handle retrying a command
     useEffect(() => {
@@ -934,11 +877,7 @@ export function VoiceCommander({
     }
 
     recognition.onstart = () => {
-      if (isAiModeActive) {
-        onStatusUpdate("I'm listening for your question...");
-      } else {
         onStatusUpdate(`Listening... (${language}-IN)`);
-      }
     };
 
     recognition.onresult = (event) => {
@@ -1406,7 +1345,7 @@ export function VoiceCommander({
         recognition.stop();
       }
     };
-  }, [handleCommand, cartTotal, cartItemsProp, pathname, masterProducts, t, isAiModeActive, aiConfig]);
+  }, [handleCommand, cartTotal, cartItemsProp, pathname, masterProducts, t, aiConfig]);
 
   useEffect(() => {
     console.log('Current language changed to:', language);
@@ -1414,3 +1353,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    

@@ -14,7 +14,7 @@ import type { Order, Store as StoreType, SiteConfig } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { t } from '@/lib/locales';
-import { answerGeneralQuestion } from '@/app/actions';
+import { getIngredientsForRecipe } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
@@ -93,9 +93,8 @@ function AiTestCard() {
         }
         startTransition(async () => {
             try {
-                // The action name is updated, but functionality is similar for a test
-                const result = await answerGeneralQuestion({ question: `ingredients for ${dish}` });
-                setIngredients(result.answer.split(', '));
+                const result = await getIngredientsForRecipe({ dishName: dish });
+                setIngredients(result.ingredients);
             } catch (error) {
                 console.error(error);
                 toast({ variant: 'destructive', title: 'AI Error', description: (error as Error).message || 'Could not fetch ingredients.' });
@@ -294,3 +293,5 @@ export default function AdminDashboardPage() {
         </div>
     );
 }
+
+    
