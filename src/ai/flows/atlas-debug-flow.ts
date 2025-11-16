@@ -1,4 +1,9 @@
 'use server';
+/**
+ * @fileOverview A diagnostic AI agent for system health.
+ *
+ * - runAtlasDebugFlow - A function that handles the diagnostic process.
+ */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
@@ -29,7 +34,7 @@ export const runAtlasDebugFlow = ai.defineFlow(
         4. The 'fixInstructions' must be detailed markdown, including file names and clear, step-by-step instructions. Use code blocks for file paths or code snippets.`;
 
         const { output } = await ai.generate({
-            model: 'googleai/gemini-1.5-flash-preview',
+            model: 'googleai/gemini-1.5-flash-preview-001',
             prompt: `Perform a full system diagnostic based on the provided context.`,
             config: {
                 temperature: 0.1,
