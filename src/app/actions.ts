@@ -20,6 +20,7 @@ export async function debugAtlasAction(userQuery: string, failedFunction: string
     // If there is an error in the flow, Atlas reports on itself.
     
     try {
+        // Pass arguments as a single object to match the flow's input schema
         const report = await atlasDebugFlow({ errorDetails: userQuery, failedFunction: failedFunction });
         return report;
     } catch (atlasError: any) {

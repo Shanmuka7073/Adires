@@ -1,9 +1,9 @@
 
 'use server';
 import { generate } from '@genkit-ai/ai';
-import { defineFlow, AITool } from '@genkit-ai/core'; 
 import { googleAI } from '@genkit-ai/google-genai';
 import { z } from 'zod';
+import { genkit as ai } from 'genkit';
 
 const DebugReportSchema = z.object({
     report: z.string().describe('A concise, technical analysis of the root cause.'),
@@ -16,7 +16,7 @@ type DebugReport = z.infer<typeof DebugReportSchema>;
  * Genkit flow for the Atlas Debug Agent. 
  * It analyzes detailed error messages and provides a structured fix.
  */
-export const atlasDebugFlow = defineFlow(
+export const atlasDebugFlow = ai.defineFlow(
     {
         name: 'atlasDebugFlow',
         inputSchema: z.object({ errorDetails: z.string(), failedFunction: z.string() }),
@@ -39,10 +39,9 @@ export const atlasDebugFlow = defineFlow(
         Provide a comprehensive health check focusing on the most likely points of failure in the authentication and AI setup.`;
 
         const response = await generate({
-            model: googleAI('gemini-1.5-flash-preview-0514'),
+            model: googleAI('gemini-1.5-flash-preview'),
             prompt: userPrompt,
             config: {
-                systemInstruction: systemInstruction,
                 temperature: 0.1,
             },
             output: {
@@ -51,6 +50,10 @@ export const atlasDebugFlow = defineFlow(
             }
         });
 
-        return response.output()!;
+        const output = response.output();
+        if (!output) {
+            throw new Error("Failed to get a structured response from the AI model.");
+        }
+        return output;
     }
 );
