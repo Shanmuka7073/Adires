@@ -5,21 +5,13 @@
  */
 'use server';
 
-import { genkit } from 'genkit';
-import { googleAI } from '@genkit-ai/google-genai';
+import { ai } from '@/ai/genkit';
 import { 
   RecipeIngredientsInputSchema, 
   RecipeIngredientsOutputSchema,
   type RecipeIngredientsInput,
   type RecipeIngredientsOutput
 } from './schemas';
-
-// Configure the AI instance for this specific flow
-const ai = genkit({
-  plugins: [googleAI()],
-  logLevel: 'debug',
-  enableTracingAndMetrics: true,
-});
 
 const getIngredientsPrompt = ai.definePrompt(
   {

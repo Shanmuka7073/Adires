@@ -5,17 +5,9 @@
  * - runAtlasDebugFlow - A function that handles the diagnostic process.
  */
 
-import { genkit } from 'genkit';
-import { googleAI } from '@genkit-ai/google-genai';
+import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import 'dotenv/config';
-
-// Configure the AI instance specifically for this flow to ensure the API key is loaded.
-const ai = genkit({
-  plugins: [googleAI({ apiKey: process.env.GEMINI_API_KEY })],
-  logLevel: 'debug',
-  enableTracingAndMetrics: true,
-});
 
 const DebugReportSchema = z.object({
     report: z.string().describe('A concise, technical analysis of the root cause.'),
