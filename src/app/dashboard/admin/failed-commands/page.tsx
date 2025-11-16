@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
-import { Loader2, Trash2, Sparkles, AlertCircle, FileWarning, ThumbsUp } from 'lucide-react';
+import { Loader2, Trash2, Sparkles, AlertCircle, FileWarning, ThumbsUp, MessageSquareWarning } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { suggestAliasTarget } from '@/app/actions';
 import { useAppStore } from '@/lib/store';
