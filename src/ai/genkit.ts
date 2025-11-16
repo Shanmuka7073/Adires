@@ -7,6 +7,8 @@
  */
 import { genkit } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
+import { firebase } from '@genkit-ai/firebase';
+import { defineFlow, startFlow } from '@genkit-ai/flow';
 
 // The API key is now set as an environment variable in the deployment environment.
 // The googleAI() plugin will automatically pick it up from process.env.GEMINI_API_KEY.
@@ -20,5 +22,6 @@ process.env.GEMINI_API_KEY = GEMINI_API_KEY;
 export const ai = genkit({
   plugins: [
     googleAI(),
+    firebase(),
   ],
 });
