@@ -3,7 +3,6 @@
 
 import { runAtlasDebugFlow } from '@/ai/flows/atlas-debug-flow';
 import { getAdminServices } from '@/firebase/admin-init';
-import { headers } from 'next/headers';
 
 type DebugReport = {
     report: string;
@@ -14,12 +13,10 @@ type DebugReport = {
  * Atlas Debug Action: Analyzes a system error and generates a report.
  * @param {string} userQuery - The user's query (or error details).
  * @param {string} failedFunction - Context for the AI.
+ * @param {string} idToken - The user's Firebase ID token for verification.
  * @returns {Promise<DebugReport>} A structured report and fix instructions from Atlas.
  */
-export async function debugAtlasAction(userQuery: string, failedFunction: string): Promise<DebugReport> {
-    
-    const headersList = headers();
-    const idToken = headersList.get('Authorization')?.split('Bearer ')[1];
+export async function debugAtlasAction(userQuery: string, failedFunction: string, idToken: string): Promise<DebugReport> {
 
     if (!idToken) {
         return {

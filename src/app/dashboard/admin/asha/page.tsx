@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getFirestore, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from "firebase/firestore";
 import { useFirebase } from '@/firebase';
 import { Send, User, Bug, Loader2 } from 'lucide-react';
+import { debugAtlasAction } from '@/app/actions';
 
 const DEBUG_PATH_PREFIX = `/asha-conversations/`;
 
@@ -52,25 +53,11 @@ const App = () => {
         });
 
         try {
+            // Get the user's ID token for server-side verification
             const idToken = await user.getIdToken();
 
-            // Use fetch to call the Server Action endpoint with auth headers.
-            // Next.js automatically creates an endpoint for the server action.
-            const response = await fetch('/api/actions/debugAtlasAction', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${idToken}`,
-                },
-                body: JSON.stringify([userMessage, 'Diagnostic Check']),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Server action failed');
-            }
-            
-            const debugReport = await response.json();
+            // Directly call the imported Server Action
+            const debugReport = await debugAtlasAction(userMessage, 'Diagnostic Check', idToken);
 
             // Success: Save the Atlas report
             await addDoc(collection(firestore, userReportsPath), {
