@@ -1,7 +1,7 @@
-
 'use server';
 
-import { atlasDebugFlow } from '@/ai/flows/atlas-debug-flow'; 
+// We import the entire Genkit flow file here.
+import { runAtlasDebugFlow } from '@/ai/flows/atlas-debug-flow'; 
 
 type DebugReport = {
     report: string;
@@ -16,19 +16,21 @@ type DebugReport = {
  */
 export async function debugAtlasAction(userQuery: string, failedFunction: string): Promise<DebugReport> {
     
-    // In this simplified version, we skip the token check and go straight to the AI analysis.
-    // If there is an error in the flow, Atlas reports on itself.
-    
     try {
-        // Pass arguments as a single object to match the flow's input schema
-        const report = await atlasDebugFlow({ errorDetails: userQuery, failedFunction: failedFunction });
+        // We use the imported Genkit flow function directly.
+        // If the import is successful, this should work without the Webpack error.
+        const report = await runAtlasDebugFlow({ errorDetails: userQuery, failedFunction: failedFunction });
         return report;
     } catch (atlasError: any) {
         console.error("ATLAS Flow Execution FAILED:", atlasError);
         // Fallback if Genkit fails to run
         return {
             report: "Atlas execution failed.",
-            fixInstructions: `The 'atlasDebugFlow' Genkit flow could not be reached. Check your Genkit environment setup and dependencies. Error: ${atlasError.message}`
+            fixInstructions: `CRITICAL: The Genkit flow failed to execute. This is typically caused by:
+1. Invalid or expired GEMINI API Key in your Genkit config.
+2. A firewall preventing the server from connecting to Google's API.
+3. A fundamental issue with the Genkit import/export in 'src/app/actions.ts'.
+Error details: ${atlasError.message}`
         };
     }
 }

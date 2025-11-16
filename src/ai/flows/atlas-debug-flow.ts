@@ -1,5 +1,4 @@
 'use server';
-
 import { generate } from '@genkit-ai/ai';
 import { flow } from '@genkit-ai/core';
 import { googleAI } from '@genkit-ai/google-genai';
@@ -13,10 +12,11 @@ const DebugReportSchema = z.object({
 type DebugReport = z.infer<typeof DebugReportSchema>;
 
 /**
- * Genkit flow for the Atlas Debug Agent. 
- * It analyzes detailed error messages and provides a structured fix.
+ * This Genkit flow function is now the direct export.
+ * NOTE: When calling this flow from the Server Action, you MUST pass 
+ * the input as a single object: runAtlasDebugFlow({ errorDetails, failedFunction })
  */
-export const atlasDebugFlow = flow(
+export const runAtlasDebugFlow = flow( 
     {
         name: 'atlasDebugFlow',
         inputSchema: z.object({ errorDetails: z.string(), failedFunction: z.string() }),
@@ -28,15 +28,11 @@ export const atlasDebugFlow = flow(
 
         CRITICAL OUTPUT MANDATES:
         1. Always output a valid JSON object matching the requested schema {report: string, fixInstructions: string}.
-        2. Analyze the user's query and generate a **comprehensive diagnostic report** assuming a high probability of: 
-           - **Authentication Failure** (if user mentions tokens/auth): Token is expired, or the local JWT decode failed.
-           - **Permission Failure** (if user mentions Firestore): Missing or incorrect Firebase Security Rules for /artifacts/{appId}/users/{userId}.
-           - **Genkit Failure** (if user mentions AI/model): Genkit dependencies or configuration is wrong, or the API key is invalid.
-        3. The 'fixInstructions' must be detailed markdown, including file names and clear, step-by-step instructions. Use code blocks for file paths or code snippets.`;
+        2. Analyze the context: The last known failing action was '${failedFunction}'. The user's query or error details are: "${errorDetails}".
+        3. Generate a comprehensive diagnostic report focusing on the most likely points of failure: Gemini API key validation, Firestore Rules, and Auth token decoding.
+        4. The 'fixInstructions' must be detailed markdown, including file names and clear, step-by-step instructions. Use code blocks for file paths or code snippets.`;
 
-        const userPrompt = `Perform a full system diagnostic. The last known failing action was '${failedFunction}'. The user input was: "${errorDetails}". 
-        
-        Provide a comprehensive health check focusing on the most likely points of failure in the authentication and AI setup.`;
+        const userPrompt = `Perform a full system diagnostic based on the provided context.`;
 
         const response = await generate({
             model: googleAI('gemini-1.5-flash-preview'),
