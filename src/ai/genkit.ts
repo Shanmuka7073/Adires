@@ -5,11 +5,14 @@
  */
 import { genkit } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
+import { firebase } from '@genkit-ai/firebase';
 
-// Initialize Genkit with the Google AI plugin.
-// The plugin will automatically look for the GEMINI_API_KEY in the environment.
+// Initialize Genkit with the Firebase and Google AI plugins.
+// The firebase() plugin allows Genkit to use the application's default
+// authentication credentials, which is what the "Grant Access" dialog provides.
 export const ai = genkit({
   plugins: [
+    firebase(),
     googleAI(),
   ],
   logLevel: 'debug',
