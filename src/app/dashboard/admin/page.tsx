@@ -222,12 +222,6 @@ export default function AdminDashboardPage() {
                         href="/dashboard/admin/system-status"
                         icon={Server}
                     />
-                    <AdminActionCard 
-                        title="Asha AI Agent"
-                        description="Chat with the conversational AI shopping assistant."
-                        href="/dashboard/admin/asha"
-                        icon={Bot}
-                    />
                      <AdminActionCard 
                         title="View App Pitch"
                         description="Review and share the official app pitch document."
