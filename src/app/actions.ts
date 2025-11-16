@@ -18,7 +18,7 @@ export async function debugAtlasAction(userQuery: string, failedFunction: string
     
     try {
         // We use the imported Genkit flow function directly.
-        // If the import is successful, this should work without the Webpack error.
+        // The input must be a single object matching the flow's inputSchema.
         const report = await runAtlasDebugFlow({ errorDetails: userQuery, failedFunction: failedFunction });
         return report;
     } catch (atlasError: any) {

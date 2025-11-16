@@ -1,18 +1,16 @@
 'use server';
-import { generate } from '@genkit-ai/ai';
+
+import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { ai } from '@/ai/genkit'; // Import the initialized AI object
 
 const DebugReportSchema = z.object({
     report: z.string().describe('A concise, technical analysis of the root cause.'),
     fixInstructions: z.string().describe('Actionable markdown steps to resolve the issue, including file paths and code snippets if applicable.'),
 });
 
-type DebugReport = z.infer<typeof DebugReportSchema>;
-
 /**
- * This Genkit flow function is now the direct export.
- * It uses the central `ai` object to be defined correctly.
+ * Genkit flow for the Atlas Debug Agent. 
+ * It analyzes detailed error messages and provides a structured fix.
  */
 export const runAtlasDebugFlow = ai.defineFlow( 
     {
@@ -22,7 +20,7 @@ export const runAtlasDebugFlow = ai.defineFlow(
     },
     async ({ errorDetails, failedFunction }) => {
         
-        const systemInstruction = `You are Atlas, an expert AI Observability and Debugging Agent. Your sole purpose is to analyze system health and provide a structured, actionable report to the developer based on the current context of this application (Next.js, Genkit, Firebase Auth/Firestore).
+        const systemPrompt = `You are Atlas, an expert AI Observability and Debugging Agent. Your sole purpose is to analyze system health and provide a structured, actionable report to the developer based on the current context of this application (Next.js, Genkit, Firebase Auth/Firestore).
 
         CRITICAL OUTPUT MANDATES:
         1. Always output a valid JSON object matching the requested schema {report: string, fixInstructions: string}.
@@ -30,21 +28,19 @@ export const runAtlasDebugFlow = ai.defineFlow(
         3. Generate a comprehensive diagnostic report focusing on the most likely points of failure: Gemini API key validation, Firestore Rules, and Auth token decoding.
         4. The 'fixInstructions' must be detailed markdown, including file names and clear, step-by-step instructions. Use code blocks for file paths or code snippets.`;
 
-        const userPrompt = `Perform a full system diagnostic based on the provided context.`;
-
-        const response = await generate({
+        const { output } = await ai.generate({
             model: 'googleai/gemini-1.5-flash-preview',
-            prompt: userPrompt,
+            prompt: `Perform a full system diagnostic based on the provided context.`,
             config: {
                 temperature: 0.1,
             },
             output: {
                 format: 'json',
                 schema: DebugReportSchema,
-            }
+            },
+            system: systemPrompt,
         });
 
-        const output = response.output();
         if (!output) {
             throw new Error("Failed to get a structured response from the AI model.");
         }
