@@ -3,6 +3,11 @@
 
 import { runAtlasDebugFlow } from '@/ai/flows/atlas-debug-flow';
 import { getAdminServices } from '@/firebase/admin-init';
+import { generatePack, type GeneratePackInput, type GeneratePackOutput } from '@/ai/flows/generate-pack-flow';
+import { getIngredientsForRecipe, type RecipeIngredientsInput, type RecipeIngredientsOutput } from '@/ai/flows/recipe-ingredients-flow';
+import { answerGeneralQuestion, type GeneralQuestionInput, type GeneralQuestionOutput } from '@/ai/flows/general-question-flow';
+import { suggestAliasTarget, type AliasTargetSuggestionInput, type AliasTargetSuggestionOutput } from '@/ai/flows/suggest-alias-flow';
+import { listSupportedModels } from '@/ai/flows/list-models-flow';
 
 type DebugReport = {
     report: string;
@@ -51,6 +56,58 @@ export async function debugAtlasAction(userQuery: string, failedFunction: string
 2. A firewall preventing the server from connecting to Google's API.
 3. A fundamental issue with the Genkit import/export in 'src/app/actions.ts'.
 Error details: ${error.message}`
+        };
+    }
+}
+
+// Re-exporting AI flows to be used as Server Actions
+export { 
+    generatePack, 
+    getIngredientsForRecipe, 
+    answerGeneralQuestion, 
+    suggestAliasTarget,
+    listSupportedModels
+};
+export type { 
+    GeneratePackInput, 
+    GeneratePackOutput,
+    RecipeIngredientsInput,
+    RecipeIngredientsOutput,
+    GeneralQuestionInput,
+    GeneralQuestionOutput,
+    AliasTargetSuggestionInput,
+    AliasTargetSuggestionOutput,
+};
+
+async function getFirestoreCounts() {
+    const { db } = await getAdminServices();
+    const usersSnapshot = await db.collection('users').get();
+    const storesSnapshot = await db.collection('stores').get();
+    return {
+        users: usersSnapshot.size,
+        stores: storesSnapshot.size,
+    };
+}
+
+export async function getSystemStatus() {
+    try {
+        // We can infer LLM status by trying a very simple, fast operation.
+        // For now, we'll assume if this function is called, the server is up.
+        // A real check would ping the Gemini API.
+        const counts = await getFirestoreCounts();
+        return {
+            status: 'ok',
+            llmStatus: 'Online',
+            serverDbStatus: 'Online',
+            counts: counts,
+        };
+    } catch (error) {
+        console.error("System status check failed:", error);
+        return {
+            status: 'error',
+            llmStatus: 'Unknown',
+            serverDbStatus: 'Offline',
+            counts: { users: 0, stores: 0 },
         };
     }
 }
