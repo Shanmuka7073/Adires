@@ -5,6 +5,7 @@
  */
 import { genkit } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
+import 'dotenv/config'; // Make sure to install dotenv: npm install dotenv
 
 // Initialize Genkit with the Google AI plugin.
 // This `ai` object is now the central point for all Genkit-related definitions.
