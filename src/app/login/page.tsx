@@ -21,6 +21,8 @@ import {
 import { useFirebase, useAuth } from '@/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import { logLoginAttempt } from '@/app/actions';
+import type { AuthError } from 'firebase/auth';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -60,30 +62,34 @@ export default function LoginPage() {
     defaultValues: { email: '', password: '' },
   });
 
+  const handleAuthError = (err: AuthError, email: string) => {
+    setError(err.message);
+    logLoginAttempt(email, 'failure', undefined, err.code);
+  };
+
   const onSubmit = (data: LoginFormValues) => {
     setError(null);
     startTransition(() => {
-      try {
         if (isSignUp) {
-          initiateEmailSignUp(auth, data.email, data.password).catch(err => {
-              setError(err.message);
-          });
-          toast({
-            title: 'Account Created!',
-            description:
-              'Your account has been successfully created. Please log in.',
-          });
-          setIsSignUp(false); // Switch to login view after signup
-          form.reset();
+          initiateEmailSignUp(auth, data.email, data.password)
+            .then(() => {
+                toast({
+                    title: 'Account Created!',
+                    description: 'Your account has been successfully created. Please log in.',
+                });
+                setIsSignUp(false); // Switch to login view after signup
+                form.reset();
+            })
+            .catch((err: AuthError) => {
+                // We don't log sign-up failures as malicious attempts.
+                setError(err.message);
+            });
         } else {
           // The sign-in will trigger the useEffect above to redirect on success.
-          initiateEmailSignIn(auth, data.email, data.password).catch(err => {
-              setError(err.message);
+          initiateEmailSignIn(auth, data.email, data.password).catch((err: AuthError) => {
+              handleAuthError(err, data.email);
           });
         }
-      } catch (err: any) {
-        setError(err.message);
-      }
     });
   };
 

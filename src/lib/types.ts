@@ -179,3 +179,15 @@ export type ChatMessage = {
   text: string;
   timestamp?: any;
 };
+
+export type LoginAttempt = {
+  id: string;
+  userId?: string;
+  email: string;
+  timestamp: any;
+  status: 'success' | 'failure';
+  ipAddress: string;
+  userAgent: string;
+  errorMessage?: string;
+  location?: string;
+}

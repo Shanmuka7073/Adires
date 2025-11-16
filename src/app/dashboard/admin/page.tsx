@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, Truck, ShoppingBag, ArrowRight, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box, Code, ShieldAlert, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { Users, Store, Truck, ShoppingBag, ArrowRight, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box, Code, ShieldAlert, AlertCircle, CheckCircle, XCircle, KeyRound } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -270,6 +270,12 @@ export default function AdminDashboardPage() {
                         description="Review failed commands and use AI to suggest fixes to improve accuracy."
                         href="/dashboard/admin/failed-commands"
                         icon={MessageSquareWarning}
+                    />
+                     <AdminActionCard
+                        title="Login History"
+                        description="Monitor all successful and failed login attempts for security."
+                        href="/dashboard/admin/login-history"
+                        icon={KeyRound}
                     />
                     <AdminActionCard 
                         title="voice-commands-control"
