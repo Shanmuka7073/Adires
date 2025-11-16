@@ -2,6 +2,7 @@
  * @fileoverview This file initializes the Genkit AI instance and exports it
  * for use in other parts of the application, such as defining flows.
  */
+
 import { genkit } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
 import * as firebaseModule from '@genkit-ai/firebase';
@@ -13,7 +14,9 @@ const firebasePlugin = (firebaseModule as any).firebase || (firebaseModule as an
 export const ai = genkit({
   plugins: [
     firebasePlugin(), // Correctly call the resolved plugin function
-    googleAI(),
+    googleAI({
+        apiKey: 'AIzaSyDlTc56bOOF_k_N53lRdnR7KU21e5E45Y' // Hardcoded API key
+    }),
   ],
   logLevel: 'debug',
   enableTracingAndMetrics: true,
