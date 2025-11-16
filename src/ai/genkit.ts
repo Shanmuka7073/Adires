@@ -18,6 +18,6 @@ import { firebase } from '@genkit-ai/firebase';
 export const ai = genkit({
   plugins: [
     googleAI(),
-    firebase(),
+    firebase(), // CORRECT: The Firebase plugin must be called as a function.
   ],
 });
