@@ -16,7 +16,7 @@ import {
 const getIngredientsPrompt = ai.definePrompt(
   {
     name: 'getIngredientsPrompt',
-    model: 'googleai/gemini-1.5-flash',
+    model: 'gemini-1.5-flash',
     input: { schema: RecipeIngredientsInputSchema },
     output: { schema: RecipeIngredientsOutputSchema },
     prompt: `You are an expert chef. Provide a list of ingredients for the following dish: {{{dishName}}}.
