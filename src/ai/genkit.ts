@@ -4,7 +4,7 @@
 
 import { genkit } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
-import firebasePlugin from '@genkit-ai/firebase';
+import { enableFirebaseTelemetry } from '@genkit-ai/firebase';
 
 // IMPORT FLOWS (required for registration)
 import '@/ai/flows/general-question-flow';
@@ -20,6 +20,7 @@ export const ai = genkit({
     googleAI({
       apiKey: GEMINI_API_KEY,
     }),
-    firebasePlugin(),
+    // Just enable telemetry — no “firebase()” plugin call
+    enableFirebaseTelemetry(),
   ],
 });
