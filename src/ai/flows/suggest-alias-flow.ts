@@ -15,7 +15,7 @@ import {
 // 1. Define the Prompt (this must stay defined explicitly)
 const suggestAliasPrompt = ai.definePrompt({
   name: 'suggestAliasPrompt',
-  model: 'gemini-1.5-flash',
+  model: 'gemini-1.5-flash-latest',
   input: { schema: AliasTargetSuggestionInputSchema },
   output: { schema: AliasTargetSuggestionOutputSchema },
   prompt: `You are an expert linguistic mapping assistant for an Indian grocery voice command system. Your task is to accurately map a user's failed voice command to the correct item (product, command, or store).
@@ -65,8 +65,3 @@ export async function suggestAliasTarget(input: AliasTargetSuggestionInput): Pro
   // Directly call the flow instance here
   return suggestAliasTargetFlow(input);
 }
-
-
-
-
-

@@ -16,7 +16,7 @@ import {
 const getIngredientsPrompt = ai.definePrompt(
   {
     name: 'getIngredientsPrompt',
-    model: 'gemini-1.5-flash',
+    model: 'gemini-1.5-flash-latest',
     input: { schema: RecipeIngredientsInputSchema },
     output: { schema: RecipeIngredientsOutputSchema },
     prompt: `You are an expert chef. Provide a list of ingredients for the following dish: {{{dishName}}}.
@@ -49,8 +49,3 @@ const recipeIngredientsFlow = ai.defineFlow(
 export async function getIngredientsForRecipe(input: RecipeIngredientsInput): Promise<RecipeIngredientsOutput> {
     return recipeIngredientsFlow(input);
 }
-
-
-
-
-
