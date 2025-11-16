@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface SystemStatus {
-  llmStatus: 'Online' | 'Offline' | 'Degraded';
+  llmStatus: 'Online' | 'Offline' | 'Degraded' | 'Unknown';
   serverDbStatus: 'Online' | 'Offline' | 'Unavailable' | 'Loading';
   userCount: number | 'N/A';
   storeCount: number | 'N/A';
@@ -17,7 +17,7 @@ interface SystemStatus {
 
 export default function SystemStatusPage() {
   const [status, setStatus] = useState<SystemStatus>({
-    llmStatus: 'Offline', // AI features are removed
+    llmStatus: 'Unknown',
     serverDbStatus: 'Loading',
     userCount: 'N/A',
     storeCount: 'N/A',
@@ -32,7 +32,7 @@ export default function SystemStatusPage() {
 
         if (serverStatus.status === 'ok') {
             setStatus({
-                llmStatus: 'Offline', // AI features are removed
+                llmStatus: serverStatus.llmStatus,
                 serverDbStatus: 'Online',
                 userCount: serverStatus.counts.users,
                 storeCount: serverStatus.counts.stores,
@@ -86,6 +86,12 @@ export default function SystemStatusPage() {
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <ServerStatusCard
+          title="LLM Service (Gemini)"
+          status={{ status: status.llmStatus, message: `Connection to Google's Gemini API is ${status.llmStatus.toLowerCase()}.` }}
+          iconName="BrainCircuit"
+          description="Handles all AI-powered features."
+        />
         <ServerStatusCard
           title="Server Database (Admin)"
           status={{status: status.serverDbStatus, message: `Admin SDK connection is ${status.serverDbStatus.toLowerCase()}.`}}

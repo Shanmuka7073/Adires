@@ -9,3 +9,7 @@ runConfig:
   # This is useful for long-running server actions.
   # The maximum value is 600 seconds (10 minutes).
   timeoutSeconds: 600
+# Make the Gemini API key available to the server environment.
+# You will need to create this secret in Google Cloud Secret Manager.
+secretEnvironmentVariables:
+  - GEMINI_API_KEY
