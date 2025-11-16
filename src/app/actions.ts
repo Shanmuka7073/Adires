@@ -28,6 +28,7 @@ import type {
 
 const MAX_RETRIES = 5;
 const INITIAL_BACKOFF_MS = 1000; // Start with 1 second
+const ADMIN_EMAIL = 'admin@gmail.com';
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function withRetries<T, U>(flowFunction: (input: T) => Promise<U>, input: T): Promise<U> {
@@ -66,6 +67,7 @@ export async function suggestAliasTarget(input: AliasTargetSuggestionInput): Pro
 
 /**
  * Server Action that verifies the user's ID token and then calls the AI flow.
+ * Now restricted to Admin users only.
  * @param idToken The Firebase ID Token sent from the client.
  * @param userMessage The latest message from the user.
  * @param history The contextual chat history.
@@ -77,18 +79,26 @@ export async function askAsha(idToken: string, userMessage: string, history: Cha
     }
     
     let uid: string;
+    let email: string | undefined;
     
     // 1. Verify the ID Token using Firebase Admin SDK
     try {
         const { auth } = await getAdminServices();
         const decodedToken = await auth.verifyIdToken(idToken);
         uid = decodedToken.uid;
+        email = decodedToken.email;
     } catch (error) {
         console.error("Token Verification Failed:", error);
         throw new Error("Authentication failed: Invalid or expired token.");
     }
 
-    // 2. Call the Genkit Flow with the verified UID
+    // 2. Check if the user is an admin
+    if (email !== ADMIN_EMAIL) {
+        console.warn(`Unauthorized access attempt to Asha Agent by user: ${email}`);
+        throw new Error("You do not have permission to use this feature.");
+    }
+
+    // 3. Call the Genkit Flow with the verified UID
     try {
         const responseText = await runAshaFlow(uid, userMessage, history); 
         return responseText;
