@@ -10,7 +10,7 @@ import { googleAI } from '@genkit-ai/google-genai';
 import { firebase } from '@genkit-ai/firebase';
 
 // The googleAI() plugin will now automatically pick up the API key
-// from the process.env.GEMINI_API_KEY environment variable if it's available.
+// from the process.env.GEMINI_API_KEY environment variable.
 // This is automatically handled by the Firebase App Hosting environment.
 
 // Initialize Genkit with the Google AI plugin.
