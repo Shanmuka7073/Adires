@@ -44,7 +44,7 @@ service cloud.firestore {
       allow create: if isOwner(userId) && request.resource.data.id == userId;
     }
 
-    // --- Asha AI Agent Chat History ---
+    // --- Atlas Diagnostic and Asha Agent Chat History ---
     // This rule allows a user to read and write only to their own conversation history.
     match /asha-conversations/{userId}/{document=**} {
         allow read, write: if isOwner(userId);

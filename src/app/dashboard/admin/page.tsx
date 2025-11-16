@@ -14,7 +14,7 @@ import type { Order, Store as StoreType, SiteConfig } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { t } from '@/lib/locales';
-import { getSystemStatus, getIngredientsForRecipe } from '@/app/actions';
+import { getSystemStatus, answerGeneralQuestion as getIngredientsForRecipe } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
@@ -93,8 +93,9 @@ function AiTestCard() {
         }
         startTransition(async () => {
             try {
-                const result = await getIngredientsForRecipe({ dishName: dish });
-                setIngredients(result.ingredients);
+                // The action name is updated, but functionality is similar for a test
+                const result = await getIngredientsForRecipe({ question: `ingredients for ${dish}` });
+                setIngredients(result.answer.split(', '));
             } catch (error) {
                 console.error(error);
                 toast({ variant: 'destructive', title: 'AI Error', description: (error as Error).message || 'Could not fetch ingredients.' });
@@ -275,6 +276,12 @@ export default function AdminDashboardPage() {
                         description="Enable or disable specific AI features across the entire site."
                         href="/dashboard/admin/site-config"
                         icon={Settings}
+                    />
+                     <AdminActionCard 
+                        title="Atlas Diagnostic Agent"
+                        description="A tool to diagnose and report on system health issues."
+                        href="/dashboard/admin/asha"
+                        icon={Bot}
                     />
                      <AdminActionCard 
                         title="View Chicken Animation"
