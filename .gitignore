@@ -4,6 +4,7 @@
 /node_modules
 /.pnp
 .pnp.js
+.pnp.cjs
 
 # testing
 /coverage
@@ -39,4 +40,5 @@ pnpm-debug.log*
 next-env.d.ts
 
 # Firebase
-service-account.json
+/service-account.json
+/src/firebase/service-account.json

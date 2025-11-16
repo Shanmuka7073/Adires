@@ -15,15 +15,13 @@ interface AdminServices {
 let adminServices: AdminServices | null = null;
 
 function getServiceAccount(): ServiceAccount | undefined {
-  // This is a fallback for local development if the env var isn't set,
-  // allowing the user to use a local file instead.
   try {
-    // Correct the relative path to point to the project root from src/firebase
-    return require('../../service-account.json');
+    // Load the service account key from the same directory.
+    return require('./service-account.json');
   } catch (e) {
     // This is not a critical error if the file doesn't exist,
     // as it's a fallback mechanism.
-    console.warn("Could not find 'service-account.json' in the project root. This is optional for local development if another credential method is used.");
+    console.warn("Could not find 'service-account.json' in 'src/firebase'. This is required for local admin operations.");
     return undefined;
   }
 }
@@ -38,7 +36,7 @@ export async function getAdminServices(): Promise<AdminServices> {
   if (!serviceAccount) {
     throw new Error(
       "Firebase Admin SDK credentials not found. " +
-      "For local development, please place a 'service-account.json' file in the project root."
+      "For local development, please place a 'service-account.json' file in the 'src/firebase' directory."
     );
   }
 
