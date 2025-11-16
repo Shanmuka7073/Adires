@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
@@ -16,6 +15,7 @@ import { useAppStore } from '@/lib/store';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { suggestAliasTarget } from '@/app/actions';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface AISuggestion {
   suggestedTarget: string;

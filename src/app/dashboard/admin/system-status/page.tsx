@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -88,7 +87,7 @@ export default function SystemStatusPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <ServerStatusCard
           title="LLM Service (Gemini)"
-          status={{ status: status.llmStatus, message: `AI features are currently disabled.` }}
+          status={{ status: status.llmStatus, message: status.llmStatus === 'Online' ? `AI features are operational.` : `AI features are currently disabled.` }}
           iconName="BrainCircuit"
           description="Handles all AI-powered features."
         />
