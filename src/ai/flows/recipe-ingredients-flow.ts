@@ -9,13 +9,12 @@ import {
   RecipeIngredientsInputSchema,
   RecipeIngredientsOutputSchema,
 } from './schemas';
-import type { Genkit } from 'genkit';
 
 const getIngredientsPrompt = ai.definePrompt(
     {
         name: 'getIngredientsPrompt',
-        input: { schema: RecipeIngredientsInputSchema },
-        output: { schema: RecipeIngredientsOutputSchema },
+        inputSchema: RecipeIngredientsInputSchema,
+        outputSchema: RecipeIngredientsOutputSchema,
         prompt: `You are an expert chef. Provide a list of ingredients for the following dish: {{{dishName}}}.
 
 Please only list the core ingredients. Do not include quantities, measurements, or instructions.
