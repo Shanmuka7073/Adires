@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getFirestore, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from "firebase/firestore";
 import { useFirebase } from '@/firebase';
 import { Send, User, Bug, Loader2 } from 'lucide-react';
-import { debugAtlasAction } from '@/app/actions'; 
 
 const DEBUG_PATH_PREFIX = `/asha-conversations/`;
 
@@ -40,7 +39,7 @@ const App = () => {
     }, [reports]);
 
     // --- Server Action Interaction Function ---
-    const runAtlasDiagnostic = async (userMessage) => {
+    const runAtlasDiagnostic = async (userMessage: string) => {
         if (!user || !firestore || !auth) return;
         setIsThinking(true);
         const userReportsPath = `${DEBUG_PATH_PREFIX}${user.uid}/conversation`;
@@ -53,23 +52,25 @@ const App = () => {
         });
 
         try {
-            // Get the ID token from the currently signed-in user
-            const idToken = await auth.currentUser?.getIdToken();
+            const idToken = await user.getIdToken();
 
-            if (!idToken) {
-                throw new Error("User is not authenticated or token is unavailable.");
+            // Use fetch to call the Server Action endpoint with auth headers.
+            // Next.js automatically creates an endpoint for the server action.
+            const response = await fetch('/api/actions/debugAtlasAction', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`,
+                },
+                body: JSON.stringify([userMessage, 'Diagnostic Check']),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Server action failed');
             }
             
-            // The action now requires the token to be passed for server-side verification.
-            // We pass it in the headers of the fetch call that Next.js makes internally for Server Actions.
-            // NOTE: Next.js automatically handles passing headers for Server Actions when using fetch.
-            // For this to work, we must structure the call to look like a standard fetch.
-            // The action itself will read the headers on the server.
-            
-            // Re-wrapping the action to add headers. Next.js does this under the hood,
-            // but we need to ensure the header is available. The action now reads from headers().
-            
-            const debugReport = await debugAtlasAction(userMessage, 'Diagnostic Check');
+            const debugReport = await response.json();
 
             // Success: Save the Atlas report
             await addDoc(collection(firestore, userReportsPath), {
@@ -79,7 +80,7 @@ const App = () => {
                 timestamp: serverTimestamp()
             });
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Atlas Server Action Error:", error);
             await addDoc(collection(firestore, userReportsPath), {
                 report: `Critical failure calling Atlas: ${error.message}`,
@@ -92,7 +93,7 @@ const App = () => {
     };
 
     // --- Handle User Submission ---
-    const handleSend = async (e) => {
+    const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!input.trim() || isThinking || !user) {
             return;
@@ -105,7 +106,7 @@ const App = () => {
     };
 
     // --- Component Rendering ---
-    const ReportMessage = ({ reportData }) => {
+    const ReportMessage = ({ reportData }: { reportData: any }) => {
         if (reportData.role === 'user') {
             return (
                 <div className="flex w-full mt-2 justify-end">
@@ -154,7 +155,7 @@ const App = () => {
                     </div>
                 )}
                 {isUserLoading && <p className="text-center text-gray-500">Loading chat...</p>}
-                {reports.map(report => (
+                {reports.map((report: any) => (
                     <ReportMessage key={report.id} reportData={report} />
                 ))}
                 
