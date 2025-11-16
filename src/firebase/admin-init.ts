@@ -11,42 +11,33 @@ interface AdminServices {
   db: Firestore;
 }
 
+// This is a global singleton to ensure we only initialize the admin app once.
 let adminServices: AdminServices | null = null;
 
 export async function getAdminServices(): Promise<AdminServices> {
+  // If the services have already been initialized, return them immediately.
   if (adminServices) {
     return adminServices;
   }
 
-  // Use the shared firebaseConfig to ensure project consistency
-  const config = {
-    credential: applicationDefault(),
-    projectId: firebaseConfig.projectId,
+  // If no apps are initialized, this is the first time.
+  // If apps exist, we get the existing default app. This handles Next.js hot-reloading.
+  const app = getApps().length
+    ? getApps()[0]
+    : initializeApp({
+        // Use the shared firebaseConfig to ensure project consistency
+        projectId: firebaseConfig.projectId,
+        // Application Default Credentials (ADC) will be used for authentication.
+        // This is the standard way to authenticate on Google Cloud environments.
+        credential: applicationDefault(),
+    });
+
+  // Store the initialized services in the global singleton.
+  adminServices = {
+    app: app,
+    auth: getAuth(app),
+    db: getFirestore(app),
   };
 
-  if (getApps().length > 0) {
-      const existingApp = getApps()[0];
-      adminServices = {
-          app: existingApp,
-          auth: getAuth(existingApp),
-          db: getFirestore(existingApp),
-      };
-      return adminServices;
-  }
-
-  try {
-    const adminApp = initializeApp(config);
-    
-    adminServices = {
-      app: adminApp,
-      auth: getAuth(adminApp),
-      db: getFirestore(adminApp),
-    };
-
-    return adminServices;
-
-  } catch (error: any) {
-    console.error('CRITICAL: Firebase Admin SDK initialization failed.', error);
-    throw new Error(`Firebase Admin SDK initialization failed: ${error.message}`);
-  }
+  return adminServices;
 }
