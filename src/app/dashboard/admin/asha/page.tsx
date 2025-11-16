@@ -1,10 +1,8 @@
-
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import { getFirestore, collection, query, orderBy, onSnapshot, addDoc } from "firebase/firestore";
 import { getAuth, type User as FirebaseAuthUser } from 'firebase/auth';
 import { Send, Mic, User as UserIcon, Bot, Loader2 } from 'lucide-react';
-// IMPORT THE SERVER ACTION
 import { askAsha } from '@/app/actions'; 
 import { useFirebase } from '@/firebase';
 import { Button } from '@/components/ui/button';
@@ -31,15 +29,24 @@ const getAuthToken = async (authInstance: ReturnType<typeof getAuth>): Promise<s
 
 
 export default function AshaAgentPage() {
-    const { user, auth, firestore } = useFirebase();
+    const { user, auth, firestore, isUserLoading } = useFirebase();
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState('');
     const [isThinking, setIsThinking] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [isAuthReady, setIsAuthReady] = useState(false);
     
-    // --- 1. Real-time Message Listener (onSnapshot) ---
+    // --- 1. Firebase Initialization and Authentication ---
     useEffect(() => {
-        if (!user || !firestore) return;
+      if (!isUserLoading) {
+        setIsAuthReady(true);
+      }
+    }, [isUserLoading]);
+
+
+    // --- 2. Real-time Message Listener (onSnapshot) ---
+    useEffect(() => {
+        if (!user || !firestore || !isAuthReady) return;
 
         const userConversationPath = `${CONVERSATION_PATH_PREFIX}/${user.uid}/conversation`;
         const q = query(collection(firestore, userConversationPath), orderBy('timestamp', 'asc'));
@@ -55,13 +62,13 @@ export default function AshaAgentPage() {
         });
 
         return () => unsubscribe();
-    }, [user, firestore]);
+    }, [user, firestore, isAuthReady]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
-    // --- 2. Server Action Interaction Function ---
+    // --- 3. Server Action Interaction Function ---
     const generateResponse = async (userMessage: string) => {
         if (!auth || !firestore || !user) return;
         setIsThinking(true);
@@ -89,7 +96,7 @@ export default function AshaAgentPage() {
             }));
 
         try {
-            // 3. Call the Server Action with the correct name
+            // 3. Call the Server Action
             const responseText = await askAsha(idToken, userMessage, history);
             
             // 4. Save the AI's response to Firestore
@@ -111,10 +118,13 @@ export default function AshaAgentPage() {
         }
     };
 
-    // --- 3. Handle User Submission ---
+    // --- 4. Handle User Submission ---
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!input.trim() || isThinking || !user || !firestore) return;
+        if (!input.trim() || isThinking || !user || !isAuthReady) {
+          if(!isAuthReady) console.warn("Cannot send: Authentication not ready.");
+          return;
+        };
 
         const userMessage = input.trim();
         setInput('');
@@ -167,14 +177,20 @@ export default function AshaAgentPage() {
                 <CardContent className="flex-1 overflow-hidden">
                      <ScrollArea className="h-full pr-4">
                         <div className="space-y-4">
-                            {messages.length === 0 && (
+                            {messages.length === 0 && !isAuthReady && (
+                                <div className="text-center text-gray-500 mt-20 p-4">
+                                     <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+                                    <p className="font-semibold">Authenticating...</p>
+                                </div>
+                            )}
+                            {messages.length === 0 && isAuthReady && (
                                 <div className="text-center text-gray-500 mt-20 p-4 border rounded-xl bg-background shadow-sm">
                                     <p className="font-semibold">Start the conversation!</p>
                                     <p className="text-sm">Try using mixed language: "I need milk and konni ullipayalu."</p>
                                 </div>
                             )}
                             {messages.map((msg, index) => (
-                                <Message key={index} text={msg.text} role={msg.role} />
+                                <Message key={index} text={(msg as any).text} role={(msg as any).role} />
                             ))}
                             
                             {isThinking && (
@@ -199,19 +215,19 @@ export default function AshaAgentPage() {
                             type="text"
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            placeholder="Ask Asha about your groceries..."
-                            disabled={!user || isThinking}
+                            placeholder={isAuthReady ? "Ask Asha about your groceries..." : "Authenticating..."}
+                            disabled={!user || isThinking || !isAuthReady}
                         />
                         <Button
                             type="submit"
-                            disabled={!user || isThinking}
+                            disabled={!user || isThinking || !isAuthReady}
                         >
                             <Send className="w-4 h-4" />
                         </Button>
                         <Button
                             type="button"
                             variant="secondary"
-                            disabled={!user || isThinking}
+                            disabled={true}
                         >
                             <Mic className="w-4 h-4" />
                         </Button>

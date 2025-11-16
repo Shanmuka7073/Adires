@@ -24,8 +24,7 @@ const ai = genkit({
  */
 export async function runAshaFlow(uid: string, userMessage: string, history: ChatMessage[]): Promise<string> {
     // The UID is guaranteed to be valid because it was verified in the Server Action
-    const userConversationPath = `asha-conversations/${uid}/conversation`;
-
+    
     // 1. Build the prompt including the conversational context and new message
     const conversationPrompt = history.map(m => `${m.role}: ${m.text}`).join('\n') + `\nuser: ${userMessage}`;
     

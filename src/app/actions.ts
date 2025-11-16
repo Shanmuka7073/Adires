@@ -76,11 +76,11 @@ export async function askAsha(idToken: string, userMessage: string, history: Cha
         throw new Error("Authentication failed: No token provided by client.");
     }
     
-    const { auth } = await getAdminServices();
     let uid: string;
     
     // 1. Verify the ID Token using Firebase Admin SDK
     try {
+        const { auth } = await getAdminServices();
         const decodedToken = await auth.verifyIdToken(idToken);
         uid = decodedToken.uid;
     } catch (error) {
