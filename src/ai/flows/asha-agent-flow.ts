@@ -1,17 +1,10 @@
 
 'use server';
 
-import { genkit } from 'genkit';
-import { googleAI } from '@genkit-ai/google-genai';
+import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import type { ChatMessage } from '@/lib/types';
-
-// This AI instance is simple, as auth is handled by the Server Action
-const ai = genkit({
-    plugins: [googleAI()],
-    logLevel: 'debug',
-    enableTracingAndMetrics: true,
-});
+import { googleAI } from '@genkit-ai/google-genai';
 
 /**
  * The core AI flow that processes the user's message.
@@ -38,11 +31,17 @@ export async function runAshaFlow(uid: string, userMessage: string, history: Cha
 
     try {
         const { text } = await ai.generate({
-            model: 'googleai/gemini-pro',
+            model: googleAI.model('gemini-pro'),
             prompt: conversationPrompt,
             config: {
-                systemInstruction: systemPrompt,
+                // In Genkit 1.x, system instructions are passed within the config
+                // This property name might vary based on the exact plugin version; 'systemInstruction' is a common pattern.
             },
+            // For some models, the system prompt is part of the main prompt.
+            // Let's ensure compatibility by combining it.
+            // A more modern approach might use a dedicated 'system' property if the model supports it.
+            // For this fix, we will prepend it to the main prompt.
+            prompt: `${systemPrompt}\n\n${conversationPrompt}`,
         });
 
         // The Server Action will save the response. The flow's only job is to generate it.
