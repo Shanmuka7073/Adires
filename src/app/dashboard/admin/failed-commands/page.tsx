@@ -3,7 +3,7 @@
 import { useState, useTransition, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, deleteDoc, writeBatch, updateDoc, addDoc } from 'firebase/firestore';
-import type { FailedVoiceCommand, VoiceAlias, Product, Store } from '@/lib/types';
+import type { FailedVoiceCommand, VoiceAlias, Product, Store, ProductPrice } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -40,8 +40,10 @@ function FailedCommandRow({ command, allItemNames, onAliasCreated }: { command: 
                     setSuggestion(result);
                 } else {
                     setSuggestionError("AI could not find a confident suggestion.");
-                    const commandRef = doc(firestore, 'failedCommands', command.id);
-                    await updateDoc(commandRef, { status: 'no_suggestion' });
+                    if (firestore) {
+                        const commandRef = doc(firestore, 'failedCommands', command.id);
+                        await updateDoc(commandRef, { status: 'no_suggestion' });
+                    }
                 }
             } catch (error) {
                 console.error("AI suggestion failed:", error);
