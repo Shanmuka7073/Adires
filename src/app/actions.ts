@@ -2,6 +2,11 @@
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
+import { suggestAliasTarget } from '@/ai/flows/alias-suggester-flow';
+
+// Re-export the AI flow to be used as a Server Action in the admin panel.
+export { suggestAliasTarget };
+
 
 async function getFirestoreCounts() {
     const { db } = await getAdminServices();
@@ -20,10 +25,25 @@ async function getFirestoreCounts() {
 export async function getSystemStatus() {
     try {
         const counts = await getFirestoreCounts();
-        // AI status is now determined on the client by checking for the API key.
+        // Check AI status by sending a very simple, low-cost request.
+        let llmStatus: 'Online' | 'Offline' = 'Offline';
+        try {
+            await suggestAliasTarget({ 
+                commandText: 'test', 
+                language: 'en', 
+                validCommands: ['test'], 
+                validProducts: ['test'], 
+                validStores: ['test'] 
+            });
+            llmStatus = 'Online';
+        } catch (e) {
+            console.error("LLM Health Check Failed:", e);
+            llmStatus = 'Offline';
+        }
+
         return {
             status: 'ok',
-            llmStatus: 'Unknown', // Server doesn't know client-side status
+            llmStatus: llmStatus,
             serverDbStatus: 'Online',
             counts: counts,
         };
