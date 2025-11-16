@@ -14,7 +14,7 @@ import type { Order, Store as StoreType, SiteConfig } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { t } from '@/lib/locales';
-import { getSystemStatus, answerGeneralQuestion as getIngredientsForRecipe } from '@/app/actions';
+import { answerGeneralQuestion as getIngredientsForRecipe } from '@/ai/flows/general-question-flow';
 import { useToast } from '@/hooks/use-toast';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
