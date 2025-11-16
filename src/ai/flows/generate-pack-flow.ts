@@ -13,7 +13,7 @@ import {
 
 const generatePackPrompt = ai.definePrompt({
   name: 'generatePackPrompt',
-  model: 'googleai/gemini-pro',
+  model: 'googleai/gemini-1.5-flash-latest',
   input: { schema: GeneratePackInputSchema },
   output: { schema: GeneratePackOutputSchema },
   prompt: `You are an expert Indian home needs planner. Your task is to generate a realistic grocery list for an Indian family.
