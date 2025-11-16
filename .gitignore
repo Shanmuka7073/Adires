@@ -4,7 +4,7 @@
 /node_modules
 /.pnp
 .pnp.js
-.pnp.cjs
+.yarn/install-state.gz
 
 # testing
 /coverage
@@ -24,7 +24,6 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
 
 # local env files
 .env.local
@@ -32,13 +31,9 @@ pnpm-debug.log*
 .env.test.local
 .env.production.local
 
-# vercel
+# Service Account Keys - IMPORTANT
+service-account.json
+src/firebase/service-account.json
+
+# Verity Build Output
 .vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# Firebase
-/service-account.json
-/src/firebase/service-account.json
