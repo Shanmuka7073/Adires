@@ -66,39 +66,31 @@ export async function suggestAliasTarget(input: AliasTargetSuggestionInput): Pro
 }
 
 /**
- * Server Action that verifies the user's ID token and then calls the AI flow.
- * Now restricted to Admin users only.
- * @param idToken The Firebase ID Token sent from the client.
+ * Server Action that verifies the user's admin status and then calls the AI flow.
+ * @param uid The user's UID, passed from the authenticated client.
  * @param userMessage The latest message from the user.
  * @param history The contextual chat history.
  * @returns The generated response text from the AI flow.
  */
-export async function askAsha(idToken: string, userMessage: string, history: ChatMessage[]): Promise<string> {
-    if (!idToken) {
-        throw new Error("Authentication failed: No token provided by client.");
+export async function askAsha(uid: string, userMessage: string, history: ChatMessage[]): Promise<string> {
+    if (!uid) {
+        throw new Error("Authentication failed: No user ID provided by client.");
     }
     
-    let uid: string;
-    let email: string | undefined;
-    
-    // 1. Verify the ID Token using Firebase Admin SDK
+    // 1. Verify the user is an admin using the Admin SDK
     try {
         const { auth } = await getAdminServices();
-        const decodedToken = await auth.verifyIdToken(idToken);
-        uid = decodedToken.uid;
-        email = decodedToken.email;
+        const userRecord = await auth.getUser(uid);
+        if (userRecord.email !== ADMIN_EMAIL) {
+            console.warn(`Unauthorized access attempt to Asha Agent by user: ${userRecord.email}`);
+            throw new Error("You do not have permission to use this feature.");
+        }
     } catch (error) {
-        console.error("Token Verification Failed:", error);
-        throw new Error("Authentication failed: Invalid or expired token.");
+        console.error("Admin check failed:", error);
+        throw new Error("Could not verify admin status.");
     }
 
-    // 2. Check if the user is an admin
-    if (email !== ADMIN_EMAIL) {
-        console.warn(`Unauthorized access attempt to Asha Agent by user: ${email}`);
-        throw new Error("You do not have permission to use this feature.");
-    }
-
-    // 3. Call the Genkit Flow with the verified UID
+    // 2. Call the Genkit Flow with the verified UID
     try {
         const responseText = await runAshaFlow(uid, userMessage, history); 
         return responseText;

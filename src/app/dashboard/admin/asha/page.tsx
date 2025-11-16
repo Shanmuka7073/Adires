@@ -18,17 +18,6 @@ import type { ChatMessage } from '@/lib/types';
 const CONVERSATION_PATH_PREFIX = 'asha-conversations';
 const MAX_CONTEXT_MESSAGES = 10; 
 
-// Helper function to get the current user's ID token, now with forced refresh
-const getAuthToken = async (authInstance: ReturnType<typeof getAuth>): Promise<string | null> => {
-    const user = authInstance.currentUser;
-    if (user) {
-        // Force token refresh (true) to ensure token is valid and current
-        return user.getIdToken(true); 
-    }
-    return null; 
-};
-
-
 export default function AshaAgentPage() {
     const { user, auth, firestore, isUserLoading } = useFirebase();
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -73,24 +62,11 @@ export default function AshaAgentPage() {
 
     // --- 3. Server Action Interaction Function ---
     const generateResponse = async (userMessage: string) => {
-        if (!auth || !firestore || !user) return;
+        if (!firestore || !user) return;
         setIsThinking(true);
         const userConversationPath = `${CONVERSATION_PATH_PREFIX}/${user.uid}/conversation`;
 
-        // 1. Get the Firebase ID Token
-        const idToken = await getAuthToken(auth);
-        
-        if (!idToken) {
-            setIsThinking(false);
-            await addDoc(collection(firestore, userConversationPath), {
-                text: "Authentication is still loading. Please wait a moment and try again.",
-                role: 'model',
-                timestamp: Date.now()
-            });
-            return;
-        }
-
-        // 2. Prepare chat history for context
+        // Prepare chat history for context
         const history = messages
             .slice(-MAX_CONTEXT_MESSAGES) 
             .map(msg => ({ 
@@ -99,10 +75,10 @@ export default function AshaAgentPage() {
             }));
 
         try {
-            // 3. Call the Server Action
-            const responseText = await askAsha(idToken, userMessage, history);
+            // Call the Server Action, now passing the UID directly
+            const responseText = await askAsha(user.uid, userMessage, history);
             
-            // 4. Save the AI's response to Firestore
+            // Save the AI's response to Firestore
             await addDoc(collection(firestore, userConversationPath), {
                 text: responseText,
                 role: 'model',
@@ -124,7 +100,6 @@ export default function AshaAgentPage() {
     // --- 4. Handle User Submission ---
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Guard against sending when not ready
         if (!input.trim() || isThinking || !user || !isAuthReady) {
           if(!isAuthReady) console.warn("Cannot send: Authentication not ready.");
           return;
