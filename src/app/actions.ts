@@ -6,7 +6,6 @@ import { getIngredientsForRecipe as getIngredientsFlow } from '@/ai/flows/recipe
 import { answerGeneralQuestion as answerGeneralQuestionFlow } from '@/ai/flows/general-question-flow';
 import { generatePack as generatePackFlow } from '@/ai/flows/generate-pack-flow';
 import { suggestAliasTarget as suggestAliasTargetFlow } from '@/ai/flows/suggest-alias-flow';
-import { runAshaFlow } from '@/ai/flows/asha-agent-flow';
 import { getAdminServices } from '@/firebase/admin-init';
 import { getDocs, addDoc, serverTimestamp, collection, query, where, getDoc, doc } from 'firebase-admin/firestore';
 import { z } from 'zod';
@@ -47,39 +46,6 @@ async function withRetries<T, U>(flowFunction: (input: T) => Promise<U>, input: 
   }
   throw new Error(`Flow failed after ${MAX_RETRIES} retries.`);
 }
-
-/**
- * Server Action that handles authentication before calling the Genkit flow.
- * @param idToken The Firebase ID Token sent from the client.
- * @param userMessage The message the user sent.
- * @param history The conversational context.
- * @returns The AI's response text.
- */
-export async function askAsha(idToken: string, userMessage: string, history: ChatMessage[]): Promise<string> {
-    if (!idToken) {
-        throw new Error("Authentication failed: No token provided by client.");
-    }
-
-    const { auth } = await getAdminServices();
-    let uid: string;
-
-    try {
-        const decodedToken = await auth.verifyIdToken(idToken);
-        uid = decodedToken.uid;
-    } catch (error) {
-        console.error("Token Verification Failed:", error);
-        throw new Error("Authentication failed: Invalid or expired token.");
-    }
-
-    try {
-        const responseText = await runAshaFlow(uid, userMessage, history);
-        return responseText;
-    } catch (flowError) {
-        console.error("Genkit Flow Execution Failed:", flowError);
-        throw new Error("AI flow failed to process the request.");
-    }
-}
-
 
 export async function getIngredientsForRecipe(input: RecipeIngredientsInput): Promise<RecipeIngredientsOutput> {
     return withRetries(getIngredientsFlow, input);
