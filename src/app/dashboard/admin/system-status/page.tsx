@@ -65,7 +65,6 @@ export default function SystemStatusPage() {
   // Fetch immediately on mount
   useEffect(() => {
     fetchStatus();
-    // The interval has been removed.
   }, []);
 
   const StatusDisplay = ({ isLoading, children }: { isLoading: boolean, children: React.ReactNode }) => {
@@ -80,13 +79,9 @@ export default function SystemStatusPage() {
                 System Status Dashboard
             </h1>
             <p className="text-gray-600">
-                Health check of critical application components. Click refresh to get the latest status.
+                Health check of critical application components.
             </p>
         </div>
-         <Button onClick={fetchStatus} disabled={isFetching}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
-            {isFetching ? 'Refreshing...' : 'Refresh Status'}
-        </Button>
       </div>
 
 
@@ -99,6 +94,8 @@ export default function SystemStatusPage() {
           }}
           iconName="Database"
           description="Connection health for server-side actions."
+          onRefresh={fetchStatus}
+          isRefreshing={isFetching}
         />
         
         <ClientStatusCard />

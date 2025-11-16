@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CheckCircle, AlertCircle, Server, BrainCircuit, Database, Users, Store as StoreIcon, ShieldAlert } from 'lucide-react';
+import { CheckCircle, AlertCircle, Server, BrainCircuit, Database, Users, Store as StoreIcon, ShieldAlert, RefreshCw } from 'lucide-react';
 import { useFirebase, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
@@ -30,9 +30,11 @@ interface ServerStatusCardProps {
     status: Status;
     iconName: keyof typeof iconMap;
     link?: string;
+    onRefresh?: () => void;
+    isRefreshing?: boolean;
 }
 
-export function ServerStatusCard({ title, description, status, iconName, link }: ServerStatusCardProps) {
+export function ServerStatusCard({ title, description, status, iconName, link, onRefresh, isRefreshing }: ServerStatusCardProps) {
   const Icon = iconMap[iconName] || Server; // Fallback to a default icon
 
   const getStatusColor = () => {
@@ -71,7 +73,14 @@ export function ServerStatusCard({ title, description, status, iconName, link }:
                 <Icon className="h-6 w-6 text-muted-foreground" />
                 <CardTitle className="text-lg">{title}</CardTitle>
             </div>
-            {getStatusIcon()}
+            <div className="flex items-center gap-2">
+                {onRefresh && (
+                    <Button variant="ghost" size="icon" onClick={onRefresh} disabled={isRefreshing}>
+                        <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    </Button>
+                )}
+                {getStatusIcon()}
+            </div>
         </div>
         <CardDescription className="pt-2">{description}</CardDescription>
       </CardHeader>
