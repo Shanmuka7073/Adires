@@ -17,7 +17,7 @@ import {
 const generalQuestionPrompt = ai.definePrompt(
   {
     name: 'generalQuestionPrompt',
-    model: 'googleai/gemini-2.5-flash',
+    model: 'gemini-2.5-flash',
     input: { schema: GeneralQuestionInputSchema },
     output: { schema: GeneralQuestionOutputSchema },
     prompt: `You are a helpful voice assistant. Answer the following question concisely.
