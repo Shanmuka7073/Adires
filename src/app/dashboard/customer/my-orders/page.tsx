@@ -14,8 +14,9 @@ import { collection, query, where, orderBy, doc, writeBatch, increment } from 'f
 import { useState, useEffect, useMemo, useRef, useTransition } from 'react';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, Store as StoreIcon } from 'lucide-react';
+import { CheckCircle, Store as StoreIcon, AlertTriangle } from 'lucide-react';
 import { getStores } from '@/lib/data';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const DELIVERY_FEE = 30;
 
@@ -29,7 +30,7 @@ const playAlarm = () => {
     gainNode.connect(audioContext.destination);
     
     oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(880, audio.currentTime); // A5 note
+    oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // A5 note
     gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
     
     oscillator.start();
@@ -52,7 +53,7 @@ export default function MyOrdersPage() {
     );
   }, [firestore, user?.uid]);
 
-  const { data: allOrders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
+  const { data: allOrders, isLoading: ordersLoading, error: ordersError } = useCollection<Order>(ordersQuery);
 
   const prevOrdersRef = useRef<Map<string, Order>>(new Map());
 
@@ -166,6 +167,138 @@ export default function MyOrdersPage() {
     return 'N/A';
   }
 
+  const renderContent = () => {
+    if (effectiveLoading) {
+      return <p>Loading your orders...</p>;
+    }
+    if (ordersError) {
+        return (
+             <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Could Not Load Orders</AlertTitle>
+                <AlertDescription>
+                    There was an error fetching your order history. This may be due to a temporary network issue or exceeded usage quotas. Please try again later.
+                </AlertDescription>
+            </Alert>
+        )
+    }
+    if (!user) {
+        return (
+             <div className="text-center py-12">
+                <p className="text-muted-foreground mb-4">Please log in to see your orders.</p>
+                <Button asChild>
+                    <Link href="/login">Login</Link>
+                </Button>
+            </div>
+        )
+    }
+     if (ordersWithStores.length === 0) {
+        return (
+            <div className="text-center py-12">
+                <p className="text-muted-foreground mb-4">You haven't placed any orders yet.</p>
+                <Button asChild>
+                    <Link href="/stores">Start Shopping</Link>
+                </Button>
+            </div>
+        )
+    }
+    return (
+        <Accordion type="single" collapsible className="w-full">
+            {ordersWithStores.map((order) => (
+            <AccordionItem value={order.id} key={order.id}>
+                <AccordionTrigger>
+                <div className="flex justify-between w-full pr-4 items-center">
+                    <div className="flex-1 text-left space-y-1">
+                        <p className="font-medium">Order #{order.id.substring(0, 7)}...</p>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <StoreIcon className="h-4 w-4" />
+                            <span>{order.storeName}</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{formatDate(order.orderDate)}</p>
+                    </div>
+                    <div className="flex-1 text-center">
+                        <Badge variant={getStatusVariant(order.status)}>{order.status}</Badge>
+                    </div>
+                    <div className="flex-1 text-right">
+                            <p className="font-medium">₹{order.totalAmount.toFixed(2)}</p>
+                    </div>
+                </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                <div className="p-4 bg-muted/50 rounded-md">
+                    {order.items && order.items.length > 0 ? (
+                        <>
+                            <h4 className="font-semibold mb-2">Order Items</h4>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Product</TableHead>
+                                        <TableHead>Quantity</TableHead>
+                                        <TableHead className="text-right">Price</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {order.items.map((item, index) => (
+                                        <TableRow key={index}>
+                                            <TableCell>{item.productName}</TableCell>
+                                            <TableCell>{item.quantity}</TableCell>
+                                            <TableCell className="text-right">₹{item.price.toFixed(2)}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                            <div className="flex justify-end mt-4 text-sm">
+                                <div className="w-full max-w-xs space-y-2">
+                                    <div className="flex justify-between">
+                                        <span>Subtotal</span>
+                                        <span>₹{(order.totalAmount - DELIVERY_FEE).toFixed(2)}</span>
+                                    </div>
+                                        <div className="flex justify-between">
+                                        <span>Delivery Fee</span>
+                                        <span>₹{DELIVERY_FEE.toFixed(2)}</span>
+                                    </div>
+                                        <div className="flex justify-between font-bold">
+                                        <span>Total</span>
+                                        <span>₹{order.totalAmount.toFixed(2)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    ) : order.translatedList ? (
+                            <div className="space-y-4">
+                            <h4 className="font-semibold">Voice Order</h4>
+                            <p className="italic text-muted-foreground">"{order.translatedList}"</p>
+                            <div className="flex justify-end font-bold">
+                                <span>Total (incl. delivery): ₹{order.totalAmount.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    ) : (
+                        <p>This order has no items listed.</p>
+                    )}
+                    <div className="mt-4">
+                        <h4 className="font-semibold">Delivery Address</h4>
+                        <p className="text-sm text-muted-foreground">{order.deliveryAddress}</p>
+                    </div>
+                    {order.status === 'Out for Delivery' && (
+                        <div className="mt-6 border-t pt-4 text-center">
+                            <p className="text-sm text-muted-foreground mb-2">Has your order arrived?</p>
+                            <Button
+                                onClick={() => handleConfirmDelivery(order)}
+                                disabled={isUpdating}
+                            >
+                                <CheckCircle className="mr-2 h-4 w-4" />
+                                {isUpdating ? 'Confirming...' : 'Confirm Delivery Received'}
+                            </Button>
+                        </div>
+                    )}
+                </div>
+                </AccordionContent>
+            </AccordionItem>
+            ))}
+        </Accordion>
+    );
+  }
+
   return (
     <div className="container mx-auto py-12 px-4 md:px-6">
       <h1 className="text-4xl font-bold mb-8 font-headline">My Orders</h1>
@@ -174,117 +307,7 @@ export default function MyOrdersPage() {
           <CardTitle>Your Order History</CardTitle>
         </CardHeader>
         <CardContent>
-          {effectiveLoading ? (
-            <p>Loading your orders...</p>
-          ) : !user ? (
-            <div className="text-center py-12">
-                <p className="text-muted-foreground mb-4">Please log in to see your orders.</p>
-                <Button asChild>
-                    <Link href="/login">Login</Link>
-                </Button>
-            </div>
-          ) : ordersWithStores && ordersWithStores.length === 0 ? (
-            <div className="text-center py-12">
-                <p className="text-muted-foreground mb-4">You haven't placed any orders yet.</p>
-                <Button asChild>
-                    <Link href="/stores">Start Shopping</Link>
-                </Button>
-            </div>
-          ) : (
-            <Accordion type="single" collapsible className="w-full">
-              {ordersWithStores && ordersWithStores.map((order) => (
-                <AccordionItem value={order.id} key={order.id}>
-                  <AccordionTrigger>
-                    <div className="flex justify-between w-full pr-4 items-center">
-                        <div className="flex-1 text-left space-y-1">
-                            <p className="font-medium">Order #{order.id.substring(0, 7)}...</p>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <StoreIcon className="h-4 w-4" />
-                                <span>{order.storeName}</span>
-                            </div>
-                            <p className="text-sm text-muted-foreground">{formatDate(order.orderDate)}</p>
-                        </div>
-                        <div className="flex-1 text-center">
-                            <Badge variant={getStatusVariant(order.status)}>{order.status}</Badge>
-                        </div>
-                        <div className="flex-1 text-right">
-                             <p className="font-medium">₹{order.totalAmount.toFixed(2)}</p>
-                        </div>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="p-4 bg-muted/50 rounded-md">
-                        {order.items && order.items.length > 0 ? (
-                            <>
-                                <h4 className="font-semibold mb-2">Order Items</h4>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Product</TableHead>
-                                            <TableHead>Quantity</TableHead>
-                                            <TableHead className="text-right">Price</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {order.items.map((item, index) => (
-                                            <TableRow key={index}>
-                                                <TableCell>{item.productName}</TableCell>
-                                                <TableCell>{item.quantity}</TableCell>
-                                                <TableCell className="text-right">₹{item.price.toFixed(2)}</TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                                <div className="flex justify-end mt-4 text-sm">
-                                    <div className="w-full max-w-xs space-y-2">
-                                        <div className="flex justify-between">
-                                            <span>Subtotal</span>
-                                            <span>₹{(order.totalAmount - DELIVERY_FEE).toFixed(2)}</span>
-                                        </div>
-                                         <div className="flex justify-between">
-                                            <span>Delivery Fee</span>
-                                            <span>₹{DELIVERY_FEE.toFixed(2)}</span>
-                                        </div>
-                                         <div className="flex justify-between font-bold">
-                                            <span>Total</span>
-                                            <span>₹{order.totalAmount.toFixed(2)}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </>
-                        ) : order.translatedList ? (
-                             <div className="space-y-4">
-                                <h4 className="font-semibold">Voice Order</h4>
-                                <p className="italic text-muted-foreground">"{order.translatedList}"</p>
-                                <div className="flex justify-end font-bold">
-                                  <span>Total (incl. delivery): ₹{order.totalAmount.toFixed(2)}</span>
-                                </div>
-                            </div>
-                        ) : (
-                            <p>This order has no items listed.</p>
-                        )}
-                        <div className="mt-4">
-                            <h4 className="font-semibold">Delivery Address</h4>
-                            <p className="text-sm text-muted-foreground">{order.deliveryAddress}</p>
-                        </div>
-                        {order.status === 'Out for Delivery' && (
-                            <div className="mt-6 border-t pt-4 text-center">
-                                <p className="text-sm text-muted-foreground mb-2">Has your order arrived?</p>
-                                <Button
-                                    onClick={() => handleConfirmDelivery(order)}
-                                    disabled={isUpdating}
-                                >
-                                    <CheckCircle className="mr-2 h-4 w-4" />
-                                    {isUpdating ? 'Confirming...' : 'Confirm Delivery Received'}
-                                </Button>
-                            </div>
-                        )}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          )}
+            {renderContent()}
         </CardContent>
       </Card>
     </div>
