@@ -1,5 +1,4 @@
 
-'use server';
 /**
  * @fileoverview This file initializes the Genkit AI instance and exports it
  * for use in other parts of the application, such as defining flows.
