@@ -1,9 +1,10 @@
 
 'use server';
+
 import { generate } from '@genkit-ai/ai';
+import { flow } from '@genkit-ai/core';
 import { googleAI } from '@genkit-ai/google-genai';
 import { z } from 'zod';
-import { genkit as ai } from 'genkit';
 
 const DebugReportSchema = z.object({
     report: z.string().describe('A concise, technical analysis of the root cause.'),
@@ -16,7 +17,7 @@ type DebugReport = z.infer<typeof DebugReportSchema>;
  * Genkit flow for the Atlas Debug Agent. 
  * It analyzes detailed error messages and provides a structured fix.
  */
-export const atlasDebugFlow = ai.defineFlow(
+export const atlasDebugFlow = flow(
     {
         name: 'atlasDebugFlow',
         inputSchema: z.object({ errorDetails: z.string(), failedFunction: z.string() }),
