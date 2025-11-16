@@ -11,53 +11,68 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
-import { Loader2, Trash2, FileWarning, MessageSquareWarning, Sparkles, Lightbulb, Languages, PlusCircle, Save } from 'lucide-react';
+import { Loader2, Trash2, FileWarning, MessageSquareWarning, Sparkles, Lightbulb, PlusCircle, Save } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { suggestAliasTarget } from '@/app/actions';
+import { Input } from '@/components/ui/input';
 
-// A simple component to display the static suggestion
-function SuggestionCard({ onSave }: { onSave: (alias: string, lang: string) => void }) {
+interface AISuggestion {
+  suggestedTarget: string;
+  confidence: number;
+}
+
+function SuggestionCard({ suggestion, failedCommand, onSave }: { suggestion: AISuggestion; failedCommand: FailedVoiceCommand; onSave: (aliases: { lang: string, text: string }[]) => void; }) {
     const { toast } = useToast();
+    const [newAliases, setNewAliases] = useState({ en: '', te: '', hi: '' });
+
+    const handleSave = () => {
+        const aliasesToSave = Object.entries(newAliases)
+            .filter(([, text]) => text.trim() !== '')
+            .map(([lang, text]) => ({ lang, text: text.trim() }));
+        
+        if (aliasesToSave.length > 0) {
+            onSave(aliasesToSave);
+        } else {
+            toast({ variant: 'destructive', title: 'No aliases to save.' });
+        }
+    };
+    
+    // Pre-fill English alias with the failed command text
+    useState(() => {
+        setNewAliases(prev => ({...prev, en: failedCommand.commandText.toLowerCase()}));
+    });
 
     return (
         <Card className="mt-4 bg-primary/5 border-primary/20">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                     <Lightbulb className="h-5 w-5 text-primary" />
-                    Suggestion
+                    AI Suggestion (Confidence: {(suggestion.confidence * 100).toFixed(0)}%)
                 </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                    The user likely meant to say <strong className="text-foreground">"Onions"</strong>.
+                    The user said <strong className="text-foreground">"{failedCommand.commandText}"</strong> and likely meant <strong className="text-foreground">"{suggestion.suggestedTarget}"</strong>.
                 </p>
-                <div className="space-y-2">
-                    <h4 className="font-semibold">Suggested Aliases to Add:</h4>
-                    <div className="flex flex-col gap-2">
-                        <div className="flex justify-between items-center p-2 rounded-md bg-background">
-                            <Badge variant="secondary">onion (en)</Badge>
-                            <Button size="sm" variant="outline" onClick={() => toast({title: "Alias 'onion' added for English."})}>
-                                <PlusCircle className="mr-2 h-4 w-4" /> Add
-                            </Button>
-                        </div>
-                        <div className="flex justify-between items-center p-2 rounded-md bg-background">
-                           <Badge variant="secondary">ఉల్లిపాయలు (te)</Badge>
-                            <Button size="sm" variant="outline" onClick={() => toast({title: "Alias 'ఉల్లిపాయలు' added for Telugu."})}>
-                                <PlusCircle className="mr-2 h-4 w-4" /> Add
-                            </Button>
-                        </div>
-                        <div className="flex justify-between items-center p-2 rounded-md bg-background">
-                           <Badge variant="secondary">प्याज (hi)</Badge>
-                            <Button size="sm" variant="outline" onClick={() => toast({title: "Alias 'प्याज' added for Hindi."})}>
-                                <PlusCircle className="mr-2 h-4 w-4" /> Add
-                            </Button>
-                        </div>
+                <div className="space-y-4">
+                    <h4 className="font-semibold">Add New Aliases for "{suggestion.suggestedTarget}":</h4>
+                    <div>
+                        <Label htmlFor="en-alias">English Alias</Label>
+                        <Input id="en-alias" value={newAliases.en} onChange={e => setNewAliases(p => ({...p, en: e.target.value}))} placeholder="e.g., onion" />
+                    </div>
+                     <div>
+                        <Label htmlFor="te-alias">Telugu Alias</Label>
+                        <Input id="te-alias" value={newAliases.te} onChange={e => setNewAliases(p => ({...p, te: e.target.value}))} placeholder="e.g., ఉల్లిపాయలు" />
+                    </div>
+                     <div>
+                        <Label htmlFor="hi-alias">Hindi Alias</Label>
+                        <Input id="hi-alias" value={newAliases.hi} onChange={e => setNewAliases(p => ({...p, hi: e.target.value}))} placeholder="e.g., प्याज" />
                     </div>
                 </div>
-                 <Button className="w-full" onClick={() => toast({title: "All suggestions saved!"})}>
+                 <Button className="w-full" onClick={handleSave}>
                     <Save className="mr-2 h-4 w-4" />
-                    Save All Suggestions
+                    Save New Aliases
                 </Button>
             </CardContent>
         </Card>
@@ -69,8 +84,11 @@ function FailedCommandRow({ command }: { command: FailedVoiceCommand; }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isDeleting, startDelete] = useTransition();
-    const [showSuggestion, setShowSuggestion] = useState(false);
-    
+    const [isSuggesting, startSuggestion] = useTransition();
+    const [suggestion, setSuggestion] = useState<AISuggestion | null>(null);
+    const [showSuggestionCard, setShowSuggestionCard] = useState(false);
+    const { masterProducts, commands } = useAppStore();
+
     const handleDelete = () => {
         startDelete(async () => {
             if (!firestore) return;
@@ -84,18 +102,60 @@ function FailedCommandRow({ command }: { command: FailedVoiceCommand; }) {
     }
 
     const handleSuggestFix = () => {
-        // Just toggle the display of the static suggestion card
-        setShowSuggestion(prev => !prev);
+        startSuggestion(async () => {
+            const possibleTargets = [
+                ...masterProducts.map(p => p.name),
+                ...Object.values(commands).map(c => c.display),
+            ];
+
+            try {
+                const result = await suggestAliasTarget({
+                    failedCommand: command.commandText,
+                    possibleTargets,
+                });
+                if (result.suggestedTarget && result.confidence > 0.5) {
+                    setSuggestion(result);
+                    setShowSuggestionCard(true);
+                } else {
+                    toast({ variant: 'destructive', title: 'No suggestion found', description: 'The AI could not find a confident match for this command.' });
+                }
+            } catch (error) {
+                console.error("AI suggestion failed:", error);
+                toast({ variant: 'destructive', title: 'AI Request Failed', description: 'Could not get a suggestion from the AI model. Check server logs.' });
+            }
+        });
     };
 
-    const handleSaveAlias = (alias: string, lang: string) => {
-        // This is where you would normally save to the database.
-        // For this example, we just show a toast.
-        toast({
-            title: `Alias Saved (Example)`,
-            description: `Added "${alias}" for language "${lang}".`,
-        });
-        setShowSuggestion(false);
+    const handleSaveAliases = async (aliases: { lang: string, text: string }[]) => {
+       if (!firestore || !suggestion) return;
+
+       const key = suggestion.suggestedTarget.toLowerCase().replace(/ /g, '-');
+       const type = masterProducts.some(p => p.name === suggestion.suggestedTarget) ? 'product' : 'command';
+
+       const batch = writeBatch(firestore);
+
+       aliases.forEach(({ lang, text }) => {
+           const aliasRef = doc(collection(firestore, 'voiceAliases'));
+           batch.set(aliasRef, {
+               key: key,
+               language: lang,
+               alias: text,
+               type: type
+           });
+       });
+       
+       // Also delete the failed command since it's now fixed.
+       const failedCommandRef = doc(firestore, 'failedCommands', command.id);
+       batch.delete(failedCommandRef);
+
+       try {
+           await batch.commit();
+           toast({ title: 'Aliases Saved!', description: `New voice aliases for "${suggestion.suggestedTarget}" have been added.` });
+           setShowSuggestionCard(false);
+       } catch (error) {
+           console.error("Failed to save aliases:", error);
+           toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the new aliases.' });
+       }
     };
 
     const formatDateSafe = (date: any) => {
@@ -109,7 +169,7 @@ function FailedCommandRow({ command }: { command: FailedVoiceCommand; }) {
             <TableCell colSpan={5} className="p-0">
                 <Accordion type="single" collapsible>
                     <AccordionItem value={command.id} className="border-b-0">
-                        <AccordionTrigger className="p-4">
+                        <AccordionTrigger className="p-4 hover:no-underline">
                              <div className="flex items-center justify-between w-full">
                                 <div className="font-mono text-xs w-1/5 text-left">{formatDateSafe(command.timestamp)}</div>
                                 <div className="font-medium w-2/5 text-left">"{command.commandText}"</div>
@@ -119,16 +179,18 @@ function FailedCommandRow({ command }: { command: FailedVoiceCommand; }) {
                         </AccordionTrigger>
                         <AccordionContent>
                              <div className="p-4 bg-muted/50 space-y-4">
-                                <Button onClick={handleSuggestFix} size="sm">
-                                    <Sparkles className="mr-2 h-4 w-4" />
-                                    {showSuggestion ? 'Hide Suggestion' : 'Suggest Fix'}
-                                </Button>
+                                <div className="flex items-center justify-between">
+                                    <Button onClick={handleSuggestFix} size="sm" disabled={isSuggesting}>
+                                        {isSuggesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                                        {showSuggestionCard ? 'Refresh Suggestion' : 'AI Suggest Fix'}
+                                    </Button>
 
-                                {showSuggestion && <SuggestionCard onSave={handleSaveAlias} />}
-
-                                <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isDeleting} className="float-right">
-                                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                                </Button>
+                                    <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isDeleting} className="float-right">
+                                        {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                    </Button>
+                                </div>
+                                
+                                {showSuggestionCard && suggestion && <SuggestionCard suggestion={suggestion} failedCommand={command} onSave={handleSaveAliases} />}
                              </div>
                         </AccordionContent>
                     </AccordionItem>
@@ -157,7 +219,7 @@ export default function FailedCommandsPage() {
                         Failed Voice Commands
                     </CardTitle>
                     <CardDescription>
-                        Review voice commands that the system failed to understand and get suggestions for fixes.
+                        Review voice commands that the system failed to understand and use AI to suggest fixes.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>

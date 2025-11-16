@@ -2,6 +2,11 @@
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
+import { suggestAliasTarget as suggestAliasTargetFlow } from '@/ai/flows/alias-suggester-flow';
+import { z } from 'zod';
+
+// Re-export the AI flow for client-side usage as a server action
+export const suggestAliasTarget = suggestAliasTargetFlow;
 
 async function getFirestoreCounts() {
     const { db } = await getAdminServices();
@@ -20,10 +25,15 @@ async function getFirestoreCounts() {
 export async function getSystemStatus() {
     try {
         const counts = await getFirestoreCounts();
-        // LLM status is no longer checked as AI features are removed.
+        let llmStatus: 'Online' | 'Offline' = 'Offline';
+        
+        if (process.env.GEMINI_API_KEY) {
+            llmStatus = 'Online';
+        }
+
         return {
             status: 'ok',
-            llmStatus: 'Offline', // Default to Offline since AI is removed.
+            llmStatus,
             serverDbStatus: 'Online',
             counts: counts,
         };

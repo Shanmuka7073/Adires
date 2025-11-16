@@ -159,6 +159,13 @@ export type MonthlyPackage = {
     }[];
 };
 
+export type SiteConfig = {
+    isPackGeneratorEnabled?: boolean;
+    isRecipeApiEnabled?: boolean;
+    isGeneralQuestionApiEnabled?: boolean;
+    isAliasSuggesterEnabled?: boolean;
+};
+
 export type AppError = {
     id: string;
     userId: string;
