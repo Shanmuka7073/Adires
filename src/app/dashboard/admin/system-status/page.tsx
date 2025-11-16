@@ -4,7 +4,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Server, BrainCircuit, Database, ShieldAlert, Store as StoreIcon, Users } from 'lucide-react';
 import { ServerStatusCard, ClientStatusCard } from './status-cards';
-import { getSystemStatus, listSupportedModels } from '@/app/actions';
+import { getSystemStatus } from '@/app/actions';
 import { useState, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -13,7 +13,6 @@ interface SystemStatus {
   serverDbStatus: 'Online' | 'Offline' | 'Unavailable' | 'Loading';
   userCount: number | 'N/A';
   storeCount: number | 'N/A';
-  availableModels: string[];
 }
 
 export default function SystemStatusPage() {
@@ -22,7 +21,6 @@ export default function SystemStatusPage() {
     serverDbStatus: 'Loading',
     userCount: 'N/A',
     storeCount: 'N/A',
-    availableModels: [],
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -30,30 +28,21 @@ export default function SystemStatusPage() {
     const fetchStatus = async () => {
       setIsLoading(true);
       try {
-        const [serverStatus, modelList] = await Promise.all([
-            getSystemStatus(),
-            listSupportedModels()
-        ]);
-
-        const llmStatus = modelList.availableModels.length > 0 && !modelList.availableModels[0].startsWith('ERROR:') 
-            ? 'Online' 
-            : 'Degraded';
+        const serverStatus = await getSystemStatus();
 
         if (serverStatus.status === 'ok') {
             setStatus({
-                llmStatus: llmStatus,
+                llmStatus: serverStatus.llmStatus as 'Online' | 'Offline' | 'Degraded',
                 serverDbStatus: 'Online',
                 userCount: serverStatus.counts.users,
                 storeCount: serverStatus.counts.stores,
-                availableModels: modelList.availableModels,
             });
         } else {
              setStatus({
-                llmStatus: llmStatus,
+                llmStatus: 'Degraded',
                 serverDbStatus: 'Unavailable',
                 userCount: 'N/A',
                 storeCount: 'N/A',
-                availableModels: modelList.availableModels,
             });
         }
       } catch (error) {
@@ -80,9 +69,6 @@ export default function SystemStatusPage() {
   const getLlmMessage = () => {
     if (isLoading) return 'Checking model availability...';
     if (status.llmStatus === 'Online') return 'Generative AI model is online and responding.';
-    if (status.availableModels.length > 0 && status.availableModels[0].startsWith('ERROR:')) {
-      return status.availableModels[0];
-    }
     return 'Could not verify connection to the Generative AI service.';
   };
 
@@ -121,31 +107,6 @@ export default function SystemStatusPage() {
       </div>
       
        <div className="pt-4">
-        <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-          Available GenAI Models
-        </h2>
-        <Card className="shadow-lg">
-            <CardHeader>
-                <CardTitle>Supported Models</CardTitle>
-                <CardDescription>
-                    This is the list of models your API key has access to. Use one of these in your Genkit flows.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                {isLoading ? <Skeleton className="h-20 w-full" /> : (
-                    <ul className="font-mono text-sm space-y-1">
-                        {status.availableModels.map(model => (
-                            <li key={model} className={`p-2 rounded ${model.startsWith('ERROR:') ? 'bg-destructive/10 text-destructive' : 'bg-green-50'}`}>
-                                {model}
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </CardContent>
-        </Card>
-      </div>
-
-      <div className="pt-4">
         <h2 className="text-2xl font-semibold text-gray-800 mb-4">
           Usage Metrics
         </h2>
