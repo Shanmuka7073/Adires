@@ -1,6 +1,7 @@
 /**
  * @fileoverview This file initializes the Genkit AI instance and exports it
  * for use in other parts of the application, such as defining flows.
+ * This ensures that Genkit is configured in a single, consistent place.
  */
 
 import { genkit } from 'genkit';
