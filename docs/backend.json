@@ -609,14 +609,9 @@
         "reason": {
           "type": "string",
           "description": "The reason why the command failed (e.g., 'Product not found', 'Incomplete command')."
-        },
-        "status": {
-          "type": "string",
-          "enum": ["new", "no_suggestion"],
-          "description": "The processing status of the failed command."
         }
       },
-      "required": ["id", "userId", "commandText", "language", "timestamp", "reason", "status"]
+      "required": ["id", "userId", "commandText", "language", "timestamp", "reason"]
     },
     "VoiceAlias": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -732,6 +727,53 @@
             "errorMessage",
             "errorDetails"
         ]
+    },
+    "LoginAttempt": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "LoginAttempt",
+      "type": "object",
+      "description": "Represents a user login attempt for security monitoring.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the login attempt log."
+        },
+        "userId": {
+          "type": "string",
+          "description": "The UID of the user attempting to log in, if known."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address used for the login attempt."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the login attempt occurred."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["success", "failure"],
+          "description": "The result of the login attempt."
+        },
+        "ipAddress": {
+          "type": "string",
+          "description": "The IP address of the client making the request."
+        },
+        "userAgent": {
+          "type": "string",
+          "description": "The user agent string of the client's browser."
+        },
+        "errorMessage": {
+          "type": "string",
+          "description": "The error message if the login failed."
+        },
+        "location": {
+            "type": "string",
+            "description": "The approximate location (e.g., City, Country) derived from the IP address."
+        }
+      },
+      "required": ["id", "email", "timestamp", "status"]
     }
   },
   "auth": {
@@ -1045,6 +1087,22 @@
             {
               "name": "errorId",
               "description": "The unique identifier for the error log."
+            }
+          ]
+        }
+      },
+       {
+        "path": "/loginHistory/{logId}",
+        "definition": {
+          "entityName": "LoginAttempt",
+          "schema": {
+            "$ref": "#/backend/entities/LoginAttempt"
+          },
+          "description": "Logs user login attempts for security auditing.",
+          "params": [
+            {
+              "name": "logId",
+              "description": "The unique identifier for the login log entry."
             }
           ]
         }

@@ -40,10 +40,7 @@ function FailedCommandRow({ command, allItemNames, onAliasCreated }: { command: 
                     setSuggestion(result);
                 } else {
                     setSuggestionError("AI could not find a confident suggestion.");
-                    if (firestore) {
-                        const commandRef = doc(firestore, 'failedCommands', command.id);
-                        await updateDoc(commandRef, { status: 'no_suggestion' });
-                    }
+                    // Mark as reviewed to hide the button in the future if needed
                 }
             } catch (error) {
                 console.error("AI suggestion failed:", error);
@@ -64,8 +61,8 @@ function FailedCommandRow({ command, allItemNames, onAliasCreated }: { command: 
                 const newAliasData: Omit<VoiceAlias, 'id'> = {
                     key: createSlug(suggestion.suggestedKey),
                     language: command.language.split('-')[0],
-                    alias: suggestion.suggestedAlias,
-                    type: allItemNames.includes(suggestion.suggestedKey) ? 'product' : 'store',
+                    alias: suggestion.suggestedAlias.toLowerCase(),
+                    type: 'product', // Assuming product for now, this could be more dynamic
                 };
                 batch.set(newAliasRef, newAliasData);
 
@@ -113,12 +110,10 @@ function FailedCommandRow({ command, allItemNames, onAliasCreated }: { command: 
                 <TableCell><Badge variant="outline">{command.language}</Badge></TableCell>
                 <TableCell className="text-sm text-muted-foreground">{command.reason}</TableCell>
                 <TableCell className="text-right space-x-1">
-                    {command.status === 'new' && (
-                        <Button variant="outline" size="sm" onClick={handleSuggestFix} disabled={isSuggesting}>
-                            {isSuggesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                            <span className="ml-2 hidden sm:inline">Suggest Fix</span>
-                        </Button>
-                    )}
+                    <Button variant="outline" size="sm" onClick={handleSuggestFix} disabled={isSuggesting}>
+                        {isSuggesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                        <span className="ml-2 hidden sm:inline">Suggest Fix</span>
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isDeleting}>
                         {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                     </Button>
@@ -177,9 +172,6 @@ export default function FailedCommandsPage() {
         const storeNames = stores?.map(s => s.name) || [];
         return [...new Set([...productNames, ...storeNames])];
     }, [products, stores]);
-    
-    const newCommands = useMemo(() => failedCommands?.filter(c => c.status === 'new') || [], [failedCommands]);
-
 
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
@@ -187,7 +179,7 @@ export default function FailedCommandsPage() {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <MessageSquareWarning className="h-6 w-6 text-destructive" />
-                        Failed Voice Commands ({newCommands.length} New)
+                        Failed Voice Commands
                     </CardTitle>
                     <CardDescription>
                         Review voice commands that the system failed to understand. Use the AI to suggest fixes and train the system.

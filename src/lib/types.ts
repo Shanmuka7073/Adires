@@ -119,7 +119,6 @@ export type FailedVoiceCommand = {
     language: string;
     timestamp: Timestamp | Date | string;
     reason: string;
-    status: 'new' | 'no_suggestion';
 }
 
 export type VoiceAlias = {
