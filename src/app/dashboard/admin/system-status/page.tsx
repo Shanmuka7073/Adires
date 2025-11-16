@@ -26,7 +26,7 @@ export default function SystemStatusPage() {
 
   useEffect(() => {
     const fetchStatus = async () => {
-      setIsLoading(true);
+      // Don't set loading to true for background refreshes
       try {
         const serverStatus = await getSystemStatus();
 
@@ -55,12 +55,22 @@ export default function SystemStatusPage() {
             storeCount: 'N/A',
         }));
       } finally {
-        setIsLoading(false);
+        // Only set loading to false on the initial load
+        if (isLoading) {
+          setIsLoading(false);
+        }
       }
     };
 
+    // Fetch immediately on mount
     fetchStatus();
-  }, []);
+
+    // Then, set up an interval to refetch every 5 seconds
+    const intervalId = setInterval(fetchStatus, 5000);
+
+    // Cleanup function to clear the interval when the component unmounts
+    return () => clearInterval(intervalId);
+  }, [isLoading]); // Rerunning this effect is safe if isLoading changes, but it won't after the first load.
 
   const StatusDisplay = ({ isLoading, children }: { isLoading: boolean, children: React.ReactNode }) => {
     return isLoading ? <Skeleton className="h-8 w-24" /> : <div className="text-3xl font-bold">{children}</div>;
@@ -72,7 +82,7 @@ export default function SystemStatusPage() {
         System Status Dashboard
       </h1>
       <p className="text-gray-600">
-        Real-time health check of critical application components.
+        Real-time health check of critical application components. This page automatically refreshes every 5 seconds.
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
