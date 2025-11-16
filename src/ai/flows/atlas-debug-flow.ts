@@ -5,8 +5,17 @@
  * - runAtlasDebugFlow - A function that handles the diagnostic process.
  */
 
-import { ai } from '@/ai/genkit';
+import { genkit } from 'genkit';
+import { googleAI } from '@genkit-ai/google-genai';
 import { z } from 'zod';
+import 'dotenv/config';
+
+// Configure the AI instance specifically for this flow to ensure the API key is loaded.
+const ai = genkit({
+  plugins: [googleAI({ apiKey: process.env.GEMINI_API_KEY })],
+  logLevel: 'debug',
+  enableTracingAndMetrics: true,
+});
 
 const DebugReportSchema = z.object({
     report: z.string().describe('A concise, technical analysis of the root cause.'),
@@ -34,7 +43,7 @@ export const runAtlasDebugFlow = ai.defineFlow(
         4. The 'fixInstructions' must be detailed markdown, including file names and clear, step-by-step instructions. Use code blocks for file paths or code snippets.`;
 
         const { output } = await ai.generate({
-            model: 'googleai/gemini-2.5-flash-preview-09-2025',
+            model: 'googleai/gemini-pro',
             prompt: `Perform a full system diagnostic based on the provided context.`,
             config: {
                 temperature: 0.1,
