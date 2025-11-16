@@ -2,11 +2,6 @@
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
-import { suggestAliasTarget } from '@/ai/flows/alias-suggester-flow';
-
-// Re-export the AI flow to be used as a Server Action in the admin panel.
-export { suggestAliasTarget };
-
 
 async function getFirestoreCounts() {
     const { db } = await getAdminServices();
@@ -25,27 +20,10 @@ async function getFirestoreCounts() {
 export async function getSystemStatus() {
     try {
         const counts = await getFirestoreCounts();
-        // Check AI status by sending a very simple, low-cost request.
-        let llmStatus: 'Online' | 'Offline' = 'Offline';
-        try {
-            // This is a minimal test call to the Gemini API via the Genkit flow.
-            // If it succeeds, the service is online. If it throws, it's offline.
-            await suggestAliasTarget({ 
-                commandText: 'test', 
-                language: 'en', 
-                validCommands: ['test'], 
-                validProducts: ['test'], 
-                validStores: ['test'] 
-            });
-            llmStatus = 'Online';
-        } catch (e) {
-            console.error("LLM Health Check Failed:", e);
-            llmStatus = 'Offline';
-        }
-
+        // LLM status is no longer checked as AI features are removed.
         return {
             status: 'ok',
-            llmStatus: llmStatus,
+            llmStatus: 'Offline', // Default to Offline since AI is removed.
             serverDbStatus: 'Online',
             counts: counts,
         };
