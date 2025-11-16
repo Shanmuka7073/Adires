@@ -6,7 +6,6 @@ import { googleAI } from '@genkit-ai/google-genai';
 import { z } from 'zod';
 import type { ChatMessage } from '@/lib/types';
 
-
 // This AI instance is simple, as auth is handled by the Server Action
 const ai = genkit({
     plugins: [googleAI()],
