@@ -12,7 +12,7 @@ import { firebase } from '@genkit-ai/firebase';
 // authentication credentials, which is what the "Grant Access" dialog provides.
 export const ai = genkit({
   plugins: [
-    firebase, // Corrected: Pass the plugin object directly
+    firebase, // Corrected: Use as an object, not a function
     googleAI(),
   ],
   logLevel: 'debug',
