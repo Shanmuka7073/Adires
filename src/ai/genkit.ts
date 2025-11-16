@@ -3,7 +3,7 @@
  * Genkit v1.x configuration file
  */
 
-import { genkit } from 'genkit';
+import { genkit, type Genkit } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
 import { enableFirebaseTelemetry } from '@genkit-ai/firebase';
 import { defineGeneralQuestionFlow } from '@/ai/flows/general-question-flow';
@@ -19,9 +19,12 @@ export const ai = genkit({
     googleAI({
       apiKey: GEMINI_API_KEY,
     }),
-    enableFirebaseTelemetry(),
   ],
 });
+
+// Enable Firebase telemetry by calling this function separately.
+// It performs initialization but does not return a plugin object.
+enableFirebaseTelemetry();
 
 // Initialize flows by passing the 'ai' object
 defineGeneralQuestionFlow(ai);
