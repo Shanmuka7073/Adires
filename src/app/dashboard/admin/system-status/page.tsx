@@ -8,67 +8,15 @@ import { useState, useEffect, useTransition } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 
-interface SystemStatus {
-  llmStatus: 'Online' | 'Offline' | 'Degraded' | 'Unknown';
-  serverDbStatus: 'Online' | 'Offline' | 'Unavailable' | 'Loading';
-  errorMessage: string | null;
-  userCount: number | 'N/A';
-  storeCount: number | 'N/A';
-}
+// This page no longer fetches server status as it was redundant and costly.
+// It now primarily focuses on client-side connectivity and auth status.
 
 export default function SystemStatusPage() {
-  const [status, setStatus] = useState<SystemStatus>({
-    llmStatus: 'Offline',
-    serverDbStatus: 'Loading',
-    errorMessage: null,
-    userCount: 'N/A',
-    storeCount: 'N/A',
-  });
   const [isFetching, startFetchingTransition] = useTransition();
 
+  // The onRefresh function is now empty as the server card is removed.
   const fetchStatus = async () => {
-    startFetchingTransition(async () => {
-      try {
-        const serverStatus = await getSystemStatus();
-
-        if (serverStatus.status === 'ok') {
-            setStatus({
-                llmStatus: serverStatus.llmStatus,
-                serverDbStatus: 'Online',
-                errorMessage: null,
-                userCount: 'N/A', // We no longer fetch counts from server
-                storeCount: 'N/A',
-            });
-        } else {
-             setStatus({
-                llmStatus: 'Offline',
-                serverDbStatus: 'Unavailable',
-                errorMessage: serverStatus.errorMessage,
-                userCount: 'N/A',
-                storeCount: 'N/A',
-            });
-        }
-      } catch (error: any) {
-        console.error("Failed to fetch system status:", error);
-        setStatus(prev => ({
-            ...prev,
-            llmStatus: 'Offline',
-            serverDbStatus: 'Unavailable',
-            errorMessage: error.message || 'Client-side fetch failed.',
-            userCount: 'N/A',
-            storeCount: 'N/A',
-        }));
-      }
-    });
-  };
-
-  // Fetch immediately on mount
-  useEffect(() => {
-    fetchStatus();
-  }, []);
-
-  const StatusDisplay = ({ isLoading, children }: { isLoading: boolean, children: React.ReactNode }) => {
-    return isLoading ? <Skeleton className="h-8 w-24" /> : <div className="text-3xl font-bold">{children}</div>;
+    // No-op
   };
 
   return (
@@ -79,25 +27,13 @@ export default function SystemStatusPage() {
                 System Status Dashboard
             </h1>
             <p className="text-gray-600">
-                Health check of critical application components.
+                Health check of critical application components. Use the official Firebase Status Dashboard for backend monitoring.
             </p>
         </div>
       </div>
 
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <ServerStatusCard
-          title="Server Database (Admin)"
-          status={{
-            status: isFetching ? 'Loading' : status.serverDbStatus,
-            message: status.errorMessage || `Admin SDK connection is ${status.serverDbStatus.toLowerCase()}.`
-          }}
-          iconName="Database"
-          description="Connection health for server-side actions."
-          onRefresh={fetchStatus}
-          isRefreshing={isFetching}
-        />
-        
         <ClientStatusCard />
 
         <ServerStatusCard
@@ -106,6 +42,23 @@ export default function SystemStatusPage() {
           iconName="ShieldAlert"
           description="Status of Firebase Authentication services."
         />
+
+        <Card>
+            <CardHeader>
+                <div className="flex items-center gap-3">
+                    <Database className="h-6 w-6 text-muted-foreground" />
+                    <CardTitle className="text-lg">Backend Status</CardTitle>
+                </div>
+                <CardDescription className="pt-2">For real-time backend and database health, please use the official Google Cloud status dashboard.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button asChild variant="outline">
+                    <a href="https://status.firebase.google.com/" target="_blank" rel="noopener noreferrer">
+                        Go to Firebase Status
+                    </a>
+                </Button>
+            </CardContent>
+        </Card>
       </div>
       
        <div className="pt-4">
@@ -119,7 +72,7 @@ export default function SystemStatusPage() {
               <Users className="h-5 w-5 text-indigo-500" />
             </CardHeader>
             <CardContent>
-              <StatusDisplay isLoading={isFetching}>{status.userCount}</StatusDisplay>
+               <div className="text-3xl font-bold">N/A</div>
               <p className="text-xs text-gray-500">Real-time count not available</p>
             </CardContent>
           </Card>
@@ -130,7 +83,7 @@ export default function SystemStatusPage() {
               <StoreIcon className="h-5 w-5 text-green-500" />
             </CardHeader>
             <CardContent>
-              <StatusDisplay isLoading={isFetching}>{status.storeCount}</StatusDisplay>
+               <div className="text-3xl font-bold">N/A</div>
               <p className="text-xs text-gray-500">Real-time count not available</p>
             </CardContent>
           </Card>
