@@ -4,6 +4,7 @@
  * @fileOverview A flow to generate a grocery pack list using AI.
  */
 import { ai } from '@/ai/genkit';
+// Import schemas from the central file
 import { 
   GeneratePackInputSchema,
   GeneratePackOutputSchema,

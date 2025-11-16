@@ -3,10 +3,23 @@
 
 import { runAtlasDebugFlow } from '@/ai/flows/atlas-debug-flow';
 import { getAdminServices } from '@/firebase/admin-init';
-import { generatePack, type GeneratePackInput, type GeneratePackOutput } from '@/ai/flows/generate-pack-flow';
-import { getIngredientsForRecipe, type RecipeIngredientsInput, type RecipeIngredientsOutput } from '@/ai/flows/recipe-ingredients-flow';
-import { answerGeneralQuestion, type GeneralQuestionInput, type GeneralQuestionOutput } from '@/ai/flows/general-question-flow';
-import { suggestAliasTarget, type AliasTargetSuggestionInput, type AliasTargetSuggestionOutput } from '@/ai/flows/suggest-alias-flow';
+import { generatePack } from '@/ai/flows/generate-pack-flow';
+import { getIngredientsForRecipe } from '@/ai/flows/recipe-ingredients-flow';
+import { answerGeneralQuestion } from '@/ai/flows/general-question-flow';
+import { suggestAliasTarget } from '@/ai/flows/suggest-alias-flow';
+
+// Import all types from the new central schema file
+export type { 
+    GeneratePackInput, 
+    GeneratePackOutput,
+    RecipeIngredientsInput,
+    RecipeIngredientsOutput,
+    GeneralQuestionInput,
+    GeneralQuestionOutput,
+    AliasTargetSuggestionInput,
+    AliasTargetSuggestionOutput,
+} from '@/ai/flows/schemas';
+
 
 type DebugReport = {
     report: string;
@@ -66,16 +79,7 @@ export {
     answerGeneralQuestion, 
     suggestAliasTarget
 };
-export type { 
-    GeneratePackInput, 
-    GeneratePackOutput,
-    RecipeIngredientsInput,
-    RecipeIngredientsOutput,
-    GeneralQuestionInput,
-    GeneralQuestionOutput,
-    AliasTargetSuggestionInput,
-    AliasTargetSuggestionOutput,
-};
+
 
 async function getFirestoreCounts() {
     const { db } = await getAdminServices();

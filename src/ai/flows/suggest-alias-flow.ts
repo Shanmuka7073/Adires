@@ -4,6 +4,7 @@
  * @fileOverview An AI flow to suggest the correct target for a failed voice command.
  */
 import { ai } from '@/ai/genkit';
+// Import schemas from the central file
 import {
   AliasTargetSuggestionInputSchema,
   AliasTargetSuggestionOutputSchema,

@@ -6,6 +6,7 @@
 'use server';
 
 import { ai } from '@/ai/genkit';
+// Import schemas from the central file
 import { 
   GeneralQuestionInputSchema, 
   GeneralQuestionOutputSchema,
