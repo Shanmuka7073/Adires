@@ -1,12 +1,13 @@
 
 'use server';
 
-import { runAtlasDebugFlow } from '@/ai/flows/atlas-debug-flow';
 import { getAdminServices } from '@/firebase/admin-init';
 import { generatePack } from '@/ai/flows/generate-pack-flow';
 import { getIngredientsForRecipe } from '@/ai/flows/recipe-ingredients-flow';
 import { answerGeneralQuestion } from '@/ai/flows/general-question-flow';
 import { suggestAliasTarget } from '@/ai/flows/suggest-alias-flow';
+import { runAtlasDebugFlow } from '@/ai/flows/atlas-debug-flow';
+
 
 // Import all types from the new central schema file
 export type { 
@@ -46,8 +47,12 @@ export async function debugAtlasAction(userQuery: string, failedFunction: string
         const { auth } = await getAdminServices();
         const decodedToken = await auth.verifyIdToken(idToken);
         
+        // Correctly initialize AI and get the flow function
+        const { ai } = await import('@/ai/genkit');
+        const atlasFlow = runAtlasDebugFlow(ai);
+
         // The user is authenticated. Now, run the Genkit flow.
-        const report = await runAtlasDebugFlow({ errorDetails: userQuery, failedFunction: failedFunction });
+        const report = await atlasFlow({ errorDetails: userQuery, failedFunction: failedFunction });
         return report;
 
     } catch (error: any) {
