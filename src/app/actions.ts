@@ -65,31 +65,24 @@ export async function suggestAliasTarget(input: AliasTargetSuggestionInput): Pro
     return withRetries(suggestAliasTargetFlow, input);
 }
 
+// The Server Action now simply acts as a secure pass-through to the Genkit flow.
+// The UID is provided by the client, and the Genkit flow's middleware will verify auth.
 export async function askAsha(uid: string, userMessage: string, history: ChatMessage[]): Promise<string> {
     if (!uid) {
-        throw new Error("Authentication failed: No user ID provided by client.");
+        throw new Error("Authentication failed: No user ID provided.");
     }
     
     try {
-        const { auth } = await getAdminServices();
-        const userRecord = await auth.getUser(uid);
-        if (userRecord.email !== ADMIN_EMAIL) {
-            console.warn(`Unauthorized access attempt to Asha Agent by user: ${userRecord.email}`);
-            throw new Error("You do not have permission to use this feature.");
-        }
-    } catch (error) {
-        console.error("Admin check failed:", error);
-        throw new Error("Could not verify admin status.");
-    }
-
-    try {
-        const responseText = await runAshaFlow(uid, userMessage, history); 
+        // The Genkit flow is now responsible for authentication checks via middleware.
+        const responseText = await runAshaFlow({uid, userMessage, history}); 
         return responseText;
     } catch (flowError) {
         console.error("Genkit Flow Execution Failed:", flowError);
-        throw new Error("AI flow failed to process request.");
+        // Re-throw the error so the client can handle it.
+        throw flowError;
     }
 }
+
 
 export async function getSystemStatus() {
     try {
