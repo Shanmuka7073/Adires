@@ -15,7 +15,7 @@ import {
 // 1. Define the Prompt (this must stay defined explicitly)
 const suggestAliasPrompt = ai.definePrompt({
   name: 'suggestAliasPrompt',
-  model: 'gemini-1.5-flash-latest',
+  model: 'googleai/gemini-1.5-flash',
   input: { schema: AliasTargetSuggestionInputSchema },
   output: { schema: AliasTargetSuggestionOutputSchema },
   prompt: `You are an expert linguistic mapping assistant for an Indian grocery voice command system. Your task is to accurately map a user's failed voice command to the correct item (product, command, or store).
