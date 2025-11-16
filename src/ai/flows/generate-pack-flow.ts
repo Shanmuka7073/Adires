@@ -21,7 +21,7 @@ const ai = genkit({
 
 const generatePackPrompt = ai.definePrompt({
   name: 'generatePackPrompt',
-  model: 'googleai/gemini-2.5-flash',
+  model: 'googleai/gemini-pro',
   input: { schema: GeneratePackInputSchema },
   output: { schema: GeneratePackOutputSchema },
   prompt: `You are an expert Indian home needs planner. Your task is to generate a realistic grocery list for an Indian family.

@@ -25,7 +25,7 @@ const ai = genkit({
 const generalQuestionPrompt = ai.definePrompt(
   {
     name: 'generalQuestionPrompt',
-    model: 'googleai/gemini-2.5-flash',
+    model: 'googleai/gemini-pro',
     input: { schema: GeneralQuestionInputSchema },
     output: { schema: GeneralQuestionOutputSchema },
     prompt: `You are a helpful voice assistant. Answer the following question concisely.

@@ -1,7 +1,7 @@
 
 'use server';
 
-import { genkit } from 'genkit';
+import { genkit, AIMiddleware } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
 import { z } from 'zod';
 import type { ChatMessage } from '@/lib/types';
@@ -40,7 +40,7 @@ export async function runAshaFlow(uid: string, userMessage: string, history: Cha
 
     try {
         const { text } = await ai.generate({
-            model: 'googleai/gemini-2.5-flash',
+            model: 'googleai/gemini-pro',
             prompt: conversationPrompt,
             config: {
                 systemInstruction: systemPrompt,
