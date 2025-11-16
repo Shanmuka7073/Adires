@@ -159,13 +159,6 @@ export type MonthlyPackage = {
     }[];
 };
 
-export type SiteConfig = {
-    isPackGeneratorEnabled?: boolean;
-    isRecipeApiEnabled?: boolean;
-    isGeneralQuestionApiEnabled?: boolean;
-    isAliasSuggesterEnabled?: boolean;
-};
-
 export type AppError = {
     id: string;
     userId: string;
@@ -182,6 +175,3 @@ export type ChatMessage = {
   text: string;
   timestamp?: any;
 };
-
-// Import and re-export types from the new alias suggester flow
-export type { AliasTargetSuggestionInput, AliasTargetSuggestionOutput } from '@/ai/flows/alias-suggester-flow';

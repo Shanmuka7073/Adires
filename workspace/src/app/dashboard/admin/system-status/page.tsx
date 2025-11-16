@@ -17,7 +17,7 @@ interface SystemStatus {
 
 export default function SystemStatusPage() {
   const [status, setStatus] = useState<SystemStatus>({
-    llmStatus: 'Unknown',
+    llmStatus: 'Offline',
     serverDbStatus: 'Loading',
     userCount: 'N/A',
     storeCount: 'N/A',
@@ -88,7 +88,7 @@ export default function SystemStatusPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <ServerStatusCard
           title="LLM Service (Gemini)"
-          status={{ status: status.llmStatus, message: `Connection to Google's Gemini API is ${status.llmStatus.toLowerCase()}.` }}
+          status={{ status: status.llmStatus, message: `AI features are currently disabled.` }}
           iconName="BrainCircuit"
           description="Handles all AI-powered features."
         />
