@@ -1,10 +1,9 @@
 'use server';
 
-import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
+import { initializeApp, getApps, App, cert, ServiceAccount } from 'firebase-admin/app';
 import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { firebaseConfig } from './config';
-import 'dotenv/config';
 
 interface AdminServices {
   app: App;
@@ -14,16 +13,24 @@ interface AdminServices {
 
 let adminServices: AdminServices | null = null;
 
-function getServiceAccount() {
-  if (process.env.SERVICE_ACCOUNT) {
-    return JSON.parse(process.env.SERVICE_ACCOUNT);
+function getServiceAccount(): ServiceAccount | undefined {
+  const serviceAccountStr = process.env.SERVICE_ACCOUNT;
+  if (serviceAccountStr) {
+    try {
+      return JSON.parse(serviceAccountStr);
+    } catch (e) {
+      console.error("Failed to parse SERVICE_ACCOUNT environment variable:", e);
+      return undefined;
+    }
   }
-  // This is for local development only
+  
+  // This is a fallback for local development if the env var isn't set,
+  // allowing the user to use a local file instead.
   try {
     return require('../../../service-account.json');
   } catch (e) {
-    console.warn("Could not find service-account.json. Admin SDK will not be initialized for local development.");
-    return null;
+    // This is not a critical error, as the env var is the preferred method.
+    return undefined;
   }
 }
 
@@ -34,11 +41,19 @@ export async function getAdminServices(): Promise<AdminServices> {
   
   const serviceAccount = getServiceAccount();
 
+  if (!serviceAccount) {
+    throw new Error(
+      "Firebase Admin SDK credentials not found. " +
+      "Ensure the SERVICE_ACCOUNT environment variable is set " +
+      "or a service-account.json file is present in the root."
+    );
+  }
+
   const app = getApps().length
     ? getApps()[0]
     : initializeApp({
         projectId: firebaseConfig.projectId,
-        credential: serviceAccount ? cert(serviceAccount) : undefined,
+        credential: cert(serviceAccount),
       });
 
   adminServices = {
