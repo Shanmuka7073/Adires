@@ -1,9 +1,10 @@
 'use server';
 
-import { initializeApp, getApps, App, applicationDefault } from 'firebase-admin/app';
+import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
 import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
-import { firebaseConfig } from './config'; // Import the shared config
+import { firebaseConfig } from './config';
+import 'dotenv/config';
 
 interface AdminServices {
   app: App;
@@ -11,28 +12,35 @@ interface AdminServices {
   db: Firestore;
 }
 
-// This is a global singleton to ensure we only initialize the admin app once.
 let adminServices: AdminServices | null = null;
 
+function getServiceAccount() {
+  if (process.env.SERVICE_ACCOUNT) {
+    return JSON.parse(process.env.SERVICE_ACCOUNT);
+  }
+  // This is for local development only
+  try {
+    return require('../../../service-account.json');
+  } catch (e) {
+    console.warn("Could not find service-account.json. Admin SDK will not be initialized for local development.");
+    return null;
+  }
+}
+
 export async function getAdminServices(): Promise<AdminServices> {
-  // If the services have already been initialized, return them immediately.
   if (adminServices) {
     return adminServices;
   }
+  
+  const serviceAccount = getServiceAccount();
 
-  // If no apps are initialized, this is the first time.
-  // If apps exist, we get the existing default app. This handles Next.js hot-reloading.
   const app = getApps().length
     ? getApps()[0]
     : initializeApp({
-        // Use the shared firebaseConfig to ensure project consistency
         projectId: firebaseConfig.projectId,
-        // Application Default Credentials (ADC) will be used for authentication.
-        // This is the standard way to authenticate on Google Cloud environments.
-        credential: applicationDefault(),
-    });
+        credential: serviceAccount ? cert(serviceAccount) : undefined,
+      });
 
-  // Store the initialized services in the global singleton.
   adminServices = {
     app: app,
     auth: getAuth(app),
