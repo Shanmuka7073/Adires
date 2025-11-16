@@ -14,7 +14,7 @@ import type { Order, Store as StoreType, SiteConfig } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { t } from '@/lib/locales';
-import { answerGeneralQuestion as getIngredientsForRecipe } from '@/ai/flows/general-question-flow';
+import { answerGeneralQuestion } from '@/ai/flows/general-question-flow';
 import { useToast } from '@/hooks/use-toast';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
@@ -94,7 +94,7 @@ function AiTestCard() {
         startTransition(async () => {
             try {
                 // The action name is updated, but functionality is similar for a test
-                const result = await getIngredientsForRecipe({ question: `ingredients for ${dish}` });
+                const result = await answerGeneralQuestion({ question: `ingredients for ${dish}` });
                 setIngredients(result.answer.split(', '));
             } catch (error) {
                 console.error(error);
