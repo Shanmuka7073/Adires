@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, Truck, ShoppingBag, ArrowRight, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box, Code, ShieldAlert, AlertCircle, Bot, CheckCircle } from 'lucide-react';
+import { Users, Store, Truck, ShoppingBag, ArrowRight, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box, Code, ShieldAlert, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -22,6 +22,12 @@ const ADMIN_EMAIL = 'admin@gmail.com';
 interface SystemStatus {
   llmStatus: 'Online' | 'Offline' | 'Degraded' | 'Unknown';
   serverDbStatus: 'Online' | 'Offline' | 'Unavailable' | 'Loading';
+  counts: {
+      users: number;
+      stores: number;
+      deliveryPartners: number;
+      voiceCommands: number;
+  }
 }
 
 function StatCard({ title, value, icon: Icon, loading, isLive = false }: { title: string, value: string | number, icon: React.ElementType, loading?: boolean, isLive?: boolean }) {
@@ -41,45 +47,48 @@ function StatCard({ title, value, icon: Icon, loading, isLive = false }: { title
     )
 }
 
-function LiveStatusCard({ status, loading }: { status: SystemStatus, loading: boolean }) {
-    const getStatusInfo = (s: string) => {
-        switch (s) {
-            case 'Online': return { color: 'text-green-500', text: 'Online' };
-            case 'Offline': return { color: 'text-destructive', text: 'Offline' };
-            default: return { color: 'text-yellow-500', text: 'Checking...' };
-        }
-    };
+function CoreServicesStatusCard({ status, loading }: { status: SystemStatus, loading: boolean }) {
     
-    const dbStatus = getStatusInfo(status.serverDbStatus);
+    const getStatusInfo = (isOnline: boolean) => {
+        if (loading) return { color: 'text-yellow-500', icon: <Skeleton className="h-5 w-5 rounded-full" />, text: 'Checking...' };
+        return isOnline 
+            ? { color: 'text-green-500', icon: <CheckCircle className="h-5 w-5" />, text: 'Online' }
+            : { color: 'text-destructive', icon: <XCircle className="h-5 w-5" />, text: 'Offline' };
+    };
+
+    const isDbOnline = status.serverDbStatus === 'Online';
+    
+    const services = [
+        { name: 'User System', icon: Users, isOnline: isDbOnline && status.counts.users >= 0 },
+        { name: 'Store Owner System', icon: Store, isOnline: isDbOnline && status.counts.stores >= 0 },
+        { name: 'Delivery Partner System', icon: Truck, isOnline: isDbOnline && status.counts.deliveryPartners >= 0 },
+        { name: 'Voice Commander', icon: Mic, isOnline: isDbOnline && status.counts.voiceCommands > 0 },
+    ];
 
     return (
         <Card className="col-span-1 lg:col-span-3 border-primary/20 bg-primary/5">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Live System Status</CardTitle>
+                <CardTitle className="text-sm font-medium">Core Services Health</CardTitle>
                 <div className="flex items-center gap-2">
                     <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
                     <Server className="h-4 w-4 text-muted-foreground" />
                 </div>
             </CardHeader>
             <CardContent>
-                {loading ? <Skeleton className="h-8 w-full" /> : (
-                    <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-2">
-                            <CheckCircle className={`h-5 w-5 ${dbStatus.color}`} />
-                            <div>
-                                <p className="text-sm font-medium">Backend DB</p>
-                                <p className={`text-xs ${dbStatus.color}`}>{dbStatus.text}</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {services.map(service => {
+                        const statusInfo = getStatusInfo(service.isOnline);
+                        return (
+                            <div key={service.name} className="flex items-center gap-2 p-2 rounded-lg bg-background/50">
+                                {statusInfo.icon}
+                                <div>
+                                    <p className="text-sm font-medium">{service.name}</p>
+                                    <p className={`text-xs ${statusInfo.color}`}>{statusInfo.text}</p>
+                                </div>
                             </div>
-                        </div>
-                         <div className="flex items-center gap-2">
-                            <Bot className="h-5 w-5 text-muted-foreground" />
-                            <div>
-                                <p className="text-sm font-medium">LLM Service</p>
-                                <p className="text-xs text-muted-foreground">Disabled</p>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                        )
+                    })}
+                </div>
             </CardContent>
         </Card>
     )
@@ -127,6 +136,7 @@ export default function AdminDashboardPage() {
      const [status, setStatus] = useState<SystemStatus>({
         llmStatus: 'Offline',
         serverDbStatus: 'Loading',
+        counts: { users: 0, stores: 0, deliveryPartners: 0, voiceCommands: 0 }
     });
     const [statusLoading, setStatusLoading] = useState(true);
 
@@ -164,9 +174,14 @@ export default function AdminDashboardPage() {
                 setStatus(prev => ({
                     ...prev,
                     serverDbStatus: serverStatus.serverDbStatus,
+                    counts: serverStatus.counts
                 }));
             } catch (error) {
-                 setStatus(prev => ({ ...prev, serverDbStatus: 'Offline' }));
+                 setStatus(prev => ({ 
+                    ...prev, 
+                    serverDbStatus: 'Offline',
+                    counts: { users: 0, stores: 0, deliveryPartners: 0, voiceCommands: 0 }
+                }));
             } finally {
                 if (statusLoading) setStatusLoading(false);
             }
@@ -205,7 +220,7 @@ export default function AdminDashboardPage() {
             {!masterStoreExists && <CreateMasterStoreCard />}
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
-                 <LiveStatusCard status={status} loading={statusLoading} />
+                 <CoreServicesStatusCard status={status} loading={statusLoading} />
                 {statItems.map(item => (
                     <StatCard 
                         key={item.title} 

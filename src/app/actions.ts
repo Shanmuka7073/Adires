@@ -8,9 +8,13 @@ async function getFirestoreCounts() {
     const { db } = await getAdminServices();
     const usersSnapshot = await db.collection('users').get();
     const storesSnapshot = await db.collection('stores').get();
+    const partnersSnapshot = await db.collection('deliveryPartners').get();
+    const commandsSnapshot = await db.collection('voiceCommands').get();
     return {
         users: usersSnapshot.size,
         stores: storesSnapshot.size,
+        deliveryPartners: partnersSnapshot.size,
+        voiceCommands: commandsSnapshot.size,
     };
 }
 
@@ -29,7 +33,7 @@ export async function getSystemStatus() {
             status: 'error',
             llmStatus: 'Offline',
             serverDbStatus: 'Offline',
-            counts: { users: 0, stores: 0 },
+            counts: { users: 0, stores: 0, deliveryPartners: 0, voiceCommands: 0 },
         };
     }
 }
