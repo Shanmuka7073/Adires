@@ -65,19 +65,11 @@ export async function suggestAliasTarget(input: AliasTargetSuggestionInput): Pro
     return withRetries(suggestAliasTargetFlow, input);
 }
 
-/**
- * Server Action that verifies the user's admin status and then calls the AI flow.
- * @param uid The user's UID, passed from the authenticated client.
- * @param userMessage The latest message from the user.
- * @param history The contextual chat history.
- * @returns The generated response text from the AI flow.
- */
 export async function askAsha(uid: string, userMessage: string, history: ChatMessage[]): Promise<string> {
     if (!uid) {
         throw new Error("Authentication failed: No user ID provided by client.");
     }
     
-    // 1. Verify the user is an admin using the Admin SDK
     try {
         const { auth } = await getAdminServices();
         const userRecord = await auth.getUser(uid);
@@ -90,7 +82,6 @@ export async function askAsha(uid: string, userMessage: string, history: ChatMes
         throw new Error("Could not verify admin status.");
     }
 
-    // 2. Call the Genkit Flow with the verified UID
     try {
         const responseText = await runAshaFlow(uid, userMessage, history); 
         return responseText;
@@ -104,10 +95,8 @@ export async function getSystemStatus() {
     try {
         const { db, auth } = await getAdminServices();
 
-        // 1. Check DB connection by trying to get a non-existent document
         const testDoc = await getDoc(doc(db, 'system-test/health-check'));
         
-        // 2. Check Auth connection by listing a single user
         const userRecords = await auth.listUsers(1);
 
         const usersQuery = await getDocs(collection(db, 'users'));
