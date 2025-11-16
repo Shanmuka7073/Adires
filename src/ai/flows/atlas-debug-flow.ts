@@ -17,7 +17,7 @@ type DebugReport = z.infer<typeof DebugReportSchema>;
  * Genkit flow for the Atlas Debug Agent. 
  * It analyzes detailed error messages and provides a structured fix.
  */
-export const atlasDebugFlow = flow(
+export const runAtlasDebugFlow = flow(
     {
         name: 'atlasDebugFlow',
         inputSchema: z.object({ errorDetails: z.string(), failedFunction: z.string() }),
@@ -31,7 +31,7 @@ export const atlasDebugFlow = flow(
         1. Always output a valid JSON object matching the requested schema {report: string, fixInstructions: string}.
         2. Analyze the user's query and generate a **comprehensive diagnostic report** assuming a high probability of: 
            - **Authentication Failure** (if user mentions tokens/auth): Token is expired, or the local JWT decode failed.
-           - **Permission Failure** (if user mentions Firestore): Missing or incorrect Firebase Security Rules for /asha-conversations/{userId}/conversation.
+           - **Permission Failure** (if user mentions Firestore): Missing or incorrect Firebase Security Rules for /artifacts/{appId}/users/{userId}.
            - **Genkit Failure** (if user mentions AI/model): Genkit dependencies or configuration is wrong, or the API key is invalid.
         3. The 'fixInstructions' must be detailed markdown, including file names and clear, step-by-step instructions. Use code blocks for file paths or code snippets.`;
 
