@@ -1,7 +1,7 @@
 
 'use server';
 
-import { genkit, AIMiddleware } from 'genkit';
+import { genkit } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
 import { z } from 'zod';
 import type { ChatMessage } from '@/lib/types';
@@ -47,7 +47,7 @@ export async function runAshaFlow(uid: string, userMessage: string, history: Cha
         });
 
         // The Server Action will save the response. The flow's only job is to generate it.
-        return text;
+        return text || "I'm not sure how to respond to that.";
 
     } catch (e) {
         console.error("Gemini API Call Error in Flow:", e);
