@@ -1,15 +1,11 @@
 
 'use server';
 
-import { genkit, AIMiddleware, type Candidate, type Part } from 'genkit';
+import { genkit } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
 import { z } from 'zod';
+import type { ChatMessage } from '@/lib/types';
 
-// Define the shape of a chat message for context history
-export type ChatMessage = {
-    role: 'user' | 'model';
-    text: string;
-};
 
 // This AI instance is simple, as auth is handled by the Server Action
 const ai = genkit({

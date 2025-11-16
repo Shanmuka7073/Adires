@@ -6,6 +6,7 @@ import { getIngredientsForRecipe as getIngredientsFlow } from '@/ai/flows/recipe
 import { answerGeneralQuestion as answerGeneralQuestionFlow } from '@/ai/flows/general-question-flow';
 import { generatePack as generatePackFlow } from '@/ai/flows/generate-pack-flow';
 import { suggestAliasTarget as suggestAliasTargetFlow } from '@/ai/flows/suggest-alias-flow';
+import { runAshaFlow } from '@/ai/flows/asha-agent-flow';
 import { getAdminServices } from '@/firebase/admin-init';
 import { getDocs, addDoc, serverTimestamp, collection, query, where, getDoc, doc } from 'firebase-admin/firestore';
 import { z } from 'zod';
@@ -61,6 +62,40 @@ export async function generatePack(input: GeneratePackInput): Promise<GeneratePa
 
 export async function suggestAliasTarget(input: AliasTargetSuggestionInput): Promise<AliasTargetSuggestionOutput> {
     return withRetries(suggestAliasTargetFlow, input);
+}
+
+/**
+ * Server Action that verifies the user's ID token and then calls the AI flow.
+ * @param idToken The Firebase ID Token sent from the client.
+ * @param userMessage The latest message from the user.
+ * @param history The contextual chat history.
+ * @returns The generated response text from the AI flow.
+ */
+export async function askAsha(idToken: string, userMessage: string, history: ChatMessage[]): Promise<string> {
+    if (!idToken) {
+        throw new Error("Authentication failed: No token provided by client.");
+    }
+    
+    const { auth } = await getAdminServices();
+    let uid: string;
+    
+    // 1. Verify the ID Token using Firebase Admin SDK
+    try {
+        const decodedToken = await auth.verifyIdToken(idToken);
+        uid = decodedToken.uid;
+    } catch (error) {
+        console.error("Token Verification Failed:", error);
+        throw new Error("Authentication failed: Invalid or expired token.");
+    }
+
+    // 2. Call the Genkit Flow with the verified UID
+    try {
+        const responseText = await runAshaFlow(uid, userMessage, history); 
+        return responseText;
+    } catch (flowError) {
+        console.error("Genkit Flow Execution Failed:", flowError);
+        throw new Error("AI flow failed to process request.");
+    }
 }
 
 export async function getSystemStatus() {

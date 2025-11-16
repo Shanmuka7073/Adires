@@ -1,5 +1,4 @@
 
-
 import { Timestamp } from "firebase/firestore";
 
 export type ProductVariant = {
@@ -177,6 +176,14 @@ export type AppError = {
     path: string;
 };
 
+// Type for conversational history
+export type ChatMessage = {
+  role: 'user' | 'model';
+  text: string;
+  timestamp?: any;
+};
+
+
 // Explicitly export types used in server actions that were causing issues.
 export type {
     RecipeIngredientsInput,
@@ -197,9 +204,3 @@ export type {
     AliasTargetSuggestionInput,
     AliasTargetSuggestionOutput,
 } from '@/ai/flows/schemas';
-    
-// Type for conversational history
-export type ChatMessage = {
-  role: 'user' | 'model';
-  text: string;
-};
