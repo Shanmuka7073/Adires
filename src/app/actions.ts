@@ -7,7 +7,6 @@ import { generatePack, type GeneratePackInput, type GeneratePackOutput } from '@
 import { getIngredientsForRecipe, type RecipeIngredientsInput, type RecipeIngredientsOutput } from '@/ai/flows/recipe-ingredients-flow';
 import { answerGeneralQuestion, type GeneralQuestionInput, type GeneralQuestionOutput } from '@/ai/flows/general-question-flow';
 import { suggestAliasTarget, type AliasTargetSuggestionInput, type AliasTargetSuggestionOutput } from '@/ai/flows/suggest-alias-flow';
-import { listSupportedModels } from '@/ai/flows/list-models-flow';
 
 type DebugReport = {
     report: string;
@@ -65,8 +64,7 @@ export {
     generatePack, 
     getIngredientsForRecipe, 
     answerGeneralQuestion, 
-    suggestAliasTarget,
-    listSupportedModels
+    suggestAliasTarget
 };
 export type { 
     GeneratePackInput, 
