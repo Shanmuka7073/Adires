@@ -11,8 +11,7 @@ import { googleAI } from '@genkit-ai/google-genai';
 import { firebase } from '@genkit-ai/firebase';
 
 // The googleAI() plugin will now automatically pick up the API key
-// from the process.env.GEMINI_API_KEY environment variable,
-// which is loaded by 'dotenv/config'.
+// from the process.env.GEMINI_API_KEY environment variable.
 
 // Initialize Genkit with the Google AI plugin.
 // This `ai` object is now the central point for all Genkit-related definitions.
