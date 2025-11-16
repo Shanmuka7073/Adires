@@ -2,7 +2,7 @@
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
-import { ai } from '@/ai/genkit';
+import { recipeIngredientsFlow } from '@/ai/flows/recipe-ingredients-flow';
 import type {
     RecipeIngredientsInput,
     RecipeIngredientsOutput,
@@ -12,9 +12,8 @@ import type {
 // --- Re-exporting AI flows to be used as Server Actions ---
 
 export async function getIngredientsForRecipe(input: RecipeIngredientsInput): Promise<RecipeIngredientsOutput> {
-  // Directly run the flow by its registered name
-  const flowResult = await ai.run('recipeIngredientsFlow', input);
-  return flowResult;
+  // Directly call the imported flow function
+  return await recipeIngredientsFlow(input);
 }
 
 
