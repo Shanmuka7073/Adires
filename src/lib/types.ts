@@ -198,3 +198,8 @@ export type {
     AliasTargetSuggestionOutput,
 } from '@/ai/flows/schemas';
     
+// Type for conversational history
+export type ChatMessage = {
+  role: 'user' | 'model';
+  text: string;
+};

@@ -2,8 +2,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import { getFirestore, collection, query, orderBy, onSnapshot, addDoc } from "firebase/firestore";
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
+import { getAuth, type User } from 'firebase/auth';
 import { Send, Mic, User as UserIcon, Bot, Loader2 } from 'lucide-react';
 // IMPORT THE SERVER ACTION
 import { askAsha } from '@/app/actions'; 
@@ -63,8 +62,9 @@ export default function AshaAgentPage() {
 
     // --- 2. Server Action Interaction Function ---
     const generateResponse = async (userMessage: string) => {
+        if (!auth || !firestore || !user) return;
         setIsThinking(true);
-        const userConversationPath = `${CONVERSATION_PATH_PREFIX}/${user!.uid}/conversation`;
+        const userConversationPath = `${CONVERSATION_PATH_PREFIX}/${user.uid}/conversation`;
 
         // 1. Get the Firebase ID Token
         const idToken = await getAuthToken(auth);
@@ -88,8 +88,16 @@ export default function AshaAgentPage() {
             }));
 
         try {
-            // 3. Call the Server Action - no response needed here as Firestore listener will update UI
-            await askAsha(idToken, userMessage, history);
+            // 3. Call the Server Action with the correct name
+            const responseText = await askAsha(idToken, userMessage, history);
+            
+            // 4. Save the AI's response to Firestore
+            await addDoc(collection(firestore, userConversationPath), {
+                text: responseText,
+                role: 'model',
+                timestamp: Date.now()
+            });
+
         } catch (error: any) {
             console.error("Server Action Error:", error);
             await addDoc(collection(firestore, userConversationPath), {

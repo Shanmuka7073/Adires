@@ -6,9 +6,6 @@ import { googleAI } from '@genkit-ai/google-genai';
 import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { z } from 'zod';
 import { getAdminServices } from '@/firebase/admin-init';
-import { addUserContext } from '@/ai/genkit';
-
-const CONVERSATION_PATH_PREFIX = 'asha-conversations';
 
 // Define the shape of a chat message for context history
 export type ChatMessage = {
@@ -33,8 +30,7 @@ const ai = genkit({
  */
 export async function runAshaFlow(uid: string, userMessage: string, history: ChatMessage[]): Promise<string> {
     // The UID is guaranteed to be valid because it was verified in the Server Action
-    const userConversationPath = `${CONVERSATION_PATH_PREFIX}/${uid}/conversation`;
-    const { db } = getAdminServices();
+    const userConversationPath = `asha-conversations/${uid}/conversation`;
 
     // 1. Build the prompt including the conversational context and new message
     const conversationPrompt = history.map(m => `${m.role}: ${m.text}`).join('\n') + `\nuser: ${userMessage}`;
@@ -53,28 +49,15 @@ export async function runAshaFlow(uid: string, userMessage: string, history: Cha
             model: 'googleai/gemini-2.5-flash',
             prompt: conversationPrompt,
             config: {
-                // System prompt is now passed in the config
                 systemInstruction: systemPrompt,
             },
         });
 
-        // 3. Save model's response to Firestore history
-        await addDoc(collection(db, userConversationPath), {
-            text: text,
-            role: 'model',
-            timestamp: Date.now()
-        });
-
+        // The Server Action will save the response. The flow's only job is to generate it.
         return text;
+
     } catch (e) {
         console.error("Gemini API Call Error in Flow:", e);
-        // Save an error message to the chat history as well
-        const errorMessage = "I apologize, but I couldn't connect to my language center right now.";
-         await addDoc(collection(db, userConversationPath), {
-            text: errorMessage,
-            role: 'model',
-            timestamp: Date.now()
-        });
-        return errorMessage;
+        return "I apologize, but I couldn't connect to my language center right now.";
     }
 }
