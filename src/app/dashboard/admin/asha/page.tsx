@@ -2,7 +2,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import { getFirestore, collection, query, orderBy, onSnapshot, addDoc } from "firebase/firestore";
-import { getAuth, type User } from 'firebase/auth';
+import { getAuth, type User as FirebaseAuthUser } from 'firebase/auth';
 import { Send, Mic, User as UserIcon, Bot, Loader2 } from 'lucide-react';
 // IMPORT THE SERVER ACTION
 import { askAsha } from '@/app/actions'; 
@@ -13,6 +13,7 @@ import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import type { ChatMessage } from '@/lib/types';
 
 
 const CONVERSATION_PATH_PREFIX = 'asha-conversations';
@@ -31,7 +32,7 @@ const getAuthToken = async (authInstance: ReturnType<typeof getAuth>): Promise<s
 
 export default function AshaAgentPage() {
     const { user, auth, firestore } = useFirebase();
-    const [messages, setMessages] = useState<any[]>([]);
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState('');
     const [isThinking, setIsThinking] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -47,7 +48,7 @@ export default function AshaAgentPage() {
             const msgs = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
-            }));
+            })) as (ChatMessage & {id: string})[];
             setMessages(msgs);
         }, (error) => {
             console.error("Firestore error reading messages:", error);
@@ -172,8 +173,8 @@ export default function AshaAgentPage() {
                                     <p className="text-sm">Try using mixed language: "I need milk and konni ullipayalu."</p>
                                 </div>
                             )}
-                            {messages.map(msg => (
-                                <Message key={msg.id} text={msg.text} role={msg.role} />
+                            {messages.map((msg, index) => (
+                                <Message key={index} text={msg.text} role={msg.role} />
                             ))}
                             
                             {isThinking && (

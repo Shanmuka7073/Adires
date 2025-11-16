@@ -3,9 +3,7 @@
 
 import { genkit, AIMiddleware, type Candidate, type Part } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
-import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { z } from 'zod';
-import { getAdminServices } from '@/firebase/admin-init';
 
 // Define the shape of a chat message for context history
 export type ChatMessage = {
@@ -13,7 +11,7 @@ export type ChatMessage = {
     text: string;
 };
 
-// This AI instance is configured to use the user context middleware
+// This AI instance is simple, as auth is handled by the Server Action
 const ai = genkit({
     plugins: [googleAI()],
     logLevel: 'debug',
