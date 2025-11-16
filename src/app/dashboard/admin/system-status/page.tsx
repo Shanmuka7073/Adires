@@ -17,7 +17,7 @@ interface SystemStatus {
 
 export default function SystemStatusPage() {
   const [status, setStatus] = useState<SystemStatus>({
-    llmStatus: 'Online', // Assumed online initially
+    llmStatus: 'Offline', // AI features are removed
     serverDbStatus: 'Loading',
     userCount: 'N/A',
     storeCount: 'N/A',
@@ -32,14 +32,14 @@ export default function SystemStatusPage() {
 
         if (serverStatus.status === 'ok') {
             setStatus({
-                llmStatus: serverStatus.llmStatus as 'Online' | 'Offline' | 'Degraded',
+                llmStatus: 'Offline', // AI features are removed
                 serverDbStatus: 'Online',
                 userCount: serverStatus.counts.users,
                 storeCount: serverStatus.counts.stores,
             });
         } else {
              setStatus({
-                llmStatus: 'Degraded',
+                llmStatus: 'Offline',
                 serverDbStatus: 'Unavailable',
                 userCount: 'N/A',
                 storeCount: 'N/A',
@@ -49,7 +49,7 @@ export default function SystemStatusPage() {
         console.error("Failed to fetch system status:", error);
         setStatus(prev => ({
             ...prev,
-            llmStatus: 'Degraded',
+            llmStatus: 'Offline',
             serverDbStatus: 'Unavailable',
             userCount: 'N/A',
             storeCount: 'N/A',
@@ -66,12 +66,6 @@ export default function SystemStatusPage() {
     return isLoading ? <Skeleton className="h-8 w-24" /> : <div className="text-3xl font-bold">{children}</div>;
   };
 
-  const getLlmMessage = () => {
-    if (isLoading) return 'Checking model availability...';
-    if (status.llmStatus === 'Online') return 'Generative AI model is online and responding.';
-    return 'Could not verify connection to the Generative AI service.';
-  };
-
   return (
     <div className="p-8 space-y-8 bg-gray-50 min-h-screen">
       <h1 className="text-3xl font-bold text-gray-800 border-b pb-4">
@@ -81,14 +75,7 @@ export default function SystemStatusPage() {
         Real-time health check of critical application components.
       </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <ServerStatusCard
-          title="LLM Service (Gemini)"
-          status={{status: status.llmStatus, message: getLlmMessage()}}
-          iconName="BrainCircuit"
-          description="Status of the Generative AI Model serving the application."
-        />
-
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <ServerStatusCard
           title="Server Database (Admin)"
           status={{status: status.serverDbStatus, message: `Admin SDK connection is ${status.serverDbStatus.toLowerCase()}.`}}

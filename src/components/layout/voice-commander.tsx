@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, errorEmitter, useDoc, useMemoFirebase } from '@/firebase';
-import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, VoiceAlias, MonthlyPackage, SiteConfig, RecipeIngredientsInput, RecipeIngredientsOutput } from '@/lib/types';
+import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, VoiceAlias, MonthlyPackage, SiteConfig } from '@/lib/types';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
 import { useAppStore } from '@/lib/store';
@@ -14,7 +14,6 @@ import { t, initializeTranslations } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import groceryData from '@/lib/grocery-data.json';
-import { getIngredientsForRecipe } from '@/app/actions';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache';
 import { useCheckoutStore } from '@/app/checkout/page';
@@ -771,7 +770,7 @@ export function VoiceCommander({
             break;
 
         case 'WAKE_WORD':
-            speak("I can only get recipe ingredients right now.", langWithRegion);
+            speak("I can't get recipe ingredients right now.", langWithRegion);
             return;
 
         case 'GET_RECIPE':
@@ -779,7 +778,8 @@ export function VoiceCommander({
                 speak("I'm sorry, the recipe feature is currently disabled.", langWithRegion);
                 return;
             }
-            await commandActionsRef.current.getRecipe({ dishName: intent.dishName, lang: intent.lang });
+            speak("This feature is temporarily disabled.", langWithRegion);
+            // await commandActionsRef.current.getRecipe({ dishName: intent.dishName, lang: intent.lang });
             break;
             
         case 'CHECK_PRICE':
@@ -799,7 +799,8 @@ export function VoiceCommander({
                 speak("I'm sorry, the grocery pack feature is currently disabled.", langWithRegion);
                 return;
             }
-            await commandActionsRef.current.addPackToCart({ packType: intent.packType, familySize: intent.familySize, lang: intent.lang });
+            speak("This feature is temporarily disabled.", langWithRegion);
+            // await commandActionsRef.current.addPackToCart({ packType: intent.packType, familySize: intent.familySize, lang: intent.lang });
             break;
         
         case 'NAVIGATE':
@@ -1106,33 +1107,6 @@ export function VoiceCommander({
             speak(`I couldn't find "${phrase}" in your cart.`, lang + '-IN');
         }
     },
-    getRecipe: async ({ dishName, lang }: { dishName: string, lang: string }) => {
-        if (!dishName) return;
-        const langWithRegion = lang === 'en' ? 'en-IN' : `${lang}-IN`;
-        speak(`Let me check the ingredients for ${dishName}.`, langWithRegion);
-        
-        try {
-            if (!firestore) throw new Error("Firestore not available");
-            let ingredients: string[] | null = await getCachedRecipe(firestore, dishName);
-
-            if (ingredients) {
-                speak(`I found a cached recipe. The ingredients for ${dishName} are: ${ingredients.join(', ')}`, langWithRegion);
-            } else {
-                const result: RecipeIngredientsOutput = await getIngredientsForRecipe({ dishName });
-                if (result?.ingredients) {
-                    ingredients = result.ingredients;
-                    speak(`The ingredients for ${dishName} are: ${ingredients.join(', ')}`, langWithRegion);
-                    await cacheRecipe(firestore, dishName, ingredients);
-                } else {
-                    speak(`I'm sorry, I couldn't find ingredients for ${dishName}.`, langWithRegion);
-                }
-            }
-
-        } catch (error) {
-            console.error("Error getting recipe:", error);
-            speak(`I'm sorry, I couldn't get the ingredients for ${dishName} right now.`, langWithRegion);
-        }
-    },
     orderMultipleItems: async (phrases: string[], lang: string, originalText: string) => {
         let addedItems: string[] = [];
         let failedItems: string[] = [];
@@ -1262,69 +1236,6 @@ export function VoiceCommander({
             router.push('/checkout');
         });
     },
-    addPackToCart: async ({ packType, familySize, lang, storeId }: { packType: string; familySize: number; lang: string, storeId?: string }) => {
-        const langWithRegion = lang === 'en' ? 'en-IN' : `${lang}-IN`;
-    
-        if (!firestore) return;
-    
-        const masterStore = stores.find(s => s.name === 'LocalBasket');
-        if (!masterStore) {
-            speak("I'm sorry, I can't find the master pack list right now.", langWithRegion);
-            return;
-        }
-    
-        const packName = `${packType} pack for ${familySize}`;
-        const packCollectionRef = collection(firestore, `stores/${masterStore.id}/packages`);
-    
-        // First, try to find the specific pack
-        let q = query(packCollectionRef, where('name', '==', packName));
-        let querySnapshot = await getDocs(q);
-    
-        // If not found, try a more general search for the same family size
-        if (querySnapshot.empty) {
-            q = query(packCollectionRef, where('memberCount', '==', familySize));
-            querySnapshot = await getDocs(q);
-        }
-    
-        if (querySnapshot.empty) {
-            speak(`I'm sorry, I couldn't find a pack for ${familySize} members. You can ask the store owner to create one.`, langWithRegion);
-            return;
-        }
-    
-        const pack = querySnapshot.docs[0].data() as MonthlyPackage;
-        speak(`Found the ${pack.name}. Adding ${pack.items.length} items to your cart. You can select a store at checkout.`, langWithRegion);
-    
-        // Fetch prices for all items in the pack at once
-        const productNamesToFetch = pack.items.map(item => item.name);
-        await fetchProductPrices(firestore, productNamesToFetch);
-        
-        // Give Zustand a moment to update state after the async price fetch
-        await new Promise(resolve => setTimeout(resolve, 200)); 
-    
-        const latestPrices = useAppStore.getState().productPrices;
-    
-        let itemsAdded = 0;
-        for (const item of pack.items) {
-            const product = masterProducts.find(p => p.name === item.name);
-            const priceData = latestPrices[item.name.toLowerCase()];
-            
-            if (product && priceData?.variants) {
-                // Since this is a generic pack, the storeId is not tied to a specific user store yet
-                const productWithCorrectStore = { ...product, storeId: masterStore.id }; 
-                
-                const bestVariant = priceData.variants.find(v => item.quantity.includes(v.weight)) || priceData.variants[0];
-                
-                if (bestVariant) {
-                    addItemToCart(productWithCorrectStore, bestVariant, 1);
-                    itemsAdded++;
-                }
-            }
-        }
-    
-        if (itemsAdded > 0) {
-            onOpenCart();
-        }
-    },
   };
 
 
@@ -1353,5 +1264,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    
