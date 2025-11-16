@@ -9,6 +9,13 @@ import { googleAI } from '@genkit-ai/google-genai';
 // CRITICAL FIX: Use a wildcard import to robustly handle module resolution in Next.js.
 import * as firebaseModule from '@genkit-ai/firebase'; 
 
+// Dynamically import all flows to be registered
+import { answerGeneralQuestion } from '@/ai/flows/general-question-flow';
+import { getIngredientsForRecipe } from '@/ai/flows/recipe-ingredients-flow';
+import { generatePack } from '@/ai/flows/generate-pack-flow';
+import { suggestAliasTarget } from '@/ai/flows/suggest-alias-flow';
+import { runAtlasDebugFlow } from '@/ai/flows/atlas-debug-flow';
+
 // Extract the callable firebase function from the module object to handle Webpack quirks.
 const firebasePluginFunction = firebaseModule.default || firebaseModule.firebase;
 
@@ -43,15 +50,6 @@ const ai = defineGenkit({
       runAtlasDebugFlow,
   ],
 });
-
-
-// Dynamically import all flows to be registered
-import { answerGeneralQuestion } from '@/ai/flows/general-question-flow';
-import { getIngredientsForRecipe } from '@/ai/flows/recipe-ingredients-flow';
-import { generatePack } from '@/ai/flows/generate-pack-flow';
-import { suggestAliasTarget } from '@/ai/flows/suggest-alias-flow';
-import { runAtlasDebugFlow } from '@/ai/flows/atlas-debug-flow';
-
 
 // Export the initialized Genkit instance for use in Server Actions
 export { ai };
