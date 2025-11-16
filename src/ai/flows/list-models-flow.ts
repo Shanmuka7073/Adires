@@ -4,7 +4,7 @@
  * supported by the currently configured GEMINI_API_KEY.
  */
 import { ai } from '@/ai/genkit';
-import { googleAI } from '@genkit-ai/google-genai';
+import { listModels as listGoogleAIModels } from '@genkit-ai/google-genai';
 import { z } from 'zod';
 
 const ModelListOutputSchema = z.object({
@@ -23,7 +23,7 @@ export const listSupportedModelsFlow = ai.defineFlow(
   async () => {
     try {
       // Direct call to the underlying Google Gen AI plugin to list models
-      const models = await googleAI.listModels();
+      const models = await listGoogleAIModels();
       
       const supportedModelNames = models
         .filter(model => model.name.includes('gemini') || model.name.includes('flash') || model.name.includes('pro'))
