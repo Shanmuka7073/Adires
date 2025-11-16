@@ -182,3 +182,6 @@ export type ChatMessage = {
   text: string;
   timestamp?: any;
 };
+
+// Import and re-export types from the new alias suggester flow
+export type { AliasTargetSuggestionInput, AliasTargetSuggestionOutput } from '@/ai/flows/alias-suggester-flow';

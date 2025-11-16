@@ -4,74 +4,21 @@
 import { useState, useTransition, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, deleteDoc, updateDoc, writeBatch } from 'firebase/firestore';
-import type { FailedVoiceCommand } from '@/lib/types';
+import type { FailedVoiceCommand, AliasTargetSuggestionOutput } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
-import { Loader2, Trash2, FileWarning, MessageSquareWarning, Sparkles, Wand2 } from 'lucide-react';
+import { Loader2, Trash2, FileWarning, MessageSquareWarning, Sparkles, Wand2, AlertCircle } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { suggestAliasTarget } from '@/app/actions';
 
-// AI Client-Side Imports
-import { genkit, Ai } from 'genkit';
-import { googleAI } from '@genkit-ai/google-genai';
-import { z } from 'zod';
-import { AlertCircle } from 'lucide-react';
-
-// Client-side AI configuration
-let ai: Ai | null = null;
-const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-
-if (apiKey) {
-    ai = genkit({
-      plugins: [
-        googleAI({ apiKey: apiKey }),
-      ],
-    });
-}
-
-// AI Schemas and Prompt Definitions (moved here for client-side execution)
-const AliasTargetSuggestionInputSchema = z.object({
-  commandText: z.string().describe('The full text of the failed voice command.'),
-  language: z.string().describe("The detected language of the command (e.g., 'en', 'te')."),
-  validProducts: z.array(z.string()).describe('A list of all valid product names.'),
-  validCommands: z.array(z.string()).describe('A list of all valid general command keys (e.g., "go-to-cart").'),
-  validStores: z.array(z.string()).describe('A list of all valid store names.'),
-});
-
-const AliasTargetSuggestionOutputSchema = z.object({
-  reasoning: z.string().describe("A brief explanation of why the command failed and the logic behind the suggestion."),
-  suggestedTargetKey: z.string().optional().describe("The suggested canonical key (product name, command key, or store name) that the user might have intended. Should be an exact match from one of the provided valid lists."),
-  suggestedAlias: z.string().optional().describe("A new, normalized alias that could be added to the system to recognize this command in the future."),
-});
-
-const suggestAliasTargetPrompt = ai?.definePrompt({
-    name: 'suggestAliasTargetPrompt_client',
-    input: { schema: AliasTargetSuggestionInputSchema },
-    output: { schema: AliasTargetSuggestionOutputSchema },
-    prompt: `You are an expert linguist for a voice-controlled grocery app. Analyze a failed command and suggest a fix.
-
-    Analyze: "{{commandText}}" (language: {{language}}).
-
-    Valid Commands: {{#each validCommands}} "{{this}}"{{#unless @last}}, {{/unless}}{{/each}}
-    Valid Products: {{#each validProducts}} "{{this}}"{{#unless @last}}, {{/unless}}{{/each}}
-    Valid Stores: {{#each validStores}} "{{this}}"{{#unless @last}}, {{/unless}}{{/each}}
-
-    Provide:
-    1.  **Reasoning**: Why did it fail? (e.g., misspelling, slang)
-    2.  **suggestedTargetKey**: The exact key from the valid lists that the user likely meant.
-    3.  **suggestedAlias**: A new, clean, lowercase alias to recognize this command in the future.
-    `,
-});
-
-
-function SuggestionDialog({ suggestion, command, onApply, isOpen, onOpenChange }) {
+function SuggestionDialog({ suggestion, command, onApply, isOpen, onOpenChange }: { suggestion: AliasTargetSuggestionOutput | null; command: FailedVoiceCommand; onApply: () => void; isOpen: boolean; onOpenChange: (open: boolean) => void; }) {
     if (!suggestion) return null;
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -113,15 +60,10 @@ function FailedCommandRow({ command }: { command: FailedVoiceCommand; }) {
     const { stores, masterProducts, commands } = useAppStore();
     const [isDeleting, startDelete] = useTransition();
     const [isSuggesting, startSuggestion] = useTransition();
-    const [suggestion, setSuggestion] = useState(null);
+    const [suggestion, setSuggestion] = useState<AliasTargetSuggestionOutput | null>(null);
     const [isSuggestionOpen, setIsSuggestionOpen] = useState(false);
     
     const getAiSuggestion = () => {
-        if (!ai || !suggestAliasTargetPrompt) {
-            toast({ variant: 'destructive', title: 'AI Not Configured', description: 'Please provide a valid NEXT_PUBLIC_GEMINI_API_KEY in your .env file.'});
-            return;
-        }
-
         startSuggestion(async () => {
             const input = {
                 commandText: command.commandText,
@@ -132,7 +74,8 @@ function FailedCommandRow({ command }: { command: FailedVoiceCommand; }) {
             };
 
             try {
-                const { output } = await suggestAliasTargetPrompt(input);
+                // Call the server action
+                const output = await suggestAliasTarget(input);
                 if (output) {
                     setSuggestion(output);
                     setIsSuggestionOpen(true);
@@ -141,7 +84,7 @@ function FailedCommandRow({ command }: { command: FailedVoiceCommand; }) {
                 }
             } catch (error) {
                 console.error("AI suggestion failed:", error);
-                toast({ variant: 'destructive', title: 'AI Request Failed', description: 'Could not get a suggestion from the AI model.' });
+                toast({ variant: 'destructive', title: 'AI Request Failed', description: 'Could not get a suggestion from the AI model. Check server logs.' });
             }
         });
     };
@@ -241,15 +184,6 @@ export default function FailedCommandsPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {!apiKey && (
-                        <Alert variant="destructive" className="mb-4">
-                            <AlertCircle className="h-4 w-4" />
-                            <AlertTitle>AI Features Disabled</AlertTitle>
-                            <AlertDescription>
-                                No `NEXT_PUBLIC_GEMINI_API_KEY` was found in your environment variables. The "AI Suggest Fix" feature will not work.
-                            </AlertDescription>
-                        </Alert>
-                    )}
                     {isLoading ? <p>Loading failed commands...</p> : !failedCommands || failedCommands.length === 0 ? (
                         <div className="text-center py-12">
                             <FileWarning className="mx-auto h-12 w-12 text-muted-foreground" />
