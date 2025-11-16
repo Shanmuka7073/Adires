@@ -3,7 +3,7 @@
  * This file sets up the core Genkit environment, loads plugins, and initializes flows.
  * This structure is mandatory for Genkit to work correctly within a Next.js environment.
  */
-import { genkit, defineGenkit } from 'genkit';
+import { genkit } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
 // CRITICAL FIX: Use a wildcard import to robustly handle module resolution in Next.js.
 import * as firebaseModule from '@genkit-ai/firebase';
