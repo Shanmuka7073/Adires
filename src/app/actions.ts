@@ -1,5 +1,6 @@
 'use server';
 
+import '@/ai/genkit'; // Ensure Genkit is initialized before any actions
 import { getAdminServices } from '@/firebase/admin-init';
 import { collection, serverTimestamp, addDoc } from 'firebase/firestore';
 import { headers } from 'next/headers';
