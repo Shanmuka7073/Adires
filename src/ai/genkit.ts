@@ -14,11 +14,11 @@ import { firebase } from '@genkit-ai/firebase';
 // from the process.env.GEMINI_API_KEY environment variable,
 // which is loaded by 'dotenv/config'.
 
-// Initialize Genkit with the Google AI plugin.
-// This `ai` object is now the central point for all Genkit-related definitions.
+// Initialize Genkit with the Google AI and Firebase plugins.
+// The `firebase` object from `@genkit-ai/firebase` is a valid plugin itself.
 export const ai = genkit({
   plugins: [
     googleAI(),
-    firebase(),
+    firebase, // CORRECT: Pass the imported object directly.
   ],
 });
