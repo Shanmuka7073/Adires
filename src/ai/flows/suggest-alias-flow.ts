@@ -65,3 +65,4 @@ export async function suggestAliasTarget(input: AliasTargetSuggestionInput): Pro
   // Directly call the flow instance here
   return suggestAliasTargetFlow(input);
 }
+

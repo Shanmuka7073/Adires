@@ -49,3 +49,4 @@ const recipeIngredientsFlow = ai.defineFlow(
 export async function getIngredientsForRecipe(input: RecipeIngredientsInput): Promise<RecipeIngredientsOutput> {
     return recipeIngredientsFlow(input);
 }
+

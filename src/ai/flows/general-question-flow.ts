@@ -48,3 +48,4 @@ const generalQuestionFlow = ai.defineFlow(
 export async function answerGeneralQuestion(input: GeneralQuestionInput): Promise<GeneralQuestionOutput> {
   return generalQuestionFlow(input);
 }
+
