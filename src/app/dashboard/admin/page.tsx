@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, Truck, ShoppingBag, ArrowRight, Settings, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box, Code, ShieldAlert, AlertCircle, Bot } from 'lucide-react';
+import { Users, Store, Truck, ShoppingBag, ArrowRight, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box, Code, ShieldAlert, AlertCircle, Bot } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -14,7 +14,6 @@ import type { Order, Store as StoreType, SiteConfig } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { t } from '@/lib/locales';
-import { getIngredientsForRecipe } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
@@ -69,75 +68,6 @@ function AdminActionCard({ title, description, href, icon: Icon }: { title: stri
             </Card>
         </Link>
     );
-}
-
-function AiTestCard() {
-    const { firestore } = useFirebase();
-    const [dish, setDish] = useState('');
-    const [ingredients, setIngredients] = useState<string[]>([]);
-    const [isPending, startTransition] = useTransition();
-    const { toast } = useToast();
-    
-    // Fetch AI config on the client-side
-    const configDocRef = useMemoFirebase(() => firestore ? doc(firestore, 'siteConfig', 'aiFeatures') : null, [firestore]);
-    const { data: aiConfig } = useDoc<SiteConfig>(configDocRef);
-
-    const handleGetIngredients = () => {
-        if (!aiConfig?.isRecipeApiEnabled) {
-            toast({ variant: 'destructive', title: 'Feature Disabled', description: 'The Recipe AI feature is currently disabled by the admin.' });
-            return;
-        }
-        if (!dish) {
-            toast({ variant: 'destructive', title: 'Please enter a dish name.' });
-            return;
-        }
-        startTransition(async () => {
-            try {
-                const result = await getIngredientsForRecipe({ dishName: dish });
-                setIngredients(result.ingredients);
-            } catch (error) {
-                console.error(error);
-                toast({ variant: 'destructive', title: 'AI Error', description: (error as Error).message || 'Could not fetch ingredients.' });
-            }
-        });
-    };
-
-    return (
-        <Card className="lg:col-span-3 border-primary/50">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Sparkles className="h-6 w-6 text-primary" />
-                    Test Gemini AI
-                </CardTitle>
-                <CardDescription>
-                    Enter a dish name to verify that the Genkit flow and Gemini API are working correctly. This will fail if the corresponding feature is disabled in AI Feature Controls.
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                    <Input 
-                        placeholder="e.g., Chicken Biryani" 
-                        value={dish}
-                        onChange={(e) => setDish(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleGetIngredients()}
-                    />
-                    <Button onClick={handleGetIngredients} disabled={isPending}>
-                        {isPending ? 'Loading...' : 'Get Ingredients'}
-                    </Button>
-                </div>
-                {ingredients.length > 0 && (
-                    <div className="p-4 bg-muted/50 rounded-lg">
-                        <h4 className="font-semibold mb-2">Ingredients for {dish}:</h4>
-                        <ul className="list-disc list-inside space-y-1 text-sm">
-                            {ingredients.map((item, i) => (
-                                <li key={i}>{item}</li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
-            </CardContent>
-        </Card>
-    )
 }
 
 export default function AdminDashboardPage() {
@@ -209,10 +139,6 @@ export default function AdminDashboardPage() {
                 ))}
             </div>
 
-             <div className="mt-12">
-                <AiTestCard />
-            </div>
-
             <div className="mt-16">
                  <h2 className="text-2xl font-bold text-center mb-8 font-headline">{t('admin-tools')}</h2>
                 <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
@@ -247,40 +173,10 @@ export default function AdminDashboardPage() {
                         icon={ShieldAlert}
                     />
                     <AdminActionCard 
-                        title="Manage Grocery Packs"
-                        description="Use AI to generate and manage weekly or monthly grocery packs."
-                        href="/dashboard/owner/packs"
-                        icon={Box}
-                    />
-                    <AdminActionCard 
                         title="voice-commands-control"
                         description="view-and-manage-the-voice-commands-users-can-say"
                         href="/dashboard/voice-commands"
                         icon={Mic}
-                    />
-                    <AdminActionCard 
-                        title="Failed Voice Commands"
-                        description="Review voice commands that the system failed to understand."
-                        href="/dashboard/admin/failed-commands"
-                        icon={MessageSquareWarning}
-                    />
-                     <AdminActionCard 
-                        title="Debug GenAI API"
-                        description="View the current Gemini API configuration and code for debugging."
-                        href="/dashboard/admin/debug-genai"
-                        icon={Code}
-                    />
-                     <AdminActionCard 
-                        title="AI Feature Controls"
-                        description="Enable or disable specific AI features across the entire site."
-                        href="/dashboard/admin/site-config"
-                        icon={Settings}
-                    />
-                     <AdminActionCard 
-                        title="Atlas Diagnostic Agent"
-                        description="A tool to diagnose and report on system health issues."
-                        href="/dashboard/admin/asha"
-                        icon={Bot}
                     />
                      <AdminActionCard 
                         title="View Chicken Animation"
@@ -293,5 +189,3 @@ export default function AdminDashboardPage() {
         </div>
     );
 }
-
-    
