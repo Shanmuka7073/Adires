@@ -26,8 +26,6 @@ const ai = defineGenkit({
     // Configure the Google Gen AI plugin
     googleAI({ 
       apiKey: GEMINI_API_KEY, 
-      // Set the default model for stability.
-      defaultModel: 'gemini-2.5-flash',
     }), 
     
     // Initialize the Firebase plugin
