@@ -24,6 +24,7 @@ service cloud.firestore {
      * - /store-images/{storeId}/{fileName}: User uploaded store images.
      * - /productPrices/{productName}: Admin-managed canonical pricing for product variants.
      * - /appErrors/{errorId}: Application error logs.
+     * - /asha-conversations/{userId}/conversation/{messageId}: Private chat history for the Diagnostic agent.
      */
     function isSignedIn() {
       return request.auth != null;
@@ -41,6 +42,17 @@ service cloud.firestore {
       allow get, update, delete: if isOwner(userId);
       allow list: if isAdmin();
       allow create: if isOwner(userId) && request.resource.data.id == userId;
+    }
+
+    // --- Atlas Diagnostic Agent Chat History ---
+    // This rule allows a user to read and write only to their own conversation history.
+    match /asha-conversations/{userId}/{document=**} {
+        allow read, write: if isOwner(userId);
+    }
+     
+    // Allow users to write their own reports
+    match /asha-conversations/{userId}/atlas_reports/{reportId} {
+      allow create, read: if isOwner(userId);
     }
 
     match /stores/{storeId} {

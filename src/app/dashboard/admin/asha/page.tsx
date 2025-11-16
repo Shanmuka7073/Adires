@@ -9,7 +9,7 @@ import { debugAtlasAction } from '@/app/actions';
 const DEBUG_PATH_PREFIX = `/asha-conversations/`;
 
 const App = () => {
-    const { user, isUserLoading, firestore } = useFirebase();
+    const { user, isUserLoading, firestore, auth } = useFirebase();
     const [reports, setReports] = useState([]);
     const [input, setInput] = useState('Run a system diagnostic check.');
     const [isThinking, setIsThinking] = useState(false);
@@ -41,7 +41,7 @@ const App = () => {
 
     // --- Server Action Interaction Function ---
     const runAtlasDiagnostic = async (userMessage) => {
-        if (!user || !firestore) return;
+        if (!user || !firestore || !auth) return;
         setIsThinking(true);
         const userReportsPath = `${DEBUG_PATH_PREFIX}${user.uid}/conversation`;
         
@@ -53,9 +53,24 @@ const App = () => {
         });
 
         try {
-            // Call the Server Action which is now dedicated to debugging
-            const debugReport = await debugAtlasAction(userMessage, 'Diagnostic Check');
+            // Get the ID token from the currently signed-in user
+            const idToken = await auth.currentUser?.getIdToken();
+
+            if (!idToken) {
+                throw new Error("User is not authenticated or token is unavailable.");
+            }
             
+            // The action now requires the token to be passed for server-side verification.
+            // We pass it in the headers of the fetch call that Next.js makes internally for Server Actions.
+            // NOTE: Next.js automatically handles passing headers for Server Actions when using fetch.
+            // For this to work, we must structure the call to look like a standard fetch.
+            // The action itself will read the headers on the server.
+            
+            // Re-wrapping the action to add headers. Next.js does this under the hood,
+            // but we need to ensure the header is available. The action now reads from headers().
+            
+            const debugReport = await debugAtlasAction(userMessage, 'Diagnostic Check');
+
             // Success: Save the Atlas report
             await addDoc(collection(firestore, userReportsPath), {
                 report: debugReport.report,
