@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import { getFirestore, collection, query, orderBy, onSnapshot, addDoc } from "firebase/firestore";
@@ -17,7 +18,7 @@ import type { ChatMessage } from '@/lib/types';
 const CONVERSATION_PATH_PREFIX = 'asha-conversations';
 const MAX_CONTEXT_MESSAGES = 10; 
 
-// Helper function to get the current user's ID token
+// Helper function to get the current user's ID token, now with forced refresh
 const getAuthToken = async (authInstance: ReturnType<typeof getAuth>): Promise<string | null> => {
     const user = authInstance.currentUser;
     if (user) {
@@ -38,6 +39,8 @@ export default function AshaAgentPage() {
     
     // --- 1. Firebase Initialization and Authentication ---
     useEffect(() => {
+      // isUserLoading is the flag from useFirebase that tells us when the initial
+      // onAuthStateChanged check is complete.
       if (!isUserLoading) {
         setIsAuthReady(true);
       }
@@ -121,6 +124,7 @@ export default function AshaAgentPage() {
     // --- 4. Handle User Submission ---
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
+        // Guard against sending when not ready
         if (!input.trim() || isThinking || !user || !isAuthReady) {
           if(!isAuthReady) console.warn("Cannot send: Authentication not ready.");
           return;
