@@ -10,7 +10,7 @@ import { useMemo, useEffect, useState, useTransition } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { collection, query, where, doc } from 'firebase/firestore';
-import type { Order, Store as StoreType, SiteConfig } from '@/lib/types';
+import type { Order, Store as StoreType } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { t } from '@/lib/locales';
