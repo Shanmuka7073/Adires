@@ -80,12 +80,9 @@ service cloud.firestore {
 
       allow update: if isSignedIn() && (
         request.auth.uid == resource.data.userId ||
-        request.auth.uid == resource.data.storeOwnerId || // Check denormalized field first
+        (exists(/databases/$(database)/documents/stores/$(resource.data.storeId)) && get(/databases/$(database)/documents/stores/$(resource.data.storeId)).data.ownerId == request.auth.uid) ||
         request.auth.uid == resource.data.deliveryPartnerId ||
-        isAdmin() ||
-        // Fallback for older orders: check the owner of the referenced store
-        (exists(/databases/$(database)/documents/stores/$(resource.data.storeId)) &&
-         get(/databases/$(database)/documents/stores/$(resource.data.storeId)).data.ownerId == request.auth.uid)
+        isAdmin()
       );
 
       allow delete: if false;
@@ -159,6 +156,13 @@ service cloud.firestore {
     match /appErrors/{errorId} {
       allow create: if isSignedIn(); // Any signed-in user can log an error they encounter
       allow read, list, delete: if isAdmin(); // Only the admin can read or clear error logs
+      allow update: if false;
+    }
+    
+    // Login history is admin-only for reads/deletes. Anyone can create a log.
+    match /loginHistory/{logId} {
+      allow create: if true; // The server action will write this
+      allow read, list, delete: if isAdmin();
       allow update: if false;
     }
   }

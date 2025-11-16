@@ -36,11 +36,15 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
   }
   
   const identities = currentUser.providerData.reduce((acc, provider) => {
-    if (provider.providerId && provider.uid) {
-      acc[provider.providerId] = [provider.uid];
+    if (provider.providerId) {
+      // The key should be the provider's domain (e.g., 'google.com', 'password')
+      acc[provider.providerId] = acc[provider.providerId] || [];
+      if (provider.uid) {
+          acc[provider.providerId].push(provider.uid);
+      }
     }
     return acc;
-  }, {} as Record<string, any>);
+  }, {} as Record<string, string[]>);
 
 
   const token: FirebaseAuthToken = {
