@@ -31,43 +31,6 @@ const SuggestAliasOutputSchema = z.object({
     .describe('The new alias that should be created for the key, which is the original command text.'),
   reasoning: z
     .string()
-    <changes>
-  <description>Adds a Genkit AI flow to suggest fixes for failed voice commands and integrates it into the admin dashboard. This allows an admin to use AI to improve voice recognition accuracy.</description>
-  <change>
-    <file>/src/ai/flows/suggest-alias-flow.ts</file>
-    <content><![CDATA['use server';
-/**
- * @fileOverview An AI flow to suggest aliases for failed voice commands.
- *
- * - suggestAlias - A function that suggests a new voice alias for a failed command.
- * - SuggestAliasInput - The input type for the suggestAlias function.
- * - SuggestAliasOutput - The return type for the suggestAlias function.
- */
-
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
-
-const SuggestAliasInputSchema = z.object({
-  commandText: z.string().describe('The failed voice command text that the user spoke.'),
-  language: z.string().describe("The language of the command (e.g., 'en', 'te')."),
-  itemNames: z.array(z.string()).describe('A list of all valid item names (products and stores) that the command could have been referring to.'),
-});
-export type SuggestAliasInput = z.infer<typeof SuggestAliasInputSchema>;
-
-const SuggestAliasOutputSchema = z.object({
-  isSuggestionAvailable: z
-    .boolean()
-    .describe('Whether a confident suggestion could be made.'),
-  suggestedKey: z
-    .string()
-    .describe(
-      'The canonical key of the item that is the most likely match (e.g., "tomatoes").'
-    ),
-  suggestedAlias: z
-    .string()
-    .describe('The new alias that should be created for the key, which is the original command text.'),
-  reasoning: z
-    .string()
     .describe(
       'A brief explanation of why this suggestion was made.'
     ),
