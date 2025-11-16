@@ -15,13 +15,19 @@ interface AdminServices {
 let adminServices: AdminServices | null = null;
 
 function getServiceAccount(): ServiceAccount | undefined {
+  const serviceAccountString = process.env.SERVICE_ACCOUNT;
+  if (!serviceAccountString) {
+    console.warn(
+      "SERVICE_ACCOUNT environment variable is not set. " +
+      "For local development, please add the content of your service account JSON file to the .env file."
+    );
+    return undefined;
+  }
   try {
-    // Load the service account key from the same directory.
-    return require('./service-account.json');
+    // The environment variable is a string, so we need to parse it as JSON.
+    return JSON.parse(serviceAccountString);
   } catch (e) {
-    // This is not a critical error if the file doesn't exist,
-    // as it's a fallback mechanism.
-    console.warn("Could not find 'service-account.json' in 'src/firebase'. This is required for local admin operations.");
+    console.error("Failed to parse SERVICE_ACCOUNT environment variable:", e);
     return undefined;
   }
 }
@@ -35,8 +41,8 @@ export async function getAdminServices(): Promise<AdminServices> {
 
   if (!serviceAccount) {
     throw new Error(
-      "Firebase Admin SDK credentials not found. " +
-      "For local development, please place a 'service-account.json' file in the 'src/firebase' directory."
+      "Firebase Admin SDK credentials not found or are invalid. " +
+      "Please ensure the SERVICE_ACCOUNT environment variable is correctly set in your .env file."
     );
   }
 
