@@ -3,7 +3,6 @@
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { suggestAliasTarget } from '@/ai/flows/alias-suggester-flow';
-import type { AliasTargetSuggestionInput, AliasTargetSuggestionOutput } from '@/ai/flows/alias-suggester-flow';
 
 // Re-export the AI flow to be used as a Server Action in the admin panel.
 export { suggestAliasTarget };
