@@ -1,8 +1,9 @@
 'use server';
 
-import { initializeApp, getApps, App } from 'firebase-admin/app';
+import { initializeApp, getApps, App, applicationDefault } from 'firebase-admin/app';
 import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
+import { firebaseConfig } from './config'; // Import the shared config
 
 interface AdminServices {
   app: App;
@@ -17,6 +18,12 @@ export async function getAdminServices(): Promise<AdminServices> {
     return adminServices;
   }
 
+  // Use the shared firebaseConfig to ensure project consistency
+  const config = {
+    credential: applicationDefault(),
+    projectId: firebaseConfig.projectId,
+  };
+
   if (getApps().length > 0) {
       const existingApp = getApps()[0];
       adminServices = {
@@ -28,7 +35,7 @@ export async function getAdminServices(): Promise<AdminServices> {
   }
 
   try {
-    const adminApp = initializeApp();
+    const adminApp = initializeApp(config);
     
     adminServices = {
       app: adminApp,
