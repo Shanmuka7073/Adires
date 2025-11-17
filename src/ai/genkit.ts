@@ -7,7 +7,7 @@
 import 'dotenv/config'; // Import and configure dotenv at the very top.
 import { genkit } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
-import { firebase } from '@genkit-ai/firebase';
+import { firebasePlugin } from '@genkit-ai/firebase';
 
 // The googleAI() plugin will now automatically pick up the API key
 // from the process.env.GEMINI_API_KEY environment variable,
@@ -18,7 +18,7 @@ import { firebase } from '@genkit-ai/firebase';
 export const ai = genkit({
   plugins: [
     googleAI(),
-    firebase(),
+    firebasePlugin(),
   ],
   logLevel: 'debug',
   enableTracingAndMetrics: true,
