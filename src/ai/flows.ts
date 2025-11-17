@@ -13,9 +13,6 @@ export const sanityCheck = ai.defineFlow(
     const { text } = await ai.generate({
       prompt: `Write a short, upbeat message about ${subject}`,
       model: 'gemini-pro',
-      config: {
-        temperature: 0.7,
-      },
     });
 
     if (!text) {

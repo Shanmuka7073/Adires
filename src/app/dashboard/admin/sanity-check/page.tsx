@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { sanityCheckFlow } from '@/ai/flows/sanity-check-flow';
+import { sanityCheck } from '@/ai/flows';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,7 +20,7 @@ export default function SanityCheckPage() {
         setError(null);
         startTransition(async () => {
             try {
-                const res = await sanityCheckFlow(prompt);
+                const res = await sanityCheck(prompt);
                 if (res.startsWith('Error')) {
                     setError(res);
                 } else {

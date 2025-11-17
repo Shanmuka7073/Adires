@@ -15,7 +15,7 @@ import { googleAI } from '@genkit-ai/google-genai';
 // This `ai` object is now the central point for all Genkit-related definitions.
 export const ai = genkit({
   plugins: [
-    googleAI(),
+    googleAI({ model: 'gemini-pro' }),
     // The @genkit-ai/firebase plugin has been removed due to persistent issues.
   ],
 });
