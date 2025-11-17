@@ -10,6 +10,7 @@ import { useAppStore } from '@/lib/store';
 import { Skeleton } from '@/components/ui/skeleton';
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return Infinity;
   const R = 6371; // Radius of the Earth in kilometers
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
@@ -79,6 +80,8 @@ export default function StoresPage() {
         });
         setSortedStores(allStores);
       }
+    } else {
+        setSortedStores([]); // Ensure sorted stores is empty if allStores is empty
     }
   }, [allStores, toast]);
 
@@ -88,7 +91,7 @@ export default function StoresPage() {
         <h1 className="text-4xl font-bold font-headline">Browse All Stores</h1>
         <p className="text-muted-foreground text-lg">Find your new favorite local grocery store.</p>
       </div>
-      <div className="grid grid-cols-2 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
         {loading ? (
           <>
             <Skeleton className="h-64 w-full" />
@@ -101,7 +104,7 @@ export default function StoresPage() {
             <StoreCard key={store.id} store={store} />
           ))
         ) : (
-           <p className="text-muted-foreground col-span-2">No stores have been created yet.</p>
+           <p className="text-muted-foreground col-span-full">No stores have been created yet.</p>
         )}
       </div>
     </div>

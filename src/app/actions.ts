@@ -2,7 +2,7 @@
 
 import { sanityCheck } from '@/ai/flows';
 import { getAdminServices } from '@/firebase/admin-init';
-import { collection, serverTimestamp, addDoc } from 'firebase/firestore';
+import { collection, serverTimestamp, addDoc, getDocs } from 'firebase/firestore';
 import { headers } from 'next/headers';
 
 async function getFirestoreCounts() {
@@ -24,16 +24,18 @@ async function getFirestoreCounts() {
 
 export async function getSystemStatus() {
     try {
-        await getFirestoreCounts();
+        const firestoreCheck = await getFirestoreCounts();
+        
         // Correctly call the Genkit flow
-        const sanityCheckResult = await sanityCheck('hello');
+        const sanityCheckResult = await sanityCheck('LocalBasket AI');
+
+        const isLlmOk = !sanityCheckResult.startsWith('Error:');
+
         return {
             status: 'ok',
-            // Check if the result is a non-empty string for a more robust check
-            llmStatus: sanityCheckResult ? 'Online' : 'Offline',
+            llmStatus: isLlmOk ? 'Online' : 'Offline',
             serverDbStatus: 'Online',
-            errorMessage: null,
-            // We no longer return counts from the server to save on reads.
+            errorMessage: !isLlmOk ? sanityCheckResult : null,
             counts: { users: 0, stores: 0, deliveryPartners: 0, voiceCommands: 0 },
         };
     } catch (error: any) {
@@ -53,7 +55,9 @@ export async function logLoginAttempt(email: string, status: 'success' | 'failur
     try {
         const { db } = await getAdminServices();
         const headersList = headers();
-        const ipAddress = headersList.get('x-forwarded-for') || 'Unknown';
+        
+        // Correctly determine IP address, considering Vercel's headers
+        const ipAddress = headersList.get('x-real-ip') || headersList.get('x-forwarded-for') || 'Unknown';
         const userAgent = headersList.get('user-agent') || 'Unknown';
 
         const logData: any = {
@@ -78,7 +82,6 @@ export async function logLoginAttempt(email: string, status: 'success' | 'failur
                 console.warn("Could not determine location from IP:", e);
             }
         }
-
 
         await addDoc(collection(db, 'loginHistory'), logData);
 

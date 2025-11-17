@@ -61,7 +61,7 @@ function FailedCommandRow({ command, allItemNames, onAliasCreated }: { command: 
                     key: createSlug(suggestion.suggestedKey),
                     language: command.language.split('-')[0],
                     alias: suggestion.suggestedAlias.toLowerCase(),
-                    type: 'product',
+                    type: 'product', // Assuming product for now, a real app might need to determine type
                 };
                 batch.set(newAliasRef, newAliasData);
 

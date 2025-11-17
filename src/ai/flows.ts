@@ -1,6 +1,9 @@
-
 'use server';
-import { ai } from './genkit';
+/**
+ * @fileOverview This file contains Genkit flows for the application.
+ */
+
+import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 
 export const sanityCheck = ai.defineFlow(
@@ -10,16 +13,16 @@ export const sanityCheck = ai.defineFlow(
     outputSchema: z.string(),
   },
   async (subject) => {
-    const { text } = await ai.generate({
-      prompt: `Write a short, upbeat message about ${subject}`,
-      model: 'gemini-pro',
-    });
-
-    if (!text) {
-      throw new Error("The LLM did not generate a response.");
+    try {
+      const { text } = await ai.generate({
+        prompt: `Write a short, upbeat message about ${subject}`,
+        model: 'gemini-pro',
+      });
+      return text || "AI model did not return a response.";
+    } catch (e: any) {
+        console.error("Sanity check flow failed:", e);
+        // Return a structured error message that the client can display.
+        return `Error: ${e.message || 'An unknown error occurred during AI generation.'}`;
     }
-
-    // Directly return the text response from the model
-    return text;
   }
 );

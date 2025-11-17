@@ -1,4 +1,3 @@
-
 'use server';
 
 import { initializeApp, getApps, App, cert, ServiceAccount } from 'firebase-admin/app';
@@ -24,22 +23,32 @@ export async function getAdminServices(): Promise<AdminServices> {
     throw new Error('The SERVICE_ACCOUNT environment variable is not set. Please add it to your environment variables.');
   }
 
-  // Correctly parse the JSON string from the environment variable.
-  const serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT) as ServiceAccount;
+  try {
+    // Correctly parse the JSON string from the environment variable.
+    const serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT) as ServiceAccount;
 
-  // Initialize the app if it hasn't been already.
-  const app = getApps().length
-    ? getApps()[0]
-    : initializeApp({
-        projectId: firebaseConfig.projectId,
-        credential: cert(serviceAccount),
-      });
+    // Initialize the app if it hasn't been already.
+    const app = getApps().length
+      ? getApps()[0]
+      : initializeApp({
+          projectId: firebaseConfig.projectId,
+          credential: cert(serviceAccount),
+        });
 
-  adminServices = {
-    app: app,
-    auth: getAuth(app),
-    db: getFirestore(app),
-  };
+    adminServices = {
+      app: app,
+      auth: getAuth(app),
+      db: getFirestore(app),
+    };
 
-  return adminServices;
+    return adminServices;
+
+  } catch (error: any) {
+    console.error("Failed to initialize Firebase Admin SDK:", error);
+    // Provide a more informative error if parsing fails
+    if (error instanceof SyntaxError) {
+        throw new Error("Failed to parse SERVICE_ACCOUNT JSON. Please ensure it's a valid, single-line JSON string.");
+    }
+    throw error;
+  }
 }
