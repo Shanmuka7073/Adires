@@ -1,93 +1,21 @@
 'use server';
 
-import { sanityCheck } from '@/ai/flows';
-import { getAdminServices } from '@/firebase/admin-init';
-import { collection, serverTimestamp, addDoc, getDocs } from 'firebase/firestore';
-import { headers } from 'next/headers';
+// Server-side actions are temporarily disabled.
+// This file is kept as a placeholder for when server functionality is re-enabled.
 
-async function getFirestoreCounts() {
-    const { db } = await getAdminServices();
-    // This is an expensive operation that is not needed for a simple status check.
-    // We will get the counts from the client-side where they are often already loaded.
-    // For a simple health check, we just need to know the service is reachable.
-    const usersSnapshot = await db.collection('users').limit(1).get();
-    const storesSnapshot = await db.collection('stores').limit(1).get();
-    
-    // The sizes here are not the total count, but that's okay for a health check.
-    // A real production app would use a more sophisticated method for counts,
-    // like a counter updated with Cloud Functions, to avoid full collection scans.
+export async function getSystemStatus() {
+    // Return a default "offline" status for all server components
     return {
-        users: usersSnapshot.size >= 0 ? 'ok' : 'error',
-        stores: storesSnapshot.size >= 0 ? 'ok' : 'error',
+        status: 'ok', // The action itself is ok, but services are offline
+        llmStatus: 'Offline',
+        serverDbStatus: 'Offline',
+        errorMessage: "Server-side features are disabled during development.",
+        counts: { users: 0, stores: 0, deliveryPartners: 0, voiceCommands: 0 },
     };
 }
 
-export async function getSystemStatus() {
-    try {
-        const firestoreCheck = await getFirestoreCounts();
-        
-        // Correctly call the Genkit flow
-        const sanityCheckResult = await sanityCheck('LocalBasket AI');
-
-        const isLlmOk = !sanityCheckResult.startsWith('Error:');
-
-        return {
-            status: 'ok',
-            llmStatus: isLlmOk ? 'Online' : 'Offline',
-            serverDbStatus: 'Online',
-            errorMessage: !isLlmOk ? sanityCheckResult : null,
-            counts: { users: 0, stores: 0, deliveryPartners: 0, voiceCommands: 0 },
-        };
-    } catch (error: any) {
-        console.error("System status check failed:", error);
-        return {
-            status: 'error',
-            llmStatus: 'Offline',
-            serverDbStatus: 'Unavailable',
-            errorMessage: error.message || 'An unknown error occurred during server initialization.',
-            counts: { users: 0, stores: 0, deliveryPartners: 0, voiceCommands: 0 },
-        };
-    }
-}
-
-
 export async function logLoginAttempt(email: string, status: 'success' | 'failure', userId?: string, errorMessage?: string) {
-    try {
-        const { db } = await getAdminServices();
-        const headersList = headers();
-        
-        // Correctly determine IP address, considering Vercel's headers
-        const ipAddress = headersList.get('x-real-ip') || headersList.get('x-forwarded-for') || 'Unknown';
-        const userAgent = headersList.get('user-agent') || 'Unknown';
-
-        const logData: any = {
-            email,
-            status,
-            timestamp: serverTimestamp(),
-            ipAddress,
-            userAgent,
-            userId: userId || null,
-            errorMessage: errorMessage || null,
-        };
-        
-        if (ipAddress !== 'Unknown') {
-            try {
-                // Vercel provides geo-location headers
-                const city = headersList.get('x-vercel-ip-city');
-                const country = headersList.get('x-vercel-ip-country');
-                 if (city && country) {
-                    logData.location = `${city}, ${country}`;
-                 }
-            } catch (e) {
-                console.warn("Could not determine location from IP:", e);
-            }
-        }
-
-        await addDoc(collection(db, 'loginHistory'), logData);
-
-    } catch (error) {
-        // We log the error but don't re-throw it, as failing to log a login attempt
-        // should not prevent the user from actually logging in.
-        console.error("Failed to log login attempt:", error);
-    }
+    // This server action is disabled. It can be re-enabled with Firebase Admin SDK.
+    console.log(`Login Attempt [DISABLED]: ${email}, Status: ${status}`);
+    return;
 }

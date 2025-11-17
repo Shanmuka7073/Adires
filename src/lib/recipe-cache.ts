@@ -1,13 +1,11 @@
 'use client';
-import { Firestore, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import type { CachedRecipe } from './types';
 
-export async function getCachedRecipe(db: Firestore, dishName: string): Promise<string[] | null> {
-    // AI features removed, so this will always return null.
+// AI features are disabled. This file is a placeholder.
+
+export async function getCachedRecipe(db: any, dishName: string): Promise<string[] | null> {
     return null;
 }
 
-export async function cacheRecipe(db: Firestore, dishName: string, ingredients: string[]): Promise<void> {
-    // AI features removed, so this function does nothing.
+export async function cacheRecipe(db: any, dishName: string, ingredients: string[]): Promise<void> {
     return;
 }
