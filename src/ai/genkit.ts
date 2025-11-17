@@ -5,8 +5,7 @@
  * This ensures that Genkit is configured in a single, consistent place.
  */
 import 'dotenv/config'; // Import and configure dotenv at the very top.
-import { genkit } from 'genkit';
-import { googleAI } from '@genkit-ai/google-genai';
+import { genkit, googleAI } from '@genkit-ai/google-genai';
 // FIX: Using * as firebasePlugin to force correct module loading and resolve bundling issues.
 import * as firebasePlugin from '@genkit-ai/firebase';
 
