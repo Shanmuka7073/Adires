@@ -1,6 +1,6 @@
 'use server';
 
-import '@/ai/genkit'; // Ensure Genkit is initialized before any actions
+import { sanityCheck } from '@/ai/flows';
 import { getAdminServices } from '@/firebase/admin-init';
 import { collection, serverTimestamp, addDoc } from 'firebase/firestore';
 import { headers } from 'next/headers';
@@ -25,10 +25,12 @@ async function getFirestoreCounts() {
 export async function getSystemStatus() {
     try {
         await getFirestoreCounts();
-        // LLM status is no longer checked as AI features are removed.
+        // Correctly call the Genkit flow
+        const sanityCheckResult = await sanityCheck('hello');
         return {
             status: 'ok',
-            llmStatus: 'Offline', // Default to Offline since AI is removed.
+            // Check if the result is a non-empty string for a more robust check
+            llmStatus: sanityCheckResult ? 'Online' : 'Offline',
             serverDbStatus: 'Online',
             errorMessage: null,
             // We no longer return counts from the server to save on reads.

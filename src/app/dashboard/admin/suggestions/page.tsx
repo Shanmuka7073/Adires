@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useTransition, useMemo } from 'react';
+import { useState, useTransition, useMemo, useEffect } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, deleteDoc, writeBatch, updateDoc, addDoc } from 'firebase/firestore';
-import type { FailedVoiceCommand, VoiceAlias, Product, Store, ProductPrice } from '@/lib/types';
+import { collection, query, orderBy, doc, deleteDoc, writeBatch } from 'firebase/firestore';
+import type { FailedVoiceCommand, Product, Store, ProductPrice } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -40,7 +40,6 @@ function FailedCommandRow({ command, allItemNames, onAliasCreated }: { command: 
                     setSuggestion(result);
                 } else {
                     setSuggestionError("AI could not find a confident suggestion.");
-                    // Mark as reviewed to hide the button in the future if needed
                 }
             } catch (error) {
                 console.error("AI suggestion failed:", error);
@@ -56,17 +55,15 @@ function FailedCommandRow({ command, allItemNames, onAliasCreated }: { command: 
             try {
                 const batch = writeBatch(firestore);
 
-                // Add the new alias
                 const newAliasRef = doc(collection(firestore, 'voiceAliases'));
-                const newAliasData: Omit<VoiceAlias, 'id'> = {
+                const newAliasData = {
                     key: createSlug(suggestion.suggestedKey),
                     language: command.language.split('-')[0],
                     alias: suggestion.suggestedAlias.toLowerCase(),
-                    type: 'product', // Assuming product for now, this could be more dynamic
+                    type: 'product',
                 };
                 batch.set(newAliasRef, newAliasData);
 
-                // Delete the failed command log
                 const commandRef = doc(firestore, 'failedCommands', command.id);
                 batch.delete(commandRef);
 
@@ -74,7 +71,7 @@ function FailedCommandRow({ command, allItemNames, onAliasCreated }: { command: 
 
                 toast({
                     title: "Alias Created!",
-                    description: `"${command.commandText}" will now be recognized as "${suggestion.suggestedKey}".`,
+                    description: `\"${command.commandText}\" will now be recognized as \"${suggestion.suggestedKey}\".`,
                 });
                 onAliasCreated();
             } catch (error) {
@@ -136,8 +133,8 @@ function FailedCommandRow({ command, allItemNames, onAliasCreated }: { command: 
                                         </Button>
                                     </AlertDescription>
                                 </Alert>
-                            ) : (
-                               <Alert variant="destructive">
+                             ) : (
+                                <Alert variant="destructive">
                                     <AlertTitle>Suggestion Failed</AlertTitle>
                                     <AlertDescription>{suggestionError}</AlertDescription>
                                 </Alert>
@@ -150,7 +147,7 @@ function FailedCommandRow({ command, allItemNames, onAliasCreated }: { command: 
     );
 }
 
-export default function FailedCommandsPage() {
+export default function SuggestionsPage() {
     const { firestore } = useFirebase();
     const [key, setKey] = useState(0); // Key to force re-render
 
@@ -161,7 +158,6 @@ export default function FailedCommandsPage() {
 
     const { data: failedCommands, isLoading } = useCollection<FailedVoiceCommand>(commandsQuery);
     
-    // Fetch all products and stores to provide context to the AI
     const productsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'productPrices') : null, [firestore]);
     const storesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'stores') : null, [firestore]);
     const { data: products } = useCollection<ProductPrice>(productsQuery);
@@ -179,7 +175,7 @@ export default function FailedCommandsPage() {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <MessageSquareWarning className="h-6 w-6 text-destructive" />
-                        Failed Voice Commands
+                        AI-Powered Suggestions
                     </CardTitle>
                     <CardDescription>
                         Review voice commands that the system failed to understand. Use the AI to suggest fixes and train the system.
@@ -205,7 +201,7 @@ export default function FailedCommandsPage() {
                             </TableHeader>
                             <TableBody>
                                 {failedCommands.map(cmd => (
-                                    <FailedCommandRow
+                                    <FailedCommandRow 
                                         key={cmd.id}
                                         command={cmd}
                                         allItemNames={allItemNames}

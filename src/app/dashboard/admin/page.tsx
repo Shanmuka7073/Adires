@@ -184,9 +184,9 @@ export default function AdminDashboardPage() {
                         icon={ShieldAlert}
                     />
                     <AdminActionCard
-                        title="Failed Voice Commands"
-                        description="Review failed commands and use AI to suggest fixes to improve accuracy."
-                        href="/dashboard/admin/failed-commands"
+                        title="AI-Powered Suggestions"
+                        description="Review and manage AI-powered suggestions for improving the system."
+                        href="/dashboard/admin/suggestions"
                         icon={MessageSquareWarning}
                     />
                      <AdminActionCard
@@ -205,6 +205,12 @@ export default function AdminDashboardPage() {
                         title="View Chicken Animation"
                         description="Check out the fun, flashy, waddling chicken animation."
                         href="/chicken"
+                        icon={Sparkles}
+                    />
+                    <AdminActionCard 
+                        title="AI Sanity Check"
+                        description="A simple test page to verify that the core AI functionality is working correctly."
+                        href="/dashboard/admin/sanity-check"
                         icon={Sparkles}
                     />
                 </div>
