@@ -2,6 +2,7 @@
 'use client';
 
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { Firestore, collection, getDocs } from 'firebase/firestore';
 import { Store, Product, ProductPrice, VoiceAlias } from './types';
 import { getStores, getMasterProducts, getProductPrice } from './data';
@@ -37,100 +38,126 @@ const getInitialLanguage = (): string => {
   return 'en';
 };
 
-export const useAppStore = create<AppState>((set, get) => ({
-  stores: [],
-  masterProducts: [],
-  productPrices: {},
-  voiceAliases: [],
-  locales: {},
-  commands: {},
-  loading: true,
-  error: null,
-  language: getInitialLanguage(),
+export const useAppStore = create<AppState>()(
+  persist(
+    (set, get) => ({
+      stores: [],
+      masterProducts: [],
+      productPrices: {},
+      voiceAliases: [],
+      locales: {},
+      commands: {},
+      loading: true,
+      error: null,
+      language: getInitialLanguage(),
 
-  setLanguage: (lang: string) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('app-language', lang);
-    }
-    set({ language: lang });
-  },
+      setLanguage: (lang: string) => {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('app-language', lang);
+        }
+        set({ language: lang });
+      },
 
-  fetchInitialData: async (db: Firestore) => {
-    if (!get().loading && get().stores.length > 0) return; // Already fetched
+      fetchInitialData: async (db: Firestore) => {
+        // If data already exists from persistence, don't refetch unless necessary.
+        // A more advanced implementation could check a "last fetched" timestamp.
+        if (get().stores.length > 0 && get().masterProducts.length > 0) {
+            set({ loading: false }); // Ensure loading is false if we're using cached data
+            // Still need to initialize translations with the persisted locales
+            initializeTranslations(get().locales);
+            return;
+        }
 
-    set({ loading: true, error: null });
-    try {
-      const aliasCollection = collection(db, 'voiceAliases');
-      const aliasSnapshot = await getDocs(aliasCollection);
-      const voiceAliases = aliasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAlias));
-      const locales = buildLocalesFromAliases(voiceAliases);
-      
-      const commandsCollection = collection(db, 'voiceCommands');
-      const commandsSnapshot = await getDocs(commandsCollection);
-      const dbCommands = commandsSnapshot.docs.reduce((acc, doc) => {
-          acc[doc.id] = doc.data() as CommandGroup;
-          return acc;
-      }, {} as Record<string, CommandGroup>);
-      
-      const enrichedCommands = { ...defaultGeneralCommands, ...dbCommands };
-
-      initializeTranslations(locales); 
-
-      const [stores, masterProducts] = await Promise.all([
-        getStores(db),
-        getMasterProducts(db),
-      ]);
-
-      set({
-        stores,
-        masterProducts,
-        voiceAliases,
-        locales,
-        commands: enrichedCommands,
-        loading: false,
-      });
-    } catch (error) {
-      console.error("Failed to fetch initial app data:", error);
-      set({ error: error as Error, loading: false });
-    }
-  },
-  
-  fetchProductPrices: async (db: Firestore, productNames: string[]) => {
-      const existingPrices = get().productPrices;
-      const namesToFetch = productNames.filter(name => existingPrices[name.toLowerCase()] === undefined);
-
-      if (namesToFetch.length === 0) {
-          return;
-      }
-      
-      try {
-          const pricePromises = namesToFetch.map(name => getProductPrice(db, name));
-          const results = await Promise.all(pricePromises);
-
-          const newPrices = namesToFetch.reduce((acc, name, index) => {
-              acc[name.toLowerCase()] = results[index];
+        set({ loading: true, error: null });
+        try {
+          const aliasCollection = collection(db, 'voiceAliases');
+          const aliasSnapshot = await getDocs(aliasCollection);
+          const voiceAliases = aliasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAlias));
+          const locales = buildLocalesFromAliases(voiceAliases);
+          
+          const commandsCollection = collection(db, 'voiceCommands');
+          const commandsSnapshot = await getDocs(commandsCollection);
+          const dbCommands = commandsSnapshot.docs.reduce((acc, doc) => {
+              acc[doc.id] = doc.data() as CommandGroup;
               return acc;
-          }, {} as Record<string, ProductPrice | null>);
+          }, {} as Record<string, CommandGroup>);
+          
+          const enrichedCommands = { ...defaultGeneralCommands, ...dbCommands };
 
-          set(state => ({
-              productPrices: { ...state.productPrices, ...newPrices }
-          }));
+          initializeTranslations(locales); 
 
-      } catch (error) {
-          console.error("Failed to fetch product prices:", error);
+          const [stores, masterProducts] = await Promise.all([
+            getStores(db),
+            getMasterProducts(db),
+          ]);
+
+          set({
+            stores,
+            masterProducts,
+            voiceAliases,
+            locales,
+            commands: enrichedCommands,
+            loading: false,
+          });
+        } catch (error) {
+          console.error("Failed to fetch initial app data:", error);
+          set({ error: error as Error, loading: false });
+        }
+      },
+      
+      fetchProductPrices: async (db: Firestore, productNames: string[]) => {
+          const existingPrices = get().productPrices;
+          const namesToFetch = productNames.filter(name => existingPrices[name.toLowerCase()] === undefined);
+
+          if (namesToFetch.length === 0) {
+              return;
+          }
+          
+          try {
+              const pricePromises = namesToFetch.map(name => getProductPrice(db, name));
+              const results = await Promise.all(pricePromises);
+
+              const newPrices = namesToFetch.reduce((acc, name, index) => {
+                  acc[name.toLowerCase()] = results[index];
+                  return acc;
+              }, {} as Record<string, ProductPrice | null>);
+
+              set(state => ({
+                  productPrices: { ...state.productPrices, ...newPrices }
+              }));
+
+          } catch (error) {
+              console.error("Failed to fetch product prices:", error);
+          }
+      },
+
+      getProductName: (product: Product) => {
+        if (!product || !product.name) return '';
+        const lang = get().language;
+        return translate(product.name.toLowerCase().replace(/ /g, '-'), lang);
+      },
+
+      getAllAliases: (key: string) => {
+        return getAliasesFromLocales(key);
       }
-  },
+    }),
+    {
+      name: 'localbasket-app-storage', // Name of the item in localStorage
+      storage: createJSONStorage(() => localStorage), // Use localStorage
+      // Only persist a subset of the state
+      partialize: (state) => ({ 
+          stores: state.stores, 
+          masterProducts: state.masterProducts, 
+          productPrices: state.productPrices,
+          voiceAliases: state.voiceAliases,
+          locales: state.locales,
+          commands: state.commands,
+          language: state.language
+      }),
+    }
+  )
+);
 
-  getProductName: (product: Product) => {
-    if (!product || !product.name) return '';
-    const lang = get().language;
-    return translate(product.name.toLowerCase().replace(/ /g, '-'), lang);
-  },
-
-  getAllAliases: (key: string) => {
-    return getAliasesFromLocales(key);
-  }
-}));
 
 // Custom hook to initialize the store's data on app load
 export const useInitializeApp = () => {
@@ -169,3 +196,4 @@ export const useMyStorePageStore = create<MyStorePageState>((set) => ({
   saveInventoryBtnRef: null,
   setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
 }));
+
