@@ -54,10 +54,10 @@
     "wav": "^1.0.2",
     "zod": "^3.24.2",
     "zustand": "^4.5.4",
-    "@genkit-ai/google-genai": "^1.0.1",
+    "firebase-admin": "^12.3.0",
     "genkit": "^1.0.0",
     "@genkit-ai/firebase": "^1.0.0",
-    "firebase-admin": "^12.3.0"
+    "@genkit-ai/google-genai": "^1.0.1"
   },
   "devDependencies": {
     "@types/dom-speech-recognition": "^0.0.7",
