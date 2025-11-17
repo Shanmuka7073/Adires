@@ -1181,10 +1181,10 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
                     <div className="flex items-end gap-4">
                         <div className="grid grid-cols-2 gap-4 flex-1">
                             <FormField control={form.control} name="latitude" render={({ field }) => (
-                                <FormItem><FormLabel>{t('latitude')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem><FormLabel className="text-xs text-muted-foreground">{t('latitude')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                             <FormField control={form.control} name="longitude" render={({ field }) => (
-                                <FormItem><FormLabel>{t('longitude')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem><FormLabel className="text-xs text-muted-foreground">{t('longitude')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                         </div>
                          <Button type="button" variant="outline" onClick={handleGetLocation}>
