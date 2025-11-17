@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileoverview This file initializes the Genkit AI instance and exports it
@@ -18,7 +19,7 @@ import { firebasePlugin } from '@genkit-ai/firebase';
 export const ai = genkit({
   plugins: [
     googleAI(),
-    firebasePlugin(),
+    firebasePlugin, // Pass the plugin object directly, don't call it.
   ],
   logLevel: 'debug',
   enableTracingAndMetrics: true,
