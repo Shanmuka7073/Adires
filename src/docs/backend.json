@@ -609,14 +609,9 @@
         "reason": {
           "type": "string",
           "description": "The reason why the command failed (e.g., 'Product not found', 'Incomplete command')."
-        },
-        "status": {
-          "type": "string",
-          "enum": ["new", "no_suggestion"],
-          "description": "The processing status of the failed command."
         }
       },
-      "required": ["id", "userId", "commandText", "language", "timestamp", "reason", "status"]
+      "required": ["id", "userId", "commandText", "language", "timestamp", "reason"]
     },
     "VoiceAlias": {
       "$schema": "http://json-schema.org/draft-07/schema#",
