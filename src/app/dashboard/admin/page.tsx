@@ -47,54 +47,6 @@ function StatCard({ title, value, icon: Icon, loading, isLive = false }: { title
     )
 }
 
-function CoreServicesStatusCard({ status, loading }: { status: SystemStatus, loading: boolean }) {
-    
-    const getStatusInfo = (isOnline: boolean) => {
-        if (loading) return { color: 'text-yellow-500', icon: <Skeleton className="h-5 w-5 rounded-full" />, text: 'Checking...' };
-        return isOnline 
-            ? { color: 'text-green-500', icon: <CheckCircle className="h-5 w-5" />, text: 'Online' }
-            : { color: 'text-destructive', icon: <XCircle className="h-5 w-5" />, text: 'Offline' };
-    };
-
-    const isDbOnline = status.serverDbStatus === 'Online';
-    
-    const services = [
-        { name: 'User System', icon: Users, isOnline: isDbOnline && status.counts.users >= 0 },
-        { name: 'Store Owner System', icon: Store, isOnline: isDbOnline && status.counts.stores >= 0 },
-        { name: 'Delivery Partner System', icon: Truck, isOnline: isDbOnline && status.counts.deliveryPartners >= 0 },
-        { name: 'Voice Commander', icon: Mic, isOnline: isDbOnline },
-    ];
-
-    return (
-        <Card className="col-span-1 lg:col-span-3 border-primary/20 bg-primary/5">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Core Services Health</CardTitle>
-                <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                    <Server className="h-4 w-4 text-muted-foreground" />
-                </div>
-            </CardHeader>
-            <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {services.map(service => {
-                        const statusInfo = getStatusInfo(service.isOnline);
-                        return (
-                            <div key={service.name} className="flex items-center gap-2 p-2 rounded-lg bg-background/50">
-                                {statusInfo.icon}
-                                <div>
-                                    <p className="text-sm font-medium">{service.name}</p>
-                                    <p className={`text-xs ${statusInfo.color}`}>{statusInfo.text}</p>
-                                </div>
-                            </div>
-                        )
-                    })}
-                </div>
-            </CardContent>
-        </Card>
-    )
-}
-
-
 function CreateMasterStoreCard() {
     return (
         <Alert variant="destructive" className="mb-8">
@@ -133,12 +85,6 @@ function AdminActionCard({ title, description, href, icon: Icon }: { title: stri
 export default function AdminDashboardPage() {
     const { user, isUserLoading, firestore } = useFirebase();
     const router = useRouter();
-     const [status, setStatus] = useState<SystemStatus>({
-        llmStatus: 'Offline',
-        serverDbStatus: 'Loading',
-        counts: { users: 0, stores: 0, deliveryPartners: 0, voiceCommands: 0 }
-    });
-    const [statusLoading, setStatusLoading] = useState(true);
 
     // Queries for stats
     const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
@@ -165,33 +111,6 @@ export default function AdminDashboardPage() {
     }), [users, stores, deliveredOrders]);
 
     const statsLoading = isUserLoading || usersLoading || storesLoading || ordersLoading;
-    
-    // Effect to fetch system status periodically
-    useEffect(() => {
-        const fetchStatus = async () => {
-            try {
-                const serverStatus = await getSystemStatus();
-                setStatus(prev => ({
-                    ...prev,
-                    serverDbStatus: serverStatus.serverDbStatus,
-                    counts: serverStatus.counts
-                }));
-            } catch (error) {
-                 setStatus(prev => ({ 
-                    ...prev, 
-                    serverDbStatus: 'Offline',
-                    counts: { users: 0, stores: 0, deliveryPartners: 0, voiceCommands: 0 }
-                }));
-            } finally {
-                if (statusLoading) setStatusLoading(false);
-            }
-        };
-
-        fetchStatus();
-        const intervalId = setInterval(fetchStatus, 5000);
-        return () => clearInterval(intervalId);
-    }, [statusLoading]);
-
 
     useEffect(() => {
         if (!isUserLoading && (!user || user.email !== ADMIN_EMAIL)) {
@@ -220,7 +139,6 @@ export default function AdminDashboardPage() {
             {!masterStoreExists && <CreateMasterStoreCard />}
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
-                 <CoreServicesStatusCard status={status} loading={statusLoading} />
                 {statItems.map(item => (
                     <StatCard 
                         key={item.title} 
