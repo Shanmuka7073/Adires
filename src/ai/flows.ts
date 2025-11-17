@@ -1,8 +1,9 @@
 'use server';
 
 /**
- * @fileOverview This file is temporarily disabled.
- * AI features have been removed to focus on client-side development.
+ * @fileOverview This file acts as a barrel, exporting all AI flows
+ * from a single point for easier imports elsewhere in the application.
  */
 
-// All Genkit flows have been removed.
+export * from './flows/suggest-alias-flow';
+export * from './flows/asha-chat-flow';

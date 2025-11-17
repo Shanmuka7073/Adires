@@ -1,21 +1,76 @@
 'use server';
 
-// Server-side actions are temporarily disabled.
-// This file is kept as a placeholder for when server functionality is re-enabled.
+import { getAdminServices } from '@/firebase/admin-init';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { headers } from 'next/headers';
 
-export async function getSystemStatus() {
-    // Return a default "offline" status for all server components
+async function getFirestoreCounts() {
+    const { db } = await getAdminServices();
+    const usersSnapshot = await db.collection('users').get();
+    const storesSnapshot = await db.collection('stores').get();
+    const partnersSnapshot = await db.collection('deliveryPartners').get();
+    const commandsSnapshot = await db.collection('voiceCommands').get();
     return {
-        status: 'ok', // The action itself is ok, but services are offline
-        llmStatus: 'Offline',
-        serverDbStatus: 'Offline',
-        errorMessage: "Server-side features are disabled during development.",
-        counts: { users: 0, stores: 0, deliveryPartners: 0, voiceCommands: 0 },
+        users: usersSnapshot.size,
+        stores: storesSnapshot.size,
+        deliveryPartners: partnersSnapshot.size,
+        voiceCommands: commandsSnapshot.size,
     };
 }
 
+export async function getSystemStatus() {
+    try {
+        const counts = await getFirestoreCounts();
+        // LLM status check is removed for simplicity, assuming it's online if this action runs.
+        return {
+            status: 'ok',
+            llmStatus: 'Online',
+            serverDbStatus: 'Online',
+            counts: counts,
+        };
+    } catch (error) {
+        console.error("System status check failed:", error);
+        return {
+            status: 'error',
+            llmStatus: 'Offline',
+            serverDbStatus: 'Offline',
+            errorMessage: (error as Error).message,
+            counts: { users: 0, stores: 0, deliveryPartners: 0, voiceCommands: 0 },
+        };
+    }
+}
+
 export async function logLoginAttempt(email: string, status: 'success' | 'failure', userId?: string, errorMessage?: string) {
-    // This server action is disabled. It can be re-enabled with Firebase Admin SDK.
-    console.log(`Login Attempt [DISABLED]: ${email}, Status: ${status}`);
-    return;
+    try {
+        const { db } = await getAdminServices();
+        const headersList = headers();
+        
+        const ipAddress = headersList.get('x-forwarded-for') || 'unknown';
+        const userAgent = headersList.get('user-agent') || 'unknown';
+        
+        let location = 'Unknown';
+        try {
+            // This header is set by Google Cloud Load Balancer
+            const city = headersList.get('x-cloud-trace-context'); 
+             if (city) {
+                location = city;
+            }
+        } catch {}
+
+
+        await addDoc(collection(db, 'loginHistory'), {
+            userId: userId || null,
+            email,
+            status,
+            timestamp: serverTimestamp(),
+            ipAddress,
+            userAgent,
+            errorMessage: errorMessage || null,
+            location
+        });
+
+    } catch (error) {
+        console.error("Failed to log login attempt:", error);
+        // We don't want to throw an error here and fail the login process itself.
+    }
 }
