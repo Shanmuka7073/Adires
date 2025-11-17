@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { Loader2, Trash2, FileWarning, MessageSquareWarning, Sparkles, Check } from 'lucide-react';
-// import { suggestAlias, SuggestAliasInput } from '@/ai/flows/suggest-alias-flow';
+import { suggestAlias, SuggestAliasInput } from '@/ai/flows/suggest-alias-flow';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const createSlug = (text: string) => text.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-');
@@ -29,57 +29,57 @@ function FailedCommandRow({ command, allItemNames, onAliasCreated }: { command: 
     const handleSuggestFix = () => {
         setSuggestion(null);
         setSuggestionError(null);
-        // startSuggestion(async () => {
-        //     try {
-        //         const input: any = {
-        //             commandText: command.commandText,
-        //             language: command.language.split('-')[0],
-        //             itemNames: allItemNames,
-        //         };
-        //         const result = await suggestAlias(input);
-        //         if (result.isSuggestionAvailable) {
-        //             setSuggestion(result);
-        //         } else {
-        //             setSuggestionError("AI could not find a confident suggestion.");
-        //         }
-        //     } catch (error) {
-        //         console.error("AI suggestion failed:", error);
-        //         setSuggestionError("An error occurred while getting AI suggestion.");
-        //     }
-        // });
+        startSuggestion(async () => {
+            try {
+                const input: SuggestAliasInput = {
+                    commandText: command.commandText,
+                    language: command.language.split('-')[0],
+                    itemNames: allItemNames,
+                };
+                const result = await suggestAlias(input);
+                if (result.isSuggestionAvailable) {
+                    setSuggestion(result);
+                } else {
+                    setSuggestionError("AI could not find a confident suggestion.");
+                }
+            } catch (error) {
+                console.error("AI suggestion failed:", error);
+                setSuggestionError("An error occurred while getting AI suggestion.");
+            }
+        });
     };
 
     const handleApproveAlias = async () => {
-        // if (!suggestion || !firestore) return;
+        if (!suggestion || !firestore) return;
 
-        // startSaving(async () => {
-        //     try {
-        //         const batch = writeBatch(firestore);
+        startSaving(async () => {
+            try {
+                const batch = writeBatch(firestore);
 
-        //         const newAliasRef = doc(collection(firestore, 'voiceAliases'));
-        //         const newAliasData = {
-        //             key: createSlug(suggestion.suggestedKey),
-        //             language: command.language.split('-')[0],
-        //             alias: suggestion.suggestedAlias.toLowerCase(),
-        //             type: 'product',
-        //         };
-        //         batch.set(newAliasRef, newAliasData);
+                const newAliasRef = doc(collection(firestore, 'voiceAliases'));
+                const newAliasData = {
+                    key: createSlug(suggestion.suggestedKey),
+                    language: command.language.split('-')[0],
+                    alias: suggestion.suggestedAlias.toLowerCase(),
+                    type: 'product',
+                };
+                batch.set(newAliasRef, newAliasData);
 
-        //         const commandRef = doc(firestore, 'failedCommands', command.id);
-        //         batch.delete(commandRef);
+                const commandRef = doc(firestore, 'failedCommands', command.id);
+                batch.delete(commandRef);
 
-        //         await batch.commit();
+                await batch.commit();
 
-        //         toast({
-        //             title: "Alias Created!",
-        //             description: `\"${command.commandText}\" will now be recognized as \"${suggestion.suggestedKey}\".`,
-        //         });
-        //         onAliasCreated();
-        //     } catch (error) {
-        //         console.error("Failed to approve alias:", error);
-        //         toast({ variant: 'destructive', title: "Save Failed", description: "Could not save the new alias." });
-        //     }
-        // });
+                toast({
+                    title: "Alias Created!",
+                    description: `"${command.commandText}" will now be recognized as "${suggestion.suggestedKey}".`,
+                });
+                onAliasCreated();
+            } catch (error) {
+                console.error("Failed to approve alias:", error);
+                toast({ variant: 'destructive', title: "Save Failed", description: "Could not save the new alias." });
+            }
+        });
     };
     
     const handleDelete = () => {
@@ -108,7 +108,7 @@ function FailedCommandRow({ command, allItemNames, onAliasCreated }: { command: 
                 <TableCell><Badge variant="outline">{command.language}</Badge></TableCell>
                 <TableCell className="text-sm text-muted-foreground">{command.reason}</TableCell>
                 <TableCell className="text-right space-x-1">
-                    <Button variant="outline" size="sm" onClick={handleSuggestFix} disabled={isSuggesting || true}>
+                    <Button variant="outline" size="sm" onClick={handleSuggestFix} disabled={isSuggesting}>
                         {isSuggesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                         <span className="ml-2 hidden sm:inline">Suggest Fix</span>
                     </Button>

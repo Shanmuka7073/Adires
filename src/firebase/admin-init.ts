@@ -1,3 +1,4 @@
+
 'use server';
 
 import { initializeApp, getApps, App, cert, ServiceAccount } from 'firebase-admin/app';
@@ -18,10 +19,8 @@ export async function getAdminServices(): Promise<AdminServices> {
     return adminServices;
   }
 
-  // This is the critical change: We parse the service account from an environment variable.
-  // This is the standard and secure way to handle credentials in Next.js.
   if (!process.env.SERVICE_ACCOUNT) {
-    throw new Error('The SERVICE_ACCOUNT environment variable is not set. Please add it to your .env.local file.');
+    throw new Error('The SERVICE_ACCOUNT environment variable is not set. Please add it to your environment variables.');
   }
 
   const serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT) as ServiceAccount;
