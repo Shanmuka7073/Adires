@@ -107,7 +107,8 @@ export function VoiceCommander({
     currentLocationBtnRef, 
     shouldPlaceOrderDirectly, 
     setShouldPlaceOrderDirectly,
-    setHomeAddress
+    setHomeAddress,
+    setShouldUseCurrentLocation
   } = useCheckoutStore();
 
 
@@ -1202,6 +1203,7 @@ export function VoiceCommander({
         const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(addressPhrase.toLowerCase(), kw)));
 
         let deliveryAddress = '';
+        let useCurrentLocation = false;
         if (homeSimilarity > 0.7 && homeSimilarity > locationSimilarity) {
             if (userProfileRef.current?.address) {
                 deliveryAddress = userProfileRef.current.address;
@@ -1211,8 +1213,7 @@ export function VoiceCommander({
                 return;
             }
         } else if (locationSimilarity > 0.7) {
-            // This is a special case. We will set a placeholder and let the checkout page handle the geolocation.
-            deliveryAddress = 'use-current-location';
+            useCurrentLocation = true;
         } else {
             // If it's not clearly home or current, set it to the raw phrase and let the user fix it.
             deliveryAddress = addressPhrase;
@@ -1227,7 +1228,11 @@ export function VoiceCommander({
             setIsWaitingForQuickOrderConfirmation(true); // Prevents checkout page from prompting
             addItemToCart(product, variant, requestedQty);
             setActiveStoreId(bestStoreMatch!.id);
-            setHomeAddress(deliveryAddress); // Pass the address to the checkout page store
+            if(useCurrentLocation) {
+                setShouldUseCurrentLocation(true);
+            } else {
+                setHomeAddress(deliveryAddress);
+            }
             setShouldPlaceOrderDirectly(true); // Signal the checkout page to auto-submit
             router.push('/checkout');
         });
@@ -1260,5 +1265,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    

@@ -83,6 +83,8 @@ interface PassThroughState {
   setHomeAddress: (address: string | null) => void;
   shouldPlaceOrderDirectly: boolean;
   setShouldPlaceOrderDirectly: (shouldPlace: boolean) => void;
+  shouldUseCurrentLocation: boolean;
+  setShouldUseCurrentLocation: (shouldUse: boolean) => void;
 }
 
 export const useCheckoutStore = create<PassThroughState>((set) => ({
@@ -98,6 +100,8 @@ export const useCheckoutStore = create<PassThroughState>((set) => ({
   setHomeAddress: (address) => set({homeAddress: address}),
   shouldPlaceOrderDirectly: false,
   setShouldPlaceOrderDirectly: (shouldPlace) => set({ shouldPlaceOrderDirectly: shouldPlace }),
+  shouldUseCurrentLocation: false,
+  setShouldUseCurrentLocation: (shouldUse) => set({ shouldUseCurrentLocation: shouldUse }),
 }));
 
 export default function CheckoutPage() {
@@ -131,7 +135,9 @@ export default function CheckoutPage() {
       homeAddress,
       setHomeAddress,
       shouldPlaceOrderDirectly,
-      setShouldPlaceOrderDirectly
+      setShouldPlaceOrderDirectly,
+      shouldUseCurrentLocation,
+      setShouldUseCurrentLocation
     } = useCheckoutStore();
   
   const { triggerVoicePrompt } = useVoiceCommander();
@@ -224,6 +230,15 @@ export default function CheckoutPage() {
         setHomeAddress(null);
     }
   }, [homeAddress, form, setHomeAddress]);
+
+  // Effect for smart order: use current location if requested
+  useEffect(() => {
+    if (shouldUseCurrentLocation) {
+        handleUseCurrentLocation();
+        setShouldUseCurrentLocation(false);
+    }
+  }, [shouldUseCurrentLocation, handleUseCurrentLocation, setShouldUseCurrentLocation]);
+
 
   // Effect to pre-fill form with user data
   useEffect(() => {
