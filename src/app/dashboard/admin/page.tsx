@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -163,6 +163,12 @@ export default function AdminDashboardPage() {
                         description="view-and-manage-the-voice-commands-users-can-say"
                         href="/dashboard/voice-commands"
                         icon={Mic}
+                    />
+                    <AdminActionCard
+                        title="Failed Command Center"
+                        description="Review failed voice commands and use AI to train the system."
+                        href="/dashboard/admin/failed-commands"
+                        icon={Bot}
                     />
                     <AdminActionCard
                         title="Cached Recipes"
