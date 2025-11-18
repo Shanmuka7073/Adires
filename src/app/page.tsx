@@ -4,10 +4,13 @@ import { Button } from '@/components/ui/button';
 import { getStores } from '@/lib/data';
 import StoreCard from '@/components/store-card';
 import { useFirebase } from '@/firebase';
-import { Store } from '@/lib/types';
+import type { Store } from '@/lib/types';
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
+import AIGroceryPackGenerator from '@/components/features/AIGroceryPackGenerator';
+import CategoryIcon from '@/components/features/CategoryIcon';
+import groceryData from '@/lib/grocery-data.json';
 
 
 export default function Home() {
@@ -30,60 +33,54 @@ export default function Home() {
 
 
   const displayedStores = useMemo(() => {
-    return allStores.slice(0, 4); // Show 4 stores on home page
+    return allStores.slice(0, 3); // Show 3 featured stores
   }, [allStores]);
+
+  const displayedCategories = useMemo(() => {
+      // Show first 12 categories
+    return groceryData.categories.slice(0, 12);
+  }, []);
 
 
   return (
-    <div className="flex flex-col">
-      <section className="w-full py-12 md:py-24 lg:py-32 bg-primary/10">
-        <div className="container px-4 md:px-6">
-          <div className="flex flex-col items-center space-y-8">
-            <div className="space-y-4 text-center">
-              <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none font-headline">
-                {t('shop-fresh-shop-local-just-by-voice')}
-              </h1>
-              <p className="max-w-[600px] text-foreground/80 md:text-xl">
-                {t('your-hands-free-shopping-assistant')}
-              </p>
-            </div>
-            <div className="w-full max-w-sm space-y-4">
-                 <Button asChild>
-                    <Link href="/stores">{t('browse-all-stores')}</Link>
-                 </Button>
-                 <p className="text-sm text-foreground/60 text-center">
-                  {t('try-saying-find-bananas')}
-                </p>
-            </div>
-          </div>
+    <div className="container mx-auto p-4 space-y-12">
+      <section>
+        <AIGroceryPackGenerator />
+      </section>
+
+      <section>
+        <h2 className="text-2xl font-bold font-headline mb-4">Shop by Category</h2>
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
+          {displayedCategories.map((category) => (
+            <CategoryIcon key={category.categoryName} category={category} />
+          ))}
         </div>
       </section>
 
-      <section className="w-full py-12 md:py-24 lg:py-32">
-        <div className="container px-4 md:px-6">
-          <div className="flex flex-col items-center justify-center space-y-4 text-center">
-            <div className="space-y-2">
-              <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl font-headline">
-                {t('or-browse-featured-stores')}
-              </h2>
-              <p className="max-w-[900px] text-foreground/80 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-                {t('explore-top-rated-local-stores-right-in-your-neighborhood')}
-              </p>
-            </div>
-          </div>
-          <div className="mx-auto grid grid-cols-2 gap-4 md:gap-6 py-12 lg:grid-cols-4">
-            {loading ? (
-              <p>{t('loading-stores')}...</p>
-            ) : displayedStores.length > 0 ? (
-              displayedStores.map((store) => (
-                <StoreCard key={store.id} store={store} />
-              ))
-            ) : (
-              <p>{t('no-stores-found')}</p>
-            )}
-          </div>
+      <section>
+        <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold font-headline">Featured Stores</h2>
+            <Button variant="link" asChild>
+                <Link href="/stores">View All</Link>
+            </Button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+           {loading ? (
+             <>
+                <StoreCard.Skeleton />
+                <StoreCard.Skeleton />
+                <StoreCard.Skeleton />
+             </>
+           ) : displayedStores.length > 0 ? (
+                displayedStores.map((store) => (
+                    <StoreCard key={store.id} store={store} />
+                ))
+           ) : (
+             <p className="col-span-full text-muted-foreground">No featured stores available.</p>
+           )}
         </div>
       </section>
     </div>
   );
 }
+
