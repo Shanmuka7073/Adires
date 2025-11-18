@@ -20,7 +20,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 function createSlug(text: string) {
     if (!text) return '';
-    return text.toLowerCase().replace(/ /g, '-');
+    return text.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-');
 }
 
 function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceCommand, allItemNames: string[] }) {
@@ -67,15 +67,33 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
 
         startAdd(async () => {
             const batch = writeBatch(firestore);
+            
+            const allNewAliases = [
+                ...suggestion.suggestedAliases,
+                { lang: command.language, alias: suggestion.originalCommand }
+            ];
 
-            // 1. Add the new alias to the voiceAliases collection
-            const aliasRef = doc(collection(firestore, 'voiceAliases'));
-            batch.set(aliasRef, {
-                key: createSlug(suggestion.suggestedKey),
-                language: command.language,
-                alias: suggestion.suggestedAlias,
-                type: 'product' // Assuming all suggestions are for products for now
+            // Use a Set to ensure we don't add duplicate aliases in this batch
+            const uniqueAliases = new Map<string, { lang: string; alias: string }>();
+            allNewAliases.forEach(a => {
+                const mapKey = `${a.lang}::${a.alias.toLowerCase()}`;
+                if (!uniqueAliases.has(mapKey)) {
+                    uniqueAliases.set(mapKey, a);
+                }
             });
+
+
+            // 1. Add the new aliases to the voiceAliases collection
+            uniqueAliases.forEach(aliasData => {
+                 const aliasRef = doc(collection(firestore, 'voiceAliases'));
+                 batch.set(aliasRef, {
+                    key: suggestion.suggestedKey,
+                    language: aliasData.lang,
+                    alias: aliasData.alias,
+                    type: 'product' // Assuming all suggestions are for products for now
+                });
+            });
+            
 
             // 2. Delete the failed command log
             const commandRef = doc(firestore, 'failedCommands', command.id);
@@ -83,9 +101,9 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
 
             try {
                 await batch.commit();
-                toast({ title: "Alias Added!", description: `"${suggestion.suggestedAlias}" is now an alias for "${suggestion.suggestedKey}".`});
+                toast({ title: "Aliases Added!", description: `The AI's suggestions for "${suggestion.suggestedKey}" have been saved.`});
             } catch (err) {
-                 toast({ variant: 'destructive', title: "Save Failed", description: "Could not save the new alias." });
+                 toast({ variant: 'destructive', title: "Save Failed", description: "Could not save the new aliases." });
             }
         });
     };
@@ -106,11 +124,13 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
                 <TableCell className="text-sm text-muted-foreground">{formatDateSafe(command.timestamp)}</TableCell>
                 <TableCell className="font-mono text-xs max-w-xs truncate">{command.reason}</TableCell>
                 <TableCell className="text-right space-x-2">
-                    <Button variant="outline" size="sm" onClick={handleSuggestFix} disabled={isSuggesting}>
+                    <Button variant="outline" size="sm" onClick={handleSuggestFix} disabled={isSuggesting || suggestion}>
                         {isSuggesting ? <Sparkles className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
+                        <span className="sr-only">Suggest Fix</span>
                     </Button>
                     <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isDeleting}>
                         <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Delete Log</span>
                     </Button>
                 </TableCell>
             </TableRow>
@@ -126,11 +146,18 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
                             ) : suggestion && suggestion.isSuggestionAvailable ? (
                                 <Alert>
                                     <CheckCircle className="h-4 w-4" />
-                                    <AlertTitle>AI Suggestion: Map to '{suggestion.suggestedKey}'</AlertTitle>
+                                    <AlertTitle>AI Suggestion: Map "{suggestion.originalCommand}" to '{suggestion.suggestedKey}'</AlertTitle>
                                     <AlertDescription>
-                                        <p className="mb-4">{suggestion.reasoning}</p>
+                                        <p className="mb-2">{suggestion.reasoning}</p>
+                                        <p className="mb-2 text-xs text-muted-foreground">This will add the following aliases:</p>
+                                        <div className="flex flex-wrap gap-2 mb-4">
+                                            <Badge>{suggestion.originalCommand} ({command.language})</Badge>
+                                            {suggestion.suggestedAliases.map(a => (
+                                                <Badge key={a.alias} variant="secondary">{a.alias} ({a.lang})</Badge>
+                                            ))}
+                                        </div>
                                         <Button size="sm" onClick={handleAddAlias} disabled={isAdding}>
-                                            {isAdding ? "Adding..." : `Accept & Add Alias`}
+                                            {isAdding ? "Adding..." : `Accept & Add Aliases`}
                                         </Button>
                                     </AlertDescription>
                                 </Alert>
@@ -167,6 +194,7 @@ export default function FailedCommandsPage() {
     const allItemNames = useMemo(() => {
         const productNames = masterProducts.map(p => p.name);
         const storeNames = stores.map(s => s.name);
+        // Return a de-duplicated list of canonical names
         return [...new Set([...productNames, ...storeNames])];
     }, [masterProducts, stores]);
 
