@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box, Code, ShieldAlert, AlertCircle, CheckCircle, XCircle, KeyRound, Bot } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box, Code, ShieldAlert, AlertCircle, CheckCircle, XCircle, KeyRound, Bot, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -195,11 +195,17 @@ export default function AdminDashboardPage() {
                         href="/dashboard/voice-commands"
                         icon={Mic}
                     />
-                     <AdminActionCard 
+                    <AdminActionCard 
                         title="View Chicken Animation"
                         description="Check out the fun, flashy, waddling chicken animation."
                         href="/chicken"
                         icon={Sparkles}
+                    />
+                    <AdminActionCard
+                        title="Cached Recipes"
+                        description="View and manage the AI-generated recipe ingredient cache."
+                        href="/dashboard/admin/cached-recipes"
+                        icon={BookOpen}
                     />
                 </div>
             </div>
