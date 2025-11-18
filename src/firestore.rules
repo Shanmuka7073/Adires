@@ -132,7 +132,7 @@ service cloud.firestore {
     }
     
     match /failedCommands/{commandId} {
-      allow list, get, update, delete: if isAdmin();
+      allow read, write: if isAdmin();
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
     }
 
