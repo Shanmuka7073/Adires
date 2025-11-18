@@ -1,3 +1,4 @@
+
 import { Timestamp } from "firebase/firestore";
 
 export type ProductVariant = {
@@ -121,12 +122,13 @@ export type FailedVoiceCommand = {
     reason: string;
 }
 
-export type VoiceAlias = {
-    id?: string; // Firestore document ID
-    key: string; // e.g. 'go-to-cart' or 'tomatoes'
-    language: string; // 'en', 'te', 'display', 'reply'
-    alias: string; // 'go to my cart', 'టమోటాలు', 'Go To Cart', 'Navigating...'
-    type: 'command' | 'product' | 'store';
+export type VoiceAliasGroup = {
+    id: string; // The canonical key, e.g., 'tomatoes'
+    type: 'product' | 'store' | 'command';
+    en?: string[];
+    te?: string[];
+    hi?: string[];
+    [key: string]: any; // To allow for other languages
 };
 
 export type CachedRecipe = {
@@ -168,3 +170,5 @@ export type ChatMessage = {
   text: string;
   timestamp?: any;
 };
+
+    

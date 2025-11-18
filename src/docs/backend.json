@@ -613,31 +613,34 @@
       },
       "required": ["id", "userId", "commandText", "language", "timestamp", "reason"]
     },
-    "VoiceAlias": {
+    "VoiceAliasGroup": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "VoiceAlias",
+      "title": "VoiceAliasGroup",
       "type": "object",
-      "description": "Represents a voice alias for a specific item (product, store, or command).",
+      "description": "Represents a group of multilingual aliases for a single canonical item (product, store, or command). The document ID is the canonical key (e.g., 'tomatoes').",
       "properties": {
-        "key": {
-          "type": "string",
-          "description": "The canonical key for the item (e.g., 'tomatoes', 'go-to-cart')."
+        "en": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "A list of English aliases."
         },
-        "language": {
-          "type": "string",
-          "description": "The language of the alias (e.g., 'en', 'te')."
+        "te": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "A list of Telugu aliases."
         },
-        "alias": {
-          "type": "string",
-          "description": "The spoken alias for the item."
+        "hi": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "A list of Hindi aliases."
         },
         "type": {
           "type": "string",
           "enum": ["product", "store", "command"],
-          "description": "The type of item this alias refers to."
+          "description": "The type of item this alias group refers to."
         }
       },
-      "required": ["key", "language", "alias", "type"]
+      "required": ["type"]
     },
     "VoiceCommand": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -937,17 +940,17 @@
         }
       },
       {
-        "path": "/voiceAliases/{aliasId}",
+        "path": "/voiceAliasGroups/{key}",
         "definition": {
-          "entityName": "VoiceAlias",
+          "entityName": "VoiceAliasGroup",
           "schema": {
-            "$ref": "#/backend/entities/VoiceAlias"
+            "$ref": "#/backend/entities/VoiceAliasGroup"
           },
-          "description": "Stores all voice aliases for products, commands, and stores.",
+          "description": "Stores all voice aliases for a single item. The document ID is the canonical key (e.g., 'tomatoes').",
           "params": [
             {
-              "name": "aliasId",
-              "description": "The unique identifier of the alias document."
+              "name": "key",
+              "description": "The unique canonical key for the item (product, store, or command)."
             }
           ]
         }
@@ -987,3 +990,5 @@
     ]
   }
 }
+
+    

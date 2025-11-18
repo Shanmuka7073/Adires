@@ -6,7 +6,7 @@ import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { collection, query, orderBy, doc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, orderBy, doc, deleteDoc, writeBatch, arrayUnion, setDoc } from 'firebase/firestore';
 import type { FailedVoiceCommand } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -18,11 +18,6 @@ import { formatDistanceToNow } from 'date-fns';
 import { suggestAlias, SuggestAliasOutput } from '@/ai/flows/suggest-alias-flow';
 import { useAppStore } from '@/lib/store';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-
-function createSlug(text: string) {
-    if (!text) return '';
-    return text.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-');
-}
 
 function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceCommand, allItemNames: string[] }) {
     const { firestore } = useFirebase();
@@ -70,32 +65,24 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
         startAdd(async () => {
             const batch = writeBatch(firestore);
             
-            const allNewAliases = [
-                ...suggestion.suggestedAliases,
-                { lang: command.language, alias: suggestion.originalCommand }
-            ];
-
-            // Use a Set to ensure we don't add duplicate aliases in this batch
-            const uniqueAliases = new Map<string, { lang: string; alias: string }>();
-            allNewAliases.forEach(a => {
-                const mapKey = `${a.lang}::${a.alias.toLowerCase()}`;
-                if (!uniqueAliases.has(mapKey)) {
-                    uniqueAliases.set(mapKey, a);
-                }
-            });
-
-
-            // 1. Add the new aliases to the voiceAliases collection
-            uniqueAliases.forEach(aliasData => {
-                 const aliasRef = doc(collection(firestore, 'voiceAliases'));
-                 batch.set(aliasRef, {
-                    key: suggestion.suggestedKey,
-                    language: aliasData.lang,
-                    alias: aliasData.alias,
-                    type: 'product' // Assuming all suggestions are for products for now
-                });
-            });
+            const aliasGroupRef = doc(firestore, 'voiceAliasGroups', suggestion.suggestedKey);
             
+            // 1. Create a map of updates to merge into the document.
+            // Using arrayUnion ensures we don't add duplicates if they already exist.
+            const updates = {
+                type: 'product' // Assuming product for now
+            };
+            
+            // Add the original failed command as an alias
+            updates[command.language] = arrayUnion(suggestion.originalCommand);
+            
+            // Add the other suggested aliases
+            suggestion.suggestedAliases.forEach(aliasInfo => {
+                updates[aliasInfo.lang] = arrayUnion(aliasInfo.alias);
+            });
+
+            // Use set with merge: true to create or update the document.
+            batch.set(aliasGroupRef, updates, { merge: true });
 
             // 2. Delete the failed command log
             const commandRef = doc(firestore, 'failedCommands', command.id);
@@ -104,9 +91,10 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
             try {
                 await batch.commit();
                 toast({ title: "Aliases Added!", description: `The AI's suggestions for "${suggestion.suggestedKey}" have been saved.`});
-                // This is the critical fix: re-fetch all data after a successful save.
+                // Re-fetch all data to update the UI across the app.
                 await fetchInitialData(firestore);
             } catch (err) {
+                 console.error("Error saving aliases:", err);
                  toast({ variant: 'destructive', title: "Save Failed", description: "Could not save the new aliases." });
             }
         });
@@ -259,4 +247,4 @@ export default function FailedCommandsPage() {
     )
 }
 
-  
+    

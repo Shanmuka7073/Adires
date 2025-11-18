@@ -14,8 +14,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useFirebase } from '@/firebase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
-import { collection, writeBatch, doc } from 'firebase/firestore';
-import type { VoiceAlias, Locales } from '@/lib/locales';
+import { collection, writeBatch, doc, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
+import type { VoiceAlias, Locales, VoiceAliasGroup } from '@/lib/locales';
 import { CommandGroup, generalCommands as defaultGeneralCommands } from '@/lib/locales/commands';
 
 const createSlug = (text: string) => text.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-');
@@ -33,7 +33,6 @@ export default function VoiceCommandsPage() {
         stores, 
         locales: initialLocales, 
         commands: initialCommands, 
-        voiceAliases: initialAliases, 
         fetchInitialData 
     } = useAppStore();
 
@@ -203,88 +202,53 @@ export default function VoiceCommandsPage() {
         if (!firestore) return;
 
         startTransition(async () => {
-            const allItemsMap = new Map([
+            const batch = writeBatch(firestore);
+            const aliasGroupCollectionRef = collection(firestore, 'voiceAliasGroups');
+            const commandCollectionRef = collection(firestore, 'voiceCommands');
+
+            // Fetch existing data to compare
+            const existingAliasDocs = await getDocs(aliasGroupCollectionRef);
+            const existingAliasData = new Map(existingAliasDocs.docs.map(d => [d.id, d.data()]));
+            const existingCommandDocs = await getDocs(commandCollectionRef);
+            const existingCommandData = new Map(existingCommandDocs.docs.map(d => [d.id, d.data()]));
+
+            const itemTypes = new Map([
                 ...masterProducts.map(p => [createSlug(p.name), 'product']),
                 ...stores.map(s => [createSlug(s.name), 'store']),
                 ...Object.keys(commands).map(c => [c, 'command'])
             ]);
-
-            const originalAliasStrings = new Set(initialAliases.map(a => `${a.key}|${a.language}|${a.alias}`));
-
-            const currentAliasSet = new Set<string>();
+            
+            // --- SYNC ALIASES ---
             for (const key in locales) {
-                const langMap = locales[key];
-                for (const lang in langMap) {
-                    const aliases = Array.isArray(langMap[lang]) ? langMap[lang] as string[] : [langMap[lang] as string];
-                    aliases.forEach(alias => {
-                        if (alias) currentAliasSet.add(`${key}|${lang}|${alias}`);
-                    });
+                const docRef = doc(aliasGroupCollectionRef, key);
+                const newData: Partial<VoiceAliasGroup> = { type: itemTypes.get(key) || 'command' };
+                for (const lang in locales[key]) {
+                    const aliases = locales[key][lang];
+                    // Ensure it's always an array
+                    newData[lang] = Array.isArray(aliases) ? aliases : (aliases ? [aliases] : []);
                 }
+                batch.set(docRef, newData, { merge: true }); // Use set with merge to create or update
             }
-
-            const originalCommandStrings = new Set<string>();
-            Object.entries(initialCommands).forEach(([key, group]) => {
-                originalCommandStrings.add(`${key}|display|${group.display}`);
-                originalCommandStrings.add(`${key}|reply|${group.reply}`);
-            });
-            
-            const currentCommandSet = new Set<string>();
-            Object.entries(commands).forEach(([key, group]) => {
-                currentCommandSet.add(`${key}|display|${group.display}`);
-                currentCommandSet.add(`${key}|reply|${group.reply}`);
-            });
-            
-            // --- ALIAS DIFF ---
-            const aliasesToAdd: Omit<VoiceAlias, 'id'>[] = [];
-            currentAliasSet.forEach(aliasString => {
-                if (!originalAliasStrings.has(aliasString)) {
-                    const [key, language, alias] = aliasString.split('|');
-                    aliasesToAdd.push({ key, language, alias, type: allItemsMap.get(key) || 'command' });
-                }
-            });
-
-            const aliasesToDelete: VoiceAlias[] = [];
-            initialAliases.forEach(aliasDoc => {
-                const aliasString = `${aliasDoc.key}|${aliasDoc.language}|${aliasDoc.alias}`;
-                if (!currentAliasSet.has(aliasString)) {
-                    aliasesToDelete.push(aliasDoc);
-                }
-            });
-            
-            // --- COMMAND DIFF ---
-            const commandsToAdd: { key: string; display: string; reply: string; }[] = [];
-            const commandsToDelete: string[] = Object.keys(initialCommands).filter(key => !commands[key]);
-
-            Object.entries(commands).forEach(([key, group]) => {
-                if (!initialCommands[key] || initialCommands[key].display !== group.display || initialCommands[key].reply !== group.reply) {
-                    commandsToAdd.push({ key, ...group });
+            // Check for deleted alias groups
+            existingAliasData.forEach((_, key) => {
+                if (!locales[key]) {
+                    batch.delete(doc(aliasGroupCollectionRef, key));
                 }
             });
 
 
-            if (aliasesToAdd.length === 0 && aliasesToDelete.length === 0 && commandsToAdd.length === 0 && commandsToDelete.length === 0) {
-                toast({ title: 'No Changes to Save' });
-                return;
+            // --- SYNC COMMANDS ---
+            for (const key in commands) {
+                const docRef = doc(commandCollectionRef, key);
+                batch.set(docRef, commands[key]);
             }
+            // Check for deleted commands
+            existingCommandData.forEach((_, key) => {
+                if (!commands[key]) {
+                    batch.delete(doc(commandCollectionRef, key));
+                }
+            });
 
-            const batch = writeBatch(firestore);
-            
-            // --- BATCH ALIASES ---
-            const aliasCollectionRef = collection(firestore, 'voiceAliases');
-            aliasesToDelete.forEach(aliasDoc => {
-                if (aliasDoc.id) batch.delete(doc(aliasCollectionRef, aliasDoc.id));
-            });
-            aliasesToAdd.forEach(newAliasData => {
-                batch.set(doc(aliasCollectionRef), newAliasData);
-            });
-            
-            // --- BATCH COMMANDS ---
-            const commandCollectionRef = collection(firestore, 'voiceCommands');
-            commandsToDelete.forEach(key => batch.delete(doc(commandCollectionRef, key)));
-            commandsToAdd.forEach(cmd => {
-                batch.set(doc(commandCollectionRef, cmd.key), { display: cmd.display, reply: cmd.reply });
-            });
-            
             try {
                 await batch.commit();
                 toast({
@@ -543,3 +507,5 @@ export default function VoiceCommandsPage() {
         </div>
     );
 }
+
+    

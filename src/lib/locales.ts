@@ -1,6 +1,7 @@
+
 'use client';
-import type { VoiceAlias } from './types';
-export type { VoiceAlias };
+import type { VoiceAliasGroup } from './types';
+export type { VoiceAliasGroup };
 
 export type LocaleEntry = string | string[];
 export type Locales = Record<string, Record<string, LocaleEntry>>;
@@ -129,7 +130,7 @@ export function getAllAliases(key: string): Record<string, string[]> {
 
     if (entry) {
         for (const langCode in entry) {
-             if (langCode === 'display' || langCode === 'reply') continue;
+             if (langCode === 'display' || langCode === 'reply' || langCode === 'type') continue;
             const langAliases = entry[langCode];
             result[langCode] = (Array.isArray(langAliases) ? langAliases : [langAliases]).filter(Boolean);
         }
@@ -138,27 +139,14 @@ export function getAllAliases(key: string): Record<string, string[]> {
     return result;
 }
 
-// This function is now only used for initializing the store from the fetched aliases.
-export function buildLocalesFromAliases(aliases: VoiceAlias[]): Locales {
+// This function now builds the locales object from the fetched alias groups
+export function buildLocalesFromAliasGroups(groups: VoiceAliasGroup[]): Locales {
     const locales: Locales = {};
-    aliases.forEach(aliasDoc => {
-        // Exclude display/reply from the main alias structure
-        if (aliasDoc.language === 'display' || aliasDoc.language === 'reply') {
-            return;
-        }
-
-        if (!locales[aliasDoc.key]) {
-            locales[aliasDoc.key] = {};
-        }
-        
-        const langEntry = locales[aliasDoc.key][aliasDoc.language];
-        if (Array.isArray(langEntry)) {
-            langEntry.push(aliasDoc.alias);
-        } else if (typeof langEntry === 'string') {
-            locales[aliasDoc.key][aliasDoc.language] = [langEntry, aliasDoc.alias];
-        } else {
-            locales[aliasDoc.key][aliasDoc.language] = aliasDoc.alias;
-        }
+    groups.forEach(group => {
+        const { id, type, ...languages } = group;
+        locales[id] = languages;
     });
     return locales;
 }
+
+    

@@ -4,12 +4,12 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Firestore, collection, getDocs } from 'firebase/firestore';
-import { Store, Product, ProductPrice, VoiceAlias } from './types';
+import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
 import { getStores, getMasterProducts, getProductPrice } from './data';
 import { useFirebase } from '@/firebase';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import { t as translate, initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliases } from '@/lib/locales';
+import { t as translate, initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups } from '@/lib/locales';
 import { generalCommands as defaultGeneralCommands, CommandGroup } from '@/lib/locales/commands';
 import { ProfileFormValues } from '@/app/dashboard/customer/my-profile/page';
 
@@ -18,7 +18,6 @@ export interface AppState {
   stores: Store[];
   masterProducts: Product[];
   productPrices: Record<string, ProductPrice | null>;
-  voiceAliases: VoiceAlias[];
   locales: Locales;
   commands: Record<string, CommandGroup>;
   loading: boolean;
@@ -44,7 +43,6 @@ export const useAppStore = create<AppState>()(
       stores: [],
       masterProducts: [],
       productPrices: {},
-      voiceAliases: [],
       locales: {},
       commands: {},
       loading: true,
@@ -59,21 +57,12 @@ export const useAppStore = create<AppState>()(
       },
 
       fetchInitialData: async (db: Firestore) => {
-        // If data already exists from persistence, don't refetch unless necessary.
-        // A more advanced implementation could check a "last fetched" timestamp.
-        if (get().stores.length > 0 && get().masterProducts.length > 0) {
-            set({ loading: false }); // Ensure loading is false if we're using cached data
-            // Still need to initialize translations with the persisted locales
-            initializeTranslations(get().locales);
-            return;
-        }
-
         set({ loading: true, error: null });
         try {
-          const aliasCollection = collection(db, 'voiceAliases');
-          const aliasSnapshot = await getDocs(aliasCollection);
-          const voiceAliases = aliasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAlias));
-          const locales = buildLocalesFromAliases(voiceAliases);
+          const aliasGroupCollection = collection(db, 'voiceAliasGroups');
+          const aliasSnapshot = await getDocs(aliasGroupCollection);
+          const voiceAliasGroups = aliasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
+          const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
           
           const commandsCollection = collection(db, 'voiceCommands');
           const commandsSnapshot = await getDocs(commandsCollection);
@@ -94,7 +83,6 @@ export const useAppStore = create<AppState>()(
           set({
             stores,
             masterProducts,
-            voiceAliases,
             locales,
             commands: enrichedCommands,
             loading: false,
@@ -149,7 +137,6 @@ export const useAppStore = create<AppState>()(
           stores: state.stores, 
           masterProducts: state.masterProducts, 
           productPrices: state.productPrices,
-          voiceAliases: state.voiceAliases,
           locales: state.locales,
           commands: state.commands,
           language: state.language
@@ -197,3 +184,4 @@ export const useMyStorePageStore = create<MyStorePageState>((set) => ({
   setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
 }));
 
+    
