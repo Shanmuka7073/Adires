@@ -68,14 +68,14 @@ The application's design is clean, modern, and task-oriented, built with a mobil
 
 ## 4. How the Voice Commander Works
 
-The voice commander is the brain of the application. It's a complex system that orchestrates a series of steps to understand and act upon user speech.
+The voice commander is the brain of the application. It\'s a complex system that orchestrates a series of steps to understand and act upon user speech.
 
-*   **Activation**: When the user clicks the microphone icon, the browser's `SpeechRecognition` API is activated. It listens for speech in the user's selected language (e.g., 'en-IN' or 'te-IN').
+*   **Activation**: When the user clicks the microphone icon, the browser's \`SpeechRecognition\` API is activated. It listens for speech in the user's selected language (e.g., 'en-IN' or 'te-IN').
 *   **Transcription**: The browser converts the speech to text.
 *   **Intent Recognition**: The transcribed text is passed to the \`recognizeIntent\` function. This function uses a series of keyword checks and logic to determine what the user is trying to do (e.g., \`ORDER_ITEM\`, \`CHECK_PRICE\`, \`NAVIGATE\`).
 *   **Entity Extraction**: If the intent is to order an item, the \`findProductAndVariant\` function is called. It uses a fuzzy-matching algorithm (\`calculateSimilarity\`) to compare the user's phrase against a pre-built map of all known product aliases (\`universalProductAliasMap\`). It identifies the product, quantity, and the most likely variant (e.g., "1kg").
 *   **Contextual Awareness**: The commander is context-aware. If the user is on the checkout page, it will prompt for missing information like the delivery address or store. If it just quoted a price, it will listen for a "yes" or "no" to add the item to the cart.
 *   **Action Execution**: Once the intent and entities are clear, the commander calls the appropriate action, whether it's navigating to a new page (\`router.push\`), adding an item to the cart (\`addItemToCart\`), or speaking a reply to the user.
-*   **AI Speech Synthesis**: Replies are spoken back to the user using the browser's `SpeechSynthesis` API, with a voice selected to match the user's language.
+*   **AI Speech Synthesis**: Replies are spoken back to the user using the browser's \`SpeechSynthesis\` API, with a voice selected to match the user's language.
 *   **Failure Logging**: If a command cannot be understood, it is automatically logged to the \`failedCommands\` collection in Firestore, making it available for the admin to review and fix in the "Failed Command Center".
 `;
