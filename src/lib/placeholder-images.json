@@ -16,6 +16,26 @@
       "imageHint": "corner store"
     },
     {
+      "id": "dash-shopping",
+      "imageUrl": "https://images.unsplash.com/photo-1583258292688-d0213dc5a3a8?w=400&h=300&fit=crop&q=80",
+      "imageHint": "grocery aisle"
+    },
+    {
+      "id": "dash-voice",
+      "imageUrl": "https://images.unsplash.com/photo-1589903137919-8e439294b4e9?w=400&h=300&fit=crop&q=80",
+      "imageHint": "sound waves"
+    },
+    {
+      "id": "dash-owner",
+      "imageUrl": "https://images.unsplash.com/photo-1556742502-ec7c0e9f34b1?w=400&h=300&fit=crop&q=80",
+      "imageHint": "shopkeeper payment"
+    },
+    {
+      "id": "dash-delivery",
+      "imageUrl": "https://images.unsplash.com/photo-1617206869356-b7e3b5e4c6f3?w=400&h=300&fit=crop&q=80",
+      "imageHint": "delivery scooter"
+    },
+    {
       "id": "cat-fresh-cut",
       "imageUrl": "https://images.unsplash.com/photo-1604503468822-261545d07802?w=128&h=128&fit=crop&q=80",
       "imageHint": "raw chicken"
@@ -307,7 +327,7 @@
     },
     {
       "id": "prod-guava",
-      "imageUrl": "https://images.unsplash.com/photo-1620573801553-6c7050524959?w=400&h=300&fit=crop&q=80",
+      "imageUrl": "https://images.unsplash.com/photo-1620573801553-6c70524959?w=400&h=300&fit=crop&q=80",
       "imageHint": "guava"
     },
     {
