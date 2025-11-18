@@ -9,15 +9,12 @@ runConfig:
   # This is useful for long-running server actions.
   # The maximum value is 600 seconds (10 minutes).
   timeoutSeconds: 600
-# Add a secret for the Gemini API key. The value should be set in Google Cloud Secret Manager.
+# The SERVICE_ACCOUNT secret is still required for the Firebase Admin SDK.
 secrets:
-  - id: GEMINI_API_KEY
-    version: 1
   - id: SERVICE_ACCOUNT
     version: 1
     
-# The environment variable GEMINI_API_KEY will be available in the app
+# The environment variable will be available in the app
 # by adding it here.
 environmentVariables:
-  GEMINI_API_KEY: ${secret:GEMINI_API_KEY}
   SERVICE_ACCOUNT: ${secret:SERVICE_ACCOUNT}

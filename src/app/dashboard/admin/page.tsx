@@ -195,12 +195,6 @@ export default function AdminDashboardPage() {
                         href="/dashboard/voice-commands"
                         icon={Mic}
                     />
-                    <AdminActionCard 
-                        title="AI-Powered Suggestions"
-                        description="Review and manage AI-generated suggestions for improving the app."
-                        href="/dashboard/admin/suggestions"
-                        icon={Bot}
-                    />
                      <AdminActionCard 
                         title="View Chicken Animation"
                         description="Check out the fun, flashy, waddling chicken animation."

@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -21,9 +22,10 @@ async function getFirestoreCounts() {
 export async function getSystemStatus() {
     try {
         const counts = await getFirestoreCounts();
+        // LLM status is no longer checked as AI features are removed.
         return {
             status: 'ok',
-            llmStatus: 'Online',
+            llmStatus: 'Offline', // Default to Offline since AI is removed.
             serverDbStatus: 'Online',
             counts: counts,
         };
