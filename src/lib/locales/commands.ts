@@ -76,6 +76,10 @@ export const generalCommands: Record<string, CommandGroup> = {
         display: 'Show Details',
         reply: 'Showing details for the first item.'
     },
+    'get-recipe': {
+        display: 'Get Recipe Ingredients',
+        reply: 'Sure, for which dish would you like the ingredients?'
+    },
     'homeAddress': { 
         display: 'Use Home Address', 
         reply: 'Setting delivery to your home address.' 

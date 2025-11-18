@@ -572,36 +572,29 @@ export function VoiceCommander({
         const familySize = familySizeMatch ? parseInt(familySizeMatch[0]) : 2;
         return { type: 'ADD_PACK', packType, familySize, originalText: text, lang: spokenLang };
     }
-
-    // 4. RECIPE
-    const recipeKeyword = intentKeywords.GET_RECIPE.find(kw => lowerText.includes(kw));
-    if (recipeKeyword) {
-        const dishName = lowerText.replace(recipeKeyword, '').trim();
-        return { type: 'GET_RECIPE', dishName, originalText: text, lang: spokenLang };
-    }
-
-    // 5. CHECK PRICE
+    
+    // 4. CHECK PRICE
     const priceKeyword = intentKeywords.CHECK_PRICE.find(kw => lowerText.includes(kw));
     if (priceKeyword) {
         const productPhrase = lowerText.replace(priceKeyword, '').trim();
         return { type: 'CHECK_PRICE', productPhrase, originalText: text, lang: spokenLang };
     }
 
-    // 6. REMOVE ITEM
+    // 5. REMOVE ITEM
     const removeKeyword = intentKeywords.REMOVE_ITEM.find(kw => lowerText.includes(kw));
     if (removeKeyword) {
         const productPhrase = lowerText.replace(removeKeyword, '').trim();
         return { type: 'REMOVE_ITEM', productPhrase, originalText: text, lang: spokenLang };
     }
     
-    // 7. SHOW DETAILS
+    // 6. SHOW DETAILS
     const detailsKeyword = intentKeywords.SHOW_DETAILS.find(kw => lowerText.includes(kw));
     if (detailsKeyword) {
         const target = lowerText.replace(detailsKeyword, '').trim();
         return { type: 'SHOW_DETAILS', target, originalText: text, lang: spokenLang };
     }
 
-    // 8. CONVERSATIONAL/NAVIGATIONAL COMMANDS
+    // 7. CONVERSATIONAL/NAVIGATIONAL COMMANDS
     let bestCommandMatch: { key: string, similarity: number } | null = null;
     for (const key in commands) {
       const commandAliases = getAllAliases(key);
@@ -619,13 +612,22 @@ export function VoiceCommander({
     }
     
     if (bestCommandMatch) {
+      if (bestCommandMatch.key === 'get-recipe') {
+          const recipeAliases = (getAllAliases('get-recipe')[spokenLang] || ['recipe for']);
+          const recipeKeywordUsed = recipeAliases.find(alias => lowerText.includes(alias));
+          if(recipeKeywordUsed) {
+            const dishName = lowerText.substring(lowerText.indexOf(recipeKeywordUsed) + recipeKeywordUsed.length).trim();
+            return { type: 'GET_RECIPE', dishName, originalText: text, lang: spokenLang };
+          }
+      }
+
       if (intentKeywords.NAVIGATE.some(kw => lowerText.includes(kw))) {
         return { type: 'NAVIGATE', destination: bestCommandMatch.key, originalText: text, lang: spokenLang };
       }
       return { type: 'CONVERSATIONAL', commandKey: bestCommandMatch.key, originalText: text, lang: spokenLang };
     }
 
-    // 9. ORDER ITEM (Default Action)
+    // 8. ORDER ITEM (Default Action)
     return { type: 'ORDER_ITEM', originalText: text, lang: spokenLang };
 
   }, [commands, getAllAliases]);
@@ -915,6 +917,35 @@ export function VoiceCommander({
       myProfile: (params: {lang: string}) => router.push('/dashboard/customer/my-profile'),
       managePacks: (params: {lang: string}) => router.push('/dashboard/owner/packs'),
       chicken: (params: {lang: string}) => router.push('/chicken'),
+      'get-recipe': async ({ dishName, lang }: { dishName: string, lang: string }) => {
+        const langWithRegion = lang === 'en' ? 'en-IN' : `${lang}-IN`;
+        if (!firestore) return;
+
+        // 1. Check cache first
+        const cachedIngredients = await getCachedRecipe(firestore, dishName);
+        if (cachedIngredients) {
+            const ingredientsText = cachedIngredients.join(', ');
+            speak(`The ingredients for ${dishName} are: ${ingredientsText}`, langWithRegion);
+            return;
+        }
+
+        // 2. If not in cache, call AI
+        speak(`Let me check the ingredients for ${dishName}...`, langWithRegion);
+        try {
+            const result = await getIngredientsForDish({ dishName, language: lang });
+            if (result.isSuccess && result.ingredients.length > 0) {
+                const ingredientsText = result.ingredients.join(', ');
+                speak(`The main ingredients for ${dishName} are: ${ingredientsText}`, langWithRegion);
+                // 3. Cache the result for future use
+                await cacheRecipe(firestore, dishName, result.ingredients);
+            } else {
+                speak(`I'm sorry, I couldn't find the ingredients for ${dishName}.`, langWithRegion);
+            }
+        } catch (error) {
+            console.error("AI recipe flow failed:", error);
+            speak(`I'm having trouble connecting to my knowledge base right now. Please try again later.`, langWithRegion);
+        }
+      },
       checkout: (params: { lang: string }) => {
         const lang = params.lang || language;
         onCloseCart();
@@ -943,35 +974,6 @@ export function VoiceCommander({
         speak(t('im-ready-for-order-speech', lang), lang + '-IN');
         setIsWaitingForVoiceOrder(true);
       },
-      getRecipe: async ({ dishName, lang }: { dishName: string, lang: string }) => {
-        const langWithRegion = lang === 'en' ? 'en-IN' : `${lang}-IN`;
-        if (!firestore) return;
-
-        // 1. Check cache first
-        const cachedIngredients = await getCachedRecipe(firestore, dishName);
-        if (cachedIngredients) {
-            const ingredientsText = cachedIngredients.join(', ');
-            speak(`The ingredients for ${dishName} are: ${ingredientsText}`, langWithRegion);
-            return;
-        }
-
-        // 2. If not in cache, call AI
-        speak(`Let me check the ingredients for ${dishName}...`, langWithRegion);
-        try {
-            const result = await getIngredientsForDish({ dishName, language: lang });
-            if (result.isSuccess && result.ingredients.length > 0) {
-                const ingredientsText = result.ingredients.join(', ');
-                speak(`The main ingredients for ${dishName} are: ${ingredientsText}`, langWithRegion);
-                // 3. Cache the result for future use
-                await cacheRecipe(firestore, dishName, result.ingredients);
-            } else {
-                speak(`I'm sorry, I couldn't find the ingredients for ${dishName}.`, langWithRegion);
-            }
-        } catch (error) {
-            console.error("AI recipe flow failed:", error);
-            speak(`I'm having trouble connecting to my knowledge base right now. Please try again later.`, langWithRegion);
-        }
-    },
       createVoiceOrder: async (list: string, lang: string) => {
         if (!firestore || !user || !userProfileRef.current) {
           speak(t('cannot-create-order-no-profile-speech', lang), lang + '-IN');
