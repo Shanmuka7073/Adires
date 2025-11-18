@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -145,6 +145,12 @@ export default function AdminDashboardPage() {
                         description="Review and share the official app pitch document."
                         href="/dashboard/admin/pitch"
                         icon={FileText}
+                    />
+                    <AdminActionCard 
+                        title="App Overview"
+                        description="Get a complete breakdown of the app's features and design."
+                        href="/dashboard/admin/app-overview"
+                        icon={FileSignature}
                     />
                     <AdminActionCard 
                         title="manage-master-store-and-products"

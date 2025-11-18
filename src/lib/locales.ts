@@ -40,6 +40,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
       'price-check-reply-speech': "The price for {productName} is {prices}.",
       'price-check-variant-speech': "{weight} for {price}",
       'recipe-tester': "Recipe Tester",
+      'app-overview': 'App Overview',
   },
   'te': {
       'should-i-deliver-to-home-or-current-speech': "డెలివరీని మీ ఇంటి చిరునామాకు సెట్ చేయాలా లేదా మీ ప్రస్తుత స్థానాన్ని ఉపయోగించాలా?",
@@ -72,6 +73,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
       'price-check-reply-speech': "{productName} ధర {prices}.",
       'price-check-variant-speech': "{weight} కి {price}",
       'recipe-tester': "రెసిపీ టెస్టర్",
+      'app-overview': 'యాప్ అవలోకనం',
   },
 };
 
@@ -148,5 +150,3 @@ export function buildLocalesFromAliasGroups(groups: VoiceAliasGroup[]): Locales 
     });
     return locales;
 }
-
-    
