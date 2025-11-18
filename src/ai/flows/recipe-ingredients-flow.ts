@@ -8,6 +8,7 @@
  */
 
 import { ai } from '@/ai/genkit';
+import { googleAI } from '@genkit-ai/google-genai';
 import { z } from 'genkit';
 
 const RecipeIngredientsInputSchema = z.object({
@@ -31,6 +32,7 @@ const prompt = ai.definePrompt({
   name: 'recipeIngredientsPrompt',
   input: {schema: RecipeIngredientsInputSchema},
   output: {schema: RecipeIngredientsOutputSchema},
+  model: googleAI.model('gemini-2.5-flash'),
   prompt: `You are a master chef who knows the ingredients for any dish.
 A user wants to know the ingredients for "{{dishName}}".
 
