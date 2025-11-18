@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -26,6 +27,7 @@ function createSlug(text: string) {
 function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceCommand, allItemNames: string[] }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
+    const fetchInitialData = useAppStore(state => state.fetchInitialData);
     const [isDeleting, startDelete] = useTransition();
     const [isSuggesting, startSuggestion] = useTransition();
     const [isAdding, startAdd] = useTransition();
@@ -102,6 +104,8 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
             try {
                 await batch.commit();
                 toast({ title: "Aliases Added!", description: `The AI's suggestions for "${suggestion.suggestedKey}" have been saved.`});
+                // This is the critical fix: re-fetch all data after a successful save.
+                await fetchInitialData(firestore);
             } catch (err) {
                  toast({ variant: 'destructive', title: "Save Failed", description: "Could not save the new aliases." });
             }
@@ -254,3 +258,5 @@ export default function FailedCommandsPage() {
         </div>
     )
 }
+
+  
