@@ -1,42 +1,25 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box, Code, ShieldAlert, AlertCircle, CheckCircle, XCircle, KeyRound, Bot, BookOpen, Beaker } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker } from 'lucide-react';
 import Link from 'next/link';
-import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { useMemo, useEffect, useState, useTransition } from 'react';
+import { useMemo, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { collection, query, where, doc } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import type { Order, Store as StoreType } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { t } from '@/lib/locales';
-import { useToast } from '@/hooks/use-toast';
-import { getSystemStatus } from '@/app/actions';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
-interface SystemStatus {
-  llmStatus: 'Online' | 'Offline' | 'Degraded' | 'Unknown';
-  serverDbStatus: 'Online' | 'Offline' | 'Unavailable' | 'Loading';
-  counts: {
-      users: number;
-      stores: number;
-      deliveryPartners: number;
-      voiceCommands: number;
-  }
-}
-
-function StatCard({ title, value, icon: Icon, loading, isLive = false }: { title: string, value: string | number, icon: React.ElementType, loading?: boolean, isLive?: boolean }) {
+function StatCard({ title, value, icon: Icon, loading }: { title: string, value: string | number, icon: React.ElementType, loading?: boolean }) {
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">{t(title)}</CardTitle>
-                 <div className="flex items-center gap-2">
-                    {isLive && <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />}
-                    <Icon className="h-4 w-4 text-muted-foreground" />
-                </div>
+                <Icon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
                 {loading ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{value}</div>}
@@ -48,7 +31,6 @@ function StatCard({ title, value, icon: Icon, loading, isLive = false }: { title
 function CreateMasterStoreCard() {
     return (
         <Alert variant="destructive" className="mb-8">
-            <AlertCircle className="h-4 w-4" />
             <AlertTitle>{t('action-required-create-master-store')}</AlertTitle>
             <AlertDescription>
                 {t('the-master-store-for-setting-platform-wide')}
@@ -176,29 +158,11 @@ export default function AdminDashboardPage() {
                         href="/dashboard/admin/product-list"
                         icon={List}
                     />
-                     <AdminActionCard
-                        title="Application Error Log"
-                        description="Review errors caught in the application, such as permission denials."
-                        href="/dashboard/admin/errors"
-                        icon={ShieldAlert}
-                    />
-                    <AdminActionCard
-                        title="Login History"
-                        description="Monitor all successful and failed login attempts for security."
-                        href="/dashboard/admin/login-history"
-                        icon={KeyRound}
-                    />
                     <AdminActionCard 
                         title="voice-commands-control"
                         description="view-and-manage-the-voice-commands-users-can-say"
                         href="/dashboard/voice-commands"
                         icon={Mic}
-                    />
-                    <AdminActionCard 
-                        title="View Chicken Animation"
-                        description="Check out the fun, flashy, waddling chicken animation."
-                        href="/chicken"
-                        icon={Sparkles}
                     />
                     <AdminActionCard
                         title="Cached Recipes"

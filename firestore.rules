@@ -23,7 +23,6 @@ service cloud.firestore {
      * - /deliveryPartners/{partnerId}/payouts/{payoutId}: Payout requests for delivery partners.
      * - /store-images/{storeId}/{fileName}: User uploaded store images.
      * - /productPrices/{productName}: Admin-managed canonical pricing for product variants.
-     * - /appErrors/{errorId}: Application error logs.
      * - /asha-conversations/{userId}/conversation/{messageId}: Private chat history for the Diagnostic agent.
      */
     function isSignedIn() {
@@ -151,19 +150,6 @@ service cloud.firestore {
     match /siteConfig/{configId} {
         allow read: if true; // Public read access for feature flags
         allow write: if isAdmin();
-    }
-
-    match /appErrors/{errorId} {
-      allow create: if isSignedIn(); // Any signed-in user can log an error they encounter
-      allow read, list, delete: if isAdmin(); // Only the admin can read or clear error logs
-      allow update: if false;
-    }
-    
-    // Login history is admin-only for reads/deletes. Anyone can create a log.
-    match /loginHistory/{logId} {
-      allow create: if true; // The server action will write this
-      allow read, list, delete: if isAdmin();
-      allow update: if false;
     }
   }
 }

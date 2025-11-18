@@ -163,31 +163,9 @@ export type SiteConfig = {
     isAliasSuggesterEnabled?: boolean;
 };
 
-export type AppError = {
-    id: string;
-    userId: string;
-    userEmail: string;
-    timestamp: Timestamp | Date | string;
-    errorMessage: string;
-    errorDetails: any;
-    path: string;
-};
-
 // Type for conversational history
 export type ChatMessage = {
   role: 'user' | 'model';
   text: string;
   timestamp?: any;
 };
-
-export type LoginAttempt = {
-  id: string;
-  userId?: string;
-  email: string;
-  timestamp: any;
-  status: 'success' | 'failure';
-  ipAddress: string;
-  userAgent: string;
-  errorMessage?: string;
-  location?: string;
-}

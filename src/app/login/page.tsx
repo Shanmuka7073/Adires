@@ -1,4 +1,3 @@
-
 'use client';
 import {
   Card,
@@ -17,7 +16,6 @@ import { useState, useTransition, useEffect } from 'react';
 import { useFirebase } from '@/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { logLoginAttempt } from '@/app/actions';
 import type { AuthError } from 'firebase/auth';
 import { 
     createUserWithEmailAndPassword, 
@@ -63,7 +61,6 @@ export default function LoginPage() {
 
   const handleAuthError = (err: AuthError, email: string) => {
     setError(err.message);
-    logLoginAttempt(email, 'failure', undefined, err.code);
   };
 
   const onSubmit = (data: LoginFormValues) => {
@@ -86,8 +83,7 @@ export default function LoginPage() {
         } else {
           signInWithEmailAndPassword(auth, data.email, data.password)
             .then(async (userCredential) => {
-              // On successful sign-in, log the attempt and let the useEffect handle redirection.
-              await logLoginAttempt(data.email, 'success', userCredential.user.uid);
+              // On successful sign-in, useEffect will handle redirection.
             })
             .catch((err: AuthError) => {
               handleAuthError(err, data.email);
