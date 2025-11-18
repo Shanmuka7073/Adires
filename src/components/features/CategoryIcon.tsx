@@ -17,7 +17,7 @@ interface CategoryIconProps {
 
 // Helper to create a slug from a category name
 const createSlug = (name: string) => {
-  return name.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-');
+  return name.toLowerCase().replace(/ & /g, '-&-').replace(/ /g, '-');
 }
 
 export default function CategoryIcon({ category }: CategoryIconProps) {
@@ -52,7 +52,8 @@ export default function CategoryIcon({ category }: CategoryIconProps) {
                 src={image.imageUrl}
                 alt={category.categoryName}
                 data-ai-hint={image.imageHint}
-                fill
+                width={64}
+                height={64}
                 className="object-cover"
             />
         </CardContent>
