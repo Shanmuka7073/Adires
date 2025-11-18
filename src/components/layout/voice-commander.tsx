@@ -18,6 +18,7 @@ import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { getCachedAIResponse, cacheAIResponse } from '@/lib/ai-cache';
 import { useCheckoutStore } from '@/app/checkout/page';
 import { useProfileFormStore, ProfileFormValues } from '@/lib/store';
+import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
 
 
 export interface Command {
@@ -775,8 +776,7 @@ export function VoiceCommander({
                 speak("I'm sorry, the recipe feature is currently disabled.", langWithRegion);
                 return;
             }
-            speak("This feature is temporarily disabled.", langWithRegion);
-            // await commandActionsRef.current.getRecipe({ dishName: intent.dishName, lang: intent.lang });
+            await commandActionsRef.current.getRecipe({ dishName: intent.dishName, lang: intent.lang });
             break;
             
         case 'CHECK_PRICE':
@@ -943,6 +943,35 @@ export function VoiceCommander({
         speak(t('im-ready-for-order-speech', lang), lang + '-IN');
         setIsWaitingForVoiceOrder(true);
       },
+      getRecipe: async ({ dishName, lang }: { dishName: string, lang: string }) => {
+        const langWithRegion = lang === 'en' ? 'en-IN' : `${lang}-IN`;
+        if (!firestore) return;
+
+        // 1. Check cache first
+        const cachedIngredients = await getCachedRecipe(firestore, dishName);
+        if (cachedIngredients) {
+            const ingredientsText = cachedIngredients.join(', ');
+            speak(`The ingredients for ${dishName} are: ${ingredientsText}`, langWithRegion);
+            return;
+        }
+
+        // 2. If not in cache, call AI
+        speak(`Let me check the ingredients for ${dishName}...`, langWithRegion);
+        try {
+            const result = await getIngredientsForDish({ dishName, language: lang });
+            if (result.isSuccess && result.ingredients.length > 0) {
+                const ingredientsText = result.ingredients.join(', ');
+                speak(`The main ingredients for ${dishName} are: ${ingredientsText}`, langWithRegion);
+                // 3. Cache the result for future use
+                await cacheRecipe(firestore, dishName, result.ingredients);
+            } else {
+                speak(`I'm sorry, I couldn't find the ingredients for ${dishName}.`, langWithRegion);
+            }
+        } catch (error) {
+            console.error("AI recipe flow failed:", error);
+            speak(`I'm having trouble connecting to my knowledge base right now. Please try again later.`, langWithRegion);
+        }
+    },
       createVoiceOrder: async (list: string, lang: string) => {
         if (!firestore || !user || !userProfileRef.current) {
           speak(t('cannot-create-order-no-profile-speech', lang), lang + '-IN');
