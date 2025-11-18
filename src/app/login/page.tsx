@@ -14,15 +14,15 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useState, useTransition, useEffect } from 'react';
-import {
-  initiateEmailSignUp,
-  initiateEmailSignIn,
-} from '@/firebase/non-blocking-login';
-import { useFirebase, useAuth } from '@/firebase';
+import { useFirebase } from '@/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { logLoginAttempt } from '@/app/actions';
 import type { AuthError } from 'firebase/auth';
+import { 
+    createUserWithEmailAndPassword, 
+    signInWithEmailAndPassword 
+} from 'firebase/auth';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -37,8 +37,7 @@ export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const auth = useAuth();
-  const { user, isUserLoading } = useFirebase();
+  const { auth, user, isUserLoading } = useFirebase();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -71,8 +70,8 @@ export default function LoginPage() {
     setError(null);
     startTransition(() => {
         if (isSignUp) {
-          initiateEmailSignUp(auth, data.email, data.password)
-            .then(() => {
+          createUserWithEmailAndPassword(auth, data.email, data.password)
+            .then((userCredential) => {
                 toast({
                     title: 'Account Created!',
                     description: 'Your account has been successfully created. Please log in.',
@@ -85,8 +84,12 @@ export default function LoginPage() {
                 setError(err.message);
             });
         } else {
-          // The sign-in will trigger the useEffect above to redirect on success.
-          initiateEmailSignIn(auth, data.email, data.password).catch((err: AuthError) => {
+          signInWithEmailAndPassword(auth, data.email, data.password)
+            .then(async (userCredential) => {
+              // On successful sign-in, log the attempt and let the useEffect handle redirection.
+              await logLoginAttempt(data.email, 'success', userCredential.user.uid);
+            })
+            .catch((err: AuthError) => {
               handleAuthError(err, data.email);
           });
         }
