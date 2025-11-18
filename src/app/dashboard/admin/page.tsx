@@ -1,8 +1,7 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box, Code, ShieldAlert, AlertCircle, CheckCircle, XCircle, KeyRound, Bot, BookOpen } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, MessageSquareWarning, List, FileText, Server, Sparkles, Box, Code, ShieldAlert, AlertCircle, CheckCircle, XCircle, KeyRound, Bot, BookOpen, Beaker } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -206,6 +205,12 @@ export default function AdminDashboardPage() {
                         description="View and manage the AI-generated recipe ingredient cache."
                         href="/dashboard/admin/cached-recipes"
                         icon={BookOpen}
+                    />
+                    <AdminActionCard
+                        title="recipe-tester"
+                        description="Manually test the AI recipe ingredient generation."
+                        href="/dashboard/admin/recipe-tester"
+                        icon={Beaker}
                     />
                 </div>
             </div>

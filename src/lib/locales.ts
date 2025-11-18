@@ -1,4 +1,3 @@
-
 'use client';
 import type { VoiceAlias } from './types';
 export type { VoiceAlias };
@@ -39,6 +38,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
       'preparing-order-speech': "Okay, preparing an order for {items} from {storeName}. I'm taking you to the checkout page to confirm.",
       'price-check-reply-speech': "The price for {productName} is {prices}.",
       'price-check-variant-speech': "{weight} for {price}",
+      'recipe-tester': "Recipe Tester",
   },
   'te': {
       'should-i-deliver-to-home-or-current-speech': "డెలివరీని మీ ఇంటి చిరునామాకు సెట్ చేయాలా లేదా మీ ప్రస్తుత స్థానాన్ని ఉపయోగించాలా?",
@@ -70,6 +70,7 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
       'preparing-order-speech': "సరే, {storeName} నుండి {items} కోసం ఆర్డర్‌ను సిద్ధం చేస్తున్నాను. నేను మిమ్మల్ని చెక్అవుట్ పేజీకి తీసుకెళ్తున్నాను.",
       'price-check-reply-speech': "{productName} ధర {prices}.",
       'price-check-variant-speech': "{weight} కి {price}",
+      'recipe-tester': "రెసిపీ టెస్టర్",
   },
 };
 

@@ -44,6 +44,10 @@ export const generalCommands: Record<string, CommandGroup> = {
         display: 'Manage Packs',
         reply: 'Opening the pack management page.'
     },
+    'recipe-tester': {
+        display: 'Recipe Tester',
+        reply: 'Opening the AI recipe tester.'
+    },
     'checkout': { 
         display: 'Proceed to Checkout', 
         reply: 'Okay, let\'s complete your order.' // This one is better as a single, clear action.

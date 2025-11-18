@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -61,7 +60,6 @@ type Intent =
   | { type: 'GET_RECIPE', dishName: string, originalText: string, lang: string }
   | { type: 'SHOW_DETAILS', target: string, originalText: string, lang: string }
   | { type: 'ADD_PACK', packType: string, familySize: number, originalText: string, lang: string }
-  | { type: 'WAKE_WORD', originalText: string, lang: string }
   | { type: 'UNKNOWN', originalText: string, lang: string };
 
 const intentKeywords = {
@@ -557,13 +555,7 @@ export function VoiceCommander({
         return { type: 'SMART_ORDER', originalText: text, lang: spokenLang };
     }
 
-    // 2. WAKE WORD
-    const wakeWords = (getAllAliases('who-are-you')['en'] || []).concat(['smart', 'ai']);
-    if (wakeWords.some(word => lowerText === word)) {
-        return { type: 'WAKE_WORD', originalText: text, lang: spokenLang };
-    }
-
-    // 3. ADD PACK
+    // 2. ADD PACK
     const packKeyword = intentKeywords.ADD_PACK.find(kw => lowerText.includes(kw));
     if (packKeyword) {
         const packTypeMatch = lowerText.match(/3-day|weekly|monthly/);
@@ -573,28 +565,28 @@ export function VoiceCommander({
         return { type: 'ADD_PACK', packType, familySize, originalText: text, lang: spokenLang };
     }
     
-    // 4. CHECK PRICE
+    // 3. CHECK PRICE
     const priceKeyword = intentKeywords.CHECK_PRICE.find(kw => lowerText.includes(kw));
     if (priceKeyword) {
         const productPhrase = lowerText.replace(priceKeyword, '').trim();
         return { type: 'CHECK_PRICE', productPhrase, originalText: text, lang: spokenLang };
     }
 
-    // 5. REMOVE ITEM
+    // 4. REMOVE ITEM
     const removeKeyword = intentKeywords.REMOVE_ITEM.find(kw => lowerText.includes(kw));
     if (removeKeyword) {
         const productPhrase = lowerText.replace(removeKeyword, '').trim();
         return { type: 'REMOVE_ITEM', productPhrase, originalText: text, lang: spokenLang };
     }
     
-    // 6. SHOW DETAILS
+    // 5. SHOW DETAILS
     const detailsKeyword = intentKeywords.SHOW_DETAILS.find(kw => lowerText.includes(kw));
     if (detailsKeyword) {
         const target = lowerText.replace(detailsKeyword, '').trim();
         return { type: 'SHOW_DETAILS', target, originalText: text, lang: spokenLang };
     }
 
-    // 7. CONVERSATIONAL/NAVIGATIONAL COMMANDS
+    // 6. CONVERSATIONAL/NAVIGATIONAL COMMANDS
     let bestCommandMatch: { key: string, similarity: number } | null = null;
     for (const key in commands) {
       const commandAliases = getAllAliases(key);
@@ -627,7 +619,7 @@ export function VoiceCommander({
       return { type: 'CONVERSATIONAL', commandKey: bestCommandMatch.key, originalText: text, lang: spokenLang };
     }
 
-    // 8. ORDER ITEM (Default Action)
+    // 7. ORDER ITEM (Default Action)
     return { type: 'ORDER_ITEM', originalText: text, lang: spokenLang };
 
   }, [commands, getAllAliases]);
@@ -768,10 +760,6 @@ export function VoiceCommander({
         case 'SMART_ORDER':
             await commandActionsRef.current.handleSmartOrder(intent.originalText, intent.lang);
             break;
-
-        case 'WAKE_WORD':
-            speak("I can't get recipe ingredients right now.", langWithRegion);
-            return;
 
         case 'GET_RECIPE':
             if (!aiConfig?.isRecipeApiEnabled) {
@@ -916,6 +904,7 @@ export function VoiceCommander({
       myStore: (params: {lang: string}) => router.push('/dashboard/owner/my-store'),
       myProfile: (params: {lang: string}) => router.push('/dashboard/customer/my-profile'),
       managePacks: (params: {lang: string}) => router.push('/dashboard/owner/packs'),
+      'recipe-tester': (params: {lang: string}) => router.push('/dashboard/admin/recipe-tester'),
       chicken: (params: {lang: string}) => router.push('/chicken'),
       'get-recipe': async ({ dishName, lang }: { dishName: string, lang: string }) => {
         const langWithRegion = lang === 'en' ? 'en-IN' : `${lang}-IN`;
