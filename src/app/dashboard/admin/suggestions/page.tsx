@@ -1,211 +1,177 @@
-
 'use client';
 
-import { useState, useTransition, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useCollection, useMemoFirebase, useFirebase } from '@/firebase';
+import { collection, query, orderBy, doc, deleteDoc } from 'firebase/firestore';
+import type { FailedVoiceCommand, Product, Store } from '@/lib/types';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { Button } from '@/components/ui/button';
+import { Loader2, Trash2, Bot, Sparkles, Lightbulb } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, MessageSquareWarning, Sparkles, Check, Trash2, ShieldAlert } from 'lucide-react';
-import { useFirebase, useCollection, useMemoFirebase, FirestorePermissionError, errorEmitter } from '@/firebase';
-import { collection, query, orderBy, doc, writeBatch, updateDoc, where } from 'firebase/firestore';
-import type { FailedVoiceCommand } from '@/lib/types';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
+import { useTransition, useState, useMemo } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAppStore } from '@/lib/store';
-import { suggestAlias, SuggestAliasOutput } from '@/ai/flows/suggest-alias-flow';
-import { useAdminAuth } from '@/hooks/use-admin-auth';
+import { suggestAlias } from '@/ai/flows/suggest-alias-flow';
+import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
-function formatDateSafe(date: any) {
-    if (!date) return 'N/A';
-    const jsDate = date.seconds ? new Date(date.seconds * 1000) : new Date(date);
-    return formatDistanceToNow(jsDate, { addSuffix: true });
-}
 
 function FailedCommandRow({ command }: { command: FailedVoiceCommand }) {
-    const { toast } = useToast();
     const { firestore } = useFirebase();
+    const { toast } = useToast();
+    const [isDeleting, startDeleteTransition] = useTransition();
+    const [isSuggesting, startSuggestionTransition] = useTransition();
+    const [suggestion, setSuggestion] = useState<any>(null);
     const { masterProducts, stores } = useAppStore();
-    const [isSuggesting, startSuggesting] = useTransition();
-    const [suggestion, setSuggestion] = useState<SuggestAliasOutput | null>(null);
 
-    const handleSuggestFix = () => {
-        startSuggesting(async () => {
+    const itemNames = useMemo(() => {
+        const productNames = masterProducts.map(p => p.name);
+        const storeNames = stores.map(s => s.name);
+        return [...new Set([...productNames, ...storeNames])];
+    }, [masterProducts, stores]);
+
+    const handleDelete = () => {
+        if (!firestore) return;
+        startDeleteTransition(async () => {
             try {
-                const itemNames = [
-                    ...masterProducts.map(p => p.name),
-                    ...stores.map(s => s.name),
-                ];
-                const result = await suggestAlias({
-                    commandText: command.commandText,
-                    language: command.language,
-                    itemNames: itemNames,
-                });
-                setSuggestion(result);
-                if (!result.isSuggestionAvailable) {
-                    toast({
-                        variant: 'destructive',
-                        title: "No Suggestion Found",
-                        description: "The AI could not confidently find a match for this command.",
-                    });
-                }
+                await deleteDoc(doc(firestore, 'failedCommands', command.id));
+                toast({ title: 'Command Deleted', description: 'The failed command has been removed.' });
             } catch (error) {
-                console.error("Suggestion error:", error);
-                toast({ variant: 'destructive', title: 'AI Error', description: 'Could not generate a suggestion.' });
+                console.error("Failed to delete command:", error);
+                toast({ variant: 'destructive', title: 'Deletion Failed' });
             }
         });
     };
 
-    const handleApproveSuggestion = async () => {
-        if (!firestore || !suggestion || !suggestion.isSuggestionAvailable) return;
-
-        const aliasDocRef = doc(collection(firestore, 'voiceAliases'));
-        const commandDocRef = doc(firestore, 'failedCommands', command.id);
-
-        const batch = writeBatch(firestore);
-
-        // Add the new alias
-        batch.set(aliasDocRef, {
-            key: suggestion.suggestedKey.toLowerCase().replace(/ /g, '-'),
-            language: command.language,
-            alias: command.commandText.toLowerCase(),
-            type: masterProducts.some(p => p.name === suggestion.suggestedKey) ? 'product' : 'store'
+    const handleGetSuggestion = () => {
+        startSuggestionTransition(async () => {
+            try {
+                const result = await suggestAlias({
+                    commandText: command.commandText,
+                    language: command.language,
+                    itemNames,
+                });
+                setSuggestion(result);
+            } catch (error) {
+                console.error("Failed to get suggestion:", error);
+                toast({ variant: 'destructive', title: 'AI Suggestion Failed' });
+            }
         });
-
-        // Mark the command as resolved
-        batch.update(commandDocRef, { status: 'resolved' });
-
-        try {
-            await batch.commit();
-            toast({ title: 'Alias Approved!', description: 'The new voice alias has been saved.' });
-        } catch (error) {
-             const permissionError = new FirestorePermissionError({
-                path: 'voiceAliases',
-                operation: 'create',
-                requestResourceData: {key: suggestion.suggestedKey, alias: command.commandText.toLowerCase()},
-            });
-            errorEmitter.emit('permission-error', permissionError);
-        }
-    };
-    
-    const handleDismiss = async () => {
-        if (!firestore) return;
-        const commandDocRef = doc(firestore, 'failedCommands', command.id);
-        try {
-            await updateDoc(commandDocRef, { status: 'dismissed' });
-            toast({ title: 'Suggestion Dismissed' });
-        } catch (error) {
-             toast({ variant: 'destructive', title: 'Error', description: 'Could not dismiss the suggestion.' });
-        }
     };
 
     return (
-        <TableRow>
-            <TableCell>{formatDateSafe(command.timestamp)}</TableCell>
-            <TableCell className="font-medium">"{command.commandText}"</TableCell>
-            <TableCell><Badge variant="outline">{command.language}</Badge></TableCell>
-            <TableCell className="text-sm text-muted-foreground">{command.reason}</TableCell>
-            <TableCell className="text-right space-x-1">
-                {!suggestion ? (
-                     <Button variant="outline" size="sm" onClick={handleSuggestFix} disabled={isSuggesting}>
-                        {isSuggesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                        Suggest Fix
+        <Card>
+            <CardContent className="p-4 flex flex-col md:flex-row justify-between items-start gap-4">
+                <div className="flex-1 space-y-2">
+                    <p className="font-mono text-lg text-primary">"{command.commandText}"</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{formatDistanceToNow(command.timestamp.toDate(), { addSuffix: true })}</span>
+                        <Badge variant="outline">{command.language}</Badge>
+                    </div>
+                     {suggestion && (
+                        <div className="mt-4 p-3 bg-primary/10 rounded-lg border border-primary/20 text-sm">
+                            <div className="flex items-center gap-2 font-semibold text-primary">
+                                <Lightbulb className="h-4 w-4" />
+                                <span>AI Suggestion</span>
+                            </div>
+                            {suggestion.isSuggestionAvailable ? (
+                                <div className="mt-2 space-y-1">
+                                    <p>Create alias <Badge variant="secondary">{suggestion.suggestedAlias}</Badge> for item <Badge>{suggestion.suggestedKey}</Badge>?</p>
+                                    <p className="text-xs text-muted-foreground italic">Reason: {suggestion.reasoning}</p>
+                                </div>
+                            ) : (
+                                <p className="text-muted-foreground mt-2">No high-confidence suggestion found.</p>
+                            )}
+                        </div>
+                    )}
+                </div>
+                <div className="flex items-center gap-2 self-start md:self-center">
+                    <Button onClick={handleGetSuggestion} disabled={isSuggesting} size="sm">
+                        {isSuggesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                        <span className="ml-2">Get Suggestion</span>
                     </Button>
-                ) : suggestion.isSuggestionAvailable ? (
-                    <div className="flex items-center gap-2 justify-end">
-                        <span className="text-sm">Is this <Badge>{suggestion.suggestedKey}</Badge>?</span>
-                         <Button size="sm" variant="secondary" onClick={handleApproveSuggestion}><Check className="mr-2 h-4 w-4" />Approve</Button>
-                         <Button size="icon" variant="ghost" onClick={() => setSuggestion(null)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                    </div>
-                ) : (
-                    <div className="flex items-center gap-2 justify-end">
-                        <span className="text-sm text-muted-foreground">No suggestion found.</span>
-                        <Button size="sm" variant="ghost" onClick={handleDismiss}>Dismiss</Button>
-                    </div>
-                )}
-            </TableCell>
-        </TableRow>
+                     <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                           <Button variant="ghost" size="icon" disabled={isDeleting}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This will permanently delete the failed command log: "{command.commandText}".
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                                    {isDeleting ? 'Deleting...' : 'Delete'}
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                </div>
+            </CardContent>
+        </Card>
     );
 }
 
+
 export default function SuggestionsPage() {
-    const { firestore } = useFirebase();
-    const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
+  const { firestore } = useFirebase();
+  const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
+  
+  const failedCommandsQuery = useMemoFirebase(() => {
+    if (!firestore || !isAdmin) return null;
+    return query(
+        collection(firestore, 'failedCommands'),
+        orderBy('timestamp', 'desc')
+    );
+  }, [firestore, isAdmin]);
 
-    const failedCommandsQuery = useMemoFirebase(() => {
-        if (!firestore || !isAdmin) return null;
-        return query(
-            collection(firestore, 'failedCommands'),
-            where('status', '==', 'new'),
-            orderBy('timestamp', 'desc')
-        );
-    }, [firestore, isAdmin]);
+  const { data: failedCommands, isLoading: commandsLoading } = useCollection<FailedVoiceCommand>(failedCommandsQuery);
 
-    const { data: failedCommands, isLoading: isCommandsLoading } = useCollection<FailedVoiceCommand>(failedCommandsQuery);
+  if (isAdminLoading || commandsLoading) return <p className="p-8">Loading suggestions...</p>;
+  if (!isAdmin) return <p className="p-8">Access Denied. You must be an admin to view this page.</p>;
 
-    if (isAdminLoading) {
-        return (
-            <div className="flex items-center justify-center p-8">
-                <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-                <span>Verifying credentials...</span>
-            </div>
-        );
-    }
-
-    if (!isAdmin) {
-        return (
-             <div className="container mx-auto py-12 px-4 md:px-6">
-                <div className="text-center py-12 bg-red-50 border border-red-200 rounded-lg">
-                    <ShieldAlert className="h-12 w-12 text-red-500 mx-auto" />
-                    <p className="mt-4 text-lg font-semibold text-red-800">Access Denied</p>
-                    <p className="text-muted-foreground mt-2">You do not have permission to view this page.</p>
+  return (
+    <div className="container mx-auto py-12 px-4 md:px-6">
+       <Card>
+        <CardHeader>
+            <div className="flex items-center gap-3">
+                <Bot className="h-8 w-8 text-primary" />
+                <div>
+                    <CardTitle className="text-3xl font-headline">AI-Powered Suggestions</CardTitle>
+                    <CardDescription>Review failed voice commands and use AI to generate suggestions for new aliases.</CardDescription>
                 </div>
             </div>
-        );
-    }
-
-    const isLoading = isCommandsLoading;
-
-    return (
-        <div className="container mx-auto py-12 px-4 md:px-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><MessageSquareWarning className="h-6 w-6 text-amber-500" /> AI-Powered Suggestions</CardTitle>
-                    <CardDescription>
-                        Review voice commands that the system failed to understand and use AI to teach it new aliases.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {isLoading ? (
-                        <div className="flex items-center justify-center p-8">
-                            <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-                            <span>Loading failed commands...</span>
-                        </div>
-                    ) : !failedCommands || failedCommands.length === 0 ? (
-                        <div className="text-center py-12">
-                            <p className="mt-4 text-lg font-semibold">All Clear!</p>
-                            <p className="text-muted-foreground mt-2">There are no new failed commands to review.</p>
-                        </div>
-                    ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Time</TableHead>
-                                    <TableHead>Command</TableHead>
-                                    <TableHead>Language</TableHead>
-                                    <TableHead>Reason</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {failedCommands.map(command => (
-                                    <FailedCommandRow key={command.id} command={command} />
-                                ))}
-                            </TableBody>
-                        </Table>
-                    )}
-                </CardContent>
-            </Card>
-        </div>
-    );
+        </CardHeader>
+        <CardContent>
+            {failedCommands && failedCommands.length > 0 ? (
+                <div className="space-y-4">
+                    {failedCommands.map(command => (
+                        <FailedCommandRow key={command.id} command={command} />
+                    ))}
+                </div>
+            ) : (
+                 <div className="text-center py-16">
+                    <p className="text-lg font-semibold">No failed commands found!</p>
+                    <p className="text-muted-foreground mt-2">The voice assistant is working perfectly.</p>
+                </div>
+            )}
+        </CardContent>
+       </Card>
+    </div>
+  );
 }

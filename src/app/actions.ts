@@ -21,7 +21,6 @@ async function getFirestoreCounts() {
 export async function getSystemStatus() {
     try {
         const counts = await getFirestoreCounts();
-        // LLM status check is removed for simplicity, assuming it's online if this action runs.
         return {
             status: 'ok',
             llmStatus: 'Online',

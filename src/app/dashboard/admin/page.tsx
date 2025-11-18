@@ -16,8 +16,7 @@ import { Input } from '@/components/ui/input';
 import { t } from '@/lib/locales';
 import { useToast } from '@/hooks/use-toast';
 import { getSystemStatus } from '@/app/actions';
-
-const ADMIN_EMAIL = 'admin@gmail.com';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 interface SystemStatus {
   llmStatus: 'Online' | 'Offline' | 'Degraded' | 'Unknown';
@@ -83,8 +82,9 @@ function AdminActionCard({ title, description, href, icon: Icon }: { title: stri
 }
 
 export default function AdminDashboardPage() {
-    const { user, isUserLoading, firestore } = useFirebase();
+    const { firestore } = useFirebase();
     const router = useRouter();
+    const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
 
     // Queries for stats
     const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
@@ -110,15 +110,15 @@ export default function AdminDashboardPage() {
         totalOrdersDelivered: deliveredOrders?.length ?? 0,
     }), [users, stores, deliveredOrders]);
 
-    const statsLoading = isUserLoading || usersLoading || storesLoading || ordersLoading;
+    const statsLoading = isAdminLoading || usersLoading || storesLoading || ordersLoading;
 
     useEffect(() => {
-        if (!isUserLoading && (!user || user.email !== ADMIN_EMAIL)) {
+        if (!isAdminLoading && !isAdmin) {
             router.replace('/dashboard');
         }
-    }, [isUserLoading, user, router]);
+    }, [isAdminLoading, isAdmin, router]);
 
-    if (isUserLoading || adminStoreLoading || !user || user.email !== ADMIN_EMAIL) {
+    if (isAdminLoading || adminStoreLoading || !isAdmin) {
         return <p>Loading admin dashboard...</p>
     }
 
@@ -153,12 +153,6 @@ export default function AdminDashboardPage() {
             <div className="mt-16">
                  <h2 className="text-2xl font-bold text-center mb-8 font-headline">{t('admin-tools')}</h2>
                 <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
-                    <AdminActionCard 
-                        title="Asha: AI Diagnostic Agent"
-                        description="Launch a conversational AI to help diagnose and troubleshoot application issues."
-                        href="/dashboard/admin/asha"
-                        icon={Bot}
-                    />
                      <AdminActionCard 
                         title="System Status"
                         description="Check the health of backend services and APIs."
@@ -190,12 +184,6 @@ export default function AdminDashboardPage() {
                         icon={ShieldAlert}
                     />
                     <AdminActionCard
-                        title="AI-Powered Suggestions"
-                        description="Review and manage AI-powered suggestions for improving the system."
-                        href="/dashboard/admin/suggestions"
-                        icon={MessageSquareWarning}
-                    />
-                     <AdminActionCard
                         title="Login History"
                         description="Monitor all successful and failed login attempts for security."
                         href="/dashboard/admin/login-history"
@@ -207,16 +195,16 @@ export default function AdminDashboardPage() {
                         href="/dashboard/voice-commands"
                         icon={Mic}
                     />
+                    <AdminActionCard 
+                        title="AI-Powered Suggestions"
+                        description="Review and manage AI-generated suggestions for improving the app."
+                        href="/dashboard/admin/suggestions"
+                        icon={Bot}
+                    />
                      <AdminActionCard 
                         title="View Chicken Animation"
                         description="Check out the fun, flashy, waddling chicken animation."
                         href="/chicken"
-                        icon={Sparkles}
-                    />
-                    <AdminActionCard 
-                        title="AI Sanity Check"
-                        description="A simple test page to verify that the core AI functionality is working correctly."
-                        href="/dashboard/admin/sanity-check"
                         icon={Sparkles}
                     />
                 </div>
