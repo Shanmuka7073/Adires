@@ -1,3 +1,4 @@
+
 import { Timestamp } from "firebase/firestore";
 
 export type ProductVariant = {
@@ -119,6 +120,7 @@ export type FailedVoiceCommand = {
     language: string;
     timestamp: Timestamp | Date | string;
     reason: string;
+    status: 'new' | 'resolved' | 'dismissed';
 }
 
 export type VoiceAlias = {
