@@ -5,7 +5,7 @@ import { useState, useTransition, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, MessageSquareWarning, Sparkles, Check, Trash2 } from 'lucide-react';
+import { Loader2, MessageSquareWarning, Sparkles, Check, Trash2, ShieldAlert } from 'lucide-react';
 import { useFirebase, useCollection, useMemoFirebase, FirestorePermissionError, errorEmitter } from '@/firebase';
 import { collection, query, orderBy, doc, writeBatch, updateDoc, where } from 'firebase/firestore';
 import type { FailedVoiceCommand } from '@/lib/types';
@@ -14,13 +14,13 @@ import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
 import { useAppStore } from '@/lib/store';
 import { suggestAlias, SuggestAliasOutput } from '@/ai/flows/suggest-alias-flow';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 function formatDateSafe(date: any) {
     if (!date) return 'N/A';
     const jsDate = date.seconds ? new Date(date.seconds * 1000) : new Date(date);
     return formatDistanceToNow(jsDate, { addSuffix: true });
 }
-
 
 function FailedCommandRow({ command }: { command: FailedVoiceCommand }) {
     const { toast } = useToast();
@@ -68,7 +68,7 @@ function FailedCommandRow({ command }: { command: FailedVoiceCommand }) {
         batch.set(aliasDocRef, {
             key: suggestion.suggestedKey.toLowerCase().replace(/ /g, '-'),
             language: command.language,
-            alias: suggestion.suggestedAlias,
+            alias: command.commandText.toLowerCase(),
             type: masterProducts.some(p => p.name === suggestion.suggestedKey) ? 'product' : 'store'
         });
 
@@ -82,7 +82,7 @@ function FailedCommandRow({ command }: { command: FailedVoiceCommand }) {
              const permissionError = new FirestorePermissionError({
                 path: 'voiceAliases',
                 operation: 'create',
-                requestResourceData: {key: suggestion.suggestedKey, alias: suggestion.suggestedAlias},
+                requestResourceData: {key: suggestion.suggestedKey, alias: command.commandText.toLowerCase()},
             });
             errorEmitter.emit('permission-error', permissionError);
         }
@@ -99,7 +99,6 @@ function FailedCommandRow({ command }: { command: FailedVoiceCommand }) {
         }
     };
 
-
     return (
         <TableRow>
             <TableCell>{formatDateSafe(command.timestamp)}</TableCell>
@@ -114,7 +113,7 @@ function FailedCommandRow({ command }: { command: FailedVoiceCommand }) {
                     </Button>
                 ) : suggestion.isSuggestionAvailable ? (
                     <div className="flex items-center gap-2 justify-end">
-                        <span className="text-sm">"{suggestion.suggestedAlias}" → <Badge>{suggestion.suggestedKey}</Badge></span>
+                        <span className="text-sm">Is this <Badge>{suggestion.suggestedKey}</Badge>?</span>
                          <Button size="sm" variant="secondary" onClick={handleApproveSuggestion}><Check className="mr-2 h-4 w-4" />Approve</Button>
                          <Button size="icon" variant="ghost" onClick={() => setSuggestion(null)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                     </div>
@@ -131,17 +130,41 @@ function FailedCommandRow({ command }: { command: FailedVoiceCommand }) {
 
 export default function SuggestionsPage() {
     const { firestore } = useFirebase();
+    const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
 
     const failedCommandsQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
+        if (!firestore || !isAdmin) return null;
         return query(
             collection(firestore, 'failedCommands'),
             where('status', '==', 'new'),
             orderBy('timestamp', 'desc')
         );
-    }, [firestore]);
+    }, [firestore, isAdmin]);
 
-    const { data: failedCommands, isLoading } = useCollection<FailedVoiceCommand>(failedCommandsQuery);
+    const { data: failedCommands, isLoading: isCommandsLoading } = useCollection<FailedVoiceCommand>(failedCommandsQuery);
+
+    if (isAdminLoading) {
+        return (
+            <div className="flex items-center justify-center p-8">
+                <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+                <span>Verifying credentials...</span>
+            </div>
+        );
+    }
+
+    if (!isAdmin) {
+        return (
+             <div className="container mx-auto py-12 px-4 md:px-6">
+                <div className="text-center py-12 bg-red-50 border border-red-200 rounded-lg">
+                    <ShieldAlert className="h-12 w-12 text-red-500 mx-auto" />
+                    <p className="mt-4 text-lg font-semibold text-red-800">Access Denied</p>
+                    <p className="text-muted-foreground mt-2">You do not have permission to view this page.</p>
+                </div>
+            </div>
+        );
+    }
+
+    const isLoading = isCommandsLoading;
 
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
