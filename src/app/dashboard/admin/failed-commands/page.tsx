@@ -24,7 +24,7 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
     const { toast } = useToast();
     const fetchInitialData = useAppStore(state => state.fetchInitialData);
     const [isDeleting, startDelete] = useTransition();
-    const [isProcessing, setIsProcessing] = useState(true);
+    const [isProcessingSuggestion, setIsProcessingSuggestion] = useState(false);
     const [isAdding, startAdd] = useTransition();
 
     const [suggestion, setSuggestion] = useState<SuggestAliasOutput | null>(null);
@@ -50,13 +50,13 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
                     aliasesByLang[lang].push(aliasInfo.transliteratedAlias);
                 }
             });
-
+            
             const updates: Record<string, any> = {};
             for (const lang in aliasesByLang) {
                 const uniqueAliases = [...new Set(aliasesByLang[lang])];
                 updates[lang] = arrayUnion(...uniqueAliases);
             }
-
+            
             batch.set(aliasGroupRef, updates, { merge: true });
 
             const commandRef = doc(firestore, 'failedCommands', command.id);
@@ -64,8 +64,7 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
 
             try {
                 await batch.commit();
-                toast({ title: "Alias Auto-Approved!", description: `"${suggestionToAdd.originalCommand}" is now an alias for "${suggestionToAdd.suggestedKey}".`});
-                // No need to call fetchInitialData here as the component will unmount and the list will refresh
+                toast({ title: "Alias Approved!", description: `"${suggestionToAdd.originalCommand}" is now an alias for "${suggestionToAdd.suggestedKey}".`});
             } catch (err) {
                  console.error("Error saving aliases:", err);
                  toast({ variant: 'destructive', title: "Save Failed", description: "Could not save the new aliases. Check permissions and data structure." });
@@ -73,41 +72,23 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
         });
     }, [firestore, command.id, command.language, startAdd, toast]);
 
+    const handleSuggestFix = async () => {
+        setIsProcessingSuggestion(true);
+         try {
+            const result = await suggestAlias({
+                commandText: command.commandText,
+                language: command.language,
+                itemNames: allItemNames
+            });
+            setSuggestion(result);
+        } catch(error) {
+            console.error("AI Suggestion failed:", error);
+            toast({ variant: 'destructive', title: "AI Error", description: "The suggestion flow failed to execute." });
+        } finally {
+            setIsProcessingSuggestion(false);
+        }
+    }
     
-    useEffect(() => {
-        // This effect runs once when the component mounts to auto-process the command.
-        const processCommand = async () => {
-            setIsProcessing(true);
-            try {
-                const result = await suggestAlias({
-                    commandText: command.commandText,
-                    language: command.language,
-                    itemNames: allItemNames
-                });
-                
-                if (result.isSuggestionAvailable && result.similarityScore > 0.5) {
-                    // High confidence: auto-approve
-                    await handleAddAlias(result);
-                    // The component will unmount after successful add, so no need to set state.
-                } else {
-                    // Low confidence or no suggestion: keep for manual review
-                    setSuggestion(result);
-                    setIsProcessing(false);
-                }
-
-            } catch(error) {
-                console.error("AI Suggestion failed:", error);
-                toast({ variant: 'destructive', title: "AI Error", description: "The suggestion flow failed to execute." });
-                setIsProcessing(false);
-            }
-        };
-
-        processCommand();
-        // Disabling ESLint exhaustive-deps because we explicitly want this to run only once on mount.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-    
-
     const handleDelete = async () => {
         if (!firestore) return;
         startDelete(async () => {
@@ -146,7 +127,7 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
 
     return (
         <>
-            <TableRow className={isProcessing ? 'opacity-50' : ''}>
+            <TableRow>
                 <TableCell>
                     <p className="font-semibold text-base">{command.commandText}</p>
                     <Badge variant="outline">{command.language}</Badge>
@@ -154,27 +135,24 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
                 <TableCell className="text-sm text-muted-foreground">{formatDateSafe(command.timestamp)}</TableCell>
                 <TableCell className="font-mono text-xs max-w-xs truncate">{command.reason}</TableCell>
                 <TableCell className="text-right space-x-2">
-                    {isProcessing ? (
-                         <div className="flex items-center justify-end gap-2 text-muted-foreground">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            <span>Processing...</span>
-                        </div>
-                    ) : (
-                        <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isDeleting}>
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Delete Log</span>
-                        </Button>
-                    )}
+                    <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isDeleting}>
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Delete Log</span>
+                    </Button>
+                    <Button size="sm" onClick={handleSuggestFix} disabled={isProcessingSuggestion}>
+                        {isProcessingSuggestion ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Sparkles className="mr-2 h-4 w-4"/>}
+                        Suggest Fix
+                    </Button>
                 </TableCell>
             </TableRow>
-            {!isProcessing && suggestion && (
+            {suggestion && (
                 <TableRow>
                     <TableCell colSpan={4}>
                          <div className="p-4 bg-muted/50 rounded-md">
                             {suggestion.isSuggestionAvailable ? (
                                 <Alert>
                                     <Sparkles className="h-4 w-4" />
-                                    <AlertTitle>AI Suggestion (Score: {(suggestion.similarityScore * 100).toFixed(0)}%) - Manual Review Required</AlertTitle>
+                                    <AlertTitle>AI Suggestion (Score: {(suggestion.similarityScore * 100).toFixed(0)}%)</AlertTitle>
                                     <AlertDescription>
                                         <p className="mb-2">{suggestion.reasoning}</p>
                                         <p className="mb-2 text-xs text-muted-foreground">This will map "{suggestion.originalCommand}" to '{suggestion.suggestedKey}' and add these aliases:</p>
@@ -205,13 +183,14 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
 
 export default function FailedCommandsPage() {
     const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
-    const { firestore } = useFirebase();
+    const { firestore, user } = useFirebase();
     const router = useRouter();
-    const { masterProducts, stores } = useAppStore();
+    const { masterProducts, stores, fetchInitialData } = useAppStore();
 
+    // Query now only fetches commands that need review.
     const failedCommandsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
-        return query(collection(firestore, 'failedCommands'), orderBy('timestamp', 'desc'));
+        return query(collection(firestore, 'failedCommands'), where('status', '!=', 'new'), orderBy('status'), orderBy('timestamp', 'desc'));
     }, [firestore]);
 
     const { data: failedCommands, isLoading: commandsLoading } = useCollection<FailedVoiceCommand>(failedCommandsQuery);
@@ -219,9 +198,23 @@ export default function FailedCommandsPage() {
     const allItemNames = useMemo(() => {
         const productNames = masterProducts.map(p => p.name);
         const storeNames = stores.map(s => s.name);
-        // Return a de-duplicated list of canonical names
         return [...new Set([...productNames, ...storeNames])];
     }, [masterProducts, stores]);
+
+    // This effect will re-fetch data whenever the user navigates back to this tab/window,
+    // ensuring the list is up-to-date with any background processing.
+    useEffect(() => {
+        const handleFocus = () => {
+            if (firestore && user) {
+                fetchInitialData(firestore, isAdmin);
+            }
+        };
+        window.addEventListener('focus', handleFocus);
+        return () => {
+            window.removeEventListener('focus', handleFocus);
+        };
+    }, [firestore, user, isAdmin, fetchInitialData]);
+
 
     if (!isAdminLoading && !isAdmin) {
         router.replace('/dashboard');
@@ -239,7 +232,7 @@ export default function FailedCommandsPage() {
                         <div>
                             <CardTitle className="text-3xl font-headline">AI Training Center</CardTitle>
                             <CardDescription>
-                                New failed commands are processed automatically. High-confidence suggestions (>50%) are approved and disappear. Low-confidence ones remain for your review.
+                                Failed commands are now processed automatically in the background when an admin is logged in. Below are commands that had low AI confidence and require your manual review.
                             </CardDescription>
                         </div>
                     </div>
@@ -255,7 +248,7 @@ export default function FailedCommandsPage() {
                         <div className="text-center py-12">
                             <CheckCircle className="mx-auto h-12 w-12 text-green-500" />
                              <p className="mt-4 text-lg font-semibold">All Clear!</p>
-                            <p className="text-muted-foreground mt-2">There are no failed voice commands in the log.</p>
+                            <p className="text-muted-foreground mt-2">There are no low-confidence failed commands to review.</p>
                         </div>
                     ) : (
                         <Table>
