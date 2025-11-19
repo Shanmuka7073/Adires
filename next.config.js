@@ -24,7 +24,9 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '4.5mb',
     },
+    esmExternals: true,
   },
+  transpilePackages: ['firebase', '@firebase/auth', '@firebase/firestore'],
   typescript: {
     // !! WARN !!
     // Dangerously allow production builds to successfully complete even if
