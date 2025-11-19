@@ -11,9 +11,9 @@ import type { FailedVoiceCommand } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Trash2, Bot, Sparkles, CheckCircle, XCircle } from 'lucide-react';
+import { Trash2, Bot, Sparkles, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useState, useTransition, useMemo, useCallback } from 'react';
+import { useState, useTransition, useMemo, useCallback, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { suggestAlias, SuggestAliasOutput } from '@/ai/flows/suggest-alias-flow';
 import { useAppStore } from '@/lib/store';
@@ -24,7 +24,7 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
     const { toast } = useToast();
     const fetchInitialData = useAppStore(state => state.fetchInitialData);
     const [isDeleting, startDelete] = useTransition();
-    const [isSuggesting, startSuggestion] = useTransition();
+    const [isProcessing, setIsProcessing] = useState(true);
     const [isAdding, startAdd] = useTransition();
 
     const [suggestion, setSuggestion] = useState<SuggestAliasOutput | null>(null);
@@ -64,41 +64,49 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
 
             try {
                 await batch.commit();
-                toast({ title: "Aliases Added!", description: `The AI's suggestions for "${suggestionToAdd.suggestedKey}" have been saved.`});
-                await fetchInitialData(firestore);
+                toast({ title: "Alias Auto-Approved!", description: `"${suggestionToAdd.originalCommand}" is now an alias for "${suggestionToAdd.suggestedKey}".`});
+                // No need to call fetchInitialData here as the component will unmount and the list will refresh
             } catch (err) {
                  console.error("Error saving aliases:", err);
                  toast({ variant: 'destructive', title: "Save Failed", description: "Could not save the new aliases. Check permissions and data structure." });
             }
         });
-    }, [firestore, command.id, command.language, fetchInitialData, startAdd, toast]);
+    }, [firestore, command.id, command.language, startAdd, toast]);
 
     
-    const handleSuggestFix = () => {
-        startSuggestion(async () => {
+    useEffect(() => {
+        // This effect runs once when the component mounts to auto-process the command.
+        const processCommand = async () => {
+            setIsProcessing(true);
             try {
                 const result = await suggestAlias({
                     commandText: command.commandText,
                     language: command.language,
                     itemNames: allItemNames
                 });
-                setSuggestion(result);
-
-                // Auto-approve if score is high
+                
                 if (result.isSuggestionAvailable && result.similarityScore > 0.5) {
-                    toast({
-                        title: "High-Confidence Match Found!",
-                        description: `Automatically adding alias for "${result.suggestedKey}" with a score of ${(result.similarityScore * 100).toFixed(0)}%.`,
-                    });
+                    // High confidence: auto-approve
                     await handleAddAlias(result);
+                    // The component will unmount after successful add, so no need to set state.
+                } else {
+                    // Low confidence or no suggestion: keep for manual review
+                    setSuggestion(result);
+                    setIsProcessing(false);
                 }
 
             } catch(error) {
                 console.error("AI Suggestion failed:", error);
                 toast({ variant: 'destructive', title: "AI Error", description: "The suggestion flow failed to execute." });
+                setIsProcessing(false);
             }
-        });
-    };
+        };
+
+        processCommand();
+        // Disabling ESLint exhaustive-deps because we explicitly want this to run only once on mount.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    
 
     const handleDelete = async () => {
         if (!firestore) return;
@@ -138,7 +146,7 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
 
     return (
         <>
-            <TableRow>
+            <TableRow className={isProcessing ? 'opacity-50' : ''}>
                 <TableCell>
                     <p className="font-semibold text-base">{command.commandText}</p>
                     <Badge variant="outline">{command.language}</Badge>
@@ -146,32 +154,30 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
                 <TableCell className="text-sm text-muted-foreground">{formatDateSafe(command.timestamp)}</TableCell>
                 <TableCell className="font-mono text-xs max-w-xs truncate">{command.reason}</TableCell>
                 <TableCell className="text-right space-x-2">
-                    <Button variant="outline" size="sm" onClick={handleSuggestFix} disabled={isSuggesting || suggestion}>
-                        {isSuggesting ? <Sparkles className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
-                        <span className="sr-only">Suggest Fix</span>
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isDeleting}>
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Delete Log</span>
-                    </Button>
+                    {isProcessing ? (
+                         <div className="flex items-center justify-end gap-2 text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Processing...</span>
+                        </div>
+                    ) : (
+                        <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isDeleting}>
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Delete Log</span>
+                        </Button>
+                    )}
                 </TableCell>
             </TableRow>
-            {(isSuggesting || (suggestion && suggestion.similarityScore <= 0.5)) && (
+            {!isProcessing && suggestion && (
                 <TableRow>
                     <TableCell colSpan={4}>
                          <div className="p-4 bg-muted/50 rounded-md">
-                            {isSuggesting ? (
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                    <Sparkles className="h-4 w-4 animate-pulse" />
-                                    <span>AI is analyzing the command...</span>
-                                </div>
-                            ) : suggestion && suggestion.isSuggestionAvailable ? (
+                            {suggestion.isSuggestionAvailable ? (
                                 <Alert>
-                                    <CheckCircle className="h-4 w-4" />
-                                    <AlertTitle>AI Suggestion (Score: {(suggestion.similarityScore * 100).toFixed(0)}%) - Map "{suggestion.originalCommand}" to '{suggestion.suggestedKey}'</AlertTitle>
+                                    <Sparkles className="h-4 w-4" />
+                                    <AlertTitle>AI Suggestion (Score: {(suggestion.similarityScore * 100).toFixed(0)}%) - Manual Review Required</AlertTitle>
                                     <AlertDescription>
                                         <p className="mb-2">{suggestion.reasoning}</p>
-                                        <p className="mb-2 text-xs text-muted-foreground">This will add the following aliases:</p>
+                                        <p className="mb-2 text-xs text-muted-foreground">This will map "{suggestion.originalCommand}" to '{suggestion.suggestedKey}' and add these aliases:</p>
                                         <div className="flex flex-wrap gap-2 mb-4">
                                             {renderSuggestedAliases()}
                                         </div>
@@ -185,7 +191,7 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
                                     <XCircle className="h-4 w-4" />
                                     <AlertTitle>No Confident Suggestion</AlertTitle>
                                     <AlertDescription>
-                                        The AI could not confidently match this command to an existing item. You can delete this log or create a new product/alias manually.
+                                        The AI could not confidently match this command. You can delete this log or create a new product/alias manually.
                                     </AlertDescription>
                                 </Alert>
                             )}
@@ -231,9 +237,9 @@ export default function FailedCommandsPage() {
                     <div className="flex items-center gap-3">
                         <Bot className="h-8 w-8 text-primary" />
                         <div>
-                            <CardTitle className="text-3xl font-headline">Failed Command Center</CardTitle>
+                            <CardTitle className="text-3xl font-headline">AI Training Center</CardTitle>
                             <CardDescription>
-                                Review voice commands the system failed to understand and use AI to train it. High-confidence suggestions (>50%) are approved automatically.
+                                New failed commands are processed automatically. High-confidence suggestions (>50%) are approved and disappear. Low-confidence ones remain for your review.
                             </CardDescription>
                         </div>
                     </div>
