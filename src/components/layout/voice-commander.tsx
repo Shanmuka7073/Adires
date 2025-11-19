@@ -175,7 +175,7 @@ export function VoiceCommander({
 
 
   const resetAllContext = useCallback(() => {
-    itemForPriceCheck.current = null;
+    setItemForPriceCheck(null);
     setIsWaitingForStoreName(false);
     onSuggestions([]);
     setIsWaitingForQuickOrderConfirmation(false);
