@@ -683,6 +683,29 @@
                 "description": "Controls the AI for suggesting fixes to failed commands."
             }
         }
+    },
+    "Voiceprint": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Voiceprint",
+      "type": "object",
+      "description": "Represents a user's enrolled voiceprint for biometric verification.",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The UID of the user. This is the document ID."
+        },
+        "voiceprint": {
+          "type": "array",
+          "items": { "type": "number" },
+          "description": "An array of numbers representing the extracted features of the user's voice."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the voiceprint was created."
+        }
+      },
+      "required": ["userId", "voiceprint", "createdAt"]
     }
   },
   "auth": {
@@ -980,6 +1003,22 @@
             {
               "name": "configId",
               "description": "The unique identifier for the configuration document (e.g., 'aiFeatures')."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/voiceprints/{userId}",
+        "definition": {
+          "entityName": "Voiceprint",
+          "schema": {
+            "$ref": "#/backend/entities/Voiceprint"
+          },
+          "description": "Stores a user's enrolled voiceprint for biometric verification. Only the user can read or write their own voiceprint.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user, matching their auth UID."
             }
           ]
         }

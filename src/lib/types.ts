@@ -1,3 +1,4 @@
+
 import { Timestamp } from "firebase/firestore";
 
 export type ProductVariant = {
@@ -49,6 +50,7 @@ export type CartItem = {
   product: Product; // The base product
   variant: ProductVariant; // The specific variant chosen
   quantity: number;
+  voiceMatchScore?: number; // The confidence score (0-1) from voice recognition
 };
 
 export type OrderItem = {
@@ -168,4 +170,11 @@ export type ChatMessage = {
   role: 'user' | 'model';
   text: string;
   timestamp?: any;
+};
+
+// Type for voice biometrics
+export type Voiceprint = {
+  userId: string; // Document ID should be the user's UID
+  voiceprint: number[]; // Array of numbers representing the voice features
+  createdAt: any; // serverTimestamp
 };
