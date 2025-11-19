@@ -67,24 +67,37 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
             
             const aliasGroupRef = doc(firestore, 'voiceAliasGroups', suggestion.suggestedKey);
             
-            // 1. Create a map of updates to merge into the document.
-            // Using arrayUnion ensures we don't add duplicates if they already exist.
-            const updates = {
-                type: 'product' // Assuming product for now
-            };
-            
-            // Add the original failed command as an alias
-            updates[command.language] = arrayUnion(suggestion.originalCommand);
-            
-            // Add the other suggested aliases
+            // Create a set of all new aliases to add, including the original command and transliterations
+            const allNewAliases = new Set<string>([suggestion.originalCommand]);
             suggestion.suggestedAliases.forEach(aliasInfo => {
-                updates[aliasInfo.lang] = arrayUnion(aliasInfo.alias);
+                allNewAliases.add(aliasInfo.alias);
+                if (aliasInfo.transliteratedAlias) {
+                    allNewAliases.add(aliasInfo.transliteratedAlias);
+                }
             });
+
+            // Prepare the updates for Firestore, using arrayUnion to avoid duplicates.
+            const updates = {
+                type: 'product', // Assuming product for now, this could be made dynamic
+                [command.language]: arrayUnion(...allNewAliases),
+            };
+
+            // Add aliases for other languages
+            suggestion.suggestedAliases.forEach(aliasInfo => {
+                if (aliasInfo.lang !== command.language) {
+                    const langAliases = [aliasInfo.alias];
+                    if(aliasInfo.transliteratedAlias) {
+                        langAliases.push(aliasInfo.transliteratedAlias);
+                    }
+                    updates[aliasInfo.lang] = arrayUnion(...langAliases);
+                }
+            });
+
 
             // Use set with merge: true to create or update the document.
             batch.set(aliasGroupRef, updates, { merge: true });
 
-            // 2. Delete the failed command log
+            // Delete the failed command log
             const commandRef = doc(firestore, 'failedCommands', command.id);
             batch.delete(commandRef);
 
@@ -105,6 +118,22 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
         const jsDate = date.seconds ? new Date(date.seconds * 1000) : new Date(date);
         return `${formatDistanceToNow(jsDate, { addSuffix: true })}`;
     }
+
+    const renderSuggestedAliases = () => {
+        if (!suggestion) return null;
+        
+        const aliasesToShow = new Set<string>([suggestion.originalCommand]);
+        suggestion.suggestedAliases.forEach(a => {
+            aliasesToShow.add(a.alias);
+            if (a.transliteratedAlias) {
+                aliasesToShow.add(a.transliteratedAlias);
+            }
+        });
+        
+        return Array.from(aliasesToShow).map(alias => (
+            <Badge key={alias} variant="secondary">{alias}</Badge>
+        ));
+    };
 
     return (
         <>
@@ -143,10 +172,7 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
                                         <p className="mb-2">{suggestion.reasoning}</p>
                                         <p className="mb-2 text-xs text-muted-foreground">This will add the following aliases:</p>
                                         <div className="flex flex-wrap gap-2 mb-4">
-                                            <Badge>{suggestion.originalCommand} ({command.language})</Badge>
-                                            {suggestion.suggestedAliases.map(a => (
-                                                <Badge key={a.alias} variant="secondary">{a.alias} ({a.lang})</Badge>
-                                            ))}
+                                            {renderSuggestedAliases()}
                                         </div>
                                         <Button size="sm" onClick={handleAddAlias} disabled={isAdding}>
                                             {isAdding ? "Adding..." : `Accept & Add Aliases`}

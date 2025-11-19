@@ -20,7 +20,8 @@ export type SuggestAliasInput = z.infer<typeof SuggestAliasInputSchema>;
 
 const AliasSuggestionSchema = z.object({
   lang: z.string().describe("The language code for the alias (e.g., 'en', 'te', 'hi')."),
-  alias: z.string().describe("The suggested alias in that language."),
+  alias: z.string().describe("The suggested alias in that language's native script (e.g., 'onions', 'ఉల్లిపాయలు', 'प्याज')."),
+  transliteratedAlias: z.string().optional().describe("The Roman-script (English letters) transliteration of the alias, if applicable (e.g., 'ullipayalu', 'pyaz')."),
 });
 
 const SuggestAliasOutputSchema = z.object({
@@ -37,7 +38,7 @@ const SuggestAliasOutputSchema = z.object({
     .describe('The original failed command text, which will also be added as an alias.'),
   suggestedAliases: z
     .array(AliasSuggestionSchema)
-    .describe("A list of standard names for the suggested item in English, Telugu, and Hindi."),
+    .describe("A list of standard names and transliterations for the suggested item."),
   reasoning: z
     .string()
     .describe(
@@ -55,7 +56,7 @@ const prompt = ai.definePrompt({
   input: {schema: SuggestAliasInputSchema},
   output: {schema: SuggestAliasOutputSchema},
   model: googleAI.model('gemini-2.5-flash'),
-  prompt: `You are an expert linguist and data analyst for a grocery app in India. Your task is to analyze a failed voice command and determine if it was a misspelling or an alternate name for an existing item. Then, you must provide standard aliases for the corrected item in multiple Indian languages.
+  prompt: `You are an expert linguist and data analyst for a grocery app in India. Your task is to analyze a failed voice command, find the most likely intended item, and then provide standard aliases for it in multiple languages and scripts.
 
 The user said: "{{commandText}}" in language "{{language}}".
 
@@ -72,11 +73,10 @@ Here are all the valid canonical item names (in English):
     *   If you find a match with a high degree of confidence (e.g., "pesara pappu" for "Moong Dal"), set 'isSuggestionAvailable' to true.
     *   Set 'suggestedKey' to the correct canonical item name's slug (e.g., "moong-dal").
     *   Set 'originalCommand' to the user's input: "{{commandText}}".
-    *   For the 'suggestedAliases' array, provide the standard, most common name for the corrected item in three languages:
-        *   An object for English (lang: 'en').
-        *   An object for Telugu (lang: 'te').
-        *   An object for Hindi (lang: 'hi').
-        *   For example, if the item is Moong Dal, provide aliases for "moong dal", "పెసర పప్పు", and "मूंग दाल".
+    *   For the 'suggestedAliases' array, provide the standard names for the corrected item in three languages. For each language, provide both the native script and the Roman (English) script transliteration.
+        *   An object for English (lang: 'en'). The 'alias' should be the English name. 'transliteratedAlias' can be omitted for English.
+        *   An object for Telugu (lang: 'te'). The 'alias' should be in Telugu script (e.g., 'ఉల్లిపాయలు'), and the 'transliteratedAlias' should be in Roman script (e.g., 'ullipayalu').
+        *   An object for Hindi (lang: 'hi'). The 'alias' should be in Devanagari script (e.g., 'प्याज'), and the 'transliteratedAlias' should be in Roman script (e.g., 'pyaz').
     *   Provide a brief 'reasoning' for your choice.
 
     *   If you are not confident, or if it seems like a completely new item or a complex command, set 'isSuggestionAvailable' to false and leave the other fields blank.
