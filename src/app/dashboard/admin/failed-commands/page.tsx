@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -5,7 +6,7 @@ import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { collection, query, orderBy, doc, deleteDoc, writeBatch, arrayUnion, updateDoc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, deleteDoc, writeBatch, arrayUnion, updateDoc, setDoc } from 'firebase/firestore';
 import type { FailedVoiceCommand } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -75,14 +76,19 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
             // Add all other suggested aliases
             suggestion.suggestedAliases.forEach(aliasInfo => {
                 const lang = aliasInfo.lang;
-                updates[lang] = arrayUnion(aliasInfo.alias);
+                if (!updates[lang]) {
+                    updates[lang] = arrayUnion(aliasInfo.alias);
+                } else {
+                    updates[lang] = arrayUnion(aliasInfo.alias);
+                }
+
                 if (aliasInfo.transliteratedAlias) {
-                    updates[lang] = arrayUnion(aliasInfo.alias, aliasInfo.transliteratedAlias);
+                    updates[lang] = arrayUnion(updates[lang], aliasInfo.transliteratedAlias);
                 }
             });
 
-            // Use update to merge new aliases into the existing document
-            batch.update(aliasGroupRef, updates);
+            // Use set with merge to create the document if it doesn't exist, or update it if it does.
+            batch.set(aliasGroupRef, updates, { merge: true });
 
             // Delete the failed command log
             const commandRef = doc(firestore, 'failedCommands', command.id);
@@ -260,3 +266,5 @@ export default function FailedCommandsPage() {
         </div>
     )
 }
+
+    
