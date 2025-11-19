@@ -64,28 +64,33 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
 
         startAdd(async () => {
             const batch = writeBatch(firestore);
-            
             const aliasGroupRef = doc(firestore, 'voiceAliasGroups', suggestion.suggestedKey);
             
-            const updates = {};
-            
-            // Add original command to its language array
+            // Correctly group all new aliases for each language first
+            const aliasesByLang: Record<string, string[]> = {};
+
+            // Add original command
             const originalLang = command.language.split('-')[0];
-            updates[originalLang] = arrayUnion(suggestion.originalCommand);
+            if (!aliasesByLang[originalLang]) aliasesByLang[originalLang] = [];
+            aliasesByLang[originalLang].push(suggestion.originalCommand);
 
             // Add all other suggested aliases
             suggestion.suggestedAliases.forEach(aliasInfo => {
                 const lang = aliasInfo.lang;
-                if (!updates[lang]) {
-                    updates[lang] = arrayUnion(aliasInfo.alias);
-                } else {
-                    updates[lang] = arrayUnion(aliasInfo.alias);
-                }
-
+                if (!aliasesByLang[lang]) aliasesByLang[lang] = [];
+                aliasesByLang[lang].push(aliasInfo.alias);
                 if (aliasInfo.transliteratedAlias) {
-                    updates[lang] = arrayUnion(updates[lang], aliasInfo.transliteratedAlias);
+                    aliasesByLang[lang].push(aliasInfo.transliteratedAlias);
                 }
             });
+
+            // Now, construct the final update object with a single arrayUnion per language
+            const updates: Record<string, any> = {};
+            for (const lang in aliasesByLang) {
+                // Use a Set to ensure all aliases being added are unique
+                const uniqueAliases = [...new Set(aliasesByLang[lang])];
+                updates[lang] = arrayUnion(...uniqueAliases);
+            }
 
             // Use set with merge to create the document if it doesn't exist, or update it if it does.
             batch.set(aliasGroupRef, updates, { merge: true });
@@ -266,5 +271,3 @@ export default function FailedCommandsPage() {
         </div>
     )
 }
-
-    
