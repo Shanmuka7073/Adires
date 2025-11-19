@@ -27,6 +27,7 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
     const [isAdding, startAdd] = useTransition();
 
     const [suggestion, setSuggestion] = useState<SuggestAliasOutput | null>(null);
+    const { fetchInitialData } = useAppStore();
 
     const handleAddAlias = useCallback(async (suggestionToAdd: SuggestAliasOutput) => {
         if (!firestore || !suggestionToAdd.isSuggestionAvailable) return;
@@ -64,12 +65,14 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
             try {
                 await batch.commit();
                 toast({ title: "Alias Approved!", description: `"${suggestionToAdd.originalCommand}" is now an alias for "${suggestionToAdd.suggestedKey}".`});
+                // After saving, refetch all data to update the VoiceCommander's context
+                await fetchInitialData(firestore);
             } catch (err) {
                  console.error("Error saving aliases:", err);
                  toast({ variant: 'destructive', title: "Save Failed", description: "Could not save the new aliases. Check permissions and data structure." });
             }
         });
-    }, [firestore, command.id, command.language, startAdd, toast]);
+    }, [firestore, command.id, command.language, startAdd, toast, fetchInitialData]);
 
     const handleSuggestFix = useCallback(async () => {
         setIsProcessingSuggestion(true);
@@ -235,7 +238,7 @@ export default function FailedCommandsPage() {
                         <div>
                             <CardTitle className="text-3xl font-headline">AI Training Center</CardTitle>
                             <CardDescription>
-                                Review voice commands that the AI failed to understand. Use the "AI Suggest Fix" button to automatically generate a correction.
+                                Low-confidence suggestions are shown below for manual review. High-confidence suggestions are auto-approved.
                             </CardDescription>
                         </div>
                     </div>

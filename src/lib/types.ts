@@ -126,11 +126,9 @@ export type FailedVoiceCommand = {
 export type VoiceAliasGroup = {
     id: string; // The canonical key, e.g., 'tomatoes'
     type: 'product' | 'store' | 'command';
-    en?: string[];
-    te?: string[];
-    hi?: string[];
-    [key: string]: any; // To allow for other languages
+    [key: string]: any; // To allow for language codes as keys (en, te, hi, etc.)
 };
+
 
 export type CachedRecipe = {
     id: string;
@@ -171,5 +169,3 @@ export type ChatMessage = {
   text: string;
   timestamp?: any;
 };
-
-    

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useTransition, useEffect, useRef, useCallback } from 'react';
+import { useState, useTransition, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -225,12 +225,9 @@ export default function VoiceCommandsPage() {
                     newData[lang] = Array.isArray(aliases) ? aliases : (aliases ? [aliases] : []);
                 }
                 
-                if (existingKeys.has(key)) {
-                    batch.update(docRef, newData);
-                } else {
-                    newData.type = itemTypes.get(key) || 'command';
-                    batch.set(docRef, newData);
-                }
+                // Use set with merge instead of trying to figure out if it's an update or create
+                newData.type = itemTypes.get(key) || 'command';
+                batch.set(docRef, newData, { merge: true });
             }
             existingKeys.forEach(key => {
                 if (!locales[key]) {

@@ -1,7 +1,6 @@
 
 'use client';
 import type { VoiceAliasGroup } from './types';
-export type { VoiceAliasGroup };
 
 export type LocaleEntry = string | string[];
 export type Locales = Record<string, Record<string, LocaleEntry>>;
@@ -77,12 +76,12 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
   },
 };
 
-let aliasTranslations: Locales | null = null;
+let translationsLoaded = false;
+let combinedLocales: Locales = {};
 
-export function initializeTranslations(initialData: Locales) {
-    if (!aliasTranslations) {
-        aliasTranslations = initialData;
-    }
+export function initializeTranslations(locales: Locales) {
+    combinedLocales = locales;
+    translationsLoaded = true;
 }
 
 // Client-side synchronous translation function
@@ -95,12 +94,12 @@ export function t(key: string, lang: string = 'en', type: 'alias' | 'display' | 
     }
 
     // If not found, try the dynamic alias translations from the database
-    if (!aliasTranslations) {
+    if (!translationsLoaded) {
         // Fallback for when translations are not yet loaded
         return key.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     }
 
-    const entry = aliasTranslations[key];
+    const entry = combinedLocales[key];
     if (!entry) {
         return key.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     }
@@ -125,9 +124,9 @@ export function t(key: string, lang: string = 'en', type: 'alias' | 'display' | 
 }
 
 
-export function getAllAliases(key: string): Record<string, string[]> {
-    if (!aliasTranslations) return {};
-    const entry = aliasTranslations[key];
+export function getAllAliases(locales: Locales, key: string): Record<string, string[]> {
+    if (!locales) return {};
+    const entry = locales[key];
     const result: Record<string, string[]> = {};
 
     if (entry) {
@@ -146,7 +145,9 @@ export function buildLocalesFromAliasGroups(groups: VoiceAliasGroup[]): Locales 
     const locales: Locales = {};
     groups.forEach(group => {
         const { id, type, ...languages } = group;
-        locales[id] = languages;
+        if (id) {
+          locales[id] = languages;
+        }
     });
     return locales;
 }

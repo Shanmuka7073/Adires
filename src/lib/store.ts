@@ -3,8 +3,8 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Firestore, collection, getDocs, query, where, writeBatch, doc } from 'firebase/firestore';
-import { Store, Product, ProductPrice, VoiceAliasGroup, FailedVoiceCommand } from './types';
+import { Firestore, collection, getDocs, query, writeBatch, doc } from 'firebase/firestore';
+import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
 import { getStores, getMasterProducts, getProductPrice } from './data';
 import { useFirebase } from '@/firebase';
 import { useEffect, RefObject } from 'react';
@@ -12,9 +12,6 @@ import { UseFormReturn } from 'react-hook-form';
 import { t as translate, initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups } from '@/lib/locales';
 import { generalCommands as defaultGeneralCommands, CommandGroup } from '@/lib/locales/commands';
 import { ProfileFormValues } from '@/app/dashboard/customer/my-profile/page';
-import { suggestAlias, SuggestAliasOutput } from '@/ai/flows/suggest-alias-flow';
-
-const ADMIN_EMAIL = 'admin@gmail.com';
 
 export interface AppState {
   stores: Store[];
@@ -60,10 +57,7 @@ export const useAppStore = create<AppState>()(
       },
 
       fetchInitialData: async (db: Firestore) => {
-        if (get().loading === false && get().stores.length > 0) {
-            // Data is already fresh, no need to fetch again.
-            return;
-        }
+        // No need to check for loading status here, always refetch to get latest data
         set({ loading: true, error: null });
         try {
           const aliasGroupCollection = collection(db, 'voiceAliasGroups');
@@ -134,19 +128,15 @@ export const useAppStore = create<AppState>()(
       },
 
       getAllAliases: (key: string) => {
-        return getAliasesFromLocales(key);
+        // This function now depends on the 'locales' from its own state
+        return getAliasesFromLocales(get().locales, key);
       }
     }),
     {
       name: 'localbasket-app-storage', // Name of the item in localStorage
       storage: createJSONStorage(() => localStorage), // Use localStorage
-      // Only persist a subset of the state
+      // Only persist a subset of the state that is safe and useful to persist
       partialize: (state) => ({ 
-          stores: state.stores, 
-          masterProducts: state.masterProducts, 
-          productPrices: state.productPrices,
-          locales: state.locales,
-          commands: state.commands,
           language: state.language
       }),
     }
