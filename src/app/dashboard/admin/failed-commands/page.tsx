@@ -6,7 +6,7 @@ import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { collection, query, orderBy, doc, deleteDoc, writeBatch, arrayUnion, updateDoc, setDoc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, deleteDoc, writeBatch, arrayUnion, updateDoc, setDoc, where } from 'firebase/firestore';
 import type { FailedVoiceCommand } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -139,10 +139,6 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Delete Log</span>
                     </Button>
-                    <Button size="sm" onClick={handleSuggestFix} disabled={isProcessingSuggestion}>
-                        {isProcessingSuggestion ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Sparkles className="mr-2 h-4 w-4"/>}
-                        Suggest Fix
-                    </Button>
                 </TableCell>
             </TableRow>
             {suggestion && (
@@ -272,3 +268,5 @@ export default function FailedCommandsPage() {
         </div>
     )
 }
+
+    
