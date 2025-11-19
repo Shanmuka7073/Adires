@@ -1,5 +1,4 @@
 
-
 export const rulesText = `
 rules_version = '2';
 service cloud.firestore {
@@ -32,7 +31,7 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-        return isSignedIn() && request.auth.token.email == 'admin@gmail.com';
+        return isSignedIn() && (request.auth.token.email == 'admin@gmail.com' || request.auth.token.email == 'admin2@gmail.com');
     }
 
     function isOwner(userId) {
