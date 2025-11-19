@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -6,7 +5,7 @@ import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { collection, query, orderBy, doc, deleteDoc, writeBatch, arrayUnion, setDoc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, deleteDoc, writeBatch, arrayUnion, updateDoc } from 'firebase/firestore';
 import type { FailedVoiceCommand } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -67,35 +66,23 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
             
             const aliasGroupRef = doc(firestore, 'voiceAliasGroups', suggestion.suggestedKey);
             
-            // Create a set of all new aliases to add, including the original command and transliterations
-            const allNewAliases = new Set<string>([suggestion.originalCommand]);
+            const updates = {};
+            
+            // Add original command to its language array
+            const originalLang = command.language.split('-')[0];
+            updates[originalLang] = arrayUnion(suggestion.originalCommand);
+
+            // Add all other suggested aliases
             suggestion.suggestedAliases.forEach(aliasInfo => {
-                allNewAliases.add(aliasInfo.alias);
+                const lang = aliasInfo.lang;
+                updates[lang] = arrayUnion(aliasInfo.alias);
                 if (aliasInfo.transliteratedAlias) {
-                    allNewAliases.add(aliasInfo.transliteratedAlias);
+                    updates[lang] = arrayUnion(aliasInfo.alias, aliasInfo.transliteratedAlias);
                 }
             });
 
-            // Prepare the updates for Firestore, using arrayUnion to avoid duplicates.
-            const updates = {
-                type: 'product', // Assuming product for now, this could be made dynamic
-                [command.language]: arrayUnion(...allNewAliases),
-            };
-
-            // Add aliases for other languages
-            suggestion.suggestedAliases.forEach(aliasInfo => {
-                if (aliasInfo.lang !== command.language) {
-                    const langAliases = [aliasInfo.alias];
-                    if(aliasInfo.transliteratedAlias) {
-                        langAliases.push(aliasInfo.transliteratedAlias);
-                    }
-                    updates[aliasInfo.lang] = arrayUnion(...langAliases);
-                }
-            });
-
-
-            // Use set with merge: true to create or update the document.
-            batch.set(aliasGroupRef, updates, { merge: true });
+            // Use update to merge new aliases into the existing document
+            batch.update(aliasGroupRef, updates);
 
             // Delete the failed command log
             const commandRef = doc(firestore, 'failedCommands', command.id);
@@ -108,10 +95,11 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
                 await fetchInitialData(firestore);
             } catch (err) {
                  console.error("Error saving aliases:", err);
-                 toast({ variant: 'destructive', title: "Save Failed", description: "Could not save the new aliases." });
+                 toast({ variant: 'destructive', title: "Save Failed", description: "Could not save the new aliases. Check permissions and data structure." });
             }
         });
     };
+
 
     const formatDateSafe = (date: any) => {
         if (!date) return 'N/A';
@@ -272,5 +260,3 @@ export default function FailedCommandsPage() {
         </div>
     )
 }
-
-    
