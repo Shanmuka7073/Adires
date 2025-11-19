@@ -44,9 +44,9 @@ service cloud.firestore {
     }
 
     // --- Atlas Diagnostic Agent Chat History ---
-    // This rule allows a user to read and write only to their own conversation history.
+    // This rule now allows any signed-in user to read and write to any conversation.
     match /asha-conversations/{userId}/{document=**} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if isSignedIn();
     }
      
     // Allow users to write their own reports
