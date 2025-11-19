@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useEffect, useRef, useCallback } from 'react';
@@ -15,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useFirebase } from '@/firebase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { collection, writeBatch, doc, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
-import type { VoiceAlias, Locales, VoiceAliasGroup } from '@/lib/locales';
+import type { VoiceAliasGroup } from '@/lib/types';
 import { CommandGroup, generalCommands as defaultGeneralCommands } from '@/lib/locales/commands';
 
 const createSlug = (text: string) => text.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-');
@@ -206,44 +205,44 @@ export default function VoiceCommandsPage() {
             const aliasGroupCollectionRef = collection(firestore, 'voiceAliasGroups');
             const commandCollectionRef = collection(firestore, 'voiceCommands');
 
-            // Fetch existing data to compare
             const existingAliasDocs = await getDocs(aliasGroupCollectionRef);
-            const existingAliasData = new Map(existingAliasDocs.docs.map(d => [d.id, d.data()]));
-            const existingCommandDocs = await getDocs(commandCollectionRef);
-            const existingCommandData = new Map(existingCommandDocs.docs.map(d => [d.id, d.data()]));
-
+            const existingKeys = new Set(existingAliasDocs.docs.map(d => d.id));
+            const existingCommandKeys = new Set((await getDocs(commandCollectionRef)).docs.map(d => d.id));
+            
             const itemTypes = new Map([
                 ...masterProducts.map(p => [createSlug(p.name), 'product']),
                 ...stores.map(s => [createSlug(s.name), 'store']),
                 ...Object.keys(commands).map(c => [c, 'command'])
             ]);
             
-            // --- SYNC ALIASES ---
+            // Sync Aliases
             for (const key in locales) {
                 const docRef = doc(aliasGroupCollectionRef, key);
-                const newData: Partial<VoiceAliasGroup> = { type: itemTypes.get(key) || 'command' };
+                const newData: Partial<VoiceAliasGroup> = {};
                 for (const lang in locales[key]) {
                     const aliases = locales[key][lang];
-                    // Ensure it's always an array
                     newData[lang] = Array.isArray(aliases) ? aliases : (aliases ? [aliases] : []);
                 }
-                batch.set(docRef, newData, { merge: true }); // Use set with merge to create or update
+                
+                if (existingKeys.has(key)) {
+                    batch.update(docRef, newData);
+                } else {
+                    newData.type = itemTypes.get(key) || 'command';
+                    batch.set(docRef, newData);
+                }
             }
-            // Check for deleted alias groups
-            existingAliasData.forEach((_, key) => {
+            existingKeys.forEach(key => {
                 if (!locales[key]) {
                     batch.delete(doc(aliasGroupCollectionRef, key));
                 }
             });
 
-
-            // --- SYNC COMMANDS ---
+            // Sync Commands
             for (const key in commands) {
                 const docRef = doc(commandCollectionRef, key);
                 batch.set(docRef, commands[key]);
             }
-            // Check for deleted commands
-            existingCommandData.forEach((_, key) => {
+            existingCommandKeys.forEach(key => {
                 if (!commands[key]) {
                     batch.delete(doc(commandCollectionRef, key));
                 }
@@ -255,7 +254,7 @@ export default function VoiceCommandsPage() {
                     title: 'Changes Saved!',
                     description: `Your voice command configuration has been updated.`,
                 });
-                await fetchInitialData(firestore); // Re-fetch the latest state
+                await fetchInitialData(firestore);
             } catch (error) {
                  toast({
                     variant: 'destructive',
@@ -507,5 +506,3 @@ export default function VoiceCommandsPage() {
         </div>
     );
 }
-
-    
