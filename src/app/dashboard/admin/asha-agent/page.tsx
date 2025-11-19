@@ -122,7 +122,7 @@ export default function AshaAgentPage() {
                             {isHistoryLoading ? (
                                 <p>Loading conversation history...</p>
                             ) : conversation && conversation.length > 0 ? (
-                                conversation.map((msg) => <ChatBubble key={msg.id} message={msg} />)
+                                conversation.map((msg, index) => <ChatBubble key={msg.id || index} message={msg} />)
                             ) : (
                                 <div className="text-center text-muted-foreground py-8">
                                     <Sparkles className="mx-auto h-8 w-8 mb-2" />
