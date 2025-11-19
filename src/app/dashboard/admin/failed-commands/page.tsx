@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Trash2, Bot, Sparkles, CheckCircle, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useState, useTransition, useMemo } from 'react';
+import { useState, useTransition, useMemo, useCallback } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { suggestAlias, SuggestAliasOutput } from '@/ai/flows/suggest-alias-flow';
 import { useAppStore } from '@/lib/store';
@@ -29,6 +29,77 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
 
     const [suggestion, setSuggestion] = useState<SuggestAliasOutput | null>(null);
 
+    const handleAddAlias = useCallback(async (suggestionToAdd: SuggestAliasOutput) => {
+        if (!firestore || !suggestionToAdd.isSuggestionAvailable) return;
+
+        startAdd(async () => {
+            const batch = writeBatch(firestore);
+            const aliasGroupRef = doc(firestore, 'voiceAliasGroups', suggestionToAdd.suggestedKey);
+            
+            const aliasesByLang: Record<string, string[]> = {};
+
+            const originalLang = command.language.split('-')[0];
+            if (!aliasesByLang[originalLang]) aliasesByLang[originalLang] = [];
+            aliasesByLang[originalLang].push(suggestionToAdd.originalCommand);
+
+            suggestionToAdd.suggestedAliases.forEach(aliasInfo => {
+                const lang = aliasInfo.lang;
+                if (!aliasesByLang[lang]) aliasesByLang[lang] = [];
+                aliasesByLang[lang].push(aliasInfo.alias);
+                if (aliasInfo.transliteratedAlias) {
+                    aliasesByLang[lang].push(aliasInfo.transliteratedAlias);
+                }
+            });
+
+            const updates: Record<string, any> = {};
+            for (const lang in aliasesByLang) {
+                const uniqueAliases = [...new Set(aliasesByLang[lang])];
+                updates[lang] = arrayUnion(...uniqueAliases);
+            }
+
+            batch.set(aliasGroupRef, updates, { merge: true });
+
+            const commandRef = doc(firestore, 'failedCommands', command.id);
+            batch.delete(commandRef);
+
+            try {
+                await batch.commit();
+                toast({ title: "Aliases Added!", description: `The AI's suggestions for "${suggestionToAdd.suggestedKey}" have been saved.`});
+                await fetchInitialData(firestore);
+            } catch (err) {
+                 console.error("Error saving aliases:", err);
+                 toast({ variant: 'destructive', title: "Save Failed", description: "Could not save the new aliases. Check permissions and data structure." });
+            }
+        });
+    }, [firestore, command.id, command.language, fetchInitialData, startAdd, toast]);
+
+    
+    const handleSuggestFix = () => {
+        startSuggestion(async () => {
+            try {
+                const result = await suggestAlias({
+                    commandText: command.commandText,
+                    language: command.language,
+                    itemNames: allItemNames
+                });
+                setSuggestion(result);
+
+                // Auto-approve if score is high
+                if (result.isSuggestionAvailable && result.similarityScore > 0.5) {
+                    toast({
+                        title: "High-Confidence Match Found!",
+                        description: `Automatically adding alias for "${result.suggestedKey}" with a score of ${(result.similarityScore * 100).toFixed(0)}%.`,
+                    });
+                    await handleAddAlias(result);
+                }
+
+            } catch(error) {
+                console.error("AI Suggestion failed:", error);
+                toast({ variant: 'destructive', title: "AI Error", description: "The suggestion flow failed to execute." });
+            }
+        });
+    };
+
     const handleDelete = async () => {
         if (!firestore) return;
         startDelete(async () => {
@@ -42,75 +113,6 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
             }
         });
     };
-    
-    const handleSuggestFix = () => {
-        startSuggestion(async () => {
-            try {
-                const result = await suggestAlias({
-                    commandText: command.commandText,
-                    language: command.language,
-                    itemNames: allItemNames
-                });
-                setSuggestion(result);
-            } catch(error) {
-                console.error("AI Suggestion failed:", error);
-                toast({ variant: 'destructive', title: "AI Error", description: "The suggestion flow failed to execute." });
-            }
-        });
-    };
-
-    const handleAddAlias = async () => {
-        if (!firestore || !suggestion || !suggestion.isSuggestionAvailable) return;
-
-        startAdd(async () => {
-            const batch = writeBatch(firestore);
-            const aliasGroupRef = doc(firestore, 'voiceAliasGroups', suggestion.suggestedKey);
-            
-            // Correctly group all new aliases for each language first
-            const aliasesByLang: Record<string, string[]> = {};
-
-            // Add original command
-            const originalLang = command.language.split('-')[0];
-            if (!aliasesByLang[originalLang]) aliasesByLang[originalLang] = [];
-            aliasesByLang[originalLang].push(suggestion.originalCommand);
-
-            // Add all other suggested aliases
-            suggestion.suggestedAliases.forEach(aliasInfo => {
-                const lang = aliasInfo.lang;
-                if (!aliasesByLang[lang]) aliasesByLang[lang] = [];
-                aliasesByLang[lang].push(aliasInfo.alias);
-                if (aliasInfo.transliteratedAlias) {
-                    aliasesByLang[lang].push(aliasInfo.transliteratedAlias);
-                }
-            });
-
-            // Now, construct the final update object with a single arrayUnion per language
-            const updates: Record<string, any> = {};
-            for (const lang in aliasesByLang) {
-                // Use a Set to ensure all aliases being added are unique
-                const uniqueAliases = [...new Set(aliasesByLang[lang])];
-                updates[lang] = arrayUnion(...uniqueAliases);
-            }
-
-            // Use set with merge to create the document if it doesn't exist, or update it if it does.
-            batch.set(aliasGroupRef, updates, { merge: true });
-
-            // Delete the failed command log
-            const commandRef = doc(firestore, 'failedCommands', command.id);
-            batch.delete(commandRef);
-
-            try {
-                await batch.commit();
-                toast({ title: "Aliases Added!", description: `The AI's suggestions for "${suggestion.suggestedKey}" have been saved.`});
-                // Re-fetch all data to update the UI across the app.
-                await fetchInitialData(firestore);
-            } catch (err) {
-                 console.error("Error saving aliases:", err);
-                 toast({ variant: 'destructive', title: "Save Failed", description: "Could not save the new aliases. Check permissions and data structure." });
-            }
-        });
-    };
-
 
     const formatDateSafe = (date: any) => {
         if (!date) return 'N/A';
@@ -154,7 +156,7 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
                     </Button>
                 </TableCell>
             </TableRow>
-            {isSuggesting || suggestion ? (
+            {(isSuggesting || (suggestion && suggestion.similarityScore <= 0.5)) && (
                 <TableRow>
                     <TableCell colSpan={4}>
                          <div className="p-4 bg-muted/50 rounded-md">
@@ -166,14 +168,14 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
                             ) : suggestion && suggestion.isSuggestionAvailable ? (
                                 <Alert>
                                     <CheckCircle className="h-4 w-4" />
-                                    <AlertTitle>AI Suggestion: Map "{suggestion.originalCommand}" to '{suggestion.suggestedKey}'</AlertTitle>
+                                    <AlertTitle>AI Suggestion (Score: {(suggestion.similarityScore * 100).toFixed(0)}%) - Map "{suggestion.originalCommand}" to '{suggestion.suggestedKey}'</AlertTitle>
                                     <AlertDescription>
                                         <p className="mb-2">{suggestion.reasoning}</p>
                                         <p className="mb-2 text-xs text-muted-foreground">This will add the following aliases:</p>
                                         <div className="flex flex-wrap gap-2 mb-4">
                                             {renderSuggestedAliases()}
                                         </div>
-                                        <Button size="sm" onClick={handleAddAlias} disabled={isAdding}>
+                                        <Button size="sm" onClick={() => handleAddAlias(suggestion)} disabled={isAdding}>
                                             {isAdding ? "Adding..." : `Accept & Add Aliases`}
                                         </Button>
                                     </AlertDescription>
@@ -190,7 +192,7 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
                          </div>
                     </TableCell>
                 </TableRow>
-            ) : null}
+            )}
         </>
     );
 }
@@ -231,7 +233,7 @@ export default function FailedCommandsPage() {
                         <div>
                             <CardTitle className="text-3xl font-headline">Failed Command Center</CardTitle>
                             <CardDescription>
-                                Review voice commands the system failed to understand and use AI to train it.
+                                Review voice commands the system failed to understand and use AI to train it. High-confidence suggestions (>50%) are approved automatically.
                             </CardDescription>
                         </div>
                     </div>

@@ -44,6 +44,7 @@ const SuggestAliasOutputSchema = z.object({
     .describe(
       'A brief explanation of why this suggestion was made.'
     ),
+  similarityScore: z.number().describe('A score from 0.0 to 1.0 indicating the confidence of the match.'),
 });
 export type SuggestAliasOutput = z.infer<typeof SuggestAliasOutputSchema>;
 
@@ -73,6 +74,7 @@ Here are all the valid canonical item names (in English):
     *   If you find a match with a high degree of confidence (e.g., "pesara pappu" for "Moong Dal"), set 'isSuggestionAvailable' to true.
     *   Set 'suggestedKey' to the correct canonical item name's slug (e.g., "moong-dal").
     *   Set 'originalCommand' to the user's input: "{{commandText}}".
+    *   Also, provide a 'similarityScore' from 0.0 to 1.0 representing your confidence in the match. A direct or very common phonetic match should be 0.8 or higher. A reasonable misspelling could be 0.6. A wild guess should be below 0.5.
     *   For the 'suggestedAliases' array, provide the standard names for the corrected item in three languages. For each language, provide both the native script and the Roman (English) script transliteration.
         *   An object for English (lang: 'en'). The 'alias' should be the English name. 'transliteratedAlias' can be omitted for English.
         *   An object for Telugu (lang: 'te'). The 'alias' should be in Telugu script (e.g., 'ఉల్లిపాయలు'), and the 'transliteratedAlias' should be in Roman script (e.g., 'ullipayalu').
