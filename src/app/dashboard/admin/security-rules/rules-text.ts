@@ -1,0 +1,170 @@
+
+
+export const rulesText = `
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @fileOverview Firestore Security Rules for LocalBasket.
+     *
+     * Core Philosophy:
+     * This ruleset enforces a strict user-ownership model for user profiles and stores.
+     * Orders can be updated by the customer, the store owner, or the assigned delivery partner.
+     * Read access is generally restricted to the owner, except for specific public data.
+     *
+     * Data Structure:
+     * - /users/{userId}: User profile information, only accessible by the user.
+     * - /stores/{storeId}: Store information, owned by a specific user.
+     * - /stores/{storeId}/products/{productId}: Products listed under a store, managed by the store owner.
+     * - /orders/{orderId}: Order information, with denormalized userId and storeId.
+     * - /orders/{orderId}/orderItems/{orderItemId}: Items within an order.
+     * - /users/{userId}/productRecommendations/{productRecommendationId}: Product recommendations for a user.
+     * - /cachedRecipes/{recipeId}: Cached recipe ingredients.
+     * - /deliveryPartners/{partnerId}: Delivery partner earnings and payout information. Document ID is the same as the user ID.
+     * - /deliveryPartners/{partnerId}/payouts/{payoutId}: Payout requests for delivery partners.
+     * - /store-images/{storeId}/{fileName}: User uploaded store images.
+     * - /productPrices/{productName}: Admin-managed canonical pricing for product variants.
+     * - /asha-conversations/{userId}/conversation/{messageId}: Private chat history for the Diagnostic agent.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+        return isSignedIn() && request.auth.token.email == 'admin@gmail.com';
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /users/{userId} {
+      allow get, update, delete: if isOwner(userId);
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+    }
+
+    // --- Atlas Diagnostic Agent Chat History ---
+    // This rule allows a user to read and write only to their own conversation history.
+    match /asha-conversations/{userId}/{document=**} {
+        allow read, write: if isOwner(userId);
+    }
+     
+    // Allow users to write their own reports
+    match /asha-conversations/{userId}/atlas_reports/{reportId} {
+      allow create, read: if isOwner(userId);
+    }
+
+    match /stores/{storeId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /stores/{storeId}/products/{productId} {
+      allow get, list: if true;
+      allow create, update, delete: if isSignedIn()
+        && get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == request.auth.uid;
+    }
+
+    match /stores/{storeId}/packages/{packageId} {
+      allow get, list: if true;
+      allow create, update, delete: if isSignedIn()
+        && get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == request.auth.uid;
+    }
+
+    match /orders/{orderId} {
+      allow get, list: if true;
+
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+
+      allow update: if isSignedIn() && (
+        request.auth.uid == resource.data.userId ||
+        (exists(/databases/$(database)/documents/stores/$(resource.data.storeId)) && get(/databases/$(database)/documents/stores/$(resource.data.storeId)).data.ownerId == request.auth.uid) ||
+        request.auth.uid == resource.data.deliveryPartnerId ||
+        isAdmin()
+      );
+
+      allow delete: if false;
+    }
+
+    match /orders/{orderId}/orderItems/{orderItemId} {
+      allow get, list: if true;
+      allow create, update, delete: if false;
+    }
+
+    match /users/{userId}/productRecommendations/{productRecommendationId} {
+      allow get, list: if isOwner(userId);
+      allow create, update, delete: if false;
+    }
+    
+    match /voice-orders/{voiceOrderId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /cachedRecipes/{recipeId} {
+      allow get, list: if true;
+      allow create, update, delete: if false;
+    }
+
+    match /cachedAIResponses/{responseId} {
+        allow get, list: if true;
+        allow create: if true; // Allow any authenticated user to create cache entries
+        allow update, delete: if false;
+    }
+
+    match /deliveryPartners/{partnerId} {
+      allow get, update: if isOwner(partnerId);
+      allow list: if isAdmin();
+      allow create: if isOwner(partnerId) && request.resource.data.userId == partnerId;
+      allow delete: if false;
+    }
+
+    match /deliveryPartners/{partnerId}/payouts/{payoutId} {
+      allow get, list: if isOwner(partnerId);
+      allow create: if isOwner(partnerId);
+      allow update, delete: if false;
+    }
+
+    match /productPrices/{productName} {
+        allow get, list: if true;
+        allow write: if isAdmin();
+    }
+    
+    match /failedCommands/{commandId} {
+      allow read: if isAdmin();
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /voiceAliasGroups/{key} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+    
+    match /voiceCommands/{commandKey} {
+      allow read: if true;
+      allow write: if isAdmin(); // Only the admin can write to this collection
+    }
+
+    match /siteConfig/{configId} {
+        allow read: if true; // Public read access for feature flags
+        allow write: if isAdmin();
+    }
+  }
+}
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Store images: owner can upload, everyone can read
+    match /store-images/{storeId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && exists(/databases/$(database)/documents/stores/$(storeId))
+        && get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == request.auth.uid;
+    }
+  }
+}
+`;

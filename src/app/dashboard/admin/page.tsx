@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -187,6 +187,12 @@ export default function AdminDashboardPage() {
                         description="Manually test the AI recipe ingredient generation."
                         href="/dashboard/admin/recipe-tester"
                         icon={Beaker}
+                    />
+                    <AdminActionCard
+                        title="Security Rules"
+                        description="View and copy the current Firestore security rules for debugging."
+                        href="/dashboard/admin/security-rules"
+                        icon={Shield}
                     />
                 </div>
             </div>
