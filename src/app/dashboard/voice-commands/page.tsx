@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useEffect, useRef, useCallback } from 'react';
@@ -24,7 +25,7 @@ export default function VoiceCommandsPage() {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isProcessing, startTransition] = useTransition();
-    const [activeTab, setActiveTab] = useState('general');
+    const [activeTab, setActiveTab] = useState('products');
 
     // Data from the global store
     const { 
