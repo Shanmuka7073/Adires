@@ -1,4 +1,3 @@
-
 import { Timestamp } from "firebase/firestore";
 
 export type ProductVariant = {
@@ -165,6 +164,7 @@ export type SiteConfig = {
 
 // Type for conversational history
 export type ChatMessage = {
+  id?: string;
   role: 'user' | 'model';
   text: string;
   timestamp?: any;
