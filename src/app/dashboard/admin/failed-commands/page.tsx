@@ -6,14 +6,14 @@ import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { collection, query, orderBy, doc, deleteDoc, writeBatch, arrayUnion, updateDoc, setDoc, where } from 'firebase/firestore';
+import { collection, query, orderBy, doc, deleteDoc, writeBatch, arrayUnion } from 'firebase/firestore';
 import type { FailedVoiceCommand } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Trash2, Bot, Sparkles, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useState, useTransition, useMemo, useCallback, useEffect } from 'react';
+import { useState, useTransition, useMemo, useCallback } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { suggestAlias, SuggestAliasOutput } from '@/ai/flows/suggest-alias-flow';
 import { useAppStore } from '@/lib/store';
@@ -22,7 +22,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceCommand, allItemNames: string[] }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
-    const fetchInitialData = useAppStore(state => state.fetchInitialData);
     const [isDeleting, startDelete] = useTransition();
     const [isProcessingSuggestion, setIsProcessingSuggestion] = useState(false);
     const [isAdding, startAdd] = useTransition();
@@ -139,6 +138,10 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Delete Log</span>
                     </Button>
+                    <Button variant="outline" size="sm" onClick={handleSuggestFix} disabled={isProcessingSuggestion}>
+                        {isProcessingSuggestion ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
+                        AI Suggest Fix
+                    </Button>
                 </TableCell>
             </TableRow>
             {suggestion && (
@@ -179,14 +182,13 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
 
 export default function FailedCommandsPage() {
     const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
-    const { firestore, user } = useFirebase();
+    const { firestore } = useFirebase();
     const router = useRouter();
-    const { masterProducts, stores, fetchInitialData } = useAppStore();
+    const { masterProducts, stores } = useAppStore();
 
-    // Query now only fetches commands that need review.
     const failedCommandsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
-        return query(collection(firestore, 'failedCommands'), where('status', '!=', 'new'), orderBy('status'), orderBy('timestamp', 'desc'));
+        return query(collection(firestore, 'failedCommands'), orderBy('timestamp', 'desc'));
     }, [firestore]);
 
     const { data: failedCommands, isLoading: commandsLoading } = useCollection<FailedVoiceCommand>(failedCommandsQuery);
@@ -196,20 +198,6 @@ export default function FailedCommandsPage() {
         const storeNames = stores.map(s => s.name);
         return [...new Set([...productNames, ...storeNames])];
     }, [masterProducts, stores]);
-
-    // This effect will re-fetch data whenever the user navigates back to this tab/window,
-    // ensuring the list is up-to-date with any background processing.
-    useEffect(() => {
-        const handleFocus = () => {
-            if (firestore && user) {
-                fetchInitialData(firestore, isAdmin);
-            }
-        };
-        window.addEventListener('focus', handleFocus);
-        return () => {
-            window.removeEventListener('focus', handleFocus);
-        };
-    }, [firestore, user, isAdmin, fetchInitialData]);
 
 
     if (!isAdminLoading && !isAdmin) {
@@ -228,7 +216,7 @@ export default function FailedCommandsPage() {
                         <div>
                             <CardTitle className="text-3xl font-headline">AI Training Center</CardTitle>
                             <CardDescription>
-                                Failed commands are now processed automatically in the background when an admin is logged in. Below are commands that had low AI confidence and require your manual review.
+                                Review voice commands that the AI failed to understand. Use the "AI Suggest Fix" button to automatically generate a correction.
                             </CardDescription>
                         </div>
                     </div>
@@ -244,7 +232,7 @@ export default function FailedCommandsPage() {
                         <div className="text-center py-12">
                             <CheckCircle className="mx-auto h-12 w-12 text-green-500" />
                              <p className="mt-4 text-lg font-semibold">All Clear!</p>
-                            <p className="text-muted-foreground mt-2">There are no low-confidence failed commands to review.</p>
+                            <p className="text-muted-foreground mt-2">There are no failed commands in the log.</p>
                         </div>
                     ) : (
                         <Table>
@@ -268,5 +256,3 @@ export default function FailedCommandsPage() {
         </div>
     )
 }
-
-    

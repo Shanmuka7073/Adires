@@ -26,7 +26,7 @@ export interface AppState {
   error: Error | null;
   language: string;
   setLanguage: (lang: string) => void;
-  fetchInitialData: (db: Firestore, isAdmin: boolean) => Promise<void>;
+  fetchInitialData: (db: Firestore) => Promise<void>;
   fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
   getProductName: (product: Product) => string;
   getAllAliases: (key: string) => Record<string, string[]>;
@@ -38,69 +38,6 @@ const getInitialLanguage = (): string => {
   }
   return 'en';
 };
-
-// --- Helper function for background AI processing ---
-async function processFailedCommandsInBackground(db: Firestore, allItemNames: string[]) {
-    const failedCommandsQuery = query(collection(db, 'failedCommands'), where('status', '==', 'new'));
-    const snapshot = await getDocs(failedCommandsQuery);
-    if (snapshot.empty) {
-        return; // Nothing to process
-    }
-
-    console.log(`Found ${snapshot.docs.length} new failed commands to process...`);
-
-    const batch = writeBatch(db);
-
-    for (const commandDoc of snapshot.docs) {
-        const command = commandDoc.data() as FailedVoiceCommand;
-        try {
-            const suggestion = await suggestAlias({
-                commandText: command.commandText,
-                language: command.language,
-                itemNames: allItemNames
-            });
-
-            if (suggestion.isSuggestionAvailable && suggestion.similarityScore > 0.5) {
-                // High confidence: Auto-approve and add to alias group
-                const aliasGroupRef = doc(db, 'voiceAliasGroups', suggestion.suggestedKey);
-                
-                const aliasesByLang: Record<string, any> = {};
-                const originalLang = command.language.split('-')[0];
-                 if (!aliasesByLang[originalLang]) aliasesByLang[originalLang] = [];
-                 aliasesByLang[originalLang].push(suggestion.originalCommand);
-
-                suggestion.suggestedAliases.forEach(aliasInfo => {
-                    const lang = aliasInfo.lang;
-                    if (!aliasesByLang[lang]) aliasesByLang[lang] = [];
-                    aliasesByLang[lang].push(aliasInfo.alias);
-                    if (aliasInfo.transliteratedAlias) {
-                        aliasesByLang[lang].push(aliasInfo.transliteratedAlias);
-                    }
-                });
-
-                const updates: Record<string, any> = {};
-                for (const lang in aliasesByLang) {
-                    updates[lang] = Array.from(new Set(aliasesByLang[lang]));
-                }
-                
-                batch.set(aliasGroupRef, updates, { merge: true });
-                batch.delete(commandDoc.ref); // Delete the processed command
-                console.log(`Auto-approved and deleted: "${command.commandText}" -> "${suggestion.suggestedKey}"`);
-
-            } else {
-                // Low confidence or no suggestion: Keep for manual review
-                 batch.update(commandDoc.ref, { status: 'no_suggestion' });
-            }
-        } catch (error) {
-            console.error(`Error processing command "${command.commandText}":`, error);
-            // Update status to prevent reprocessing on every load
-            batch.update(commandDoc.ref, { status: 'no_suggestion', reason: `AI processing failed: ${(error as Error).message}` });
-        }
-    }
-
-    await batch.commit();
-    console.log("Background processing complete.");
-}
 
 
 export const useAppStore = create<AppState>()(
@@ -122,7 +59,11 @@ export const useAppStore = create<AppState>()(
         set({ language: lang });
       },
 
-      fetchInitialData: async (db: Firestore, isAdmin: boolean) => {
+      fetchInitialData: async (db: Firestore) => {
+        if (get().loading === false && get().stores.length > 0) {
+            // Data is already fresh, no need to fetch again.
+            return;
+        }
         set({ loading: true, error: null });
         try {
           const aliasGroupCollection = collection(db, 'voiceAliasGroups');
@@ -153,13 +94,6 @@ export const useAppStore = create<AppState>()(
             commands: enrichedCommands,
             loading: false,
           });
-          
-          // --- Trigger background processing for admin ---
-          if (isAdmin) {
-              const allItemNames = [...new Set([...masterProducts.map(p => p.name), ...stores.map(s => s.name)])];
-              // This runs in the background and does not block the UI
-              processFailedCommandsInBackground(db, allItemNames).catch(console.error);
-          }
           
         } catch (error) {
           console.error("Failed to fetch initial app data:", error);
@@ -225,13 +159,12 @@ export const useInitializeApp = () => {
     const { firestore, user } = useFirebase();
     const fetchInitialData = useAppStore((state) => state.fetchInitialData);
     const loading = useAppStore((state) => state.loading);
-    const isAdmin = user?.email === ADMIN_EMAIL;
 
     useEffect(() => {
         if (firestore && user) { // Ensure user context is available
-            fetchInitialData(firestore, isAdmin);
+            fetchInitialData(firestore);
         }
-    }, [firestore, user, isAdmin, fetchInitialData]);
+    }, [firestore, user, fetchInitialData]);
 
     return loading;
 };
@@ -258,5 +191,3 @@ export const useMyStorePageStore = create<MyStorePageState>((set) => ({
   saveInventoryBtnRef: null,
   setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
 }));
-
-    
