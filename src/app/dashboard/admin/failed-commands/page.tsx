@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Trash2, Bot, Sparkles, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useState, useTransition, useMemo, useCallback } from 'react';
+import { useState, useTransition, useMemo, useCallback, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { suggestAlias, SuggestAliasOutput } from '@/ai/flows/suggest-alias-flow';
 import { useAppStore } from '@/lib/store';
@@ -71,7 +71,7 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
         });
     }, [firestore, command.id, command.language, startAdd, toast]);
 
-    const handleSuggestFix = async () => {
+    const handleSuggestFix = useCallback(async () => {
         setIsProcessingSuggestion(true);
          try {
             const result = await suggestAlias({
@@ -80,14 +80,25 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
                 itemNames: allItemNames
             });
             setSuggestion(result);
+
+            // Auto-approve if confidence is high
+            if (result.isSuggestionAvailable && result.similarityScore > 0.5) {
+                await handleAddAlias(result);
+            }
+
         } catch(error) {
             console.error("AI Suggestion failed:", error);
             toast({ variant: 'destructive', title: "AI Error", description: "The suggestion flow failed to execute." });
         } finally {
             setIsProcessingSuggestion(false);
         }
-    }
+    }, [command.commandText, command.language, allItemNames, handleAddAlias, toast]);
     
+    // Automatically trigger suggestion when the component mounts
+    useEffect(() => {
+        handleSuggestFix();
+    }, [handleSuggestFix]);
+
     const handleDelete = async () => {
         if (!firestore) return;
         startDelete(async () => {
@@ -123,6 +134,11 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
             <Badge key={alias} variant="secondary">{alias}</Badge>
         ));
     };
+    
+    // Don't render anything if the suggestion was auto-approved and is being processed
+    if (suggestion?.isSuggestionAvailable && suggestion.similarityScore > 0.5 && (isAdding || isProcessingSuggestion)) {
+        return null;
+    }
 
     return (
         <>
@@ -134,17 +150,20 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
                 <TableCell className="text-sm text-muted-foreground">{formatDateSafe(command.timestamp)}</TableCell>
                 <TableCell className="font-mono text-xs max-w-xs truncate">{command.reason}</TableCell>
                 <TableCell className="text-right space-x-2">
-                    <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isDeleting}>
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Delete Log</span>
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={handleSuggestFix} disabled={isProcessingSuggestion}>
-                        {isProcessingSuggestion ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
-                        AI Suggest Fix
-                    </Button>
+                    {isProcessingSuggestion ? (
+                        <div className="flex items-center justify-end text-muted-foreground">
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            <span>Analyzing...</span>
+                        </div>
+                    ) : (
+                         <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isDeleting}>
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Delete Log</span>
+                        </Button>
+                    )}
                 </TableCell>
             </TableRow>
-            {suggestion && (
+            {suggestion && suggestion.similarityScore <= 0.5 && (
                 <TableRow>
                     <TableCell colSpan={4}>
                          <div className="p-4 bg-muted/50 rounded-md">
