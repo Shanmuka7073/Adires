@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useFirebase, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
@@ -13,9 +14,10 @@ import { useToast } from '@/hooks/use-toast';
 import { doc, setDoc } from 'firebase/firestore';
 import { useTransition, useEffect } from 'react';
 import type { User as AppUser } from '@/lib/types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useProfileFormStore } from '@/lib/store';
+import Link from 'next/link';
 
 const profileSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -121,88 +123,112 @@ export default function MyProfilePage() {
   
   return (
     <div className="container mx-auto py-12 px-4 md:px-6">
-      <Card className="max-w-2xl mx-auto">
-        <CardHeader>
-          <CardTitle className="text-3xl font-headline">My Profile</CardTitle>
-          <CardDescription>Manage your personal information. Activate the voice assistant to fill the form by speaking.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                     <FormField
+      <div className="grid md:grid-cols-3 gap-8">
+        <div className="md:col-span-2">
+            <Card>
+                <CardHeader>
+                <CardTitle className="text-3xl font-headline">My Profile</CardTitle>
+                <CardDescription>Manage your personal information. Activate the voice assistant to fill the form by speaking.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <FormField
+                                control={form.control}
+                                name="firstName"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>First Name</FormLabel>
+                                    <FormControl>
+                                    <Input placeholder="John" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="lastName"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Last Name</FormLabel>
+                                    <FormControl>
+                                    <Input placeholder="Doe" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                        </div>
+                    <FormField
                         control={form.control}
-                        name="firstName"
+                        name="email"
                         render={({ field }) => (
                         <FormItem>
-                            <FormLabel>First Name</FormLabel>
+                            <FormLabel>Email Address</FormLabel>
                             <FormControl>
-                            <Input placeholder="John" {...field} />
+                            <Input type="email" {...field} readOnly disabled />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
                         )}
                     />
-                     <FormField
-                        control={form.control}
-                        name="lastName"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Last Name</FormLabel>
-                            <FormControl>
-                            <Input placeholder="Doe" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                </div>
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email Address</FormLabel>
-                    <FormControl>
-                      <Input type="email" {...field} readOnly disabled />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-                <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Phone Number</FormLabel>
-                        <FormControl>
-                        <Input placeholder="9876543210" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-                 <FormField
-                    control={form.control}
-                    name="address"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Full Address</FormLabel>
-                        <FormControl>
-                        <Input placeholder="123 Main St, Anytown, USA 12345" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-              <Button type="submit" disabled={isSaving} className="w-full">
-                {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Changes'}
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+                        <FormField
+                            control={form.control}
+                            name="phone"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Phone Number</FormLabel>
+                                <FormControl>
+                                <Input placeholder="9876543210" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="address"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Full Address</FormLabel>
+                                <FormControl>
+                                <Input placeholder="123 Main St, Anytown, USA 12345" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                    <Button type="submit" disabled={isSaving} className="w-full">
+                        {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Changes'}
+                    </Button>
+                    </form>
+                </Form>
+                </CardContent>
+            </Card>
+        </div>
+         <div className="space-y-8">
+             <Card className="bg-primary/5 border-primary/20">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Sparkles className="h-5 w-5 text-primary" />
+                        Voice ID
+                    </CardTitle>
+                    <CardDescription>
+                        Set up a voice password for a faster, more secure way to log in and confirm actions.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button asChild className="w-full">
+                        <Link href="/dashboard/customer/voice-id">
+                            Manage Your Voice ID
+                        </Link>
+                    </Button>
+                </CardContent>
+            </Card>
+        </div>
+      </div>
     </div>
   );
 }

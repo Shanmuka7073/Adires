@@ -1,4 +1,5 @@
 
+
 {
   "entities": {
     "Store": {
@@ -613,34 +614,31 @@
       },
       "required": ["id", "userId", "commandText", "language", "timestamp", "reason"]
     },
-    "VoiceAliasGroup": {
+    "VoiceAlias": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "VoiceAliasGroup",
+      "title": "VoiceAlias",
       "type": "object",
-      "description": "Represents a group of multilingual aliases for a single canonical item (product, store, or command). The document ID is the canonical key (e.g., 'tomatoes').",
+      "description": "Represents a voice alias for a specific item (product, store, or command).",
       "properties": {
-        "en": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "A list of English aliases."
+        "key": {
+          "type": "string",
+          "description": "The canonical key for the item (e.g., 'tomatoes', 'go-to-cart')."
         },
-        "te": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "A list of Telugu aliases."
+        "language": {
+          "type": "string",
+          "description": "The language of the alias (e.g., 'en', 'te')."
         },
-        "hi": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "A list of Hindi aliases."
+        "alias": {
+          "type": "string",
+          "description": "The spoken alias for the item."
         },
         "type": {
           "type": "string",
           "enum": ["product", "store", "command"],
-          "description": "The type of item this alias group refers to."
+          "description": "The type of item this alias refers to."
         }
       },
-      "required": ["type"]
+      "required": ["key", "language", "alias", "type"]
     },
     "VoiceCommand": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -686,6 +684,42 @@
                 "description": "Controls the AI for suggesting fixes to failed commands."
             }
         }
+    },
+    "Voiceprint": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Voiceprint",
+      "type": "object",
+      "description": "Represents a user's enrolled voiceprint for biometric verification.",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The UID of the user. This is the document ID."
+        },
+        "enrollments": {
+          "type": "array",
+          "items": { 
+              "type": "array",
+              "items": { "type": "number" }
+          },
+          "description": "An array of raw feature vectors from each individual enrollment recording."
+        },
+        "voiceprint": {
+          "type": "array",
+          "items": { "type": "number" },
+          "description": "The final, averaged array of numbers representing the user's voice features."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the voiceprint was first created."
+        },
+        "lastUpdatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The timestamp when the voiceprint was last updated."
+        }
+      },
+      "required": ["userId", "enrollments", "voiceprint", "createdAt", "lastUpdatedAt"]
     }
   },
   "auth": {
@@ -940,17 +974,17 @@
         }
       },
       {
-        "path": "/voiceAliasGroups/{key}",
+        "path": "/voiceAliases/{aliasId}",
         "definition": {
-          "entityName": "VoiceAliasGroup",
+          "entityName": "VoiceAlias",
           "schema": {
-            "$ref": "#/backend/entities/VoiceAliasGroup"
+            "$ref": "#/backend/entities/VoiceAlias"
           },
-          "description": "Stores all voice aliases for a single item. The document ID is the canonical key (e.g., 'tomatoes').",
+          "description": "Stores all voice aliases for products, commands, and stores.",
           "params": [
             {
-              "name": "key",
-              "description": "The unique canonical key for the item (product, store, or command)."
+              "name": "aliasId",
+              "description": "The unique identifier of the alias document."
             }
           ]
         }
@@ -986,7 +1020,24 @@
             }
           ]
         }
+      },
+      {
+        "path": "/voiceprints/{userId}",
+        "definition": {
+          "entityName": "Voiceprint",
+          "schema": {
+            "$ref": "#/backend/entities/Voiceprint"
+          },
+          "description": "Stores a user's enrolled voiceprint for biometric verification. Only the user can read or write their own voiceprint.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user, matching their auth UID."
+            }
+          ]
+        }
       }
     ]
   }
 }
+

@@ -1,4 +1,5 @@
 
+
 import { Timestamp } from "firebase/firestore";
 
 export type ProductVariant = {
@@ -175,6 +176,8 @@ export type ChatMessage = {
 // Type for voice biometrics
 export type Voiceprint = {
   userId: string; // Document ID should be the user's UID
-  voiceprint: number[]; // Array of numbers representing the voice features
-  createdAt: any; // serverTimestamp
+  enrollments: number[][]; // Array of raw feature vectors from each enrollment
+  voiceprint: number[]; // The final, averaged feature vector
+  createdAt: string;
+  lastUpdatedAt: string;
 };

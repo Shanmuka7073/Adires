@@ -1,8 +1,9 @@
 
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowRight, ShoppingCart, Store, Truck, Mic } from 'lucide-react';
+import { ArrowRight, ShoppingCart, Store, Truck, Mic, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import Image from 'next/image';
@@ -106,6 +107,26 @@ export default function DashboardPage() {
                         isLoading={loading}
                     />
                 ))}
+            </div>
+            <div className="mt-16 text-center">
+                 <Card className="max-w-2xl mx-auto bg-primary/5 border-primary/20">
+                    <CardHeader>
+                        <CardTitle className="flex items-center justify-center gap-2 font-headline">
+                             <Sparkles className="h-6 w-6 text-primary" />
+                            <span>New: Voice ID Login</span>
+                        </CardTitle>
+                        <CardDescription>
+                            Set up a voice password for a faster, more secure way to log in.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button asChild>
+                            <Link href="/dashboard/customer/voice-id">
+                                Set Up Your Voice ID
+                            </Link>
+                        </Button>
+                    </CardContent>
+                </Card>
             </div>
         </div>
     );
