@@ -626,11 +626,12 @@ export function VoiceCommander({
         } else if (noKeywords.some(kw => commandText.toLowerCase().includes(kw))) {
             speak("Okay.", langWithRegion);
         } else {
-            setItemForPriceCheck(null);
-            handleCommand(commandText);
+            // If the response is not a clear yes/no, assume it's a new command.
+            resetAllContext(); // Clear the price-check context first
+            handleCommand(commandText); // Re-process the command
             return;
         }
-        resetAllContext();
+        resetAllContext(); // Reset context after handling the yes/no response.
         return;
     }
     if (isWaitingForAddressType) {
@@ -640,20 +641,21 @@ export function VoiceCommander({
         const homeSimilarity = Math.max(...homeKeywords.map(kw => calculateSimilarity(commandText.toLowerCase(), kw)));
         const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(commandText.toLowerCase(), kw)));
 
+        // Immediately reset context after this interaction.
+        resetAllContext();
+
         if (homeSimilarity > 0.6 && homeSimilarity > locationSimilarity) {
             homeAddressBtnRef?.current?.click();
-            speak(t('setting-delivery-to-home-speech', spokenLang), langWithRegion);
+            speak(t('setting-delivery-to-home-speech', spokenLang), langWithRegion, triggerVoicePrompt);
         } else if (locationSimilarity > 0.6) {
             currentLocationBtnRef?.current?.click();
-            speak(t('using-current-location-speech', spokenLang), langWithRegion);
+            speak(t('using-current-location-speech', spokenLang), langWithRegion, triggerVoicePrompt);
         } else {
-            speak(t('did-not-understand-address-type-speech', spokenLang), langWithRegion);
+            speak(t('did-not-understand-address-type-speech', spokenLang), langWithRegion, triggerVoicePrompt);
             if (firestore && user) {
                 addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: commandText, language: spokenLang, reason: `Address type clarification failed. Similarities: Home=${homeSimilarity.toFixed(2)}, Location=${locationSimilarity.toFixed(2)}`, timestamp: serverTimestamp() });
             }
         }
-        resetAllContext();
-        triggerVoicePrompt();
         return;
     }
 
@@ -665,6 +667,9 @@ export function VoiceCommander({
                 bestMatch = { store, similarity: similarity };
             }
         }
+        
+        // Immediately reset context after this interaction.
+        resetAllContext();
 
        if (bestMatch && bestMatch.similarity > 0.6) {
            const store = bestMatch.store;
@@ -673,18 +678,17 @@ export function VoiceCommander({
                triggerVoicePrompt();
            });
        } else {
-           speak(t('could-not-find-store-speech', spokenLang).replace('{storeName}', commandText), langWithRegion);
+           speak(t('could-not-find-store-speech', spokenLang).replace('{storeName}', commandText), langWithRegion, triggerVoicePrompt);
             if (firestore && user) {
                 addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: commandText, language: spokenLang, reason: `Store clarification failed. Best match: ${bestMatch?.store.name} (${bestMatch?.similarity.toFixed(2)})`, timestamp: serverTimestamp() });
             }
        }
-       resetAllContext();
        return;
     }
     
     if (formFieldToFillRef.current && profileForm) {
         profileForm.setValue(formFieldToFillRef.current, commandText, { shouldValidate: true });
-        formFieldToFillRef.current = null;
+        // The form interaction itself will set the next context.
         handleProfileFormInteraction();
         return;
     }
@@ -694,8 +698,7 @@ export function VoiceCommander({
     
     if (separatorUsed && recognizeIntent(commandText, spokenLang).type === 'ORDER_ITEM') {
         await commandActionsRef.current.orderMultipleItems(commandText.split(new RegExp(` ${separatorUsed} `, 'i')), spokenLang, commandText);
-        resetAllContext();
-        return;
+        return; // Multi-item order is a terminal action for this command cycle.
     }
 
     const intent = recognizeIntent(commandText, spokenLang);
@@ -715,7 +718,7 @@ export function VoiceCommander({
             
         case 'CHECK_PRICE':
             await commandActionsRef.current.checkPrice({ phrase: intent.productPhrase, lang: intent.lang, originalText: intent.originalText });
-            break;
+            break; // This sets a context, so no reset here.
 
         case 'REMOVE_ITEM':
             await commandActionsRef.current.removeItemFromCart({ phrase: intent.productPhrase, lang: intent.lang });
@@ -778,12 +781,14 @@ export function VoiceCommander({
             }
             break;
     }
-    
-    if (!itemForPriceCheck) {
-        resetAllContext();
-    }
-
-  }, [firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, resetAllContext, pathname, findProductAndVariant, storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, getProductName, cartItemsProp, setLanguage, addItemToCart, removeItem, onOpenCart, locales, commands, getAllAliases, t, triggerVoicePrompt, itemForPriceCheck, recognizeIntent, aiConfig]);
+  }, [
+      firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, resetAllContext,
+      itemForPriceCheck, isWaitingForAddressType, isWaitingForStoreName,
+      findProductAndVariant, addItemToCart, onOpenCart, t, getProductName,
+      locales, commands, getAllAliases, recognizeIntent, aiConfig,
+      homeAddressBtnRef, currentLocationBtnRef, triggerVoicePrompt, setActiveStoreId,
+      storeAliasMap, profileForm, handleProfileFormInteraction
+  ]);
 
     // Effect to handle retrying a command
     useEffect(() => {
@@ -1170,7 +1175,21 @@ export function VoiceCommander({
         recognition.stop();
       }
     };
-  }, [handleCommand, cartTotal, cartItemsProp, pathname, masterProducts, t, aiConfig, isAppStoreLoading]);
+  }, [
+      // This dependency array needs to be exhaustive
+      handleCommand, cartTotal, cartItemsProp, pathname, masterProducts, t, 
+      aiConfig, isAppStoreLoading, getProductName, productPrices, 
+      fetchProductPrices, firestore, user, router, language, setLanguage, 
+      speak, updateRecognitionLanguage, determinePhraseLanguage, resetAllContext, 
+      storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, 
+      profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, 
+      isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, 
+      addItemToCart, removeItem, onOpenCart, locales, commands, getAllAliases, 
+      triggerVoicePrompt, itemForPriceCheck, recognizeIntent, onCloseCart, 
+      setHomeAddress, setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation,
+      clearCart, updateQuantity
+  ]);
 
   return null;
 }
+
