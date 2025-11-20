@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -276,14 +275,16 @@ export function VoiceCommander({
       if (onEndCallback) onEndCallback();
       return;
     }
+
+    // Set the speaking flag immediately to prevent other actions
+    isSpeakingRef.current = true;
     
+    // Cancel any current speech and stop recognition
+    window.speechSynthesis.cancel();
     if (recognition) {
       recognition.stop();
     }
 
-    isSpeakingRef.current = true;
-    window.speechSynthesis.cancel();
-    
     const text = Array.isArray(textOrReplies) 
       ? textOrReplies[Math.floor(Math.random() * textOrReplies.length)] 
       : textOrReplies;
@@ -304,14 +305,16 @@ export function VoiceCommander({
     utterance.onend = () => {
       isSpeakingRef.current = false;
       if (onEndCallback) onEndCallback();
+      // Defer the restart to give the engine time to settle
       if (isEnabledRef.current && recognition) {
         setTimeout(() => {
             try {
                 recognition.start();
             } catch(e) {
-                // Log or handle the InvalidStateError if it still occurs
+                // This might still happen in rare cases, log it for debugging
+                console.warn("Delayed recognition start failed:", e);
             }
-        }, 100); // 100ms delay
+        }, 100);
       }
     };
     
@@ -319,6 +322,7 @@ export function VoiceCommander({
       console.error('Speech synthesis error', e);
       isSpeakingRef.current = false;
       if (onEndCallback) onEndCallback();
+      // Also try to restart recognition on error
       if (isEnabledRef.current && recognition) {
         setTimeout(() => {
             try {
@@ -878,12 +882,18 @@ export function VoiceCommander({
     };
     
     recognition.onend = () => {
+        // Only restart if the mic is supposed to be enabled and the app isn't currently speaking.
         if (isEnabledRef.current && !isSpeakingRef.current) {
+            // Use a small delay to avoid race conditions.
             setTimeout(() => {
+                // Double-check the conditions before starting.
                 if (isEnabledRef.current && !isSpeakingRef.current && recognition) {
                     try {
                         recognition.start();
-                    } catch(e) {}
+                    } catch(e) {
+                        // This can happen if the component unmounts or state changes rapidly.
+                        // It's generally safe to ignore.
+                    }
                 }
             }, 100);
         }
