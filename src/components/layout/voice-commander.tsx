@@ -873,14 +873,7 @@ export function VoiceCommander({
     
     recognition.onend = () => {
         if (isEnabledRef.current && !isSpeakingRef.current) {
-            try {
-                setTimeout(() => {
-                    if (isEnabledRef.current && !isSpeakingRef.current && recognition) {
-                         recognition.start();
-                    }
-                }, 250); 
-            } catch (e) {
-            }
+             if (recognition) recognition.start();
         }
     };
 
