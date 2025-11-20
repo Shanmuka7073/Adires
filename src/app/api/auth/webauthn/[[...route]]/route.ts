@@ -16,7 +16,7 @@ import type {
 } from '@simplewebauthn/server';
 import { getAdminServices } from '@/firebase/admin-init';
 import type { User as AppUser, Authenticator } from '@/lib/types';
-import { sessionLogin } from '@/firebase/session-login';
+import { isoBase64URL, isoUint8Array } from '@simplewebauthn/server/helpers';
 
 const rpID = process.env.NEXT_PUBLIC_RP_ID || 'localhost';
 const rpName = 'LocalBasket';
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest, { params }: { params: { route: 
         timeout: 60000,
         attestationType: 'none',
         excludeCredentials: userAuthenticators.map((auth) => ({
-          id: auth.credentialID,
+          id: isoBase64URL.toBuffer(auth.credentialID),
           type: 'public-key',
           transports: auth.transports,
         })),
@@ -119,8 +119,8 @@ export async function POST(request: NextRequest, { params }: { params: { route: 
       if (verified && registrationInfo) {
         const { credentialPublicKey, credentialID, counter } = registrationInfo;
         const newAuthenticator: Authenticator = {
-          credentialID,
-          credentialPublicKey,
+          credentialID: isoBase64URL.fromBuffer(credentialID),
+          credentialPublicKey: isoBase64URL.fromBuffer(credentialPublicKey), // Convert to Base64 string
           counter,
           transports: body.response.transports || [],
         };
@@ -132,7 +132,6 @@ export async function POST(request: NextRequest, { params }: { params: { route: 
     }
     
     case 'generate-authentication-options': {
-      // Find user by email if provided
       let user: AppUser | null = null;
       if (body.email) {
           const userSnapshot = await db.collection('users').where('email', '==', body.email).limit(1).get();
@@ -154,7 +153,7 @@ export async function POST(request: NextRequest, { params }: { params: { route: 
       const opts: GenerateAuthenticationOptionsOpts = {
         timeout: 60000,
         allowCredentials: userAuthenticators.map(auth => ({
-          id: auth.credentialID,
+          id: isoBase64URL.toBuffer(auth.credentialID),
           type: 'public-key',
           transports: auth.transports,
         })),
@@ -197,7 +196,11 @@ export async function POST(request: NextRequest, { params }: { params: { route: 
                 expectedChallenge: `${expectedChallenge}`,
                 expectedOrigin: origin,
                 expectedRPID: rpID,
-                authenticator,
+                authenticator: {
+                  ...authenticator,
+                  credentialID: isoBase64URL.toBuffer(authenticator.credentialID),
+                  credentialPublicKey: isoBase64URL.toBuffer(authenticator.credentialPublicKey),
+                },
                 requireUserVerification: true,
             };
             verification = await verifyAuthenticationResponse(opts);
@@ -218,14 +221,8 @@ export async function POST(request: NextRequest, { params }: { params: { route: 
                 authenticators: [...otherAuthenticators, updatedAuthenticator],
             });
             
-            // Create a custom token for Firebase client-side sign-in
             const customToken = await adminAuth.createCustomToken(user.id);
-
-            // This is the correct way to handle server-side sessions
-            // It needs to be called from a Server Action, not a standard API route.
-            // Since the client handles the sign-in with the custom token, this is not strictly necessary here.
-            // await sessionLogin(customToken);
-
+            
             return NextResponse.json({ verified: true, customToken });
         }
         

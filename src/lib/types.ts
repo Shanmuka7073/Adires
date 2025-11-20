@@ -41,8 +41,8 @@ export type Store = {
 
 // WebAuthn types
 export type Authenticator = {
-  credentialID: string;
-  credentialPublicKey: Uint8Array;
+  credentialID: string; // This is a Base64URL-encoded string
+  credentialPublicKey: string; // This is now a Base64URL-encoded string
   counter: number;
   transports?: AuthenticatorTransport[];
 };
