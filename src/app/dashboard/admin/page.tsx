@@ -213,6 +213,18 @@ export default function AdminDashboardPage() {
                         href="/dashboard/admin/voice-id-help"
                         icon={Voicemail}
                     />
+                    <AdminActionCard
+                        title="WebAuthn API Code"
+                        description="View the source code for the WebAuthn (fingerprint) API route."
+                        href="/dashboard/admin/webauthn-api-help"
+                        icon={Fingerprint}
+                    />
+                     <AdminActionCard
+                        title="Server Actions Code"
+                        description="View the source code for the main server actions file."
+                        href="/dashboard/admin/actions-help"
+                        icon={Server}
+                    />
                 </div>
             </div>
         </div>
