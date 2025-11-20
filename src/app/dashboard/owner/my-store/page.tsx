@@ -299,6 +299,7 @@ function StoreImageUploader({ store }: { store: Store }) {
 function EditProductDialog({ storeId, product, isOpen, onOpenChange }: { storeId: string; product: Product; isOpen: boolean; onOpenChange: (open: boolean) => void; }) {
     const { toast } = useToast();
     const [isPending, startTransition] = useTransition();
+    const [isGeneratingImage, startImageGeneration] = useTransition();
     const { firestore } = useFirebase();
 
     // Fetch current prices for default values
@@ -335,6 +336,28 @@ function EditProductDialog({ storeId, product, isOpen, onOpenChange }: { storeId
         control: form.control,
         name: 'variants'
     });
+    
+    const handleGenerateImage = () => {
+        const productName = form.getValues('name');
+        if (!productName) {
+            toast({ variant: 'destructive', title: 'Product Name Required', description: 'Please enter a product name before generating an image.' });
+            return;
+        }
+        startImageGeneration(async () => {
+            try {
+                const result = await generateProductImage({ productName });
+                if (result.imageUrl) {
+                    form.setValue('imageUrl', result.imageUrl);
+                    toast({ title: 'Image Generated!', description: 'The AI-generated image URL has been added.' });
+                } else {
+                    throw new Error('No image URL returned from AI flow.');
+                }
+            } catch (error) {
+                console.error("AI Image Generation failed:", error);
+                toast({ variant: 'destructive', title: 'Image Generation Failed', description: 'Could not generate an image. Please try again.' });
+            }
+        });
+      };
 
     const onSubmit = (data: ProductFormValues) => {
         if (!firestore) return;
@@ -405,6 +428,28 @@ function EditProductDialog({ storeId, product, isOpen, onOpenChange }: { storeId
                                 )}
                             />
                             <FormField
+                              control={form.control}
+                              name="imageUrl"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>{t('product-image-url-optional')}</FormLabel>
+                                  <div className="flex items-center gap-2">
+                                    <div className="relative flex-grow">
+                                        <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
+                                        <Input placeholder="https://images.unsplash.com/..." {...field} className="pl-9" />
+                                    </div>
+                                    <Button type="button" variant="outline" onClick={handleGenerateImage} disabled={isGeneratingImage}>
+                                        {isGeneratingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                                    </Button>
+                                  </div>
+                                   <FormDescription>
+                                    {t('paste-a-direct-image-link-or-generate-one')}
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
                                 control={form.control}
                                 name="category"
                                 render={({ field }) => (
@@ -433,18 +478,6 @@ function EditProductDialog({ storeId, product, isOpen, onOpenChange }: { storeId
                                     </FormItem>
                                 )}
                             />
-                             <FormField
-                                control={form.control}
-                                name="imageUrl"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>{t('image-url')}</FormLabel>
-                                        <FormControl><Input placeholder="https://example.com/image.webp" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-
                             <Card className="bg-muted/50 p-4">
                                 <CardHeader className="p-2">
                                     <CardTitle className="text-lg">{t('price-variants')}</CardTitle>
