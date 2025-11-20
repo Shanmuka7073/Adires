@@ -325,7 +325,7 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
         <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />
         <UserMenu />
       </div>
-        {hasMounted && (
+        {hasMounted && voiceEnabled && (
             <>
                 <div className="absolute top-16 left-0 w-full bg-secondary text-secondary-foreground text-center py-1 text-sm font-mono z-40">
                     {voiceStatus}

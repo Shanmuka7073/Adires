@@ -11,6 +11,7 @@ import { NotificationPermissionManager } from '@/components/layout/notification-
 import { useInitializeApp, useAppStore } from '@/lib/store';
 import { getLanguageForLocation } from '@/lib/location-service';
 import { useToast } from '@/hooks/use-toast';
+import { usePathname } from 'next/navigation';
 
 // Create a context to provide the trigger function
 const VoiceCommandContext = createContext<{ triggerVoicePrompt: () => void, retryCommand?: (command: string) => void; } | undefined>(undefined);
@@ -34,6 +35,7 @@ export function MainLayout({
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { cartItems } = useCart();
   const { toast } = useToast();
+  const pathname = usePathname();
   
   // Initialize the app data and get the loading status from the global store
   const isAppLoading = useInitializeApp();
@@ -86,6 +88,7 @@ export function MainLayout({
     setRetryCommandText(command);
   }, []);
 
+  const isHomePage = pathname === '/';
 
   return (
     <VoiceCommandContext.Provider value={{ triggerVoicePrompt, retryCommand }}>
@@ -114,9 +117,9 @@ export function MainLayout({
             />
         )}
         <ProfileCompletionChecker />
-        <main className="flex-1 pb-10">{children}</main>
+        <main className={`flex-1 ${isHomePage ? '' : 'pb-10'}`}>{children}</main>
         <NotificationPermissionManager />
-        <Footer />
+        {!isHomePage && <Footer />}
         </div>
     </VoiceCommandContext.Provider>
   );

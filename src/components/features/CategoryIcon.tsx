@@ -39,9 +39,9 @@ export default function CategoryIcon({ category }: CategoryIconProps) {
 
   if (isLoading || !firstStoreId) {
     return (
-        <div className="flex flex-col items-center gap-2">
-            <Skeleton className="h-24 w-24 rounded-xl" />
-            <Skeleton className="h-4 w-20" />
+        <div className="flex flex-col items-center gap-2 text-center w-20">
+            <Skeleton className="h-20 w-20 rounded-full" />
+            <Skeleton className="h-4 w-16" />
         </div>
     )
   }
@@ -49,19 +49,19 @@ export default function CategoryIcon({ category }: CategoryIconProps) {
   const categoryLink = `/stores/${firstStoreId}?category=${encodeURIComponent(category.categoryName)}`;
 
   return (
-    <Link href={categoryLink} className="group flex flex-col items-center gap-2 text-center">
-      <Card className="w-24 h-24 rounded-xl flex items-center justify-center overflow-hidden transition-all group-hover:shadow-md group-hover:scale-105 border-2 border-transparent group-hover:border-primary bg-muted/20">
-        <CardContent className="p-2 w-full h-full relative">
+    <Link href={categoryLink} className="group flex flex-col items-center gap-2 text-center w-20 flex-shrink-0">
+      <div className="w-20 h-20 rounded-full flex items-center justify-center overflow-hidden transition-all group-hover:shadow-md group-hover:ring-2 group-hover:ring-primary bg-muted/20">
+        <div className="relative w-full h-full">
             <Image 
                 src={image.imageUrl}
                 alt={category.categoryName}
                 data-ai-hint={image.imageHint}
                 fill
-                className="object-contain"
+                className="object-cover transition-transform group-hover:scale-105"
             />
-        </CardContent>
-      </Card>
-      <span className="text-xs font-medium text-muted-foreground group-hover:text-primary transition-colors">{category.categoryName}</span>
+        </div>
+      </div>
+      <span className="text-xs font-medium text-muted-foreground group-hover:text-primary transition-colors truncate w-full">{category.categoryName}</span>
     </Link>
   );
 }
