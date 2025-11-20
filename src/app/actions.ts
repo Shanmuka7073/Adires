@@ -1,40 +1,65 @@
-
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
 
+/**
+ * Safely fetch documents count from Firestore collections.
+ */
 async function getFirestoreCounts() {
-    const { db } = await getAdminServices();
-    const usersSnapshot = await db.collection('users').get();
-    const storesSnapshot = await db.collection('stores').get();
-    const partnersSnapshot = await db.collection('deliveryPartners').get();
-    const commandsSnapshot = await db.collection('voiceCommands').get();
-    return {
-        users: usersSnapshot.size,
-        stores: storesSnapshot.size,
-        deliveryPartners: partnersSnapshot.size,
-        voiceCommands: commandsSnapshot.size,
-    };
+    try {
+        const { db } = await getAdminServices();
+
+        const [users, stores, partners, commands] = await Promise.all([
+            db.collection('users').get(),
+            db.collection('stores').get(),
+            db.collection('deliveryPartners').get(),
+            db.collection('voiceCommands').get(),
+        ]);
+
+        return {
+            users: users.size,
+            stores: stores.size,
+            deliveryPartners: partners.size,
+            voiceCommands: commands.size,
+        };
+    } catch (err) {
+        console.error("Firestore count error:", err);
+        return {
+            users: 0,
+            stores: 0,
+            deliveryPartners: 0,
+            voiceCommands: 0,
+        };
+    }
 }
 
+/**
+ * Main system status API
+ */
 export async function getSystemStatus() {
     try {
         const counts = await getFirestoreCounts();
-        // LLM status is no longer checked as AI features are removed.
+
         return {
             status: 'ok',
-            llmStatus: 'Offline', // Default to Offline since AI is removed.
+            llmStatus: 'Offline',   // Since AI functions are removed
             serverDbStatus: 'Online',
-            counts: counts,
+            counts,
         };
-    } catch (error) {
-        console.error("System status check failed:", error);
+    } catch (err: any) {
+        console.error("System status check failed:", err);
+
         return {
             status: 'error',
             llmStatus: 'Offline',
             serverDbStatus: 'Offline',
-            errorMessage: (error as Error).message,
-            counts: { users: 0, stores: 0, deliveryPartners: 0, voiceCommands: 0 },
+            errorMessage: err?.message || 'Unknown server error',
+            counts: {
+                users: 0,
+                stores: 0,
+                deliveryPartners: 0,
+                voiceCommands: 0,
+            },
         };
     }
 }
