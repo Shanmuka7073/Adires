@@ -34,7 +34,7 @@ export default function Home() {
 
 
   const displayedStores = useMemo(() => {
-    return allStores.slice(0, 3); // Show 3 featured stores
+    return allStores.slice(0, 8); // Show up to 8 featured stores
   }, [allStores]);
 
   return (
@@ -77,20 +77,42 @@ export default function Home() {
                   <Link href="/stores">View All</Link>
               </Button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {loading ? (
-              <>
-                  <StoreCard.Skeleton />
-                  <StoreCard.Skeleton />
-                  <StoreCard.Skeleton />
-              </>
-            ) : displayedStores.length > 0 ? (
+          {/* Responsive container for stores */}
+          <div className="relative">
+            <ScrollArea className="w-full md:hidden">
+              <div className="flex space-x-4 pb-4">
+                {loading ? (
+                  <>
+                    <StoreCard.Skeleton />
+                    <StoreCard.Skeleton />
+                    <StoreCard.Skeleton />
+                  </>
+                ) : displayedStores.length > 0 ? (
                   displayedStores.map((store) => (
-                      <StoreCard key={store.id} store={store} />
+                    <StoreCard key={store.id} store={store} />
                   ))
-            ) : (
-              <p className="col-span-full text-muted-foreground">No featured stores available.</p>
-            )}
+                ) : (
+                  <p className="text-muted-foreground">No featured stores available.</p>
+                )}
+              </div>
+              <ScrollBar orientation="horizontal" className="md:hidden" />
+            </ScrollArea>
+            <div className="hidden md:grid md:grid-cols-3 lg:grid-cols-4 gap-4">
+               {loading ? (
+                  <>
+                      <StoreCard.Skeleton />
+                      <StoreCard.Skeleton />
+                      <StoreCard.Skeleton />
+                      <StoreCard.Skeleton />
+                  </>
+                ) : displayedStores.length > 0 ? (
+                      displayedStores.map((store) => (
+                          <StoreCard key={store.id} store={store} />
+                      ))
+                ) : (
+                  <p className="col-span-full text-muted-foreground">No featured stores available.</p>
+                )}
+            </div>
           </div>
         </section>
       </div>

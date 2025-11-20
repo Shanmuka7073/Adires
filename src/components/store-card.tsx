@@ -33,7 +33,7 @@ function StoreCard({ store }: StoreCardProps) {
     }, [store]);
 
   return (
-    <Link href={`/stores/${store.id}`} className="block overflow-hidden rounded-xl transition-all hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary">
+    <Link href={`/stores/${store.id}`} className="block overflow-hidden rounded-xl transition-all hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary w-64 md:w-auto flex-shrink-0">
         <Card className="h-full border-0 shadow-md hover:shadow-xl transition-shadow">
             <div className="relative">
                 {image.imageUrl ? (
@@ -71,7 +71,7 @@ function StoreCard({ store }: StoreCardProps) {
 
 StoreCard.Skeleton = function StoreCardSkeleton() {
     return (
-        <Card className="h-full border-0 shadow-md">
+        <Card className="h-full border-0 shadow-md w-64 md:w-auto flex-shrink-0">
             <Skeleton className="w-full h-36" />
             <CardContent className="p-3 space-y-2">
                 <Skeleton className="h-6 w-3/4" />
@@ -83,4 +83,3 @@ StoreCard.Skeleton = function StoreCardSkeleton() {
 }
 
 export default StoreCard;
-
