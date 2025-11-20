@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import {
   generateRegistrationOptions,
@@ -6,6 +5,7 @@ import {
   generateAuthenticationOptions,
   verifyAuthenticationResponse,
 } from '@simplewebauthn/server';
+
 import type {
   GenerateRegistrationOptionsOpts,
   GenerateAuthenticationOptionsOpts,
@@ -14,71 +14,92 @@ import type {
   VerifiedRegistrationResponse,
   VerifiedAuthenticationResponse,
 } from '@simplewebauthn/server';
+
 import { getAdminServices } from '@/firebase/admin-init';
 import type { User as AppUser, Authenticator } from '@/lib/types';
-import { isoBase64URL, isoUint8Array } from '@simplewebauthn/server/helpers';
+import { isoBase64URL } from '@simplewebauthn/server/helpers';
 
+// Safe environment defaults
 const rpID = process.env.NEXT_PUBLIC_RP_ID || 'localhost';
 const rpName = 'LocalBasket';
-const origin = process.env.NEXT_PUBLIC_ORIGIN || `https://${rpID}`;
+const origin =
+  process.env.NEXT_PUBLIC_ORIGIN ||
+  `https://${rpID}` ||
+  'http://localhost';
 
-async function getAuthenticators(userId: string): Promise<Authenticator[]> {
-  const { db } = await getAdminServices();
-  const userRef = db.collection('users').doc(userId);
-  const userDoc = await userRef.get();
-  if (!userDoc.exists) return [];
-  const userData = userDoc.data() as AppUser;
-  return userData.authenticators || [];
+// Safely parse JSON (avoids “Unexpected end of JSON input”)
+async function safeJson(req: NextRequest) {
+  try {
+    const txt = await req.text();
+    return txt ? JSON.parse(txt) : {};
+  } catch {
+    return {};
+  }
 }
 
-async function saveAuthenticator(userId: string, authenticator: Authenticator) {
+// Get authenticators
+async function getAuthenticators(userId: string): Promise<Authenticator[]> {
   const { db } = await getAdminServices();
-  const userRef = db.collection('users').doc(userId);
-  const existingAuthenticators = await getAuthenticators(userId);
-  await userRef.set(
-    { authenticators: [...existingAuthenticators, authenticator] },
+  const doc = await db.collection('users').doc(userId).get();
+  if (!doc.exists) return [];
+  return doc.data()?.authenticators || [];
+}
+
+// Save authenticator
+async function saveAuthenticator(userId: string, auth: Authenticator) {
+  const { db } = await getAdminServices();
+  const existing = await getAuthenticators(userId);
+  await db.collection('users').doc(userId).set(
+    {
+      authenticators: [...existing, auth],
+    },
     { merge: true }
   );
 }
 
-export async function POST(request: NextRequest, { params }: { params: { route: string[] } }) {
-  const { db, auth: adminAuth } = await getAdminServices();
-  const route = params.route;
+// ==================== MAIN POST HANDLER ===================== //
 
-  // Safely parse JSON body — if the body is empty or invalid, fall back to {}
-  let body: any = {};
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { route: string[] } }
+) {
   try {
-    body = await request.json();
-  } catch (err) {
-    // If the incoming request has no JSON body, we continue with an empty object.
-    body = {};
-  }
+    const { db, auth: adminAuth } = await getAdminServices();
 
-  if (!route || route.length === 0) {
-    return NextResponse.json({ error: 'Invalid route' }, { status: 400 });
-  }
+    const route = params.route;
+    if (!route || route.length === 0) {
+      return NextResponse.json({ error: 'Invalid route' }, { status: 400 });
+    }
 
-  const action = route[0];
-  const userId = route.length > 1 ? route[1] : undefined;
+    // Safely parse body
+    const body = await safeJson(request);
 
-  switch (action) {
-    case 'generate-registration-options': {
-      if (!userId) return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    const action = route[0];
+    const userId = route[1];
 
-      const userDoc = await db.collection('users').doc(userId).get();
-      if (!userDoc.exists) return NextResponse.json({ error: 'User not found' }, { status: 404 });
-      const user = userDoc.data() as AppUser;
+    // ==============================
+    // 1. GENERATE REGISTRATION OPTIONS
+    // ==============================
+    if (action === 'generate-registration-options') {
+      if (!userId)
+        return NextResponse.json({ error: 'User ID missing' }, { status: 400 });
 
-      const userAuthenticators = await getAuthenticators(userId);
+      const doc = await db.collection('users').doc(userId).get();
+      if (!doc.exists)
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+
+      const user = doc.data() as AppUser;
+
+      const existingAuth = await getAuthenticators(userId);
 
       const opts: GenerateRegistrationOptionsOpts = {
         rpName,
         rpID,
-        userID: user.id,
+        userID: userId,
         userName: user.email,
         timeout: 60000,
         attestationType: 'none',
-        excludeCredentials: userAuthenticators.map((auth) => ({
+        excludeCredentials: existingAuth.map((auth) => ({
           id: isoBase64URL.toBuffer(auth.credentialID),
           type: 'public-key',
           transports: auth.transports,
@@ -90,75 +111,107 @@ export async function POST(request: NextRequest, { params }: { params: { route: 
       };
 
       const options = await generateRegistrationOptions(opts);
-      await db.collection('users').doc(userId).set({ currentChallenge: options.challenge }, { merge: true });
+
+      await db.collection('users').doc(userId).set(
+        { currentChallenge: options.challenge },
+        { merge: true }
+      );
 
       return NextResponse.json(options);
     }
 
-    case 'verify-registration': {
-      if (!userId) return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    // ==============================
+    // 2. VERIFY REGISTRATION
+    // ==============================
+    if (action === 'verify-registration') {
+      if (!userId)
+        return NextResponse.json({ error: 'User ID missing' }, { status: 400 });
 
-      const userDoc = await db.collection('users').doc(userId).get();
-      if (!userDoc.exists) return NextResponse.json({ error: 'User not found' }, { status: 404 });
-      const user = userDoc.data() as AppUser;
+      const doc = await db.collection('users').doc(userId).get();
+      if (!doc.exists)
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-      const expectedChallenge = user.currentChallenge;
-      if (!expectedChallenge) return NextResponse.json({ error: 'No challenge found for user' }, { status: 400 });
-      
+      const user = doc.data() as AppUser;
+
+      const challenge = user.currentChallenge;
+      if (!challenge)
+        return NextResponse.json({ error: 'No challenge found' }, { status: 400 });
+
       let verification: VerifiedRegistrationResponse;
+
       try {
         const opts: VerifyRegistrationResponseOpts = {
           response: body,
-          expectedChallenge: `${expectedChallenge}`,
+          expectedChallenge: `${challenge}`,
           expectedOrigin: origin,
           expectedRPID: rpID,
           requireUserVerification: true,
         };
+
         verification = await verifyRegistrationResponse(opts);
-      } catch (error: any) {
-        console.error(error);
-        return NextResponse.json({ error: error?.message || 'Verification failed' }, { status: 400 });
+      } catch (err: any) {
+        console.error('REGISTRATION VERIFY ERROR:', err);
+        return NextResponse.json(
+          { error: err?.message || 'Registration verification failed' },
+          { status: 400 }
+        );
       }
 
       const { verified, registrationInfo } = verification;
 
       if (verified && registrationInfo) {
         const { credentialPublicKey, credentialID, counter } = registrationInfo;
+
         const newAuthenticator: Authenticator = {
           credentialID: isoBase64URL.fromBuffer(credentialID),
           credentialPublicKey: isoBase64URL.fromBuffer(credentialPublicKey),
           counter,
-          transports: (body?.response?.transports as string[]) || [],
+          transports: body?.response?.transports || [],
         };
+
         await saveAuthenticator(userId, newAuthenticator);
       }
 
-      await db.collection('users').doc(userId).set({ currentChallenge: null }, { merge: true });
+      await db
+        .collection('users')
+        .doc(userId)
+        .set({ currentChallenge: null }, { merge: true });
+
       return NextResponse.json({ verified });
     }
-    
-    case 'generate-authentication-options': {
-      let user: AppUser | null = null;
-      if (body.email) {
-          const userSnapshot = await db.collection('users').where('email', '==', body.email).limit(1).get();
-          if (!userSnapshot.empty) {
-              const doc = userSnapshot.docs[0];
-              user = { id: doc.id, ...doc.data() } as AppUser;
-          }
-      }
 
-      if (!user) {
-          return NextResponse.json({ error: 'User not found or no authenticators registered' }, { status: 404 });
-      }
+    // ======================================
+    // 3. GENERATE AUTHENTICATION OPTIONS
+    // ======================================
+    if (action === 'generate-authentication-options') {
+      const email = body.email;
+      if (!email)
+        return NextResponse.json({ error: 'Email required' }, { status: 400 });
 
-      const userAuthenticators = await getAuthenticators(user.id);
-      if (userAuthenticators.length === 0) {
-        return NextResponse.json({ error: 'No authenticators registered for this user' }, { status: 400 });
+      const snap = await db
+        .collection('users')
+        .where('email', '==', email)
+        .limit(1)
+        .get();
+
+      if (snap.empty)
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+
+      const userDoc = snap.docs[0];
+      const user = { id: userDoc.id, ...userDoc.data() } as AppUser;
+
+      const auths = await getAuthenticators(user.id);
+
+      if (auths.length === 0) {
+        return NextResponse.json(
+          { error: 'No authenticators registered for this user' },
+          { status: 400 }
+        );
       }
 
       const opts: GenerateAuthenticationOptionsOpts = {
         timeout: 60000,
-        allowCredentials: userAuthenticators.map(auth => ({
+        allowCredentials: auths.map((auth) => ({
           id: isoBase64URL.toBuffer(auth.credentialID),
           type: 'public-key',
           transports: auth.transports,
@@ -168,87 +221,140 @@ export async function POST(request: NextRequest, { params }: { params: { route: 
       };
 
       const options = await generateAuthenticationOptions(opts);
-      await db.collection('users').doc(user.id).set({ currentChallenge: options.challenge }, { merge: true });
+
+      await db
+        .collection('users')
+        .doc(user.id)
+        .set({ currentChallenge: options.challenge }, { merge: true });
 
       return NextResponse.json(options);
     }
-    
-    case 'verify-authentication': {
-        const { email } = body;
-        if (!email) {
-            return NextResponse.json({ error: 'Email is required for authentication verification' }, { status: 400 });
-        }
-        const userSnapshot = await db.collection('users').where('email', '==', email).limit(1).get();
-        if (userSnapshot.empty) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
-        const userDoc = userSnapshot.docs[0];
-        const user = { id: userDoc.id, ...userDoc.data() } as AppUser;
 
-        const expectedChallenge = user.currentChallenge;
-        if (!expectedChallenge) return NextResponse.json({ error: 'No challenge found for user' }, { status: 400 });
-        
-        const userAuthenticators = await getAuthenticators(user.id);
+    // ======================================
+    // 4. VERIFY AUTHENTICATION
+    // ======================================
+    if (action === 'verify-authentication') {
+      const { email } = body;
 
-        // assertion ID might be provided as `body.id` or `body.rawId` depending on client.
-        const assertionId = body.id || body.rawId;
-        if (!assertionId) {
-          return NextResponse.json({ error: 'Authenticator ID is required in body.id or body.rawId' }, { status: 400 });
-        }
+      if (!email)
+        return NextResponse.json(
+          { error: 'Email required for verification' },
+          { status: 400 }
+        );
 
-        const authenticator = userAuthenticators.find(auth => auth.credentialID === assertionId);
-        
-        if (!authenticator) {
-            return NextResponse.json({ error: `Could not find authenticator with ID ${assertionId}` }, { status: 404 });
-        }
-        
-        let verification: VerifiedAuthenticationResponse;
-        try {
-            const opts: VerifyAuthenticationResponseOpts = {
-                response: body,
-                expectedChallenge: `${expectedChallenge}`,
-                expectedOrigin: origin,
-                expectedRPID: rpID,
-                authenticator: {
-                  ...authenticator,
-                  credentialID: isoBase64URL.toBuffer(authenticator.credentialID),
-                  credentialPublicKey: isoBase64URL.toBuffer(authenticator.credentialPublicKey),
-                },
-                requireUserVerification: true,
-            };
-            verification = await verifyAuthenticationResponse(opts);
-        } catch (error: any) {
-            console.error(error);
-            return NextResponse.json({ error: error?.message || 'Authentication verification failed' }, { status: 400 });
-        }
+      const snap = await db
+        .collection('users')
+        .where('email', '==', email)
+        .limit(1)
+        .get();
 
-        const { verified, authenticationInfo } = verification;
-        
-        if (verified) {
-            const { newCounter } = authenticationInfo;
-            await db.collection('users').doc(user.id).set({ currentChallenge: null }, { merge: true });
+      if (snap.empty)
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-            const updatedAuthenticator = { ...authenticator, counter: newCounter };
-            const otherAuthenticators = userAuthenticators.filter(auth => auth.credentialID !== assertionId);
-            await db.collection('users').doc(user.id).update({
-                authenticators: [...otherAuthenticators, updatedAuthenticator],
-            });
-            
-            const customToken = await adminAuth.createCustomToken(user.id);
-            
-            return NextResponse.json({ verified: true, customToken });
-        }
-        
+      const doc = snap.docs[0];
+      const user = { id: doc.id, ...doc.data() } as AppUser;
+
+      const challenge = user.currentChallenge;
+      if (!challenge)
+        return NextResponse.json(
+          { error: 'No challenge found for user' },
+          { status: 400 }
+        );
+
+      const authenticatorId = body.id || body.rawId;
+      if (!authenticatorId)
+        return NextResponse.json(
+          { error: 'Authenticator ID missing' },
+          { status: 400 }
+        );
+
+      const auths = await getAuthenticators(user.id);
+      const selected = auths.find(
+        (a) => a.credentialID === authenticatorId
+      );
+
+      if (!selected)
+        return NextResponse.json(
+          { error: 'Authenticator not found' },
+          { status: 404 }
+        );
+
+      let verification: VerifiedAuthenticationResponse;
+
+      try {
+        const opts: VerifyAuthenticationResponseOpts = {
+          response: body,
+          expectedChallenge: `${challenge}`,
+          expectedOrigin: origin,
+          expectedRPID: rpID,
+          authenticator: {
+            ...selected,
+            credentialID: isoBase64URL.toBuffer(selected.credentialID),
+            credentialPublicKey: isoBase64URL.toBuffer(
+              selected.credentialPublicKey
+            ),
+          },
+          requireUserVerification: true,
+        };
+
+        verification = await verifyAuthenticationResponse(opts);
+      } catch (err: any) {
+        console.error('AUTH VERIFY ERROR:', err);
+        return NextResponse.json(
+          { error: err?.message || 'Authentication failed' },
+          { status: 400 }
+        );
+      }
+
+      const { verified, authenticationInfo } = verification;
+
+      if (!verified)
         return NextResponse.json({ verified: false }, { status: 401 });
+
+      // Update counter
+      const updated = {
+        ...selected,
+        counter: authenticationInfo.newCounter,
+      };
+
+      const remaining = auths.filter(
+        (a) => a.credentialID !== selected.credentialID
+      );
+
+      await db
+        .collection('users')
+        .doc(user.id)
+        .update({ authenticators: [...remaining, updated] });
+
+      await db
+        .collection('users')
+        .doc(user.id)
+        .set({ currentChallenge: null }, { merge: true });
+
+      const customToken = await adminAuth.createCustomToken(user.id);
+
+      return NextResponse.json({
+        verified: true,
+        customToken,
+      });
     }
 
-    default:
-      return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+  } catch (error: any) {
+    console.error('MAIN ROUTE ERROR:', error);
+    return NextResponse.json(
+      {
+        error: error?.message || 'Unhandled API error',
+      },
+      { status: 500 }
+    );
   }
 }
 
-// For safety, do NOT forward GET to POST (which expects a JSON body).
-// Return a clear message for GET — change this if you want GET behavior implemented.
-export async function GET(request: NextRequest, context: { params: { route: string[] } }) {
-  return NextResponse.json({ error: 'Use POST for this endpoint' }, { status: 405 });
+// GET disabled
+export async function GET() {
+  return NextResponse.json(
+    { error: 'Use POST' },
+    { status: 405 }
+  );
 }
