@@ -1,3 +1,4 @@
+
 'use client';
 import {
   Card,
@@ -19,8 +20,11 @@ import { useToast } from '@/hooks/use-toast';
 import type { AuthError } from 'firebase/auth';
 import { 
     createUserWithEmailAndPassword, 
-    signInWithEmailAndPassword 
+    signInWithEmailAndPassword,
+    signInWithCustomToken,
 } from 'firebase/auth';
+import { Fingerprint, Loader2 } from 'lucide-react';
+import { startAuthentication } from '@simplewebauthn/browser';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -35,6 +39,7 @@ export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isWebAuthnPending, startWebAuthnTransition] = useTransition();
   const { auth, user, isUserLoading } = useFirebase();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -58,6 +63,63 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '' },
   });
+
+  const { email } = form.watch();
+
+  const handleWebAuthnLogin = async () => {
+    if (!email) {
+      toast({ variant: 'destructive', title: 'Email required', description: 'Please enter your email address to sign in with your fingerprint.' });
+      return;
+    }
+    
+    startWebAuthnTransition(async () => {
+      try {
+        // 1. Get options from server
+        const respOptions = await fetch('/api/auth/webauthn/generate-authentication-options', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+
+        if (!respOptions.ok) {
+          const errorData = await respOptions.json();
+          throw new Error(errorData.error || 'Failed to get authentication options.');
+        }
+
+        const options = await respOptions.json();
+        
+        // 2. Sign the challenge
+        const assertion = await startAuthentication(options);
+
+        // 3. Verify the assertion with the server
+        const verificationResp = await fetch('/api/auth/webauthn/verify-authentication', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...assertion, email }),
+        });
+        
+        const verificationJSON = await verificationResp.json();
+        
+        if (verificationJSON && verificationJSON.verified) {
+            // 4. Use custom token to sign in on the client
+            await signInWithCustomToken(auth, verificationJSON.customToken);
+            toast({ title: 'Welcome back!', description: 'Successfully signed in with your fingerprint.' });
+            // The useEffect will handle the redirect
+        } else {
+            throw new Error(verificationJSON.error || 'Fingerprint verification failed.');
+        }
+
+      } catch (error: any) {
+        console.error(error);
+        setError(error.message);
+        toast({
+          variant: 'destructive',
+          title: 'Fingerprint Login Failed',
+          description: error.message || 'Could not sign you in.',
+        });
+      }
+    });
+  };
 
   const handleAuthError = (err: AuthError, email: string) => {
     setError(err.message);
@@ -106,7 +168,7 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -121,6 +183,28 @@ export default function LoginPage() {
                 </p>
               )}
             </div>
+            {!isSignUp && (
+              <div className="space-y-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleWebAuthnLogin}
+                    disabled={isWebAuthnPending || !email}
+                  >
+                    {isWebAuthnPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Fingerprint className="mr-2 h-4 w-4" />}
+                    Sign in with fingerprint
+                  </Button>
+              </div>
+            )}
+            <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+                </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <Input
@@ -134,13 +218,14 @@ export default function LoginPage() {
                 </p>
               )}
             </div>
+
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={isPending || isUserLoading}>
               {isPending
                 ? 'Processing...'
                 : isSignUp
                 ? 'Create Account'
-                : 'Sign In'}
+                : 'Sign In with Password'}
             </Button>
           </form>
           <div className="mt-6 text-center text-sm">

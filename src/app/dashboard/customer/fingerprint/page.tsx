@@ -1,0 +1,126 @@
+
+'use client';
+
+import { useState, useEffect, useTransition } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
+import { useFirebase } from '@/firebase';
+import { startRegistration } from '@simplewebauthn/browser';
+import { Fingerprint, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
+export default function FingerprintRegistrationPage() {
+    const { user, isUserLoading } = useFirebase();
+    const { toast } = useToast();
+    const router = useRouter();
+    const [isRegistering, startRegistrationTransition] = useTransition();
+
+    useEffect(() => {
+        if (!isUserLoading && !user) {
+            router.push('/login?redirectTo=/dashboard/customer/fingerprint');
+        }
+    }, [isUserLoading, user, router]);
+
+    const handleRegister = async () => {
+        if (!user) {
+            toast({ variant: 'destructive', title: 'You must be logged in to register.' });
+            return;
+        }
+
+        startRegistrationTransition(async () => {
+            try {
+                // 1. Get registration options from the server
+                const respOptions = await fetch(`/api/auth/webauthn/generate-registration-options/${user.uid}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({}),
+                });
+
+                if (!respOptions.ok) {
+                    const errorData = await respOptions.json();
+                    throw new Error(errorData.error || 'Failed to get registration options.');
+                }
+                
+                const options = await respOptions.json();
+
+                // 2. Pass options to the browser's WebAuthn API
+                const attestation = await startRegistration(options);
+
+                // 3. Send the response to the server for verification
+                const verificationResp = await fetch(`/api/auth/webauthn/verify-registration/${user.uid}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(attestation),
+                });
+                
+                const verificationJSON = await verificationResp.json();
+
+                if (verificationJSON && verificationJSON.verified) {
+                    toast({
+                        title: 'Success!',
+                        description: 'Your fingerprint has been registered.',
+                    });
+                } else {
+                    throw new Error(verificationJSON.error || 'Failed to verify registration.');
+                }
+            } catch (error: any) {
+                console.error(error);
+                toast({
+                    variant: 'destructive',
+                    title: 'Registration Failed',
+                    description: error.message || 'An unknown error occurred.',
+                });
+            }
+        });
+    };
+
+    if (isUserLoading) {
+        return <p>Loading...</p>
+    }
+
+    return (
+        <div className="container mx-auto py-12 px-4 md:px-6">
+            <Card className="max-w-2xl mx-auto">
+                <CardHeader>
+                    <CardTitle className="text-3xl font-headline flex items-center gap-2">
+                        <Fingerprint className="h-8 w-8 text-primary" />
+                        <span>Manage Fingerprint Login</span>
+                    </CardTitle>
+                    <CardDescription>
+                        Register your device to enable secure, passwordless login using your fingerprint or other biometrics.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <Alert>
+                        <CheckCircle className="h-4 w-4" />
+                        <AlertTitle>How it works</AlertTitle>
+                        <AlertDescription>
+                            This uses the WebAuthn standard, which creates a secure key on your device. Your fingerprint never leaves your device; it only unlocks this key.
+                        </AlertDescription>
+                    </Alert>
+                    <Button
+                        onClick={handleRegister}
+                        disabled={isRegistering}
+                        className="w-full"
+                        size="lg"
+                    >
+                        {isRegistering ? (
+                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Registering...</>
+                        ) : (
+                            <><Fingerprint className="mr-2 h-4 w-4" /> Register This Device</>
+                        )}
+                    </Button>
+                    <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>Note</AlertTitle>
+                        <AlertDescription>
+                            You will need to register each new device or browser you wish to log in from. Registered authenticators cannot be removed from this UI yet.
+                        </AlertDescription>
+                    </Alert>
+                </CardContent>
+            </Card>
+        </div>
+    );
+}

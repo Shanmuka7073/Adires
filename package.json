@@ -11,6 +11,8 @@
     "clean": "rm -rf .next"
   },
   "dependencies": {
+    "@simplewebauthn/browser": "^10.0.0",
+    "@simplewebauthn/server": "^10.0.0",
     "@genkit-ai/firebase": "^1.2.1",
     "@genkit-ai/google-genai": "^1.1.2",
     "@hookform/resolvers": "^3.9.0",

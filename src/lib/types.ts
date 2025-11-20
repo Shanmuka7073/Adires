@@ -39,6 +39,14 @@ export type Store = {
   isClosed?: boolean;
 };
 
+// WebAuthn types
+export type Authenticator = {
+  credentialID: string;
+  credentialPublicKey: Uint8Array;
+  counter: number;
+  transports?: AuthenticatorTransport[];
+};
+
 export type User = {
     id: string;
     firstName: string;
@@ -46,6 +54,8 @@ export type User = {
     email: string;
     address: string;
     phoneNumber: string;
+    authenticators?: Authenticator[];
+    currentChallenge?: string;
 }
 
 export type CartItem = {

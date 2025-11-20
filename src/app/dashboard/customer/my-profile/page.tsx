@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { doc, setDoc } from 'firebase/firestore';
 import { useTransition, useEffect } from 'react';
 import type { User as AppUser } from '@/lib/types';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Loader2, Sparkles, Fingerprint } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useProfileFormStore } from '@/lib/store';
 import Link from 'next/link';
@@ -89,7 +89,7 @@ export default function MyProfilePage() {
     }
     
     startSaveTransition(() => {
-        const profileData = {
+        const profileData: Omit<AppUser, 'authenticators' | 'currentChallenge'> = {
             id: user.uid,
             firstName: data.firstName,
             lastName: data.lastName,
@@ -223,6 +223,24 @@ export default function MyProfilePage() {
                     <Button asChild className="w-full">
                         <Link href="/dashboard/customer/voice-id">
                             Manage Your Voice ID
+                        </Link>
+                    </Button>
+                </CardContent>
+            </Card>
+            <Card className="bg-secondary/20 border-secondary/40">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Fingerprint className="h-5 w-5 text-secondary-foreground" />
+                        Fingerprint Login
+                    </CardTitle>
+                    <CardDescription>
+                        Enable passwordless login by registering your device's fingerprint sensor.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button asChild className="w-full">
+                        <Link href="/dashboard/customer/fingerprint">
+                            Manage Fingerprint Login
                         </Link>
                     </Button>
                 </CardContent>
