@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import {
   generateRegistrationOptions,
@@ -22,7 +21,6 @@ const rpID = process.env.NEXT_PUBLIC_RP_ID || 'localhost';
 const rpName = 'LocalBasket';
 const origin = process.env.NEXT_PUBLIC_ORIGIN || `https://${rpID}`;
 
-
 async function getAuthenticators(userId: string): Promise<Authenticator[]> {
   const { db } = await getAdminServices();
   const userRef = db.collection('users').doc(userId);
@@ -42,11 +40,18 @@ async function saveAuthenticator(userId: string, authenticator: Authenticator) {
   );
 }
 
-
 export async function POST(request: NextRequest, { params }: { params: { route: string[] } }) {
   const { db, auth: adminAuth } = await getAdminServices();
   const route = params.route;
-  const body = await request.json();
+
+  // Safely parse JSON body — if the body is empty or invalid, fall back to {}
+  let body: any = {};
+  try {
+    body = await request.json();
+  } catch (err) {
+    // If the incoming request has no JSON body, we continue with an empty object.
+    body = {};
+  }
 
   if (!route || route.length === 0) {
     return NextResponse.json({ error: 'Invalid route' }, { status: 400 });
@@ -111,7 +116,7 @@ export async function POST(request: NextRequest, { params }: { params: { route: 
         verification = await verifyRegistrationResponse(opts);
       } catch (error: any) {
         console.error(error);
-        return NextResponse.json({ error: error.message }, { status: 400 });
+        return NextResponse.json({ error: error?.message || 'Verification failed' }, { status: 400 });
       }
 
       const { verified, registrationInfo } = verification;
@@ -120,9 +125,9 @@ export async function POST(request: NextRequest, { params }: { params: { route: 
         const { credentialPublicKey, credentialID, counter } = registrationInfo;
         const newAuthenticator: Authenticator = {
           credentialID: isoBase64URL.fromBuffer(credentialID),
-          credentialPublicKey: isoBase64URL.fromBuffer(credentialPublicKey), // Convert to Base64 string
+          credentialPublicKey: isoBase64URL.fromBuffer(credentialPublicKey),
           counter,
-          transports: body.response.transports || [],
+          transports: (body?.response?.transports as string[]) || [],
         };
         await saveAuthenticator(userId, newAuthenticator);
       }
@@ -167,7 +172,7 @@ export async function POST(request: NextRequest, { params }: { params: { route: 
       return NextResponse.json(options);
     }
     
-     case 'verify-authentication': {
+    case 'verify-authentication': {
         const { email } = body;
         if (!email) {
             return NextResponse.json({ error: 'Email is required for authentication verification' }, { status: 400 });
@@ -183,10 +188,17 @@ export async function POST(request: NextRequest, { params }: { params: { route: 
         if (!expectedChallenge) return NextResponse.json({ error: 'No challenge found for user' }, { status: 400 });
         
         const userAuthenticators = await getAuthenticators(user.id);
-        const authenticator = userAuthenticators.find(auth => auth.credentialID === body.id);
+
+        // assertion ID might be provided as `body.id` or `body.rawId` depending on client.
+        const assertionId = body.id || body.rawId;
+        if (!assertionId) {
+          return NextResponse.json({ error: 'Authenticator ID is required in body.id or body.rawId' }, { status: 400 });
+        }
+
+        const authenticator = userAuthenticators.find(auth => auth.credentialID === assertionId);
         
         if (!authenticator) {
-            return NextResponse.json({ error: `Could not find authenticator with ID ${body.id}` }, { status: 404 });
+            return NextResponse.json({ error: `Could not find authenticator with ID ${assertionId}` }, { status: 404 });
         }
         
         let verification: VerifiedAuthenticationResponse;
@@ -206,7 +218,7 @@ export async function POST(request: NextRequest, { params }: { params: { route: 
             verification = await verifyAuthenticationResponse(opts);
         } catch (error: any) {
             console.error(error);
-            return NextResponse.json({ error: error.message }, { status: 400 });
+            return NextResponse.json({ error: error?.message || 'Authentication verification failed' }, { status: 400 });
         }
 
         const { verified, authenticationInfo } = verification;
@@ -216,7 +228,7 @@ export async function POST(request: NextRequest, { params }: { params: { route: 
             await db.collection('users').doc(user.id).set({ currentChallenge: null }, { merge: true });
 
             const updatedAuthenticator = { ...authenticator, counter: newCounter };
-            const otherAuthenticators = userAuthenticators.filter(auth => auth.credentialID !== body.id);
+            const otherAuthenticators = userAuthenticators.filter(auth => auth.credentialID !== assertionId);
             await db.collection('users').doc(user.id).update({
                 authenticators: [...otherAuthenticators, updatedAuthenticator],
             });
@@ -234,7 +246,8 @@ export async function POST(request: NextRequest, { params }: { params: { route: 
   }
 }
 
-// Handler for all routes, since this is a catch-all route.
+// For safety, do NOT forward GET to POST (which expects a JSON body).
+// Return a clear message for GET — change this if you want GET behavior implemented.
 export async function GET(request: NextRequest, context: { params: { route: string[] } }) {
-    return POST(request, context);
+  return NextResponse.json({ error: 'Use POST for this endpoint' }, { status: 405 });
 }
