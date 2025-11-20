@@ -42,12 +42,12 @@
     },
     {
       "id": "cat-vegetables",
-      "imageUrl": "https://images.unsplash.com/photo-1601648764329-b63e2a27a7c8?w=128&h=128&fit=crop&q=80",
+      "imageUrl": "https://storage.googleapis.com/project-hack-416205-59424/vegetables.png",
       "imageHint": "vegetable basket"
     },
     {
       "id": "cat-fruits",
-      "imageUrl": "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=128&h=128&fit=crop&q=80",
+      "imageUrl": "https://storage.googleapis.com/project-hack-416205-59424/fruits.png",
       "imageHint": "fruits"
     },
     {

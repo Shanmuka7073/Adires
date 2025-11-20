@@ -36,12 +36,6 @@ export default function Home() {
     return allStores.slice(0, 3); // Show 3 featured stores
   }, [allStores]);
 
-  const displayedCategories = useMemo(() => {
-      // Show first 12 categories
-    return groceryData.categories.slice(0, 12);
-  }, []);
-
-
   return (
     <div className="container mx-auto p-4 space-y-12">
       <section>
@@ -50,8 +44,8 @@ export default function Home() {
 
       <section>
         <h2 className="text-2xl font-bold font-headline mb-4">Shop by Category</h2>
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
-          {displayedCategories.map((category) => (
+        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-4">
+          {groceryData.categories.map((category) => (
             <CategoryIcon key={category.categoryName} category={category} />
           ))}
         </div>
@@ -83,4 +77,3 @@ export default function Home() {
     </div>
   );
 }
-
