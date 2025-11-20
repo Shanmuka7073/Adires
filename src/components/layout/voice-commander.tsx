@@ -241,7 +241,7 @@ export function VoiceCommander({
 
 
   useEffect(() => {
-    setHasMounted(true);
+    setHasMounted(hasMounted);
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       const getVoices = () => {
         const voices = window.speechSynthesis.getVoices();
@@ -382,17 +382,6 @@ export function VoiceCommander({
         // --- FIX: Prevent multiple prompts ---
         setHasRunCheckoutPrompt(true);
         
-        // Stop listening before speaking
-        if (recognition && !isSpeakingRef.current) {
-          try {
-            recognition.stop();
-          } catch (e) {
-            // Ignore stop errors
-          }
-        }
-        
-        isSpeakingRef.current = true;
-
         const detectedLang = language;
         const langWithRegion = detectedLang === 'en' ? 'en-IN' : `${detectedLang}-IN`;
 
@@ -1281,4 +1270,3 @@ export function VoiceCommander({
   return null;
 }
 
-    
