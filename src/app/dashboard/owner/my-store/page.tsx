@@ -38,7 +38,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Store, Product, ProductPrice, User as AppUser } from '@/lib/types';
 import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { uploadStoreImage } from '@/app/actions';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
@@ -122,9 +122,8 @@ const createSlug = (text: string) => {
   };
 
 function StoreImageUploader({ store }: { store: Store }) {
-    const { firestore } = useFirebase();
     const { toast } = useToast();
-    const [uploading, setUploading] = useState(false);
+    const [uploading, startUploadTransition] = useTransition();
     const [progress, setProgress] = useState(0);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -196,58 +195,39 @@ function StoreImageUploader({ store }: { store: Store }) {
     };
     
     const handleUpload = () => {
-        if (capturedImage) {
-            fetch(capturedImage)
-                .then(res => res.blob())
-                .then(blob => {
-                    uploadBlob(blob);
-                });
-        } else if (selectedFile) {
-            uploadBlob(selectedFile);
-        } else {
-            return;
-        }
-    };
+        if (!capturedImage) return;
 
-    const uploadBlob = (blob: Blob) => {
-        if (!firestore) return;
+        startUploadTransition(async () => {
+            setProgress(50); // Simulate progress
+            const result = await uploadStoreImage(store.id, capturedImage);
+            setProgress(100);
 
-        setUploading(true);
-        setProgress(0);
-
-        const storage = getStorage();
-        const fileName = `${Date.now()}.jpg`;
-        const storageRef = ref(storage, `store-images/${store.id}/${fileName}`);
-        const uploadTask = uploadBytesResumable(storageRef, blob);
-
-        uploadTask.on(
-            'state_changed',
-            (snapshot) => {
-                const currentProgress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                setProgress(currentProgress);
-            },
-            (error) => {
-                setUploading(false);
-                console.error("Upload failed:", error);
-                toast({ variant: 'destructive', title: 'Upload Failed' });
-            },
-            () => {
-                getDownloadURL(uploadTask.snapshot.ref).then(async (downloadURL) => {
-                    const storeRef = doc(firestore, 'stores', store.id);
-                    await updateDoc(storeRef, { imageUrl: downloadURL });
-                    setUploading(false);
-                    setCapturedImage(null);
-                    setSelectedFile(null);
-                    toast({ title: 'Image Uploaded!' });
+            if (result.success) {
+                toast({ title: 'Image Uploaded!' });
+                setCapturedImage(null);
+                setSelectedFile(null);
+                 // Note: Firestore listener will auto-update the UI with the new image URL.
+            } else {
+                toast({
+                    variant: 'destructive',
+                    title: 'Upload Failed',
+                    description: result.error || 'The server action failed.',
                 });
             }
-        );
+        });
     };
-
+    
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files && event.target.files[0]) {
-            setSelectedFile(event.target.files[0]);
-            setCapturedImage(URL.createObjectURL(event.target.files[0]));
+            const file = event.target.files[0];
+            setSelectedFile(file);
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                setCapturedImage(e.target?.result as string);
+            };
+            reader.readAsDataURL(file);
+            
             setIsCameraOn(false);
         }
     }
@@ -282,7 +262,7 @@ function StoreImageUploader({ store }: { store: Store }) {
                 {uploading ? (
                     <div className="space-y-2">
                         <Progress value={progress} />
-                        <p className="text-xs text-center text-muted-foreground">{t('uploading')}... {Math.round(progress)}%</p>
+                        <p className="text-xs text-center text-muted-foreground">{t('uploading')}...</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-2 gap-4">
