@@ -275,15 +275,13 @@ export function VoiceCommander({
       if (onEndCallback) onEndCallback();
       return;
     }
-
-    // --- Strict Lock ---
+    
     isSpeakingRef.current = true;
     if (recognition) {
       recognition.stop();
     }
     window.speechSynthesis.cancel();
-    // --- End Strict Lock ---
-
+    
     const text = Array.isArray(textOrReplies) 
       ? textOrReplies[Math.floor(Math.random() * textOrReplies.length)] 
       : textOrReplies;
@@ -302,32 +300,23 @@ export function VoiceCommander({
     }
 
     utterance.onend = () => {
-      // --- Release Lock and Restart ---
       isSpeakingRef.current = false;
       if (onEndCallback) onEndCallback();
       if (isEnabledRef.current && recognition) {
-        setTimeout(() => {
-          try {
-            recognition.start();
-          } catch(e) {
-            console.warn("Delayed recognition start failed:", e);
-          }
-        }, 100);
+        try {
+          recognition.start();
+        } catch(e) {}
       }
-      // --- End Release Lock ---
     };
     
     utterance.onerror = (e) => {
       console.error('Speech synthesis error', e);
-      // Ensure the lock is always released
       isSpeakingRef.current = false;
       if (onEndCallback) onEndCallback();
       if (isEnabledRef.current && recognition) {
-        setTimeout(() => {
-          try {
-            recognition.start();
-          } catch(e) {}
-        }, 100);
+        try {
+          recognition.start();
+        } catch(e) {}
       }
     };
 
@@ -360,14 +349,22 @@ export function VoiceCommander({
   const promptTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const runCheckoutPrompt = useCallback(() => {
-      if (pathname !== '/checkout' || !hasMounted || !enabled || isSpeakingRef.current) {
+      if (pathname !== '/checkout' || !hasMounted || !enabled) {
           return;
       }
+
       if (promptTimeoutRef.current) {
-        return;
+        clearTimeout(promptTimeoutRef.current);
       }
 
       promptTimeoutRef.current = setTimeout(() => {
+        // Explicitly stop listening before speaking
+        if (recognition && !isSpeakingRef.current) {
+          recognition.stop();
+        }
+        
+        isSpeakingRef.current = true;
+
         const detectedLang = language;
         const langWithRegion = detectedLang === 'en' ? 'en-IN' : `${detectedLang}-IN`;
 
@@ -377,18 +374,20 @@ export function VoiceCommander({
         if (cartItemsProp.length === 0 && !isWaitingForQuickOrderConfirmation) {
             speak(t('your-cart-is-empty-speech', detectedLang), langWithRegion);
         } else if (!currentAddress || currentAddress.length < 10) {
-            speak(t('should-i-deliver-to-home-or-current-speech', detectedLang), langWithRegion);
-            setIsWaitingForAddressType(true);
+            speak(t('should-i-deliver-to-home-or-current-speech', detectedLang), langWithRegion, () => {
+              setIsWaitingForAddressType(true);
+            });
         } else if (!activeStoreId) {
-            speak(t('which-store-should-fulfill-speech', detectedLang), langWithRegion);
-            setIsWaitingForStoreName(true);
+            speak(t('which-store-should-fulfill-speech', detectedLang), langWithRegion, () => {
+              setIsWaitingForStoreName(true);
+            });
         } else {
             const total = cartTotal + 30;
             const speech = t('finalConfirmPrompt', detectedLang).replace('{total}', `₹${total.toFixed(2)}`);
             speak(speech, langWithRegion);
         }
         promptTimeoutRef.current = null;
-      }, 250);
+      }, 500); // Increased delay to ensure state is stable
   }, [
       pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation,
       cartItemsProp.length, language, speak,
@@ -883,17 +882,14 @@ export function VoiceCommander({
     };
     
     recognition.onend = () => {
-        // Only restart if the mic is supposed to be enabled and the app isn't currently speaking.
         if (isEnabledRef.current && !isSpeakingRef.current) {
-            setTimeout(() => {
-                if (isEnabledRef.current && !isSpeakingRef.current && recognition) {
-                    try {
-                        recognition.start();
-                    } catch(e) {
-                        // This can happen if the component unmounts or state changes rapidly. It's safe to ignore.
-                    }
+            try {
+                recognition.start();
+            } catch (e) {
+                 if (! (e instanceof DOMException && e.name === 'InvalidStateError')) {
+                    console.error("Could not start recognition:", e);
                 }
-            }, 100);
+            }
         }
     };
 
@@ -1245,3 +1241,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
