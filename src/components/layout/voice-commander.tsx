@@ -122,7 +122,6 @@ export function VoiceCommander({
 
   const [speechSynthesisVoices, setSpeechSynthesisVoices] = useState<SpeechSynthesisVoice[]>([]);
   
-  // --- FIX: Add state to track checkout prompt status ---
   const [hasRunCheckoutPrompt, setHasRunCheckoutPrompt] = useState(false);
   
     // --- Performance Optimization: Memoized Alias Maps ---
@@ -186,7 +185,6 @@ export function VoiceCommander({
     setIsWaitingForAddressType(false);
     formFieldToFillRef.current = null;
     useCheckoutStore.getState().setShouldPlaceOrderDirectly(false);
-    // --- FIX: Reset checkout prompt flag ---
     setHasRunCheckoutPrompt(false);
   }, [onSuggestions, setIsWaitingForQuickOrderConfirmation]);
 
@@ -241,7 +239,7 @@ export function VoiceCommander({
 
 
   useEffect(() => {
-    setHasMounted(hasMounted);
+    setHasMounted(true);
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       const getVoices = () => {
         const voices = window.speechSynthesis.getVoices();
@@ -282,13 +280,8 @@ export function VoiceCommander({
     }
     
     isSpeakingRef.current = true;
-    // --- FIX: Stop recognition BEFORE speaking ---
     if (recognition) {
-      try {
-        recognition.stop();
-      } catch (e) {
-        // Ignore errors when stopping recognition
-      }
+      recognition.stop();
     }
     
     window.speechSynthesis.cancel();
@@ -313,32 +306,30 @@ export function VoiceCommander({
     utterance.onend = () => {
       isSpeakingRef.current = false;
       if (onEndCallback) onEndCallback();
-      // --- FIX: Add delay before restarting recognition ---
       setTimeout(() => {
         if (isEnabledRef.current && recognition) {
           try {
             recognition.start();
           } catch(e) {
-            console.log('Recognition restart delayed');
+            // Already started or other state issue, safe to ignore
           }
         }
-      }, 500);
+      }, 250); 
     };
     
     utterance.onerror = (e) => {
       console.error('Speech synthesis error', e);
       isSpeakingRef.current = false;
       if (onEndCallback) onEndCallback();
-      // --- FIX: Add delay before restarting recognition ---
       setTimeout(() => {
         if (isEnabledRef.current && recognition) {
           try {
             recognition.start();
           } catch(e) {
-            console.log('Recognition restart delayed after error');
+             // Already started or other state issue, safe to ignore
           }
         }
-      }, 500);
+      }, 250);
     };
 
     window.speechSynthesis.speak(utterance);
@@ -370,7 +361,7 @@ export function VoiceCommander({
   const promptTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const runCheckoutPrompt = useCallback(() => {
-      if (pathname !== '/checkout' || !hasMounted || !enabled || hasRunCheckoutPrompt) {
+      if (pathname !== '/checkout' || !hasMounted || !enabled || hasRunCheckoutPrompt || isSpeakingRef.current) {
           return;
       }
 
@@ -379,7 +370,6 @@ export function VoiceCommander({
       }
 
       promptTimeoutRef.current = setTimeout(() => {
-        // --- FIX: Prevent multiple prompts ---
         setHasRunCheckoutPrompt(true);
         
         const detectedLang = language;
@@ -388,30 +378,27 @@ export function VoiceCommander({
         const addressInput = typeof document !== 'undefined' ? (document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement) : null;
         const currentAddress = addressInput?.value || '';
         
+        const onPromptEnd = () => setHasRunCheckoutPrompt(false);
+
         if (cartItemsProp.length === 0 && !isWaitingForQuickOrderConfirmation) {
-            speak(t('your-cart-is-empty-speech', detectedLang), langWithRegion, () => {
-              setHasRunCheckoutPrompt(false); // Reset so prompt can run again if needed
-            });
+            speak(t('your-cart-is-empty-speech', detectedLang), langWithRegion, onPromptEnd);
         } else if (!currentAddress || currentAddress.length < 10) {
             speak(t('should-i-deliver-to-home-or-current-speech', detectedLang), langWithRegion, () => {
               setIsWaitingForAddressType(true);
-              setHasRunCheckoutPrompt(false);
+              onPromptEnd();
             });
         } else if (!activeStoreId) {
-            // --- FIX: This was missing - now properly asks for store name ---
             speak(t('which-store-should-fulfill-speech', detectedLang), langWithRegion, () => {
               setIsWaitingForStoreName(true);
-              setHasRunCheckoutPrompt(false);
+              onPromptEnd();
             });
         } else {
             const total = cartTotal + 30;
             const speech = t('finalConfirmPrompt', detectedLang).replace('{total}', `₹${total.toFixed(2)}`);
-            speak(speech, langWithRegion, () => {
-              setHasRunCheckoutPrompt(false);
-            });
+            speak(speech, langWithRegion, onPromptEnd);
         }
         promptTimeoutRef.current = null;
-      }, 800); // Increased delay for more stability
+      }, 500); 
   }, [
       pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, hasRunCheckoutPrompt,
       cartItemsProp.length, language, speak,
@@ -420,7 +407,7 @@ export function VoiceCommander({
   
   useEffect(() => {
       if (pathname === '/checkout' && hasMounted && enabled && voiceTrigger > 0) {
-        setHasRunCheckoutPrompt(false); // Reset on new voice trigger
+        setHasRunCheckoutPrompt(false); 
         runCheckoutPrompt();
       }
   }, [voiceTrigger, pathname, hasMounted, enabled, runCheckoutPrompt]); 
@@ -459,9 +446,7 @@ export function VoiceCommander({
 
   const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null; variant: ProductVariant | null; requestedQty: number; remainingPhrase: string; matchedAlias: string | null; lang: string; }> => {
     
-    // 1. Sanitize and Extract Quantity/Units
     let lowerPhrase = phrase.toLowerCase();
-    // Replace hyphens and other punctuation with spaces, then collapse multiple spaces
     let sanitizedPhrase = lowerPhrase.replace(/[-.,]/g, ' ').replace(/\s+/g, ' ').trim();
 
     let requestedQty = 1;
@@ -501,15 +486,12 @@ export function VoiceCommander({
     }
     let productNamePhrase = remainingWords.join(' ');
 
-    // 2. Find Product
-    // Exact match on the sanitized phrase first
     let productMatch: { product: Product, alias: string, lang: string } | null = null;
     const directMatch = universalProductAliasMap.get(productNamePhrase) || universalProductAliasMap.get(productNamePhrase.replace(/\s+/g, ''));
     
     if (directMatch) {
       productMatch = { ...directMatch, alias: productNamePhrase };
     } else {
-      // Fallback to fuzzy matching if no direct hit
       let bestMatch: { product: Product, alias: string, similarity: number, lang: string } | null = null;
       for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
           const similarity = calculateSimilarity(productNamePhrase, alias);
@@ -528,7 +510,6 @@ export function VoiceCommander({
 
     const { product, lang: detectedLang, alias: matchedAlias } = productMatch;
     
-    // 3. Find the best variant
     let priceData = productPrices[product.name.toLowerCase()];
     if (!priceData && firestore) {
         await fetchProductPrices(firestore, [product.name]);
@@ -558,7 +539,6 @@ export function VoiceCommander({
   const recognizeIntent = useCallback((text: string, spokenLang: string): Intent => {
     const lowerText = text.toLowerCase().trim();
     
-    // 1. SMART ORDER - check for "from" and "to" keywords
     const fromKeywords = ['from', 'at', 'in'];
     const toKeywords = ['to', 'at'];
     const hasFrom = fromKeywords.some(kw => lowerText.includes(` ${kw} `));
@@ -568,28 +548,24 @@ export function VoiceCommander({
         return { type: 'SMART_ORDER', originalText: text, lang: spokenLang };
     }
     
-    // 2. CHECK PRICE
     const priceKeyword = intentKeywords.CHECK_PRICE.find(kw => lowerText.includes(kw));
     if (priceKeyword) {
         const productPhrase = lowerText.replace(priceKeyword, '').trim();
         return { type: 'CHECK_PRICE', productPhrase, originalText: text, lang: spokenLang };
     }
 
-    // 3. REMOVE ITEM
     const removeKeyword = intentKeywords.REMOVE_ITEM.find(kw => lowerText.includes(kw));
     if (removeKeyword) {
         const productPhrase = lowerText.replace(removeKeyword, '').trim();
         return { type: 'REMOVE_ITEM', productPhrase, originalText: text, lang: spokenLang };
     }
     
-    // 4. SHOW DETAILS
     const detailsKeyword = intentKeywords.SHOW_DETAILS.find(kw => lowerText.includes(kw));
     if (detailsKeyword) {
         const target = lowerText.replace(detailsKeyword, '').trim();
         return { type: 'SHOW_DETAILS', target, originalText: text, lang: spokenLang };
     }
 
-    // 5. CONVERSATIONAL/NAVIGATIONAL COMMANDS
     let bestCommandMatch: { key: string, similarity: number } | null = null;
     for (const key in commands) {
       const commandAliases = getAllAliases(key);
@@ -622,7 +598,6 @@ export function VoiceCommander({
       return { type: 'CONVERSATIONAL', commandKey: bestCommandMatch.key, originalText: text, lang: spokenLang };
     }
 
-    // 6. ORDER ITEM (Default Action)
     return { type: 'ORDER_ITEM', originalText: text, lang: spokenLang };
 
   }, [commands, getAllAliases]);
@@ -632,7 +607,6 @@ export function VoiceCommander({
         speak(t('sorry-i-didnt-understand-that', spokenLang), `${spokenLang}-IN`);
         if (!firestore || !user) return;
 
-        // Immediately start AI analysis in the background. Do not await.
         if (aiConfig?.isAliasSuggesterEnabled) {
             console.log("Triggering background AI analysis for failed command...");
             suggestAlias({
@@ -670,17 +644,14 @@ export function VoiceCommander({
                     try {
                         await batch.commit();
                         toast({ title: "AI Self-Correction", description: `Automatically added "${suggestion.originalCommand}" as an alias for "${suggestion.suggestedKey}".`});
-                        // Re-fetch all data to update the VoiceCommander's context in real-time
                         await fetchInitialData(firestore);
                     } catch (err) {
                         console.error("Error auto-saving aliases:", err);
-                        // If auto-save fails, log it as a normal failed command
                         addDoc(collection(firestore, 'failedCommands'), {
                             userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp(),
                         });
                     }
                 } else {
-                    // Log for manual review if confidence is not high enough
                      addDoc(collection(firestore, 'failedCommands'), {
                         userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp(),
                     });
@@ -692,7 +663,6 @@ export function VoiceCommander({
                 });
             });
         } else {
-             // Log for manual review if AI suggester is disabled
             addDoc(collection(firestore, 'failedCommands'), {
                 userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp(),
             });
@@ -715,7 +685,6 @@ export function VoiceCommander({
         updateRecognitionLanguage(langWithRegion);
     }
 
-    // --- CONTEXTUAL RESPONSES ---
     if (itemForPriceCheck) {
         const yesKeywords = ['yes', 'add', 'buy', 'okay', 'yep', 'yeah', 'సరే', 'అవును'];
         const noKeywords = ['no', 'cancel', 'stop', 'వద్దు', 'cancel'];
@@ -892,7 +861,6 @@ export function VoiceCommander({
     };
 
     recognition.onresult = (event) => {
-        // Prevent processing if the app is speaking
         if (isSpeakingRef.current) return;
       const transcript = event.results[event.results.length - 1][0].transcript.trim();
       onStatusUpdate(`Processing: "${transcript}"`);
@@ -908,10 +876,11 @@ export function VoiceCommander({
     
     recognition.onend = () => {
         if (isEnabledRef.current && !isSpeakingRef.current) {
-            // --- FIX: Add small delay before restarting recognition ---
             setTimeout(() => {
                 try {
-                    recognition.start();
+                    if (isEnabledRef.current && !isSpeakingRef.current && recognition) {
+                         recognition.start();
+                    }
                 } catch (e) {
                     if (! (e instanceof DOMException && e.name === 'InvalidStateError')) {
                         console.error("Could not start recognition:", e);
@@ -936,7 +905,6 @@ export function VoiceCommander({
         const langWithRegion = lang === 'en' ? 'en-IN' : `${lang}-IN`;
         if (!firestore) return;
 
-        // 1. Check cache first
         const cachedIngredients = await getCachedRecipe(firestore, dishName);
         if (cachedIngredients) {
             const ingredientsText = cachedIngredients.join(', ');
@@ -944,14 +912,12 @@ export function VoiceCommander({
             return;
         }
 
-        // 2. If not in cache, call AI
         speak(`Let me check the ingredients for ${dishName}...`, langWithRegion);
         try {
             const result = await getIngredientsForDish({ dishName, language: lang });
             if (result.isSuccess && result.ingredients.length > 0) {
                 const ingredientsText = result.ingredients.join(', ');
                 speak(`The main ingredients for ${dishName} are: ${ingredientsText}`, langWithRegion);
-                // 3. Cache the result for future use
                 await cacheRecipe(firestore, dishName, result.ingredients);
             } else {
                 speak(`I'm sorry, I couldn't find the ingredients for ${dishName}.`, langWithRegion);
@@ -1269,4 +1235,3 @@ export function VoiceCommander({
 
   return null;
 }
-
