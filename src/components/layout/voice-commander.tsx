@@ -122,6 +122,9 @@ export function VoiceCommander({
 
   const [speechSynthesisVoices, setSpeechSynthesisVoices] = useState<SpeechSynthesisVoice[]>([]);
   
+  // --- FIX: Add state to track checkout prompt status ---
+  const [hasRunCheckoutPrompt, setHasRunCheckoutPrompt] = useState(false);
+  
     // --- Performance Optimization: Memoized Alias Maps ---
   const universalProductAliasMap = useMemo<AliasToProductMap>(() => {
     const map: AliasToProductMap = new Map();
@@ -183,6 +186,8 @@ export function VoiceCommander({
     setIsWaitingForAddressType(false);
     formFieldToFillRef.current = null;
     useCheckoutStore.getState().setShouldPlaceOrderDirectly(false);
+    // --- FIX: Reset checkout prompt flag ---
+    setHasRunCheckoutPrompt(false);
   }, [onSuggestions, setIsWaitingForQuickOrderConfirmation]);
 
 
@@ -236,7 +241,7 @@ export function VoiceCommander({
 
 
   useEffect(() => {
-    setHasMounted(hasMounted => true);
+    setHasMounted(true);
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       const getVoices = () => {
         const voices = window.speechSynthesis.getVoices();
@@ -277,9 +282,15 @@ export function VoiceCommander({
     }
     
     isSpeakingRef.current = true;
+    // --- FIX: Stop recognition BEFORE speaking ---
     if (recognition) {
-      recognition.stop();
+      try {
+        recognition.stop();
+      } catch (e) {
+        // Ignore errors when stopping recognition
+      }
     }
+    
     window.speechSynthesis.cancel();
     
     const text = Array.isArray(textOrReplies) 
@@ -302,22 +313,32 @@ export function VoiceCommander({
     utterance.onend = () => {
       isSpeakingRef.current = false;
       if (onEndCallback) onEndCallback();
-      if (isEnabledRef.current && recognition) {
-        try {
-          recognition.start();
-        } catch(e) {}
-      }
+      // --- FIX: Add delay before restarting recognition ---
+      setTimeout(() => {
+        if (isEnabledRef.current && recognition) {
+          try {
+            recognition.start();
+          } catch(e) {
+            console.log('Recognition restart delayed');
+          }
+        }
+      }, 500);
     };
     
     utterance.onerror = (e) => {
       console.error('Speech synthesis error', e);
       isSpeakingRef.current = false;
       if (onEndCallback) onEndCallback();
-      if (isEnabledRef.current && recognition) {
-        try {
-          recognition.start();
-        } catch(e) {}
-      }
+      // --- FIX: Add delay before restarting recognition ---
+      setTimeout(() => {
+        if (isEnabledRef.current && recognition) {
+          try {
+            recognition.start();
+          } catch(e) {
+            console.log('Recognition restart delayed after error');
+          }
+        }
+      }, 500);
     };
 
     window.speechSynthesis.speak(utterance);
@@ -349,7 +370,7 @@ export function VoiceCommander({
   const promptTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const runCheckoutPrompt = useCallback(() => {
-      if (pathname !== '/checkout' || !hasMounted || !enabled) {
+      if (pathname !== '/checkout' || !hasMounted || !enabled || hasRunCheckoutPrompt) {
           return;
       }
 
@@ -358,9 +379,16 @@ export function VoiceCommander({
       }
 
       promptTimeoutRef.current = setTimeout(() => {
-        // Explicitly stop listening before speaking
+        // --- FIX: Prevent multiple prompts ---
+        setHasRunCheckoutPrompt(true);
+        
+        // Stop listening before speaking
         if (recognition && !isSpeakingRef.current) {
-          recognition.stop();
+          try {
+            recognition.stop();
+          } catch (e) {
+            // Ignore stop errors
+          }
         }
         
         isSpeakingRef.current = true;
@@ -372,36 +400,44 @@ export function VoiceCommander({
         const currentAddress = addressInput?.value || '';
         
         if (cartItemsProp.length === 0 && !isWaitingForQuickOrderConfirmation) {
-            speak(t('your-cart-is-empty-speech', detectedLang), langWithRegion);
+            speak(t('your-cart-is-empty-speech', detectedLang), langWithRegion, () => {
+              setHasRunCheckoutPrompt(false); // Reset so prompt can run again if needed
+            });
         } else if (!currentAddress || currentAddress.length < 10) {
             speak(t('should-i-deliver-to-home-or-current-speech', detectedLang), langWithRegion, () => {
               setIsWaitingForAddressType(true);
+              setHasRunCheckoutPrompt(false);
             });
         } else if (!activeStoreId) {
+            // --- FIX: This was missing - now properly asks for store name ---
             speak(t('which-store-should-fulfill-speech', detectedLang), langWithRegion, () => {
               setIsWaitingForStoreName(true);
+              setHasRunCheckoutPrompt(false);
             });
         } else {
             const total = cartTotal + 30;
             const speech = t('finalConfirmPrompt', detectedLang).replace('{total}', `₹${total.toFixed(2)}`);
-            speak(speech, langWithRegion);
+            speak(speech, langWithRegion, () => {
+              setHasRunCheckoutPrompt(false);
+            });
         }
         promptTimeoutRef.current = null;
-      }, 500); // Increased delay to ensure state is stable
+      }, 800); // Increased delay for more stability
   }, [
-      pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation,
+      pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, hasRunCheckoutPrompt,
       cartItemsProp.length, language, speak,
       setIsWaitingForAddressType, setIsWaitingForStoreName, cartTotal, t, activeStoreId
   ]);
   
   useEffect(() => {
       if (pathname === '/checkout' && hasMounted && enabled && voiceTrigger > 0) {
+        setHasRunCheckoutPrompt(false); // Reset on new voice trigger
         runCheckoutPrompt();
       }
   }, [voiceTrigger, pathname, hasMounted, enabled, runCheckoutPrompt]); 
 
   useEffect(() => {
-    if (pathname === '/checkout' && enabled && !isSpeakingRef.current) {
+    if (pathname === '/checkout' && enabled && !isSpeakingRef.current && !hasRunCheckoutPrompt) {
       runCheckoutPrompt();
     }
     
@@ -411,7 +447,7 @@ export function VoiceCommander({
         promptTimeoutRef.current = null;
       }
     };
-  }, [activeStoreId, runCheckoutPrompt, enabled, pathname]);
+  }, [activeStoreId, runCheckoutPrompt, enabled, pathname, hasRunCheckoutPrompt]);
 
 
   useEffect(() => {
@@ -883,13 +919,16 @@ export function VoiceCommander({
     
     recognition.onend = () => {
         if (isEnabledRef.current && !isSpeakingRef.current) {
-            try {
-                recognition.start();
-            } catch (e) {
-                 if (! (e instanceof DOMException && e.name === 'InvalidStateError')) {
-                    console.error("Could not start recognition:", e);
+            // --- FIX: Add small delay before restarting recognition ---
+            setTimeout(() => {
+                try {
+                    recognition.start();
+                } catch (e) {
+                    if (! (e instanceof DOMException && e.name === 'InvalidStateError')) {
+                        console.error("Could not start recognition:", e);
+                    }
                 }
-            }
+            }, 300);
         }
     };
 
