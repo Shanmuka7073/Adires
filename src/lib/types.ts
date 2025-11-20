@@ -55,7 +55,7 @@ export type User = {
     address: string;
     phoneNumber: string;
     authenticators?: Authenticator[];
-    currentChallenge?: string;
+    currentChallenge?: string | null; // Can be null
 }
 
 export type CartItem = {

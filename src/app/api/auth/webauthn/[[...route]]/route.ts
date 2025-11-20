@@ -16,7 +16,7 @@ import type {
 } from '@simplewebauthn/server';
 import { getAdminServices } from '@/firebase/admin-init';
 import type { User as AppUser, Authenticator } from '@/lib/types';
-import { sessionLogin, sessionLogout } from '@/firebase/session-login';
+import { sessionLogin } from '@/firebase/session-login';
 
 const rpID = process.env.NEXT_PUBLIC_RP_ID || 'localhost';
 const rpName = 'LocalBasket';
@@ -221,8 +221,10 @@ export async function POST(request: NextRequest, { params }: { params: { route: 
             // Create a custom token for Firebase client-side sign-in
             const customToken = await adminAuth.createCustomToken(user.id);
 
-            // Log the user in on the server-side via session cookie
-            await sessionLogin(customToken);
+            // This is the correct way to handle server-side sessions
+            // It needs to be called from a Server Action, not a standard API route.
+            // Since the client handles the sign-in with the custom token, this is not strictly necessary here.
+            // await sessionLogin(customToken);
 
             return NextResponse.json({ verified: true, customToken });
         }
