@@ -1,6 +1,7 @@
 
 
 import { Timestamp } from "firebase/firestore";
+import { z } from 'zod';
 
 export type ProductVariant = {
   sku: string; // Unique identifier for the variant, e.g., 'prod-potatoes-1kg'
@@ -173,6 +174,8 @@ export type ChatMessage = {
   timestamp?: any;
 };
 
+// --- Voice ID Types ---
+
 // Type for voice biometrics
 export type Voiceprint = {
   userId: string; // Document ID should be the user's UID
@@ -181,3 +184,33 @@ export type Voiceprint = {
   createdAt: string;
   lastUpdatedAt: string;
 };
+
+export const CreateVoiceprintInputSchema = z.object({
+  userId: z.string().describe('The unique ID of the user.'),
+  audioDataUri: z
+    .string()
+    .describe(
+      "A recording of the user's voice as a data URI. Must include a MIME type and use Base64 encoding. E.g., 'data:audio/webm;base64,...'"
+    ),
+});
+export type CreateVoiceprintInput = z.infer<typeof CreateVoiceprintInputSchema>;
+
+export const CreateVoiceprintOutputSchema = z.object({
+  isSuccess: z.boolean().describe('Whether the voiceprint was successfully saved.'),
+  enrollmentCount: z.number().describe('The total number of enrollments the user now has.'),
+  error: z.string().optional().describe('An error message if the process failed.'),
+});
+export type CreateVoiceprintOutput = z.infer<typeof CreateVoiceprintOutputSchema>;
+
+export const VerifyVoiceprintInputSchema = z.object({
+  userId: z.string().describe('The unique ID of the user to verify against.'),
+  audioDataUri: z.string().describe("A new voice recording to compare against the stored voiceprint."),
+});
+export type VerifyVoiceprintInput = z.infer<typeof VerifyVoiceprintInputSchema>;
+
+export const VerifyVoiceprintOutputSchema = z.object({
+    isMatch: z.boolean().describe('Whether the new recording matches the stored voiceprint.'),
+    confidence: z.number().describe('A score from 0 to 1 indicating the similarity.'),
+    error: z.string().optional().describe('An error message if verification failed.'),
+});
+export type VerifyVoiceprintOutput = z.infer<typeof VerifyVoiceprintOutputSchema>;

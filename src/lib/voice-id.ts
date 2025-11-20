@@ -3,43 +3,8 @@
  * @fileOverview A library for creating and verifying voiceprints for user authentication without external AI.
  */
 
-import { getFirestore } from 'firebase-admin/firestore';
 import { getAdminServices } from '@/firebase/admin-init';
-import type { Voiceprint } from '@/lib/types';
-import { z } from 'zod';
-
-// --- SCHEMA DEFINITIONS ---
-
-export const CreateVoiceprintInputSchema = z.object({
-  userId: z.string().describe('The unique ID of the user.'),
-  audioDataUri: z
-    .string()
-    .describe(
-      "A recording of the user's voice as a data URI. Must include a MIME type and use Base64 encoding. E.g., 'data:audio/webm;base64,...'"
-    ),
-});
-export type CreateVoiceprintInput = z.infer<typeof CreateVoiceprintInputSchema>;
-
-export const CreateVoiceprintOutputSchema = z.object({
-  isSuccess: z.boolean().describe('Whether the voiceprint was successfully saved.'),
-  enrollmentCount: z.number().describe('The total number of enrollments the user now has.'),
-  error: z.string().optional().describe('An error message if the process failed.'),
-});
-export type CreateVoiceprintOutput = z.infer<typeof CreateVoiceprintOutputSchema>;
-
-export const VerifyVoiceprintInputSchema = z.object({
-  userId: z.string().describe('The unique ID of the user to verify against.'),
-  audioDataUri: z.string().describe("A new voice recording to compare against the stored voiceprint."),
-});
-export type VerifyVoiceprintInput = z.infer<typeof VerifyVoiceprintInputSchema>;
-
-export const VerifyVoiceprintOutputSchema = z.object({
-    isMatch: z.boolean().describe('Whether the new recording matches the stored voiceprint.'),
-    confidence: z.number().describe('A score from 0 to 1 indicating the similarity.'),
-    error: z.string().optional().describe('An error message if verification failed.'),
-});
-export type VerifyVoiceprintOutput = z.infer<typeof VerifyVoiceprintOutputSchema>;
-
+import type { Voiceprint, CreateVoiceprintInput, CreateVoiceprintOutput, VerifyVoiceprintInput, VerifyVoiceprintOutput } from '@/lib/types';
 
 // --- CORE FUNCTIONS ---
 
@@ -139,9 +104,9 @@ export async function verifyVoiceprint(input: VerifyVoiceprintInput): Promise<Ve
 
     try {
         const { db } = await getAdminServices();
-        const voiceprintRef = doc(db, 'voiceprints', input.userId);
+        const voiceprintRef = db.collection('voiceprints').doc(input.userId);
 
-        const docSnap = await getDoc(voiceprintRef);
+        const docSnap = await voiceprintRef.get();
         if (!docSnap.exists()) {
             return { isMatch: false, confidence: 0, error: 'User has not enrolled a voiceprint.' };
         }
