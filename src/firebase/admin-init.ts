@@ -18,12 +18,12 @@ export async function getAdminServices(): Promise<AdminServices> {
     return adminServices;
   }
 
+  // In a managed environment like App Hosting, initializeApp() with no arguments
+  // automatically discovers credentials.
   const app =
     getApps().length > 0
       ? getApps()[0]
-      : initializeApp({
-          projectId: firebaseConfig.projectId,
-        });
+      : initializeApp();
 
   const auth = getAuth(app);
   const db = getFirestore(app);
