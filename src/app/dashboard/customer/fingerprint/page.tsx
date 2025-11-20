@@ -38,12 +38,11 @@ export default function FingerprintRegistrationPage() {
                     body: JSON.stringify({}),
                 });
 
-                if (!respOptions.ok) {
-                    const errorData = await respOptions.json();
-                    throw new Error(errorData.error || 'Failed to get registration options.');
-                }
-                
                 const options = await respOptions.json();
+
+                if (!respOptions.ok) {
+                    throw new Error(options.error || 'Failed to get registration options.');
+                }
 
                 // 2. Pass options to the browser's WebAuthn API
                 const attestation = await startRegistration(options);
@@ -56,6 +55,10 @@ export default function FingerprintRegistrationPage() {
                 });
                 
                 const verificationJSON = await verificationResp.json();
+
+                if (!verificationResp.ok) {
+                    throw new Error(verificationJSON.error || 'Failed to verify registration.');
+                }
 
                 if (verificationJSON && verificationJSON.verified) {
                     toast({
