@@ -305,9 +305,13 @@ export function VoiceCommander({
       isSpeakingRef.current = false;
       if (onEndCallback) onEndCallback();
       if (isEnabledRef.current && recognition) {
-        try {
-          recognition.start();
-        } catch(e) {}
+        setTimeout(() => {
+            try {
+                recognition.start();
+            } catch(e) {
+                // Log or handle the InvalidStateError if it still occurs
+            }
+        }, 100); // 100ms delay
       }
     };
     
@@ -316,9 +320,11 @@ export function VoiceCommander({
       isSpeakingRef.current = false;
       if (onEndCallback) onEndCallback();
       if (isEnabledRef.current && recognition) {
-        try {
-          recognition.start();
-        } catch(e) {}
+        setTimeout(() => {
+            try {
+                recognition.start();
+            } catch(e) {}
+        }, 100);
       }
     };
 
@@ -873,7 +879,13 @@ export function VoiceCommander({
     
     recognition.onend = () => {
         if (isEnabledRef.current && !isSpeakingRef.current) {
-             if (recognition) recognition.start();
+            setTimeout(() => {
+                if (isEnabledRef.current && !isSpeakingRef.current && recognition) {
+                    try {
+                        recognition.start();
+                    } catch(e) {}
+                }
+            }, 100);
         }
     };
 
