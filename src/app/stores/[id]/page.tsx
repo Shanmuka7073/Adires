@@ -1,13 +1,13 @@
 
-
 'use client';
 import { Store, Product, ProductPrice } from '@/lib/types';
 import groceryData from '@/lib/grocery-data.json';
 import { useParams, notFound } from 'next/navigation';
-import { getProductPrice, getProducts, getStore } from '@/lib/data';
+import { useDoc, useCollection, useMemoFirebase, useFirebase } from '@/firebase';
+import { collection, doc, query, where } from 'firebase/firestore';
+import { getProductPrice } from '@/lib/data';
 import { CategoryClient } from './category-client';
-import { useFirebase } from '@/firebase';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function StoreDetailPage() {
@@ -15,47 +15,47 @@ export default function StoreDetailPage() {
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
 
-  const [data, setData] = useState<{ store: Store; products: Product[]; productPrices: Record<string, ProductPrice | null> } | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const storeDocRef = useMemoFirebase(() => firestore ? doc(firestore, 'stores', id) : null, [firestore, id]);
+  const { data: store, isLoading: isStoreLoading, error: storeError } = useDoc<Store>(storeDocRef);
+
+  const productsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'stores', id, 'products')) : null, [firestore, id]);
+  const { data: products, isLoading: areProductsLoading } = useCollection<Product>(productsQuery);
+
+  const [productPrices, setProductPrices] = useState<Record<string, ProductPrice | null>>({});
+  const [arePricesLoading, setArePricesLoading] = useState(true);
 
   useEffect(() => {
-    if (!firestore || !id) return;
+    if (!firestore || !products) return;
 
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        const store = await getStore(firestore, id);
-        if (!store) {
-          setError(true);
-          return;
-        }
-
-        const products = await getProducts(firestore, id);
-        const pricePromises = products.map(p => getProductPrice(firestore, p.name));
-        const priceResults = await Promise.all(pricePromises);
-        const productPrices = products.reduce((acc, product, index) => {
-          acc[product.name.toLowerCase()] = priceResults[index];
-          return acc;
-        }, {} as Record<string, ProductPrice | null>);
-
-        setData({ store, products, productPrices });
-      } catch (e) {
-        console.error(e);
-        setError(true);
-      } finally {
-        setIsLoading(false);
-      }
+    const fetchPrices = async () => {
+      setArePricesLoading(true);
+      const pricePromises = products.map(p => getProductPrice(firestore, p.name));
+      const priceResults = await Promise.all(pricePromises);
+      const prices = products.reduce((acc, product, index) => {
+        acc[product.name.toLowerCase()] = priceResults[index];
+        return acc;
+      }, {} as Record<string, ProductPrice | null>);
+      setProductPrices(prices);
+      setArePricesLoading(false);
     };
 
-    fetchData();
-  }, [firestore, id]);
+    fetchPrices();
+  }, [firestore, products]);
+  
+  const isLoading = isStoreLoading || areProductsLoading || arePricesLoading;
 
-  if (error) {
+  if (storeError) {
     notFound();
   }
 
-  if (isLoading || !data) {
+  const storeCategories = useMemo(() => {
+    if (!products) return [];
+    return [...new Set(products.map(p => p.category || 'Miscellaneous'))]
+      .map(catName => groceryData.categories.find(gc => gc.categoryName === catName))
+      .filter(Boolean) as { categoryName: string; items: string[] }[];
+  }, [products]);
+
+  if (isLoading || !store || !products) {
     return (
       <div className="container mx-auto py-12 px-4 md:px-6">
         <Skeleton className="h-12 w-1/2 mb-8" />
@@ -69,11 +69,6 @@ export default function StoreDetailPage() {
     );
   }
 
-  const { store, products, productPrices } = data;
-
-  const storeCategories = [...new Set(products.map(p => p.category || 'Miscellaneous'))]
-    .map(catName => groceryData.categories.find(gc => gc.categoryName === catName))
-    .filter(Boolean) as { categoryName: string; items: string[] }[];
 
   return (
     <CategoryClient
@@ -81,6 +76,7 @@ export default function StoreDetailPage() {
       initialCategories={storeCategories}
       allProducts={products}
       productPrices={productPrices}
+      isLoading={isLoading}
     />
   );
 }

@@ -7,12 +7,14 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import ProductCard from '@/components/product-card';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface CategoryClientProps {
   store: Store;
   initialCategories: { categoryName: string; items: string[] }[];
   allProducts: Product[];
   productPrices: Record<string, ProductPrice | null>;
+  isLoading: boolean;
 }
 
 function CategorySidebar({ categories, selectedCategory, onSelectCategory }) {
@@ -73,7 +75,7 @@ function CategorySidebar({ categories, selectedCategory, onSelectCategory }) {
   );
 }
 
-export function CategoryClient({ store, initialCategories, allProducts, productPrices }: CategoryClientProps) {
+export function CategoryClient({ store, initialCategories, allProducts, productPrices, isLoading }: CategoryClientProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { setActiveStoreId } = useCart();
@@ -129,7 +131,14 @@ export function CategoryClient({ store, initialCategories, allProducts, productP
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
-            {filteredProducts.length > 0 ? (
+            {isLoading ? (
+                <>
+                    <Skeleton className="h-64 w-full" />
+                    <Skeleton className="h-64 w-full" />
+                    <Skeleton className="h-64 w-full" />
+                    <Skeleton className="h-64 w-full" />
+                </>
+            ) : filteredProducts.length > 0 ? (
               filteredProducts.map((product) => {
                 const priceData = productPrices[product.name.toLowerCase()];
                 return <ProductCard key={product.id} product={product} priceData={priceData} />;
