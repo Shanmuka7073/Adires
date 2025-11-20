@@ -534,21 +534,17 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
   const saveBtnRef = useRef<HTMLButtonElement>(null);
   const { language } = useAppStore();
 
-  // Fetch all products from the master admin store
-  const masterProductsQuery = useMemoFirebase(() => {
-    if (!firestore || !adminStoreId) return null;
-    return collection(firestore, 'stores', adminStoreId, 'products');
-  }, [firestore, adminStoreId]);
-  const { data: masterProducts, isLoading: masterProductsLoading } = useCollection<Product>(masterProductsQuery);
+  const { masterProducts, loading: masterProductsLoading } = useAppStore(state => ({
+    masterProducts: state.masterProducts,
+    loading: state.loading,
+  }));
   
-  // Fetch products currently in this owner's store
   const ownerProductsQuery = useMemoFirebase(() => {
     if (!firestore || !storeId) return null;
     return collection(firestore, 'stores', storeId, 'products');
   }, [firestore, storeId]);
   const { data: ownerProducts, isLoading: ownerProductsLoading } = useCollection<Product>(ownerProductsQuery);
 
-  // State to manage which products are checked
   const [checkedProducts, setCheckedProducts] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -556,11 +552,9 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
     return () => setSaveInventoryBtnRef(null);
   }, [setSaveInventoryBtnRef, saveBtnRef]);
 
-  // When owner's products load, initialize the checked state
   useEffect(() => {
     if (ownerProducts) {
       const initialCheckedState = ownerProducts.reduce((acc, product) => {
-        // Use master product name as the key for consistency
         acc[product.name] = true;
         return acc;
       }, {});
@@ -586,7 +580,6 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
             const isInStore = ownerProductMap.has(masterProduct.name);
 
             if (isChecked && !isInStore) {
-                // Add product to store, but WITHOUT price variants
                 const newProductRef = doc(collection(firestore, 'stores', storeId, 'products'));
                 const { variants, ...productData } = masterProduct;
                 const newProductData = {
@@ -597,7 +590,6 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
                 batch.set(newProductRef, newProductData);
                 addedCount++;
             } else if (!isChecked && isInStore) {
-                // Remove product from store
                 const productIdToRemove = ownerProductMap.get(masterProduct.name);
                 if (productIdToRemove) {
                     const productRef = doc(firestore, 'stores', storeId, 'products', productIdToRemove);
@@ -620,6 +612,18 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
     });
   };
 
+  const productsByCategory = useMemo(() => {
+    if (!masterProducts) return {};
+    return masterProducts.reduce((acc, product) => {
+        const category = product.category || 'Miscellaneous';
+        if (!acc[category]) {
+            acc[category] = [];
+        }
+        acc[category].push(product);
+        return acc;
+    }, {} as Record<string, Product[]>);
+  }, [masterProducts]);
+
   if (masterProductsLoading || ownerProductsLoading) {
     return <p>Loading product list...</p>
   }
@@ -633,16 +637,6 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
           </Alert>
       )
   }
-  
-  const productsByCategory = masterProducts.reduce((acc, product) => {
-      const category = product.category || 'Miscellaneous';
-      if (!acc[category]) {
-          acc[category] = [];
-      }
-      acc[category].push(product);
-      return acc;
-  }, {} as Record<string, Product[]>);
-
 
   return (
       <Card>
@@ -2020,3 +2014,4 @@ export default function MyStorePage() {
         </div>
     );
 }
+

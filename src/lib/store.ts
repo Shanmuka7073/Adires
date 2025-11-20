@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { create } from 'zustand';
@@ -57,7 +58,10 @@ export const useAppStore = create<AppState>()(
       },
 
       fetchInitialData: async (db: Firestore) => {
-        // No need to check for loading status here, always refetch to get latest data
+        // Prevent re-fetching if data is already loaded and not in a loading state
+        if (!get().loading && get().stores.length > 0 && get().masterProducts.length > 0) {
+          return;
+        }
         set({ loading: true, error: null });
         try {
           const aliasGroupCollection = collection(db, 'voiceAliasGroups');
@@ -181,3 +185,4 @@ export const useMyStorePageStore = create<MyStorePageState>((set) => ({
   saveInventoryBtnRef: null,
   setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
 }));
+
