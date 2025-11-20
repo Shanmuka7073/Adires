@@ -23,13 +23,16 @@ interface ProductCardProps {
 export default function ProductCard({ product, priceData }: ProductCardProps) {
   const { addItem, setActiveStoreId } = useCart();
   const { toast } = useToast();
-  const getProductName = useAppStore(state => state.getProductName);
   
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [image, setImage] = useState({ imageUrl: '', imageHint: 'loading' });
   
   const priceVariants = useMemo(() => priceData?.variants || [], [priceData]);
   const isLoadingPrice = priceData === undefined;
+  
+  const productNameKey = product.name.toLowerCase().replace(/ /g, '-');
+  const englishName = t(productNameKey, 'en');
+  const teluguName = t(productNameKey, 'te');
 
   useEffect(() => {
     const fetchImage = async () => {
@@ -91,7 +94,8 @@ export default function ProductCard({ product, priceData }: ProductCardProps) {
         </div>
       </CardHeader>
       <CardContent className="p-2 pb-1 flex-1 text-center">
-        <CardTitle className="text-sm font-headline truncate">{getProductName(product)}</CardTitle>
+        <CardTitle className="text-sm font-headline truncate">{englishName}</CardTitle>
+        <p className="text-xs text-muted-foreground">{teluguName}</p>
         {isLoadingPrice ? (
             <Skeleton className="h-6 w-20 mx-auto mt-1" />
         ) : (

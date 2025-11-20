@@ -32,7 +32,10 @@ const DELIVERY_FEE = 30;
 function CartRow({ item, image }) {
   const { removeItem, updateQuantity } = useCart();
   const { product, variant, quantity } = item;
-  const getProductName = useAppStore(state => state.getProductName);
+
+  const productNameKey = product.name.toLowerCase().replace(/ /g, '-');
+  const englishName = t(productNameKey, 'en');
+  const teluguName = t(productNameKey, 'te');
 
   return (
     <TableRow>
@@ -47,7 +50,8 @@ function CartRow({ item, image }) {
             className="rounded-md object-cover"
           />
           <div>
-            <span className="font-medium">{getProductName(product)}</span>
+            <span className="font-medium">{englishName}</span>
+            <p className="text-sm text-muted-foreground">{teluguName}</p>
             <p className="text-sm text-muted-foreground">{variant.weight}</p>
           </div>
         </div>
@@ -79,7 +83,10 @@ function CartRow({ item, image }) {
 function MobileCartItem({ item, image }) {
     const { removeItem, updateQuantity } = useCart();
     const { product, variant, quantity } = item;
-    const getProductName = useAppStore(state => state.getProductName);
+
+    const productNameKey = product.name.toLowerCase().replace(/ /g, '-');
+    const englishName = t(productNameKey, 'en');
+    const teluguName = t(productNameKey, 'te');
 
     return (
         <Card>
@@ -93,7 +100,10 @@ function MobileCartItem({ item, image }) {
                     className="rounded-lg object-cover"
                 />
                 <div className="flex-1 space-y-2">
-                    <p className="font-semibold">{getProductName(product)} <span className="font-normal text-muted-foreground">({variant.weight})</span></p>
+                    <div>
+                        <p className="font-semibold">{englishName} <span className="font-normal text-muted-foreground">({variant.weight})</span></p>
+                        <p className="text-xs text-muted-foreground">{teluguName}</p>
+                    </div>
                     <p className="font-bold text-lg">₹{(variant.price * quantity).toFixed(2)}</p>
                      <div className="flex items-center gap-2">
                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(variant.sku, quantity - 1)}>

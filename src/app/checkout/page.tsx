@@ -53,14 +53,18 @@ const DELIVERY_FEE = 30;
 
 function OrderSummaryItem({ item, image }) {
     const { product, variant, quantity } = item;
-    const getProductName = useAppStore(state => state.getProductName);
+    
+    const productNameKey = product.name.toLowerCase().replace(/ /g, '-');
+    const englishName = t(productNameKey, 'en');
+    const teluguName = t(productNameKey, 'te');
 
     return (
         <div className="flex justify-between items-center">
             <div className="flex items-center gap-4">
                 <Image src={image.imageUrl} alt={product.name} data-ai-hint={image.imageHint} width={48} height={48} className="rounded-md" />
                 <div>
-                    <p className="font-medium">{getProductName(product)} <span className="text-sm text-muted-foreground">({variant.weight})</span></p>
+                    <p className="font-medium">{englishName} <span className="text-sm text-muted-foreground">({variant.weight})</span></p>
+                    <p className="text-xs text-muted-foreground">{teluguName}</p>
                     <p className="text-sm text-muted-foreground">Qty: {quantity}</p>
                 </div>
             </div>
