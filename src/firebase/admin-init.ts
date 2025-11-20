@@ -1,18 +1,33 @@
+'use server';
 
-import { initializeApp, applicationDefault } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
-import { getAuth } from "firebase-admin/auth";
+import { initializeApp, getApps, App } from 'firebase-admin/app';
+import { getAuth, Auth } from 'firebase-admin/auth';
+import { getFirestore, Firestore } from 'firebase-admin/firestore';
+import { firebaseConfig } from './config';
 
-let app;
-
-if (!global._firebaseApp) {
-  app = initializeApp({
-    credential: applicationDefault(),
-  });
-  global._firebaseApp = app;
-} else {
-  app = global._firebaseApp;
+interface AdminServices {
+  app: App;
+  auth: Auth;
+  db: Firestore;
 }
 
-export const adminDb = getFirestore(app);
-export const adminAuth = getAuth(app);
+let adminServices: AdminServices | null = null;
+
+export async function getAdminServices(): Promise<AdminServices> {
+  if (adminServices) {
+    return adminServices;
+  }
+
+  const app =
+    getApps().length > 0
+      ? getApps()[0]
+      : initializeApp({
+          projectId: firebaseConfig.projectId,
+        });
+
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  adminServices = { app, auth, db };
+  return adminServices;
+}
