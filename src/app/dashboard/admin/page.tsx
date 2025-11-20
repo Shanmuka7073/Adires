@@ -231,6 +231,12 @@ export default function AdminDashboardPage() {
                         href="/dashboard/admin/admin-init-help"
                         icon={KeyRound}
                     />
+                     <AdminActionCard
+                        title="Voice Commander Code"
+                        description="View the source code for the main voice command processing logic."
+                        href="/dashboard/admin/voice-commander-help"
+                        icon={Mic}
+                    />
                 </div>
             </div>
         </div>
