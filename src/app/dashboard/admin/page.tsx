@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -224,6 +224,12 @@ export default function AdminDashboardPage() {
                         description="View the source code for the main server actions file."
                         href="/dashboard/admin/actions-help"
                         icon={Server}
+                    />
+                     <AdminActionCard
+                        title="Admin Init Code"
+                        description="View the source code for the Firebase Admin SDK initialization."
+                        href="/dashboard/admin/admin-init-help"
+                        icon={KeyRound}
                     />
                 </div>
             </div>
