@@ -276,14 +276,13 @@ export function VoiceCommander({
       return;
     }
 
-    // Set the speaking flag immediately to prevent other actions
+    // --- Strict Lock ---
     isSpeakingRef.current = true;
-    
-    // Cancel any current speech and stop recognition
-    window.speechSynthesis.cancel();
     if (recognition) {
       recognition.stop();
     }
+    window.speechSynthesis.cancel();
+    // --- End Strict Lock ---
 
     const text = Array.isArray(textOrReplies) 
       ? textOrReplies[Math.floor(Math.random() * textOrReplies.length)] 
@@ -303,31 +302,31 @@ export function VoiceCommander({
     }
 
     utterance.onend = () => {
+      // --- Release Lock and Restart ---
       isSpeakingRef.current = false;
       if (onEndCallback) onEndCallback();
-      // Defer the restart to give the engine time to settle
       if (isEnabledRef.current && recognition) {
         setTimeout(() => {
-            try {
-                recognition.start();
-            } catch(e) {
-                // This might still happen in rare cases, log it for debugging
-                console.warn("Delayed recognition start failed:", e);
-            }
+          try {
+            recognition.start();
+          } catch(e) {
+            console.warn("Delayed recognition start failed:", e);
+          }
         }, 100);
       }
+      // --- End Release Lock ---
     };
     
     utterance.onerror = (e) => {
       console.error('Speech synthesis error', e);
+      // Ensure the lock is always released
       isSpeakingRef.current = false;
       if (onEndCallback) onEndCallback();
-      // Also try to restart recognition on error
       if (isEnabledRef.current && recognition) {
         setTimeout(() => {
-            try {
-                recognition.start();
-            } catch(e) {}
+          try {
+            recognition.start();
+          } catch(e) {}
         }, 100);
       }
     };
@@ -869,6 +868,8 @@ export function VoiceCommander({
     };
 
     recognition.onresult = (event) => {
+        // Prevent processing if the app is speaking
+        if (isSpeakingRef.current) return;
       const transcript = event.results[event.results.length - 1][0].transcript.trim();
       onStatusUpdate(`Processing: "${transcript}"`);
       handleCommand(transcript);
@@ -884,15 +885,12 @@ export function VoiceCommander({
     recognition.onend = () => {
         // Only restart if the mic is supposed to be enabled and the app isn't currently speaking.
         if (isEnabledRef.current && !isSpeakingRef.current) {
-            // Use a small delay to avoid race conditions.
             setTimeout(() => {
-                // Double-check the conditions before starting.
                 if (isEnabledRef.current && !isSpeakingRef.current && recognition) {
                     try {
                         recognition.start();
                     } catch(e) {
-                        // This can happen if the component unmounts or state changes rapidly.
-                        // It's generally safe to ignore.
+                        // This can happen if the component unmounts or state changes rapidly. It's safe to ignore.
                     }
                 }
             }, 100);
