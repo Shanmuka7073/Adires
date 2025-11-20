@@ -12,12 +12,13 @@ import { useCart } from '@/lib/cart';
 import { useAppStore } from '@/lib/store';
 import { useMyStorePageStore } from '@/lib/store';
 import { t } from '@/lib/locales';
-import { doc, getDoc, serverTimestamp, addDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, addDoc, collection, query, where, getDocs, writeBatch, arrayUnion } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { useCheckoutStore } from '@/app/checkout/page';
 import { useProfileFormStore, ProfileFormValues } from '@/lib/store';
 import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
+import { suggestAlias, SuggestAliasOutput } from '@/ai/flows/suggest-alias-flow';
 
 
 export interface Command {
@@ -92,7 +93,7 @@ export function VoiceCommander({
   const { firestore, user } = useFirebase();
   const { clearCart, addItem: addItemToCart, removeItem, updateQuantity, activeStoreId, setActiveStoreId, cartTotal } = useCart();
 
-  const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands, loading: isAppStoreLoading } = useAppStore();
+  const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands, loading: isAppStoreLoading, fetchInitialData } = useAppStore();
 
   const { form: profileForm } = useProfileFormStore();
   const { saveInventoryBtnRef } = useMyStorePageStore();
@@ -594,6 +595,78 @@ export function VoiceCommander({
   }, [commands, getAllAliases]);
 
 
+    const handleCommandFailure = useCallback(async (commandText: string, spokenLang: string, reason: string) => {
+        speak(t('sorry-i-didnt-understand-that', spokenLang), `${spokenLang}-IN`);
+        if (!firestore || !user) return;
+
+        // Immediately start AI analysis in the background. Do not await.
+        if (aiConfig?.isAliasSuggesterEnabled) {
+            console.log("Triggering background AI analysis for failed command...");
+            suggestAlias({
+                commandText,
+                language: spokenLang,
+                itemNames: [...masterProducts.map(p => p.name), ...stores.map(s => s.name)]
+            }).then(async (suggestion) => {
+                if (suggestion.isSuggestionAvailable && suggestion.similarityScore > 0.8) {
+                    console.log(`High confidence suggestion found (${suggestion.similarityScore}). Auto-approving.`);
+                    const batch = writeBatch(firestore);
+                    const aliasGroupRef = doc(firestore, 'voiceAliasGroups', suggestion.suggestedKey);
+                    
+                    const aliasesByLang: Record<string, string[]> = {};
+                    const originalLang = spokenLang.split('-')[0];
+                    if (!aliasesByLang[originalLang]) aliasesByLang[originalLang] = [];
+                    aliasesByLang[originalLang].push(suggestion.originalCommand);
+
+                    suggestion.suggestedAliases.forEach(aliasInfo => {
+                        const lang = aliasInfo.lang;
+                        if (!aliasesByLang[lang]) aliasesByLang[lang] = [];
+                        aliasesByLang[lang].push(aliasInfo.alias);
+                        if (aliasInfo.transliteratedAlias) {
+                            aliasesByLang[lang].push(aliasInfo.transliteratedAlias);
+                        }
+                    });
+                    
+                    const updates: Record<string, any> = {};
+                    for (const lang in aliasesByLang) {
+                        const uniqueAliases = [...new Set(aliasesByLang[lang])];
+                        updates[lang] = arrayUnion(...uniqueAliases);
+                    }
+                    
+                    batch.set(aliasGroupRef, updates, { merge: true });
+
+                    try {
+                        await batch.commit();
+                        toast({ title: "AI Self-Correction", description: `Automatically added "${suggestion.originalCommand}" as an alias for "${suggestion.suggestedKey}".`});
+                        // Re-fetch all data to update the VoiceCommander's context in real-time
+                        await fetchInitialData(firestore);
+                    } catch (err) {
+                        console.error("Error auto-saving aliases:", err);
+                        // If auto-save fails, log it as a normal failed command
+                        addDoc(collection(firestore, 'failedCommands'), {
+                            userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp(),
+                        });
+                    }
+                } else {
+                    // Log for manual review if confidence is not high enough
+                     addDoc(collection(firestore, 'failedCommands'), {
+                        userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp(),
+                    });
+                }
+            }).catch(aiError => {
+                console.error("AI suggestion flow failed:", aiError);
+                 addDoc(collection(firestore, 'failedCommands'), {
+                    userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp(),
+                });
+            });
+        } else {
+             // Log for manual review if AI suggester is disabled
+            addDoc(collection(firestore, 'failedCommands'), {
+                userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp(),
+            });
+        }
+    }, [firestore, user, speak, aiConfig?.isAliasSuggesterEnabled, masterProducts, stores, toast, fetchInitialData, t]);
+
+
   const handleCommand = useCallback(async (commandText: string) => {
     if (!firestore || !user) {
         speak("I can't process commands without being connected. Please log in.", 'en-IN');
@@ -626,12 +699,11 @@ export function VoiceCommander({
         } else if (noKeywords.some(kw => commandText.toLowerCase().includes(kw))) {
             speak("Okay.", langWithRegion);
         } else {
-            // If the response is not a clear yes/no, assume it's a new command.
-            resetAllContext(); // Clear the price-check context first
-            handleCommand(commandText); // Re-process the command
+            resetAllContext();
+            handleCommand(commandText);
             return;
         }
-        resetAllContext(); // Reset context after handling the yes/no response.
+        resetAllContext();
         return;
     }
     if (isWaitingForAddressType) {
@@ -640,8 +712,7 @@ export function VoiceCommander({
         
         const homeSimilarity = Math.max(...homeKeywords.map(kw => calculateSimilarity(commandText.toLowerCase(), kw)));
         const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(commandText.toLowerCase(), kw)));
-
-        // Immediately reset context after this interaction.
+        
         resetAllContext();
 
         if (homeSimilarity > 0.6 && homeSimilarity > locationSimilarity) {
@@ -652,9 +723,7 @@ export function VoiceCommander({
             speak(t('using-current-location-speech', spokenLang), langWithRegion, triggerVoicePrompt);
         } else {
             speak(t('did-not-understand-address-type-speech', spokenLang), langWithRegion, triggerVoicePrompt);
-            if (firestore && user) {
-                addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: commandText, language: spokenLang, reason: `Address type clarification failed. Similarities: Home=${homeSimilarity.toFixed(2)}, Location=${locationSimilarity.toFixed(2)}`, timestamp: serverTimestamp() });
-            }
+            handleCommandFailure(commandText, spokenLang, `Address type clarification failed. Similarities: Home=${homeSimilarity.toFixed(2)}, Location=${locationSimilarity.toFixed(2)}`);
         }
         return;
     }
@@ -668,7 +737,6 @@ export function VoiceCommander({
             }
         }
         
-        // Immediately reset context after this interaction.
         resetAllContext();
 
        if (bestMatch && bestMatch.similarity > 0.6) {
@@ -679,16 +747,13 @@ export function VoiceCommander({
            });
        } else {
            speak(t('could-not-find-store-speech', spokenLang).replace('{storeName}', commandText), langWithRegion, triggerVoicePrompt);
-            if (firestore && user) {
-                addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: commandText, language: spokenLang, reason: `Store clarification failed. Best match: ${bestMatch?.store.name} (${bestMatch?.similarity.toFixed(2)})`, timestamp: serverTimestamp() });
-            }
+           handleCommandFailure(commandText, spokenLang, `Store clarification failed. Best match: ${bestMatch?.store.name} (${bestMatch?.similarity.toFixed(2)})`);
        }
        return;
     }
     
     if (formFieldToFillRef.current && profileForm) {
         profileForm.setValue(formFieldToFillRef.current, commandText, { shouldValidate: true });
-        // The form interaction itself will set the next context.
         handleProfileFormInteraction();
         return;
     }
@@ -698,7 +763,7 @@ export function VoiceCommander({
     
     if (separatorUsed && recognizeIntent(commandText, spokenLang).type === 'ORDER_ITEM') {
         await commandActionsRef.current.orderMultipleItems(commandText.split(new RegExp(` ${separatorUsed} `, 'i')), spokenLang, commandText);
-        return; // Multi-item order is a terminal action for this command cycle.
+        return;
     }
 
     const intent = recognizeIntent(commandText, spokenLang);
@@ -718,7 +783,7 @@ export function VoiceCommander({
             
         case 'CHECK_PRICE':
             await commandActionsRef.current.checkPrice({ phrase: intent.productPhrase, lang: intent.lang, originalText: intent.originalText });
-            break; // This sets a context, so no reset here.
+            break;
 
         case 'REMOVE_ITEM':
             await commandActionsRef.current.removeItemFromCart({ phrase: intent.productPhrase, lang: intent.lang });
@@ -743,11 +808,11 @@ export function VoiceCommander({
             break;
         }
         case 'ORDER_ITEM':
-            const { product, variant, requestedQty, matchedAlias, lang: itemLang, remainingPhrase } = await findProductAndVariant(commandText);
+            const { product, variant, requestedQty, remainingPhrase } = await findProductAndVariant(commandText);
             if (product && variant) {
                 addItemToCart(product, variant, requestedQty);
                 onOpenCart();
-                const productLang = itemLang || spokenLang;
+                const productLang = spokenLang;
                 const replyProductName = t(product.name.toLowerCase().replace(/ /g, '-'), productLang);
 
                 let speech = t('adding-item-speech', productLang)
@@ -757,28 +822,13 @@ export function VoiceCommander({
 
                 speak(speech, productLang + '-IN');
             } else {
-                // Log the failure and inform the user.
-                speak("I'm sorry, I'm still learning that item. I will try to remember it for next time.", langWithRegion);
-                if (firestore && user) {
-                    addDoc(collection(firestore, 'failedCommands'), {
-                        userId: user.uid,
-                        commandText: commandText,
-                        language: spokenLang,
-                        reason: `ORDER_ITEM intent failed. Product not found or no variants. Phrase: "${remainingPhrase}"`,
-                        timestamp: serverTimestamp(),
-                    });
-                }
+                handleCommandFailure(commandText, spokenLang, `ORDER_ITEM intent failed. Product not found or no variants. Phrase: "${remainingPhrase}"`);
             }
             break;
 
         case 'UNKNOWN':
         default:
-            speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
-            if (firestore && user) {
-                addDoc(collection(firestore, 'failedCommands'), {
-                    userId: user.uid, commandText, language: spokenLang, reason: 'UNKNOWN intent', timestamp: serverTimestamp(),
-                });
-            }
+            handleCommandFailure(commandText, spokenLang, 'UNKNOWN intent');
             break;
     }
   }, [
@@ -787,7 +837,7 @@ export function VoiceCommander({
       findProductAndVariant, addItemToCart, onOpenCart, t, getProductName,
       locales, commands, getAllAliases, recognizeIntent, aiConfig,
       homeAddressBtnRef, currentLocationBtnRef, triggerVoicePrompt, setActiveStoreId,
-      storeAliasMap, profileForm, handleProfileFormInteraction
+      storeAliasMap, profileForm, handleProfileFormInteraction, handleCommandFailure
   ]);
 
     // Effect to handle retrying a command
@@ -987,17 +1037,12 @@ export function VoiceCommander({
 
         } else {
           speak(t('no-price-found-speech', detectedLang).replace('{productName}', getProductName(product)), detectedLang + '-IN');
-          if (firestore && user) {
-            addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: detectedLang, reason: `Price check: product "${product.name}" found but no price data available.`, timestamp: serverTimestamp() });
-          }
-           return;
+          handleCommandFailure(originalText, detectedLang, `Price check: product "${product.name}" found but no price data available.`);
+          return;
         }
       }
       
-      speak(t('sorry-i-didnt-understand-that', lang), lang + '-IN');
-      if (firestore && user) {
-        addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: lang, reason: `Price check: product not found in phrase "${phrase}".`, timestamp: serverTimestamp() });
-      }
+      handleCommandFailure(originalText, lang, `Price check: product not found in phrase "${phrase}".`);
     },
     removeItemFromCart: async ({ phrase, lang }: { phrase?: string; lang: string }) => {
         if (!phrase) return;
@@ -1025,9 +1070,10 @@ export function VoiceCommander({
     orderMultipleItems: async (phrases: string[], lang: string, originalText: string) => {
         let addedItems: string[] = [];
         let failedItems: string[] = [];
+        const multiplePhrases = phrases.flatMap(p => p.split(new RegExp(` మరియు `, 'i')));
 
-        for (const phrase of phrases) {
-            const { product, variant, requestedQty, lang: itemLang } = await findProductAndVariant(phrase);
+        for (const phrase of multiplePhrases) {
+            const { product, variant, requestedQty } = await findProductAndVariant(phrase);
             if (product && variant) {
                 addItemToCart(product, variant, requestedQty);
                 addedItems.push(getProductName(product));
@@ -1049,10 +1095,7 @@ export function VoiceCommander({
             }
             speak(speech, langWithRegion);
         } else {
-            speak(t('sorry-i-couldnt-find-any-items', langToUse), langWithRegion);
-            if (firestore && user) {
-                addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText: originalText, language: lang, reason: `Multi-order: No products found. Failed items: ${failedItems.join(', ')}`, timestamp: serverTimestamp() });
-            }
+            handleCommandFailure(originalText, lang, `Multi-order: No products found. Failed items: ${failedItems.join(', ')}`);
         }
     },
     handleSmartOrder: async (text: string, lang: string) => {
@@ -1176,20 +1219,16 @@ export function VoiceCommander({
       }
     };
   }, [
-      // This dependency array needs to be exhaustive
-      handleCommand, cartTotal, cartItemsProp, pathname, masterProducts, t, 
-      aiConfig, isAppStoreLoading, getProductName, productPrices, 
-      fetchProductPrices, firestore, user, router, language, setLanguage, 
-      speak, updateRecognitionLanguage, determinePhraseLanguage, resetAllContext, 
-      storeAliasMap, homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, 
-      profileForm, saveInventoryBtnRef, setActiveStoreId, isWaitingForAddressType, 
-      isWaitingForStoreName, handleProfileFormInteraction, runCheckoutPrompt, 
-      addItemToCart, removeItem, onOpenCart, locales, commands, getAllAliases, 
-      triggerVoicePrompt, itemForPriceCheck, recognizeIntent, onCloseCart, 
-      setHomeAddress, setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation,
-      clearCart, updateQuantity
+      handleCommand, cartTotal, cartItemsProp, pathname, masterProducts, t, aiConfig, isAppStoreLoading,
+      productPrices, fetchProductPrices, firestore, user, router, language, setLanguage, speak,
+      updateRecognitionLanguage, determinePhraseLanguage, resetAllContext, storeAliasMap,
+      homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef,
+      setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction,
+      runCheckoutPrompt, getProductName, addItemToCart, removeItem, onOpenCart, locales, commands,
+      getAllAliases, triggerVoicePrompt, itemForPriceCheck, recognizeIntent, onCloseCart, setHomeAddress,
+      setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
+      handleCommandFailure, fetchInitialData
   ]);
 
   return null;
 }
-

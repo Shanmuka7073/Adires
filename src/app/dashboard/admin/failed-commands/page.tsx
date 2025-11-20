@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -23,10 +24,8 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isDeleting, startDelete] = useTransition();
-    const [isProcessingSuggestion, setIsProcessingSuggestion] = useState(false);
     const [isAdding, startAdd] = useTransition();
 
-    const [suggestion, setSuggestion] = useState<SuggestAliasOutput | null>(null);
     const { fetchInitialData } = useAppStore();
 
     const handleAddAlias = useCallback(async (suggestionToAdd: SuggestAliasOutput) => {
@@ -74,34 +73,6 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
         });
     }, [firestore, command.id, command.language, startAdd, toast, fetchInitialData]);
 
-    const handleSuggestFix = useCallback(async () => {
-        setIsProcessingSuggestion(true);
-         try {
-            const result = await suggestAlias({
-                commandText: command.commandText,
-                language: command.language,
-                itemNames: allItemNames
-            });
-            setSuggestion(result);
-
-            // Auto-approve if confidence is high
-            if (result.isSuggestionAvailable && result.similarityScore > 0.5) {
-                await handleAddAlias(result);
-            }
-
-        } catch(error) {
-            console.error("AI Suggestion failed:", error);
-            toast({ variant: 'destructive', title: "AI Error", description: "The suggestion flow failed to execute." });
-        } finally {
-            setIsProcessingSuggestion(false);
-        }
-    }, [command.commandText, command.language, allItemNames, handleAddAlias, toast]);
-    
-    // Automatically trigger suggestion when the component mounts
-    useEffect(() => {
-        handleSuggestFix();
-    }, [handleSuggestFix]);
-
     const handleDelete = async () => {
         if (!firestore) return;
         startDelete(async () => {
@@ -122,83 +93,21 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
         return `${formatDistanceToNow(jsDate, { addSuffix: true })}`;
     }
 
-    const renderSuggestedAliases = () => {
-        if (!suggestion) return null;
-        
-        const aliasesToShow = new Set<string>([suggestion.originalCommand]);
-        suggestion.suggestedAliases.forEach(a => {
-            aliasesToShow.add(a.alias);
-            if (a.transliteratedAlias) {
-                aliasesToShow.add(a.transliteratedAlias);
-            }
-        });
-        
-        return Array.from(aliasesToShow).map(alias => (
-            <Badge key={alias} variant="secondary">{alias}</Badge>
-        ));
-    };
-    
-    // Don't render anything if the suggestion was auto-approved and is being processed
-    if (suggestion?.isSuggestionAvailable && suggestion.similarityScore > 0.5 && (isAdding || isProcessingSuggestion)) {
-        return null;
-    }
-
     return (
-        <>
-            <TableRow>
-                <TableCell>
-                    <p className="font-semibold text-base">{command.commandText}</p>
-                    <Badge variant="outline">{command.language}</Badge>
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">{formatDateSafe(command.timestamp)}</TableCell>
-                <TableCell className="font-mono text-xs max-w-xs truncate">{command.reason}</TableCell>
-                <TableCell className="text-right space-x-2">
-                    {isProcessingSuggestion ? (
-                        <div className="flex items-center justify-end text-muted-foreground">
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            <span>Analyzing...</span>
-                        </div>
-                    ) : (
-                         <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isDeleting}>
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Delete Log</span>
-                        </Button>
-                    )}
-                </TableCell>
-            </TableRow>
-            {suggestion && suggestion.similarityScore <= 0.5 && (
-                <TableRow>
-                    <TableCell colSpan={4}>
-                         <div className="p-4 bg-muted/50 rounded-md">
-                            {suggestion.isSuggestionAvailable ? (
-                                <Alert>
-                                    <Sparkles className="h-4 w-4" />
-                                    <AlertTitle>AI Suggestion (Score: {(suggestion.similarityScore * 100).toFixed(0)}%)</AlertTitle>
-                                    <AlertDescription>
-                                        <p className="mb-2">{suggestion.reasoning}</p>
-                                        <p className="mb-2 text-xs text-muted-foreground">This will map "{suggestion.originalCommand}" to '{suggestion.suggestedKey}' and add these aliases:</p>
-                                        <div className="flex flex-wrap gap-2 mb-4">
-                                            {renderSuggestedAliases()}
-                                        </div>
-                                        <Button size="sm" onClick={() => handleAddAlias(suggestion)} disabled={isAdding}>
-                                            {isAdding ? "Adding..." : `Accept & Add Aliases`}
-                                        </Button>
-                                    </AlertDescription>
-                                </Alert>
-                            ) : (
-                                <Alert variant="destructive">
-                                    <XCircle className="h-4 w-4" />
-                                    <AlertTitle>No Confident Suggestion</AlertTitle>
-                                    <AlertDescription>
-                                        The AI could not confidently match this command. You can delete this log or create a new product/alias manually.
-                                    </AlertDescription>
-                                </Alert>
-                            )}
-                         </div>
-                    </TableCell>
-                </TableRow>
-            )}
-        </>
+        <TableRow>
+            <TableCell>
+                <p className="font-semibold text-base">{command.commandText}</p>
+                <Badge variant="outline">{command.language}</Badge>
+            </TableCell>
+            <TableCell className="text-sm text-muted-foreground">{formatDateSafe(command.timestamp)}</TableCell>
+            <TableCell className="font-mono text-xs max-w-xs truncate">{command.reason}</TableCell>
+            <TableCell className="text-right space-x-2">
+                <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isDeleting}>
+                    <Trash2 className="h-4 w-4" />
+                    <span className="sr-only">Delete Log</span>
+                </Button>
+            </TableCell>
+        </TableRow>
     );
 }
 
@@ -238,7 +147,7 @@ export default function FailedCommandsPage() {
                         <div>
                             <CardTitle className="text-3xl font-headline">AI Training Center</CardTitle>
                             <CardDescription>
-                                Low-confidence suggestions are shown below for manual review. High-confidence suggestions are auto-approved.
+                                High-confidence suggestions are auto-approved by the AI. Low-confidence suggestions appear here for manual review.
                             </CardDescription>
                         </div>
                     </div>
@@ -254,7 +163,7 @@ export default function FailedCommandsPage() {
                         <div className="text-center py-12">
                             <CheckCircle className="mx-auto h-12 w-12 text-green-500" />
                              <p className="mt-4 text-lg font-semibold">All Clear!</p>
-                            <p className="text-muted-foreground mt-2">There are no failed commands in the log.</p>
+                            <p className="text-muted-foreground mt-2">There are no failed commands requiring manual review.</p>
                         </div>
                     ) : (
                         <Table>
