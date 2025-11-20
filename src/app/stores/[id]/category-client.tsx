@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import ProductCard from '@/components/product-card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useSearchParams } from 'next/navigation';
 
 interface CategoryClientProps {
   store: Store;
@@ -76,7 +77,10 @@ function CategorySidebar({ categories, selectedCategory, onSelectCategory }) {
 }
 
 export function CategoryClient({ store, initialCategories, allProducts, productPrices, isLoading }: CategoryClientProps) {
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const categoryFromUrl = searchParams.get('category');
+  
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(categoryFromUrl);
   const [searchTerm, setSearchTerm] = useState('');
   const { setActiveStoreId } = useCart();
 
@@ -92,10 +96,15 @@ export function CategoryClient({ store, initialCategories, allProducts, productP
   }, [store.id, setActiveStoreId]);
 
   useEffect(() => {
-    if (initialCategories.length > 0 && !selectedCategory) {
+    // If a category is passed via URL, use it.
+    if (categoryFromUrl && initialCategories.some(c => c.categoryName === categoryFromUrl)) {
+      setSelectedCategory(categoryFromUrl);
+    } 
+    // Otherwise, if no category is selected and categories are loaded, default to the first one.
+    else if (!selectedCategory && initialCategories.length > 0) {
       setSelectedCategory(initialCategories[0].categoryName);
     }
-  }, [initialCategories, selectedCategory]);
+  }, [initialCategories, selectedCategory, categoryFromUrl]);
 
   const filteredProducts = useMemo(() => {
     if (searchTerm) {
