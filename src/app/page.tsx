@@ -1,10 +1,8 @@
 
 'use client';
 import { Button } from '@/components/ui/button';
-import { getStores } from '@/lib/data';
-import StoreCard from '@/components/store-card';
 import { useFirebase } from '@/firebase';
-import type { Store } from '@/lib/types';
+import type { Product, ProductPrice } from '@/lib/types';
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
@@ -12,30 +10,35 @@ import CategoryIcon from '@/components/features/CategoryIcon';
 import groceryData from '@/lib/grocery-data.json';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Mic } from 'lucide-react';
-
+import { useAppStore } from '@/lib/store';
+import ProductCard from '@/components/product-card';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Home() {
   const { firestore } = useFirebase();
-  const [allStores, setAllStores] = useState<Store[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { 
+    masterProducts, 
+    productPrices, 
+    fetchProductPrices, 
+    loading: appLoading 
+  } = useAppStore();
+
+  const [pricesLoaded, setPricesLoaded] = useState(false);
+
+  const featuredProducts = useMemo(() => {
+    return masterProducts.slice(0, 8); // Show up to 8 featured products
+  }, [masterProducts]);
 
   useEffect(() => {
-    if (firestore) {
-      getStores(firestore)
-        .then((fetchedStores) => {
-          setAllStores(fetchedStores);
-          setLoading(false);
-        })
-        .catch(() => setLoading(false));
-    } else {
-        setLoading(false);
+    if (firestore && featuredProducts.length > 0) {
+      const productNames = featuredProducts.map(p => p.name);
+      fetchProductPrices(firestore, productNames).then(() => {
+        setPricesLoaded(true);
+      });
     }
-  }, [firestore]);
+  }, [firestore, featuredProducts, fetchProductPrices]);
 
-
-  const displayedStores = useMemo(() => {
-    return allStores.slice(0, 8); // Show up to 8 featured stores
-  }, [allStores]);
+  const isLoading = appLoading || !pricesLoaded;
 
   return (
     <div className="flex flex-col">
@@ -72,47 +75,27 @@ export default function Home() {
 
         <section>
           <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold font-headline">Featured Stores</h2>
+              <h2 className="text-2xl font-bold font-headline">Featured Products</h2>
               <Button variant="link" asChild>
                   <Link href="/stores">View All</Link>
               </Button>
           </div>
-          {/* Responsive container for stores */}
-          <div className="relative">
-            <ScrollArea className="w-full md:hidden">
-              <div className="flex space-x-4 pb-4">
-                {loading ? (
-                  <>
-                    <StoreCard.Skeleton />
-                    <StoreCard.Skeleton />
-                    <StoreCard.Skeleton />
-                  </>
-                ) : displayedStores.length > 0 ? (
-                  displayedStores.map((store) => (
-                    <StoreCard key={store.id} store={store} />
-                  ))
-                ) : (
-                  <p className="text-muted-foreground">No featured stores available.</p>
-                )}
-              </div>
-              <ScrollBar orientation="horizontal" className="md:hidden" />
-            </ScrollArea>
-            <div className="hidden md:grid md:grid-cols-3 lg:grid-cols-4 gap-4">
-               {loading ? (
-                  <>
-                      <StoreCard.Skeleton />
-                      <StoreCard.Skeleton />
-                      <StoreCard.Skeleton />
-                      <StoreCard.Skeleton />
-                  </>
-                ) : displayedStores.length > 0 ? (
-                      displayedStores.map((store) => (
-                          <StoreCard key={store.id} store={store} />
-                      ))
-                ) : (
-                  <p className="col-span-full text-muted-foreground">No featured stores available.</p>
-                )}
-            </div>
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            {isLoading ? (
+              <>
+                <Skeleton className="h-64 w-full" />
+                <Skeleton className="h-64 w-full" />
+                <Skeleton className="h-64 w-full" />
+                <Skeleton className="h-64 w-full" />
+              </>
+            ) : featuredProducts.length > 0 ? (
+              featuredProducts.map((product) => {
+                const priceData = productPrices[product.name.toLowerCase()];
+                return <ProductCard key={product.id} product={product} priceData={priceData} />;
+              })
+            ) : (
+              <p className="col-span-full text-muted-foreground">No featured products available.</p>
+            )}
           </div>
         </section>
       </div>

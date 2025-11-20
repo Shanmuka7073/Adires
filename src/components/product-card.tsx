@@ -12,6 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from './ui/skeleton';
 import { useAppStore } from '@/lib/store';
 import { t } from '@/lib/locales';
+import Image from 'next/image';
+import { getProductImage } from '@/lib/data';
 
 interface ProductCardProps {
   product: Product;
@@ -24,23 +26,29 @@ export default function ProductCard({ product, priceData }: ProductCardProps) {
   const getProductName = useAppStore(state => state.getProductName);
   
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
+  const [image, setImage] = useState({ imageUrl: '', imageHint: 'loading' });
   
-  // Memoize price variants to avoid re-computation
   const priceVariants = useMemo(() => priceData?.variants || [], [priceData]);
   const isLoadingPrice = priceData === undefined;
 
   useEffect(() => {
-    // Set the default selected variant once price variants are available
-    if (priceVariants.length > 0) {
+    const fetchImage = async () => {
+      if (product) {
+        const fetchedImage = await getProductImage(product.imageId);
+        setImage(fetchedImage);
+      }
+    };
+    fetchImage();
+  }, [product]);
+
+  useEffect(() => {
+    if (priceVariants.length > 0 && !selectedVariant) {
       setSelectedVariant(priceVariants[0]);
-    } else {
-      setSelectedVariant(null);
     }
-  }, [priceVariants]);
+  }, [priceVariants, selectedVariant]);
   
   const handleAddToCart = () => {
     if (selectedVariant) {
-      // The product object now correctly includes its storeId, which is needed by the cart.
       addItem(product, selectedVariant);
     } else {
       toast({
@@ -58,16 +66,29 @@ export default function ProductCard({ product, priceData }: ProductCardProps) {
     }
   };
   
-  // Set the active store when a product card is interacted with, if not already set.
   useEffect(() => {
+    if(product.storeId) {
       setActiveStoreId(product.storeId);
+    }
   }, [product.storeId, setActiveStoreId]);
 
 
   return (
     <Card className="flex flex-col h-full overflow-hidden transition-all hover:shadow-lg">
       <CardHeader className="p-0">
-        <div className="w-full h-36 bg-muted" />
+        <div className="w-full h-36 bg-muted relative">
+          {image.imageUrl ? (
+            <Image
+              src={image.imageUrl}
+              alt={product.name}
+              data-ai-hint={image.imageHint}
+              fill
+              className="object-cover"
+            />
+          ) : (
+             <Skeleton className="h-full w-full" />
+          )}
+        </div>
       </CardHeader>
       <CardContent className="p-2 pb-1 flex-1 text-center">
         <CardTitle className="text-sm font-headline truncate">{getProductName(product)}</CardTitle>
