@@ -1,4 +1,3 @@
-
 'use client';
 import { Button } from '@/components/ui/button';
 import { getStores } from '@/lib/data';
@@ -8,7 +7,6 @@ import type { Store } from '@/lib/types';
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
-import AIGroceryPackGenerator from '@/components/features/AIGroceryPackGenerator';
 import CategoryIcon from '@/components/features/CategoryIcon';
 import groceryData from '@/lib/grocery-data.json';
 
@@ -38,10 +36,6 @@ export default function Home() {
 
   return (
     <div className="container mx-auto p-4 space-y-12">
-      <section>
-        <AIGroceryPackGenerator />
-      </section>
-
       <section>
         <h2 className="text-2xl font-bold font-headline mb-4">Shop by Category</h2>
         <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-4">
