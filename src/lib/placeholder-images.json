@@ -36,16 +36,6 @@
       "imageHint": "delivery scooter"
     },
     {
-      "id": "cat-fresh-cut",
-      "imageUrl": "https://images.unsplash.com/photo-1604502694432-9a6396f9a036?w=128&h=128&fit=crop&q=80",
-      "imageHint": "fresh meat"
-    },
-    {
-      "id": "cat-vegetables",
-      "imageUrl": "https://images.unsplash.com/photo-1590779233252-a5b81938a95d?w=128&h=128&fit=crop&q=80",
-      "imageHint": "vegetable basket"
-    },
-    {
       "id": "cat-fruits",
       "imageUrl": "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=128&h=128&fit=crop&q=80",
       "imageHint": "assorted fruits"
@@ -56,46 +46,6 @@
       "imageHint": "grains cereals"
     },
     {
-      "id": "cat-dals-&-pulses",
-      "imageUrl": "https://images.unsplash.com/photo-1588631115368-1a9a4b83d736?w=128&h=128&fit=crop&q=80",
-      "imageHint": "dals pulses"
-    },
-    {
-      "id": "cat-spices-&-masalas",
-      "imageUrl": "https://images.unsplash.com/photo-1599529454101-b5a8b832a85a?w=128&h=128&fit=crop&q=80",
-      "imageHint": "spices"
-    },
-    {
-      "id": "cat-oils-&-ghee",
-      "imageUrl": "https://images.unsplash.com/photo-1626082697999-c87a55231a48?w=128&h=128&fit=crop&q=80",
-      "imageHint": "oil bottle"
-    },
-    {
-      "id": "cat-sauces-&-condiments",
-      "imageUrl": "https://images.unsplash.com/photo-1583253063548-cec38f2895a5?w=128&h=128&fit=crop&q=80",
-      "imageHint": "sauces condiments"
-    },
-    {
-      "id": "cat-dairy-&-bakery",
-      "imageUrl": "https://images.unsplash.com/photo-1555961022-c3b006a81d5f?w=128&h=128&fit=crop&q=80",
-      "imageHint": "milk bread"
-    },
-    {
-      "id": "cat-snacks-&-breakfast",
-      "imageUrl": "https://images.unsplash.com/photo-1563729784-284351656870?w=128&h=128&fit=crop&q=80",
-      "imageHint": "cereal bowl"
-    },
-    {
-      "id": "cat-beverages",
-      "imageUrl": "https://images.unsplash.com/photo-1554866585-CD94860890b7?w=128&h=128&fit=crop&q=80",
-      "imageHint": "soda can"
-    },
-    {
-      "id": "cat-meat-&-fish",
-      "imageUrl": "https://images.unsplash.com/photo-1603360431952-085b3f278f35?w=128&h=128&fit=crop&q=80",
-      "imageHint": "raw fish"
-    },
-    {
       "id": "cat-frozen-food",
       "imageUrl": "https://images.unsplash.com/photo-1621800971860-72ffb1a83f6b?w=128&h=128&fit=crop&q=80",
       "imageHint": "frozen vegetables"
@@ -104,11 +54,6 @@
       "id": "cat-instant-mixes",
       "imageUrl": "https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?w=128&h=128&fit=crop&q=80",
       "imageHint": "instant noodles"
-    },
-    {
-      "id": "cat-home-care",
-      "imageUrl": "https://images.unsplash.com/photo-1584949169720-6f73e86c15ac?w=128&h=128&fit=crop&q=80",
-      "imageHint": "cleaning supplies"
     },
     {
       "id": "cat-personal-care",
