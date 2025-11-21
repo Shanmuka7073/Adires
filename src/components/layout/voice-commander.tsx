@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -96,11 +97,11 @@ export function VoiceCommander({
   const { form: profileForm } = useProfileFormStore();
   const { saveInventoryBtnRef } = useMyStorePageStore();
   const { 
+    handleUseCurrentLocation,
+    handleUseHomeAddress,
     placeOrderBtnRef, 
     setIsWaitingForQuickOrderConfirmation, 
     isWaitingForQuickOrderConfirmation, 
-    homeAddressBtnRef, 
-    currentLocationBtnRef,
     setHomeAddress,
     setShouldUseCurrentLocation
   } = useCheckoutStore();
@@ -111,9 +112,10 @@ export function VoiceCommander({
   const commandActionsRef = useRef<any>({});
 
   const formFieldToFillRef = useRef<keyof ProfileFormValues | null>(null);
-  const [isWaitingForStoreName, setIsWaitingForStoreName] = useState(false);
-  const [isWaitingForAddressType, setIsWaitingForAddressType] = useState(false);
-  const [itemForPriceCheck, setItemForPriceCheck] = useState<Product | null>(null);
+  const isWaitingForStoreNameRef = useRef(false);
+  const isWaitingForAddressTypeRef = useRef(false);
+  const itemForPriceCheck = useRef<Product | null>(null);
+  const lastTranscriptRef = useRef<string>('');
   
   const userProfileRef = useRef<User | null>(null);
 
@@ -177,11 +179,11 @@ export function VoiceCommander({
 
 
   const resetAllContext = useCallback(() => {
-    setItemForPriceCheck(null);
-    setIsWaitingForStoreName(false);
+    itemForPriceCheck.current = null;
+    isWaitingForStoreNameRef.current = false;
+    isWaitingForAddressTypeRef.current = false;
     onSuggestions([]);
     setIsWaitingForQuickOrderConfirmation(false);
-    setIsWaitingForAddressType(false);
     formFieldToFillRef.current = null;
     useCheckoutStore.getState().setShouldPlaceOrderDirectly(false);
     setHasRunCheckoutPrompt(false);
@@ -191,13 +193,13 @@ export function VoiceCommander({
   const determinePhraseLanguage = useCallback((text: string): string => {
     const lowerText = text.toLowerCase();
     
-    const transliteratedGreetings = ['హై', 'హలో'];
-    if (transliteratedGreetings.some(greeting => lowerText.includes(greeting))) {
-      return 'en';
+    // If it contains Telugu script, it's Telugu
+    if (/[\u0C00-\u0C7F]/.test(lowerText)) {
+      return 'te';
     }
 
     const langKeywords = [
-        { lang: 'te', keywords: ['నాకు', 'కావాలి', 'naku', 'naaku', 'kavali', 'ధర'] },
+        { lang: 'te', keywords: ['naku', 'naaku', 'kavali', 'ధర'] },
         { lang: 'hi', keywords: ['मुझे', 'चाहिए', 'mujhe', 'chahiye'] },
         { lang: 'en', keywords: ['i want', 'i need', 'get me', 'add', 'get', 'buy', 'order', 'send', 'go', 'open', 'what is', 'how', 'price', 'cost'] }
     ];
@@ -273,74 +275,16 @@ export function VoiceCommander({
 }, [enabled, language]);
 
   const speak = useCallback((textOrReplies: string | string[], lang: string, onEndCallback?: () => void) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      if (onEndCallback) onEndCallback();
-      return;
+    // This function is now a no-op to disable speech synthesis for testing.
+    // The callback is executed immediately to not break the application flow.
+    if (onEndCallback) {
+        onEndCallback();
     }
-    
-    isSpeakingRef.current = true;
-    if (recognition) {
-      recognition.stop();
-    }
-    
-    window.speechSynthesis.cancel();
-    
-    const text = Array.isArray(textOrReplies) 
-      ? textOrReplies[Math.floor(Math.random() * textOrReplies.length)] 
-      : textOrReplies;
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    
-    const targetLang = lang.split('-')[0];
-    let voice = speechSynthesisVoices.find(v => v.lang.startsWith(targetLang) && v.name.includes('Google')) ||
-                speechSynthesisVoices.find(v => v.lang.startsWith(targetLang)) ||
-                speechSynthesisVoices.find(v => v.default);
-    
-    if (voice) {
-      utterance.voice = voice;
-    } else {
-      console.warn(`No voice found for language: ${lang}`);
-    }
-
-    utterance.onend = () => {
-      isSpeakingRef.current = false;
-      if (onEndCallback) onEndCallback();
-      setTimeout(() => {
-        if (isEnabledRef.current && recognition) {
-          try {
-            recognition.start();
-          } catch(e) {
-            if (! (e instanceof DOMException && e.name === 'InvalidStateError')) {
-                console.error("Could not start recognition in onEnd:", e);
-            }
-          }
-        }
-      }, 300);
-    };
-    
-    utterance.onerror = (e) => {
-      console.error('Speech synthesis error', e);
-      isSpeakingRef.current = false;
-      if (onEndCallback) onEndCallback();
-       setTimeout(() => {
-        if (isEnabledRef.current && recognition) {
-          try {
-            recognition.start();
-          } catch(e) {
-            if (! (e instanceof DOMException && e.name === 'InvalidStateError')) {
-                console.error("Could not start recognition in onError:", e);
-            }
-          }
-        }
-      }, 300);
-    };
-
-    window.speechSynthesis.speak(utterance);
-  }, [speechSynthesisVoices]);
+  }, []);
 
   const handleProfileFormInteraction = useCallback(() => {
     if (!profileForm?.getValues) {
-      speak("I can't seem to access the profile form right now.", 'en-IN');
+      // speak("I can't seem to access the profile form right now.", 'en-IN');
       return;
     }
     const fields: { name: keyof ProfileFormValues; label: string }[] = [
@@ -354,10 +298,10 @@ export function VoiceCommander({
 
     if (firstEmptyField) {
       formFieldToFillRef.current = firstEmptyField.name;
-      speak(`What is your ${firstEmptyField.label}?`, 'en-IN');
+      // speak(`What is your ${firstEmptyField.label}?`, 'en-IN');
     } else {
       formFieldToFillRef.current = null;
-      speak("Your profile looks complete! You can say 'save changes' to submit.", 'en-IN');
+      // speak("Your profile looks complete! You can say 'save changes' to submit.", 'en-IN');
     }
   }, [profileForm, speak]);
 
@@ -384,28 +328,27 @@ export function VoiceCommander({
         const onPromptEnd = () => setHasRunCheckoutPrompt(false);
 
         if (cartItemsProp.length === 0 && !isWaitingForQuickOrderConfirmation) {
-            speak(t('your-cart-is-empty-speech', detectedLang), langWithRegion, onPromptEnd);
+            // speak(t('your-cart-is-empty-speech', detectedLang), langWithRegion, onPromptEnd);
         } else if (!currentAddress || currentAddress.length < 10) {
-            speak(t('should-i-deliver-to-home-or-current-speech', detectedLang), langWithRegion, () => {
-              setIsWaitingForAddressType(true);
-              onPromptEnd();
-            });
+            // speak(t('should-i-deliver-to-home-or-current-speech', detectedLang), langWithRegion, () => {
+            isWaitingForAddressTypeRef.current = true;
+            onPromptEnd();
+            // });
         } else if (!activeStoreId) {
-            speak(t('which-store-should-fulfill-speech', detectedLang), langWithRegion, () => {
-              setIsWaitingForStoreName(true);
-              onPromptEnd();
-            });
+            // speak(t('which-store-should-fulfill-speech', detectedLang), langWithRegion, () => {
+            isWaitingForStoreNameRef.current = true;
+            onPromptEnd();
+            // });
         } else {
             const total = cartTotal + 30;
             const speech = t('finalConfirmPrompt', detectedLang).replace('{total}', `₹${total.toFixed(2)}`);
-            speak(speech, langWithRegion, onPromptEnd);
+            // speak(speech, langWithRegion, onPromptEnd);
         }
         promptTimeoutRef.current = null;
       }, 500); 
   }, [
       pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, hasRunCheckoutPrompt,
-      cartItemsProp.length, language, speak,
-      setIsWaitingForAddressType, setIsWaitingForStoreName, cartTotal, t, activeStoreId
+      cartItemsProp.length, language, speak, cartTotal, t, activeStoreId
   ]);
   
   useEffect(() => {
@@ -607,7 +550,7 @@ export function VoiceCommander({
 
 
     const handleCommandFailure = useCallback(async (commandText: string, spokenLang: string, reason: string) => {
-        speak(t('sorry-i-didnt-understand-that', spokenLang), `${spokenLang}-IN`);
+        // speak(t('sorry-i-didnt-understand-that', spokenLang), `${spokenLang}-IN`);
         if (!firestore || !user) return;
 
         // Immediately start AI analysis in the background. Do not await.
@@ -675,71 +618,77 @@ export function VoiceCommander({
                 userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp(),
             });
         }
-    }, [firestore, user, speak, aiConfig?.isAliasSuggesterEnabled, masterProducts, stores, toast, fetchInitialData, t]);
+    }, [firestore, user, speak, aiConfig?.isAliasSuggesterEnabled, masterProducts, stores, toast, fetchInitialData]);
 
 
   const handleCommand = useCallback(async (commandText: string) => {
+    if (lastTranscriptRef.current === commandText) {
+      return;
+    }
+    lastTranscriptRef.current = commandText;
+    
     if (!firestore || !user) {
-        speak("I can't process commands without being connected. Please log in.", 'en-IN');
+        // speak("I can't process commands without being connected. Please log in.", 'en-IN');
         return;
     }
 
-    const spokenLang = determinePhraseLanguage(commandText);
-    const langWithRegion = spokenLang === 'en' ? 'en-IN' : `${spokenLang}-IN`;
-    const didLanguageChange = spokenLang !== language;
-
-    if (didLanguageChange) {
+    let spokenLang = determinePhraseLanguage(commandText);
+    const replyLang = spokenLang === 'hi' ? 'en' : spokenLang; // Always reply in English if Hindi is detected.
+    const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
+    
+    if (spokenLang !== language && spokenLang !== 'hi') {
         setLanguage(spokenLang);
-        updateRecognitionLanguage(langWithRegion);
+        updateRecognitionLanguage(`${spokenLang}-IN`);
     }
 
+
     // --- CONTEXTUAL RESPONSES ---
-    if (itemForPriceCheck) {
+    if (itemForPriceCheck.current) {
         const yesKeywords = ['yes', 'add', 'buy', 'okay', 'yep', 'yeah', 'సరే', 'అవును'];
         const noKeywords = ['no', 'cancel', 'stop', 'వద్దు', 'cancel'];
 
         if (yesKeywords.some(kw => commandText.toLowerCase().includes(kw))) {
             const { product, variant, requestedQty } = await findProductAndVariant(commandText);
-            if (variant) {
-                addItemToCart(itemForPriceCheck, variant, requestedQty);
+            if (variant && itemForPriceCheck.current) {
+                addItemToCart(itemForPriceCheck.current, variant, requestedQty);
                 onOpenCart();
-                speak(t('adding-item-speech', spokenLang).replace('{quantity}', `${requestedQty}`).replace('{weight}', variant.weight).replace('{productName}', getProductName(itemForPriceCheck)), langWithRegion);
+                // speak(t('adding-item-speech', replyLang).replace('{quantity}', `${requestedQty}`).replace('{weight}', variant.weight).replace('{productName}', getProductName(itemForPriceCheck.current)), langWithRegion);
             } else {
-                 speak(t('sorry-i-didnt-understand-that', spokenLang), langWithRegion);
+                 // speak(t('sorry-i-didnt-understand-that', replyLang), langWithRegion);
             }
         } else if (noKeywords.some(kw => commandText.toLowerCase().includes(kw))) {
-            speak("Okay.", langWithRegion);
+            // speak("Okay.", langWithRegion);
         } else {
-            resetAllContext();
+            itemForPriceCheck.current = null;
             handleCommand(commandText);
             return;
         }
         resetAllContext();
         return;
     }
-    if (isWaitingForAddressType) {
+    if (isWaitingForAddressTypeRef.current) {
+        isWaitingForAddressTypeRef.current = false;
         const homeKeywords = getAllAliases('homeAddress')[spokenLang] || ['home'];
         const locationKeywords = getAllAliases('currentLocation')[spokenLang] || ['current', 'location'];
         
         const homeSimilarity = Math.max(...homeKeywords.map(kw => calculateSimilarity(commandText.toLowerCase(), kw)));
         const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(commandText.toLowerCase(), kw)));
-        
-        resetAllContext();
 
         if (homeSimilarity > 0.6 && homeSimilarity > locationSimilarity) {
-            homeAddressBtnRef?.current?.click();
-            speak(t('setting-delivery-to-home-speech', spokenLang), langWithRegion, triggerVoicePrompt);
+            handleUseHomeAddress();
+            // speak(t('setting-delivery-to-home-speech', replyLang), langWithRegion, triggerVoicePrompt);
         } else if (locationSimilarity > 0.6) {
-            currentLocationBtnRef?.current?.click();
-            speak(t('using-current-location-speech', spokenLang), langWithRegion, triggerVoicePrompt);
+            handleUseCurrentLocation();
+            // speak(t('using-current-location-speech', replyLang), langWithRegion, triggerVoicePrompt);
         } else {
-            speak(t('did-not-understand-address-type-speech', spokenLang), langWithRegion, triggerVoicePrompt);
+            // speak(t('did-not-understand-address-type-speech', replyLang), langWithRegion, triggerVoicePrompt);
             handleCommandFailure(commandText, spokenLang, `Address type clarification failed. Similarities: Home=${homeSimilarity.toFixed(2)}, Location=${locationSimilarity.toFixed(2)}`);
         }
         return;
     }
 
-    if (isWaitingForStoreName) {
+    if (isWaitingForStoreNameRef.current) {
+        isWaitingForStoreNameRef.current = false;
         let bestMatch: { store: Store, similarity: number } | null = null;
         for (const [alias, store] of storeAliasMap.entries()) {
             const similarity = calculateSimilarity(commandText.toLowerCase(), alias);
@@ -747,17 +696,13 @@ export function VoiceCommander({
                 bestMatch = { store, similarity: similarity };
             }
         }
-        
-        resetAllContext();
 
        if (bestMatch && bestMatch.similarity > 0.6) {
            const store = bestMatch.store;
-           speak(t('okay-ordering-from-speech', spokenLang).replace('{storeName}', store.name), langWithRegion, () => {
-               setActiveStoreId(store.id);
-               triggerVoicePrompt();
-           });
+           setActiveStoreId(store.id);
+          // speak(t('okay-ordering-from-speech', replyLang).replace('{storeName}', store.name), langWithRegion, triggerVoicePrompt);
        } else {
-           speak(t('could-not-find-store-speech', spokenLang).replace('{storeName}', commandText), langWithRegion, triggerVoicePrompt);
+          // speak(t('could-not-find-store-speech', replyLang).replace('{storeName}', commandText), langWithRegion, triggerVoicePrompt);
            handleCommandFailure(commandText, spokenLang, `Store clarification failed. Best match: ${bestMatch?.store.name} (${bestMatch?.similarity.toFixed(2)})`);
        }
        return;
@@ -786,7 +731,7 @@ export function VoiceCommander({
 
         case 'GET_RECIPE':
             if (!aiConfig?.isRecipeApiEnabled) {
-                speak("I'm sorry, the recipe feature is currently disabled.", langWithRegion);
+                // speak("I'm sorry, the recipe feature is currently disabled.", langWithRegion);
                 return;
             }
             await commandActionsRef.current.getRecipe({ dishName: intent.dishName, lang: intent.lang });
@@ -811,9 +756,10 @@ export function VoiceCommander({
                 const action = commandActionsRef.current[commandKey];
                 const reply = commands[commandKey]?.reply || `Executing ${commands[commandKey]?.display}`;
                 if (action) {
-                    speak(reply, langWithRegion, () => action({ lang: intent.lang }));
+                    // speak(reply, langWithRegion, () => action({ lang: intent.lang }));
+                    action({ lang: intent.lang })
                 } else {
-                    speak(reply, langWithRegion);
+                    // speak(reply, langWithRegion);
                 }
             }
             break;
@@ -826,12 +772,12 @@ export function VoiceCommander({
                 const productLang = spokenLang;
                 const replyProductName = t(product.name.toLowerCase().replace(/ /g, '-'), productLang);
 
-                let speech = t('adding-item-speech', productLang)
+                let speech = t('adding-item-speech', replyLang)
                     .replace('{quantity}', `${requestedQty}`)
                     .replace('{weight}', `${variant.weight}`)
                     .replace('{productName}', replyProductName);
 
-                speak(speech, productLang + '-IN');
+                // speak(speech, langWithRegion);
             } else {
                 handleCommandFailure(commandText, spokenLang, `ORDER_ITEM intent failed. Product not found or no variants. Phrase: "${remainingPhrase}"`);
             }
@@ -844,10 +790,10 @@ export function VoiceCommander({
     }
   }, [
       firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, resetAllContext,
-      itemForPriceCheck, isWaitingForAddressType, isWaitingForStoreName,
+      isWaitingForQuickOrderConfirmation,
       findProductAndVariant, addItemToCart, onOpenCart, t, getProductName,
       locales, commands, getAllAliases, recognizeIntent, aiConfig,
-      homeAddressBtnRef, currentLocationBtnRef, triggerVoicePrompt, setActiveStoreId,
+      handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setActiveStoreId,
       storeAliasMap, profileForm, handleProfileFormInteraction, handleCommandFailure
   ]);
 
@@ -911,119 +857,133 @@ export function VoiceCommander({
       managePacks: (params: {lang: string}) => router.push('/dashboard/owner/packs'),
       'recipe-tester': (params: {lang: string}) => router.push('/dashboard/admin/recipe-tester'),
       'get-recipe': async ({ dishName, lang }: { dishName: string, lang: string }) => {
-        const langWithRegion = lang === 'en' ? 'en-IN' : `${lang}-IN`;
+        const replyLang = lang === 'hi' ? 'en' : lang;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         if (!firestore) return;
 
         const cachedIngredients = await getCachedRecipe(firestore, dishName);
         if (cachedIngredients) {
             const ingredientsText = cachedIngredients.join(', ');
-            speak(`The ingredients for ${dishName} are: ${ingredientsText}`, langWithRegion);
+            // speak(`The ingredients for ${dishName} are: ${ingredientsText}`, langWithRegion);
             return;
         }
 
-        speak(`Let me check the ingredients for ${dishName}...`, langWithRegion);
+        // speak(`Let me check the ingredients for ${dishName}...`, langWithRegion);
         try {
-            const result = await getIngredientsForDish({ dishName, language: lang });
+            const result = await getIngredientsForDish({ dishName, language: replyLang });
             if (result.isSuccess && result.ingredients.length > 0) {
                 const ingredientsText = result.ingredients.join(', ');
-                speak(`The main ingredients for ${dishName} are: ${ingredientsText}`, langWithRegion);
+                // speak(`The main ingredients for ${dishName} are: ${ingredientsText}`, langWithRegion);
                 await cacheRecipe(firestore, dishName, result.ingredients);
             } else {
-                speak(`I'm sorry, I couldn't find the ingredients for ${dishName}.`, langWithRegion);
+                // speak(`I'm sorry, I couldn't find the ingredients for ${dishName}.`, langWithRegion);
             }
         } catch (error) {
             console.error("AI recipe flow failed:", error);
-            speak(`I'm having trouble connecting to my knowledge base right now. Please try again later.`, langWithRegion);
+            // speak(`I'm having trouble connecting to my knowledge base right now. Please try again later.`, langWithRegion);
         }
       },
       checkout: (params: { lang: string }) => {
         const lang = params.lang || language;
+        const replyLang = lang === 'hi' ? 'en' : lang;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         onCloseCart();
         if (cartTotal > 0) {
             const total = cartTotal + 30; // Delivery fee
-            speak(t('proceeding-to-checkout-speech', lang).replace('{total}', `₹${total.toFixed(2)}`), lang + '-IN', () => {
+            // speak(t('proceeding-to-checkout-speech', replyLang).replace('{total}', `₹${total.toFixed(2)}`), langWithRegion, () => {
                 router.push('/checkout');
                 triggerVoicePrompt();
-            });
+            // });
         } else {
-            speak(t('your-cart-is-empty-speech', lang), lang + '-IN');
+            // speak(t('your-cart-is-empty-speech', replyLang), langWithRegion);
         }
       },
       homeAddress: ({lang}: {lang: string}) => {
-        if(pathname === '/checkout' && homeAddressBtnRef?.current) {
-          homeAddressBtnRef.current.click();
+        if(pathname === '/checkout') {
+          handleUseHomeAddress();
         }
       },
       currentLocation: ({lang}: {lang: string}) => {
-        if(pathname === '/checkout' && currentLocationBtnRef?.current) {
-          currentLocationBtnRef.current.click();
+        if(pathname === '/checkout') {
+          handleUseCurrentLocation();
         }
       },
       placeOrder: (params: {lang: string}) => {
         const lang = params?.lang || language;
+        const replyLang = lang === 'hi' ? 'en' : lang;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         if (pathname === '/checkout' && placeOrderBtnRef?.current) {
-          speak(t('placing-your-order-now-speech', lang), lang + '-IN', () => {
+          // speak(t('placing-your-order-now-speech', replyLang), langWithRegion, () => {
               placeOrderBtnRef?.current?.click();
-          });
+          // });
         } else if (cartItemsProp.length > 0) {
           commandActionsRef.current.checkout({ lang });
         } else {
-          speak(t('your-cart-is-empty-speech', lang), lang + '-IN');
+          // speak(t('your-cart-is-empty-speech', replyLang), langWithRegion);
         }
       },
       saveChanges: (params: {lang: string}) => {
         const lang = params?.lang || language;
+        const replyLang = lang === 'hi' ? 'en' : lang;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         if (pathname === '/dashboard/owner/my-store' && saveInventoryBtnRef?.current) {
           saveInventoryBtnRef.current.click();
-          speak(t('saving-changes', lang), lang + '-IN');
+          // speak(t('saving-changes', replyLang), langWithRegion);
         } else if (pathname === '/dashboard/customer/my-profile' && profileForm) {
             if (typeof document !== 'undefined') {
                 const formElement = document.querySelector('form');
                 if (formElement) formElement.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-                speak(t('saving-changes', lang), lang + '-IN');
+                // speak(t('saving-changes', replyLang), langWithRegion);
             }
         } else {
-          speak(t('no-changes-to-save-speech', lang), lang + '-IN');
+          // speak(t('no-changes-to-save-speech', replyLang), langWithRegion);
         }
       },
       acceptDeliveryJob: ({ lang }: {lang: string}) => {
+          const replyLang = lang === 'hi' ? 'en' : lang;
+          const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
           if (pathname === '/dashboard/delivery/deliveries' && typeof document !== 'undefined') {
               const acceptButton = document.querySelector('.accordion-content button') as HTMLButtonElement | null;
               if (acceptButton) {
-                  speak("Okay, accepting the first available job group.", lang + '-IN');
+                  // speak("Okay, accepting the first available job group.", langWithRegion);
                   acceptButton.click();
               } else {
-                  speak("There are no available jobs to accept right now.", lang + '-IN');
+                  // speak("There are no available jobs to accept right now.", langWithRegion);
               }
           } else {
-              speak("You can only accept jobs from the deliveries page.", lang + '-IN');
+              // speak("You can only accept jobs from the deliveries page.", langWithRegion);
           }
       },
       showDetails: ({ target, lang }: {target: string, lang: string}) => {
+        const replyLang = lang === 'hi' ? 'en' : lang;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         if (pathname === '/dashboard/delivery/deliveries') {
             const detailsButton = document.querySelector('[id^="details-btn-"]') as HTMLButtonElement | null;
             if (detailsButton) {
-                speak("Showing details for the first group.", lang + '-IN');
+                // speak("Showing details for the first group.", langWithRegion);
                 detailsButton.click();
             } else {
-                speak("I couldn't find any details to show.", lang + '-IN');
+                // speak("I couldn't find any details to show.", langWithRegion);
             }
         } else {
-            speak("You can only view delivery details on the deliveries page.", lang + '-IN');
+            // speak("You can only view delivery details on the deliveries page.", langWithRegion);
         }
       },
       refresh: (params: {lang: string}) => {
          window.location.reload();
       },
       goToStore: ({ store, lang }: {store: Store, lang: string}) => {
-        const langWithRegion = lang === 'en' ? 'en-IN' : `${lang}-IN`;
-        speak(`Okay, opening ${store.name}.`, langWithRegion);
+        const replyLang = lang === 'hi' ? 'en' : lang;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
+        // speak(`Okay, opening ${store.name}.`, langWithRegion);
         router.push(`/stores/${store.id}`);
       },
     checkPrice: async ({ phrase, lang, originalText }: { phrase?: string; lang: string, originalText: string }) => {
       if (!phrase) return;
 
       const { product, lang: detectedLang } = await findProductAndVariant(phrase);
+      const replyLang = detectedLang === 'hi' ? 'en' : detectedLang;
+      const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
 
       if (product) {
         let priceData = productPrices[product.name.toLowerCase()];
@@ -1034,21 +994,21 @@ export function VoiceCommander({
         
         if (priceData && priceData.variants && priceData.variants.length > 0) {
           const pricesString = priceData.variants.map(v => 
-            t('price-check-variant-speech', detectedLang)
+            t('price-check-variant-speech', replyLang)
               .replace('{weight}', v.weight)
               .replace('{price}', `₹${v.price.toFixed(2)}`)
           ).join(', ');
 
-          const reply = t('price-check-reply-speech', detectedLang)
+          const reply = t('price-check-reply-speech', replyLang)
             .replace('{productName}', getProductName(product))
             .replace('{prices}', pricesString);
           
-          speak(`${reply} Would you like to add it to your cart?`, detectedLang + '-IN');
-          setItemForPriceCheck(product);
+          // speak(`${reply} Would you like to add it to your cart?`, langWithRegion);
+          itemForPriceCheck.current = product;
           return;
 
         } else {
-          speak(t('no-price-found-speech', detectedLang).replace('{productName}', getProductName(product)), detectedLang + '-IN');
+          // speak(t('no-price-found-speech', replyLang).replace('{productName}', getProductName(product)), langWithRegion);
           handleCommandFailure(originalText, detectedLang, `Price check: product "${product.name}" found but no price data available.`);
           return;
         }
@@ -1057,9 +1017,11 @@ export function VoiceCommander({
       handleCommandFailure(originalText, lang, `Price check: product not found in phrase "${phrase}".`);
     },
     removeItemFromCart: async ({ phrase, lang }: { phrase?: string; lang: string }) => {
+        const replyLang = lang === 'hi' ? 'en' : lang;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         if (!phrase) return;
         if (cartItemsProp.length === 0) {
-            speak("Your cart is already empty.", lang + '-IN');
+            // speak("Your cart is already empty.", langWithRegion);
             return;
         }
 
@@ -1074,9 +1036,9 @@ export function VoiceCommander({
         if (bestMatch && bestMatch.similarity > 0.6) {
             const { item } = bestMatch;
             removeItem(item.variant.sku);
-            speak(`Okay, I've removed ${getProductName(item.product)} from your cart.`, lang + '-IN');
+            // speak(`Okay, I've removed ${getProductName(item.product)} from your cart.`, langWithRegion);
         } else {
-            speak(`I couldn't find "${phrase}" in your cart.`, lang + '-IN');
+            // speak(`I couldn't find "${phrase}" in your cart.`, langWithRegion);
         }
     },
     orderMultipleItems: async (phrases: string[], lang: string, originalText: string) => {
@@ -1094,24 +1056,25 @@ export function VoiceCommander({
             }
         }
         
-        const langToUse = lang || 'en';
-        const langWithRegion = langToUse === 'en' ? 'en-IN' : `${langToUse}-IN`;
+        const replyLang = lang === 'hi' ? 'en' : lang;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         
         if (addedItems.length > 0) {
             onOpenCart();
             let speech;
             if (failedItems.length > 0) {
-                speech = `${t('ive-added-to-your-cart', langToUse).replace('{items}', addedItems.join(', '))} ${t('but-i-couldnt-find', langToUse).replace('{items}', failedItems.join(', '))}`;
+                speech = `${t('ive-added-to-your-cart', replyLang).replace('{items}', addedItems.join(', '))} ${t('but-i-couldnt-find', replyLang).replace('{items}', failedItems.join(', '))}`;
             } else {
-                speech = t('ive-added-to-your-cart', langToUse).replace('{items}', addedItems.join(', '));
+                speech = t('ive-added-to-your-cart', replyLang).replace('{items}', addedItems.join(', '));
             }
-            speak(speech, langWithRegion);
+            // speak(speech, langWithRegion);
         } else {
             handleCommandFailure(originalText, lang, `Multi-order: No products found. Failed items: ${failedItems.join(', ')}`);
         }
     },
     handleSmartOrder: async (text: string, lang: string) => {
-        const langWithRegion = lang === 'en' ? 'en-IN' : `${lang}-IN`;
+        const replyLang = lang === 'hi' ? 'en' : lang;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         clearCart(); // Start with a fresh cart for a smart order
         
         const fromKeywords = ['from', 'at', 'in'];
@@ -1138,7 +1101,7 @@ export function VoiceCommander({
         }
 
         if (fromIndex === -1 || toIndex === -1) {
-            speak(t('could-not-find-product-in-order-speech', lang), langWithRegion);
+            // speak(t('could-not-find-product-in-order-speech', replyLang), langWithRegion);
             return;
         }
 
@@ -1149,7 +1112,7 @@ export function VoiceCommander({
         // 1. Process Product
         const { product, variant, requestedQty } = await findProductAndVariant(productPhrase);
         if (!product || !variant) {
-            speak(t('could-not-find-item-speech', lang).replace('{itemName}', productPhrase), langWithRegion);
+            // speak(t('could-not-find-item-speech', replyLang).replace('{itemName}', productPhrase), langWithRegion);
             return;
         }
 
@@ -1165,7 +1128,7 @@ export function VoiceCommander({
         }
 
         if (!bestStoreMatch || bestSimilarity < 0.6) {
-            speak(t('could-not-identify-store-speech', lang), langWithRegion);
+            // speak(t('could-not-identify-store-speech', replyLang), langWithRegion);
             return;
         }
 
@@ -1181,7 +1144,7 @@ export function VoiceCommander({
             if (userProfileRef.current?.address) {
                 deliveryAddress = userProfileRef.current.address;
             } else {
-                speak(t('cannot-deliver-home-no-address-speech', lang), langWithRegion);
+                // speak(t('cannot-deliver-home-no-address-speech', replyLang), langWithRegion);
                 router.push('/dashboard/customer/my-profile');
                 return;
             }
@@ -1193,11 +1156,11 @@ export function VoiceCommander({
         }
 
         // 4. Execute Actions
-        const speech = t('preparing-order-speech', lang)
+        const speech = t('preparing-order-speech', replyLang)
             .replace('{items}', `${requestedQty} ${variant.weight} of ${getProductName(product)}`)
             .replace('{storeName}', bestStoreMatch.name);
 
-        speak(speech, langWithRegion, () => {
+        // speak(speech, langWithRegion, () => {
             setIsWaitingForQuickOrderConfirmation(true); // Prevents checkout page from prompting
             addItemToCart(product, variant, requestedQty);
             setActiveStoreId(bestStoreMatch!.id);
@@ -1208,7 +1171,7 @@ export function VoiceCommander({
             }
             useCheckoutStore.getState().setShouldPlaceOrderDirectly(true); // Signal the checkout page to auto-submit
             router.push('/checkout');
-        });
+        // });
     },
   };
 
@@ -1234,12 +1197,11 @@ export function VoiceCommander({
       handleCommand, cartTotal, cartItemsProp, pathname, masterProducts, t, aiConfig, isAppStoreLoading,
       productPrices, fetchProductPrices, firestore, user, router, language, setLanguage, speak,
       updateRecognitionLanguage, determinePhraseLanguage, resetAllContext, storeAliasMap,
-      homeAddressBtnRef, currentLocationBtnRef, placeOrderBtnRef, profileForm, saveInventoryBtnRef,
-      setActiveStoreId, isWaitingForAddressType, isWaitingForStoreName, handleProfileFormInteraction,
-      runCheckoutPrompt, getProductName, addItemToCart, removeItem, onOpenCart, locales, commands,
-      getAllAliases, triggerVoicePrompt, itemForPriceCheck, recognizeIntent, onCloseCart, setHomeAddress,
+      handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setActiveStoreId,
+      profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData,
+      placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress,
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
-      handleCommandFailure, fetchInitialData
+      getProductName, addItemToCart, removeItem, locales, commands, getAllAliases, recognizeIntent
   ]);
 
   return null;

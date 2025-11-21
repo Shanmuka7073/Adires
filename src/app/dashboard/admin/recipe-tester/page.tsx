@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition } from 'react';
@@ -90,7 +91,6 @@ export default function RecipeTesterPage() {
                                 <DropdownMenuRadioGroup value={language} onValueChange={setLanguage}>
                                 <DropdownMenuRadioItem value="en">English</DropdownMenuRadioItem>
                                 <DropdownMenuRadioItem value="te">Telugu</DropdownMenuRadioItem>
-                                <DropdownMenuRadioItem value="hi">Hindi</DropdownMenuRadioItem>
                                 </DropdownMenuRadioGroup>
                             </DropdownMenuContent>
                         </DropdownMenu>
