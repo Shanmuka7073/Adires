@@ -38,7 +38,6 @@ const ADMIN_EMAIL = 'admin@gmail.com';
 
 const navLinks = [
   { href: '/', label: 'home' },
-  { href: '/stores', label: 'stores' },
 ];
 
 const dashboardLinks = [

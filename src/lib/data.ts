@@ -1,4 +1,3 @@
-
 'use client';
 import type { Store, Product, ProductPrice, SiteConfig } from './types';
 import {
@@ -33,14 +32,15 @@ const getImage = async (id: string) => {
 
 export async function getStores(db: Firestore): Promise<Store[]> {
   const storesCol = collection(db, 'stores');
-  const q = query(storesCol, where('isClosed', '!=', true));
+  const q = query(storesCol, where('name', '==', 'LocalBasket'));
   const storeSnapshot = await getDocs(q);
-  const storeList = storeSnapshot.docs
-    .map((doc) => ({
+  const storeList = storeSnapshot.docs.map(
+    (doc) =>
+      ({
         id: doc.id,
         ...doc.data(),
-    }) as Store)
-    .filter((store) => store.name !== 'LocalBasket');
+      } as Store)
+  );
   return storeList;
 }
 

@@ -20,8 +20,10 @@ export default function Home() {
     masterProducts, 
     productPrices, 
     fetchProductPrices, 
-    loading: appLoading 
+    loading: appLoading,
+    stores
   } = useAppStore();
+  const firstStoreId = stores[0]?.id;
 
   const [pricesLoaded, setPricesLoaded] = useState(false);
 
@@ -76,9 +78,11 @@ export default function Home() {
         <section>
           <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold font-headline">Featured Products</h2>
-              <Button variant="link" asChild>
-                  <Link href="/stores">View All</Link>
-              </Button>
+              {firstStoreId && (
+                <Button variant="link" asChild>
+                    <Link href={`/stores/${firstStoreId}`}>View All</Link>
+                </Button>
+              )}
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
             {isLoading ? (

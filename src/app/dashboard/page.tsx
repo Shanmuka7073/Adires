@@ -10,12 +10,13 @@ import { getProductImage } from '@/lib/data';
 import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { useAppStore } from '@/lib/store';
 
 const roleCards = [
     {
         title: 'start-shopping',
         description: 'browse-local-stores-and-find-fresh-groceries',
-        href: '/stores',
+        href: '/stores/beverages', // Default to beverages category
         icon: ShoppingCart,
         imageId: 'dash-shopping'
     },
@@ -43,12 +44,17 @@ const roleCards = [
 ];
 
 function RoleCard({ card, image, isLoading }) {
+    const firstStoreId = useAppStore((state) => state.stores[0]?.id);
+    const href = card.href.startsWith('/stores/') && firstStoreId 
+        ? `/stores/${firstStoreId}?category=${card.href.split('/')[2]}` 
+        : card.href;
+
     if (isLoading) {
         return <Skeleton className="h-full w-full min-h-[250px]" />;
     }
 
     return (
-        <Link href={card.href} className="group block rounded-lg overflow-hidden h-full">
+        <Link href={href} className="group block rounded-lg overflow-hidden h-full">
             <Card className="h-full flex flex-col transition-all group-hover:shadow-xl group-hover:-translate-y-1">
                 <div className="relative h-40 w-full">
                     <Image 

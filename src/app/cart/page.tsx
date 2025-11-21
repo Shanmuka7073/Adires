@@ -132,6 +132,9 @@ function MobileCartItem({ item, image }) {
 
 export default function CartPage() {
   const { cartItems, cartTotal, cartCount } = useCart();
+  const { stores } = useAppStore();
+  const firstStoreId = stores[0]?.id;
+  const shoppingLink = firstStoreId ? `/stores/${firstStoreId}` : '/';
   
   const [images, setImages] = useState({});
 
@@ -164,7 +167,7 @@ export default function CartPage() {
         </p>
         <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
           <Button asChild size="lg">
-            <Link href="/stores">{t('browse-stores')}</Link>
+            <Link href={shoppingLink}>{t('start-shopping')}</Link>
           </Button>
         </div>
       </div>
