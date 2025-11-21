@@ -1420,5 +1420,17 @@
       "chli pwd",
       "chilli podi"
     ]
+  },
+  "coca-cola": {
+    "en": "Coca-Cola",
+    "te": "కోకా-కోలా"
+  },
+  "pepsi": {
+    "en": "Pepsi",
+    "te": "పెప్సి"
+  },
+  "thums-up": {
+    "en": "Thums Up",
+    "te": "థమ్స్ అప్"
   }
 }

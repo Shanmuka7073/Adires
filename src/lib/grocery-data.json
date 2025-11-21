@@ -1,6 +1,13 @@
-
 {
     "categories": [
+        {
+            "categoryName": "Beverages",
+            "items": [
+                "Tea Powder", "Coffee Powder", "Green Tea", "Milk Powder", 
+                "Soft Drinks", "Juices", "Coconut Water", "Energy Drinks",
+                "Coca-Cola", "Pepsi", "Thums Up"
+            ]
+        },
         {
             "categoryName": "Fruits",
             "items": [
