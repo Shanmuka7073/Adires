@@ -1,8 +1,7 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -236,6 +235,12 @@ export default function AdminDashboardPage() {
                         description="View the source code for the main voice command processing logic."
                         href="/dashboard/admin/voice-commander-help"
                         icon={Mic}
+                    />
+                     <AdminActionCard
+                        title="Checkout Loop Debug"
+                        description="Isolate the specific code related to the checkout page command loop."
+                        href="/dashboard/admin/checkout-loop-help"
+                        icon={Bug}
                     />
                 </div>
             </div>
