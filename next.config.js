@@ -1,3 +1,4 @@
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
@@ -28,7 +29,7 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '4.5mb',
     },
-    esmExternals: true,
+    esmExternals: 'loose',
   },
   transpilePackages: ['firebase', '@firebase/auth', '@firebase/firestore'],
   typescript: {
