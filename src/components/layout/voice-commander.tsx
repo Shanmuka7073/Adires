@@ -1251,5 +1251,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    
