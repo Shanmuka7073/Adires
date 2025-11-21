@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -311,25 +310,29 @@ export function VoiceCommander({
           try {
             recognition.start();
           } catch(e) {
-            // Already started or other state issue, safe to ignore
+            if (! (e instanceof DOMException && e.name === 'InvalidStateError')) {
+                console.error("Could not start recognition in onEnd:", e);
+            }
           }
         }
-      }, 250); 
+      }, 300);
     };
     
     utterance.onerror = (e) => {
       console.error('Speech synthesis error', e);
       isSpeakingRef.current = false;
       if (onEndCallback) onEndCallback();
-      setTimeout(() => {
+       setTimeout(() => {
         if (isEnabledRef.current && recognition) {
           try {
             recognition.start();
           } catch(e) {
-             // Already started or other state issue, safe to ignore
+            if (! (e instanceof DOMException && e.name === 'InvalidStateError')) {
+                console.error("Could not start recognition in onError:", e);
+            }
           }
         }
-      }, 250);
+      }, 300);
     };
 
     window.speechSynthesis.speak(utterance);
