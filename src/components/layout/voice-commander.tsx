@@ -610,6 +610,7 @@ export function VoiceCommander({
         speak(t('sorry-i-didnt-understand-that', spokenLang), `${spokenLang}-IN`);
         if (!firestore || !user) return;
 
+        // Immediately start AI analysis in the background. Do not await.
         if (aiConfig?.isAliasSuggesterEnabled) {
             console.log("Triggering background AI analysis for failed command...");
             suggestAlias({
@@ -647,14 +648,17 @@ export function VoiceCommander({
                     try {
                         await batch.commit();
                         toast({ title: "AI Self-Correction", description: `Automatically added "${suggestion.originalCommand}" as an alias for "${suggestion.suggestedKey}".`});
+                        // Re-fetch all data to update the VoiceCommander's context in real-time
                         await fetchInitialData(firestore);
                     } catch (err) {
                         console.error("Error auto-saving aliases:", err);
+                        // If auto-save fails, log it as a normal failed command
                         addDoc(collection(firestore, 'failedCommands'), {
                             userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp(),
                         });
                     }
                 } else {
+                    // Log for manual review if confidence is not high enough
                      addDoc(collection(firestore, 'failedCommands'), {
                         userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp(),
                     });
@@ -666,6 +670,7 @@ export function VoiceCommander({
                 });
             });
         } else {
+             // Log for manual review if AI suggester is disabled
             addDoc(collection(firestore, 'failedCommands'), {
                 userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp(),
             });
@@ -688,6 +693,7 @@ export function VoiceCommander({
         updateRecognitionLanguage(langWithRegion);
     }
 
+    // --- CONTEXTUAL RESPONSES ---
     if (itemForPriceCheck) {
         const yesKeywords = ['yes', 'add', 'buy', 'okay', 'yep', 'yeah', 'సరే', 'అవును'];
         const noKeywords = ['no', 'cancel', 'stop', 'వద్దు', 'cancel'];
