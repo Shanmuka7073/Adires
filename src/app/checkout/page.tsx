@@ -79,16 +79,15 @@ interface PassThroughState {
   setPlaceOrderBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
   isWaitingForQuickOrderConfirmation: boolean;
   setIsWaitingForQuickOrderConfirmation: (isWaiting: boolean) => void;
-  homeAddressBtnRef: RefObject<HTMLButtonElement> | null;
-  setHomeAddressBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
-  currentLocationBtnRef: RefObject<HTMLButtonElement> | null;
-  setCurrentLocationBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
   homeAddress: string | null;
   setHomeAddress: (address: string | null) => void;
   shouldPlaceOrderDirectly: boolean;
   setShouldPlaceOrderDirectly: (shouldPlace: boolean) => void;
   shouldUseCurrentLocation: boolean;
   setShouldUseCurrentLocation: (shouldUse: boolean) => void;
+  handleUseHomeAddress: () => void;
+  handleUseCurrentLocation: () => void;
+  setAddressHandlers: (homeHandler: () => void, currentHandler: () => void) => void;
 }
 
 export const useCheckoutStore = create<PassThroughState>((set) => ({
@@ -96,16 +95,15 @@ export const useCheckoutStore = create<PassThroughState>((set) => ({
   setPlaceOrderBtnRef: (placeOrderBtnRef) => set({ placeOrderBtnRef }),
   isWaitingForQuickOrderConfirmation: false,
   setIsWaitingForQuickOrderConfirmation: (isWaiting) => set({ isWaitingForQuickOrderConfirmation: isWaiting }),
-  homeAddressBtnRef: null,
-  setHomeAddressBtnRef: (ref) => set({ homeAddressBtnRef: ref }),
-  currentLocationBtnRef: null,
-  setCurrentLocationBtnRef: (ref) => set({ currentLocationBtnRef: ref }),
   homeAddress: null,
   setHomeAddress: (address) => set({homeAddress: address}),
   shouldPlaceOrderDirectly: false,
   setShouldPlaceOrderDirectly: (shouldPlace) => set({ shouldPlaceOrderDirectly: shouldPlace }),
   shouldUseCurrentLocation: false,
   setShouldUseCurrentLocation: (shouldUse) => set({ shouldUseCurrentLocation: shouldUse }),
+  handleUseHomeAddress: () => {},
+  handleUseCurrentLocation: () => {},
+  setAddressHandlers: (homeHandler, currentHandler) => set({ handleUseHomeAddress: homeHandler, handleUseCurrentLocation: currentHandler }),
 }));
 
 export default function CheckoutPage() {
@@ -122,8 +120,6 @@ export default function CheckoutPage() {
   const [deliveryCoords, setDeliveryCoords] = useState<{lat: number, lng: number} | null>(null);
   const [images, setImages] = useState({});
   const placeOrderBtnRef = useRef<HTMLButtonElement>(null);
-  const homeAddressBtnRef = useRef<HTMLButtonElement>(null);
-  const currentLocationBtnRef = useRef<HTMLButtonElement>(null);
   
   const { allStores, fetchInitialData } = useAppStore((state) => ({
     allStores: state.stores,
@@ -134,14 +130,13 @@ export default function CheckoutPage() {
       isWaitingForQuickOrderConfirmation, 
       setPlaceOrderBtnRef, 
       setIsWaitingForQuickOrderConfirmation,
-      setHomeAddressBtnRef,
-      setCurrentLocationBtnRef,
       homeAddress,
       setHomeAddress,
       shouldPlaceOrderDirectly,
       setShouldPlaceOrderDirectly,
       shouldUseCurrentLocation,
-      setShouldUseCurrentLocation
+      setShouldUseCurrentLocation,
+      setAddressHandlers
     } = useCheckoutStore();
   
   const { triggerVoicePrompt } = useVoiceCommander();
@@ -154,6 +149,12 @@ export default function CheckoutPage() {
       fetchInitialData(firestore);
     }
   }, [firestore, fetchInitialData]);
+
+  const userDocRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+  const { data: userData } = useDoc<AppUser>(userDocRef);
 
   const handleUseCurrentLocation = useCallback(() => {
     if (navigator.geolocation) {
@@ -176,28 +177,7 @@ export default function CheckoutPage() {
     }
   }, [toast, form]);
 
-  useEffect(() => {
-    setPlaceOrderBtnRef(placeOrderBtnRef);
-    setHomeAddressBtnRef(homeAddressBtnRef);
-    setCurrentLocationBtnRef(currentLocationBtnRef);
-    return () => {
-      setPlaceOrderBtnRef(null);
-      setHomeAddressBtnRef(null);
-      setCurrentLocationBtnRef(null);
-      // Do NOT reset the confirmation flag here, as it might be needed across re-renders
-      // It will be reset by the voice commander after the action is complete.
-    }
-  }, [setPlaceOrderBtnRef, setHomeAddressBtnRef, setCurrentLocationBtnRef]);
-
-
-   const userDocRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [firestore, user]);
-  const { data: userData } = useDoc<AppUser>(userDocRef);
-
-  
-  const handleUseHomeAddress = useCallback(() => {
+    const handleUseHomeAddress = useCallback(() => {
     if (userData) {
       if(userData.address) {
         form.setValue('deliveryAddress', userData.address, { shouldValidate: true });
@@ -213,12 +193,22 @@ export default function CheckoutPage() {
     }
   }, [userData, form, toast]);
 
+  useEffect(() => {
+    setAddressHandlers(handleUseHomeAddress, handleUseCurrentLocation);
+  }, [handleUseHomeAddress, handleUseCurrentLocation, setAddressHandlers]);
+
+  useEffect(() => {
+    setPlaceOrderBtnRef(placeOrderBtnRef);
+    return () => {
+      setPlaceOrderBtnRef(null);
+    }
+  }, [setPlaceOrderBtnRef]);
+
+
   // Safely watch the delivery address and trigger voice prompt when it changes
   const deliveryAddressValue = form.watch('deliveryAddress');
   
   useEffect(() => {
-    // This effect will trigger the voice commander to re-evaluate the checkout page state.
-    // It runs when the address is filled out, OR when a store is selected.
     if ((deliveryAddressValue && deliveryAddressValue.length > 10) || activeStoreId) {
       if (triggerVoicePrompt) {
         triggerVoicePrompt();
@@ -230,7 +220,6 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (homeAddress) {
         form.setValue('deliveryAddress', homeAddress, { shouldValidate: true });
-        // Clean up the state so it doesn't persist
         setHomeAddress(null);
     }
   }, [homeAddress, form, setHomeAddress]);
@@ -322,14 +311,11 @@ export default function CheckoutPage() {
 
         const colRef = collection(firestore, 'orders');
         
-        // --- OPTIMIZATION: Non-blocking write ---
-        // 1. Immediately update UI for a snappy experience.
         clearCart();
         setDeliveryCoords(null);
         form.reset();
         router.push('/order-confirmation');
 
-        // 2. Perform the database write in the background.
         addDoc(colRef, orderData)
         .then(() => {
           toast({
@@ -435,10 +421,10 @@ export default function CheckoutPage() {
                             <div className="space-y-4">
                                 <FormLabel>{t('delivery-location')}</FormLabel>
                                 <div className="grid grid-cols-2 gap-4">
-                                <Button ref={homeAddressBtnRef} type="button" variant="outline" onClick={handleUseHomeAddress} disabled={!userData?.address}>
+                                <Button type="button" variant="outline" onClick={handleUseHomeAddress} disabled={!userData?.address}>
                                         <Home className="mr-2 h-4 w-4" /> Use Home Address
                                 </Button>
-                                <Button ref={currentLocationBtnRef} type="button" variant="outline" onClick={handleUseCurrentLocation}>
+                                <Button type="button" variant="outline" onClick={handleUseCurrentLocation}>
                                         <LocateFixed className="mr-2 h-4 w-4" /> Use Current Location
                                 </Button>
                                 </div>
@@ -517,3 +503,5 @@ export default function CheckoutPage() {
     </div>
   );
 }
+
+    

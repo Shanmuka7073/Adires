@@ -275,16 +275,62 @@ export function VoiceCommander({
 }, [enabled, language]);
 
   const speak = useCallback((textOrReplies: string | string[], lang: string, onEndCallback?: () => void) => {
-    // This function is now a no-op to disable speech synthesis for testing.
-    // The callback is executed immediately to not break the application flow.
-    if (onEndCallback) {
-        onEndCallback();
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      if (onEndCallback) onEndCallback();
+      return;
     }
-  }, []);
+    
+    if (recognition) {
+      recognition.stop();
+    }
+
+    isSpeakingRef.current = true;
+    window.speechSynthesis.cancel();
+    
+    const text = Array.isArray(textOrReplies) 
+      ? textOrReplies[Math.floor(Math.random() * textOrReplies.length)] 
+      : textOrReplies;
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    const targetLang = lang.split('-')[0];
+    let voice = speechSynthesisVoices.find(v => v.lang.startsWith(targetLang) && v.name.includes('Google')) ||
+                speechSynthesisVoices.find(v => v.lang.startsWith(targetLang)) ||
+                speechSynthesisVoices.find(v => v.default);
+    
+    if (voice) {
+      utterance.voice = voice;
+    } else {
+      console.warn(`No voice found for language: ${lang}`);
+    }
+
+    utterance.onend = () => {
+      isSpeakingRef.current = false;
+      if (onEndCallback) onEndCallback();
+      if (isEnabledRef.current && recognition) {
+        try {
+          recognition.start();
+        } catch(e) {}
+      }
+    };
+    
+    utterance.onerror = (e) => {
+      console.error('Speech synthesis error', e);
+      isSpeakingRef.current = false;
+      if (onEndCallback) onEndCallback();
+      if (isEnabledRef.current && recognition) {
+        try {
+          recognition.start();
+        } catch(e) {}
+      }
+    };
+
+    window.speechSynthesis.speak(utterance);
+  }, [speechSynthesisVoices]);
 
   const handleProfileFormInteraction = useCallback(() => {
     if (!profileForm?.getValues) {
-      // speak("I can't seem to access the profile form right now.", 'en-IN');
+      speak("I can't seem to access the profile form right now.", 'en-IN');
       return;
     }
     const fields: { name: keyof ProfileFormValues; label: string }[] = [
@@ -298,10 +344,10 @@ export function VoiceCommander({
 
     if (firstEmptyField) {
       formFieldToFillRef.current = firstEmptyField.name;
-      // speak(`What is your ${firstEmptyField.label}?`, 'en-IN');
+      speak(`What is your ${firstEmptyField.label}?`, 'en-IN');
     } else {
       formFieldToFillRef.current = null;
-      // speak("Your profile looks complete! You can say 'save changes' to submit.", 'en-IN');
+      speak("Your profile looks complete! You can say 'save changes' to submit.", 'en-IN');
     }
   }, [profileForm, speak]);
 
@@ -328,21 +374,21 @@ export function VoiceCommander({
         const onPromptEnd = () => setHasRunCheckoutPrompt(false);
 
         if (cartItemsProp.length === 0 && !isWaitingForQuickOrderConfirmation) {
-            // speak(t('your-cart-is-empty-speech', detectedLang), langWithRegion, onPromptEnd);
+            speak(t('your-cart-is-empty-speech', detectedLang), langWithRegion, onPromptEnd);
         } else if (!currentAddress || currentAddress.length < 10) {
-            // speak(t('should-i-deliver-to-home-or-current-speech', detectedLang), langWithRegion, () => {
+            speak(t('should-i-deliver-to-home-or-current-speech', detectedLang), langWithRegion, () => {
             isWaitingForAddressTypeRef.current = true;
             onPromptEnd();
-            // });
+            });
         } else if (!activeStoreId) {
-            // speak(t('which-store-should-fulfill-speech', detectedLang), langWithRegion, () => {
+            speak(t('which-store-should-fulfill-speech', detectedLang), langWithRegion, () => {
             isWaitingForStoreNameRef.current = true;
             onPromptEnd();
-            // });
+            });
         } else {
             const total = cartTotal + 30;
             const speech = t('finalConfirmPrompt', detectedLang).replace('{total}', `₹${total.toFixed(2)}`);
-            // speak(speech, langWithRegion, onPromptEnd);
+            speak(speech, langWithRegion, onPromptEnd);
         }
         promptTimeoutRef.current = null;
       }, 500); 
@@ -550,7 +596,7 @@ export function VoiceCommander({
 
 
     const handleCommandFailure = useCallback(async (commandText: string, spokenLang: string, reason: string) => {
-        // speak(t('sorry-i-didnt-understand-that', spokenLang), `${spokenLang}-IN`);
+        speak(t('sorry-i-didnt-understand-that', spokenLang), `${spokenLang}-IN`);
         if (!firestore || !user) return;
 
         // Immediately start AI analysis in the background. Do not await.
@@ -628,7 +674,7 @@ export function VoiceCommander({
     lastTranscriptRef.current = commandText;
     
     if (!firestore || !user) {
-        // speak("I can't process commands without being connected. Please log in.", 'en-IN');
+        speak("I can't process commands without being connected. Please log in.", 'en-IN');
         return;
     }
 
@@ -652,12 +698,12 @@ export function VoiceCommander({
             if (variant && itemForPriceCheck.current) {
                 addItemToCart(itemForPriceCheck.current, variant, requestedQty);
                 onOpenCart();
-                // speak(t('adding-item-speech', replyLang).replace('{quantity}', `${requestedQty}`).replace('{weight}', variant.weight).replace('{productName}', getProductName(itemForPriceCheck.current)), langWithRegion);
+                speak(t('adding-item-speech', replyLang).replace('{quantity}', `${requestedQty}`).replace('{weight}', variant.weight).replace('{productName}', getProductName(itemForPriceCheck.current)), langWithRegion);
             } else {
-                 // speak(t('sorry-i-didnt-understand-that', replyLang), langWithRegion);
+                 speak(t('sorry-i-didnt-understand-that', replyLang), langWithRegion);
             }
         } else if (noKeywords.some(kw => commandText.toLowerCase().includes(kw))) {
-            // speak("Okay.", langWithRegion);
+            speak("Okay.", langWithRegion);
         } else {
             itemForPriceCheck.current = null;
             handleCommand(commandText);
@@ -676,12 +722,12 @@ export function VoiceCommander({
 
         if (homeSimilarity > 0.6 && homeSimilarity > locationSimilarity) {
             handleUseHomeAddress();
-            // speak(t('setting-delivery-to-home-speech', replyLang), langWithRegion, triggerVoicePrompt);
+            speak(t('setting-delivery-to-home-speech', replyLang), langWithRegion, triggerVoicePrompt);
         } else if (locationSimilarity > 0.6) {
             handleUseCurrentLocation();
-            // speak(t('using-current-location-speech', replyLang), langWithRegion, triggerVoicePrompt);
+            speak(t('using-current-location-speech', replyLang), langWithRegion, triggerVoicePrompt);
         } else {
-            // speak(t('did-not-understand-address-type-speech', replyLang), langWithRegion, triggerVoicePrompt);
+            speak(t('did-not-understand-address-type-speech', replyLang), langWithRegion, triggerVoicePrompt);
             handleCommandFailure(commandText, spokenLang, `Address type clarification failed. Similarities: Home=${homeSimilarity.toFixed(2)}, Location=${locationSimilarity.toFixed(2)}`);
         }
         return;
@@ -700,9 +746,9 @@ export function VoiceCommander({
        if (bestMatch && bestMatch.similarity > 0.6) {
            const store = bestMatch.store;
            setActiveStoreId(store.id);
-          // speak(t('okay-ordering-from-speech', replyLang).replace('{storeName}', store.name), langWithRegion, triggerVoicePrompt);
+          speak(t('okay-ordering-from-speech', replyLang).replace('{storeName}', store.name), langWithRegion, triggerVoicePrompt);
        } else {
-          // speak(t('could-not-find-store-speech', replyLang).replace('{storeName}', commandText), langWithRegion, triggerVoicePrompt);
+          speak(t('could-not-find-store-speech', replyLang).replace('{storeName}', commandText), langWithRegion, triggerVoicePrompt);
            handleCommandFailure(commandText, spokenLang, `Store clarification failed. Best match: ${bestMatch?.store.name} (${bestMatch?.similarity.toFixed(2)})`);
        }
        return;
@@ -731,7 +777,7 @@ export function VoiceCommander({
 
         case 'GET_RECIPE':
             if (!aiConfig?.isRecipeApiEnabled) {
-                // speak("I'm sorry, the recipe feature is currently disabled.", langWithRegion);
+                speak("I'm sorry, the recipe feature is currently disabled.", langWithRegion);
                 return;
             }
             await commandActionsRef.current.getRecipe({ dishName: intent.dishName, lang: intent.lang });
@@ -756,10 +802,9 @@ export function VoiceCommander({
                 const action = commandActionsRef.current[commandKey];
                 const reply = commands[commandKey]?.reply || `Executing ${commands[commandKey]?.display}`;
                 if (action) {
-                    // speak(reply, langWithRegion, () => action({ lang: intent.lang }));
-                    action({ lang: intent.lang })
+                    speak(reply, langWithRegion, () => action({ lang: intent.lang }));
                 } else {
-                    // speak(reply, langWithRegion);
+                    speak(reply, langWithRegion);
                 }
             }
             break;
@@ -777,7 +822,7 @@ export function VoiceCommander({
                     .replace('{weight}', `${variant.weight}`)
                     .replace('{productName}', replyProductName);
 
-                // speak(speech, langWithRegion);
+                speak(speech, langWithRegion);
             } else {
                 handleCommandFailure(commandText, spokenLang, `ORDER_ITEM intent failed. Product not found or no variants. Phrase: "${remainingPhrase}"`);
             }
@@ -794,7 +839,7 @@ export function VoiceCommander({
       findProductAndVariant, addItemToCart, onOpenCart, t, getProductName,
       locales, commands, getAllAliases, recognizeIntent, aiConfig,
       handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setActiveStoreId,
-      storeAliasMap, profileForm, handleProfileFormInteraction, handleCommandFailure
+      storeAliasMap, profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData
   ]);
 
     // Effect to handle retrying a command
@@ -864,23 +909,23 @@ export function VoiceCommander({
         const cachedIngredients = await getCachedRecipe(firestore, dishName);
         if (cachedIngredients) {
             const ingredientsText = cachedIngredients.join(', ');
-            // speak(`The ingredients for ${dishName} are: ${ingredientsText}`, langWithRegion);
+            speak(`The ingredients for ${dishName} are: ${ingredientsText}`, langWithRegion);
             return;
         }
 
-        // speak(`Let me check the ingredients for ${dishName}...`, langWithRegion);
+        speak(`Let me check the ingredients for ${dishName}...`, langWithRegion);
         try {
             const result = await getIngredientsForDish({ dishName, language: replyLang });
             if (result.isSuccess && result.ingredients.length > 0) {
                 const ingredientsText = result.ingredients.join(', ');
-                // speak(`The main ingredients for ${dishName} are: ${ingredientsText}`, langWithRegion);
+                speak(`The main ingredients for ${dishName} are: ${ingredientsText}`, langWithRegion);
                 await cacheRecipe(firestore, dishName, result.ingredients);
             } else {
-                // speak(`I'm sorry, I couldn't find the ingredients for ${dishName}.`, langWithRegion);
+                speak(`I'm sorry, I couldn't find the ingredients for ${dishName}.`, langWithRegion);
             }
         } catch (error) {
             console.error("AI recipe flow failed:", error);
-            // speak(`I'm having trouble connecting to my knowledge base right now. Please try again later.`, langWithRegion);
+            speak(`I'm having trouble connecting to my knowledge base right now. Please try again later.`, langWithRegion);
         }
       },
       checkout: (params: { lang: string }) => {
@@ -890,12 +935,12 @@ export function VoiceCommander({
         onCloseCart();
         if (cartTotal > 0) {
             const total = cartTotal + 30; // Delivery fee
-            // speak(t('proceeding-to-checkout-speech', replyLang).replace('{total}', `₹${total.toFixed(2)}`), langWithRegion, () => {
+            speak(t('proceeding-to-checkout-speech', replyLang).replace('{total}', `₹${total.toFixed(2)}`), langWithRegion, () => {
                 router.push('/checkout');
                 triggerVoicePrompt();
-            // });
+            });
         } else {
-            // speak(t('your-cart-is-empty-speech', replyLang), langWithRegion);
+            speak(t('your-cart-is-empty-speech', replyLang), langWithRegion);
         }
       },
       homeAddress: ({lang}: {lang: string}) => {
@@ -913,13 +958,13 @@ export function VoiceCommander({
         const replyLang = lang === 'hi' ? 'en' : lang;
         const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         if (pathname === '/checkout' && placeOrderBtnRef?.current) {
-          // speak(t('placing-your-order-now-speech', replyLang), langWithRegion, () => {
+          speak(t('placing-your-order-now-speech', replyLang), langWithRegion, () => {
               placeOrderBtnRef?.current?.click();
-          // });
+          });
         } else if (cartItemsProp.length > 0) {
           commandActionsRef.current.checkout({ lang });
         } else {
-          // speak(t('your-cart-is-empty-speech', replyLang), langWithRegion);
+          speak(t('your-cart-is-empty-speech', replyLang), langWithRegion);
         }
       },
       saveChanges: (params: {lang: string}) => {
@@ -928,15 +973,15 @@ export function VoiceCommander({
         const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         if (pathname === '/dashboard/owner/my-store' && saveInventoryBtnRef?.current) {
           saveInventoryBtnRef.current.click();
-          // speak(t('saving-changes', replyLang), langWithRegion);
+          speak(t('saving-changes', replyLang), langWithRegion);
         } else if (pathname === '/dashboard/customer/my-profile' && profileForm) {
             if (typeof document !== 'undefined') {
                 const formElement = document.querySelector('form');
                 if (formElement) formElement.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-                // speak(t('saving-changes', replyLang), langWithRegion);
+                speak(t('saving-changes', replyLang), langWithRegion);
             }
         } else {
-          // speak(t('no-changes-to-save-speech', replyLang), langWithRegion);
+          speak(t('no-changes-to-save-speech', replyLang), langWithRegion);
         }
       },
       acceptDeliveryJob: ({ lang }: {lang: string}) => {
@@ -945,13 +990,13 @@ export function VoiceCommander({
           if (pathname === '/dashboard/delivery/deliveries' && typeof document !== 'undefined') {
               const acceptButton = document.querySelector('.accordion-content button') as HTMLButtonElement | null;
               if (acceptButton) {
-                  // speak("Okay, accepting the first available job group.", langWithRegion);
+                  speak("Okay, accepting the first available job group.", langWithRegion);
                   acceptButton.click();
               } else {
-                  // speak("There are no available jobs to accept right now.", langWithRegion);
+                  speak("There are no available jobs to accept right now.", langWithRegion);
               }
           } else {
-              // speak("You can only accept jobs from the deliveries page.", langWithRegion);
+              speak("You can only accept jobs from the deliveries page.", langWithRegion);
           }
       },
       showDetails: ({ target, lang }: {target: string, lang: string}) => {
@@ -960,13 +1005,13 @@ export function VoiceCommander({
         if (pathname === '/dashboard/delivery/deliveries') {
             const detailsButton = document.querySelector('[id^="details-btn-"]') as HTMLButtonElement | null;
             if (detailsButton) {
-                // speak("Showing details for the first group.", langWithRegion);
+                speak("Showing details for the first group.", langWithRegion);
                 detailsButton.click();
             } else {
-                // speak("I couldn't find any details to show.", langWithRegion);
+                speak("I couldn't find any details to show.", langWithRegion);
             }
         } else {
-            // speak("You can only view delivery details on the deliveries page.", langWithRegion);
+            speak("You can only view delivery details on the deliveries page.", langWithRegion);
         }
       },
       refresh: (params: {lang: string}) => {
@@ -975,7 +1020,7 @@ export function VoiceCommander({
       goToStore: ({ store, lang }: {store: Store, lang: string}) => {
         const replyLang = lang === 'hi' ? 'en' : lang;
         const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
-        // speak(`Okay, opening ${store.name}.`, langWithRegion);
+        speak(`Okay, opening ${store.name}.`, langWithRegion);
         router.push(`/stores/${store.id}`);
       },
     checkPrice: async ({ phrase, lang, originalText }: { phrase?: string; lang: string, originalText: string }) => {
@@ -1003,12 +1048,12 @@ export function VoiceCommander({
             .replace('{productName}', getProductName(product))
             .replace('{prices}', pricesString);
           
-          // speak(`${reply} Would you like to add it to your cart?`, langWithRegion);
+          speak(`${reply} Would you like to add it to your cart?`, langWithRegion);
           itemForPriceCheck.current = product;
           return;
 
         } else {
-          // speak(t('no-price-found-speech', replyLang).replace('{productName}', getProductName(product)), langWithRegion);
+          speak(t('no-price-found-speech', replyLang).replace('{productName}', getProductName(product)), langWithRegion);
           handleCommandFailure(originalText, detectedLang, `Price check: product "${product.name}" found but no price data available.`);
           return;
         }
@@ -1021,7 +1066,7 @@ export function VoiceCommander({
         const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         if (!phrase) return;
         if (cartItemsProp.length === 0) {
-            // speak("Your cart is already empty.", langWithRegion);
+            speak("Your cart is already empty.", langWithRegion);
             return;
         }
 
@@ -1036,9 +1081,9 @@ export function VoiceCommander({
         if (bestMatch && bestMatch.similarity > 0.6) {
             const { item } = bestMatch;
             removeItem(item.variant.sku);
-            // speak(`Okay, I've removed ${getProductName(item.product)} from your cart.`, langWithRegion);
+            speak(`Okay, I've removed ${getProductName(item.product)} from your cart.`, langWithRegion);
         } else {
-            // speak(`I couldn't find "${phrase}" in your cart.`, langWithRegion);
+            speak(`I couldn't find "${phrase}" in your cart.`, langWithRegion);
         }
     },
     orderMultipleItems: async (phrases: string[], lang: string, originalText: string) => {
@@ -1067,7 +1112,7 @@ export function VoiceCommander({
             } else {
                 speech = t('ive-added-to-your-cart', replyLang).replace('{items}', addedItems.join(', '));
             }
-            // speak(speech, langWithRegion);
+            speak(speech, langWithRegion);
         } else {
             handleCommandFailure(originalText, lang, `Multi-order: No products found. Failed items: ${failedItems.join(', ')}`);
         }
@@ -1101,7 +1146,7 @@ export function VoiceCommander({
         }
 
         if (fromIndex === -1 || toIndex === -1) {
-            // speak(t('could-not-find-product-in-order-speech', replyLang), langWithRegion);
+            speak(t('could-not-find-product-in-order-speech', replyLang), langWithRegion);
             return;
         }
 
@@ -1112,7 +1157,7 @@ export function VoiceCommander({
         // 1. Process Product
         const { product, variant, requestedQty } = await findProductAndVariant(productPhrase);
         if (!product || !variant) {
-            // speak(t('could-not-find-item-speech', replyLang).replace('{itemName}', productPhrase), langWithRegion);
+            speak(t('could-not-find-item-speech', replyLang).replace('{itemName}', productPhrase), langWithRegion);
             return;
         }
 
@@ -1128,7 +1173,7 @@ export function VoiceCommander({
         }
 
         if (!bestStoreMatch || bestSimilarity < 0.6) {
-            // speak(t('could-not-identify-store-speech', replyLang), langWithRegion);
+            speak(t('could-not-identify-store-speech', replyLang), langWithRegion);
             return;
         }
 
@@ -1144,7 +1189,7 @@ export function VoiceCommander({
             if (userProfileRef.current?.address) {
                 deliveryAddress = userProfileRef.current.address;
             } else {
-                // speak(t('cannot-deliver-home-no-address-speech', replyLang), langWithRegion);
+                speak(t('cannot-deliver-home-no-address-speech', replyLang), langWithRegion);
                 router.push('/dashboard/customer/my-profile');
                 return;
             }
@@ -1160,7 +1205,7 @@ export function VoiceCommander({
             .replace('{items}', `${requestedQty} ${variant.weight} of ${getProductName(product)}`)
             .replace('{storeName}', bestStoreMatch.name);
 
-        // speak(speech, langWithRegion, () => {
+        speak(speech, langWithRegion, () => {
             setIsWaitingForQuickOrderConfirmation(true); // Prevents checkout page from prompting
             addItemToCart(product, variant, requestedQty);
             setActiveStoreId(bestStoreMatch!.id);
@@ -1171,7 +1216,7 @@ export function VoiceCommander({
             }
             useCheckoutStore.getState().setShouldPlaceOrderDirectly(true); // Signal the checkout page to auto-submit
             router.push('/checkout');
-        // });
+        });
     },
   };
 
@@ -1206,3 +1251,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
