@@ -311,17 +311,16 @@ export default function CheckoutPage() {
 
         const colRef = collection(firestore, 'orders');
         
-        clearCart();
-        setDeliveryCoords(null);
-        form.reset();
-        router.push('/order-confirmation');
-
         addDoc(colRef, orderData)
         .then(() => {
           toast({
             title: "Order Placed!",
             description: "Thank you for your purchase.",
           });
+          clearCart();
+          setDeliveryCoords(null);
+          form.reset();
+          router.push('/order-confirmation');
         })
         .catch((e) => {
              console.error('Error placing order:', e);
