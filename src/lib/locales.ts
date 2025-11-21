@@ -1,4 +1,3 @@
-
 'use client';
 import type { VoiceAliasGroup } from './types';
 
@@ -16,6 +15,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
       'okay-ordering-from-speech': "Okay, ordering from {storeName}.",
       'could-not-find-store-speech': "I'm sorry, I couldn't find a store named {storeName}. Please try again.",
       'did-not-understand-address-type-speech': "I'm sorry, I didn't understand. Please say 'home address' or 'current location'.",
+      'did-not-understand-please-repeat': "I didn't quite catch that. Please say either 'home address' or 'current location'.",
+      'address-selection-cancelled-speech': "Okay, I've cancelled the address selection. You can set it manually or try again.",
       'setting-delivery-to-home-speech': "Okay, I've set the delivery to your saved home address.",
       'using-current-location-speech': "Okay, using your current location for delivery.",
       'placing-your-order-now-speech': "Placing your order now.",
@@ -49,6 +50,8 @@ const TRANSLATIONS: Record<string, Record<string, string>> = {
       'okay-ordering-from-speech': "సరే, {storeName} నుండి ఆర్డర్ చేస్తున్నాను.",
       'could-not-find-store-speech': "క్షమించండి, {storeName} అనే స్టోర్ నాకు కనబడలేదు. దయచేసి మళ్లీ ప్రయత్నించండి.",
       'did-not-understand-address-type-speech': "క్షమించండి, నాకు అర్థం కాలేదు. దయచేసి 'ఇంటి చిరునామా' లేదా 'ప్రస్తుత స్థానం' అని చెప్పండి.",
+      'did-not-understand-please-repeat': "నాకు సరిగ్గా అర్థం కాలేదు. దయచేసి 'ఇంటి చిరునామా' లేదా 'ప్రస్తుత స్థానం' అని మళ్ళీ చెప్పండి.",
+      'address-selection-cancelled-speech': "సరే, నేను చిరునామా ఎంపికను రద్దు చేశాను. మీరు మాన్యువల్‌గా సెట్ చేయవచ్చు లేదా మళ్ళీ ప్రయత్నించవచ్చు.",
       'setting-delivery-to-home-speech': "సరే, నేను డెలివరీని మీ ఇంటి చిరునామాకు సెట్ చేశాను.",
       'using-current-location-speech': "సరే, డెలివరీ కోసం మీ ప్రస్తుత స్థానాన్ని ఉపయోగిస్తున్నాను.",
       'placing-your-order-now-speech': "మీ ఆర్డర్‌ను ఇప్పుడు ప్లేస్ చేస్తున్నాను.",

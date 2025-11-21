@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -114,6 +113,7 @@ export function VoiceCommander({
   const formFieldToFillRef = useRef<keyof ProfileFormValues | null>(null);
   const isWaitingForStoreNameRef = useRef(false);
   const isWaitingForAddressTypeRef = useRef(false);
+  const addressRetryCountRef = useRef(0);
   const itemForPriceCheck = useRef<Product | null>(null);
   const lastTranscriptRef = useRef<string>('');
   
@@ -182,6 +182,7 @@ export function VoiceCommander({
     itemForPriceCheck.current = null;
     isWaitingForStoreNameRef.current = false;
     isWaitingForAddressTypeRef.current = false;
+    addressRetryCountRef.current = 0;
     onSuggestions([]);
     setIsWaitingForQuickOrderConfirmation(false);
     formFieldToFillRef.current = null;
@@ -274,9 +275,9 @@ export function VoiceCommander({
     }
 }, [enabled, language]);
 
-  const speak = useCallback((textOrReplies: string | string[], lang: string, onEndCallback?: () => void) => {
+  const speak = useCallback((textOrReplies: string | string[], lang: string, onEndCallback?: (() => void) | boolean) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      if (onEndCallback) onEndCallback();
+      if (typeof onEndCallback === 'function') onEndCallback();
       return;
     }
     
@@ -305,29 +306,22 @@ export function VoiceCommander({
       console.warn(`No voice found for language: ${lang}`);
     }
 
-    utterance.onend = () => {
+    const handleEnd = () => {
       isSpeakingRef.current = false;
-      if (onEndCallback) {
+      if (typeof onEndCallback === 'function') {
         onEndCallback();
-      } else if (isEnabledRef.current && recognition) {
-        // Default behavior: restart recognition if no specific callback is provided
+      } else if (onEndCallback !== false && isEnabledRef.current && recognition) {
+        // Default behavior: restart recognition if callback is not `false`
         try {
           recognition.start();
         } catch(e) {}
       }
     };
     
+    utterance.onend = handleEnd;
     utterance.onerror = (e) => {
       console.error('Speech synthesis error', e);
-      isSpeakingRef.current = false;
-      // Ensure recognition restarts even on error
-      if (onEndCallback) {
-        onEndCallback();
-      } else if (isEnabledRef.current && recognition) {
-        try {
-          recognition.start();
-        } catch(e) {}
-      }
+      handleEnd(); // Ensure state is reset and recognition might restart
     };
 
     window.speechSynthesis.speak(utterance);
@@ -378,7 +372,6 @@ export function VoiceCommander({
         
         const onPromptEnd = () => {
             setHasRunCheckoutPrompt(false);
-            // This is a default restart, specific actions in `speak` callbacks will override this.
              if (isEnabledRef.current && recognition && !isSpeakingRef.current) {
                 try { recognition.start(); } catch(e){}
             }
@@ -389,6 +382,7 @@ export function VoiceCommander({
         } else if (!currentAddress || currentAddress.length < 10) {
             speak(t('should-i-deliver-to-home-or-current-speech', detectedLang), langWithRegion, () => {
                 isWaitingForAddressTypeRef.current = true;
+                addressRetryCountRef.current = 0; // Reset retry count when asking
                 onPromptEnd();
             });
         } else if (!activeStoreId) {
@@ -724,73 +718,44 @@ export function VoiceCommander({
     }
     
     if (isWaitingForAddressTypeRef.current) {
-        // 🚀 STOP recognition while speaking
-        if (recognition && recognition.stop) {
-            try { recognition.stop(); } catch {}
-        }
-
-        const lower = commandText.toLowerCase();
-
         const homeKeywords = getAllAliases('homeAddress')[spokenLang] || ['home'];
         const locationKeywords = getAllAliases('currentLocation')[spokenLang] || ['current', 'location'];
-
-        const homeSimilarity = Math.max(...homeKeywords.map(kw => calculateSimilarity(lower, kw)));
-        const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(lower, kw)));
-
-        // 🔥 Decide address only ONCE — no toggling back
-        isWaitingForAddressTypeRef.current = false;
-
+        
+        const homeSimilarity = Math.max(...homeKeywords.map(kw => calculateSimilarity(commandText.toLowerCase(), kw)));
+        const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(commandText.toLowerCase(), kw)));
+    
         if (homeSimilarity > 0.6 && homeSimilarity > locationSimilarity) {
+            // Success: Reset flags
+            isWaitingForAddressTypeRef.current = false;
+            addressRetryCountRef.current = 0; // Reset retry count
+            
             handleUseHomeAddress();
-
-            speak(
-                t('setting-delivery-to-home-speech', replyLang),
-                langWithRegion,
-                () => {
-                    // ✅ Restart recognition ONLY after speech ends
-                    if (recognition) {
-                        try { recognition.start(); } catch {}
-                    }
-                    triggerVoicePrompt?.();
-                }
-            );
-
+            speak(t('setting-delivery-to-home-speech', replyLang), langWithRegion, triggerVoicePrompt);
         } else if (locationSimilarity > 0.6) {
+            // Success: Reset flags
+            isWaitingForAddressTypeRef.current = false;
+            addressRetryCountRef.current = 0; // Reset retry count
+    
             handleUseCurrentLocation();
-
-            speak(
-                t('using-current-location-speech', replyLang),
-                langWithRegion,
-                () => {
-                    if (recognition) {
-                        try { recognition.start(); } catch {}
-                    }
-                    triggerVoicePrompt?.();
-                }
-            );
-
+            speak(t('using-current-location-speech', replyLang), langWithRegion, triggerVoicePrompt);
         } else {
-            // ❌ Don't loop — ask only ONCE again
-            isWaitingForAddressTypeRef.current = true;
-
-            speak(
-                t('did-not-understand-address-type-speech', replyLang),
-                langWithRegion,
-                () => {
-                    if (recognition) {
-                        try { recognition.start(); } catch {}
-                    }
-                }
-            );
-
-            handleCommandFailure(
-                commandText,
-                spokenLang,
-                `Address type clarification failed. Home=${homeSimilarity}, Location=${locationSimilarity}`
-            );
+            // Failure Logic
+            if (addressRetryCountRef.current < 2) {
+                // ALLOW RETRY: Increment counter, keep flag TRUE
+                addressRetryCountRef.current += 1;
+                
+                // Speak a specific prompt asking them to try again
+                speak(t('did-not-understand-please-repeat', replyLang), langWithRegion, triggerVoicePrompt);
+            } else {
+                // STOP LOOP: Max retries reached. Reset everything.
+                isWaitingForAddressTypeRef.current = false;
+                addressRetryCountRef.current = 0;
+                
+                speak(t('address-selection-cancelled-speech', replyLang), langWithRegion, false); // Pass false to stop listening
+                handleCommandFailure(commandText, spokenLang, `Address type clarification failed. Max retries reached.`);
+            }
         }
-
-        return;
+        return; 
     }
 
     if (isWaitingForStoreNameRef.current) {
