@@ -717,11 +717,12 @@ export function VoiceCommander({
     }
     
     if (isWaitingForAddressTypeRef.current) {
+        const lowerCommand = commandText.toLowerCase();
         const homeKeywords = getAllAliases('homeAddress')[spokenLang] || ['home'];
         const locationKeywords = getAllAliases('currentLocation')[spokenLang] || ['current', 'location'];
         
-        const homeSimilarity = Math.max(...homeKeywords.map(kw => calculateSimilarity(commandText.toLowerCase(), kw)));
-        const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(commandText.toLowerCase(), kw)));
+        const homeSimilarity = Math.max(...homeKeywords.map(kw => calculateSimilarity(lowerCommand, kw.toLowerCase())));
+        const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(lowerCommand, kw.toLowerCase())));
     
         if (homeSimilarity > 0.6 && homeSimilarity > locationSimilarity) {
             isWaitingForAddressTypeRef.current = false;
@@ -749,6 +750,7 @@ export function VoiceCommander({
         }
         return; 
     }
+
 
     if (isWaitingForStoreNameRef.current) {
         isWaitingForStoreNameRef.current = false; // Reset immediately
