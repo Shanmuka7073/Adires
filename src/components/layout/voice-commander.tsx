@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -115,6 +116,7 @@ export function VoiceCommander({
   const isWaitingForAddressTypeRef = useRef(false);
   const addressRetryCountRef = useRef(0);
   const itemForPriceCheck = useRef<Product | null>(null);
+  const productForVariantSelection = useRef<Product | null>(null);
   const lastTranscriptRef = useRef<string>('');
   
   const userProfileRef = useRef<User | null>(null);
@@ -180,6 +182,7 @@ export function VoiceCommander({
 
   const resetAllContext = useCallback(() => {
     itemForPriceCheck.current = null;
+    productForVariantSelection.current = null;
     isWaitingForStoreNameRef.current = false;
     isWaitingForAddressTypeRef.current = false;
     addressRetryCountRef.current = 0;
@@ -691,6 +694,47 @@ export function VoiceCommander({
     }
 
     // --- CONTEXTUAL RESPONSES ---
+    if (productForVariantSelection.current) {
+        const product = productForVariantSelection.current;
+        const priceData = productPrices[product.name.toLowerCase()];
+        let selectedVariant: ProductVariant | null = null;
+    
+        if (priceData?.variants) {
+            // Try to match by spoken number or price amount
+            const spokenNumber = commandText.match(/\d+/g)?.[0];
+            if (spokenNumber) {
+                const priceAsNumber = parseInt(spokenNumber);
+                selectedVariant = priceData.variants.find(v => v.price === priceAsNumber) || null;
+            }
+    
+            // If no numeric match, try by text similarity against price (e.g. "twenty")
+            if (!selectedVariant) {
+                let bestMatch = { variant: null as ProductVariant | null, similarity: 0 };
+                for (const variant of priceData.variants) {
+                    const similarity = calculateSimilarity(commandText.toLowerCase(), String(variant.price));
+                    // A lower threshold might be needed for spoken numbers vs text
+                    if (similarity > 0.5 && similarity > bestMatch.similarity) {
+                        bestMatch = { variant, similarity };
+                    }
+                }
+                selectedVariant = bestMatch.variant;
+            }
+        }
+    
+        if (selectedVariant) {
+            addItemToCart(product, selectedVariant, 1);
+            onOpenCart();
+            speak(t('adding-item-speech', replyLang).replace('{quantity}', '1').replace('{weight}', selectedVariant.weight).replace('{productName}', getProductName(product)), langWithRegion);
+        } else {
+            speak(`I'm sorry, I couldn't find that price option for ${getProductName(product)}. Please try again.`, langWithRegion);
+        }
+    
+        // Exit this special mode whether successful or not
+        productForVariantSelection.current = null;
+        return;
+    }
+
+
     if (itemForPriceCheck.current) {
         const productForCheck = itemForPriceCheck.current;
         itemForPriceCheck.current = null; // Reset immediately
@@ -837,7 +881,16 @@ export function VoiceCommander({
         case 'ORDER_ITEM': {
             const { product, variant, requestedQty, remainingPhrase } = await findProductAndVariant(commandText);
             
-            if (product?.category === 'Beverages') {
+            const priceData = product ? productPrices[product.name.toLowerCase()] : null;
+            const hasMultipleVariants = priceData && priceData.variants && priceData.variants.length > 1;
+
+            if (product && hasMultipleVariants && !variant) {
+                // Enter drill-down mode
+                productForVariantSelection.current = product;
+                const pricesString = priceData.variants.map(v => `₹${v.price}`).join(', ');
+                speak(`${getProductName(product)} is available for ${pricesString}. Which price would you like?`, replyLang);
+            }
+            else if (product?.category === 'Beverages' && !hasMultipleVariants) {
                 const firstStoreId = stores[0]?.id;
                 if (firstStoreId) {
                     router.push(`/stores/${firstStoreId}?category=Beverages`);
@@ -877,7 +930,7 @@ export function VoiceCommander({
       storeAliasMap, profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData,
       placeOrderBtnRef, onCloseCart, setHomeAddress,
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
-      removeItem, router, stores
+      removeItem, router, stores, productPrices
   ]);
 
     // Effect to handle retrying a command
@@ -1289,3 +1342,4 @@ export function VoiceCommander({
 
   return null;
 }
+
