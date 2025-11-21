@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -138,13 +137,13 @@ export function VoiceCommander({
       
       const normalizedCanonicalName = p.name.toLowerCase();
       map.set(normalizedCanonicalName, { product: p, lang: 'en' });
-      map.set(normalizedCanonicalName.replace(/\\s+/g, ''), { product: p, lang: 'en' });
+      map.set(normalizedCanonicalName.replace(/\s+/g, ''), { product: p, lang: 'en' });
 
       for (const lang in productAliasesByLang) {
         for (const alias of productAliasesByLang[lang]) {
           const normalizedAlias = alias.toLowerCase();
           map.set(normalizedAlias, { product: p, lang: lang });
-          map.set(normalizedAlias.replace(/\\s+/g, ''), { product: p, lang: lang });
+          map.set(normalizedAlias.replace(/\s+/g, ''), { product: p, lang: lang });
         }
       }
     }
@@ -167,7 +166,7 @@ export function VoiceCommander({
          if (term) {
             const normalizedTerm = term.toLowerCase();
             map.set(normalizedTerm, s);
-            map.set(normalizedTerm.replace(/\\s+/g, ''), s);
+            map.set(normalizedTerm.replace(/\s+/g, ''), s);
         }
       }
     }
@@ -443,7 +442,7 @@ export function VoiceCommander({
   const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null; variant: ProductVariant | null; requestedQty: number; remainingPhrase: string; matchedAlias: string | null; lang: string; }> => {
     
     let lowerPhrase = phrase.toLowerCase();
-    let sanitizedPhrase = lowerPhrase.replace(/[-.,]/g, ' ').replace(/\\s+/g, ' ').trim();
+    let sanitizedPhrase = lowerPhrase.replace(/[-.,]/g, ' ').replace(/\s+/g, ' ').trim();
 
     let requestedQty = 1;
     let requestedUnit: 'kg' | 'gm' | 'pc' | 'pack' | null = null;
@@ -483,7 +482,7 @@ export function VoiceCommander({
     let productNamePhrase = remainingWords.join(' ');
 
     let productMatch: { product: Product, alias: string, lang: string } | null = null;
-    const directMatch = universalProductAliasMap.get(productNamePhrase) || universalProductAliasMap.get(productNamePhrase.replace(/\\s+/g, ''));
+    const directMatch = universalProductAliasMap.get(productNamePhrase) || universalProductAliasMap.get(productNamePhrase.replace(/\s+/g, ''));
     
     if (directMatch) {
       productMatch = { ...directMatch, alias: productNamePhrase };
@@ -725,26 +724,33 @@ export function VoiceCommander({
         const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(lowerCommand, kw.toLowerCase())));
     
         if (homeSimilarity > 0.6 && homeSimilarity > locationSimilarity) {
+            // Success: Reset flags
             isWaitingForAddressTypeRef.current = false;
-            addressRetryCountRef.current = 0;
+            addressRetryCountRef.current = 0; // Reset retry count
             
             handleUseHomeAddress();
             speak(t('setting-delivery-to-home-speech', replyLang), langWithRegion, triggerVoicePrompt);
         } else if (locationSimilarity > 0.6) {
+            // Success: Reset flags
             isWaitingForAddressTypeRef.current = false;
-            addressRetryCountRef.current = 0;
+            addressRetryCountRef.current = 0; // Reset retry count
     
             handleUseCurrentLocation();
             speak(t('using-current-location-speech', replyLang), langWithRegion, triggerVoicePrompt);
         } else {
+            // Failure Logic
             if (addressRetryCountRef.current < 2) {
+                // ALLOW RETRY: Increment counter, keep flag TRUE
                 addressRetryCountRef.current += 1;
+                
+                // Speak a specific prompt asking them to try again
                 speak(t('did-not-understand-please-repeat', replyLang), langWithRegion, triggerVoicePrompt);
             } else {
+                // STOP LOOP: Max retries reached. Reset everything.
                 isWaitingForAddressTypeRef.current = false;
                 addressRetryCountRef.current = 0;
                 
-                speak(t('address-selection-cancelled-speech', replyLang), langWithRegion, false);
+                speak(t('address-selection-cancelled-speech', replyLang), langWithRegion, false); // Pass false to stop listening
                 handleCommandFailure(commandText, spokenLang, `Address type clarification failed. Max retries reached.`);
             }
         }
@@ -828,9 +834,18 @@ export function VoiceCommander({
             }
             break;
         }
-        case 'ORDER_ITEM':
+        case 'ORDER_ITEM': {
             const { product, variant, requestedQty, remainingPhrase } = await findProductAndVariant(commandText);
-            if (product && variant) {
+            
+            if (product?.category === 'Beverages') {
+                const firstStoreId = stores[0]?.id;
+                if (firstStoreId) {
+                    router.push(`/stores/${firstStoreId}?category=Beverages`);
+                    speak(`Okay, showing all available beverages.`, langWithRegion);
+                } else {
+                    handleCommandFailure(commandText, spokenLang, `Could not navigate to beverages category because no stores were found.`);
+                }
+            } else if (product && variant) {
                 addItemToCart(product, variant, requestedQty);
                 onOpenCart();
                 const productLang = spokenLang;
@@ -846,6 +861,7 @@ export function VoiceCommander({
                 handleCommandFailure(commandText, spokenLang, `ORDER_ITEM intent failed. Product not found or no variants. Phrase: "${remainingPhrase}"`);
             }
             break;
+        }
 
         case 'UNKNOWN':
         default:
@@ -861,7 +877,7 @@ export function VoiceCommander({
       storeAliasMap, profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData,
       placeOrderBtnRef, onCloseCart, setHomeAddress,
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
-      removeItem
+      removeItem, router, stores
   ]);
 
     // Effect to handle retrying a command
@@ -1268,7 +1284,7 @@ export function VoiceCommander({
       profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData,
       placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress,
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
-      getProductName, addItemToCart, removeItem, locales, commands, getAllAliases, recognizeIntent
+      getProductName, addItemToCart, removeItem, locales, commands, getAllAliases, recognizeIntent, stores
   ]);
 
   return null;
