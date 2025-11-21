@@ -698,7 +698,6 @@ export function VoiceCommander({
         updateRecognitionLanguage(`${spokenLang}-IN`);
     }
 
-
     // --- CONTEXTUAL RESPONSES ---
     if (itemForPriceCheck.current) {
         const productForCheck = itemForPriceCheck.current;
@@ -724,9 +723,7 @@ export function VoiceCommander({
         return;
     }
     
-    // --- CONTEXTUAL RESPONSES ---
     if (isWaitingForAddressTypeRef.current) {
-
         // 🚀 STOP recognition while speaking
         if (recognition && recognition.stop) {
             try { recognition.stop(); } catch {}
@@ -795,7 +792,6 @@ export function VoiceCommander({
 
         return;
     }
-
 
     if (isWaitingForStoreNameRef.current) {
         isWaitingForStoreNameRef.current = false; // Reset immediately
