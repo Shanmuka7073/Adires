@@ -129,6 +129,8 @@ export default function CheckoutPage() {
     allStores: state.stores,
     fetchInitialData: state.fetchInitialData,
   }));
+  
+  const localBasketStore = useMemo(() => allStores.find(s => s.name === 'LocalBasket'), [allStores]);
 
   const { 
       isWaitingForQuickOrderConfirmation, 
@@ -148,6 +150,13 @@ export default function CheckoutPage() {
       fetchInitialData(firestore);
     }
   }, [firestore, fetchInitialData]);
+
+  // Automatically set the store to LocalBasket
+  useEffect(() => {
+    if (localBasketStore && !activeStoreId) {
+      setActiveStoreId(localBasketStore.id);
+    }
+  }, [localBasketStore, activeStoreId, setActiveStoreId]);
 
   const userDocRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -245,7 +254,7 @@ export default function CheckoutPage() {
         return;
     }
      if (!activeStoreId) {
-        toast({ variant: 'destructive', title: 'Store Required', description: 'Please select a store to fulfill your order.' });
+        toast({ variant: 'destructive', title: 'Store Required', description: 'A store must be selected to fulfill your order.' });
         return;
     }
 
@@ -330,7 +339,7 @@ export default function CheckoutPage() {
                   {t('please-add-items-to-your-cart-before-proceeding')}
               </p>
               <Button asChild size="lg">
-                  <Link href="/stores">{t('browse-stores')}</Link>
+                  <Link href="/">{t('browse-stores')}</Link>
               </Button>
           </div>
       );
@@ -429,36 +438,16 @@ export default function CheckoutPage() {
 
                             <div className="space-y-2">
                                 <FormLabel>{t('fulfilling-store')}</FormLabel>
-                                <Select onValueChange={setActiveStoreId} value={activeStoreId || ""}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder={t('select-a-store-to-fulfill')} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {allStores.map(store => (
-                                            <SelectItem key={store.id} value={store.id}>
-                                                <div className="flex items-center gap-2">
-                                                    <StoreIcon className="h-4 w-4 text-muted-foreground" />
-                                                    <span>{store.name}</span>
-                                                </div>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                 <div className="flex items-center gap-2 p-3 rounded-md border bg-muted">
+                                    <StoreIcon className="h-5 w-5 text-muted-foreground" />
+                                    <span className="font-medium">{localBasketStore?.name || 'Loading...'}</span>
+                                </div>
                                 {!activeStoreId && !isWaitingForQuickOrderConfirmation && (
                                     <Alert variant="destructive" id="action-required-alert">
                                         <AlertCircle className="h-4 w-4" />
                                         <AlertTitle>{t('action-required')}</AlertTitle>
                                         <AlertDescription>
                                             {t('please-select-a-store-to-continue')}
-                                        </AlertDescription>
-                                    </Alert>
-                                )}
-                                {isWaitingForQuickOrderConfirmation && !activeStoreId && (
-                                    <Alert variant="default" id="action-required-alert">
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                        <AlertTitle>{t('waiting-for-store')}</AlertTitle>
-                                        <AlertDescription>
-                                        {t('the-store-you-selected-with-your-voice-is-being-set')}
                                         </AlertDescription>
                                     </Alert>
                                 )}
