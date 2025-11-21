@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -281,7 +282,6 @@ export function VoiceCommander({
       return;
     }
     
-    // Stop recognition before speaking
     if (recognition) {
         try { recognition.stop(); } catch(e) {}
     }
@@ -311,9 +311,8 @@ export function VoiceCommander({
       if (typeof onEndCallback === 'function') {
         onEndCallback();
       } else if (onEndCallback !== false && isEnabledRef.current && recognition) {
-        // Default behavior: restart recognition if callback is not `false`
         try {
-          recognition.start();
+          if (!isSpeakingRef.current) recognition.start();
         } catch(e) {}
       }
     };
@@ -321,7 +320,7 @@ export function VoiceCommander({
     utterance.onend = handleEnd;
     utterance.onerror = (e) => {
       console.error('Speech synthesis error', e);
-      handleEnd(); // Ensure state is reset and recognition might restart
+      handleEnd(); 
     };
 
     window.speechSynthesis.speak(utterance);
@@ -725,33 +724,26 @@ export function VoiceCommander({
         const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(commandText.toLowerCase(), kw)));
     
         if (homeSimilarity > 0.6 && homeSimilarity > locationSimilarity) {
-            // Success: Reset flags
             isWaitingForAddressTypeRef.current = false;
-            addressRetryCountRef.current = 0; // Reset retry count
+            addressRetryCountRef.current = 0;
             
             handleUseHomeAddress();
             speak(t('setting-delivery-to-home-speech', replyLang), langWithRegion, triggerVoicePrompt);
         } else if (locationSimilarity > 0.6) {
-            // Success: Reset flags
             isWaitingForAddressTypeRef.current = false;
-            addressRetryCountRef.current = 0; // Reset retry count
+            addressRetryCountRef.current = 0;
     
             handleUseCurrentLocation();
             speak(t('using-current-location-speech', replyLang), langWithRegion, triggerVoicePrompt);
         } else {
-            // Failure Logic
             if (addressRetryCountRef.current < 2) {
-                // ALLOW RETRY: Increment counter, keep flag TRUE
                 addressRetryCountRef.current += 1;
-                
-                // Speak a specific prompt asking them to try again
                 speak(t('did-not-understand-please-repeat', replyLang), langWithRegion, triggerVoicePrompt);
             } else {
-                // STOP LOOP: Max retries reached. Reset everything.
                 isWaitingForAddressTypeRef.current = false;
                 addressRetryCountRef.current = 0;
                 
-                speak(t('address-selection-cancelled-speech', replyLang), langWithRegion, false); // Pass false to stop listening
+                speak(t('address-selection-cancelled-speech', replyLang), langWithRegion, false);
                 handleCommandFailure(commandText, spokenLang, `Address type clarification failed. Max retries reached.`);
             }
         }
