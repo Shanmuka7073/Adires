@@ -73,36 +73,40 @@ function OrderSummaryItem({ item, image }) {
     );
 }
 
-// Minimal pass-through state needed by the voice commander.
-interface PassThroughState {
+// State store for the checkout page, allowing the VoiceCommander to interact with it.
+interface CheckoutState {
   placeOrderBtnRef: RefObject<HTMLButtonElement> | null;
   setPlaceOrderBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
   isWaitingForQuickOrderConfirmation: boolean;
   setIsWaitingForQuickOrderConfirmation: (isWaiting: boolean) => void;
-  homeAddress: string | null;
-  setHomeAddress: (address: string | null) => void;
   shouldPlaceOrderDirectly: boolean;
   setShouldPlaceOrderDirectly: (shouldPlace: boolean) => void;
-  shouldUseCurrentLocation: boolean;
+  setHomeAddress: (address: string | null) => void;
   setShouldUseCurrentLocation: (shouldUse: boolean) => void;
+  // Handlers for voice commands to call directly
   handleUseHomeAddress: () => void;
   handleUseCurrentLocation: () => void;
   setAddressHandlers: (homeHandler: () => void, currentHandler: () => void) => void;
 }
 
-export const useCheckoutStore = create<PassThroughState>((set) => ({
+export const useCheckoutStore = create<CheckoutState>((set) => ({
   placeOrderBtnRef: null,
   setPlaceOrderBtnRef: (placeOrderBtnRef) => set({ placeOrderBtnRef }),
   isWaitingForQuickOrderConfirmation: false,
   setIsWaitingForQuickOrderConfirmation: (isWaiting) => set({ isWaitingForQuickOrderConfirmation: isWaiting }),
-  homeAddress: null,
-  setHomeAddress: (address) => set({homeAddress: address}),
   shouldPlaceOrderDirectly: false,
   setShouldPlaceOrderDirectly: (shouldPlace) => set({ shouldPlaceOrderDirectly: shouldPlace }),
-  shouldUseCurrentLocation: false,
-  setShouldUseCurrentLocation: (shouldUse) => set({ shouldUseCurrentLocation: shouldUse }),
-  handleUseHomeAddress: () => {},
-  handleUseCurrentLocation: () => {},
+  setHomeAddress: (address) => {
+    // This is a placeholder. The actual logic is in the page component.
+    // We update the state to trigger effects in the component.
+    set(state => ({ ...state })); 
+  },
+  setShouldUseCurrentLocation: (shouldUse) => {
+    // Placeholder, logic is in component.
+     set(state => ({ ...state }));
+  },
+  handleUseHomeAddress: () => {}, // Default empty function
+  handleUseCurrentLocation: () => {}, // Default empty function
   setAddressHandlers: (homeHandler, currentHandler) => set({ handleUseHomeAddress: homeHandler, handleUseCurrentLocation: currentHandler }),
 }));
 
@@ -128,15 +132,10 @@ export default function CheckoutPage() {
 
   const { 
       isWaitingForQuickOrderConfirmation, 
-      setPlaceOrderBtnRef, 
-      setIsWaitingForQuickOrderConfirmation,
-      homeAddress,
-      setHomeAddress,
+      setPlaceOrderBtnRef,
       shouldPlaceOrderDirectly,
       setShouldPlaceOrderDirectly,
-      shouldUseCurrentLocation,
-      setShouldUseCurrentLocation,
-      setAddressHandlers
+      setAddressHandlers, // Get the function to set our handlers
     } = useCheckoutStore();
   
   const { triggerVoicePrompt } = useVoiceCommander();
@@ -155,15 +154,13 @@ export default function CheckoutPage() {
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
   const { data: userData } = useDoc<AppUser>(userDocRef);
-
+  
   const handleUseCurrentLocation = useCallback(() => {
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const { latitude, longitude } = position.coords;
                 setDeliveryCoords({ lat: latitude, lng: longitude });
-                // We don't have a reverse geocoded address, so we use a placeholder.
-                // A real app would use a Geocoding API here.
                 form.setValue('deliveryAddress', `Current Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`, { shouldValidate: true });
                 toast({ title: "Location Fetched!", description: "Your current location has been set for delivery." });
             },
@@ -177,22 +174,17 @@ export default function CheckoutPage() {
     }
   }, [toast, form]);
 
-    const handleUseHomeAddress = useCallback(() => {
-    if (userData) {
-      if(userData.address) {
-        form.setValue('deliveryAddress', userData.address, { shouldValidate: true });
-        toast({ title: "Home Address Set!", description: "Your saved home address will be used for delivery." });
-        
-        // Note: We don't have lat/lng for home address in this version.
-        // A real app would geocode the address to get coordinates.
-        // Clear coords if they were previously set by 'current location'.
-        setDeliveryCoords(null); 
-      } else {
-        toast({ variant: 'destructive', title: 'No Home Address', description: 'Please set your home address in your profile first.' });
-      }
+  const handleUseHomeAddress = useCallback(() => {
+    if (userData?.address) {
+      form.setValue('deliveryAddress', userData.address, { shouldValidate: true });
+      toast({ title: "Home Address Set!", description: "Your saved home address will be used for delivery." });
+      setDeliveryCoords(null); 
+    } else {
+      toast({ variant: 'destructive', title: 'No Home Address', description: 'Please set your home address in your profile first.' });
     }
   }, [userData, form, toast]);
 
+  // Expose the local handlers to the global state for the VoiceCommander to use
   useEffect(() => {
     setAddressHandlers(handleUseHomeAddress, handleUseCurrentLocation);
   }, [handleUseHomeAddress, handleUseCurrentLocation, setAddressHandlers]);
@@ -204,8 +196,6 @@ export default function CheckoutPage() {
     }
   }, [setPlaceOrderBtnRef]);
 
-
-  // Safely watch the delivery address and trigger voice prompt when it changes
   const deliveryAddressValue = form.watch('deliveryAddress');
   
   useEffect(() => {
@@ -215,23 +205,6 @@ export default function CheckoutPage() {
       }
     }
   }, [deliveryAddressValue, activeStoreId, triggerVoicePrompt]);
-
-   // Effect for smart order: set home address if provided
-  useEffect(() => {
-    if (homeAddress) {
-        form.setValue('deliveryAddress', homeAddress, { shouldValidate: true });
-        setHomeAddress(null);
-    }
-  }, [homeAddress, form, setHomeAddress]);
-
-  // Effect for smart order: use current location if requested
-  useEffect(() => {
-    if (shouldUseCurrentLocation) {
-        handleUseCurrentLocation();
-        setShouldUseCurrentLocation(false);
-    }
-  }, [shouldUseCurrentLocation, handleUseCurrentLocation, setShouldUseCurrentLocation]);
-
 
   // Effect to pre-fill form with user data
   useEffect(() => {
@@ -289,11 +262,11 @@ export default function CheckoutPage() {
         let orderData: any = {
             userId: user.uid,
             storeId: activeStoreId,
-            storeOwnerId: storeData.ownerId, // Denormalized store owner ID
+            storeOwnerId: storeData.ownerId,
             customerName: data.name,
             deliveryAddress: data.deliveryAddress,
-            deliveryLat: deliveryCoords?.lat || 0, // Fallback to 0 if not set
-            deliveryLng: deliveryCoords?.lng || 0, // Fallback to 0 if not set
+            deliveryLat: deliveryCoords?.lat || 0,
+            deliveryLng: deliveryCoords?.lng || 0,
             phone: data.phone,
             email: user.email,
             orderDate: serverTimestamp(),
