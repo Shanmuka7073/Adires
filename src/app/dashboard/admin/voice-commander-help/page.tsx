@@ -31,7 +31,7 @@ export default function VoiceCommanderHelpPage() {
                         Voice Commander Source Code
                     </CardTitle>
                     <CardDescription>
-                        This is the source code for the main voice command processing logic in the application, split into two parts for readability.
+                        This is the source code for the main voice command processing logic in the application, split into three parts for readability.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>

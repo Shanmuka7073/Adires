@@ -533,10 +533,10 @@ export function VoiceCommander({
 
     return { product: product, variant: chosenVariant, requestedQty, remainingPhrase: productNamePhrase, matchedAlias, lang: detectedLang };
 }, [firestore, productPrices, fetchProductPrices, universalProductAliasMap]);
-`
+`,
     },
     {
-        path: 'src/components/layout/voice-commander.tsx (Lines 501-end)',
+        path: 'src/components/layout/voice-commander.tsx (Lines 501-800)',
         content: `
   const recognizeIntent = useCallback((text: string, spokenLang: string): Intent => {
     const lowerText = text.toLowerCase().trim();
@@ -781,6 +781,11 @@ export function VoiceCommander({
     const intent = recognizeIntent(commandText, spokenLang);
 
     switch (intent.type) {
+`,
+    },
+    {
+        path: 'src/components/layout/voice-commander.tsx (Lines 801-end)',
+        content: `
         case 'SMART_ORDER':
             await commandActionsRef.current.handleSmartOrder(intent.originalText, intent.lang);
             break;
@@ -1264,6 +1269,6 @@ export function VoiceCommander({
 
   return null;
 }
-`
-    },
+`,
+    }
 ];
