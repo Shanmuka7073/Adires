@@ -31,11 +31,11 @@ export default function VoiceCommanderHelpPage() {
                         Voice Commander Source Code
                     </CardTitle>
                     <CardDescription>
-                        This is the source code for the main voice command processing logic in the application.
+                        This is the source code for the main voice command processing logic in the application, split into two parts for readability.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                   <Accordion type="single" collapsible className="w-full">
+                   <Accordion type="multiple" className="w-full space-y-4">
                         {voiceCommanderCodeText.map((file) => (
                              <AccordionItem value={file.path} key={file.path}>
                                 <AccordionTrigger className="font-mono text-sm">{file.path}</AccordionTrigger>
