@@ -137,13 +137,13 @@ export function VoiceCommander({
       
       const normalizedCanonicalName = p.name.toLowerCase();
       map.set(normalizedCanonicalName, { product: p, lang: 'en' });
-      map.set(normalizedCanonicalName.replace(/\s+/g, ''), { product: p, lang: 'en' });
+      map.set(normalizedCanonicalName.replace(/\\s+/g, ''), { product: p, lang: 'en' });
 
       for (const lang in productAliasesByLang) {
         for (const alias of productAliasesByLang[lang]) {
           const normalizedAlias = alias.toLowerCase();
           map.set(normalizedAlias, { product: p, lang: lang });
-          map.set(normalizedAlias.replace(/\s+/g, ''), { product: p, lang: lang });
+          map.set(normalizedAlias.replace(/\\s+/g, ''), { product: p, lang: lang });
         }
       }
     }
@@ -166,7 +166,7 @@ export function VoiceCommander({
          if (term) {
             const normalizedTerm = term.toLowerCase();
             map.set(normalizedTerm, s);
-            map.set(normalizedTerm.replace(/\s+/g, ''), s);
+            map.set(normalizedTerm.replace(/\\s+/g, ''), s);
         }
       }
     }
@@ -280,8 +280,9 @@ export function VoiceCommander({
       return;
     }
     
+    // Stop recognition before speaking
     if (recognition) {
-      recognition.stop();
+        try { recognition.stop(); } catch(e) {}
     }
 
     isSpeakingRef.current = true;
@@ -306,8 +307,10 @@ export function VoiceCommander({
 
     utterance.onend = () => {
       isSpeakingRef.current = false;
-      if (onEndCallback) onEndCallback();
-      if (isEnabledRef.current && recognition) {
+      if (onEndCallback) {
+        onEndCallback();
+      } else if (isEnabledRef.current && recognition) {
+        // Default behavior: restart recognition if no specific callback is provided
         try {
           recognition.start();
         } catch(e) {}
@@ -317,8 +320,10 @@ export function VoiceCommander({
     utterance.onerror = (e) => {
       console.error('Speech synthesis error', e);
       isSpeakingRef.current = false;
-      if (onEndCallback) onEndCallback();
-      if (isEnabledRef.current && recognition) {
+      // Ensure recognition restarts even on error
+      if (onEndCallback) {
+        onEndCallback();
+      } else if (isEnabledRef.current && recognition) {
         try {
           recognition.start();
         } catch(e) {}
@@ -371,19 +376,25 @@ export function VoiceCommander({
         const addressInput = typeof document !== 'undefined' ? (document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement) : null;
         const currentAddress = addressInput?.value || '';
         
-        const onPromptEnd = () => setHasRunCheckoutPrompt(false);
+        const onPromptEnd = () => {
+            setHasRunCheckoutPrompt(false);
+            // This is a default restart, specific actions in `speak` callbacks will override this.
+             if (isEnabledRef.current && recognition && !isSpeakingRef.current) {
+                try { recognition.start(); } catch(e){}
+            }
+        };
 
         if (cartItemsProp.length === 0 && !isWaitingForQuickOrderConfirmation) {
             speak(t('your-cart-is-empty-speech', detectedLang), langWithRegion, onPromptEnd);
         } else if (!currentAddress || currentAddress.length < 10) {
             speak(t('should-i-deliver-to-home-or-current-speech', detectedLang), langWithRegion, () => {
-            isWaitingForAddressTypeRef.current = true;
-            onPromptEnd();
+                isWaitingForAddressTypeRef.current = true;
+                onPromptEnd();
             });
         } else if (!activeStoreId) {
             speak(t('which-store-should-fulfill-speech', detectedLang), langWithRegion, () => {
-            isWaitingForStoreNameRef.current = true;
-            onPromptEnd();
+                isWaitingForStoreNameRef.current = true;
+                onPromptEnd();
             });
         } else {
             const total = cartTotal + 30;
@@ -439,7 +450,7 @@ export function VoiceCommander({
   const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null; variant: ProductVariant | null; requestedQty: number; remainingPhrase: string; matchedAlias: string | null; lang: string; }> => {
     
     let lowerPhrase = phrase.toLowerCase();
-    let sanitizedPhrase = lowerPhrase.replace(/[-.,]/g, ' ').replace(/\s+/g, ' ').trim();
+    let sanitizedPhrase = lowerPhrase.replace(/[-.,]/g, ' ').replace(/\\s+/g, ' ').trim();
 
     let requestedQty = 1;
     let requestedUnit: 'kg' | 'gm' | 'pc' | 'pack' | null = null;
@@ -479,7 +490,7 @@ export function VoiceCommander({
     let productNamePhrase = remainingWords.join(' ');
 
     let productMatch: { product: Product, alias: string, lang: string } | null = null;
-    const directMatch = universalProductAliasMap.get(productNamePhrase) || universalProductAliasMap.get(productNamePhrase.replace(/\s+/g, ''));
+    const directMatch = universalProductAliasMap.get(productNamePhrase) || universalProductAliasMap.get(productNamePhrase.replace(/\\s+/g, ''));
     
     if (directMatch) {
       productMatch = { ...directMatch, alias: productNamePhrase };
@@ -712,26 +723,79 @@ export function VoiceCommander({
         }
         return;
     }
+    
+    // --- CONTEXTUAL RESPONSES ---
     if (isWaitingForAddressTypeRef.current) {
-        isWaitingForAddressTypeRef.current = false; // Reset immediately
+
+        // 🚀 STOP recognition while speaking
+        if (recognition && recognition.stop) {
+            try { recognition.stop(); } catch {}
+        }
+
+        const lower = commandText.toLowerCase();
+
         const homeKeywords = getAllAliases('homeAddress')[spokenLang] || ['home'];
         const locationKeywords = getAllAliases('currentLocation')[spokenLang] || ['current', 'location'];
-        
-        const homeSimilarity = Math.max(...homeKeywords.map(kw => calculateSimilarity(commandText.toLowerCase(), kw)));
-        const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(commandText.toLowerCase(), kw)));
+
+        const homeSimilarity = Math.max(...homeKeywords.map(kw => calculateSimilarity(lower, kw)));
+        const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(lower, kw)));
+
+        // 🔥 Decide address only ONCE — no toggling back
+        isWaitingForAddressTypeRef.current = false;
 
         if (homeSimilarity > 0.6 && homeSimilarity > locationSimilarity) {
             handleUseHomeAddress();
-            speak(t('setting-delivery-to-home-speech', replyLang), langWithRegion, triggerVoicePrompt);
+
+            speak(
+                t('setting-delivery-to-home-speech', replyLang),
+                langWithRegion,
+                () => {
+                    // ✅ Restart recognition ONLY after speech ends
+                    if (recognition) {
+                        try { recognition.start(); } catch {}
+                    }
+                    triggerVoicePrompt?.();
+                }
+            );
+
         } else if (locationSimilarity > 0.6) {
             handleUseCurrentLocation();
-            speak(t('using-current-location-speech', replyLang), langWithRegion, triggerVoicePrompt);
+
+            speak(
+                t('using-current-location-speech', replyLang),
+                langWithRegion,
+                () => {
+                    if (recognition) {
+                        try { recognition.start(); } catch {}
+                    }
+                    triggerVoicePrompt?.();
+                }
+            );
+
         } else {
-            speak(t('did-not-understand-address-type-speech', replyLang), langWithRegion, triggerVoicePrompt);
-            handleCommandFailure(commandText, spokenLang, `Address type clarification failed. Similarities: Home=${homeSimilarity.toFixed(2)}, Location=${locationSimilarity.toFixed(2)}`);
+            // ❌ Don't loop — ask only ONCE again
+            isWaitingForAddressTypeRef.current = true;
+
+            speak(
+                t('did-not-understand-address-type-speech', replyLang),
+                langWithRegion,
+                () => {
+                    if (recognition) {
+                        try { recognition.start(); } catch {}
+                    }
+                }
+            );
+
+            handleCommandFailure(
+                commandText,
+                spokenLang,
+                `Address type clarification failed. Home=${homeSimilarity}, Location=${locationSimilarity}`
+            );
         }
+
         return;
     }
+
 
     if (isWaitingForStoreNameRef.current) {
         isWaitingForStoreNameRef.current = false; // Reset immediately
@@ -1153,7 +1217,7 @@ export function VoiceCommander({
             return;
         }
 
-        const productPhrase = text.substring(0, fromIndex).replace(/^(order|buy|get|send)\s+/i, '').trim();
+        const productPhrase = text.substring(0, fromIndex).replace(/^(order|buy|get|send)\\s+/i, '').trim();
         const storePhrase = text.substring(fromIndex + fromKeyword.length + 1, toIndex).trim();
         const addressPhrase = text.substring(toIndex + toKeyword.length + 1).trim();
 
