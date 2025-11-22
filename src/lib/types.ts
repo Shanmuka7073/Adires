@@ -1,5 +1,4 @@
 
-
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -7,6 +6,7 @@ export type ProductVariant = {
   sku: string; // Unique identifier for the variant, e.g., 'prod-potatoes-1kg'
   weight: string; // e.g., '500gm', '1kg', '2kg'
   price: number;
+  stock: number; // The available quantity
 };
 
 export type Product = {

@@ -97,6 +97,7 @@ const variantSchema = z.object({
   sku: z.string(),
   weight: z.string().min(1, 'Weight is required'),
   price: z.coerce.number().positive('Price must be a positive number'),
+  stock: z.coerce.number().int().nonnegative('Stock must be a positive integer'),
 });
 
 const productSchema = z.object({
@@ -484,12 +485,12 @@ function EditProductDialog({ storeId, product, isOpen, onOpenChange }: { storeId
                                 </CardHeader>
                                 <CardContent className="p-2 space-y-4">
                                     {fields.map((field, index) => (
-                                        <div key={field.id} className="flex items-end gap-2 p-3 border rounded-md bg-background">
+                                        <div key={field.id} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,1fr,auto] items-end gap-2 p-3 border rounded-md bg-background">
                                             <FormField
                                                 control={form.control}
                                                 name={`variants.${index}.weight`}
                                                 render={({ field }) => (
-                                                    <FormItem className="flex-1">
+                                                    <FormItem>
                                                         <FormLabel>{t('weight')}</FormLabel>
                                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                             <FormControl>
@@ -509,9 +510,20 @@ function EditProductDialog({ storeId, product, isOpen, onOpenChange }: { storeId
                                                 control={form.control}
                                                 name={`variants.${index}.price`}
                                                 render={({ field }) => (
-                                                    <FormItem className="flex-1">
+                                                    <FormItem>
                                                         <FormLabel>{t('price')} (₹)</FormLabel>
                                                         <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name={`variants.${index}.stock`}
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Stock</FormLabel>
+                                                        <FormControl><Input type="number" step="1" {...field} /></FormControl>
                                                         <FormMessage />
                                                     </FormItem>
                                                 )}
@@ -521,7 +533,7 @@ function EditProductDialog({ storeId, product, isOpen, onOpenChange }: { storeId
                                             </Button>
                                         </div>
                                     ))}
-                                    <Button type="button" variant="outline" size="sm" onClick={() => append({ weight: '', price: 0, sku: `new-${fields.length}` })}>
+                                    <Button type="button" variant="outline" size="sm" onClick={() => append({ weight: '', price: 0, stock: 0, sku: `new-${fields.length}` })}>
                                         <PlusCircle className="mr-2 h-4 w-4" /> {t('add-variant')}
                                     </Button>
                                 </CardContent>
@@ -743,7 +755,8 @@ function BulkUploadCard({ storeId }: { storeId: string }) {
                     const priceRef = doc(firestore, 'productPrices', productNameLower);
                     const newVariant: Omit<z.infer<typeof variantSchema>, 'sku'> = {
                         weight,
-                        price: Number(price)
+                        price: Number(price),
+                        stock: 0, // Default stock to 0 for bulk uploads
                     };
                     batch.set(priceRef, {
                         productName: productNameLower,
@@ -818,7 +831,7 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
-    defaultValues: { name: '', description: '', category: '', imageUrl: '', variants: [{ sku: '', weight: '', price: 0 }] },
+    defaultValues: { name: '', description: '', category: '', imageUrl: '', variants: [{ sku: '', weight: '', price: 0, stock: 0 }] },
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -1022,12 +1035,12 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
                 </CardHeader>
                 <CardContent className="p-2 space-y-4">
                     {fields.map((field, index) => (
-                        <div key={field.id} className="flex items-end gap-4 p-4 border rounded-md bg-background">
+                        <div key={field.id} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,1fr,auto] items-end gap-4 p-4 border rounded-md bg-background">
                             <FormField
                                 control={form.control}
                                 name={`variants.${index}.weight`}
                                 render={({ field }) => (
-                                    <FormItem className="flex-1">
+                                    <FormItem>
                                         <FormLabel>{t('weight')}</FormLabel>
                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                                             <FormControl>
@@ -1047,9 +1060,20 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
                                 control={form.control}
                                 name={`variants.${index}.price`}
                                 render={({ field }) => (
-                                    <FormItem className="flex-1">
+                                    <FormItem>
                                         <FormLabel>{t('price')} (₹)</FormLabel>
                                         <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                             <FormField
+                                control={form.control}
+                                name={`variants.${index}.stock`}
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Stock</FormLabel>
+                                        <FormControl><Input type="number" step="1" {...field} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -1059,7 +1083,7 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
                             </Button>
                         </div>
                     ))}
-                    <Button type="button" variant="outline" onClick={() => append({ weight: '', price: 0, sku: `new-${fields.length}` })}>
+                    <Button type="button" variant="outline" onClick={() => append({ weight: '', price: 0, stock: 0, sku: `new-${fields.length}` })}>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         {t('add-variant')}
                     </Button>
@@ -1462,7 +1486,7 @@ function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Prod
     const variantsString = useMemo(() => {
         if (pricesLoading) return "Loading prices...";
         if (!priceData || !priceData.variants || priceData.variants.length === 0) return 'N/A';
-        return priceData.variants.map(v => `${v.weight} (₹${v.price})`).join(', ');
+        return priceData.variants.map(v => `${v.weight} (₹${v.price}, Stock: ${v.stock})`).join(' | ');
     }, [priceData, pricesLoading]);
 
     return (
