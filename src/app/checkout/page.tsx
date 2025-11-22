@@ -29,11 +29,11 @@ import Image from 'next/image';
 import { getProductImage, getStore } from '@/lib/data';
 import { useTransition, useState, useCallback, useEffect, useMemo, RefObject, useRef } from 'react';
 import { useFirebase, errorEmitter, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, addDoc, serverTimestamp, doc } from 'firebase/firestore';
+import { collection, doc, serverTimestamp, getDoc, writeBatch, type DocumentReference, type DocumentData } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { CheckCircle, MapPin, Loader2, AlertCircle, Store as StoreIcon, Home, LocateFixed } from 'lucide-react';
 import Link from 'next/link';
-import type { User as AppUser, Store } from '@/lib/types';
+import type { User as AppUser, Store, ProductPrice } from '@/lib/types';
 import { create } from 'zustand';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAppStore } from '@/lib/store';
@@ -268,7 +268,10 @@ export default function CheckoutPage() {
         
         const totalAmount = cartTotal + DELIVERY_FEE;
         
-        let orderData: any = {
+        const orderDocRef = doc(collection(firestore, 'orders'));
+
+        const orderData: any = {
+            id: orderDocRef.id,
             userId: user.uid,
             storeId: activeStoreId,
             storeOwnerId: storeData.ownerId,
@@ -291,28 +294,57 @@ export default function CheckoutPage() {
             })),
         };
 
-        const colRef = collection(firestore, 'orders');
-        
-        addDoc(colRef, orderData)
-        .then(() => {
-          toast({
-            title: "Order Placed!",
-            description: "Thank you for your purchase.",
-          });
-          clearCart();
-          setDeliveryCoords(null);
-          form.reset();
-          router.push('/order-confirmation');
-        })
-        .catch((e) => {
-             console.error('Error placing order:', e);
-             const permissionError = new FirestorePermissionError({
-                path: colRef.path,
+        try {
+            const batch = writeBatch(firestore);
+
+            // 1. Set the new order document
+            batch.set(orderDocRef, orderData);
+
+            // 2. Decrement stock for each item in the order
+            for (const item of cartItems) {
+                const priceDocRef = doc(firestore, 'productPrices', item.product.name.toLowerCase());
+                const priceDocSnap = await getDoc(priceDocRef);
+
+                if (priceDocSnap.exists()) {
+                    const priceData = priceDocSnap.data() as ProductPrice;
+                    const updatedVariants = priceData.variants.map(variant => {
+                        if (variant.sku === item.variant.sku) {
+                            return { ...variant, stock: Math.max(0, variant.stock - item.quantity) };
+                        }
+                        return variant;
+                    });
+                    batch.update(priceDocRef, { variants: updatedVariants });
+                } else {
+                    console.warn(`Could not find price document for ${item.product.name} to update stock.`);
+                }
+            }
+
+            // 3. Commit the atomic batch
+            await batch.commit();
+
+            toast({
+                title: "Order Placed!",
+                description: "Thank you for your purchase. Inventory has been updated.",
+            });
+            clearCart();
+            setDeliveryCoords(null);
+            form.reset();
+            router.push('/order-confirmation');
+
+        } catch (e) {
+            console.error('Error placing order and updating stock:', e);
+            const permissionError = new FirestorePermissionError({
+                path: orderDocRef.path, // Use the order path for the primary error context
                 operation: 'create',
                 requestResourceData: orderData
             });
             errorEmitter.emit('permission-error', permissionError);
-        });
+            toast({
+                variant: 'destructive',
+                title: 'Order Failed',
+                description: 'Could not place your order or update stock. Please try again.',
+            });
+        }
     });
   };
 
