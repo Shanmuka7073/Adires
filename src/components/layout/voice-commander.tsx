@@ -873,7 +873,7 @@ export function VoiceCommander({
                 if (action) {
                     speak(reply, langWithRegion, () => action({ lang: intent.lang }));
                 } else {
-                    speak(reply, langWithRegion);
+                    speak(reply, langWithRegion, false);
                 }
             }
             break;
@@ -894,7 +894,7 @@ export function VoiceCommander({
                 const firstStoreId = stores[0]?.id;
                 if (firstStoreId) {
                     router.push(`/stores/${firstStoreId}?category=Beverages`);
-                    speak(`Okay, showing all available beverages.`, langWithRegion);
+                    speak(`Okay, showing all available beverages.`, langWithRegion, false);
                 } else {
                     handleCommandFailure(commandText, spokenLang, `Could not navigate to beverages category because no stores were found.`);
                 }
@@ -906,7 +906,7 @@ export function VoiceCommander({
 
                 let speech = t('adding-item-speech', replyLang)
                     .replace('{quantity}', `${requestedQty}`)
-                    .replace('{weight}`, `${variant.weight}`)
+                    .replace('{weight}', `${variant.weight}`)
                     .replace('{productName}', replyProductName);
 
                 speak(speech, langWithRegion);
@@ -1111,7 +1111,7 @@ export function VoiceCommander({
       goToStore: ({ store, lang }: {store: Store, lang: string}) => {
         const replyLang = lang === 'hi' ? 'en' : lang;
         const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
-        speak(`Okay, opening ${store.name}.`, langWithRegion);
+        speak(`Okay, opening ${store.name}.`, langWithRegion, false);
         router.push(`/stores/${store.id}`);
       },
     checkPrice: async ({ phrase, lang, originalText }: { phrase?: string; lang: string, originalText: string }) => {
@@ -1280,7 +1280,7 @@ export function VoiceCommander({
             if (userProfileRef.current?.address) {
                 deliveryAddress = userProfileRef.current.address;
             } else {
-                speak(t('cannot-deliver-home-no-address-speech', replyLang), langWithRegion);
+                speak(t('cannot-deliver-home-no-address-speech', replyLang), langWithRegion, false);
                 router.push('/dashboard/customer/my-profile');
                 return;
             }
