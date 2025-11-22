@@ -908,8 +908,8 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
         // 3. Add a default alias to the voiceAliasGroups collection
         const aliasRef = doc(firestore, 'voiceAliasGroups', productSlug);
         batch.set(aliasRef, {
-            en: [data.name.toLowerCase()],
             type: 'product',
+            en: [data.name.toLowerCase()],
         }, { merge: true });
         
         await batch.commit();
