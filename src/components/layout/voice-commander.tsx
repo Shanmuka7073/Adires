@@ -91,7 +91,7 @@ export function VoiceCommander({
   const pathname = usePathname();
   const { toast } = useToast();
   const { firestore, user } = useFirebase();
-  const { clearCart, addItem: addItemToCart, removeItem, updateQuantity, addUnidentifiedItem, removeUnidentifiedItem, addIdentifiedItem, activeStoreId, setActiveStoreId, cartTotal } = useCart();
+  const { clearCart, addItem: addItemToCart, removeItem, updateQuantity, addUnidentifiedItem, updateUnidentifiedItem, removeUnidentifiedItem, addIdentifiedItem, activeStoreId, setActiveStoreId, cartTotal } = useCart();
   const { retryCommand } = useVoiceCommanderContext();
 
   const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands, loading: isAppStoreLoading, fetchInitialData } = useAppStore();
@@ -607,6 +607,7 @@ export function VoiceCommander({
         const tempId = addUnidentifiedItem(commandText);
         
         if (!firestore || !user) {
+            updateUnidentifiedItem(tempId, 'failed');
             speak(t('sorry-i-didnt-understand-that', spokenLang), `${spokenLang}-IN`);
             return;
         }
@@ -658,19 +659,23 @@ export function VoiceCommander({
                     } catch (err) {
                         console.error("Error auto-saving aliases:", err);
                         addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp() });
+                        updateUnidentifiedItem(tempId, 'failed');
                     }
                 } else {
                     addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp() });
+                    updateUnidentifiedItem(tempId, 'failed');
                 }
             }).catch(aiError => {
                 console.error("AI suggestion flow failed:", aiError);
                  addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp() });
+                 updateUnidentifiedItem(tempId, 'failed');
             });
         } else {
              // Log for manual review if AI suggester is disabled
             addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp() });
+            updateUnidentifiedItem(tempId, 'failed');
         }
-    }, [addUnidentifiedItem, removeUnidentifiedItem, retryCommand, firestore, user, speak, aiConfig, masterProducts, stores, toast, fetchInitialData]);
+    }, [addUnidentifiedItem, updateUnidentifiedItem, removeUnidentifiedItem, retryCommand, firestore, user, speak, aiConfig, masterProducts, stores, toast, fetchInitialData]);
 
 
   const handleCommand = useCallback(async (commandText: string) => {
@@ -1335,5 +1340,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    

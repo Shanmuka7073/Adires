@@ -1,3 +1,4 @@
+
 'use client';
 
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
@@ -103,6 +104,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
       description: `${product.name} (${variant.weight}) has been added.`,
     });
   }, [toast, activeStoreId, cartItems]);
+  
+  const removeItem = useCallback((variantSku: string) => {
+    setCartItems((prevItems) => {
+        const newItems = prevItems.filter((item) => item.variant.sku !== variantSku);
+        if (newItems.length === 0 && unidentifiedItems.length === 0) {
+            setActiveStoreId(null);
+        }
+        return newItems;
+    });
+    toast({
+      title: 'Item removed from cart',
+      variant: 'destructive'
+    });
+  }, [toast, unidentifiedItems.length]);
 
   const removeUnidentifiedItem = useCallback((id: string) => {
       setUnidentifiedItems(prev => {
@@ -117,24 +132,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const addIdentifiedItem = useCallback((product: Product, variant: ProductVariant, quantity: number, originalTermId: string) => {
     // 1. Remove the placeholder
     removeUnidentifiedItem(originalTermId);
-
     // 2. Add the actual item
     addItem(product, variant, quantity);
   }, [addItem, removeUnidentifiedItem]);
-
-  const removeItem = useCallback((variantSku: string) => {
-    setCartItems((prevItems) => {
-        const newItems = prevItems.filter((item) => item.variant.sku !== variantSku);
-        if (newItems.length === 0 && unidentifiedItems.length === 0) {
-            setActiveStoreId(null);
-        }
-        return newItems;
-    });
-    toast({
-      title: 'Item removed from cart',
-      variant: 'destructive'
-    });
-  }, [toast, unidentifiedItems.length]);
 
   const updateQuantity = useCallback((variantSku: string, quantity: number) => {
     if (quantity <= 0) {
