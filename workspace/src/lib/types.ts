@@ -1,10 +1,13 @@
 
+
 import { Timestamp } from "firebase/firestore";
+import { z } from 'zod';
 
 export type ProductVariant = {
   sku: string; // Unique identifier for the variant, e.g., 'prod-potatoes-1kg'
   weight: string; // e.g., '500gm', '1kg', '2kg'
   price: number;
+  stock: number; // The available quantity
 };
 
 export type Product = {
@@ -37,6 +40,14 @@ export type Store = {
   isClosed?: boolean;
 };
 
+// WebAuthn types
+export type Authenticator = {
+  credentialID: string; // This is a Base64URL-encoded string
+  credentialPublicKey: string; // This is now a Base64URL-encoded string
+  counter: number;
+  transports?: AuthenticatorTransport[];
+};
+
 export type User = {
     id: string;
     firstName: string;
@@ -44,12 +55,15 @@ export type User = {
     email: string;
     address: string;
     phoneNumber: string;
+    authenticators?: Authenticator[];
+    currentChallenge?: string | null; // Can be null
 }
 
 export type CartItem = {
   product: Product; // The base product
   variant: ProductVariant; // The specific variant chosen
   quantity: number;
+  voiceMatchScore?: number; // The confidence score (0-1) from voice recognition
 };
 
 export type OrderItem = {
@@ -120,18 +134,15 @@ export type FailedVoiceCommand = {
     language: string;
     timestamp: Timestamp | Date | string;
     reason: string;
-    status: 'new' | 'no_suggestion';
-    suggestedProduct?: string; // e.g., 'tomatoes'
-    similarityScore?: number; // e.g., 0.75
+    status?: 'new' | 'no_suggestion'; // Status for processing
 }
 
-export type VoiceAlias = {
-    id?: string; // Firestore document ID
-    key: string; // e.g. 'go-to-cart' or 'tomatoes'
-    language: string; // 'en', 'te', 'display', 'reply'
-    alias: string; // 'go to my cart', 'టమోటాలు', 'Go To Cart', 'Navigating...'
-    type: 'command' | 'product' | 'store';
+export type VoiceAliasGroup = {
+    id: string; // The canonical key, e.g., 'tomatoes'
+    type: 'product' | 'store' | 'command';
+    [key: string]: any; // To allow for language codes as keys (en, te, hi, etc.)
 };
+
 
 export type CachedRecipe = {
     id: string;
@@ -159,19 +170,58 @@ export type MonthlyPackage = {
     }[];
 };
 
-export type AppError = {
-    id: string;
-    userId: string;
-    userEmail: string;
-    timestamp: Timestamp | Date | string;
-    errorMessage: string;
-    errorDetails: any;
-    path: string;
+export type SiteConfig = {
+    isPackGeneratorEnabled?: boolean;
+    isRecipeApiEnabled?: boolean;
+    isGeneralQuestionApiEnabled?: boolean;
+    isAliasSuggesterEnabled?: boolean;
 };
 
 // Type for conversational history
 export type ChatMessage = {
+  id?: string;
   role: 'user' | 'model';
   text: string;
   timestamp?: any;
 };
+
+// --- Voice ID Types ---
+
+// Type for voice biometrics
+export type Voiceprint = {
+  userId: string; // Document ID should be the user's UID
+  enrollments: number[][]; // Array of raw feature vectors from each enrollment
+  voiceprint: number[]; // The final, averaged feature vector
+  createdAt: string;
+  lastUpdatedAt: string;
+};
+
+export const CreateVoiceprintInputSchema = z.object({
+  userId: z.string().describe('The unique ID of the user.'),
+  audioDataUri: z
+    .string()
+    .describe(
+      "A recording of the user's voice as a data URI. Must include a MIME type and use Base64 encoding. E.g., 'data:audio/webm;base64,...'"
+    ),
+});
+export type CreateVoiceprintInput = z.infer<typeof CreateVoiceprintInputSchema>;
+
+export const CreateVoiceprintOutputSchema = z.object({
+  isSuccess: z.boolean().describe('Whether the voiceprint was successfully saved.'),
+  enrollmentCount: z.number().describe('The total number of enrollments the user now has.'),
+  error: z.string().optional().describe('An error message if the process failed.'),
+});
+export type CreateVoiceprintOutput = z.infer<typeof CreateVoiceprintOutputSchema>;
+
+export const VerifyVoiceprintInputSchema = z.object({
+  userId: z.string().describe('The unique ID of the user to verify against.'),
+  audioDataUri: z.string().describe("A new voice recording to compare against the stored voiceprint."),
+});
+export type VerifyVoiceprintInput = z.infer<typeof VerifyVoiceprintInputSchema>;
+
+export const VerifyVoiceprintOutputSchema = z.object({
+    isMatch: z.boolean().describe('Whether the new recording matches the stored voiceprint.'),
+    confidence: z.number().describe('A score from 0 to 1 indicating the similarity.'),
+    error: z.string().optional().describe('An error message if verification failed.'),
+});
+export type VerifyVoiceprintOutput = z.infer<typeof VerifyVoiceprintOutputSchema>;
