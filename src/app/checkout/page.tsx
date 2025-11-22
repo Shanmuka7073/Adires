@@ -29,7 +29,7 @@ import Image from 'next/image';
 import { getProductImage, getStore } from '@/lib/data';
 import { useTransition, useState, useCallback, useEffect, useMemo, RefObject, useRef } from 'react';
 import { useFirebase, errorEmitter, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, serverTimestamp, getDoc, writeBatch, type DocumentReference, type DocumentData } from 'firebase/firestore';
+import { collection, doc, serverTimestamp, getDoc, writeBatch, type DocumentReference, type DocumentData, setDoc } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { CheckCircle, MapPin, Loader2, AlertCircle, Store as StoreIcon, Home, LocateFixed } from 'lucide-react';
 import Link from 'next/link';
