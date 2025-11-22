@@ -78,10 +78,16 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
 
       allow update: if isSignedIn() && (
+        // Allow customer to update their own order
         request.auth.uid == resource.data.userId ||
+        // Allow store owner to update
         (exists(/databases/$(database)/documents/stores/$(resource.data.storeId)) && get(/databases/$(database)/documents/stores/$(resource.data.storeId)).data.ownerId == request.auth.uid) ||
+        // Allow the already-assigned delivery partner to update
         request.auth.uid == resource.data.deliveryPartnerId ||
-        isAdmin()
+        // Allow an admin to update
+        isAdmin() ||
+        // Allow any signed-in user to become the delivery partner if one is not yet assigned
+        (resource.data.deliveryPartnerId == null && request.resource.data.deliveryPartnerId == request.auth.uid)
       );
 
       allow delete: if false;
