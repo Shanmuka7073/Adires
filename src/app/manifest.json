@@ -49,14 +49,14 @@
       "short_name": "Cart",
       "description": "Go directly to your shopping cart.",
       "url": "/cart",
-      "icons": [{ "src": "https://i.ibb.co/RzM1p00/icon-cart-96x96.png", "sizes": "96x96" }]
+      "icons": [{ "src": "https://i.ibb.co/RzM1p00/icon-cart-96x96.png", "sizes": "96x96", "type": "image/png" }]
     },
     {
       "name": "Daily Deals",
       "short_name": "Deals",
       "description": "See today's special offers.",
       "url": "/deals",
-      "icons": [{ "src": "https://i.ibb.co/Jqj3C8s/icon-deals-96x96.png", "sizes": "96x96" }]
+      "icons": [{ "src": "https://i.ibb.co/Jqj3C8s/icon-deals-96x96.png", "sizes": "96x96", "type": "image/png" }]
     }
   ]
 }
