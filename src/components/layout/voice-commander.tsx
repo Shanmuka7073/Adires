@@ -90,7 +90,7 @@ export function VoiceCommander({
   const pathname = usePathname();
   const { toast } = useToast();
   const { firestore, user } = useFirebase();
-  const { clearCart, addItem: addItemToCart, removeItem, updateQuantity, activeStoreId, setActiveStoreId, cartTotal } = useCart();
+  const { clearCart, addItem: addItemToCart, removeItem, updateQuantity, addUnidentifiedItem, activeStoreId, setActiveStoreId, cartTotal } = useCart();
 
   const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands, loading: isAppStoreLoading, fetchInitialData } = useAppStore();
 
@@ -602,6 +602,7 @@ export function VoiceCommander({
 
 
     const handleCommandFailure = useCallback(async (commandText: string, spokenLang: string, reason: string) => {
+        addUnidentifiedItem(commandText);
         speak(t('sorry-i-didnt-understand-that', spokenLang), `${spokenLang}-IN`);
         if (!firestore || !user) return;
     
@@ -624,7 +625,7 @@ export function VoiceCommander({
     
                         const updatedData = { ...existingData };
     
-                        const allNewAliases = [...suggestion.suggestedAliases, { lang: spokenLang, alias: suggestion.originalCommand }];
+                        const allNewAliases = [...suggestion.suggestedAliases, { lang: spokenLang, alias: suggestion.originalCommand, transliteratedAlias: '' }];
     
                         allNewAliases.forEach(({ lang, alias, transliteratedAlias }) => {
                             if (!updatedData[lang]) updatedData[lang] = [];
@@ -666,7 +667,7 @@ export function VoiceCommander({
                 userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp(),
             });
         }
-    }, [firestore, user, speak, aiConfig?.isAliasSuggesterEnabled, masterProducts, stores, toast, fetchInitialData]);
+    }, [addUnidentifiedItem, firestore, user, speak, aiConfig?.isAliasSuggesterEnabled, masterProducts, stores, toast, fetchInitialData]);
 
 
   const handleCommand = useCallback(async (commandText: string) => {
@@ -875,7 +876,7 @@ export function VoiceCommander({
             break;
         }
         case 'ORDER_ITEM': {
-            const { product, variant, requestedQty, remainingPhrase } = await findProductAndVariant(commandText);
+            const { product, variant, requestedQty, remainingPhrase, matchedAlias } = await findProductAndVariant(commandText);
             
             const priceData = product ? productPrices[product.name.toLowerCase()] : null;
             const hasMultipleVariants = priceData && priceData.variants && priceData.variants.length > 1;
@@ -886,23 +887,16 @@ export function VoiceCommander({
                 const pricesString = priceData.variants.map(v => `₹${v.price}`).join(', ');
                 speak(`${getProductName(product)} is available for ${pricesString}. Which price would you like?`, replyLang);
             }
-            else if (product?.category === 'Beverages' && !hasMultipleVariants) {
-                const firstStoreId = stores[0]?.id;
-                if (firstStoreId) {
-                    router.push(`/stores/${firstStoreId}?category=Beverages`);
-                    speak(`Okay, showing all available beverages.`, langWithRegion, false);
-                } else {
-                    handleCommandFailure(commandText, spokenLang, `Could not navigate to beverages category because no stores were found.`);
-                }
-            } else if (product && variant) {
-                addItemToCart(product, variant, requestedQty);
+            else if (product && variant) {
+                const productWithContext = { ...product, matchedAlias: matchedAlias || commandText, isAiAssisted: !!matchedAlias };
+                addItemToCart(productWithContext, variant, requestedQty);
                 onOpenCart();
                 const productLang = spokenLang;
                 const replyProductName = t(product.name.toLowerCase().replace(/ /g, '-'), productLang);
 
                 let speech = t('adding-item-speech', replyLang)
                     .replace('{quantity}', `${requestedQty}`)
-                    .replace('{weight}', `${variant.weight}`)
+                    .replace('{weight}`, `${variant.weight}`)
                     .replace('{productName}', replyProductName);
 
                 speak(speech, langWithRegion);

@@ -104,6 +104,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   }, [toast, activeStoreId, cartItems]);
 
+  const removeUnidentifiedItem = useCallback((id: string) => {
+      setUnidentifiedItems(prev => {
+        const newItems = prev.filter(item => item.id !== id);
+        if (newItems.length === 0 && cartItems.length === 0) {
+            setActiveStoreId(null);
+        }
+        return newItems;
+      });
+  }, [cartItems.length]);
+
   const addIdentifiedItem = useCallback((product: Product, variant: ProductVariant, quantity: number, originalTermId: string) => {
     // 1. Remove the placeholder
     removeUnidentifiedItem(originalTermId);
@@ -151,17 +161,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const updateUnidentifiedItem = useCallback((id: string, status: 'failed') => {
       setUnidentifiedItems(prev => prev.map(item => item.id === id ? { ...item, status } : item));
   }, []);
-
-  const removeUnidentifiedItem = useCallback((id: string) => {
-      setUnidentifiedItems(prev => {
-        const newItems = prev.filter(item => item.id !== id);
-        if (newItems.length === 0 && cartItems.length === 0) {
-            setActiveStoreId(null);
-        }
-        return newItems;
-      });
-  }, [cartItems.length]);
-
 
   const clearCart = useCallback(() => {
     setCartItems([]);
