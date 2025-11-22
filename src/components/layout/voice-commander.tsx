@@ -126,7 +126,7 @@ export function VoiceCommander({
 
   const [hasMounted, setHasMounted] = useState(false);
 
-  const [speechSynthesisVoices, setSpeechSynthesisVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [speechSynthesisVoices, setSpeechSynthesisVoice] = useState<SpeechSynthesisVoice[]>([]);
   
   const [hasRunCheckoutPrompt, setHasRunCheckoutPrompt] = useState(false);
   
@@ -252,7 +252,7 @@ export function VoiceCommander({
       const getVoices = () => {
         const voices = window.speechSynthesis.getVoices();
         if (voices.length > 0) {
-          setSpeechSynthesisVoices(voices);
+          setSpeechSynthesisVoice(voices);
         }
       };
       getVoices();
@@ -660,18 +660,22 @@ export function VoiceCommander({
                                 const priceKey = suggestion.suggestedKey.toLowerCase();
                                 const priceInfo = productPrices[priceKey];
 
-                                if (priceInfo && priceInfo.variants && priceInfo.variants.length > 0) {
-                                    addIdentifiedItem(identifiedProduct, priceInfo.variants[0], 1, tempId);
+                                const handleAddItem = (finalPriceInfo: ProductPrice | null) => {
+                                    if (finalPriceInfo && finalPriceInfo.variants && finalPriceInfo.variants.length > 0) {
+                                        addIdentifiedItem(identifiedProduct, finalPriceInfo.variants[0], 1, tempId);
+                                    } else {
+                                        updateUnidentifiedItem(tempId, 'failed');
+                                        console.error(`Could not find price for AI-identified item: ${suggestion.suggestedKey}`);
+                                    }
+                                };
+                                
+                                if (priceInfo !== undefined) {
+                                    handleAddItem(priceInfo);
                                 } else {
                                     fetchProductPrices(firestore, [suggestion.suggestedKey]).then(() => {
                                         const updatedPrices = useAppStore.getState().productPrices;
                                         const finalPriceInfo = updatedPrices[priceKey];
-                                        if (finalPriceInfo && finalPriceInfo.variants && finalPriceInfo.variants.length > 0) {
-                                            addIdentifiedItem(identifiedProduct, finalPriceInfo.variants[0], 1, tempId);
-                                        } else {
-                                            updateUnidentifiedItem(tempId, 'failed');
-                                            console.error(`Could not find price for AI-identified item: ${suggestion.suggestedKey}`);
-                                        }
+                                        handleAddItem(finalPriceInfo);
                                     });
                                 }
                             }, 500); // Small delay to ensure state updates
@@ -1361,3 +1365,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
