@@ -1,3 +1,4 @@
+
 {
   "name": "LocalBasket",
   "short_name": "LocalBasket",
@@ -23,16 +24,16 @@
       "purpose": "maskable"
     },
     {
-      "src": "https://i.ibb.co/3dYd5sD/icon-512x512.png",
+      "src": "https://i.ibb.co/sK0Y1V1/icon-maskable-192x192.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "https://i.ibb.co/3dYd5sD/icon-512x512.png",
-      "sizes": "512x512",
+      "src": "https://i.ibb.co/sK0Y1V1/icon-maskable-192x192.png",
+      "sizes": "180x180",
       "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any"
     }
   ],
   "screenshots": [
@@ -57,7 +58,13 @@
       "short_name": "Cart",
       "description": "Go directly to your shopping cart.",
       "url": "/cart",
-      "icons": [{ "src": "https://i.ibb.co/RzM1p00/icon-cart-96x96.png", "sizes": "96x96", "type": "image/png" }]
+      "icons": [
+        {
+          "src": "https://i.ibb.co/RzM1p00/icon-cart-96x96.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
     }
   ]
 }

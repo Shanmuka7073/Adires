@@ -31,7 +31,7 @@ export default function RootLayout({
     <html lang="en" className={`${ptSans.variable}`}>
        <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="manifest" href="/manifest.json" />
+        <link rel="manifest" href="/manifest.webmanifest" />
       </head>
       <body>
         <ClientRoot>{children}</ClientRoot>
