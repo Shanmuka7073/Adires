@@ -37,8 +37,14 @@ export default function ProductCard({ product, priceData }: ProductCardProps) {
   useEffect(() => {
     const fetchImage = async () => {
       if (product) {
-        const fetchedImage = await getProductImage(product.imageId);
-        setImage(fetchedImage);
+        // Prioritize the direct imageUrl if it exists
+        if (product.imageUrl) {
+            setImage({ imageUrl: product.imageUrl, imageHint: product.name });
+        } else {
+            // Fallback to placeholder image
+            const fetchedImage = await getProductImage(product.imageId);
+            setImage(fetchedImage);
+        }
       }
     };
     fetchImage();
