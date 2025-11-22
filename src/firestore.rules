@@ -103,7 +103,7 @@ service cloud.firestore {
 
     match /cachedRecipes/{recipeId} {
       allow get, list: if true;
-      allow create, update, delete: if false;
+      allow create, update, delete: if false; // Caching is handled by trusted backend
     }
 
     match /cachedAIResponses/{responseId} {
