@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -435,6 +434,12 @@ export default function AdminDashboardPage() {
                         title="PWA Manifest"
                         description="View and copy the app's Progressive Web App manifest file."
                         href="/dashboard/admin/manifest-help"
+                        icon={BookCopy}
+                    />
+                     <AdminActionCard
+                        title="PWA Settings"
+                        description="Manage screenshots and shortcuts for your installable web app."
+                        href="/dashboard/admin/pwa-settings"
                         icon={BookCopy}
                     />
                     <AdminActionCard

@@ -1,8 +1,11 @@
+
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { getStorage } from 'firebase-admin/storage';
 import { updateDoc, doc } from 'firebase/firestore';
+import { promises as fs } from 'fs';
+import path from 'path';
 
 /**
  * Safely fetch documents count from Firestore collections.
@@ -112,5 +115,48 @@ export async function uploadStoreImage(storeId: string, dataUri: string): Promis
     } catch (error: any) {
         console.error('Server-side image upload failed:', error);
         return { success: false, error: error.message || 'An unknown error occurred during upload.' };
+    }
+}
+
+const getManifestPath = () => {
+  // `process.cwd()` returns the root of your Next.js project
+  return path.join(process.cwd(), 'public', 'manifest.json');
+};
+
+export async function getManifest() {
+    try {
+        const manifestPath = getManifestPath();
+        const manifestFile = await fs.readFile(manifestPath, 'utf-8');
+        return JSON.parse(manifestFile);
+    } catch (error) {
+        console.error('Failed to read manifest file:', error);
+        return null;
+    }
+}
+
+export async function updateManifest(newData: { screenshots?: any[]; shortcuts?: any[] }): Promise<{ success: boolean; error?: string }> {
+    try {
+        const manifestPath = getManifestPath();
+        const manifest = await getManifest();
+
+        if (!manifest) {
+            throw new Error('Could not load existing manifest file.');
+        }
+
+        // Update only the specified sections
+        if (newData.screenshots) {
+            manifest.screenshots = newData.screenshots;
+        }
+        if (newData.shortcuts) {
+            manifest.shortcuts = newData.shortcuts;
+        }
+
+        // Write the updated manifest back to the file
+        await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
+        
+        return { success: true };
+    } catch (error: any) {
+        console.error('Failed to update manifest file:', error);
+        return { success: false, error: error.message || 'An unknown error occurred.' };
     }
 }
