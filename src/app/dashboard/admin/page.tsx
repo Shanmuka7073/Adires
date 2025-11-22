@@ -2,14 +2,14 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useMemo, useEffect, useState, useTransition } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { collection, query, where, doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, doc, updateDoc } from 'firebase/firestore';
 import type { Order, Store as StoreType, ProductPrice, ProductVariant } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { t } from '@/lib/locales';
@@ -70,15 +70,6 @@ function ProductInventoryRow({ product, priceData, onUpdate }: { product: any; p
     useEffect(() => {
         setStockValues(initialStockValues);
     }, [initialStockValues]);
-
-    if (!priceData || !priceData.variants || priceData.variants.length === 0) {
-        return (
-            <TableRow>
-                <TableCell className="font-medium">{product.name}</TableCell>
-                <TableCell colSpan={3} className="text-muted-foreground">No pricing or stock information.</TableCell>
-            </TableRow>
-        );
-    }
     
     const handleStockChange = (sku: string, value: string) => {
         const newStock = parseInt(value, 10);
@@ -117,6 +108,15 @@ function ProductInventoryRow({ product, priceData, onUpdate }: { product: any; p
             }
         });
     };
+
+    if (!priceData || !priceData.variants || priceData.variants.length === 0) {
+        return (
+            <TableRow>
+                <TableCell className="font-medium">{product.name}</TableCell>
+                <TableCell colSpan={3} className="text-muted-foreground">No pricing or stock information.</TableCell>
+            </TableRow>
+        );
+    }
 
     return (
         <>
