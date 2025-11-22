@@ -1,0 +1,61 @@
+{
+  "name": "LocalBasket",
+  "short_name": "LocalBasket",
+  "description": "Your local grocery delivery app.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#90EE90",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-maskable-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-mobile-1.png",
+      "sizes": "360x740",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Home screen for easy navigation"
+    },
+    {
+      "src": "/screenshot-desktop-1.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Desktop view of the product catalog"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "View Cart",
+      "short_name": "Cart",
+      "description": "Go directly to your shopping cart.",
+      "url": "/cart",
+      "icons": [{ "src": "/icon-cart-96x96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "My Orders",
+      "short_name": "Orders",
+      "description": "View your order history.",
+      "url": "/dashboard/customer/my-orders",
+      "icons": [{ "src": "/icon-orders-96x96.png", "sizes": "96x96" }]
+    }
+  ]
+}
