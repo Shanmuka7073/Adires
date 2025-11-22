@@ -896,7 +896,7 @@ export function VoiceCommander({
 
                 let speech = t('adding-item-speech', replyLang)
                     .replace('{quantity}', `${requestedQty}`)
-                    .replace('{weight}`, `${variant.weight}`)
+                    .replace('{weight}', `${variant.weight}`)
                     .replace('{productName}', replyProductName);
 
                 speak(speech, langWithRegion);
@@ -1332,5 +1332,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    
