@@ -243,11 +243,11 @@ export default function CartPage() {
         <div className="lg:col-span-2 space-y-4">
             {/* Mobile View */}
             <div className="lg:hidden space-y-4">
+                 {unidentifiedItems.map((item) => <UnidentifiedMobileItem key={item.id} item={item} />)}
                  {cartItems.map((item) => {
                     const image = images[item.variant.sku] || { imageUrl: 'https://placehold.co/80x80/E2E8F0/64748B?text=...', imageHint: 'loading' };
                     return <MobileCartItem key={item.variant.sku} item={item} image={image} />
                 })}
-                 {unidentifiedItems.map((item) => <UnidentifiedMobileItem key={item.id} item={item} />)}
             </div>
 
             {/* Desktop View */}

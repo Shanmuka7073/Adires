@@ -15,6 +15,7 @@ interface CartContextType {
   cartItems: CartItem[];
   unidentifiedItems: UnidentifiedCartItem[];
   addItem: (product: Product, variant: ProductVariant, quantity?: number) => void;
+  addIdentifiedItem: (product: Product, variant: ProductVariant, quantity: number, originalTermId: string) => void;
   removeItem: (variantSku: string) => void;
   updateQuantity: (variantSku: string, quantity: number) => void;
   addUnidentifiedItem: (term: string) => string;
@@ -103,6 +104,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   }, [toast, activeStoreId, cartItems]);
 
+  const addIdentifiedItem = useCallback((product: Product, variant: ProductVariant, quantity: number, originalTermId: string) => {
+    // 1. Remove the placeholder
+    removeUnidentifiedItem(originalTermId);
+
+    // 2. Add the actual item
+    addItem(product, variant, quantity);
+  }, [addItem, removeUnidentifiedItem]);
+
   const removeItem = useCallback((variantSku: string) => {
     setCartItems((prevItems) => {
         const newItems = prevItems.filter((item) => item.variant.sku !== variantSku);
@@ -173,6 +182,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         cartItems,
         unidentifiedItems,
         addItem,
+        addIdentifiedItem,
         removeItem,
         updateQuantity,
         addUnidentifiedItem,

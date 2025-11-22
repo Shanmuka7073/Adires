@@ -1,4 +1,5 @@
 
+
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -22,6 +23,7 @@ export type Product = {
   imageUrl?: string; // Data URI for AI-generated image
   imageHint?: string;
   matchedAlias?: string; // The alias the user spoke
+  isAiAssisted?: boolean; // Flag to show if AI identified this item
 };
 
 export type Store = {
@@ -62,7 +64,6 @@ export type CartItem = {
   product: Product; // The base product
   variant: ProductVariant; // The specific variant chosen
   quantity: number;
-  voiceMatchScore?: number; // The confidence score (0-1) from voice recognition
 };
 
 export type OrderItem = {
