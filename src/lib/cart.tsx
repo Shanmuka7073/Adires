@@ -69,6 +69,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [cartItems, activeStoreId]);
 
+  const removeUnidentifiedItem = useCallback((id: string) => {
+      setUnidentifiedItems(prev => {
+        const newItems = prev.filter(item => item.id !== id);
+        if (newItems.length === 0 && cartItems.length === 0) {
+            setActiveStoreId(null);
+        }
+        return newItems;
+      });
+  }, [cartItems.length]);
+
 
   const addItem = useCallback((product: Product, variant: ProductVariant, quantity = 1) => {
     if (cartItems.length > 0 && activeStoreId && product.storeId !== activeStoreId) {
@@ -119,15 +129,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   }, [toast, unidentifiedItems.length]);
 
-  const removeUnidentifiedItem = useCallback((id: string) => {
-      setUnidentifiedItems(prev => {
-        const newItems = prev.filter(item => item.id !== id);
-        if (newItems.length === 0 && cartItems.length === 0) {
-            setActiveStoreId(null);
-        }
-        return newItems;
-      });
-  }, [cartItems.length]);
+  
 
   const addIdentifiedItem = useCallback((product: Product, variant: ProductVariant, quantity: number, originalTermId: string) => {
     // 1. Remove the placeholder

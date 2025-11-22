@@ -91,7 +91,7 @@ export function VoiceCommander({
   const pathname = usePathname();
   const { toast } = useToast();
   const { firestore, user } = useFirebase();
-  const { clearCart, addItem: addItemToCart, removeItem, updateQuantity, addUnidentifiedItem, updateUnidentifiedItem, removeUnidentifiedItem, addIdentifiedItem, activeStoreId, setActiveStoreId, cartTotal } = useCart();
+  const { clearCart, addItem: addItemToCart, removeItem, updateQuantity, addUnidentifiedItem, updateUnidentifiedItem, addIdentifiedItem, activeStoreId, setActiveStoreId, cartTotal } = useCart();
   const { retryCommand } = useVoiceCommanderContext();
 
   const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands, loading: isAppStoreLoading, fetchInitialData } = useAppStore();
@@ -633,10 +633,11 @@ export function VoiceCommander({
                         const allNewAliases = [...suggestion.suggestedAliases, { lang: spokenLang, alias: suggestion.originalCommand, transliteratedAlias: '' }];
     
                         allNewAliases.forEach(({ lang, alias, transliteratedAlias }) => {
+                            if (!lang || !alias) return;
                             if (!updatedData[lang]) updatedData[lang] = [];
                             
                             const langAliases = new Set(updatedData[lang] as string[]);
-                            if (alias) langAliases.add(alias);
+                            langAliases.add(alias);
                             if (transliteratedAlias) langAliases.add(transliteratedAlias);
     
                             updatedData[lang] = Array.from(langAliases);
@@ -651,8 +652,12 @@ export function VoiceCommander({
                         // CRITICAL: Retry the original command after learning
                         if(retryCommand) {
                             setTimeout(() => {
-                                removeUnidentifiedItem(tempId);
-                                retryCommand(commandText)
+                                addIdentifiedItem(
+                                  masterProducts.find(p => p.name.toLowerCase() === suggestion.suggestedKey.toLowerCase())!,
+                                  productPrices[suggestion.suggestedKey.toLowerCase()]!.variants[0],
+                                  1,
+                                  tempId
+                                );
                             }, 500); // Small delay to ensure state updates
                         }
 
@@ -675,7 +680,7 @@ export function VoiceCommander({
             addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp() });
             updateUnidentifiedItem(tempId, 'failed');
         }
-    }, [addUnidentifiedItem, updateUnidentifiedItem, removeUnidentifiedItem, retryCommand, firestore, user, speak, aiConfig, masterProducts, stores, toast, fetchInitialData]);
+    }, [addUnidentifiedItem, updateUnidentifiedItem, retryCommand, firestore, user, speak, aiConfig, masterProducts, stores, toast, fetchInitialData, addIdentifiedItem, productPrices]);
 
 
   const handleCommand = useCallback(async (commandText: string) => {
