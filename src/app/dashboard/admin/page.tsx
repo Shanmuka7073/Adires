@@ -2,20 +2,22 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useState, useTransition } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { collection, query, where } from 'firebase/firestore';
-import type { Order, Store as StoreType, Product, ProductPrice, ProductVariant } from '@/lib/types';
+import { collection, query, where, doc, updateDoc, writeBatch } from 'firebase/firestore';
+import type { Order, Store as StoreType, ProductPrice, ProductVariant } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { t } from '@/lib/locales';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useAppStore } from '@/lib/store';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
 
 function StatCard({ title, value, icon: Icon, loading }: { title: string, value: string | number, icon: React.ElementType, loading?: boolean }) {
     return (
@@ -47,22 +49,115 @@ function CreateMasterStoreCard() {
     )
 }
 
+function ProductInventoryRow({ product, priceData, onUpdate }: { product: any; priceData: ProductPrice | null; onUpdate: () => void }) {
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+    const [isUpdating, startUpdateTransition] = useTransition();
+    const [stockValues, setStockValues] = useState<Record<string, number>>(() => {
+        const initialStock: Record<string, number> = {};
+        priceData?.variants.forEach(v => {
+            initialStock[v.sku] = v.stock;
+        });
+        return initialStock;
+    });
+    const [modifiedSkus, setModifiedSkus] = useState<Set<string>>(new Set());
+
+    const handleStockChange = (sku: string, value: string) => {
+        const newStock = parseInt(value, 10);
+        if (!isNaN(newStock)) {
+            setStockValues(prev => ({ ...prev, [sku]: newStock }));
+            setModifiedSkus(prev => new Set(prev).add(sku));
+        }
+    };
+    
+    const handleUpdate = (variantToUpdate: ProductVariant) => {
+        if (!firestore || !priceData) return;
+
+        startUpdateTransition(async () => {
+            const priceRef = doc(firestore, 'productPrices', priceData.productName);
+            const updatedVariants = priceData.variants.map(variant =>
+                variant.sku === variantToUpdate.sku
+                    ? { ...variant, stock: stockValues[variantToUpdate.sku] }
+                    : variant
+            );
+
+            try {
+                await updateDoc(priceRef, { variants: updatedVariants });
+                toast({
+                    title: "Stock Updated!",
+                    description: `Stock for ${product.name} (${variantToUpdate.weight}) has been set to ${stockValues[variantToUpdate.sku]}.`
+                });
+                setModifiedSkus(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(variantToUpdate.sku);
+                    return newSet;
+                });
+                onUpdate(); // Trigger a re-fetch of prices in the parent
+            } catch (error) {
+                console.error("Stock update failed:", error);
+                toast({ variant: 'destructive', title: 'Update Failed', description: 'Could not update the stock level.' });
+            }
+        });
+    };
+
+    if (!priceData || !priceData.variants || priceData.variants.length === 0) {
+        return (
+            <TableRow>
+                <TableCell className="font-medium">{product.name}</TableCell>
+                <TableCell colSpan={3} className="text-muted-foreground">No pricing or stock information.</TableCell>
+            </TableRow>
+        );
+    }
+    
+    return (
+        <>
+            {priceData.variants.map((variant, index) => (
+                <TableRow key={`${product.id}-${variant.sku}`}>
+                    <TableCell className="font-medium">{index === 0 ? product.name : ''}</TableCell>
+                    <TableCell>{variant.weight}</TableCell>
+                    <TableCell>₹{variant.price.toFixed(2)}</TableCell>
+                    <TableCell className="w-48">
+                        <div className="flex items-center gap-2">
+                             <Input
+                                type="number"
+                                value={stockValues[variant.sku] ?? variant.stock}
+                                onChange={(e) => handleStockChange(variant.sku, e.target.value)}
+                                className={`h-8 w-20 text-right font-bold ${variant.stock <= 10 ? 'text-destructive border-destructive' : ''}`}
+                            />
+                            {modifiedSkus.has(variant.sku) && (
+                                <Button size="sm" onClick={() => handleUpdate(variant)} disabled={isUpdating}>
+                                    {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                                </Button>
+                            )}
+                        </div>
+                    </TableCell>
+                </TableRow>
+            ))}
+        </>
+    );
+}
+
 function ProductInventory() {
     const { masterProducts, productPrices, fetchProductPrices, loading } = useAppStore();
     const { firestore } = useFirebase();
+    const [searchTerm, setSearchTerm] = useState('');
 
-    useEffect(() => {
-        if (firestore && masterProducts.length > 0) {
+    const fetchAllPrices = () => {
+         if (firestore && masterProducts.length > 0) {
             const productNamesToFetch = masterProducts.map(p => p.name);
             fetchProductPrices(firestore, productNamesToFetch);
         }
-    }, [firestore, masterProducts, fetchProductPrices]);
+    }
+
+    useEffect(() => {
+        fetchAllPrices();
+    }, [firestore, masterProducts]);
     
     const handleDownloadCSV = () => {
         const headers = ["Product Name", "Category", "Variant Weight", "Price", "Stock", "Status"];
         const rows: string[][] = [];
 
-        masterProducts.forEach(product => {
+        filteredProducts.forEach(product => {
             const priceData = productPrices[product.name.toLowerCase()];
             if (priceData?.variants) {
                 priceData.variants.forEach(variant => {
@@ -92,18 +187,34 @@ function ProductInventory() {
         document.body.removeChild(link);
     };
 
+    const filteredProducts = useMemo(() => {
+        if (!searchTerm) return masterProducts;
+        return masterProducts.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    }, [masterProducts, searchTerm]);
+
     return (
         <Card>
             <CardHeader>
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
                     <div>
                         <CardTitle>Master Product Inventory</CardTitle>
                         <CardDescription>A complete overview of stock levels for all products.</CardDescription>
                     </div>
-                    <Button onClick={handleDownloadCSV} variant="outline" size="sm">
-                        <Download className="mr-2 h-4 w-4" />
-                        Download Inventory
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <div className="relative w-full md:w-64">
+                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input 
+                                placeholder="Search products..." 
+                                className="pl-9"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                        <Button onClick={handleDownloadCSV} variant="outline" size="sm">
+                            <Download className="mr-2 h-4 w-4" />
+                            Download
+                        </Button>
+                    </div>
                 </div>
             </CardHeader>
             <CardContent>
@@ -120,31 +231,18 @@ function ProductInventory() {
                                 <TableHead>Product</TableHead>
                                 <TableHead>Variant</TableHead>
                                 <TableHead>Price</TableHead>
-                                <TableHead className="text-right">Stock</TableHead>
+                                <TableHead>Stock</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {masterProducts.map(product => {
-                                const priceData = productPrices[product.name.toLowerCase()];
-                                if (!priceData || !priceData.variants || priceData.variants.length === 0) {
-                                    return (
-                                        <TableRow key={product.id}>
-                                            <TableCell className="font-medium">{product.name}</TableCell>
-                                            <TableCell colSpan={3} className="text-muted-foreground">No pricing or stock information.</TableCell>
-                                        </TableRow>
-                                    );
-                                }
-                                return priceData.variants.map((variant, index) => (
-                                    <TableRow key={`${product.id}-${variant.sku}`}>
-                                        <TableCell className="font-medium">{index === 0 ? product.name : ''}</TableCell>
-                                        <TableCell>{variant.weight}</TableCell>
-                                        <TableCell>₹{variant.price.toFixed(2)}</TableCell>
-                                        <TableCell className={`text-right font-bold ${variant.stock <= 10 ? 'text-destructive' : ''}`}>
-                                            {variant.stock}
-                                        </TableCell>
-                                    </TableRow>
-                                ));
-                            })}
+                            {filteredProducts.map(product => (
+                                <ProductInventoryRow 
+                                    key={product.id}
+                                    product={product} 
+                                    priceData={productPrices[product.name.toLowerCase()]}
+                                    onUpdate={fetchAllPrices}
+                                />
+                            ))}
                         </TableBody>
                     </Table>
                 )}
@@ -361,3 +459,5 @@ export default function AdminDashboardPage() {
         </div>
     );
 }
+
+    
