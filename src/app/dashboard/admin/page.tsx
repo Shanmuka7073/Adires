@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -10,7 +11,7 @@ import { useMemo, useEffect, useState, useTransition } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { collection, query, where, doc, updateDoc } from 'firebase/firestore';
-import type { Order, Store as StoreType, ProductPrice, ProductVariant } from '@/lib/types';
+import type { Order, Store as StoreType, Product, ProductPrice, ProductVariant } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { t } from '@/lib/locales';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -18,6 +19,8 @@ import { useAppStore } from '@/lib/store';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+
 
 function StatCard({ title, value, icon: Icon, loading }: { title: string, value: string | number, icon: React.ElementType, loading?: boolean }) {
     return (
@@ -202,61 +205,71 @@ function ProductInventory() {
     }, [masterProducts, searchTerm]);
 
     return (
-        <Card>
-            <CardHeader>
-                <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-                    <div>
-                        <CardTitle>Master Product Inventory</CardTitle>
-                        <CardDescription>A complete overview of stock levels for all products.</CardDescription>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className="relative w-full md:w-64">
-                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input 
-                                placeholder="Search products..." 
-                                className="pl-9"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
+        <Accordion type="single" collapsible className="w-full mb-8">
+            <AccordionItem value="inventory">
+                <AccordionTrigger>
+                     <div className="flex justify-between items-center w-full pr-4">
+                        <div>
+                            <h2 className="text-xl font-bold font-headline">Master Product Inventory</h2>
+                            <p className="text-sm text-muted-foreground text-left">A complete overview of stock levels for all products.</p>
                         </div>
-                        <Button onClick={handleDownloadCSV} variant="outline" size="sm">
-                            <Download className="mr-2 h-4 w-4" />
-                            Download
-                        </Button>
                     </div>
-                </div>
-            </CardHeader>
-            <CardContent>
-                {loading ? (
-                    <div className="space-y-2">
-                        <Skeleton className="h-10 w-full" />
-                        <Skeleton className="h-10 w-full" />
-                        <Skeleton className="h-10 w-full" />
-                    </div>
-                ) : (
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Product</TableHead>
-                                <TableHead>Variant</TableHead>
-                                <TableHead>Price</TableHead>
-                                <TableHead>Stock</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {filteredProducts.map(product => (
-                                <ProductInventoryRow 
-                                    key={product.id}
-                                    product={product} 
-                                    priceData={productPrices[product.name.toLowerCase()]}
-                                    onUpdate={fetchAllPrices}
-                                />
-                            ))}
-                        </TableBody>
-                    </Table>
-                )}
-            </CardContent>
-        </Card>
+                </AccordionTrigger>
+                <AccordionContent>
+                    <Card>
+                        <CardHeader>
+                            <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+                                <div className="flex items-center gap-2 w-full">
+                                    <div className="relative flex-grow">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <Input 
+                                            placeholder="Search products..." 
+                                            className="pl-9"
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                        />
+                                    </div>
+                                    <Button onClick={handleDownloadCSV} variant="outline" size="sm">
+                                        <Download className="mr-2 h-4 w-4" />
+                                        Download
+                                    </Button>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            {loading ? (
+                                <div className="space-y-2">
+                                    <Skeleton className="h-10 w-full" />
+                                    <Skeleton className="h-10 w-full" />
+                                    <Skeleton className="h-10 w-full" />
+                                </div>
+                            ) : (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Product</TableHead>
+                                            <TableHead>Variant</TableHead>
+                                            <TableHead>Price</TableHead>
+                                            <TableHead>Stock</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {filteredProducts.map(product => (
+                                            <ProductInventoryRow 
+                                                key={product.id}
+                                                product={product} 
+                                                priceData={productPrices[product.name.toLowerCase()]}
+                                                onUpdate={fetchAllPrices}
+                                            />
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            )}
+                        </CardContent>
+                    </Card>
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
     );
 }
 
@@ -336,9 +349,7 @@ export default function AdminDashboardPage() {
             
             {!masterStoreExists && <CreateMasterStoreCard />}
             
-            <div className="mb-8">
-                <ProductInventory />
-            </div>
+            <ProductInventory />
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
                 {statItems.map(item => (
@@ -468,3 +479,4 @@ export default function AdminDashboardPage() {
         </div>
     );
 }
+
