@@ -1,7 +1,8 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -9,10 +10,11 @@ import { useMemo, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { collection, query, where } from 'firebase/firestore';
-import type { Order, Store as StoreType } from '@/lib/types';
+import type { Order, Store as StoreType, ProductPrice, ProductVariant } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { t } from '@/lib/locales';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
+import { useAppStore } from '@/lib/store';
 
 function StatCard({ title, value, icon: Icon, loading }: { title: string, value: string | number, icon: React.ElementType, loading?: boolean }) {
     return (
@@ -41,6 +43,64 @@ function CreateMasterStoreCard() {
                 </Button>
             </AlertDescription>
         </Alert>
+    )
+}
+
+function LowStockAlerts() {
+    const { productPrices, masterProducts, fetchProductPrices, loading } = useAppStore();
+    const { firestore } = useFirebase();
+
+    useEffect(() => {
+        if (firestore && masterProducts.length > 0) {
+            const productNamesToFetch = masterProducts.map(p => p.name);
+            fetchProductPrices(firestore, productNamesToFetch);
+        }
+    }, [firestore, masterProducts, fetchProductPrices]);
+
+    const lowStockItems = useMemo(() => {
+        const items: { productName: string; variant: ProductVariant }[] = [];
+        if (!productPrices) return items;
+
+        Object.values(productPrices).forEach(priceData => {
+            if (priceData && priceData.variants) {
+                priceData.variants.forEach(variant => {
+                    if (variant.stock <= 10) {
+                        items.push({ productName: priceData.productName, variant });
+                    }
+                });
+            }
+        });
+        return items;
+    }, [productPrices]);
+
+    if (loading) {
+        return (
+            <div className="space-y-2">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+            </div>
+        )
+    }
+
+    if (lowStockItems.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className="mb-8">
+            <h2 className="text-2xl font-bold text-center mb-4 font-headline text-destructive">Low Stock Alerts</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {lowStockItems.map(({ productName, variant }, index) => (
+                    <Alert key={`${productName}-${index}`} variant="destructive">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle>Low Stock: {productName}</AlertTitle>
+                        <AlertDescription>
+                            The variant "{variant.weight}" has only <strong>{variant.stock}</strong> items left.
+                        </AlertDescription>
+                    </Alert>
+                ))}
+            </div>
+        </div>
     )
 }
 
@@ -118,6 +178,8 @@ export default function AdminDashboardPage() {
             </div>
             
             {!masterStoreExists && <CreateMasterStoreCard />}
+            
+            <LowStockAlerts />
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
                 {statItems.map(item => (
@@ -247,3 +309,5 @@ export default function AdminDashboardPage() {
         </div>
     );
 }
+
+    
