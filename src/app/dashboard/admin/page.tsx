@@ -52,6 +52,104 @@ function CreateMasterStoreCard() {
     )
 }
 
+function ProductInventoryRow({ product, priceData, onUpdate }: { product: Product, priceData: ProductPrice | null, onUpdate: () => void }) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [variants, setVariants] = useState(priceData?.variants || []);
+    const [isSaving, startSaveTransition] = useTransition();
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+
+    useEffect(() => {
+        setVariants(priceData?.variants || []);
+    }, [priceData]);
+
+    const handleVariantChange = (index: number, field: 'price' | 'stock', value: string) => {
+        const newVariants = [...variants];
+        const numValue = field === 'price' ? parseFloat(value) : parseInt(value, 10);
+        if (!isNaN(numValue)) {
+            newVariants[index] = { ...newVariants[index], [field]: numValue };
+            setVariants(newVariants);
+        }
+    };
+    
+    const handleSave = () => {
+        if (!firestore) return;
+        
+        startSaveTransition(async () => {
+            const priceDocRef = doc(firestore, 'productPrices', product.name.toLowerCase());
+            try {
+                await updateDoc(priceDocRef, { variants });
+                toast({ title: 'Success', description: `${product.name} has been updated.` });
+                setIsEditing(false);
+                onUpdate();
+            } catch (error) {
+                console.error("Failed to update product price:", error);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not save changes.' });
+            }
+        });
+    };
+
+    return (
+        <>
+            <TableRow onClick={() => setIsEditing(!isEditing)} className="cursor-pointer">
+                <TableCell className="font-medium">{product.name}</TableCell>
+                <TableCell>{product.category}</TableCell>
+                <TableCell>
+                    {priceData?.variants.map(v => (
+                        <div key={v.sku} className="flex items-center gap-2">
+                             <span className="font-semibold">{v.weight}:</span>
+                             <span>₹{v.price.toFixed(2)}</span>
+                             <span className={v.stock <= 10 ? 'text-destructive' : 'text-muted-foreground'}>
+                                (Stock: {v.stock})
+                             </span>
+                        </div>
+                    )) || 'No price data'}
+                </TableCell>
+            </TableRow>
+             {isEditing && (
+                 <TableRow>
+                    <TableCell colSpan={3} className="p-0">
+                        <div className="p-4 bg-muted/50 space-y-4">
+                             <p className="font-semibold text-sm">Editing: {product.name}</p>
+                             {variants.map((variant, index) => (
+                                <div key={variant.sku} className="grid grid-cols-3 gap-4 items-center">
+                                    <div className="font-mono text-sm">{variant.weight}</div>
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-sm">₹</span>
+                                        <Input
+                                            type="number"
+                                            value={variant.price}
+                                            onChange={e => handleVariantChange(index, 'price', e.target.value)}
+                                            className="h-8"
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                         <span className="text-sm">Stock:</span>
+                                        <Input
+                                            type="number"
+                                            value={variant.stock}
+                                            onChange={e => handleVariantChange(index, 'stock', e.target.value)}
+                                            className="h-8"
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                            <div className="flex gap-2 justify-end">
+                                <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>Cancel</Button>
+                                <Button size="sm" onClick={handleSave} disabled={isSaving}>
+                                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                    Save
+                                </Button>
+                            </div>
+                        </div>
+                    </TableCell>
+                 </TableRow>
+            )}
+        </>
+    );
+}
+
+
 function ProductInventory() {
     const { masterProducts, productPrices, fetchProductPrices, loading } = useAppStore();
     const { firestore } = useFirebase();
@@ -151,9 +249,8 @@ function ProductInventory() {
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>Product</TableHead>
-                                            <TableHead>Variant</TableHead>
-                                            <TableHead>Price</TableHead>
-                                            <TableHead>Stock</TableHead>
+                                            <TableHead>Category</TableHead>
+                                            <TableHead>Variants (Price & Stock)</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -387,7 +484,3 @@ export default function AdminDashboardPage() {
         </div>
     );
 }
-
-
-
-    
