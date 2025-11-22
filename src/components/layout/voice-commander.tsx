@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -652,12 +653,27 @@ export function VoiceCommander({
                         // CRITICAL: Retry the original command after learning
                         if(retryCommand) {
                             setTimeout(() => {
-                                addIdentifiedItem(
-                                  masterProducts.find(p => p.name.toLowerCase() === suggestion.suggestedKey.toLowerCase())!,
-                                  productPrices[suggestion.suggestedKey.toLowerCase()]!.variants[0],
-                                  1,
-                                  tempId
-                                );
+                                const identifiedProduct = masterProducts.find(p => p.name.toLowerCase() === suggestion.suggestedKey.toLowerCase());
+                                if (!identifiedProduct) return;
+
+                                // Fetch prices if not already loaded before adding to cart
+                                const priceKey = suggestion.suggestedKey.toLowerCase();
+                                const priceInfo = productPrices[priceKey];
+
+                                if (priceInfo && priceInfo.variants && priceInfo.variants.length > 0) {
+                                    addIdentifiedItem(identifiedProduct, priceInfo.variants[0], 1, tempId);
+                                } else {
+                                    fetchProductPrices(firestore, [suggestion.suggestedKey]).then(() => {
+                                        const updatedPrices = useAppStore.getState().productPrices;
+                                        const finalPriceInfo = updatedPrices[priceKey];
+                                        if (finalPriceInfo && finalPriceInfo.variants && finalPriceInfo.variants.length > 0) {
+                                            addIdentifiedItem(identifiedProduct, finalPriceInfo.variants[0], 1, tempId);
+                                        } else {
+                                            updateUnidentifiedItem(tempId, 'failed');
+                                            console.error(`Could not find price for AI-identified item: ${suggestion.suggestedKey}`);
+                                        }
+                                    });
+                                }
                             }, 500); // Small delay to ensure state updates
                         }
 
@@ -680,7 +696,7 @@ export function VoiceCommander({
             addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp() });
             updateUnidentifiedItem(tempId, 'failed');
         }
-    }, [addUnidentifiedItem, updateUnidentifiedItem, retryCommand, firestore, user, speak, aiConfig, masterProducts, stores, toast, fetchInitialData, addIdentifiedItem, productPrices]);
+    }, [addUnidentifiedItem, updateUnidentifiedItem, retryCommand, firestore, user, speak, aiConfig, masterProducts, stores, toast, fetchInitialData, addIdentifiedItem, productPrices, fetchProductPrices]);
 
 
   const handleCommand = useCallback(async (commandText: string) => {
