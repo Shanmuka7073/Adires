@@ -26,7 +26,7 @@ export default function VoiceCommandsPage() {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isProcessing, startTransition] = useTransition();
-    const [activeTab, setActiveTab] = useState('products');
+    const [activeTab, setActiveTab] = useState('general');
 
     // Data from the global store
     const { 
@@ -399,8 +399,10 @@ export default function VoiceCommandsPage() {
       icon: React.ElementType
     ) => {
         const aliasMap = new Map(Object.entries(locales).flatMap(([key, value]) => {
-            const aliases = (value.en || []).concat(value.te || []);
-            return aliases.map(alias => [alias.toLowerCase(), key]);
+            const enAliases = Array.isArray(value.en) ? value.en : (value.en ? [value.en] : []);
+            const teAliases = Array.isArray(value.te) ? value.te : (value.te ? [value.te] : []);
+            const allAliases = [...enAliases, ...teAliases];
+            return allAliases.map(alias => [String(alias).toLowerCase(), key]);
         }));
 
         const findKeyForItem = (itemName: string): string => {
