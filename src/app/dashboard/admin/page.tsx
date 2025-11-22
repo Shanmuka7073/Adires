@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -10,11 +10,12 @@ import { useMemo, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { collection, query, where } from 'firebase/firestore';
-import type { Order, Store as StoreType, ProductPrice, ProductVariant } from '@/lib/types';
+import type { Order, Store as StoreType, Product, ProductPrice, ProductVariant } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { t } from '@/lib/locales';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useAppStore } from '@/lib/store';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 function StatCard({ title, value, icon: Icon, loading }: { title: string, value: string | number, icon: React.ElementType, loading?: boolean }) {
     return (
@@ -46,8 +47,8 @@ function CreateMasterStoreCard() {
     )
 }
 
-function LowStockAlerts() {
-    const { productPrices, masterProducts, fetchProductPrices, loading } = useAppStore();
+function ProductInventory() {
+    const { masterProducts, productPrices, fetchProductPrices, loading } = useAppStore();
     const { firestore } = useFirebase();
 
     useEffect(() => {
@@ -56,53 +57,102 @@ function LowStockAlerts() {
             fetchProductPrices(firestore, productNamesToFetch);
         }
     }, [firestore, masterProducts, fetchProductPrices]);
+    
+    const handleDownloadCSV = () => {
+        const headers = ["Product Name", "Category", "Variant Weight", "Price", "Stock", "Status"];
+        const rows: string[][] = [];
 
-    const lowStockItems = useMemo(() => {
-        const items: { productName: string; variant: ProductVariant }[] = [];
-        if (!productPrices) return items;
-
-        Object.values(productPrices).forEach(priceData => {
-            if (priceData && priceData.variants) {
+        masterProducts.forEach(product => {
+            const priceData = productPrices[product.name.toLowerCase()];
+            if (priceData?.variants) {
                 priceData.variants.forEach(variant => {
-                    if (variant.stock <= 10) {
-                        items.push({ productName: priceData.productName, variant });
-                    }
+                    const status = variant.stock <= 10 ? "LOW STOCK" : "OK";
+                    rows.push([
+                        `"${product.name}"`,
+                        `"${product.category || 'N/A'}"`,
+                        variant.weight,
+                        String(variant.price),
+                        String(variant.stock),
+                        status
+                    ]);
                 });
             }
         });
-        return items;
-    }, [productPrices]);
 
-    if (loading) {
-        return (
-            <div className="space-y-2">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-            </div>
-        )
-    }
-
-    if (lowStockItems.length === 0) {
-        return null;
-    }
+        const csvContent = "data:text/csv;charset=utf-8," 
+            + headers.join(",") + "\n" 
+            + rows.map(e => e.join(",")).join("\n");
+        
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "inventory_report.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     return (
-        <div className="mb-8">
-            <h2 className="text-2xl font-bold text-center mb-4 font-headline text-destructive">Low Stock Alerts</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {lowStockItems.map(({ productName, variant }, index) => (
-                    <Alert key={`${productName}-${index}`} variant="destructive">
-                        <AlertTriangle className="h-4 w-4" />
-                        <AlertTitle>Low Stock: {productName}</AlertTitle>
-                        <AlertDescription>
-                            The variant "{variant.weight}" has only <strong>{variant.stock}</strong> items left.
-                        </AlertDescription>
-                    </Alert>
-                ))}
-            </div>
-        </div>
-    )
+        <Card>
+            <CardHeader>
+                <div className="flex justify-between items-center">
+                    <div>
+                        <CardTitle>Master Product Inventory</CardTitle>
+                        <CardDescription>A complete overview of stock levels for all products.</CardDescription>
+                    </div>
+                    <Button onClick={handleDownloadCSV} variant="outline" size="sm">
+                        <Download className="mr-2 h-4 w-4" />
+                        Download Inventory
+                    </Button>
+                </div>
+            </CardHeader>
+            <CardContent>
+                {loading ? (
+                    <div className="space-y-2">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                ) : (
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Product</TableHead>
+                                <TableHead>Variant</TableHead>
+                                <TableHead>Price</TableHead>
+                                <TableHead className="text-right">Stock</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {masterProducts.map(product => {
+                                const priceData = productPrices[product.name.toLowerCase()];
+                                if (!priceData || !priceData.variants || priceData.variants.length === 0) {
+                                    return (
+                                        <TableRow key={product.id}>
+                                            <TableCell className="font-medium">{product.name}</TableCell>
+                                            <TableCell colSpan={3} className="text-muted-foreground">No pricing or stock information.</TableCell>
+                                        </TableRow>
+                                    );
+                                }
+                                return priceData.variants.map((variant, index) => (
+                                    <TableRow key={`${product.id}-${variant.sku}`}>
+                                        <TableCell className="font-medium">{index === 0 ? product.name : ''}</TableCell>
+                                        <TableCell>{variant.weight}</TableCell>
+                                        <TableCell>₹{variant.price.toFixed(2)}</TableCell>
+                                        <TableCell className={`text-right font-bold ${variant.stock <= 10 ? 'text-destructive' : ''}`}>
+                                            {variant.stock}
+                                        </TableCell>
+                                    </TableRow>
+                                ));
+                            })}
+                        </TableBody>
+                    </Table>
+                )}
+            </CardContent>
+        </Card>
+    );
 }
+
 
 function AdminActionCard({ title, description, href, icon: Icon }: { title: string, description: string, href: string, icon: React.ElementType }) {
     return (
@@ -179,7 +229,9 @@ export default function AdminDashboardPage() {
             
             {!masterStoreExists && <CreateMasterStoreCard />}
             
-            <LowStockAlerts />
+            <div className="mb-8">
+                <ProductInventory />
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
                 {statItems.map(item => (
@@ -309,5 +361,3 @@ export default function AdminDashboardPage() {
         </div>
     );
 }
-
-    
