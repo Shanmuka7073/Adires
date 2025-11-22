@@ -3,7 +3,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2 } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -176,7 +176,6 @@ function ProductInventory() {
     );
 }
 
-
 function AdminActionCard({ title, description, href, icon: Icon }: { title: string, description: string, href: string, icon: React.ElementType }) {
     return (
         <Link href={href} className="block hover:shadow-lg transition-shadow rounded-lg">
@@ -335,6 +334,12 @@ export default function AdminDashboardPage() {
                         href="/dashboard/admin/security-rules"
                         icon={Shield}
                     />
+                     <AdminActionCard
+                        title="PWA Manifest"
+                        description="View and copy the app's Progressive Web App manifest file."
+                        href="/dashboard/admin/manifest-help"
+                        icon={BookCopy}
+                    />
                     <AdminActionCard
                         title="Fingerprint Login Code"
                         description="View the source code for the WebAuthn fingerprint login feature."
@@ -383,3 +388,6 @@ export default function AdminDashboardPage() {
     );
 }
 
+
+
+    
