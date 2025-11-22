@@ -10,7 +10,7 @@ import { useMemo, useEffect, useState, useTransition, useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { collection, query, where, doc, updateDoc, writeBatch } from 'firebase/firestore';
-import type { Order, Store as StoreType, Product, ProductPrice, ProductVariant } from '@/lib/types';
+import type { Order, Store as StoreType, Product, ProductPrice, ProductVariant, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { t } from '@/lib/locales';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -339,6 +339,71 @@ function ProductInventoryRow({ product, priceData, onUpdate }: { product: Produc
     );
 }
 
+function StoreOwnersList() {
+    const { firestore } = useFirebase();
+    const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
+    const storesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'stores') : null, [firestore]);
+
+    const { data: users, isLoading: usersLoading } = useCollection<User>(usersQuery);
+    const { data: stores, isLoading: storesLoading } = useCollection<StoreType>(storesQuery);
+    
+    const storeOwners = useMemo(() => {
+        if (!users || !stores) return [];
+        const storeOwnerIds = new Set(stores.map(s => s.ownerId));
+        return users.filter(u => storeOwnerIds.has(u.id));
+    }, [users, stores]);
+
+    const getStoreForOwner = (ownerId: string) => {
+        return stores?.find(s => s.ownerId === ownerId);
+    }
+
+    if (usersLoading || storesLoading) {
+        return <Skeleton className="h-24 w-full" />;
+    }
+
+    return (
+         <Accordion type="single" collapsible className="w-full mb-8">
+            <AccordionItem value="store-owners">
+                <AccordionTrigger>
+                     <div className="flex justify-between items-center w-full pr-4">
+                        <div>
+                            <h2 className="text-xl font-bold font-headline">Store Owners ({storeOwners.length})</h2>
+                            <p className="text-sm text-muted-foreground text-left">A list of all users who have created a store.</p>
+                        </div>
+                    </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                    <Card>
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Owner Name</TableHead>
+                                        <TableHead>Email</TableHead>
+                                        <TableHead>Store Name</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {storeOwners.map(owner => {
+                                        const store = getStoreForOwner(owner.id);
+                                        return (
+                                            <TableRow key={owner.id}>
+                                                <TableCell className="font-medium">{owner.firstName} {owner.lastName}</TableCell>
+                                                <TableCell>{owner.email}</TableCell>
+                                                <TableCell>{store?.name || 'N/A'}</TableCell>
+                                            </TableRow>
+                                        )
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
+    )
+}
+
 function AdminActionCard({ title, description, href, icon: Icon }: { title: string, description: string, href: string, icon: React.ElementType }) {
     return (
         <Link href={href} className="block hover:shadow-lg transition-shadow rounded-lg">
@@ -415,6 +480,8 @@ export default function AdminDashboardPage() {
             {!masterStoreExists && <CreateMasterStoreCard />}
             
             <ProductInventory />
+            
+            <StoreOwnersList />
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
                 {statItems.map(item => (

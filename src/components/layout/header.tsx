@@ -144,6 +144,12 @@ function UserMenu() {
                         <span>{t('master-store')}</span>
                     </DropdownMenuItem>
                 </Link>
+                 <Link href="/dashboard/owner/orders" passHref>
+                    <DropdownMenuItem>
+                        <ShoppingBag className="mr-2 h-4 w-4" />
+                        <span>Store Orders</span>
+                    </DropdownMenuItem>
+                </Link>
                  <Link href="/dashboard/owner/packs" passHref>
                     <DropdownMenuItem>
                         <Box className="mr-2 h-4 w-4" />
@@ -295,6 +301,15 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
                                 >
                                     <Store className="h-4 w-4" />
                                     {t('master-store')}
+                                </Link>
+                            </SheetClose>
+                            <SheetClose asChild>
+                                <Link
+                                    href="/dashboard/owner/orders"
+                                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary"
+                                >
+                                    <ShoppingBag className="h-4 w-4" />
+                                    <span>Store Orders</span>
                                 </Link>
                             </SheetClose>
                              <SheetClose asChild>
