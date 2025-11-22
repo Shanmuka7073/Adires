@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Trash2, Minus, Plus, Loader2, AlertTriangle, CheckCircle, BrainCircuit } from 'lucide-react';
+import { Trash2, Minus, Plus, Loader2, AlertTriangle, BrainCircuit } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { getProductImage } from '@/lib/data';
@@ -21,7 +21,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from '@/components/ui/card';
 import { useEffect, useState } from 'react';
 import { useAppStore } from '@/lib/store';
@@ -31,6 +30,7 @@ const DELIVERY_FEE = 30;
 
 function UnidentifiedCartRow({ item }: { item: UnidentifiedCartItem }) {
     const { status, term } = item;
+    const { removeUnidentifiedItem } = useCart();
     return (
         <TableRow className={status === 'failed' ? 'bg-destructive/10' : 'bg-muted/50'}>
             <TableCell>
@@ -51,7 +51,14 @@ function UnidentifiedCartRow({ item }: { item: UnidentifiedCartItem }) {
             <TableCell>—</TableCell>
             <TableCell className="text-center">—</TableCell>
             <TableCell className="text-right">—</TableCell>
-            <TableCell></TableCell>
+            <TableCell>
+                 {status === 'failed' && (
+                    <Button variant="ghost" size="icon" onClick={() => removeUnidentifiedItem(item.id)}>
+                      <Trash2 className="h-4 w-4" />
+                      <span className="sr-only">Remove unidentified item</span>
+                    </Button>
+                )}
+            </TableCell>
         </TableRow>
     )
 }
@@ -79,7 +86,7 @@ function CartRow({ item, image }) {
           <div>
             <div className="flex items-center gap-2">
                 <span className="font-medium">{englishName}</span>
-                 {product.isAiAssisted && <CheckCircle className="h-4 w-4 text-green-600" title="Identified by AI" />}
+                 {product.isAiAssisted && <BrainCircuit className="h-4 w-4 text-green-600" title="Identified by AI" />}
             </div>
             <p className="text-sm text-muted-foreground">{teluguName}</p>
             <p className="text-sm text-muted-foreground">{variant.weight}</p>
@@ -134,7 +141,7 @@ function MobileCartItem({ item, image }) {
                     <div>
                         <div className="flex items-center gap-2">
                              <p className="font-semibold">{englishName} <span className="font-normal text-muted-foreground">({variant.weight})</span></p>
-                             {product.isAiAssisted && <CheckCircle className="h-4 w-4 text-green-600" title="Identified by AI" />}
+                             {product.isAiAssisted && <BrainCircuit className="h-4 w-4 text-green-600" title="Identified by AI" />}
                         </div>
                         <p className="text-xs text-muted-foreground">{teluguName}</p>
                          {product.isAiAssisted && <p className="text-xs text-green-700 font-medium">Was: "{product.matchedAlias}"</p>}
@@ -167,6 +174,7 @@ function MobileCartItem({ item, image }) {
 
 function UnidentifiedMobileItem({ item }: { item: UnidentifiedCartItem }) {
     const { term, status } = item;
+    const { removeUnidentifiedItem } = useCart();
     return (
         <Card className={status === 'failed' ? 'bg-destructive/10 border-destructive/30' : 'bg-muted/50'}>
              <CardContent className="flex items-center gap-4 p-4">
@@ -181,6 +189,11 @@ function UnidentifiedMobileItem({ item }: { item: UnidentifiedCartItem }) {
                         {status === 'failed' && 'Could not identify this item.'}
                      </p>
                  </div>
+                  {status === 'failed' && (
+                    <Button variant="ghost" size="icon" onClick={() => removeUnidentifiedItem(item.id)} className="self-start">
+                        <Trash2 className="h-5 w-5 text-muted-foreground" />
+                    </Button>
+                )}
              </CardContent>
         </Card>
     )
@@ -307,3 +320,5 @@ export default function CartPage() {
     </div>
   );
 }
+
+    
