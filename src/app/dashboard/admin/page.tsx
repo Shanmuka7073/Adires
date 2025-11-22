@@ -53,15 +53,33 @@ function ProductInventoryRow({ product, priceData, onUpdate }: { product: any; p
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isUpdating, startUpdateTransition] = useTransition();
-    const [stockValues, setStockValues] = useState<Record<string, number>>(() => {
-        const initialStock: Record<string, number> = {};
-        priceData?.variants.forEach(v => {
-            initialStock[v.sku] = v.stock;
-        });
-        return initialStock;
-    });
     const [modifiedSkus, setModifiedSkus] = useState<Set<string>>(new Set());
 
+    const initialStockValues = useMemo(() => {
+        const initialStock: Record<string, number> = {};
+        if (priceData?.variants) {
+            priceData.variants.forEach(v => {
+                initialStock[v.sku] = v.stock;
+            });
+        }
+        return initialStock;
+    }, [priceData]);
+
+    const [stockValues, setStockValues] = useState<Record<string, number>>(initialStockValues);
+
+    useEffect(() => {
+        setStockValues(initialStockValues);
+    }, [initialStockValues]);
+
+    if (!priceData || !priceData.variants || priceData.variants.length === 0) {
+        return (
+            <TableRow>
+                <TableCell className="font-medium">{product.name}</TableCell>
+                <TableCell colSpan={3} className="text-muted-foreground">No pricing or stock information.</TableCell>
+            </TableRow>
+        );
+    }
+    
     const handleStockChange = (sku: string, value: string) => {
         const newStock = parseInt(value, 10);
         if (!isNaN(newStock)) {
@@ -100,20 +118,11 @@ function ProductInventoryRow({ product, priceData, onUpdate }: { product: any; p
         });
     };
 
-    if (!priceData || !priceData.variants || priceData.variants.length === 0) {
-        return (
-            <TableRow>
-                <TableCell className="font-medium">{product.name}</TableCell>
-                <TableCell colSpan={3} className="text-muted-foreground">No pricing or stock information.</TableCell>
-            </TableRow>
-        );
-    }
-    
     return (
         <>
             {priceData.variants.map((variant, index) => (
                 <TableRow key={`${product.id}-${variant.sku}`}>
-                    <TableCell className="font-medium">{index === 0 ? product.name : ''}</TableCell>
+                    <TableCell className={`font-medium ${index > 0 ? 'border-t-0' : ''}`}>{index === 0 ? product.name : ''}</TableCell>
                     <TableCell>{variant.weight}</TableCell>
                     <TableCell>₹{variant.price.toFixed(2)}</TableCell>
                     <TableCell className="w-48">
@@ -459,5 +468,3 @@ export default function AdminDashboardPage() {
         </div>
     );
 }
-
-    
