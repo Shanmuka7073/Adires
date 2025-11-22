@@ -18,6 +18,7 @@ import { useCheckoutStore } from '@/app/checkout/page';
 import { useProfileFormStore, ProfileFormValues } from '@/lib/store';
 import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
 import { suggestAlias, SuggestAliasOutput } from '@/ai/flows/suggest-alias-flow';
+import { useVoiceCommander as useVoiceCommanderContext } from './main-layout';
 
 
 export interface Command {
@@ -90,7 +91,8 @@ export function VoiceCommander({
   const pathname = usePathname();
   const { toast } = useToast();
   const { firestore, user } = useFirebase();
-  const { clearCart, addItem: addItemToCart, removeItem, updateQuantity, addUnidentifiedItem, activeStoreId, setActiveStoreId, cartTotal } = useCart();
+  const { clearCart, addItem: addItemToCart, removeItem, updateQuantity, addUnidentifiedItem, removeUnidentifiedItem, addIdentifiedItem, activeStoreId, setActiveStoreId, cartTotal } = useCart();
+  const { retryCommand } = useVoiceCommanderContext();
 
   const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands, loading: isAppStoreLoading, fetchInitialData } = useAppStore();
 
@@ -602,9 +604,12 @@ export function VoiceCommander({
 
 
     const handleCommandFailure = useCallback(async (commandText: string, spokenLang: string, reason: string) => {
-        addUnidentifiedItem(commandText);
-        speak(t('sorry-i-didnt-understand-that', spokenLang), `${spokenLang}-IN`);
-        if (!firestore || !user) return;
+        const tempId = addUnidentifiedItem(commandText);
+        
+        if (!firestore || !user) {
+            speak(t('sorry-i-didnt-understand-that', spokenLang), `${spokenLang}-IN`);
+            return;
+        }
     
         // Immediately start AI analysis in the background. Do not await.
         if (aiConfig?.isAliasSuggesterEnabled) {
@@ -619,7 +624,6 @@ export function VoiceCommander({
                     const aliasGroupRef = doc(firestore, 'voiceAliasGroups', suggestion.suggestedKey);
                     
                     try {
-                         // Read-Modify-Write for safety
                         const docSnap = await getDoc(aliasGroupRef);
                         const existingData = docSnap.exists() ? docSnap.data() : { type: 'product' };
     
@@ -630,7 +634,7 @@ export function VoiceCommander({
                         allNewAliases.forEach(({ lang, alias, transliteratedAlias }) => {
                             if (!updatedData[lang]) updatedData[lang] = [];
                             
-                            const langAliases = new Set(updatedData[lang]);
+                            const langAliases = new Set(updatedData[lang] as string[]);
                             if (alias) langAliases.add(alias);
                             if (transliteratedAlias) langAliases.add(transliteratedAlias);
     
@@ -639,35 +643,34 @@ export function VoiceCommander({
                         
                         await setDoc(aliasGroupRef, updatedData);
     
-                        toast({ title: "AI Self-Correction", description: `Automatically added "${suggestion.originalCommand}" as an alias for "${suggestion.suggestedKey}".`});
+                        toast({ title: "AI Self-Correction", description: `Automatically learned: "${suggestion.originalCommand}" means "${suggestion.suggestedKey}".`});
                         
-                        // Re-fetch all data to update the VoiceCommander's context in real-time
                         await fetchInitialData(firestore);
+
+                        // CRITICAL: Retry the original command after learning
+                        if(retryCommand) {
+                            setTimeout(() => {
+                                removeUnidentifiedItem(tempId);
+                                retryCommand(commandText)
+                            }, 500); // Small delay to ensure state updates
+                        }
+
                     } catch (err) {
                         console.error("Error auto-saving aliases:", err);
-                        // If auto-save fails, log it as a normal failed command
-                        addDoc(collection(firestore, 'failedCommands'), {
-                            userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp(),
-                        });
+                        addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp() });
                     }
                 } else {
-                    addDoc(collection(firestore, 'failedCommands'), {
-                        userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp(),
-                    });
+                    addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp() });
                 }
             }).catch(aiError => {
                 console.error("AI suggestion flow failed:", aiError);
-                 addDoc(collection(firestore, 'failedCommands'), {
-                    userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp(),
-                });
+                 addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp() });
             });
         } else {
              // Log for manual review if AI suggester is disabled
-            addDoc(collection(firestore, 'failedCommands'), {
-                userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp(),
-            });
+            addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp() });
         }
-    }, [addUnidentifiedItem, firestore, user, speak, aiConfig?.isAliasSuggesterEnabled, masterProducts, stores, toast, fetchInitialData]);
+    }, [addUnidentifiedItem, removeUnidentifiedItem, retryCommand, firestore, user, speak, aiConfig, masterProducts, stores, toast, fetchInitialData]);
 
 
   const handleCommand = useCallback(async (commandText: string) => {
@@ -1332,3 +1335,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
