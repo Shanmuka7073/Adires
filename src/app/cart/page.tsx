@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useCart } from '@/lib/cart';
+import { useCart, UnidentifiedCartItem } from '@/lib/cart';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Trash2, Mic, Minus, Plus } from 'lucide-react';
+import { Trash2, Minus, Plus, Loader2, AlertTriangle, CheckCircle, BrainCircuit } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { getProductImage } from '@/lib/data';
@@ -29,6 +29,33 @@ import { t } from '@/lib/locales';
 
 const DELIVERY_FEE = 30;
 
+function UnidentifiedCartRow({ item }: { item: UnidentifiedCartItem }) {
+    const { status, term } = item;
+    return (
+        <TableRow className={status === 'failed' ? 'bg-destructive/10' : 'bg-muted/50'}>
+            <TableCell>
+                <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-md bg-muted flex items-center justify-center">
+                        {status === 'pending' && <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />}
+                        {status === 'failed' && <AlertTriangle className="h-6 w-6 text-destructive" />}
+                    </div>
+                    <div>
+                        <span className="font-medium italic">{term}</span>
+                         <p className="text-sm text-muted-foreground flex items-center gap-1">
+                             {status === 'pending' && <><BrainCircuit className="h-3 w-3" />AI is identifying this item...</>}
+                             {status === 'failed' && 'Could not identify this item.'}
+                         </p>
+                    </div>
+                </div>
+            </TableCell>
+            <TableCell>—</TableCell>
+            <TableCell className="text-center">—</TableCell>
+            <TableCell className="text-right">—</TableCell>
+            <TableCell></TableCell>
+        </TableRow>
+    )
+}
+
 function CartRow({ item, image }) {
   const { removeItem, updateQuantity } = useCart();
   const { product, variant, quantity } = item;
@@ -38,7 +65,7 @@ function CartRow({ item, image }) {
   const teluguName = t(productNameKey, 'te');
 
   return (
-    <TableRow>
+    <TableRow className={product.isAiAssisted ? "bg-green-500/10" : ""}>
       <TableCell>
         <div className="flex items-center gap-4">
           <Image
@@ -50,9 +77,13 @@ function CartRow({ item, image }) {
             className="rounded-md object-cover"
           />
           <div>
-            <span className="font-medium">{englishName}</span>
+            <div className="flex items-center gap-2">
+                <span className="font-medium">{englishName}</span>
+                 {product.isAiAssisted && <CheckCircle className="h-4 w-4 text-green-600" title="Identified by AI" />}
+            </div>
             <p className="text-sm text-muted-foreground">{teluguName}</p>
             <p className="text-sm text-muted-foreground">{variant.weight}</p>
+             {product.isAiAssisted && <p className="text-xs text-green-700 font-medium">Was: "{product.matchedAlias}"</p>}
           </div>
         </div>
       </TableCell>
@@ -89,7 +120,7 @@ function MobileCartItem({ item, image }) {
     const teluguName = t(productNameKey, 'te');
 
     return (
-        <Card>
+        <Card className={product.isAiAssisted ? "bg-green-500/10 border-green-500/30" : ""}>
             <CardContent className="flex items-center gap-4 p-4">
                 <Image
                     src={image.imageUrl}
@@ -101,8 +132,12 @@ function MobileCartItem({ item, image }) {
                 />
                 <div className="flex-1 space-y-2">
                     <div>
-                        <p className="font-semibold">{englishName} <span className="font-normal text-muted-foreground">({variant.weight})</span></p>
+                        <div className="flex items-center gap-2">
+                             <p className="font-semibold">{englishName} <span className="font-normal text-muted-foreground">({variant.weight})</span></p>
+                             {product.isAiAssisted && <CheckCircle className="h-4 w-4 text-green-600" title="Identified by AI" />}
+                        </div>
                         <p className="text-xs text-muted-foreground">{teluguName}</p>
+                         {product.isAiAssisted && <p className="text-xs text-green-700 font-medium">Was: "{product.matchedAlias}"</p>}
                     </div>
                     <p className="font-bold text-lg">₹{(variant.price * quantity).toFixed(2)}</p>
                      <div className="flex items-center gap-2">
@@ -130,8 +165,30 @@ function MobileCartItem({ item, image }) {
     )
 }
 
+function UnidentifiedMobileItem({ item }: { item: UnidentifiedCartItem }) {
+    const { term, status } = item;
+    return (
+        <Card className={status === 'failed' ? 'bg-destructive/10 border-destructive/30' : 'bg-muted/50'}>
+             <CardContent className="flex items-center gap-4 p-4">
+                 <div className="w-20 h-20 rounded-lg bg-muted flex items-center justify-center">
+                    {status === 'pending' && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
+                    {status === 'failed' && <AlertTriangle className="h-8 w-8 text-destructive" />}
+                 </div>
+                 <div className="flex-1 space-y-2">
+                     <p className="font-semibold italic">{term}</p>
+                     <p className="text-sm text-muted-foreground flex items-center gap-1">
+                        {status === 'pending' && <><BrainCircuit className="h-4 w-4" />AI is identifying this item...</>}
+                        {status === 'failed' && 'Could not identify this item.'}
+                     </p>
+                 </div>
+             </CardContent>
+        </Card>
+    )
+}
+
+
 export default function CartPage() {
-  const { cartItems, cartTotal, cartCount } = useCart();
+  const { cartItems, cartTotal, cartCount, unidentifiedItems } = useCart();
   const { stores } = useAppStore();
   const firstStoreId = stores[0]?.id;
   const shoppingLink = firstStoreId ? `/stores/${firstStoreId}` : '/';
@@ -159,7 +216,7 @@ export default function CartPage() {
     fetchImages();
   }, [cartItems]);
 
-  if (cartCount === 0) {
+  if (cartCount === 0 && unidentifiedItems.length === 0) {
     return (
       <div className="container mx-auto py-24 text-center">
         <h1 className="text-4xl font-bold mb-4 font-headline">
@@ -190,6 +247,7 @@ export default function CartPage() {
                     const image = images[item.variant.sku] || { imageUrl: 'https://placehold.co/80x80/E2E8F0/64748B?text=...', imageHint: 'loading' };
                     return <MobileCartItem key={item.variant.sku} item={item} image={image} />
                 })}
+                 {unidentifiedItems.map((item) => <UnidentifiedMobileItem key={item.id} item={item} />)}
             </div>
 
             {/* Desktop View */}
@@ -207,6 +265,7 @@ export default function CartPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
+                      {unidentifiedItems.map(item => <UnidentifiedCartRow key={item.id} item={item} />)}
                       {cartItems.map((item) => {
                         const image = images[item.variant.sku] || { imageUrl: 'https://placehold.co/64x64/E2E8F0/64748B?text=...', imageHint: 'loading' };
                         return <CartRow key={item.variant.sku} item={item} image={image} />;
@@ -235,9 +294,12 @@ export default function CartPage() {
                 <span>{t('total')}</span>
                 <span>₹{(cartTotal + DELIVERY_FEE).toFixed(2)}</span>
               </div>
-              <Button asChild className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
+              <Button asChild className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={unidentifiedItems.some(i => i.status === 'pending')}>
                 <Link href="/checkout">{t('proceed-to-checkout')}</Link>
               </Button>
+               {unidentifiedItems.some(i => i.status === 'pending') && (
+                  <p className="text-xs text-center text-muted-foreground">Waiting for AI to identify all items...</p>
+               )}
             </CardContent>
           </Card>
         </div>

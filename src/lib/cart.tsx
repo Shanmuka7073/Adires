@@ -1,15 +1,25 @@
-
 'use client';
 
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
 import type { CartItem, Product, ProductVariant } from './types';
 import { useToast } from '@/hooks/use-toast';
 
+export interface UnidentifiedCartItem {
+  id: string; // A temporary unique ID, e.g., a timestamp
+  term: string; // The unrecognized term, e.g., "ullipayalu"
+  status: 'pending' | 'failed'; // Status to track AI processing
+}
+
+
 interface CartContextType {
   cartItems: CartItem[];
+  unidentifiedItems: UnidentifiedCartItem[];
   addItem: (product: Product, variant: ProductVariant, quantity?: number) => void;
   removeItem: (variantSku: string) => void;
   updateQuantity: (variantSku: string, quantity: number) => void;
+  addUnidentifiedItem: (term: string) => string;
+  updateUnidentifiedItem: (id: string, status: 'failed') => void;
+  removeUnidentifiedItem: (id: string) => void;
   clearCart: () => void;
   cartCount: number;
   cartTotal: number;
@@ -21,6 +31,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [unidentifiedItems, setUnidentifiedItems] = useState<UnidentifiedCartItem[]>([]);
   const [activeStoreId, setActiveStoreId] = useState<string | null>(null);
 
   const { toast } = useToast();
@@ -58,10 +69,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
 
   const addItem = useCallback((product: Product, variant: ProductVariant, quantity = 1) => {
-    // If there are already items in the cart, ensure the new item is from the same store.
     if (cartItems.length > 0 && activeStoreId && product.storeId !== activeStoreId) {
       if (window.confirm("You have items from another store. Do you want to clear your current cart and start a new one with this item?")) {
-        // Clear cart and then add the new item
         setCartItems([{ product, variant, quantity }]);
         setActiveStoreId(product.storeId);
         toast({
@@ -69,11 +78,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
           description: `${product.name} (${variant.weight}) has been added.`,
         });
       }
-      // If user cancels, do nothing
       return;
     }
   
-    // If cart is empty, set the active store ID
     if (cartItems.length === 0) {
       setActiveStoreId(product.storeId);
     }
@@ -99,8 +106,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const removeItem = useCallback((variantSku: string) => {
     setCartItems((prevItems) => {
         const newItems = prevItems.filter((item) => item.variant.sku !== variantSku);
-        // If the cart becomes empty, also clear the active store
-        if (newItems.length === 0) {
+        if (newItems.length === 0 && unidentifiedItems.length === 0) {
             setActiveStoreId(null);
         }
         return newItems;
@@ -109,7 +115,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       title: 'Item removed from cart',
       variant: 'destructive'
     });
-  }, [toast]);
+  }, [toast, unidentifiedItems.length]);
 
   const updateQuantity = useCallback((variantSku: string, quantity: number) => {
     if (quantity <= 0) {
@@ -123,8 +129,34 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   }, [removeItem]);
 
+  const addUnidentifiedItem = useCallback((term: string) => {
+    const newItem: UnidentifiedCartItem = {
+        id: `unidentified-${Date.now()}-${Math.random()}`,
+        term,
+        status: 'pending',
+    };
+    setUnidentifiedItems(prev => [...prev, newItem]);
+    return newItem.id;
+  }, []);
+
+  const updateUnidentifiedItem = useCallback((id: string, status: 'failed') => {
+      setUnidentifiedItems(prev => prev.map(item => item.id === id ? { ...item, status } : item));
+  }, []);
+
+  const removeUnidentifiedItem = useCallback((id: string) => {
+      setUnidentifiedItems(prev => {
+        const newItems = prev.filter(item => item.id !== id);
+        if (newItems.length === 0 && cartItems.length === 0) {
+            setActiveStoreId(null);
+        }
+        return newItems;
+      });
+  }, [cartItems.length]);
+
+
   const clearCart = useCallback(() => {
     setCartItems([]);
+    setUnidentifiedItems([]);
     setActiveStoreId(null);
   }, []);
   
@@ -139,9 +171,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
     <CartContext.Provider
       value={{
         cartItems,
+        unidentifiedItems,
         addItem,
         removeItem,
         updateQuantity,
+        addUnidentifiedItem,
+        updateUnidentifiedItem,
+        removeUnidentifiedItem,
         clearCart,
         cartCount,
         cartTotal,
