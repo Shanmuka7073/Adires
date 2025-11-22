@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useTransition, useEffect, useMemo, useRef, RefObject } from 'react';
@@ -533,7 +532,7 @@ function EditProductDialog({ storeId, product, isOpen, onOpenChange }: { storeId
                                             </Button>
                                         </div>
                                     ))}
-                                    <Button type="button" variant="outline" size="sm" onClick={() => append({ weight: '', price: 0, stock: 0, sku: `new-${fields.length}` })}>
+                                    <Button type="button" variant="outline" size="sm" onClick={() => append({ weight: '', price: 0, stock: 50, sku: `new-${fields.length}` })}>
                                         <PlusCircle className="mr-2 h-4 w-4" /> {t('add-variant')}
                                     </Button>
                                 </CardContent>
@@ -756,7 +755,7 @@ function BulkUploadCard({ storeId }: { storeId: string }) {
                     const newVariant: Omit<z.infer<typeof variantSchema>, 'sku'> = {
                         weight,
                         price: Number(price),
-                        stock: 0, // Default stock to 0 for bulk uploads
+                        stock: 50, // Default stock to 50 for bulk uploads
                     };
                     batch.set(priceRef, {
                         productName: productNameLower,
@@ -827,11 +826,11 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
   const [isPending, startTransition] = useTransition();
   const [isGeneratingImage, startImageGeneration] = useTransition();
   const { firestore } = useFirebase();
-  const { language } = useAppStore();
+  const { language, fetchInitialData } = useAppStore();
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
-    defaultValues: { name: '', description: '', category: '', imageUrl: '', variants: [{ sku: '', weight: '', price: 0, stock: 0 }] },
+    defaultValues: { name: '', description: '', category: '', imageUrl: '', variants: [{ sku: '', weight: '', price: 0, stock: 50 }] },
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -879,10 +878,11 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
       try {
         const batch = writeBatch(firestore);
         const imageId = `prod-${createSlug(data.name)}`;
+        const productSlug = createSlug(data.name);
         
         const variantsWithSkus = data.variants.map((variant, index) => ({
             ...variant,
-            sku: `${createSlug(data.name)}-${createSlug(variant.weight)}-${index}`
+            sku: `${productSlug}-${createSlug(variant.weight)}-${index}`
         }));
 
         // 1. Add product to the master /stores/{adminId}/products collection
@@ -904,13 +904,24 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
             productName: data.name.toLowerCase(),
             variants: variantsWithSkus
         });
+
+        // 3. Add a default alias to the voiceAliasGroups collection
+        const aliasRef = doc(firestore, 'voiceAliasGroups', productSlug);
+        batch.set(aliasRef, {
+            en: [data.name.toLowerCase()],
+            type: 'product',
+        }, { merge: true });
         
         await batch.commit();
         
         toast({
           title: 'Master Product Added!',
-          description: `${data.name} has been added to the catalog.`,
+          description: `${data.name} has been added to the catalog and is now voice-searchable.`,
         });
+        
+        // Refresh all app data to get the new product and alias
+        await fetchInitialData(firestore);
+
         form.reset();
 
       } catch (serverError) {
@@ -1083,7 +1094,7 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
                             </Button>
                         </div>
                     ))}
-                    <Button type="button" variant="outline" onClick={() => append({ weight: '', price: 0, stock: 0, sku: `new-${fields.length}` })}>
+                    <Button type="button" variant="outline" onClick={() => append({ weight: '', price: 0, stock: 50, sku: `new-${fields.length}` })}>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         {t('add-variant')}
                     </Button>

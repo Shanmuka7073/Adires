@@ -11,7 +11,7 @@ import { useCart } from '@/lib/cart';
 import { useAppStore } from '@/lib/store';
 import { useMyStorePageStore } from '@/lib/store';
 import { t } from '@/lib/locales';
-import { doc, getDoc, serverTimestamp, addDoc, collection, query, where, getDocs, writeBatch, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, addDoc, collection, query, where, getDocs, writeBatch, arrayUnion, setDoc } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { useCheckoutStore } from '@/app/checkout/page';
@@ -604,7 +604,7 @@ export function VoiceCommander({
     const handleCommandFailure = useCallback(async (commandText: string, spokenLang: string, reason: string) => {
         speak(t('sorry-i-didnt-understand-that', spokenLang), `${spokenLang}-IN`);
         if (!firestore || !user) return;
-
+    
         // Immediately start AI analysis in the background. Do not await.
         if (aiConfig?.isAliasSuggesterEnabled) {
             console.log("Triggering background AI analysis for failed command...");
@@ -615,46 +615,33 @@ export function VoiceCommander({
             }).then(async (suggestion) => {
                 if (suggestion.isSuggestionAvailable && suggestion.similarityScore > 0.8) {
                     console.log(`High confidence suggestion found (${suggestion.similarityScore}). Auto-approving.`);
-                    const batch = writeBatch(firestore);
                     const aliasGroupRef = doc(firestore, 'voiceAliasGroups', suggestion.suggestedKey);
                     
-                    const aliasesByLang: Record<string, string[]> = {};
+                    const updatePayload: { [key: string]: any } = {};
+                    
                     const originalLang = spokenLang.split('-')[0];
-                    if (!aliasesByLang[originalLang]) aliasesByLang[originalLang] = [];
-                    aliasesByLang[originalLang].push(suggestion.originalCommand);
-
+                    updatePayload[originalLang] = arrayUnion(suggestion.originalCommand);
+    
                     suggestion.suggestedAliases.forEach(aliasInfo => {
-                        const lang = aliasInfo.lang;
-                        if (!aliasesByLang[lang]) aliasesByLang[lang] = [];
-                        aliasesByLang[lang].push(aliasInfo.alias);
-                        if (aliasInfo.transliteratedAlias) {
-                            aliasesByLang[lang].push(aliasInfo.transliteratedAlias);
-                        }
+                        updatePayload[aliasInfo.lang] = arrayUnion(aliasInfo.alias, ...(aliasInfo.transliteratedAlias ? [aliasInfo.transliteratedAlias] : []));
                     });
                     
-                    const updates: Record<string, any> = {};
-                    for (const lang in aliasesByLang) {
-                        const uniqueAliases = [...new Set(aliasesByLang[lang])];
-                        updates[lang] = arrayUnion(...uniqueAliases);
-                    }
-                    
-                    batch.set(aliasGroupRef, updates, { merge: true });
-
                     try {
-                        await batch.commit();
+                        // Use set with merge:true to create the doc if it doesn't exist or update it if it does.
+                        await setDoc(aliasGroupRef, updatePayload, { merge: true });
+    
                         toast({ title: "AI Self-Correction", description: `Automatically added "${suggestion.originalCommand}" as an alias for "${suggestion.suggestedKey}".`});
+                        
                         // Re-fetch all data to update the VoiceCommander's context in real-time
                         await fetchInitialData(firestore);
                     } catch (err) {
                         console.error("Error auto-saving aliases:", err);
-                        // If auto-save fails, log it as a normal failed command
                         addDoc(collection(firestore, 'failedCommands'), {
                             userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp(),
                         });
                     }
                 } else {
-                    // Log for manual review if confidence is not high enough
-                     addDoc(collection(firestore, 'failedCommands'), {
+                    addDoc(collection(firestore, 'failedCommands'), {
                         userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp(),
                     });
                 }
