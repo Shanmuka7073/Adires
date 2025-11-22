@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, errorEmitter, useDoc, useMemoFirebase } from '@/firebase';
-import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, SiteConfig } from '@/lib/types';
+import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, SiteConfig, VoiceAliasGroup } from '@/lib/types';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
 import { useAppStore } from '@/lib/store';
@@ -617,18 +617,26 @@ export function VoiceCommander({
                     console.log(`High confidence suggestion found (${suggestion.similarityScore}). Auto-approving.`);
                     const aliasGroupRef = doc(firestore, 'voiceAliasGroups', suggestion.suggestedKey);
                     
-                    const updatePayload: { [key: string]: any } = {};
-                    
-                    const originalLang = spokenLang.split('-')[0];
-                    updatePayload[originalLang] = arrayUnion(suggestion.originalCommand);
-    
-                    suggestion.suggestedAliases.forEach(aliasInfo => {
-                        updatePayload[aliasInfo.lang] = arrayUnion(aliasInfo.alias, ...(aliasInfo.transliteratedAlias ? [aliasInfo.transliteratedAlias] : []));
-                    });
-                    
                     try {
-                        // Use set with merge:true to create the doc if it doesn't exist or update it if it does.
-                        await setDoc(aliasGroupRef, updatePayload, { merge: true });
+                         // Read-Modify-Write for safety
+                        const docSnap = await getDoc(aliasGroupRef);
+                        const existingData = docSnap.exists() ? docSnap.data() : { type: 'product' };
+    
+                        const updatedData = { ...existingData };
+    
+                        const allNewAliases = [...suggestion.suggestedAliases, { lang: spokenLang, alias: suggestion.originalCommand }];
+    
+                        allNewAliases.forEach(({ lang, alias, transliteratedAlias }) => {
+                            if (!updatedData[lang]) updatedData[lang] = [];
+                            
+                            const langAliases = new Set(updatedData[lang]);
+                            if (alias) langAliases.add(alias);
+                            if (transliteratedAlias) langAliases.add(transliteratedAlias);
+    
+                            updatedData[lang] = Array.from(langAliases);
+                        });
+                        
+                        await setDoc(aliasGroupRef, updatedData);
     
                         toast({ title: "AI Self-Correction", description: `Automatically added "${suggestion.originalCommand}" as an alias for "${suggestion.suggestedKey}".`});
                         
@@ -636,6 +644,7 @@ export function VoiceCommander({
                         await fetchInitialData(firestore);
                     } catch (err) {
                         console.error("Error auto-saving aliases:", err);
+                        // If auto-save fails, log it as a normal failed command
                         addDoc(collection(firestore, 'failedCommands'), {
                             userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp(),
                         });
@@ -1228,7 +1237,7 @@ export function VoiceCommander({
             return;
         }
 
-        const productPhrase = text.substring(0, fromIndex).replace(/^(order|buy|get|send)\\s+/i, '').trim();
+        const productPhrase = text.substring(0, fromIndex).replace(/^(order|buy|get|send)\s+/i, '').trim();
         const storePhrase = text.substring(fromIndex + fromKeyword.length + 1, toIndex).trim();
         const addressPhrase = text.substring(toIndex + toKeyword.length + 1).trim();
 
@@ -1329,3 +1338,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
