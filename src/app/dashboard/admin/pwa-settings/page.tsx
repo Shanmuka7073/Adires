@@ -15,6 +15,13 @@ import { updateManifest, getManifest } from '@/app/actions';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 
+const iconSchema = z.object({
+  src: z.string().min(1, 'Icon source URL is required.'),
+  sizes: z.string().min(1, 'Sizes are required (e.g., 192x192).'),
+  type: z.string().min(1, 'Type is required (e.g., image/png).'),
+  purpose: z.string().optional(),
+});
+
 const shortcutSchema = z.object({
   name: z.string().min(1, 'Name is required.'),
   url: z.string().min(1, 'URL is required.'),
@@ -33,6 +40,7 @@ const screenshotSchema = z.object({
 });
 
 const manifestSchema = z.object({
+  icons: z.array(iconSchema),
   screenshots: z.array(screenshotSchema),
   shortcuts: z.array(shortcutSchema),
 });
@@ -49,9 +57,15 @@ export default function PwaSettingsPage() {
     const form = useForm<ManifestFormValues>({
         resolver: zodResolver(manifestSchema),
         defaultValues: {
+            icons: [],
             screenshots: [],
             shortcuts: [],
         },
+    });
+
+    const { fields: iconFields, append: appendIcon, remove: removeIcon } = useFieldArray({
+        control: form.control,
+        name: "icons",
     });
 
     const { fields: screenshotFields, append: appendScreenshot, remove: removeScreenshot } = useFieldArray({
@@ -77,6 +91,7 @@ export default function PwaSettingsPage() {
                 const manifestData = await getManifest();
                 if (manifestData) {
                     form.reset({
+                        icons: manifestData.icons || [],
                         screenshots: manifestData.screenshots || [],
                         shortcuts: manifestData.shortcuts || [],
                     });
@@ -130,11 +145,44 @@ export default function PwaSettingsPage() {
                         PWA Manifest Settings
                     </CardTitle>
                     <CardDescription>
-                        Manage your Progressive Web App's screenshots and shortcuts here. Changes will update the `public/manifest.json` file.
+                        Manage your Progressive Web App's icons, screenshots, and shortcuts. Changes will update the `public/manifest.json` file.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                        {/* Icons Section */}
+                        <div className="space-y-4">
+                            <h3 className="text-xl font-semibold">App Icons</h3>
+                            {iconFields.map((field, index) => (
+                                <div key={field.id} className="p-4 border rounded-lg space-y-3 relative">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <Label>Icon URL</Label>
+                                            <Input {...form.register(`icons.${index}.src`)} placeholder="e.g., /icon-192x192.png" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label>Sizes</Label>
+                                            <Input {...form.register(`icons.${index}.sizes`)} placeholder="e.g., 192x192" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label>Type</Label>
+                                            <Input {...form.register(`icons.${index}.type`)} defaultValue="image/png" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label>Purpose (optional)</Label>
+                                            <Input {...form.register(`icons.${index}.purpose`)} placeholder="e.g., maskable" />
+                                        </div>
+                                    </div>
+                                    <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2" onClick={() => removeIcon(index)}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            ))}
+                            <Button type="button" variant="outline" onClick={() => appendIcon({ src: '', sizes: '', type: 'image/png', purpose: '' })}>
+                                <PlusCircle className="mr-2 h-4 w-4" /> Add Icon
+                            </Button>
+                        </div>
+                        
                         {/* Screenshots Section */}
                         <div className="space-y-4">
                             <h3 className="text-xl font-semibold">App Screenshots</h3>
@@ -211,4 +259,3 @@ export default function PwaSettingsPage() {
         </div>
     );
 }
-

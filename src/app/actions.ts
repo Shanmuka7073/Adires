@@ -134,7 +134,7 @@ export async function getManifest() {
     }
 }
 
-export async function updateManifest(newData: { screenshots?: any[]; shortcuts?: any[] }): Promise<{ success: boolean; error?: string }> {
+export async function updateManifest(newData: { icons?: any[], screenshots?: any[]; shortcuts?: any[] }): Promise<{ success: boolean; error?: string }> {
     try {
         const manifestPath = getManifestPath();
         const manifest = await getManifest();
@@ -144,6 +144,9 @@ export async function updateManifest(newData: { screenshots?: any[]; shortcuts?:
         }
 
         // Update only the specified sections
+        if (newData.icons) {
+            manifest.icons = newData.icons;
+        }
         if (newData.screenshots) {
             manifest.screenshots = newData.screenshots;
         }
