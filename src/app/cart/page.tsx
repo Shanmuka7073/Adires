@@ -141,9 +141,12 @@ export default function CartPage() {
   useEffect(() => {
     const fetchImages = async () => {
       if (cartItems.length > 0) {
-        const imagePromises = cartItems.map((item) =>
-          getProductImage(item.product.imageId)
-        );
+        const imagePromises = cartItems.map((item) => {
+            if (item.product.imageUrl) {
+                return Promise.resolve({ imageUrl: item.product.imageUrl, imageHint: item.product.name });
+            }
+            return getProductImage(item.product.imageId);
+        });
         const resolvedImages = await Promise.all(imagePromises);
         const imageMap = cartItems.reduce((acc, item, index) => {
           acc[item.variant.sku] = resolvedImages[index];
