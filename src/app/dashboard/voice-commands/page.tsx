@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useTransition, useEffect, useRef } from 'react';
@@ -99,10 +100,10 @@ export default function VoiceCommandsPage() {
                 : (updatedLocales[itemKey][lang] ? [updatedLocales[itemKey][lang] as string] : []);
             
             const existingAliasSet = new Set(existingAliases.map(a => a.toLowerCase()));
-            const aliasesToAdd = [...new Set(newAliasInput.split(',').map(alias => alias.trim().toLowerCase()).filter(Boolean))];
+            const aliasesToAdd = [...new Set(newAliasInput.split(',').map(alias => alias.trim()).filter(Boolean))];
 
             aliasesToAdd.forEach(newAlias => {
-                if (!existingAliasSet.has(newAlias)) {
+                if (!existingAliasSet.has(newAlias.toLowerCase())) {
                     existingAliases.push(newAlias);
                     addedCount++;
                 } else {
@@ -504,3 +505,5 @@ export default function VoiceCommandsPage() {
         </div>
     );
 }
+
+    
