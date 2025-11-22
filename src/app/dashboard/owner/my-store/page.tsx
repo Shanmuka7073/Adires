@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useTransition, useEffect, useMemo, useRef, RefObject } from 'react';
@@ -1514,8 +1515,8 @@ function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Prod
                     <div>
                         <span className="font-semibold">{getProductName(product)}</span>
                          <div className="flex flex-wrap gap-1 mt-1">
-                            {Object.entries(productAliases).flatMap(([lang, aliases]) => 
-                                aliases.map(alias => (
+                            {Object.entries(productAliases).flatMap(([lang, langAliases]) => 
+                                langAliases.map(alias => (
                                     <Badge key={`${lang}-${alias}`} variant="outline">{alias} ({lang})</Badge>
                                 ))
                             )}
