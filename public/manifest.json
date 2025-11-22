@@ -1,26 +1,23 @@
-
 {
   "name": "LocalBasket",
   "short_name": "LocalBasket",
   "description": "Your local grocery delivery app.",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
+  "orientation": "portrait",
+  "background_color": "#F0FFF0",
   "theme_color": "#90EE90",
   "icons": [
     {
-      "src": "https://i.ibb.co/sK0Y1V1/icon-maskable-192x192.png",
+      "src": "https://i.ibb.co/b3rS9Sg/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "https://i.ibb.co/sK0Y1V1/icon-maskable-192x192.png",
+      "src": "https://i.ibb.co/3dYd5sD/icon-512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
-    },
-    {
-      "src": "https://i.ibb.co/sK0Y1V1/icon-maskable-192x192.png",
-      "sizes": "180x180",
       "type": "image/png"
     },
     {
@@ -32,19 +29,27 @@
   ],
   "screenshots": [
     {
-      "src": "https://i.ibb.co/fYfMGcSz/1763748457035.png",
-      "sizes": "192x192",
+      "src": "https://i.ibb.co/d0SM1F9/Screenshot-2024-07-30-123447.png",
+      "sizes": "360x740",
       "type": "image/png",
-      "form_factor": "",
-      "label": ""
+      "form_factor": "narrow",
+      "label": "Home screen for easy navigation"
     },
     {
-      "src": "https://i.ibb.co/dwNMyf91/1000235642.png",
-      "sizes": "512x512",
+      "src": "https://i.ibb.co/d0SM1F9/Screenshot-2024-07-30-123447.png",
+      "sizes": "1280x800",
       "type": "image/png",
-      "form_factor": "",
-      "label": ""
+      "form_factor": "wide",
+      "label": "Desktop view of the product catalog"
     }
   ],
-  "shortcuts": []
+  "shortcuts": [
+    {
+      "name": "View Cart",
+      "short_name": "Cart",
+      "description": "Go directly to your shopping cart.",
+      "url": "/cart",
+      "icons": [{ "src": "https://i.ibb.co/RzM1p00/icon-cart-96x96.png", "sizes": "96x96", "type": "image/png" }]
+    }
+  ]
 }
