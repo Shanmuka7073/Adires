@@ -1,3 +1,4 @@
+
 {
   "name": "LocalBasket",
   "short_name": "LocalBasket",
@@ -8,22 +9,25 @@
   "theme_color": "#90EE90",
   "icons": [
     {
-      "src": "https://i.ibb.co/dwNMyf91/1000235642.png",
+      "src": "https://i.ibb.co/sK0Y1V1/icon-maskable-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://i.ibb.co/sK0Y1V1/icon-maskable-192x192.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "https://i.ibb.co/sK0Y1V1/icon-maskable-192x192.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "https://i.ibb.co/sK0Y1V1/icon-maskable-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "https://i.ibb.co/dwNMyf91/1000235642.png",
-      "sizes": "512x512",
-      "type": "image/png",
       "purpose": "maskable"
-    },
-    {
-      "src": "https://i.ibb.co/dwNMyf91/1000235642.png",
-      "sizes": "180x180",
-      "type": "image/png",
-      "purpose": "any"
     }
   ],
   "screenshots": [
