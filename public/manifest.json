@@ -10,26 +10,33 @@
     {
       "src": "https://i.ibb.co/dwNMyf91/1000235642.png",
       "sizes": "192x192",
-      "type": "image/jpeg",
-      "purpose": ""
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "https://i.ibb.co/dwNMyf91/1000235642.png",
       "sizes": "512x512",
-      "type": "image/jpeg",
-      "purpose": "Maskable "
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "https://i.ibb.co/dwNMyf91/1000235642.png",
       "sizes": "180x180",
       "type": "image/png",
-      "purpose": ""
+      "purpose": "any"
     }
   ],
   "screenshots": [
     {
       "src": "https://i.ibb.co/fYfMGcSz/1763748457035.png",
       "sizes": "192x192",
+      "type": "image/png",
+      "form_factor": "",
+      "label": ""
+    },
+    {
+      "src": "https://i.ibb.co/dwNMyf91/1000235642.png",
+      "sizes": "512x512",
       "type": "image/png",
       "form_factor": "",
       "label": ""
