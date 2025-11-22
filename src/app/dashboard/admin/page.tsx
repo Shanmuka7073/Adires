@@ -2,14 +2,14 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { useMemo, useEffect, useState, useTransition } from 'react';
+import { useMemo, useEffect, useState, useTransition, useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { collection, query, where, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import type { Order, Store as StoreType, Product, ProductPrice, ProductVariant } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { t } from '@/lib/locales';
@@ -19,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { bulkUploadRecipes } from '@/app/actions';
 
 
 function StatCard({ title, value, icon: Icon, loading }: { title: string, value: string | number, icon: React.ElementType, loading?: boolean }) {
@@ -51,103 +52,72 @@ function CreateMasterStoreCard() {
     )
 }
 
-function ProductInventoryRow({ product, priceData, onUpdate }: { product: Product, priceData: ProductPrice | null, onUpdate: () => void }) {
-    const [isEditing, setIsEditing] = useState(false);
-    const [variants, setVariants] = useState(priceData?.variants || []);
-    const [isSaving, startSaveTransition] = useTransition();
-    const { firestore } = useFirebase();
+function BulkRecipeUploadCard() {
     const { toast } = useToast();
+    const [isUploading, startUploadTransition] = useTransition();
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    useEffect(() => {
-        setVariants(priceData?.variants || []);
-    }, [priceData]);
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
 
-    const handleVariantChange = (index: number, field: 'price' | 'stock', value: string) => {
-        const newVariants = [...variants];
-        const numValue = field === 'price' ? parseFloat(value) : parseInt(value, 10);
-        if (!isNaN(numValue)) {
-            newVariants[index] = { ...newVariants[index], [field]: numValue };
-            setVariants(newVariants);
-        }
-    };
-    
-    const handleSave = () => {
-        if (!firestore) return;
-        
-        startSaveTransition(async () => {
-            const priceDocRef = doc(firestore, 'productPrices', product.name.toLowerCase());
+        startUploadTransition(async () => {
             try {
-                await updateDoc(priceDocRef, { variants });
-                toast({ title: 'Success', description: `${product.name} has been updated.` });
-                setIsEditing(false);
-                onUpdate();
-            } catch (error) {
-                console.error("Failed to update product price:", error);
-                toast({ variant: 'destructive', title: 'Error', description: 'Could not save changes.' });
+                const text = await file.text();
+                const result = await bulkUploadRecipes(text);
+
+                if (result.success) {
+                    toast({
+                        title: 'Upload Complete!',
+                        description: `Successfully processed and added ${result.count} recipes.`,
+                    });
+                } else {
+                    throw new Error(result.error || 'An unknown error occurred during upload.');
+                }
+
+            } catch (error: any) {
+                console.error("CSV Upload failed:", error);
+                toast({ variant: 'destructive', title: 'Upload Failed', description: error.message });
+            } finally {
+                if(fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
             }
         });
     };
 
     return (
-        <>
-            <TableRow onClick={() => setIsEditing(!isEditing)} className="cursor-pointer">
-                <TableCell className="font-medium">{product.name}</TableCell>
-                <TableCell>{product.category}</TableCell>
-                <TableCell>
-                    {priceData?.variants.map(v => (
-                        <div key={v.sku} className="flex items-center gap-2">
-                             <span className="font-semibold">{v.weight}:</span>
-                             <span>₹{v.price.toFixed(2)}</span>
-                             <span className={v.stock <= 10 ? 'text-destructive' : 'text-muted-foreground'}>
-                                (Stock: {v.stock})
-                             </span>
-                        </div>
-                    )) || 'No price data'}
-                </TableCell>
-            </TableRow>
-             {isEditing && (
-                 <TableRow>
-                    <TableCell colSpan={3} className="p-0">
-                        <div className="p-4 bg-muted/50 space-y-4">
-                             <p className="font-semibold text-sm">Editing: {product.name}</p>
-                             {variants.map((variant, index) => (
-                                <div key={variant.sku} className="grid grid-cols-3 gap-4 items-center">
-                                    <div className="font-mono text-sm">{variant.weight}</div>
-                                    <div className="flex items-center gap-1">
-                                        <span className="text-sm">₹</span>
-                                        <Input
-                                            type="number"
-                                            value={variant.price}
-                                            onChange={e => handleVariantChange(index, 'price', e.target.value)}
-                                            className="h-8"
-                                        />
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                         <span className="text-sm">Stock:</span>
-                                        <Input
-                                            type="number"
-                                            value={variant.stock}
-                                            onChange={e => handleVariantChange(index, 'stock', e.target.value)}
-                                            className="h-8"
-                                        />
-                                    </div>
-                                </div>
-                            ))}
-                            <div className="flex gap-2 justify-end">
-                                <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>Cancel</Button>
-                                <Button size="sm" onClick={handleSave} disabled={isSaving}>
-                                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                    Save
-                                </Button>
-                            </div>
-                        </div>
-                    </TableCell>
-                 </TableRow>
-            )}
-        </>
+        <Card>
+            <CardHeader>
+                <CardTitle>Bulk Recipe Upload</CardTitle>
+                <CardDescription>
+                    Upload a CSV file of recipes to pre-populate the AI cache. The format should be: `dish_name,ingredients` (with ingredients separated by "|").
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileChange}
+                    disabled={isUploading}
+                    className="mb-4"
+                />
+                 {isUploading ? (
+                    <div className="flex items-center gap-2 mt-4 text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Processing your file... this may take some time.</span>
+                    </div>
+                ) : (
+                    <Button onClick={() => fileInputRef.current?.click()} className="w-full">
+                        <Upload className="mr-2 h-4 w-4" />
+                        Choose CSV and Upload
+                    </Button>
+                )}
+            </CardContent>
+        </Card>
     );
 }
-
 
 function ProductInventory() {
     const { masterProducts, productPrices, fetchProductPrices, loading } = useAppStore();
@@ -272,6 +242,103 @@ function ProductInventory() {
     );
 }
 
+function ProductInventoryRow({ product, priceData, onUpdate }: { product: Product, priceData: ProductPrice | null, onUpdate: () => void }) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [variants, setVariants] = useState(priceData?.variants || []);
+    const [isSaving, startSaveTransition] = useTransition();
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+
+    useEffect(() => {
+        setVariants(priceData?.variants || []);
+    }, [priceData]);
+
+    const handleVariantChange = (index: number, field: 'price' | 'stock', value: string) => {
+        const newVariants = [...variants];
+        const numValue = field === 'price' ? parseFloat(value) : parseInt(value, 10);
+        if (!isNaN(numValue)) {
+            newVariants[index] = { ...newVariants[index], [field]: numValue };
+            setVariants(newVariants);
+        }
+    };
+    
+    const handleSave = () => {
+        if (!firestore) return;
+        
+        startSaveTransition(async () => {
+            const priceDocRef = doc(firestore, 'productPrices', product.name.toLowerCase());
+            try {
+                await updateDoc(priceDocRef, { variants });
+                toast({ title: 'Success', description: `${product.name} has been updated.` });
+                setIsEditing(false);
+                onUpdate();
+            } catch (error) {
+                console.error("Failed to update product price:", error);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not save changes.' });
+            }
+        });
+    };
+
+    return (
+        <>
+            <TableRow onClick={() => setIsEditing(!isEditing)} className="cursor-pointer">
+                <TableCell className="font-medium">{product.name}</TableCell>
+                <TableCell>{product.category}</TableCell>
+                <TableCell>
+                    {priceData?.variants.map(v => (
+                        <div key={v.sku} className="flex items-center gap-2">
+                             <span className="font-semibold">{v.weight}:</span>
+                             <span>₹{v.price.toFixed(2)}</span>
+                             <span className={v.stock <= 10 ? 'text-destructive' : 'text-muted-foreground'}>
+                                (Stock: {v.stock})
+                             </span>
+                        </div>
+                    )) || 'No price data'}
+                </TableCell>
+            </TableRow>
+             {isEditing && (
+                 <TableRow>
+                    <TableCell colSpan={3} className="p-0">
+                        <div className="p-4 bg-muted/50 space-y-4">
+                             <p className="font-semibold text-sm">Editing: {product.name}</p>
+                             {variants.map((variant, index) => (
+                                <div key={variant.sku} className="grid grid-cols-3 gap-4 items-center">
+                                    <div className="font-mono text-sm">{variant.weight}</div>
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-sm">₹</span>
+                                        <Input
+                                            type="number"
+                                            value={variant.price}
+                                            onChange={e => handleVariantChange(index, 'price', e.target.value)}
+                                            className="h-8"
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                         <span className="text-sm">Stock:</span>
+                                        <Input
+                                            type="number"
+                                            value={variant.stock}
+                                            onChange={e => handleVariantChange(index, 'stock', e.target.value)}
+                                            className="h-8"
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                            <div className="flex gap-2 justify-end">
+                                <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>Cancel</Button>
+                                <Button size="sm" onClick={handleSave} disabled={isSaving}>
+                                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                    Save
+                                </Button>
+                            </div>
+                        </div>
+                    </TableCell>
+                 </TableRow>
+            )}
+        </>
+    );
+}
+
 function AdminActionCard({ title, description, href, icon: Icon }: { title: string, description: string, href: string, icon: React.ElementType }) {
     return (
         <Link href={href} className="block hover:shadow-lg transition-shadow rounded-lg">
@@ -363,7 +430,8 @@ export default function AdminDashboardPage() {
 
             <div className="mt-16">
                  <h2 className="text-2xl font-bold text-center mb-8 font-headline">{t('admin-tools')}</h2>
-                <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
+                 <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
+                    <BulkRecipeUploadCard />
                      <AdminActionCard 
                         title="System Status"
                         description="Check the health of backend services and APIs."
@@ -489,3 +557,4 @@ export default function AdminDashboardPage() {
         </div>
     );
 }
+

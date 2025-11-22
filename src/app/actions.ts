@@ -3,7 +3,7 @@
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { getStorage } from 'firebase-admin/storage';
-import { updateDoc, doc } from 'firebase/firestore';
+import { updateDoc, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
 
@@ -161,5 +161,61 @@ export async function updateManifest(newData: { icons?: any[], screenshots?: any
     } catch (error: any) {
         console.error('Failed to update manifest file:', error);
         return { success: false, error: error.message || 'An unknown error occurred.' };
+    }
+}
+
+/**
+ * Processes a CSV string and bulk-uploads recipes to the cachedRecipes collection.
+ * @param csvText The raw string content of the CSV file.
+ * @returns An object indicating success, count of uploaded recipes, or an error message.
+ */
+export async function bulkUploadRecipes(csvText: string): Promise<{ success: boolean; count?: number; error?: string; }> {
+    if (!csvText) {
+        return { success: false, error: 'CSV text cannot be empty.' };
+    }
+
+    try {
+        const { db } = await getAdminServices();
+        const batch = writeBatch(db);
+        const rows = csvText.split('\n').slice(1); // Skip header
+        let processedCount = 0;
+
+        for (const row of rows) {
+            if (!row.trim()) continue;
+
+            const [dishName, ingredientsString] = row.split(',');
+            if (!dishName || !ingredientsString) {
+                console.warn(`Skipping invalid row: ${row}`);
+                continue;
+            }
+
+            const ingredients = ingredientsString.split('|').map(ing => ing.trim()).filter(Boolean);
+            if (ingredients.length === 0) {
+                console.warn(`Skipping row with no ingredients: ${dishName}`);
+                continue;
+            }
+            
+            const normalizedId = dishName.toLowerCase().replace(/\s+/g, '-');
+            const recipeRef = doc(db, 'cachedRecipes', normalizedId);
+
+            const recipeData = {
+                id: normalizedId,
+                dishName: dishName.trim(),
+                ingredients,
+                createdAt: serverTimestamp()
+            };
+            batch.set(recipeRef, recipeData);
+            processedCount++;
+        }
+
+        if (processedCount > 0) {
+            await batch.commit();
+        }
+
+        return { success: true, count: processedCount };
+
+    } catch (error: any) {
+        console.error('Bulk recipe upload failed:', error);
+        return { success: false, error: error.message || 'An unknown server error occurred.' };
     }
 }
