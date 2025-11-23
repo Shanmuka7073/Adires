@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Package2, Menu, UserCircle, Store, ShoppingBag, Truck, LayoutDashboard, Mic, MicOff, Globe, Sparkles, Box } from 'lucide-react';
+import { Package2, Menu, UserCircle, Store, ShoppingBag, Truck, LayoutDashboard, Mic, MicOff, Globe, Sparkles, Box, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -40,6 +40,11 @@ const navLinks = [
   { href: '/', label: 'home' },
 ];
 
+const dashboardLinks = [
+    { href: '/dashboard/owner/orders', label: 'store-orders', icon: ShoppingBag },
+    { href: '/dashboard/delivery/deliveries', label: 'deliveries', icon: Truck },
+]
+
 function LanguageSwitcher() {
     const { language, setLanguage } = useAppStore();
 
@@ -69,7 +74,8 @@ function LanguageSwitcher() {
 function UserMenu() {
   const { user, isUserLoading } = useFirebase();
   const isAdmin = user && user.email === ADMIN_EMAIL;
-  
+  const dashboardHref = isAdmin ? '/dashboard/admin' : '/dashboard';
+
   const handleLogout = async () => {
     const auth = getAuth();
     await signOut(auth);
@@ -96,10 +102,12 @@ function UserMenu() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuLabel>{t('my-account')}</DropdownMenuLabel>
-        <DropdownMenuItem disabled>{user.email}</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout}>{t('logout')}</DropdownMenuItem>
+        <Link href={dashboardHref} passHref>
+          <DropdownMenuItem>
+              <LayoutDashboard className="mr-2 h-4 w-4" />
+              <span>{t('dashboard')}</span>
+          </DropdownMenuItem>
+        </Link>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -164,15 +172,26 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
         ))}
       </nav>
       
-      <div className="flex w-full items-center justify-end gap-2 md:ml-auto md:gap-2 lg:gap-4">
-        <LanguageSwitcher />
-        <Button variant={voiceEnabled ? 'secondary' : 'outline'} size="icon" onClick={handleToggleVoiceWithCheck} className="relative">
-          {voiceEnabled ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-          {voiceEnabled && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>}
-          <span className="sr-only">{voiceEnabled ? 'Stop voice commands' : 'Start voice commands'}</span>
-        </Button>
-        <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />
-        <UserMenu />
+      <div className="flex w-full items-center justify-between md:justify-end gap-2 md:ml-auto md:gap-2 lg:gap-4">
+        <div className="md:hidden">
+            <Link
+                href="/"
+                className="flex items-center gap-2 text-lg font-semibold md:text-base"
+                >
+                <Package2 className="h-6 w-6 text-primary" />
+                <span className="font-headline">LocalBasket</span>
+            </Link>
+        </div>
+        <div className="flex items-center gap-2">
+            <LanguageSwitcher />
+            <Button variant={voiceEnabled ? 'secondary' : 'outline'} size="icon" onClick={handleToggleVoiceWithCheck} className="relative">
+            {voiceEnabled ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+            {voiceEnabled && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>}
+            <span className="sr-only">{voiceEnabled ? 'Stop voice commands' : 'Start voice commands'}</span>
+            </Button>
+            <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />
+            <UserMenu />
+        </div>
       </div>
         {hasMounted && voiceEnabled && (
             <>
