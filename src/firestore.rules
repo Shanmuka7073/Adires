@@ -102,8 +102,8 @@ service cloud.firestore {
     }
 
     match /cachedRecipes/{recipeId} {
-      allow get, list: if true;
-      allow create, update, delete: if false; // Caching is handled by trusted backend
+        allow get, list: if true;
+        allow write: if isAdmin(); // Only admins or trusted backend can write to the cache.
     }
 
     match /cachedAIResponses/{responseId} {
@@ -165,3 +165,4 @@ service firebase.storage {
     }
   }
 }
+

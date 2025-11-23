@@ -18,6 +18,7 @@ import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { useCheckoutStore } from '@/app/checkout/page';
 import { useProfileFormStore, ProfileFormValues } from '@/lib/store';
 import { getWikipediaSummary } from '@/app/actions';
+import { getCompleteRecipe } from '@/ai/flows/recipe-ingredients-flow';
 import { useVoiceCommander as useVoiceCommanderContext } from './main-layout';
 
 
@@ -954,22 +955,24 @@ export function VoiceCommander({
       },
 
       'get-recipe': async ({ dishName, lang }: { dishName: string, lang: string }) => {
-        const replyLang = lang === 'hi' ? 'en' : lang;
-        const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
-        speak(`Let me look up how to make ${dishName}...`, langWithRegion, false);
-
-        try {
-            const result = await getWikipediaSummary(dishName);
-            if (result.summary) {
-                // Provide the full summary from Wikipedia which often contains ingredients and preparation.
-                speak(result.summary, langWithRegion);
-            } else {
-                speak(`I'm sorry, I couldn't find a recipe or information for ${dishName} on Wikipedia.`, langWithRegion);
-            }
-        } catch (error) {
-            console.error("Wikipedia recipe fetch failed:", error);
-            speak(`I'm having trouble connecting to my knowledge base right now. Please try again later.`, langWithRegion);
-        }
+          const replyLang = lang === 'hi' ? 'en' : lang;
+          const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
+          speak(`Let me get you a recipe for ${dishName}...`, langWithRegion, false);
+          
+          try {
+              const result = await getCompleteRecipe({ dishName, language: replyLang });
+              if (result.isSuccess) {
+                  const ingredientsText = result.ingredients.map(i => `${i.quantity} of ${i.name}`).join(', ');
+                  const instructionsText = result.instructions.map((step, i) => `Step ${i + 1}: ${step}`).join('. ');
+                  const fullRecipeText = `Here is a recipe for ${dishName}. You will need: ${ingredientsText}. Now for the instructions. ${instructionsText}`;
+                  speak(fullRecipeText, langWithRegion);
+              } else {
+                  speak(result.reason, langWithRegion);
+              }
+          } catch (error) {
+              console.error("Recipe generation failed:", error);
+              speak("I'm sorry, I ran into an error while trying to get that recipe.", langWithRegion);
+          }
       },
       checkout: (params: { lang: string }) => {
         const lang = params.lang || language;

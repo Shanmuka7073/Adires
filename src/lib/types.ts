@@ -1,4 +1,5 @@
 
+
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -146,7 +147,8 @@ export type VoiceAliasGroup = {
 export type CachedRecipe = {
     id: string;
     dishName: string;
-    ingredients: string[];
+    ingredients: { name: string; quantity: string }[];
+    instructions: string[];
     createdAt: any; // Allow serverTimestamp
 }
 

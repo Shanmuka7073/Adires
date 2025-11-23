@@ -1,5 +1,3 @@
-
-
 {
   "entities": {
     "Store": {
@@ -423,30 +421,30 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "CachedRecipe",
       "type": "object",
-      "description": "Represents a cached list of ingredients for a specific recipe to reduce AI calls.",
+      "description": "Represents a cached recipe with ingredients and instructions.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier, typically the normalized dish name."
-        },
-        "dishName": {
-          "type": "string",
-          "description": "The name of the dish."
-        },
+        "id": { "type": "string", "description": "Unique identifier, typically the normalized dish name." },
+        "dishName": { "type": "string", "description": "The name of the dish." },
         "ingredients": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "quantity": { "type": "string" }
+            },
+            "required": ["name", "quantity"]
           },
-          "description": "The list of ingredients for the dish."
+          "description": "List of ingredients with quantities."
         },
-        "createdAt": {
-          "type": "string",
-          "format": "date-time",
-          "description": "The timestamp when the recipe was cached."
-        }
+        "instructions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Step-by-step cooking instructions."
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "dishName", "ingredients", "createdAt"]
+      "required": ["id", "dishName", "ingredients", "instructions", "createdAt"]
     },
     "CachedAIResponse": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -1005,7 +1003,7 @@
           "schema": {
             "$ref": "#/backend/entities/VoiceCommand"
           },
-          "description": "Stores the core information for general voice commands.",
+          "description": "Stores the core information for a general voice command.",
           "params": [
             {
               "name": "commandKey",
