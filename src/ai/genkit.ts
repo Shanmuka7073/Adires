@@ -6,16 +6,13 @@
  */
 import 'dotenv/config'; // Import and configure dotenv at the very top.
 import { genkit } from 'genkit';
-// Note: The openai plugin is not used for TTS anymore, but may be used for other things.
-import { openAI } from 'openai';
+import { googleAI } from '@genkit-ai/google-genai';
 
-
-// Initialize Genkit with the OpenAI plugin.
-// This `ai` object is now the central point for all Genkit-related definitions.
+// The googleAI() plugin will now automatically pick up the API key
+// from the process.env.GEMINI_API_KEY environment variable.
 export const ai = genkit({
   plugins: [
-    openAI({ apiKey: process.env.OPENAI_API_KEY }),
+    googleAI(),
   ],
-  defaultModel: 'gpt-4-turbo',
   logLevel: 'debug',
 });
