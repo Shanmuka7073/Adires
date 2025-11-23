@@ -20,7 +20,9 @@ import { getAdminServices } from '@/firebase/admin-init';
 import type { User as AppUser, Authenticator } from '@/lib/types';
 import { isoBase64URL } from '@simplewebauthn/server/helpers';
 
-// Safely parse JSON (avoids “Unexpected end of JSON input”)
+// ============================
+// SAFE JSON PARSER
+// ============================
 async function safeJson(req: NextRequest) {
   try {
     const txt = await req.text();
@@ -30,7 +32,9 @@ async function safeJson(req: NextRequest) {
   }
 }
 
-// Get authenticators
+// ============================
+// FIRESTORE HELPERS
+// ============================
 async function getAuthenticators(userId: string): Promise<Authenticator[]> {
   const { db } = await getAdminServices();
   const doc = await db.collection('users').doc(userId).get();
@@ -38,7 +42,6 @@ async function getAuthenticators(userId: string): Promise<Authenticator[]> {
   return doc.data()?.authenticators || [];
 }
 
-// Save authenticator
 async function saveAuthenticator(userId: string, auth: Authenticator) {
   const { db } = await getAdminServices();
   const existing = await getAuthenticators(userId);
@@ -50,41 +53,46 @@ async function saveAuthenticator(userId: string, auth: Authenticator) {
   );
 }
 
-// ==================== MAIN POST HANDLER ===================== //
-
+// ============================
+// WEB AUTHN MAIN HANDLER
+// ============================
 export async function POST(
   request: NextRequest,
   { params }: { params: { route: string[] } }
 ) {
   try {
     const { db, auth: adminAuth } = await getAdminServices();
-
-    // Dynamically determine the RP ID and Origin from the request
     const host = request.headers.get('host');
+
     if (!host) {
-      return NextResponse.json({ error: 'Missing host header' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing Host header' }, { status: 400 });
     }
-    // The RP ID must be the domain name only, without the port.
-    const rpID = new URL(`http://${host}`).hostname;
-    const origin = `https://${host}`;
 
+    // ===============================================
+    // FIX RP ID AND ORIGIN (SUPPORT localhost + 127)
+    // ===============================================
+    const hostname = host.split(':')[0];
+
+    let protocol = hostname === 'localhost' || hostname === '127.0.0.1'
+      ? 'http'
+      : 'https';
+
+    const rpID = hostname;
+    const origin = `${protocol}://${host}`;
     const rpName = 'LocalBasket';
-
 
     const route = params.route;
     if (!route || route.length === 0) {
       return NextResponse.json({ error: 'Invalid route' }, { status: 400 });
     }
 
-    // Safely parse body
     const body = await safeJson(request);
-
     const action = route[0];
     const userId = route[1];
 
-    // ==============================
-    // 1. GENERATE REGISTRATION OPTIONS
-    // ==============================
+    // ========================================
+    // GENERATE REGISTRATION OPTIONS
+    // ========================================
     if (action === 'generate-registration-options') {
       if (!userId)
         return NextResponse.json({ error: 'User ID missing' }, { status: 400 });
@@ -94,7 +102,6 @@ export async function POST(
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
       const user = doc.data() as AppUser;
-
       const existingAuth = await getAuthenticators(userId);
 
       const opts: GenerateRegistrationOptionsOpts = {
@@ -125,9 +132,9 @@ export async function POST(
       return NextResponse.json(options);
     }
 
-    // ==============================
-    // 2. VERIFY REGISTRATION
-    // ==============================
+    // ========================================
+    // VERIFY REGISTRATION
+    // ========================================
     if (action === 'verify-registration') {
       if (!userId)
         return NextResponse.json({ error: 'User ID missing' }, { status: 400 });
@@ -137,8 +144,8 @@ export async function POST(
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
       const user = doc.data() as AppUser;
-
       const challenge = user.currentChallenge;
+
       if (!challenge)
         return NextResponse.json({ error: 'No challenge found' }, { status: 400 });
 
@@ -185,11 +192,12 @@ export async function POST(
       return NextResponse.json({ verified });
     }
 
-    // ======================================
-    // 3. GENERATE AUTHENTICATION OPTIONS
-    // ======================================
+    // ========================================
+    // GENERATE AUTHENTICATION OPTIONS
+    // ========================================
     if (action === 'generate-authentication-options') {
       const email = body.email;
+
       if (!email)
         return NextResponse.json({ error: 'Email required' }, { status: 400 });
 
@@ -204,25 +212,24 @@ export async function POST(
 
       const userDoc = snap.docs[0];
       const user = { id: userDoc.id, ...userDoc.data() } as AppUser;
-
       const auths = await getAuthenticators(user.id);
 
       if (auths.length === 0) {
         return NextResponse.json(
-          { error: 'No authenticators registered for this user' },
+          { error: 'No authenticators registered' },
           { status: 400 }
         );
       }
 
       const opts: GenerateAuthenticationOptionsOpts = {
         timeout: 60000,
+        rpID,
+        userVerification: 'preferred',
         allowCredentials: auths.map((auth) => ({
           id: isoBase64URL.toBuffer(auth.credentialID),
           type: 'public-key',
           transports: auth.transports,
         })),
-        userVerification: 'preferred',
-        rpID,
       };
 
       const options = await generateAuthenticationOptions(opts);
@@ -235,17 +242,14 @@ export async function POST(
       return NextResponse.json(options);
     }
 
-    // ======================================
-    // 4. VERIFY AUTHENTICATION
-    // ======================================
+    // ========================================
+    // VERIFY AUTHENTICATION
+    // ========================================
     if (action === 'verify-authentication') {
       const { email } = body;
 
       if (!email)
-        return NextResponse.json(
-          { error: 'Email required for verification' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Email required' }, { status: 400 });
 
       const snap = await db
         .collection('users')
@@ -258,15 +262,16 @@ export async function POST(
 
       const doc = snap.docs[0];
       const user = { id: doc.id, ...doc.data() } as AppUser;
-
       const challenge = user.currentChallenge;
+
       if (!challenge)
         return NextResponse.json(
-          { error: 'No challenge found for user' },
+          { error: 'No challenge found' },
           { status: 400 }
         );
 
       const authenticatorId = body.id || body.rawId;
+
       if (!authenticatorId)
         return NextResponse.json(
           { error: 'Authenticator ID missing' },
@@ -274,9 +279,7 @@ export async function POST(
         );
 
       const auths = await getAuthenticators(user.id);
-      const selected = auths.find(
-        (a) => a.credentialID === authenticatorId
-      );
+      const selected = auths.find((a) => a.credentialID === authenticatorId);
 
       if (!selected)
         return NextResponse.json(
@@ -313,10 +316,8 @@ export async function POST(
 
       const { verified, authenticationInfo } = verification;
 
-      if (!verified)
-        return NextResponse.json({ verified: false }, { status: 401 });
+      if (!verified) return NextResponse.json({ verified: false }, { status: 401 });
 
-      // Update counter
       const updated = {
         ...selected,
         counter: authenticationInfo.newCounter,
@@ -348,18 +349,12 @@ export async function POST(
   } catch (error: any) {
     console.error('MAIN ROUTE ERROR:', error);
     return NextResponse.json(
-      {
-        error: error?.message || 'Unhandled API error',
-      },
+      { error: error?.message || 'Unhandled API error' },
       { status: 500 }
     );
   }
 }
 
-// GET disabled
 export async function GET() {
-  return NextResponse.json(
-    { error: 'Use POST' },
-    { status: 405 }
-  );
+  return NextResponse.json({ error: 'Use POST' }, { status: 405 });
 }
