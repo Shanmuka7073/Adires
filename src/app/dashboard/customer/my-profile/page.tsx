@@ -30,32 +30,6 @@ const profileSchema = z.object({
 
 export type ProfileFormValues = z.infer<typeof profileSchema>;
 
-const dashboardLinks = [
-    { title: 'My Store', description: 'Manage your store, products, and incoming orders.', href: '/dashboard/owner/my-store', icon: Store },
-    { title: 'Deliveries', description: 'View and accept available delivery jobs.', href: '/dashboard/delivery/deliveries', icon: Truck },
-];
-
-function DashboardLinkCard({ title, description, href, icon: Icon }) {
-    return (
-        <Card className="hover:bg-muted/50 transition-colors">
-            <Link href={href} className="block h-full">
-                <CardHeader className="flex flex-row items-center gap-4">
-                    <Icon className="h-8 w-8 text-primary" />
-                    <div>
-                        <CardTitle>{title}</CardTitle>
-                        <CardDescription>{description}</CardDescription>
-                    </div>
-                </CardHeader>
-                <CardFooter>
-                    <Button variant="link" className="p-0">
-                        Go to {title} <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                </CardFooter>
-            </Link>
-        </Card>
-    );
-}
-
 export default function MyProfilePage() {
   const { user, isUserLoading, firestore } = useFirebase();
   const { toast } = useToast();
@@ -236,11 +210,6 @@ export default function MyProfilePage() {
             </Card>
         </div>
          <div className="space-y-8">
-            <div className="space-y-4">
-                <h2 className="text-xl font-bold font-headline">My Dashboards</h2>
-                {dashboardLinks.map(link => <DashboardLinkCard key={link.href} {...link} />)}
-            </div>
-
             <div className="space-y-4">
                  <h2 className="text-xl font-bold font-headline">Account Security</h2>
                  <Card className="bg-secondary/20 border-secondary/40">

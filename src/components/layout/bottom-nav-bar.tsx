@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, User, Package } from 'lucide-react';
+import { Home, User, Package, Store, Truck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirebase } from '@/firebase';
 import { t } from '@/lib/locales';
@@ -10,6 +10,8 @@ import { t } from '@/lib/locales';
 const navItems = [
   { href: '/', label: 'home' },
   { href: '/dashboard/customer/my-orders', label: 'my-orders' },
+  { href: '/dashboard/owner/my-store', label: 'my-store' },
+  { href: '/dashboard/delivery/deliveries', label: 'deliveries' },
   { href: '/dashboard/customer/my-profile', label: 'my-profile' },
 ];
 
@@ -17,6 +19,8 @@ const navIcons = {
     'home': Home,
     'my-orders': Package,
     'my-profile': User,
+    'my-store': Store,
+    'deliveries': Truck,
 };
 
 export function BottomNavBar() {
@@ -35,7 +39,7 @@ export function BottomNavBar() {
 
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-background border-t z-50">
-      <nav className="grid h-full grid-cols-3">
+      <nav className="grid h-full grid-cols-5">
         {navItems.map((item) => {
           const Icon = navIcons[item.label];
           const isActive = pathname === item.href;
@@ -49,7 +53,7 @@ export function BottomNavBar() {
               )}
             >
               <Icon className="h-5 w-5" />
-              <span>{t(item.label)}</span>
+              <span className="truncate">{t(item.label)}</span>
             </Link>
           );
         })}
