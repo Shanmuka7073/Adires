@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useEffect, useRef } from 'react';
@@ -9,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Send, User, Bot, Loader2, Sparkles, Volume2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getWikipediaSummary } from '@/app/actions';
+import { extractTopic } from '@/ai/flows/extract-topic-flow';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -123,17 +123,22 @@ export default function KnowledgeChatPage() {
         
         startThinking(async () => {
             try {
-                const result = await getWikipediaSummary(userMessage.text);
+                // Step 1: Use AI to extract the core topic from the user's question
+                const topicResult = await extractTopic({ question: userMessage.text });
+                
+                // Step 2: Use the extracted topic to search Wikipedia
+                const result = await getWikipediaSummary(topicResult.topic);
+
                 const botMessageText = result.summary || result.error || "I couldn't find any information on that topic.";
                 const botMessage: ChatMessage = { role: 'bot', text: botMessageText };
                 setConversation(prev => [...prev, botMessage]);
 
             } catch (error) {
-                console.error("Wikipedia Action failed:", error);
+                console.error("Knowledge chat failed:", error);
                 toast({
                     variant: 'destructive',
                     title: 'Search Error',
-                    description: 'Could not fetch information from Wikipedia. Please try again.',
+                    description: 'Could not fetch information. Please try again.',
                 });
                 const errorMessage: ChatMessage = { role: 'bot', text: "Sorry, I ran into an error trying to get that information."};
                 setConversation(prev => [...prev, errorMessage]);
