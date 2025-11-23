@@ -804,10 +804,6 @@ export function VoiceCommander({
             break;
 
         case 'GET_RECIPE':
-            if (!aiConfig?.isRecipeApiEnabled) {
-                speak("I'm sorry, the recipe feature is currently disabled.", langWithRegion);
-                return;
-            }
             await commandActionsRef.current.getRecipe({ dishName: intent.dishName, lang: intent.lang });
             break;
             
@@ -962,7 +958,7 @@ export function VoiceCommander({
         const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         if (!firestore) return;
 
-        speak(`Let me check the ingredients for ${dishName}...`, langWithRegion);
+        speak(`Let me check the ingredients for ${dishName}...`, langWithRegion, false);
         
         try {
             // First, try our internal cache
@@ -977,14 +973,14 @@ export function VoiceCommander({
             const result = await getWikipediaSummary(dishName);
             if (result.summary) {
                 // A very basic way to find ingredients in a text. A real app would use more advanced NLP.
-                const ingredientsMatch = result.summary.match(/ingredients include:? (.*?)\./i);
+                const ingredientsMatch = result.summary.match(/ingredients include:? (.*?)\./i) || result.summary.match(/is made with (.*?)\./i);
                 if (ingredientsMatch && ingredientsMatch[1]) {
                     speak(`According to my sources, the main ingredients for ${dishName} are: ${ingredientsMatch[1]}`, langWithRegion);
                 } else {
-                     speak(`I found an article on ${dishName}, but couldn't isolate the ingredients. Here's a summary: ${result.summary}`, langWithRegion);
+                     speak(`I found an article on ${dishName}, but couldn't isolate the ingredient list. Here's a summary: ${result.summary}`, langWithRegion);
                 }
             } else {
-                speak(`I'm sorry, I couldn't find the ingredients for ${dishName}.`, langWithRegion);
+                speak(`I'm sorry, I couldn't find a recipe for ${dishName}.`, langWithRegion);
             }
         } catch (error) {
             console.error("Knowledge flow failed:", error);
