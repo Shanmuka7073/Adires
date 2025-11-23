@@ -19,6 +19,29 @@ interface ChatMessage {
   text: string;
 }
 
+function formatContent(text: string) {
+    // Split the text into paragraphs by newline.
+    const paragraphs = text.split('\n').filter(p => p.trim() !== '');
+
+    return paragraphs.map((para, index) => {
+        // Check for list-like structures (e.g., "1. item", "- item", "* item")
+        if (para.match(/^(\d+\.|\*|-)\s/)) {
+            // This logic assumes consecutive list items.
+            // A more complex implementation could group non-consecutive list items.
+            return (
+                <ul key={index} className="list-disc pl-5 space-y-1 my-2">
+                    {para.split('\n').map((item, itemIndex) => (
+                        <li key={itemIndex}>{item.replace(/^(\d+\.|\*|-)\s/, '')}</li>
+                    ))}
+                </ul>
+            );
+        }
+        // Render as a normal paragraph
+        return <p key={index} className="mb-2 last:mb-0">{para}</p>;
+    });
+}
+
+
 function ChatBubble({ message }: { message: ChatMessage }) {
     const isUser = message.role === 'user';
     const { toast } = useToast();
@@ -47,7 +70,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
                 "max-w-xs md:max-w-md lg:max-w-lg rounded-xl p-3 text-sm relative group",
                 isUser ? "bg-primary text-primary-foreground" : "bg-muted"
             )}>
-                <p>{message.text}</p>
+                <div>{formatContent(message.text)}</div>
                  {!isUser && (
                     <Button
                         size="icon"
