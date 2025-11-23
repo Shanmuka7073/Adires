@@ -17,8 +17,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { useCheckoutStore } from '@/app/checkout/page';
 import { useProfileFormStore, ProfileFormValues } from '@/lib/store';
-import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
-import { suggestAlias, SuggestAliasOutput } from '@/ai/flows/suggest-alias-flow';
+import { getWikipediaSummary } from '@/app/actions';
 import { useVoiceCommander as useVoiceCommanderContext } from './main-layout';
 
 
@@ -61,6 +60,7 @@ type Intent =
   | { type: 'CONVERSATIONAL', commandKey: string, originalText: string, lang: string }
   | { type: 'GET_RECIPE', dishName: string, originalText: string, lang: string }
   | { type: 'SHOW_DETAILS', target: string, originalText: string, lang: string }
+  | { type: 'GET_KNOWLEDGE', topic: string, originalText: string, lang: string }
   | { type: 'UNKNOWN', originalText: string, lang: string };
 
 const intentKeywords = {
@@ -72,6 +72,7 @@ const intentKeywords = {
   CONVERSATIONAL: ['help', 'what can', 'who are you', 'how does'],
   GET_RECIPE: ['recipe for', 'ingredients for', 'how to make', 'కోసం కావలసినవి', 'ఎలా చేయాలి'],
   SHOW_DETAILS: ['details for', 'show details', 'view details', 'వివరాలు చూపించు'],
+  GET_KNOWLEDGE: ['what is', 'what are', 'tell me about', 'who is', 'explain'],
 };
 
 
@@ -567,6 +568,12 @@ export function VoiceCommander({
         return { type: 'SHOW_DETAILS', target, originalText: text, lang: spokenLang };
     }
 
+    const knowledgeKeyword = intentKeywords.GET_KNOWLEDGE.find(kw => lowerText.startsWith(kw));
+    if (knowledgeKeyword) {
+        const topic = lowerText.substring(knowledgeKeyword.length).trim();
+        return { type: 'GET_KNOWLEDGE', topic, originalText: text, lang: spokenLang };
+    }
+
     let bestCommandMatch: { key: string, similarity: number } | null = null;
     for (const key in commands) {
       const commandAliases = getAllAliases(key);
@@ -613,94 +620,12 @@ export function VoiceCommander({
             return;
         }
     
-        // Immediately start AI analysis in the background. Do not await.
-        if (aiConfig?.isAliasSuggesterEnabled) {
-            console.log("Triggering background AI analysis for failed command...");
-            suggestAlias({
-                commandText,
-                language: spokenLang,
-                itemNames: [...masterProducts.map(p => p.name), ...stores.map(s => s.name)]
-            }).then(async (suggestion) => {
-                if (suggestion.isSuggestionAvailable && suggestion.similarityScore > 0.8) {
-                    console.log(`High confidence suggestion found (${suggestion.similarityScore}). Auto-approving.`);
-                    const aliasGroupRef = doc(firestore, 'voiceAliasGroups', suggestion.suggestedKey);
-                    
-                    try {
-                        const docSnap = await getDoc(aliasGroupRef);
-                        const existingData = docSnap.exists() ? docSnap.data() : { type: 'product' };
-    
-                        const updatedData = { ...existingData };
-    
-                        const allNewAliases = [...suggestion.suggestedAliases, { lang: spokenLang, alias: suggestion.originalCommand, transliteratedAlias: '' }];
-    
-                        allNewAliases.forEach(({ lang, alias, transliteratedAlias }) => {
-                            if (!lang || !alias) return;
-                            if (!updatedData[lang]) updatedData[lang] = [];
-                            
-                            const langAliases = new Set(updatedData[lang] as string[]);
-                            langAliases.add(alias);
-                            if (transliteratedAlias) langAliases.add(transliteratedAlias);
-    
-                            updatedData[lang] = Array.from(langAliases);
-                        });
-                        
-                        await setDoc(aliasGroupRef, updatedData);
-    
-                        toast({ title: "AI Self-Correction", description: `Automatically learned: "${suggestion.originalCommand}" means "${suggestion.suggestedKey}".`});
-                        
-                        await fetchInitialData(firestore);
+        // For now, we are disabling the AI auto-correction feature.
+        // We will log all failed commands for manual review.
+        addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp() });
+        updateUnidentifiedItem(tempId, 'failed');
 
-                        // CRITICAL: Retry the original command after learning
-                        if(retryCommand) {
-                            setTimeout(() => {
-                                const identifiedProduct = masterProducts.find(p => p.name.toLowerCase() === suggestion.suggestedKey.toLowerCase());
-                                if (!identifiedProduct) return;
-
-                                // Fetch prices if not already loaded before adding to cart
-                                const priceKey = suggestion.suggestedKey.toLowerCase();
-                                const priceInfo = productPrices[priceKey];
-
-                                const handleAddItem = (finalPriceInfo: ProductPrice | null) => {
-                                    if (finalPriceInfo && finalPriceInfo.variants && finalPriceInfo.variants.length > 0) {
-                                        addIdentifiedItem(identifiedProduct, finalPriceInfo.variants[0], 1, tempId);
-                                    } else {
-                                        updateUnidentifiedItem(tempId, 'failed');
-                                        console.error(`Could not find price for AI-identified item: ${suggestion.suggestedKey}`);
-                                    }
-                                };
-                                
-                                if (priceInfo !== undefined) {
-                                    handleAddItem(priceInfo);
-                                } else {
-                                    fetchProductPrices(firestore, [suggestion.suggestedKey]).then(() => {
-                                        const updatedPrices = useAppStore.getState().productPrices;
-                                        const finalPriceInfo = updatedPrices[priceKey];
-                                        handleAddItem(finalPriceInfo);
-                                    });
-                                }
-                            }, 500); // Small delay to ensure state updates
-                        }
-
-                    } catch (err) {
-                        console.error("Error auto-saving aliases:", err);
-                        addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp() });
-                        updateUnidentifiedItem(tempId, 'failed');
-                    }
-                } else {
-                    addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp() });
-                    updateUnidentifiedItem(tempId, 'failed');
-                }
-            }).catch(aiError => {
-                console.error("AI suggestion flow failed:", aiError);
-                 addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp() });
-                 updateUnidentifiedItem(tempId, 'failed');
-            });
-        } else {
-             // Log for manual review if AI suggester is disabled
-            addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp() });
-            updateUnidentifiedItem(tempId, 'failed');
-        }
-    }, [addUnidentifiedItem, updateUnidentifiedItem, retryCommand, firestore, user, speak, aiConfig, masterProducts, stores, toast, fetchInitialData, addIdentifiedItem, productPrices, fetchProductPrices]);
+    }, [addUnidentifiedItem, updateUnidentifiedItem, firestore, user, speak]);
 
 
   const handleCommand = useCallback(async (commandText: string) => {
@@ -873,6 +798,10 @@ export function VoiceCommander({
         case 'SMART_ORDER':
             await commandActionsRef.current.handleSmartOrder(intent.originalText, intent.lang);
             break;
+            
+        case 'GET_KNOWLEDGE':
+            await commandActionsRef.current.getKnowledge({ topic: intent.topic, lang: intent.lang });
+            break;
 
         case 'GET_RECIPE':
             if (!aiConfig?.isRecipeApiEnabled) {
@@ -1015,30 +944,50 @@ export function VoiceCommander({
       myProfile: (params: {lang: string}) => router.push('/dashboard/customer/my-profile'),
       managePacks: (params: {lang: string}) => router.push('/dashboard/owner/packs'),
       'recipe-tester': (params: {lang: string}) => router.push('/dashboard/admin/recipe-tester'),
+      
+      getKnowledge: async ({ topic, lang }: { topic: string; lang: string }) => {
+        const replyLang = lang === 'hi' ? 'en' : lang;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
+        speak(`Looking up information on ${topic}...`, langWithRegion);
+        const result = await getWikipediaSummary(topic);
+        if (result.summary) {
+          speak(result.summary, langWithRegion);
+        } else {
+          speak(result.error || `I'm sorry, I couldn't find information on ${topic}.`, langWithRegion);
+        }
+      },
+
       'get-recipe': async ({ dishName, lang }: { dishName: string, lang: string }) => {
         const replyLang = lang === 'hi' ? 'en' : lang;
         const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         if (!firestore) return;
 
-        const cachedIngredients = await getCachedRecipe(firestore, dishName);
-        if (cachedIngredients) {
-            const ingredientsText = cachedIngredients.join(', ');
-            speak(`The ingredients for ${dishName} are: ${ingredientsText}`, langWithRegion);
-            return;
-        }
-
         speak(`Let me check the ingredients for ${dishName}...`, langWithRegion);
+        
         try {
-            const result = await getIngredientsForDish({ dishName, language: replyLang });
-            if (result.isSuccess && result.ingredients.length > 0) {
-                const ingredientsText = result.ingredients.join(', ');
-                speak(`The main ingredients for ${dishName} are: ${ingredientsText}`, langWithRegion);
-                await cacheRecipe(firestore, dishName, result.ingredients);
+            // First, try our internal cache
+            const cachedIngredients = await getCachedRecipe(firestore, dishName);
+            if (cachedIngredients) {
+                const ingredientsText = cachedIngredients.join(', ');
+                speak(`The ingredients for ${dishName} are: ${ingredientsText}`, langWithRegion);
+                return;
+            }
+
+            // If not in cache, use Wikipedia as a fallback knowledge source
+            const result = await getWikipediaSummary(dishName);
+            if (result.summary) {
+                // A very basic way to find ingredients in a text. A real app would use more advanced NLP.
+                const ingredientsMatch = result.summary.match(/ingredients include:? (.*?)\./i);
+                if (ingredientsMatch && ingredientsMatch[1]) {
+                    speak(`According to my sources, the main ingredients for ${dishName} are: ${ingredientsMatch[1]}`, langWithRegion);
+                } else {
+                     speak(`I found an article on ${dishName}, but couldn't isolate the ingredients. Here's a summary: ${result.summary}`, langWithRegion);
+                }
             } else {
                 speak(`I'm sorry, I couldn't find the ingredients for ${dishName}.`, langWithRegion);
             }
         } catch (error) {
-            console.error("AI recipe flow failed:", error);
+            console.error("Knowledge flow failed:", error);
             speak(`I'm having trouble connecting to my knowledge base right now. Please try again later.`, langWithRegion);
         }
       },

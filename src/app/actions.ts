@@ -69,6 +69,46 @@ export async function getSystemStatus() {
     }
 }
 
+/**
+ * Fetches a summary from Wikipedia's public API.
+ * @param topic The topic to search for.
+ * @returns A promise that resolves to the summary text or an error message.
+ */
+export async function getWikipediaSummary(topic: string): Promise<{ summary?: string; error?: string }> {
+  const endpoint = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(topic)}`;
+  
+  try {
+    const response = await fetch(endpoint, {
+      headers: {
+        'Accept': 'application/json; charset=utf-8',
+        // Wikipedia's API usage policy requests a user agent.
+        'User-Agent': 'LocalBasketApp/1.0 (https://localbasket.com; admin@localbasket.com)'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Wikipedia API returned status ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    // Check for different types of responses from Wikipedia
+    if (data.type === 'disambiguation') {
+      return { error: `The term "${topic}" is ambiguous. Please be more specific.` };
+    }
+    
+    if (!data.extract) {
+      return { error: `I couldn't find any information on "${topic}".` };
+    }
+
+    return { summary: data.extract };
+
+  } catch (error: any) {
+    console.error("Wikipedia API fetch error:", error);
+    return { error: error.message || `Failed to fetch information for "${topic}".` };
+  }
+}
+
 
 /**
  * Uploads a store image from a base64 data URI to Firebase Storage.
