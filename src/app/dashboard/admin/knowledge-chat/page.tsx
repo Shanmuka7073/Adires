@@ -102,6 +102,28 @@ export default function KnowledgeChatPage() {
     const [currentMessage, setCurrentMessage] = useState('');
     const [conversation, setConversation] = useState<ChatMessage[]>([]);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
+    
+    // Load conversation from localStorage on initial render
+    useEffect(() => {
+        try {
+            const savedConversation = localStorage.getItem('knowledge-chat-history');
+            if (savedConversation) {
+                setConversation(JSON.parse(savedConversation));
+            }
+        } catch (error) {
+            console.error("Could not load chat history from localStorage", error);
+        }
+    }, []);
+
+    // Save conversation to localStorage whenever it changes
+    useEffect(() => {
+        try {
+            localStorage.setItem('knowledge-chat-history', JSON.stringify(conversation));
+        } catch (error) {
+            console.error("Could not save chat history to localStorage", error);
+        }
+    }, [conversation]);
+
 
     useEffect(() => {
         if (scrollAreaRef.current) {
@@ -138,7 +160,7 @@ export default function KnowledgeChatPage() {
                     const result = await getMealDbRecipe(dishName);
                     
                     if (result.ingredients && result.instructions) {
-                        botMessageText = `Here's the recipe for ${dishName}:\n\n**Ingredients:**\n${result.ingredients.join('\n- ')}\n\n**Instructions:**\n${result.instructions}`;
+                        botMessageText = `Here's the recipe for ${dishName}:\n\n**Ingredients:**\n- ${result.ingredients.join('\n- ')}\n\n**Instructions:**\n${result.instructions}`;
                     } else {
                         botMessageText = result.error || `I couldn't find a recipe for "${dishName}".`;
                     }

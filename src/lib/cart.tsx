@@ -78,39 +78,44 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
 
   const addItem = useCallback((product: Product, variant: ProductVariant, quantity = 1) => {
-    if (cartItems.length > 0 && activeStoreId && product.storeId !== activeStoreId) {
-      if (window.confirm("You have items from another store. Do you want to clear your current cart and start a new one with this item?")) {
-        setCartItems([{ product, variant, quantity }]);
-        setActiveStoreId(product.storeId);
-        toast({
-          title: 'New cart started!',
-          description: `${product.name} (${variant.weight}) has been added.`,
-        });
-      }
-      return;
-    }
-  
-    if (cartItems.length === 0) {
-      setActiveStoreId(product.storeId);
-    }
-
+    // This logic now correctly uses the functional form of setState to avoid stale state issues.
     setCartItems((prevItems) => {
-      const existingItem = prevItems.find((item) => item.variant.sku === variant.sku);
-      if (existingItem) {
-        return prevItems.map((item) =>
-          item.variant.sku === variant.sku
-            ? { ...item, quantity: item.quantity + quantity }
-            : item
-        );
-      }
-      return [...prevItems, { product, variant, quantity }];
-    });
+        if (prevItems.length > 0 && activeStoreId && product.storeId !== activeStoreId) {
+            if (window.confirm("You have items from another store. Do you want to clear your current cart and start a new one with this item?")) {
+                setActiveStoreId(product.storeId);
+                toast({
+                    title: 'New cart started!',
+                    description: `${product.name} (${variant.weight}) has been added.`,
+                });
+                return [{ product, variant, quantity }];
+            }
+            return prevItems; // If user cancels, do not change the cart
+        }
 
-    toast({
-      title: 'Item added to cart',
-      description: `${product.name} (${variant.weight}) has been added.`,
+        if (prevItems.length === 0) {
+            setActiveStoreId(product.storeId);
+        }
+        
+        const existingItem = prevItems.find((item) => item.variant.sku === variant.sku);
+        let newItems;
+        if (existingItem) {
+            newItems = prevItems.map((item) =>
+                item.variant.sku === variant.sku
+                    ? { ...item, quantity: item.quantity + quantity }
+                    : item
+            );
+        } else {
+            newItems = [...prevItems, { product, variant, quantity }];
+        }
+        
+        toast({
+            title: 'Item added to cart',
+            description: `${product.name} (${variant.weight}) has been added.`,
+        });
+
+        return newItems;
     });
-  }, [toast, activeStoreId, cartItems]);
+  }, [toast, activeStoreId]);
   
   const removeItem = useCallback((variantSku: string) => {
     setCartItems((prevItems) => {
