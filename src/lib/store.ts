@@ -21,6 +21,7 @@ export interface AppState {
   locales: Locales;
   commands: Record<string, CommandGroup>;
   loading: boolean;
+  isInitialized: boolean;
   error: Error | null;
   language: string;
   setLanguage: (lang: string) => void;
@@ -46,7 +47,8 @@ export const useAppStore = create<AppState>()(
       productPrices: {},
       locales: {},
       commands: {},
-      loading: true,
+      loading: false,
+      isInitialized: false,
       error: null,
       language: getInitialLanguage(),
 
@@ -58,8 +60,7 @@ export const useAppStore = create<AppState>()(
       },
 
       fetchInitialData: async (db: Firestore) => {
-        // Prevent re-fetching if data is already loaded and not in a loading state
-        if (!get().loading && get().stores.length > 0 && get().masterProducts.length > 0) {
+        if (get().isInitialized) {
           return;
         }
         set({ loading: true, error: null });
@@ -91,6 +92,7 @@ export const useAppStore = create<AppState>()(
             locales,
             commands: enrichedCommands,
             loading: false,
+            isInitialized: true,
           });
           
         } catch (error) {
@@ -151,16 +153,15 @@ export const useAppStore = create<AppState>()(
 // Custom hook to initialize the store's data on app load
 export const useInitializeApp = () => {
     const { firestore, user } = useFirebase();
-    const fetchInitialData = useAppStore((state) => state.fetchInitialData);
-    const loading = useAppStore((state) => state.loading);
+    const { fetchInitialData, isInitialized, loading } = useAppStore();
 
     useEffect(() => {
-        if (firestore && user) { // Ensure user context is available
+        if (firestore && user && !isInitialized) {
             fetchInitialData(firestore);
         }
-    }, [firestore, user, fetchInitialData]);
+    }, [firestore, user, fetchInitialData, isInitialized]);
 
-    return loading;
+    return loading && !isInitialized;
 };
 
 // --- Store for Profile Page Form ---
@@ -185,5 +186,6 @@ export const useMyStorePageStore = create<MyStorePageState>((set) => ({
   saveInventoryBtnRef: null,
   setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
 }));
+
 
 
