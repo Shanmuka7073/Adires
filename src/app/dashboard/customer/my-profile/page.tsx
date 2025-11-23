@@ -14,11 +14,12 @@ import { useToast } from '@/hooks/use-toast';
 import { doc, setDoc } from 'firebase/firestore';
 import { useTransition, useEffect } from 'react';
 import type { User as AppUser } from '@/lib/types';
-import { Loader2, Sparkles, Fingerprint, ShoppingBag, Store, Truck, ArrowRight, Voicemail } from 'lucide-react';
+import { Loader2, Fingerprint, Store, Truck, Voicemail, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useProfileFormStore } from '@/lib/store';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
+import { getAuth, signOut } from 'firebase/auth';
 
 const profileSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -56,7 +57,6 @@ export default function MyProfilePage() {
     },
   });
   
-  // Expose form instance to global state
   useEffect(() => {
     setForm(form);
     return () => setForm(null); // Cleanup
@@ -116,6 +116,12 @@ export default function MyProfilePage() {
                 errorEmitter.emit('permission-error', permissionError);
             });
     });
+  };
+
+  const handleLogout = async () => {
+    const auth = getAuth();
+    await signOut(auth);
+    router.push('/login');
   };
 
   if (isUserLoading || isProfileLoading) {
@@ -207,6 +213,12 @@ export default function MyProfilePage() {
                     </form>
                 </Form>
                 </CardContent>
+                <CardFooter>
+                    <Button variant="outline" className="w-full" onClick={handleLogout}>
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Logout
+                    </Button>
+                </CardFooter>
             </Card>
         </div>
          <div className="space-y-8">
