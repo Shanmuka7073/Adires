@@ -103,6 +103,7 @@ export default function LoginPage() {
         
         if (verificationJSON && verificationJSON.verified) {
             // 4. Use custom token to sign in on the client
+            if (!auth) throw new Error("Auth service not available");
             await signInWithCustomToken(auth, verificationJSON.customToken);
             toast({ title: 'Welcome back!', description: 'Successfully signed in with your fingerprint.' });
             // The useEffect will handle the redirect
@@ -128,6 +129,10 @@ export default function LoginPage() {
 
   const onSubmit = (data: LoginFormValues) => {
     setError(null);
+    if (!auth) {
+        setError("Authentication service is not available.");
+        return;
+    }
     startTransition(() => {
         if (isSignUp) {
           if (!firestore) {

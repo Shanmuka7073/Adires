@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import {
   generateRegistrationOptions,
@@ -24,8 +25,8 @@ const rpID = process.env.NEXT_PUBLIC_RP_ID || 'localhost';
 const rpName = 'LocalBasket';
 const origin =
   process.env.NEXT_PUBLIC_ORIGIN ||
-  `https://${rpID}` ||
-  'http://localhost';
+  (rpID === 'localhost' ? 'http://localhost:9006' : `https://${rpID}`);
+
 
 // Safely parse JSON (avoids “Unexpected end of JSON input”)
 async function safeJson(req: NextRequest) {
