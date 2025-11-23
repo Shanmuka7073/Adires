@@ -213,12 +213,6 @@ export default function MyProfilePage() {
                     </form>
                 </Form>
                 </CardContent>
-                <CardFooter>
-                    <Button variant="outline" className="w-full" onClick={handleLogout}>
-                        <LogOut className="mr-2 h-4 w-4" />
-                        Logout
-                    </Button>
-                </CardFooter>
             </Card>
         </div>
          <div className="space-y-8">
