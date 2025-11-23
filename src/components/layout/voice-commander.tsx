@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -17,8 +16,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { useCheckoutStore } from '@/app/checkout/page';
 import { useProfileFormStore, ProfileFormValues } from '@/lib/store';
-import { getWikipediaSummary } from '@/app/actions';
-import { getCompleteRecipe } from '@/ai/flows/recipe-ingredients-flow';
+import { getWikipediaSummary, getMealDbRecipe } from '@/app/actions';
 import { useVoiceCommander as useVoiceCommanderContext } from './main-layout';
 
 
@@ -789,7 +787,7 @@ export function VoiceCommander({
     const separatorUsed = multiItemSeparators.find(sep => commandText.toLowerCase().includes(` ${sep} `));
     
     if (separatorUsed && recognizeIntent(commandText, spokenLang).type === 'ORDER_ITEM') {
-        await commandActionsRef.current.orderMultipleItems(commandText.split(new RegExp(` ${separatorUsed} `, 'i')), spokenLang, commandText);
+        await commandActionsRef.current.orderMultipleItems(commandText.split(new RegExp(` ${sep} `, 'i')), spokenLang, commandText);
         return;
     }
 
@@ -960,17 +958,18 @@ export function VoiceCommander({
           speak(`Let me get you a recipe for ${dishName}...`, langWithRegion, false);
           
           try {
-              const result = await getCompleteRecipe({ dishName, language: replyLang });
-              if (result.isSuccess) {
-                  const ingredientsText = result.ingredients.map(i => `${i.quantity} of ${i.name}`).join(', ');
-                  const instructionsText = result.instructions.map((step, i) => `Step ${i + 1}: ${step}`).join('. ');
-                  const fullRecipeText = `Here is a recipe for ${dishName}. You will need: ${ingredientsText}. Now for the instructions. ${instructionsText}`;
+              const result = await getMealDbRecipe(dishName);
+              if (result.ingredients && result.ingredients.length > 0) {
+                  const ingredientsText = result.ingredients.join(', ');
+                  const fullRecipeText = `Here is a recipe for ${dishName}. You will need: ${ingredientsText}.`;
                   speak(fullRecipeText, langWithRegion);
+                  // Optionally, you can speak out the instructions too.
+                  // speak(result.instructions, langWithRegion);
               } else {
-                  speak(result.reason, langWithRegion);
+                  speak(result.error || `I'm sorry, I couldn't find a recipe for ${dishName}.`, langWithRegion);
               }
           } catch (error) {
-              console.error("Recipe generation failed:", error);
+              console.error("Recipe fetch failed:", error);
               speak("I'm sorry, I ran into an error while trying to get that recipe.", langWithRegion);
           }
       },

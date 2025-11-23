@@ -130,6 +130,48 @@ export async function getWikipediaSummary(topic: string): Promise<{ summary?: st
   }
 }
 
+/**
+ * Fetches a recipe from TheMealDB API.
+ * @param dishName The name of the dish to search for.
+ * @returns A promise that resolves to the recipe details or an error message.
+ */
+export async function getMealDbRecipe(dishName: string): Promise<{ ingredients?: string[]; instructions?: string; error?: string }> {
+  const url = `https://www.themealdb.com/api/json/v1/1/search.php?s=${encodeURIComponent(dishName)}`;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`TheMealDB API returned status ${response.status}`);
+    }
+    const data = await response.json();
+
+    if (!data.meals || data.meals.length === 0) {
+      return { error: `I couldn't find a recipe for "${dishName}" on TheMealDB.` };
+    }
+
+    const meal = data.meals[0];
+    const ingredients: string[] = [];
+    // TheMealDB has up to 20 ingredients and measures
+    for (let i = 1; i <= 20; i++) {
+      const ingredient = meal[`strIngredient${i}`];
+      const measure = meal[`strMeasure${i}`];
+      if (ingredient) {
+        ingredients.push(`${measure} ${ingredient}`.trim());
+      } else {
+        break; // Stop when there are no more ingredients
+      }
+    }
+
+    return {
+      ingredients,
+      instructions: meal.strInstructions,
+    };
+  } catch (error: any) {
+    console.error("TheMealDB API fetch error:", error);
+    return { error: error.message || `Failed to fetch recipe for "${dishName}".` };
+  }
+}
+
 
 /**
  * Uploads a store image from a base64 data URI to Firebase Storage.
