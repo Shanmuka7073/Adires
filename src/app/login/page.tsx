@@ -23,6 +23,7 @@ import {
     signInWithEmailAndPassword,
     signInWithCustomToken,
 } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 import { Fingerprint, Loader2 } from 'lucide-react';
 import { startAuthentication } from '@simplewebauthn/browser';
 
@@ -40,7 +41,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isWebAuthnPending, startWebAuthnTransition] = useTransition();
-  const { auth, user, isUserLoading } = useFirebase();
+  const { auth, user, isUserLoading, firestore } = useFirebase();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -129,8 +130,24 @@ export default function LoginPage() {
     setError(null);
     startTransition(() => {
         if (isSignUp) {
+          if (!firestore) {
+              setError("Firestore is not available. Please try again later.");
+              return;
+          }
           createUserWithEmailAndPassword(auth, data.email, data.password)
-            .then((userCredential) => {
+            .then(async (userCredential) => {
+                // *** FIX: Create the user document in Firestore immediately after sign up ***
+                const newUser = userCredential.user;
+                const userDocRef = doc(firestore, 'users', newUser.uid);
+                await setDoc(userDocRef, {
+                    id: newUser.uid,
+                    email: newUser.email,
+                    firstName: '',
+                    lastName: '',
+                    address: '',
+                    phoneNumber: '',
+                });
+
                 toast({
                     title: 'Account Created!',
                     description: 'Your account has been successfully created. Please log in.',
@@ -139,7 +156,6 @@ export default function LoginPage() {
                 form.reset();
             })
             .catch((err: AuthError) => {
-                // We don't log sign-up failures as malicious attempts.
                 setError(err.message);
             });
         } else {
