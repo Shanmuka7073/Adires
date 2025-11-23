@@ -6,15 +6,15 @@
  */
 import 'dotenv/config'; // Import and configure dotenv at the very top.
 import { genkit } from 'genkit';
-import { googleAI } from '@genkit-ai/google-genai';
+import { openAI } from 'openai';
 
 
-// Initialize Genkit with the Google AI plugin.
+// Initialize Genkit with the OpenAI plugin.
 // This `ai` object is now the central point for all Genkit-related definitions.
 export const ai = genkit({
   plugins: [
-    googleAI(),
+    openAI({ apiKey: process.env.OPENAI_API_KEY }),
   ],
-  defaultModel: 'gemini-1.5-flash-latest',
+  defaultModel: 'gpt-4-turbo',
   logLevel: 'debug',
 });
