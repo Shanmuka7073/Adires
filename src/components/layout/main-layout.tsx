@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, createContext, useContext, useCallback, useEffect } from 'react';
@@ -12,6 +11,7 @@ import { useInitializeApp, useAppStore } from '@/lib/store';
 import { getLanguageForLocation } from '@/lib/location-service';
 import { useToast } from '@/hooks/use-toast';
 import { usePathname } from 'next/navigation';
+import { BottomNavBar } from './bottom-nav-bar';
 
 // Create a context to provide the trigger function
 const VoiceCommandContext = createContext<{ triggerVoicePrompt: () => void, retryCommand?: (command: string) => void; } | undefined>(undefined);
@@ -117,9 +117,10 @@ export function MainLayout({
             />
         )}
         <ProfileCompletionChecker />
-        <main className={`flex-1 ${isHomePage ? '' : 'pb-10'}`}>{children}</main>
+        <main className="flex-1 pb-16 md:pb-10">{children}</main>
         <NotificationPermissionManager />
-        {!isHomePage && <Footer />}
+        <Footer />
+        <BottomNavBar />
         </div>
     </VoiceCommandContext.Provider>
   );
