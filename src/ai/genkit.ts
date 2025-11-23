@@ -6,16 +6,12 @@
  */
 import 'dotenv/config'; // Import and configure dotenv at the very top.
 import { genkit } from 'genkit';
-import { openai } from 'genkit/openai';
 import { googleAI } from '@genkit-ai/google-genai';
 
-// The plugins will now automatically pick up the API keys
-// from the process.env environment variables.
+// The googleAI() plugin will now automatically pick up the API key
+// from the process.env.GEMINI_API_KEY environment variable.
 export const ai = genkit({
   plugins: [
     googleAI(),
-    openai({
-      apiKey: process.env.OPENAI_API_KEY,
-    }),
   ],
 });
