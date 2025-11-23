@@ -70,38 +70,59 @@ export async function getSystemStatus() {
 }
 
 /**
- * Fetches a summary from Wikipedia's public API.
+ * Fetches a summary from Wikipedia's public API by first searching for the
+ * best matching article, then fetching its summary.
  * @param topic The topic to search for.
  * @returns A promise that resolves to the summary text or an error message.
  */
 export async function getWikipediaSummary(topic: string): Promise<{ summary?: string; error?: string }> {
-  const endpoint = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(topic)}`;
-  
+  const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(topic)}&format=json&utf8=1`;
+
   try {
-    const response = await fetch(endpoint, {
+    // Step 1: Search for the topic to find the correct article title
+    const searchResponse = await fetch(searchUrl, {
+      headers: {
+        'User-Agent': 'LocalBasketApp/1.0 (https://localbasket.com; admin@localbasket.com)'
+      }
+    });
+    
+    if (!searchResponse.ok) {
+        throw new Error(`Wikipedia search API returned status ${searchResponse.status}`);
+    }
+
+    const searchData = await searchResponse.json();
+
+    if (!searchData.query.search || searchData.query.search.length === 0) {
+      return { error: `I couldn't find any Wikipedia articles related to "${topic}".` };
+    }
+
+    const bestTitle = searchData.query.search[0].title;
+
+    // Step 2: Fetch the summary for the best matching article title
+    const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(bestTitle)}`;
+    
+    const summaryResponse = await fetch(summaryUrl, {
       headers: {
         'Accept': 'application/json; charset=utf-8',
-        // Wikipedia's API usage policy requests a user agent.
         'User-Agent': 'LocalBasketApp/1.0 (https://localbasket.com; admin@localbasket.com)'
       }
     });
 
-    if (!response.ok) {
-      throw new Error(`Wikipedia API returned status ${response.status}`);
+    if (!summaryResponse.ok) {
+      throw new Error(`Wikipedia summary API returned status ${summaryResponse.status}`);
     }
 
-    const data = await response.json();
-    
-    // Check for different types of responses from Wikipedia
-    if (data.type === 'disambiguation') {
+    const summaryData = await summaryResponse.json();
+
+    if (summaryData.type === 'disambiguation') {
       return { error: `The term "${topic}" is ambiguous. Please be more specific.` };
     }
     
-    if (!data.extract) {
-      return { error: `I couldn't find any information on "${topic}".` };
+    if (!summaryData.extract) {
+      return { error: `I found an article for "${bestTitle}", but couldn't get a summary.` };
     }
 
-    return { summary: data.extract };
+    return { summary: summaryData.extract };
 
   } catch (error: any) {
     console.error("Wikipedia API fetch error:", error);
