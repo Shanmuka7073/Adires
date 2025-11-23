@@ -38,14 +38,7 @@ const ADMIN_EMAIL = 'admin@gmail.com';
 
 const navLinks = [
   { href: '/', label: 'home' },
-];
-
-const mobileNavDashboardLinks = [
-    { href: '/dashboard/customer/my-profile', label: 'my-profile', icon: UserCircle },
-    { href: '/dashboard/customer/my-orders', label: 'my-orders', icon: ShoppingBag},
-    { href: '/dashboard/owner/my-store', label: 'my-store', icon: Store },
-    { href: '/dashboard/owner/orders', label: 'store-orders', icon: ShoppingBag },
-    { href: '/dashboard/delivery/deliveries', label: 'deliveries', icon: Truck },
+  { href: '/stores', label: 'stores'}
 ];
 
 
@@ -78,7 +71,7 @@ function LanguageSwitcher() {
 function UserMenu() {
   const { user, isUserLoading } = useFirebase();
   const isAdmin = user && user.email === ADMIN_EMAIL;
-  const dashboardHref = isAdmin ? '/dashboard/admin' : '/dashboard';
+  const dashboardHref = isAdmin ? '/dashboard/admin' : '/dashboard/customer/my-profile';
 
   const handleLogout = async () => {
     const auth = getAuth();
@@ -157,9 +150,7 @@ interface HeaderProps {
 
 export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedCommands, isCartOpen, onCartOpenChange }: HeaderProps) {
   const pathname = usePathname();
-  const { user, isUserLoading } = useFirebase();
-  const isAdmin = user && user.email === ADMIN_EMAIL;
-  const dashboardHref = isAdmin ? '/dashboard/admin' : '/dashboard';
+  const { user } = useFirebase();
   const { toast } = useToast();
   const [hasMounted, setHasMounted] = useState(false);
 
@@ -205,17 +196,6 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
             {t(label)}
           </Link>
         ))}
-         {!user && !isUserLoading && (
-            <Link
-                href={dashboardHref}
-                className={cn(
-                'transition-colors hover:text-foreground',
-                pathname.startsWith('/dashboard') ? 'text-foreground' : 'text-muted-foreground'
-                )}
-            >
-                {t('dashboard')}
-            </Link>
-         )}
       </nav>
       <Sheet>
         <SheetTrigger asChild>
@@ -252,62 +232,6 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
                 </SheetClose>
                 ))}
             </nav>
-            <div className="mt-6 border-t pt-4">
-                <p className="px-3 text-sm font-medium text-muted-foreground mb-2">{t('dashboard')}</p>
-                <div className="grid gap-2">
-                    <SheetClose asChild>
-                        <Link
-                            href={dashboardHref}
-                            className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary"
-                        >
-                            <LayoutDashboard className="h-4 w-4" />
-                            {t('dashboard')}
-                        </Link>
-                    </SheetClose>
-                    {!isAdmin && mobileNavDashboardLinks.map(({ href, label, icon: Icon }) => (
-                    <SheetClose asChild key={href}>
-                        <Link
-                            href={href}
-                            className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary"
-                        >
-                            <Icon className="h-4 w-4" />
-                            {t(label)}
-                        </Link>
-                    </SheetClose>
-                    ))}
-                    {isAdmin && (
-                        <>
-                            <SheetClose asChild>
-                                <Link
-                                    href="/dashboard/owner/my-store"
-                                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary"
-                                >
-                                    <Store className="h-4 w-4" />
-                                    {t('master-store')}
-                                </Link>
-                            </SheetClose>
-                            <SheetClose asChild>
-                                <Link
-                                    href="/dashboard/owner/orders"
-                                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary"
-                                >
-                                    <ShoppingBag className="h-4 w-4" />
-                                    <span>Store Orders</span>
-                                </Link>
-                            </SheetClose>
-                             <SheetClose asChild>
-                                <Link
-                                    href="/dashboard/owner/packs"
-                                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary"
-                                >
-                                    <Box className="h-4 w-4" />
-                                    <span>Manage Packs</span>
-                                </Link>
-                            </SheetClose>
-                        </>
-                    )}
-                </div>
-            </div>
           </div>
         </SheetContent>
       </Sheet>
