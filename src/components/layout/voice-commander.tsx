@@ -288,6 +288,9 @@ export function VoiceCommander({
 
     generateSpeech({ text })
       .then(response => {
+        if (!response?.audioUrl) {
+            throw new Error("No audio URL in response");
+        }
         const audio = new Audio(response.audioUrl);
         currentAudioRef.current = audio;
         
@@ -295,7 +298,7 @@ export function VoiceCommander({
         if (playPromise !== undefined) {
           playPromise.catch(error => {
             console.error("Audio playback error:", error);
-            isSpeakingRef.current = false; // Reset speaking flag on error
+            isSpeakingRef.current = false;
             if (typeof onEndCallback === 'function') onEndCallback();
           });
         }
@@ -307,7 +310,7 @@ export function VoiceCommander({
             onEndCallback();
           }
           if (isEnabledRef.current && recognition) {
-            try { recognition.start(); } catch(e) {}
+            try { recognition.start(); } catch(e) { console.error("Could not restart recognition after speech", e); }
           }
         };
       })
@@ -316,9 +319,8 @@ export function VoiceCommander({
         toast({ variant: 'destructive', title: 'Voice Generation Failed' });
         isSpeakingRef.current = false;
         if (typeof onEndCallback === 'function') onEndCallback();
-        // Also try to restart recognition here
         if (isEnabledRef.current && recognition) {
-          try { recognition.start(); } catch(e) {}
+          try { recognition.start(); } catch(e) { console.error("Could not restart recognition after error", e); }
         }
       });
   }, [toast]);
