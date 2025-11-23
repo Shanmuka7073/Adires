@@ -14,5 +14,5 @@ export const ai = genkit({
   plugins: [
     googleAI(),
   ],
-  logLevel: 'debug',
+  // The 'logLevel' property is not a valid option here in this version of Genkit.
 });
