@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useEffect, useRef } from 'react';
@@ -7,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Send, User, Bot, Loader2, Sparkles, Volume2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { getWikipediaSummary } from '@/app/actions';
+import { getWikipediaSummary, getMealDbRecipe } from '@/app/actions';
 import { extractTopic } from '@/ai/flows/extract-topic-flow';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -122,25 +123,45 @@ export default function KnowledgeChatPage() {
         setCurrentMessage('');
         
         startThinking(async () => {
-            try {
-                // Step 1: Use AI to extract the core topic from the user's question
-                const topicResult = await extractTopic({ question: userMessage.text });
-                
-                // Step 2: Use the extracted topic to search Wikipedia
-                const result = await getWikipediaSummary(topicResult.topic);
+            const lowerCaseMessage = userMessage.text.toLowerCase();
+            const isRecipeRequest = lowerCaseMessage.startsWith('how to make') || lowerCaseMessage.startsWith('recipe for');
 
-                const botMessageText = result.summary || result.error || "I couldn't find any information on that topic.";
+            try {
+                let botMessageText = "I couldn't find any information on that.";
+
+                if (isRecipeRequest) {
+                    const dishName = lowerCaseMessage
+                        .replace('how to make', '')
+                        .replace('recipe for', '')
+                        .trim();
+                    
+                    const result = await getMealDbRecipe(dishName);
+                    
+                    if (result.ingredients && result.instructions) {
+                        botMessageText = `Here's the recipe for ${dishName}:\n\n**Ingredients:**\n${result.ingredients.join('\n- ')}\n\n**Instructions:**\n${result.instructions}`;
+                    } else {
+                        botMessageText = result.error || `I couldn't find a recipe for "${dishName}".`;
+                    }
+
+                } else {
+                    // It's a general knowledge question
+                    const topicResult = await extractTopic({ question: userMessage.text });
+                    const result = await getWikipediaSummary(topicResult.topic);
+                    botMessageText = result.summary || result.error || `I couldn't find any Wikipedia articles related to "${topicResult.topic}".`;
+                }
+
                 const botMessage: ChatMessage = { role: 'bot', text: botMessageText };
                 setConversation(prev => [...prev, botMessage]);
 
             } catch (error) {
                 console.error("Knowledge chat failed:", error);
+                const errorMessageText = "Sorry, I ran into an error trying to get that information. Please check the server logs.";
                 toast({
                     variant: 'destructive',
                     title: 'Search Error',
-                    description: 'Could not fetch information. Please try again.',
+                    description: errorMessageText,
                 });
-                const errorMessage: ChatMessage = { role: 'bot', text: "Sorry, I ran into an error trying to get that information."};
+                const errorMessage: ChatMessage = { role: 'bot', text: errorMessageText};
                 setConversation(prev => [...prev, errorMessage]);
             }
         });
@@ -154,7 +175,7 @@ export default function KnowledgeChatPage() {
                         <Sparkles className="h-8 w-8 text-primary" />
                         <div>
                             <CardTitle className="text-3xl font-headline">Knowledge Chat</CardTitle>
-                            <CardDescription>Ask a question to get a summary from Wikipedia.</CardDescription>
+                            <CardDescription>Ask a question to get a summary from Wikipedia or ask for a recipe.</CardDescription>
                         </div>
                     </div>
                 </CardHeader>
@@ -166,7 +187,7 @@ export default function KnowledgeChatPage() {
                             ) : (
                                 <div className="text-center text-muted-foreground py-8">
                                     <Sparkles className="mx-auto h-8 w-8 mb-2" />
-                                    <p>Ask a question to get started. For example: "What is pasteurization?"</p>
+                                    <p>Ask a question, e.g., "What is pasteurization?" or "How to make biryani?"</p>
                                 </div>
                             )}
                             {isThinking && (
@@ -183,7 +204,7 @@ export default function KnowledgeChatPage() {
                     </ScrollArea>
                     <div className="flex items-center gap-2 pt-4 border-t">
                         <Input
-                            placeholder="Ask about a topic..."
+                            placeholder="Ask about a topic or recipe..."
                             value={currentMessage}
                             onChange={(e) => setCurrentMessage(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
