@@ -176,7 +176,7 @@ interface HeaderProps {
 
 export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedCommands, isCartOpen, onCartOpenChange }: HeaderProps) {
   const pathname = usePathname();
-  const { user } = useFirebase();
+  const { user, isUserLoading } = useFirebase();
   const isAdmin = user && user.email === ADMIN_EMAIL;
   const dashboardHref = isAdmin ? '/dashboard/admin' : '/dashboard';
   const { toast } = useToast();
@@ -224,15 +224,17 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
             {t(label)}
           </Link>
         ))}
-         <Link
-            href={dashboardHref}
-            className={cn(
-              'transition-colors hover:text-foreground',
-              pathname.startsWith('/dashboard') ? 'text-foreground' : 'text-muted-foreground'
-            )}
-          >
-            {t('dashboard')}
-          </Link>
+         {!user && !isUserLoading && (
+            <Link
+                href={dashboardHref}
+                className={cn(
+                'transition-colors hover:text-foreground',
+                pathname.startsWith('/dashboard') ? 'text-foreground' : 'text-muted-foreground'
+                )}
+            >
+                {t('dashboard')}
+            </Link>
+         )}
       </nav>
       <Sheet>
         <SheetTrigger asChild>
