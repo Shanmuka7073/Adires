@@ -142,13 +142,13 @@ export function VoiceCommander({
       
       const normalizedCanonicalName = p.name.toLowerCase();
       map.set(normalizedCanonicalName, { product: p, lang: 'en' });
-      map.set(normalizedCanonicalName.replace(/\s+/g, ''), { product: p, lang: 'en' });
+      map.set(normalizedCanonicalName.replace(/\\s+/g, ''), { product: p, lang: 'en' });
 
       for (const lang in productAliasesByLang) {
         for (const alias of productAliasesByLang[lang]) {
           const normalizedAlias = alias.toLowerCase();
           map.set(normalizedAlias, { product: p, lang: lang });
-          map.set(normalizedAlias.replace(/\s+/g, ''), { product: p, lang: lang });
+          map.set(normalizedAlias.replace(/\\s+/g, ''), { product: p, lang: lang });
         }
       }
     }
@@ -171,7 +171,7 @@ export function VoiceCommander({
          if (term) {
             const normalizedTerm = term.toLowerCase();
             map.set(normalizedTerm, s);
-            map.set(normalizedTerm.replace(/\s+/g, ''), s);
+            map.set(normalizedTerm.replace(/\\s+/g, ''), s);
         }
       }
     }
@@ -1296,5 +1296,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    
