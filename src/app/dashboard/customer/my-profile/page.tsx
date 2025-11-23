@@ -31,7 +31,6 @@ const profileSchema = z.object({
 export type ProfileFormValues = z.infer<typeof profileSchema>;
 
 const dashboardLinks = [
-    { title: 'My Orders', description: 'Track your past and current orders.', href: '/dashboard/customer/my-orders', icon: ShoppingBag },
     { title: 'My Store', description: 'Manage your store, products, and incoming orders.', href: '/dashboard/owner/my-store', icon: Store },
     { title: 'Deliveries', description: 'View and accept available delivery jobs.', href: '/dashboard/delivery/deliveries', icon: Truck },
 ];
