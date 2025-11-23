@@ -449,7 +449,7 @@ export function VoiceCommander({
   const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null; variant: ProductVariant | null; requestedQty: number; remainingPhrase: string; matchedAlias: string | null; lang: string; }> => {
     
     let lowerPhrase = phrase.toLowerCase();
-    let sanitizedPhrase = lowerPhrase.replace(/[-.,]/g, ' ').replace(/\s+/g, ' ').trim();
+    let sanitizedPhrase = lowerPhrase.replace(/[-.,]/g, ' ').replace(/\\s+/g, ' ').trim();
 
     let requestedQty = 1;
     let requestedUnit: 'kg' | 'gm' | 'pc' | 'pack' | null = null;
@@ -489,7 +489,7 @@ export function VoiceCommander({
     let productNamePhrase = remainingWords.join(' ');
 
     let productMatch: { product: Product, alias: string, lang: string } | null = null;
-    const directMatch = universalProductAliasMap.get(productNamePhrase) || universalProductAliasMap.get(productNamePhrase.replace(/\s+/g, ''));
+    const directMatch = universalProductAliasMap.get(productNamePhrase) || universalProductAliasMap.get(productNamePhrase.replace(/\\s+/g, ''));
     
     if (directMatch) {
       productMatch = { ...directMatch, alias: productNamePhrase };
@@ -788,7 +788,7 @@ export function VoiceCommander({
     const separatorUsed = multiItemSeparators.find(sep => commandText.toLowerCase().includes(` ${sep} `));
     
     if (separatorUsed && recognizeIntent(commandText, spokenLang).type === 'ORDER_ITEM') {
-        await commandActionsRef.current.orderMultipleItems(commandText.split(new RegExp(` ${sep} `, 'i')), spokenLang, commandText);
+        await commandActionsRef.current.orderMultipleItems(commandText.split(new RegExp(` ${separatorUsed} `, 'i')), spokenLang, commandText);
         return;
     }
 
@@ -1199,7 +1199,7 @@ export function VoiceCommander({
             return;
         }
 
-        const productPhrase = text.substring(0, fromIndex).replace(/^(order|buy|get|send)\s+/i, '').trim();
+        const productPhrase = text.substring(0, fromIndex).replace(/^(order|buy|get|send)\\s+/i, '').trim();
         const storePhrase = text.substring(fromIndex + fromKeyword.length + 1, toIndex).trim();
         const addressPhrase = text.substring(toIndex + toKeyword.length + 1).trim();
 
@@ -1300,3 +1300,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
