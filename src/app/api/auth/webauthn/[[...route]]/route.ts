@@ -64,10 +64,9 @@ export async function POST(
     if (!host) {
       return NextResponse.json({ error: 'Missing host header' }, { status: 400 });
     }
-    // For environments like Firebase Studio, the host includes the port.
-    // The RP ID must be the domain name only.
+    // The RP ID must be the domain name only, without the port.
     const rpID = new URL(`http://${host}`).hostname;
-    const origin = new URL(`https://${host}`).origin;
+    const origin = `https://${host}`;
 
     const rpName = 'LocalBasket';
 
