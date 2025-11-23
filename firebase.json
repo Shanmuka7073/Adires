@@ -12,7 +12,7 @@
         "headers": [
           {
             "key": "Permissions-Policy",
-            "value": "publickey-credentials-create=(self), publickey-credentials-get=(self), microphone=*"
+            "value": "publickey-credentials-create=(self), publickey-credentials-get=(self), microphone=*, geolocation=*"
           }
         ]
       }

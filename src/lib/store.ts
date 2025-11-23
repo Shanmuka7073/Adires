@@ -156,10 +156,11 @@ export const useInitializeApp = () => {
     const { fetchInitialData, isInitialized, loading } = useAppStore();
 
     useEffect(() => {
+        // Only fetch data if we have the necessary services and it hasn't been fetched yet.
         if (firestore && user && !isInitialized) {
             fetchInitialData(firestore);
         }
-    }, [firestore, user, fetchInitialData, isInitialized]);
+    }, [firestore, user, isInitialized, fetchInitialData]);
 
     return loading && !isInitialized;
 };
@@ -186,6 +187,7 @@ export const useMyStorePageStore = create<MyStorePageState>((set) => ({
   saveInventoryBtnRef: null,
   setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
 }));
+
 
 
 
