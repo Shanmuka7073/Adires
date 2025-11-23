@@ -20,14 +20,6 @@ import { getAdminServices } from '@/firebase/admin-init';
 import type { User as AppUser, Authenticator } from '@/lib/types';
 import { isoBase64URL } from '@simplewebauthn/server/helpers';
 
-// Safe environment defaults
-const rpID = process.env.NEXT_PUBLIC_RP_ID || 'localhost';
-const rpName = 'LocalBasket';
-const origin =
-  process.env.NEXT_PUBLIC_ORIGIN ||
-  (rpID === 'localhost' ? 'http://localhost:9006' : `https://${rpID}`);
-
-
 // Safely parse JSON (avoids “Unexpected end of JSON input”)
 async function safeJson(req: NextRequest) {
   try {
@@ -66,6 +58,19 @@ export async function POST(
 ) {
   try {
     const { db, auth: adminAuth } = await getAdminServices();
+
+    // Dynamically determine the RP ID and Origin from the request
+    const host = request.headers.get('host');
+    if (!host) {
+      return NextResponse.json({ error: 'Missing host header' }, { status: 400 });
+    }
+    // For environments like Firebase Studio, the host includes the port.
+    // The RP ID must be the domain name only.
+    const rpID = new URL(`http://${host}`).hostname;
+    const origin = new URL(`https://${host}`).origin;
+
+    const rpName = 'LocalBasket';
+
 
     const route = params.route;
     if (!route || route.length === 0) {
