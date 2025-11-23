@@ -40,13 +40,6 @@ const navLinks = [
   { href: '/', label: 'home' },
 ];
 
-// Links for the user dropdown menu - simplified
-const userDropdownDashboardLinks = [
-    { href: '/dashboard/owner/orders', label: 'store-orders', icon: ShoppingBag },
-    { href: '/dashboard/delivery/deliveries', label: 'deliveries', icon: Truck },
-];
-
-// Links for the mobile slide-out menu
 const mobileNavDashboardLinks = [
     { href: '/dashboard/customer/my-profile', label: 'my-profile', icon: UserCircle },
     { href: '/dashboard/customer/my-orders', label: 'my-orders', icon: ShoppingBag},
@@ -122,26 +115,6 @@ function UserMenu() {
               <span>{t('dashboard')}</span>
           </DropdownMenuItem>
         </Link>
-        {!isAdmin && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>{t('roles')}</DropdownMenuLabel>
-            {userDropdownDashboardLinks.map(({ href, label, icon: Icon }) => (
-                <Link key={href} href={href} passHref>
-                    <DropdownMenuItem>
-                        <Icon className="mr-2 h-4 w-4" />
-                        <span>{t(label)}</span>
-                    </DropdownMenuItem>
-                </Link>
-            ))}
-             <Link href="/dashboard/owner/packs" passHref>
-                <DropdownMenuItem>
-                    <Box className="mr-2 h-4 w-4" />
-                    <span>Manage Packs</span>
-                </DropdownMenuItem>
-            </Link>
-          </>
-        )}
         {isAdmin && (
             <>
                 <DropdownMenuSeparator />

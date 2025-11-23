@@ -8,16 +8,17 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { doc, setDoc } from 'firebase/firestore';
 import { useTransition, useEffect } from 'react';
 import type { User as AppUser } from '@/lib/types';
-import { Loader2, Sparkles, Fingerprint } from 'lucide-react';
+import { Loader2, Sparkles, Fingerprint, ShoppingBag, Store, Truck, ArrowRight, Voicemail } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useProfileFormStore } from '@/lib/store';
 import Link from 'next/link';
+import { t } from '@/lib/locales';
 
 const profileSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -28,6 +29,33 @@ const profileSchema = z.object({
 });
 
 export type ProfileFormValues = z.infer<typeof profileSchema>;
+
+const dashboardLinks = [
+    { title: 'My Orders', description: 'Track your past and current orders.', href: '/dashboard/customer/my-orders', icon: ShoppingBag },
+    { title: 'My Store', description: 'Manage your store, products, and incoming orders.', href: '/dashboard/owner/my-store', icon: Store },
+    { title: 'Deliveries', description: 'View and accept available delivery jobs.', href: '/dashboard/delivery/deliveries', icon: Truck },
+];
+
+function DashboardLinkCard({ title, description, href, icon: Icon }) {
+    return (
+        <Card className="hover:bg-muted/50 transition-colors">
+            <Link href={href} className="block h-full">
+                <CardHeader className="flex flex-row items-center gap-4">
+                    <Icon className="h-8 w-8 text-primary" />
+                    <div>
+                        <CardTitle>{title}</CardTitle>
+                        <CardDescription>{description}</CardDescription>
+                    </div>
+                </CardHeader>
+                <CardFooter>
+                    <Button variant="link" className="p-0">
+                        Go to {title} <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                </CardFooter>
+            </Link>
+        </Card>
+    );
+}
 
 export default function MyProfilePage() {
   const { user, isUserLoading, firestore } = useFirebase();
@@ -123,11 +151,11 @@ export default function MyProfilePage() {
   
   return (
     <div className="container mx-auto py-12 px-4 md:px-6">
-      <div className="grid md:grid-cols-3 gap-8">
-        <div className="md:col-span-2">
+      <div className="grid lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2">
             <Card>
                 <CardHeader>
-                <CardTitle className="text-3xl font-headline">My Profile</CardTitle>
+                <CardTitle className="text-3xl font-headline">{t('my-profile')}</CardTitle>
                 <CardDescription>Manage your personal information. Activate the voice assistant to fill the form by speaking.</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -209,42 +237,50 @@ export default function MyProfilePage() {
             </Card>
         </div>
          <div className="space-y-8">
-             <Card className="bg-primary/5 border-primary/20">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Sparkles className="h-5 w-5 text-primary" />
-                        Voice ID
-                    </CardTitle>
-                    <CardDescription>
-                        Set up a voice password for a faster, more secure way to log in and confirm actions.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Button asChild className="w-full">
-                        <Link href="/dashboard/customer/voice-id">
-                            Manage Your Voice ID
-                        </Link>
-                    </Button>
-                </CardContent>
-            </Card>
-            <Card className="bg-secondary/20 border-secondary/40">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Fingerprint className="h-5 w-5 text-secondary-foreground" />
-                        Fingerprint Login
-                    </CardTitle>
-                    <CardDescription>
-                        Enable passwordless login by registering your device's fingerprint sensor.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Button asChild className="w-full">
-                        <Link href="/dashboard/customer/fingerprint">
-                            Manage Fingerprint Login
-                        </Link>
-                    </Button>
-                </CardContent>
-            </Card>
+            <div className="space-y-4">
+                <h2 className="text-xl font-bold font-headline">My Dashboards</h2>
+                {dashboardLinks.map(link => <DashboardLinkCard key={link.href} {...link} />)}
+            </div>
+
+            <div className="space-y-4">
+                 <h2 className="text-xl font-bold font-headline">Account Security</h2>
+                 <Card className="bg-secondary/20 border-secondary/40">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Fingerprint className="h-5 w-5 text-secondary-foreground" />
+                            Fingerprint Login
+                        </CardTitle>
+                        <CardDescription>
+                            Enable passwordless login by registering your device's fingerprint sensor.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button asChild className="w-full">
+                            <Link href="/dashboard/customer/fingerprint">
+                                Manage Fingerprint Login
+                            </Link>
+                        </Button>
+                    </CardContent>
+                </Card>
+                 <Card className="bg-primary/5 border-primary/20">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Voicemail className="h-5 w-5 text-primary" />
+                            Voice ID
+                        </CardTitle>
+                        <CardDescription>
+                            Set up a voice password for a faster, more secure way to log in and confirm actions.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button asChild className="w-full">
+                            <Link href="/dashboard/customer/voice-id">
+                                Manage Your Voice ID
+                            </Link>
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
         </div>
       </div>
     </div>
