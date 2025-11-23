@@ -101,16 +101,16 @@ function UserMenu() {
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>{t('my-account')}</DropdownMenuLabel>
         <DropdownMenuItem disabled>{user.email}</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <Link href={dashboardHref} passHref>
-          <DropdownMenuItem>
-              <LayoutDashboard className="mr-2 h-4 w-4" />
-              <span>{t('dashboard')}</span>
-          </DropdownMenuItem>
-        </Link>
+        
         {isAdmin && (
             <>
                 <DropdownMenuSeparator />
+                 <Link href={dashboardHref} passHref>
+                    <DropdownMenuItem>
+                        <LayoutDashboard className="mr-2 h-4 w-4" />
+                        <span>{t('dashboard')}</span>
+                    </DropdownMenuItem>
+                </Link>
                 <DropdownMenuLabel>Admin</DropdownMenuLabel>
                  <Link href="/dashboard/owner/orders" passHref>
                     <DropdownMenuItem>
@@ -170,7 +170,7 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
 
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
-      <nav className="flex-1 flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
+      <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
         <Link
           href="/"
           className="flex items-center gap-2 text-lg font-semibold md:text-base"
@@ -178,7 +178,6 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
           <Package2 className="h-6 w-6 text-primary" />
           <span className="font-headline">LocalBasket</span>
         </Link>
-        <div className="hidden md:flex items-center gap-5">
         {navLinks.map(({ href, label }) => (
           <Link
             key={href}
@@ -191,10 +190,9 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
             {t(label)}
           </Link>
         ))}
-        </div>
       </nav>
       
-      <div className="flex items-center justify-end gap-2 md:ml-auto md:gap-2 lg:gap-4">
+      <div className="flex w-full items-center justify-end gap-2 md:ml-auto md:gap-2 lg:gap-4">
         <LanguageSwitcher />
         <Button variant={voiceEnabled ? 'secondary' : 'outline'} size="icon" onClick={handleToggleVoiceWithCheck} className="relative">
           {voiceEnabled ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
