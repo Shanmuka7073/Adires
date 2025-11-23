@@ -288,8 +288,9 @@ export function VoiceCommander({
       return;
     }
     
+    // Stop recognition before speaking
     if (recognition) {
-        try { recognition.stop(); } catch(e) {}
+        recognition.stop();
     }
 
     isSpeakingRef.current = true;
@@ -314,12 +315,10 @@ export function VoiceCommander({
 
     const handleEnd = () => {
       isSpeakingRef.current = false;
+      // The onend handler for recognition will now be responsible for restarting.
+      // This ensures we only restart *after* speech has finished.
       if (typeof onEndCallback === 'function') {
         onEndCallback();
-      } else if (onEndCallback !== false && isEnabledRef.current && recognition) {
-        try {
-          if (!isSpeakingRef.current) recognition.start();
-        } catch(e) {}
       }
     };
     
@@ -914,19 +913,22 @@ export function VoiceCommander({
     };
     
     recognition.onend = () => {
-        if (isEnabledRef.current && !isSpeakingRef.current) {
-            setTimeout(() => {
-                try {
-                    if (isEnabledRef.current && !isSpeakingRef.current && recognition) {
-                         recognition.start();
-                    }
-                } catch (e) {
-                    if (! (e instanceof DOMException && e.name === 'InvalidStateError')) {
-                        console.error("Could not start recognition:", e);
-                    }
-                }
-            }, 300);
-        }
+      // This is the robust restart logic. It will always try to restart if enabled.
+      // The `isSpeakingRef` check ensures it doesn't restart while the app is talking.
+      if (isEnabledRef.current && !isSpeakingRef.current) {
+        setTimeout(() => {
+          try {
+            if (isEnabledRef.current && !isSpeakingRef.current && recognition) {
+              recognition.start();
+            }
+          } catch (e) {
+            // Ignore 'InvalidStateError' which can happen if it's already starting.
+            if (!(e instanceof DOMException && e.name === 'InvalidStateError')) {
+              console.error("Could not restart recognition:", e);
+            }
+          }
+        }, 300); // A short delay can help prevent race conditions.
+      }
     };
 
     commandActionsRef.current = {
@@ -1300,5 +1302,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    
