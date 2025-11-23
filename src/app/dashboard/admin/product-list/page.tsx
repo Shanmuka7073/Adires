@@ -24,9 +24,9 @@ export default function ProductListPage() {
                     {productCategories.length > 0 ? (
                         <Accordion type="multiple" className="w-full">
                             {productCategories.map(category => (
-                                <AccordionItem value={category.name} key={category.name}>
+                                <AccordionItem value={category.categoryName} key={category.categoryName}>
                                     <AccordionTrigger className="text-xl font-semibold">
-                                        {category.name} ({category.items.length})
+                                        {category.categoryName} ({category.items.length})
                                     </AccordionTrigger>
                                     <AccordionContent>
                                         <ul className="list-disc pl-5 grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-2 text-muted-foreground">
