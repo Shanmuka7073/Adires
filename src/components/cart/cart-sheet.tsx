@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useCart } from '@/lib/cart';
@@ -14,7 +13,6 @@ import { getProductImage } from '@/lib/data';
 import { useAppStore } from '@/lib/store';
 import { t } from '@/lib/locales';
 
-// A component to render each item, now receiving image data directly
 function CartSheetItem({ item, image }) {
     const { removeItem, updateQuantity } = useCart();
     const { product, variant, quantity } = item;
@@ -22,6 +20,8 @@ function CartSheetItem({ item, image }) {
     const productNameKey = product.name.toLowerCase().replace(/ /g, '-');
     const englishName = t(productNameKey, 'en');
     const teluguName = t(productNameKey, 'te');
+    
+    const finalPrice = variant.price * 1.20;
 
     return (
         <div className="flex items-center gap-4 py-3">
@@ -38,7 +38,7 @@ function CartSheetItem({ item, image }) {
                     <p className="font-medium leading-tight line-clamp-2">{englishName} <span className="text-sm text-muted-foreground">({variant.weight})</span></p>
                     <p className="text-xs text-muted-foreground">{teluguName}</p>
                 </div>
-                <p className="text-sm font-semibold">₹{(variant.price * quantity).toFixed(2)}</p>
+                <p className="text-sm font-semibold">₹{(finalPrice * quantity).toFixed(2)}</p>
                  <div className="flex items-center gap-2">
                     <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateQuantity(variant.sku, quantity - 1)}>
                         <Minus className="h-3.5 w-3.5" />

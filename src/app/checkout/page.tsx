@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useCart } from '@/lib/cart';
@@ -57,6 +56,8 @@ function OrderSummaryItem({ item, image }) {
     const productNameKey = product.name.toLowerCase().replace(/ /g, '-');
     const englishName = t(productNameKey, 'en');
     const teluguName = t(productNameKey, 'te');
+    
+    const finalPrice = variant.price * 1.20;
 
     return (
         <div className="flex justify-between items-center">
@@ -68,7 +69,7 @@ function OrderSummaryItem({ item, image }) {
                     <p className="text-sm text-muted-foreground">Qty: {quantity}</p>
                 </div>
             </div>
-            <p>₹{(variant.price * quantity).toFixed(2)}</p>
+            <p>₹{(finalPrice * quantity).toFixed(2)}</p>
         </div>
     );
 }
@@ -97,16 +98,13 @@ export const useCheckoutStore = create<CheckoutState>((set) => ({
   shouldPlaceOrderDirectly: false,
   setShouldPlaceOrderDirectly: (shouldPlace) => set({ shouldPlaceOrderDirectly: shouldPlace }),
   setHomeAddress: (address) => {
-    // This is a placeholder. The actual logic is in the page component.
-    // We update the state to trigger effects in the component.
     set(state => ({ ...state })); 
   },
   setShouldUseCurrentLocation: (shouldUse) => {
-    // Placeholder, logic is in component.
      set(state => ({ ...state }));
   },
-  handleUseHomeAddress: () => {}, // Default empty function
-  handleUseCurrentLocation: () => {}, // Default empty function
+  handleUseHomeAddress: () => {},
+  handleUseCurrentLocation: () => {},
   setAddressHandlers: (homeHandler, currentHandler) => set({ handleUseHomeAddress: homeHandler, handleUseCurrentLocation: currentHandler }),
 }));
 
@@ -137,7 +135,7 @@ export default function CheckoutPage() {
       setPlaceOrderBtnRef,
       shouldPlaceOrderDirectly,
       setShouldPlaceOrderDirectly,
-      setAddressHandlers, // Get the function to set our handlers
+      setAddressHandlers,
     } = useCheckoutStore();
   
   const { triggerVoicePrompt } = useVoiceCommander();
@@ -151,7 +149,6 @@ export default function CheckoutPage() {
     }
   }, [firestore, fetchInitialData]);
 
-  // Automatically set the store to LocalBasket
   useEffect(() => {
     if (localBasketStore && !activeStoreId) {
       setActiveStoreId(localBasketStore.id);
@@ -193,7 +190,6 @@ export default function CheckoutPage() {
     }
   }, [userData, form, toast]);
 
-  // Expose the local handlers to the global state for the VoiceCommander to use
   useEffect(() => {
     setAddressHandlers(handleUseHomeAddress, handleUseCurrentLocation);
   }, [handleUseHomeAddress, handleUseCurrentLocation, setAddressHandlers]);
@@ -215,7 +211,6 @@ export default function CheckoutPage() {
     }
   }, [deliveryAddressValue, activeStoreId, triggerVoicePrompt]);
 
-  // Effect to pre-fill form with user data
   useEffect(() => {
     if (userData) {
       form.reset({
@@ -295,7 +290,7 @@ export default function CheckoutPage() {
                 variantSku: item.variant.sku,
                 variantWeight: item.variant.weight,
                 quantity: item.quantity,
-                price: item.variant.price,
+                price: item.variant.price * 1.20,
             })),
         };
 

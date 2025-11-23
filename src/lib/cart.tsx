@@ -1,4 +1,3 @@
-
 'use client';
 
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
@@ -6,9 +5,9 @@ import type { CartItem, Product, ProductVariant } from './types';
 import { useToast } from '@/hooks/use-toast';
 
 export interface UnidentifiedCartItem {
-  id: string; // A temporary unique ID, e.g., a timestamp
-  term: string; // The unrecognized term, e.g., "ullipayalu"
-  status: 'pending' | 'failed'; // Status to track AI processing
+  id: string; 
+  term: string; 
+  status: 'pending' | 'failed'; 
 }
 
 
@@ -38,7 +37,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const { toast } = useToast();
 
-  // Load cart from localStorage on initial render
   useEffect(() => {
     try {
       const storedCart = localStorage.getItem('localbasket-cart');
@@ -55,7 +53,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Save cart and active store to localStorage whenever they change
   useEffect(() => {
     try {
       localStorage.setItem('localbasket-cart', JSON.stringify(cartItems));
@@ -132,9 +129,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   
 
   const addIdentifiedItem = useCallback((product: Product, variant: ProductVariant, quantity: number, originalTermId: string) => {
-    // 1. Remove the placeholder
     removeUnidentifiedItem(originalTermId);
-    // 2. Add the actual item
     addItem(product, variant, quantity);
   }, [addItem, removeUnidentifiedItem]);
 
@@ -173,7 +168,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const cartCount = cartItems.reduce((count, item) => count + item.quantity, 0);
 
   const cartTotal = cartItems.reduce(
-    (total, item) => total + item.variant.price * item.quantity,
+    (total, item) => total + (item.variant.price * 1.20) * item.quantity,
     0
   );
 
