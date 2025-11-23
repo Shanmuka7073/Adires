@@ -71,7 +71,7 @@ function LanguageSwitcher() {
 function UserMenu() {
   const { user, isUserLoading } = useFirebase();
   const isAdmin = user && user.email === ADMIN_EMAIL;
-  const dashboardHref = isAdmin ? '/dashboard/admin' : '/dashboard/customer/my-profile';
+  const dashboardHref = isAdmin ? '/dashboard/admin' : '/dashboard';
 
   const handleLogout = async () => {
     const auth = getAuth();
@@ -112,12 +112,6 @@ function UserMenu() {
             <>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>Admin</DropdownMenuLabel>
-                <Link href="/dashboard/owner/my-store" passHref>
-                    <DropdownMenuItem>
-                        <Store className="mr-2 h-4 w-4" />
-                        <span>{t('master-store')}</span>
-                    </DropdownMenuItem>
-                </Link>
                  <Link href="/dashboard/owner/orders" passHref>
                     <DropdownMenuItem>
                         <ShoppingBag className="mr-2 h-4 w-4" />
@@ -176,7 +170,7 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
 
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
-      <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
+      <nav className="flex-1 flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
         <Link
           href="/"
           className="flex items-center gap-2 text-lg font-semibold md:text-base"
@@ -184,6 +178,7 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
           <Package2 className="h-6 w-6 text-primary" />
           <span className="font-headline">LocalBasket</span>
         </Link>
+        <div className="hidden md:flex items-center gap-5">
         {navLinks.map(({ href, label }) => (
           <Link
             key={href}
@@ -196,47 +191,10 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
             {t(label)}
           </Link>
         ))}
+        </div>
       </nav>
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0 md:hidden">
-            <Menu className="h-5 w-5" />
-            <span className="sr-only">Toggle navigation menu</span>
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="flex flex-col">
-           <SheetHeader>
-            <SheetTitle>
-                 <Link
-                    href="/"
-                    className="flex items-center gap-2 text-lg font-semibold"
-                    >
-                    <Package2 className="h-6 w-6 text-primary" />
-                    <span className="font-headline">LocalBasket</span>
-                </Link>
-            </SheetTitle>
-          </SheetHeader>
-          <div className="flex-1 overflow-y-auto">
-            <nav className="grid gap-4 text-lg font-medium mt-8">
-                {navLinks.map(({ href, label }) => (
-                <SheetClose asChild key={href}>
-                    <Link
-                        href={href}
-                        className={cn(
-                        'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
-                        pathname === href && 'text-primary'
-                        )}
-                    >
-                        {t(label)}
-                    </Link>
-                </SheetClose>
-                ))}
-            </nav>
-          </div>
-        </SheetContent>
-      </Sheet>
       
-      <div className="flex w-full items-center justify-end gap-2 md:ml-auto md:gap-2 lg:gap-4">
+      <div className="flex items-center justify-end gap-2 md:ml-auto md:gap-2 lg:gap-4">
         <LanguageSwitcher />
         <Button variant={voiceEnabled ? 'secondary' : 'outline'} size="icon" onClick={handleToggleVoiceWithCheck} className="relative">
           {voiceEnabled ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
