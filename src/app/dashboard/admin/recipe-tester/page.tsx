@@ -8,13 +8,13 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Beaker, Check, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { getMealDbRecipe } from '@/app/actions';
+import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
 
 export default function RecipeTesterPage() {
     const { toast } = useToast();
     const [isGenerating, startGeneration] = useTransition();
     const [dishName, setDishName] = useState('');
-    const [result, setResult] = useState<{ isSuccess: boolean; reason: string; ingredients: string[], instructions?: string } | null>(null);
+    const [result, setResult] = useState<{ isSuccess: boolean; reason: string; ingredients: string[] } | null>(null);
 
     const handleGetIngredients = async () => {
         if (!dishName.trim()) {
@@ -25,32 +25,35 @@ export default function RecipeTesterPage() {
         setResult(null);
         startGeneration(async () => {
             try {
-                const response = await getMealDbRecipe(dishName);
-                if (response.error) {
-                    setResult({ isSuccess: false, reason: response.error, ingredients: [] });
-                    toast({
-                        title: 'Could not find recipe',
-                        description: response.error,
-                        variant: 'destructive',
-                    });
-                } else {
+                const response = await getIngredientsForDish({
+                    dishName: dishName,
+                    language: 'en', // For testing, we can hardcode to English
+                });
+
+                if (response.isSuccess) {
                     setResult({ 
                         isSuccess: true, 
-                        reason: `Recipe found for "${dishName}"`,
-                        ingredients: response.ingredients || [],
-                        instructions: response.instructions,
+                        reason: `AI successfully found ingredients for "${dishName}"`,
+                        ingredients: response.ingredients,
                     });
                      toast({
                         title: 'Success!',
-                        description: `Found a recipe for "${dishName}".`,
+                        description: `Found ${response.ingredients.length} ingredients for "${dishName}".`,
+                    });
+                } else {
+                     setResult({ isSuccess: false, reason: `The AI could not determine the ingredients for "${dishName}". It may not be a known dish.`, ingredients: [] });
+                     toast({
+                        title: 'AI Could Not Find Recipe',
+                        description: `The model could not find ingredients for "${dishName}".`,
+                        variant: 'destructive',
                     });
                 }
             } catch (error) {
-                console.error("TheMealDB fetch failed:", error);
+                console.error("AI Recipe Flow failed:", error);
                 toast({
                     variant: 'destructive',
                     title: 'An Error Occurred',
-                    description: 'The recipe fetch failed. Check the console for details.',
+                    description: 'The AI flow failed. Check the server console for details.',
                 });
             }
         });
@@ -62,10 +65,10 @@ export default function RecipeTesterPage() {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-2xl font-headline">
                         <Beaker className="h-6 w-6 text-primary" />
-                        Recipe Database Tester
+                        AI Recipe Ingredient Tester
                     </CardTitle>
                     <CardDescription>
-                        Manually test the ability to find ingredients for a dish from TheMealDB API.
+                        Manually test the AI's ability to find ingredients for a dish.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -83,9 +86,9 @@ export default function RecipeTesterPage() {
 
                     <Button onClick={handleGetIngredients} disabled={isGenerating} className="w-full">
                         {isGenerating ? (
-                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Fetching...</>
+                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</>
                         ) : (
-                            'Get Recipe'
+                            'Get Ingredients from AI'
                         )}
                     </Button>
 
@@ -96,26 +99,17 @@ export default function RecipeTesterPage() {
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
                                         {result.isSuccess ? <Check className="h-5 w-5 text-green-600" /> : <AlertTriangle className="h-5 w-5 text-red-600" />}
-                                        {result.isSuccess ? 'Recipe Found' : 'Failed'}
+                                        {result.isSuccess ? 'Success' : 'Failed'}
                                     </CardTitle>
                                     <CardDescription>{result.reason}</CardDescription>
                                 </CardHeader>
                                 {result.isSuccess && result.ingredients.length > 0 && (
-                                    <CardContent className="space-y-4">
-                                        <div>
-                                            <h4 className="font-semibold mb-2">Ingredients</h4>
-                                            <div className="flex flex-wrap gap-2">
-                                                {result.ingredients.map((ing, index) => (
-                                                    <Badge key={index} variant="secondary">{ing}</Badge>
-                                                ))}
-                                            </div>
+                                    <CardContent>
+                                        <div className="flex flex-wrap gap-2">
+                                            {result.ingredients.map((ing, index) => (
+                                                <Badge key={index} variant="secondary">{ing}</Badge>
+                                            ))}
                                         </div>
-                                         {result.instructions && (
-                                            <div>
-                                                <h4 className="font-semibold mt-4 mb-2">Instructions</h4>
-                                                <p className="text-sm whitespace-pre-wrap">{result.instructions}</p>
-                                            </div>
-                                        )}
                                     </CardContent>
                                 )}
                             </Card>

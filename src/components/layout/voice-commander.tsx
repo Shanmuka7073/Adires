@@ -18,6 +18,7 @@ import { useCheckoutStore } from '@/app/checkout/page';
 import { useProfileFormStore, ProfileFormValues } from '@/lib/store';
 import { getWikipediaSummary, getMealDbRecipe } from '@/app/actions';
 import { useVoiceCommander as useVoiceCommanderContext } from './main-layout';
+import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
 
 
 export interface Command {
@@ -953,25 +954,28 @@ export function VoiceCommander({
       },
 
       'get-recipe': async ({ dishName, lang }: { dishName: string, lang: string }) => {
-          const replyLang = lang === 'hi' ? 'en' : lang;
-          const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
-          speak(`Let me get you a recipe for ${dishName}...`, langWithRegion, false);
-          
-          try {
-              const result = await getMealDbRecipe(dishName);
-              if (result.ingredients && result.ingredients.length > 0) {
-                  const ingredientsText = result.ingredients.join(', ');
-                  const fullRecipeText = `Here is a recipe for ${dishName}. You will need: ${ingredientsText}.`;
-                  speak(fullRecipeText, langWithRegion);
-                  // Optionally, you can speak out the instructions too.
-                  // speak(result.instructions, langWithRegion);
-              } else {
-                  speak(result.error || `I'm sorry, I couldn't find a recipe for ${dishName}.`, langWithRegion);
-              }
-          } catch (error) {
-              console.error("Recipe fetch failed:", error);
-              speak("I'm sorry, I ran into an error while trying to get that recipe.", langWithRegion);
-          }
+        if (!aiConfig?.isRecipeApiEnabled) {
+          speak("I'm sorry, the recipe feature is currently disabled.", lang);
+          return;
+        }
+
+        const replyLang = lang === 'hi' ? 'en' : lang;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
+        if (!firestore) return;
+
+        speak(`Let me check the ingredients for ${dishName}...`, langWithRegion, false);
+        try {
+            const result = await getIngredientsForDish({ dishName, language: replyLang });
+            if (result.isSuccess && result.ingredients.length > 0) {
+                const ingredientsText = result.ingredients.join(', ');
+                speak(`The main ingredients for ${dishName} are: ${ingredientsText}`, langWithRegion);
+            } else {
+                speak(`I'm sorry, I couldn't find the ingredients for ${dishName}.`, langWithRegion);
+            }
+        } catch (error) {
+            console.error("AI recipe flow failed:", error);
+            speak(`I'm having trouble connecting to my knowledge base right now. Please try again later.`, langWithRegion);
+        }
       },
       checkout: (params: { lang: string }) => {
         const lang = params.lang || language;
