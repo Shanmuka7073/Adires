@@ -66,38 +66,6 @@ function LanguageSwitcher() {
     )
 }
 
-function UserMenu() {
-  const { user, isUserLoading } = useFirebase();
-  const isAdmin = user && user.email === ADMIN_EMAIL;
-  const dashboardHref = isAdmin ? '/dashboard/admin' : '/dashboard';
-
-  if (isUserLoading) {
-    return <Skeleton className="h-10 w-10 rounded-full" />;
-  }
-
-  if (!user) {
-    return (
-      <Button asChild variant="outline">
-        <Link href="/login">{t('login')}</Link>
-      </Button>
-    );
-  }
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="icon" className="rounded-full">
-          <UserCircle className="h-5 w-5" />
-          <span className="sr-only">Toggle user menu</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {/* The dropdown is now empty as per user requests, logout is on profile page */}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
 interface HeaderProps {
   voiceEnabled: boolean;
   onToggleVoice: () => void;
@@ -135,7 +103,7 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
 
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
-      <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
+      <nav className="flex-1 md:flex-grow-0 flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
         <Link
           href="/"
           className="flex items-center gap-2 text-lg font-semibold md:text-base"
@@ -148,7 +116,7 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
             key={href}
             href={href}
             className={cn(
-              'transition-colors hover:text-foreground',
+              'hidden md:block transition-colors hover:text-foreground',
               pathname === href ? 'text-foreground' : 'text-muted-foreground'
             )}
           >
@@ -157,26 +125,21 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
         ))}
       </nav>
       
-      <div className="flex w-full items-center justify-between md:justify-end gap-2 md:ml-auto md:gap-2 lg:gap-4">
-        <div className="md:hidden">
-            <Link
-                href="/"
-                className="flex items-center gap-2 text-lg font-semibold md:text-base"
-                >
-                <Package2 className="h-6 w-6 text-primary" />
-                <span className="font-headline">LocalBasket</span>
-            </Link>
-        </div>
-        <div className="flex items-center gap-2">
-            <LanguageSwitcher />
-            <Button variant={voiceEnabled ? 'secondary' : 'outline'} size="icon" onClick={handleToggleVoiceWithCheck} className="relative">
-            {voiceEnabled ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-            {voiceEnabled && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>}
-            <span className="sr-only">{voiceEnabled ? 'Stop voice commands' : 'Start voice commands'}</span>
+      <div className="flex w-full items-center justify-end gap-2 md:ml-auto md:w-auto">
+        <LanguageSwitcher />
+        <Button variant={voiceEnabled ? 'secondary' : 'outline'} size="icon" onClick={handleToggleVoiceWithCheck} className="relative">
+          {voiceEnabled ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+          {voiceEnabled && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>}
+          <span className="sr-only">{voiceEnabled ? 'Stop voice commands' : 'Start voice commands'}</span>
+        </Button>
+        <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />
+        {isUserLoading ? (
+            <Skeleton className="h-10 w-10 rounded-full" />
+        ) : !user ? (
+             <Button asChild variant="outline">
+                <Link href="/login">{t('login')}</Link>
             </Button>
-            <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />
-            <UserMenu />
-        </div>
+        ) : null}
       </div>
         {hasMounted && voiceEnabled && (
             <>
