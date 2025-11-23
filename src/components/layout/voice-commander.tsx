@@ -310,7 +310,7 @@ export function VoiceCommander({
     if (voice) {
       utterance.voice = voice;
     } else {
-      console.warn(`No voice found for language: ${lang}`);
+      console.warn(`No specific voice found for language '${targetLang}'. Using browser default.`);
     }
 
     const handleEnd = () => {
@@ -624,7 +624,7 @@ export function VoiceCommander({
         addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp() });
         updateUnidentifiedItem(tempId, 'failed');
 
-    }, [addUnidentifiedItem, updateUnidentifiedItem, firestore, user, speak]);
+    }, [addUnidentifiedItem, updateUnidentifiedItem, firestore, user, speak, t]);
 
 
   const handleCommand = useCallback(async (commandText: string) => {
@@ -877,7 +877,7 @@ export function VoiceCommander({
       storeAliasMap, profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData,
       placeOrderBtnRef, onCloseCart, setHomeAddress,
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
-      removeItem, router, stores, productPrices
+      removeItem, router, stores, productPrices, handleCommandFailure
   ]);
 
     // Effect to handle retrying a command
