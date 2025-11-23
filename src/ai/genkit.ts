@@ -6,7 +6,7 @@
  */
 import 'dotenv/config'; // Import and configure dotenv at the very top.
 import { genkit } from 'genkit';
-import { googleAI, gemini15Flash } from '@genkit-ai/google-genai';
+import { googleAI } from '@genkit-ai/google-genai';
 
 
 // Initialize Genkit with the Google AI plugin.
@@ -15,6 +15,6 @@ export const ai = genkit({
   plugins: [
     googleAI(),
   ],
-  defaultModel: gemini15Flash,
+  defaultModel: 'gemini-1.5-flash-latest',
   logLevel: 'debug',
 });
