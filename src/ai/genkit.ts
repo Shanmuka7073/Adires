@@ -4,9 +4,8 @@
  * This ensures that Genkit is configured in a single, consistent place.
  */
 import 'dotenv/config'; // Import and configure dotenv at the very top.
-import { genkit } from 'genkit';
+import { genkit, openai } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
-import { openai } from '@genkit-ai/openai';
 
 // The plugins will now automatically pick up the API keys
 // from the process.env environment variables.
