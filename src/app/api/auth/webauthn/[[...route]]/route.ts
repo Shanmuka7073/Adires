@@ -96,7 +96,7 @@ export async function POST(
       const opts: GenerateRegistrationOptionsOpts = {
         rpName,
         rpID,
-        userID: userId,
+        userID: Buffer.from(userId, 'utf-8'),
         userName: user.email,
         timeout: 60000,
         attestationType: 'none',
