@@ -944,7 +944,7 @@ export function VoiceCommander({
       getKnowledge: async ({ topic, lang }: { topic: string; lang: string }) => {
         const replyLang = lang === 'hi' ? 'en' : lang;
         const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
-        speak(`Looking up information on ${topic}...`, langWithRegion);
+        speak(`Looking up information on ${topic}...`, langWithRegion, false);
         const result = await getWikipediaSummary(topic);
         if (result.summary) {
           speak(result.summary, langWithRegion);
@@ -956,34 +956,18 @@ export function VoiceCommander({
       'get-recipe': async ({ dishName, lang }: { dishName: string, lang: string }) => {
         const replyLang = lang === 'hi' ? 'en' : lang;
         const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
-        if (!firestore) return;
+        speak(`Let me look up how to make ${dishName}...`, langWithRegion, false);
 
-        speak(`Let me check the ingredients for ${dishName}...`, langWithRegion, false);
-        
         try {
-            // First, try our internal cache
-            const cachedIngredients = await getCachedRecipe(firestore, dishName);
-            if (cachedIngredients) {
-                const ingredientsText = cachedIngredients.join(', ');
-                speak(`The ingredients for ${dishName} are: ${ingredientsText}`, langWithRegion);
-                return;
-            }
-
-            // If not in cache, use Wikipedia as a fallback knowledge source
             const result = await getWikipediaSummary(dishName);
             if (result.summary) {
-                // A very basic way to find ingredients in a text. A real app would use more advanced NLP.
-                const ingredientsMatch = result.summary.match(/ingredients include:? (.*?)\./i) || result.summary.match(/is made with (.*?)\./i);
-                if (ingredientsMatch && ingredientsMatch[1]) {
-                    speak(`According to my sources, the main ingredients for ${dishName} are: ${ingredientsMatch[1]}`, langWithRegion);
-                } else {
-                     speak(`I found an article on ${dishName}, but couldn't isolate the ingredient list. Here's a summary: ${result.summary}`, langWithRegion);
-                }
+                // Provide the full summary from Wikipedia which often contains ingredients and preparation.
+                speak(result.summary, langWithRegion);
             } else {
-                speak(`I'm sorry, I couldn't find a recipe for ${dishName}.`, langWithRegion);
+                speak(`I'm sorry, I couldn't find a recipe or information for ${dishName} on Wikipedia.`, langWithRegion);
             }
         } catch (error) {
-            console.error("Knowledge flow failed:", error);
+            console.error("Wikipedia recipe fetch failed:", error);
             speak(`I'm having trouble connecting to my knowledge base right now. Please try again later.`, langWithRegion);
         }
       },
