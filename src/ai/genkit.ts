@@ -6,6 +6,7 @@
  */
 import 'dotenv/config'; // Import and configure dotenv at the very top.
 import { genkit } from 'genkit';
+// Note: The openai plugin is not used for TTS anymore, but may be used for other things.
 import { openAI } from 'openai';
 
 
