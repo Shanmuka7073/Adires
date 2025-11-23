@@ -792,7 +792,7 @@ export function VoiceCommander({
     const separatorUsed = multiItemSeparators.find(sep => commandText.toLowerCase().includes(` ${sep} `));
     
     if (separatorUsed && recognizeIntent(commandText, spokenLang).type === 'ORDER_ITEM') {
-        await commandActionsRef.current.orderMultipleItems(commandText.split(new RegExp(` ${sep} `, 'i')), spokenLang, commandText);
+        await commandActionsRef.current.orderMultipleItems(commandText.split(new RegExp(` ${separatorUsed} `, 'i')), spokenLang, commandText);
         return;
     }
 
