@@ -40,13 +40,21 @@ const navLinks = [
   { href: '/', label: 'home' },
 ];
 
-const dashboardLinks = [
+// Links for the user dropdown menu - simplified
+const userDropdownDashboardLinks = [
+    { href: '/dashboard/owner/orders', label: 'store-orders', icon: ShoppingBag },
+    { href: '/dashboard/delivery/deliveries', label: 'deliveries', icon: Truck },
+];
+
+// Links for the mobile slide-out menu
+const mobileNavDashboardLinks = [
     { href: '/dashboard/customer/my-profile', label: 'my-profile', icon: UserCircle },
     { href: '/dashboard/customer/my-orders', label: 'my-orders', icon: ShoppingBag},
     { href: '/dashboard/owner/my-store', label: 'my-store', icon: Store },
     { href: '/dashboard/owner/orders', label: 'store-orders', icon: ShoppingBag },
     { href: '/dashboard/delivery/deliveries', label: 'deliveries', icon: Truck },
-]
+];
+
 
 function LanguageSwitcher() {
     const { language, setLanguage } = useAppStore();
@@ -118,7 +126,7 @@ function UserMenu() {
           <>
             <DropdownMenuSeparator />
             <DropdownMenuLabel>{t('roles')}</DropdownMenuLabel>
-            {dashboardLinks.map(({ href, label, icon: Icon }) => (
+            {userDropdownDashboardLinks.map(({ href, label, icon: Icon }) => (
                 <Link key={href} href={href} passHref>
                     <DropdownMenuItem>
                         <Icon className="mr-2 h-4 w-4" />
@@ -283,7 +291,7 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
                             {t('dashboard')}
                         </Link>
                     </SheetClose>
-                    {!isAdmin && dashboardLinks.map(({ href, label, icon: Icon }) => (
+                    {!isAdmin && mobileNavDashboardLinks.map(({ href, label, icon: Icon }) => (
                     <SheetClose asChild key={href}>
                         <Link
                             href={href}
