@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { doc, setDoc } from 'firebase/firestore';
 import { useTransition, useEffect } from 'react';
 import type { User as AppUser } from '@/lib/types';
-import { Loader2, Fingerprint, Store, Truck, Voicemail, LogOut } from 'lucide-react';
+import { Loader2, Fingerprint, Store, Truck, Voicemail, LogOut, LayoutDashboard } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useProfileFormStore } from '@/lib/store';
 import Link from 'next/link';
@@ -222,6 +222,24 @@ export default function MyProfilePage() {
             </Card>
         </div>
          <div className="space-y-8">
+            <div className="space-y-4">
+                 <h2 className="text-xl font-bold font-headline">My Dashboards</h2>
+                 <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                           <LayoutDashboard className="h-5 w-5 text-primary" />
+                           Main Dashboard
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <Button asChild className="w-full" variant="outline">
+                           <Link href="/dashboard">
+                                Go to Dashboard
+                            </Link>
+                        </Button>
+                    </CardContent>
+                 </Card>
+            </div>
             <div className="space-y-4">
                  <h2 className="text-xl font-bold font-headline">Account Security</h2>
                  <Card className="bg-secondary/20 border-secondary/40">

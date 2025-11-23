@@ -40,11 +40,6 @@ const navLinks = [
   { href: '/', label: 'home' },
 ];
 
-const dashboardLinks = [
-    { href: '/dashboard/owner/orders', label: 'store-orders', icon: ShoppingBag },
-    { href: '/dashboard/delivery/deliveries', label: 'deliveries', icon: Truck },
-]
-
 function LanguageSwitcher() {
     const { language, setLanguage } = useAppStore();
 
@@ -76,11 +71,6 @@ function UserMenu() {
   const isAdmin = user && user.email === ADMIN_EMAIL;
   const dashboardHref = isAdmin ? '/dashboard/admin' : '/dashboard';
 
-  const handleLogout = async () => {
-    const auth = getAuth();
-    await signOut(auth);
-  };
-
   if (isUserLoading) {
     return <Skeleton className="h-10 w-10 rounded-full" />;
   }
@@ -102,12 +92,7 @@ function UserMenu() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <Link href={dashboardHref} passHref>
-          <DropdownMenuItem>
-              <LayoutDashboard className="mr-2 h-4 w-4" />
-              <span>{t('dashboard')}</span>
-          </DropdownMenuItem>
-        </Link>
+        {/* The dropdown is now empty as per user requests, logout is on profile page */}
       </DropdownMenuContent>
     </DropdownMenu>
   );
