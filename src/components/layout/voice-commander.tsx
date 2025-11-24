@@ -939,7 +939,13 @@ export function VoiceCommander({
     commandActionsRef.current = {
       home: (params: {lang: string}) => router.push('/'),
       stores: (params: {lang: string}) => router.push('/stores'),
-      dashboard: (params: {lang: string}) => router.push('/dashboard'),
+      dashboard: (params: {lang: string}) => {
+          if (user?.email === 'admin@gmail.com' || user?.email === 'admin2@gmail.com') {
+              router.push('/dashboard/admin');
+          } else {
+              router.push('/dashboard');
+          }
+      },
       cart: (params: {lang: string}) => router.push('/cart'),
       orders: (params: {lang: string}) => router.push('/dashboard/customer/my-orders'),
       deliveries: (params: {lang: string}) => router.push('/dashboard/delivery/deliveries'),
