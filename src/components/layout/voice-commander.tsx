@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -662,9 +661,16 @@ export function VoiceCommander({
     if (itemForPriceCheck.current) {
         const productForCheck = itemForPriceCheck.current;
         const yesKeywords = ['yes', 'add', 'buy', 'okay', 'yep', 'yeah', 'sare', 'sari', 'sareh', 'సరే', 'అవును'];
-        itemForPriceCheck.current = null; // Reset immediately
+        const noKeywords = ['no', 'cancel', 'stop', 'వద్దు', 'not now'];
+        const lowerCommandText = commandText.toLowerCase();
 
-        if (yesKeywords.some(kw => commandText.toLowerCase().includes(kw))) {
+        const isYes = yesKeywords.some(kw => lowerCommandText.includes(kw));
+        const isNo = noKeywords.some(kw => lowerCommandText.includes(kw));
+
+        // Reset the context as soon as we start handling it.
+        itemForPriceCheck.current = null; 
+
+        if (isYes) {
             const priceData = productPrices[productForCheck.name.toLowerCase()];
             const smallestVariant = priceData?.variants?.sort((a, b) => a.price - b.price)[0];
             
@@ -679,10 +685,13 @@ export function VoiceCommander({
             } else {
                  speak(t('no-price-found-speech', replyLang).replace('{productName}', getProductName(productForCheck)), langWithRegion);
             }
+        } else if (isNo) {
+            speak("Okay, cancelled.", langWithRegion); // Acknowledge cancellation
         } else {
-             handleCommand(commandText); // Re-process as a new command
+            // It was not a yes or a no, so re-process as a new command.
+            handleCommand(commandText); 
         }
-        return;
+        return; // Exit after handling the contextual response.
     }
     
     if (isWaitingForAddressTypeRef.current) {
