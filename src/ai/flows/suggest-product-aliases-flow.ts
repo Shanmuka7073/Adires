@@ -36,7 +36,7 @@ const prompt = ai.definePrompt({
   name: 'suggestProductAliasesPrompt',
   input: {schema: SuggestProductAliasesInputSchema},
   output: {schema: SuggestProductAliasesOutputSchema},
-  model: googleAI.model('gemini-1.5-flash'),
+  model: googleAI.model('gemini-2.5-flash'),
   prompt: `You are a linguistic expert for an Indian grocery app. Your task is to generate common aliases for a given product in multiple languages and their scripts.
 
 For the product: "{{productName}}"
