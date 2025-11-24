@@ -61,7 +61,6 @@ const generateVoiceReplyFlow = ai.defineFlow(
   },
   async (input) => {
     // The prompt should ONLY contain the text to be synthesized.
-    // The voice and dialect are handled by the model configuration.
     const prompt = input.text;
 
     const { media } = await ai.generate({
@@ -71,7 +70,8 @@ const generateVoiceReplyFlow = ai.defineFlow(
         speechConfig: {
           voiceConfig: {
             // This voice is chosen for its suitability for Indian accents.
-            prebuiltVoiceConfig: { voiceName: 'Algenib' },
+            // Achernar is a female voice.
+            prebuiltVoiceConfig: { voiceName: 'Achernar' },
           },
         },
       },

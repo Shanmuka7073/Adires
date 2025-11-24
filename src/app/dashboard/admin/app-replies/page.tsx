@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Loader2, Save, MessageSquare, Sparkles, Volume2 } from 'lucide-react';
+import { Loader2, Save, MessageSquare, Sparkles, Volume2, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 import type { CommandGroup } from '@/lib/types';
@@ -21,6 +21,9 @@ function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestRep
     const [isGeneratingVoice, startVoiceGeneration] = useTransition();
     const [generatedAudio, setGeneratedAudio] = useState<Record<string, string>>({});
     const { toast } = useToast();
+
+    // The 'addItem' reply is dynamic and cannot have a static voice generated.
+    const isDynamicReply = commandKey === 'addItem';
 
     const handleSuggest = () => {
         startSuggestion(() => {
@@ -65,6 +68,14 @@ function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestRep
                         {isSuggesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                         Suggest Local Replies with AI
                     </Button>
+
+                    {isDynamicReply && (
+                        <div className="flex items-center gap-2 p-2 text-sm text-blue-800 bg-blue-100 rounded-md">
+                            <Info className="h-4 w-4" />
+                            <p>Voice generation is disabled for this reply because it contains dynamic variables like `{{productName}}`.</p>
+                        </div>
+                    )}
+
                     {(['en', 'te', 'hi'] as const).map(lang => (
                         <div key={lang} className="space-y-2">
                             <Label htmlFor={`reply-${lang}-${commandKey}`}>
@@ -82,7 +93,8 @@ function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestRep
                                     variant="secondary"
                                     size="sm"
                                     onClick={() => handleGenerateVoice(lang)}
-                                    disabled={isGeneratingVoice}
+                                    disabled={isGeneratingVoice || isDynamicReply}
+                                    title={isDynamicReply ? "Voice generation is disabled for dynamic replies" : "Generate voice for this text"}
                                 >
                                     {isGeneratingVoice ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Volume2 className="mr-2 h-4 w-4" />}
                                     Generate Voice
