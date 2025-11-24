@@ -20,6 +20,7 @@ import { useProfileFormStore } from '@/lib/store';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { getAuth, signOut } from 'firebase/auth';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 const profileSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -33,6 +34,7 @@ export type ProfileFormValues = z.infer<typeof profileSchema>;
 
 export default function MyProfilePage() {
   const { user, isUserLoading, firestore } = useFirebase();
+  const { isAdmin } = useAdminAuth();
   const { toast } = useToast();
   const router = useRouter();
   const [isSaving, startSaveTransition] = useTransition();
@@ -123,6 +125,8 @@ export default function MyProfilePage() {
     await signOut(auth);
     router.push('/login');
   };
+  
+  const dashboardLink = isAdmin ? "/dashboard/admin" : "/dashboard";
 
   if (isUserLoading || isProfileLoading) {
       return <div className="container mx-auto py-12">Loading your profile...</div>;
@@ -233,7 +237,7 @@ export default function MyProfilePage() {
                     </CardHeader>
                     <CardContent>
                         <Button asChild className="w-full" variant="outline">
-                           <Link href="/dashboard">
+                           <Link href={dashboardLink}>
                                 Go to Dashboard
                             </Link>
                         </Button>
