@@ -207,5 +207,13 @@ export const generalCommands: Record<string, CommandGroup> = {
             te: 'మీరు ఏమి ఆర్డర్ చేయాలనుకుంటున్నారో, ఏ స్టోర్ నుండి కావాలో, మరియు ఎక్కడికి డెలివరీ చేయాలో నాకు చెప్పండి. మిగిలినది నేను చూసుకుంటాను!',
             hi: 'बस मुझे बताएं कि आप क्या ऑर्डर करना चाहते हैं, किस स्टोर से चाहते हैं, और कहाँ डिलीवर करना है। बाकी मैं संभाल लूँगा!'
         }
+    },
+    'addItem': {
+        display: 'Add Item to Cart',
+        reply: {
+            en: "Okay, I've added {quantity} {weight} of {productName} to your cart.",
+            te: 'సరే, నేను మీ కార్ట్‌కి {quantity} {weight} {productName} జోడించాను.',
+            hi: 'ठीक है, मैंने आपकी कार्ट में {productName} का {quantity} {weight} जोड़ दिया है।'
+        }
     }
 };
