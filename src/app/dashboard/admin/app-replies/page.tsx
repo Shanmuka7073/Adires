@@ -17,10 +17,10 @@ import { suggestLocalReplies } from '@/ai/flows/suggest-local-replies-flow';
 import { generateVoiceReply } from '@/ai/flows/generate-voice-reply-flow';
 
 function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestReplies }) {
-    const [isSuggesting, startSuggestion] = useTransition();
-    const [isGeneratingVoice, startVoiceGeneration] = useTransition();
-    const [generatedAudio, setGeneratedAudio] = useState<Record<string, string>>({});
     const { toast } = useToast();
+    const [isSuggesting, startSuggestion] = useTransition();
+    const [generatingLang, setGeneratingLang] = useState<string | null>(null);
+    const [generatedAudio, setGeneratedAudio] = useState<Record<string, string>>({});
 
     const isDynamicReply = useMemo(() => {
         const replyObject = typeof commandData.reply === 'object' && commandData.reply !== null ? commandData.reply : { en: commandData.reply as string };
@@ -41,35 +41,36 @@ function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestRep
             return;
         }
 
-        startVoiceGeneration(async () => {
-            try {
-                const result = await generateVoiceReply({ text: textToSpeak, language: lang });
-                if (result.audioDataUri) {
-                    onReplyChange(commandKey, `${lang}_audio`, result.audioDataUri);
-                    setGeneratedAudio(prev => ({ ...prev, [lang]: result.audioDataUri }));
-                    toast({ title: `Voice generated for ${lang.toUpperCase()}!` });
-                } else {
-                    throw new Error("AI did not return any audio data.");
-                }
-            } catch (error: any) {
-                console.error("AI voice generation failed:", error);
-                const errorMessage = error.message || 'An unknown error occurred.';
-                
-                if (errorMessage.toLowerCase().includes('rate limit')) {
-                    toast({
-                        variant: 'destructive',
-                        title: 'Rate Limit Exceeded',
-                        description: 'You have made too many requests. Please wait for a minute and try again.',
-                    });
-                } else {
-                    toast({
-                        variant: 'destructive',
-                        title: 'Voice Generation Failed',
-                        description: errorMessage,
-                    });
-                }
+        setGeneratingLang(lang);
+        try {
+            const result = await generateVoiceReply({ text: textToSpeak, language: lang });
+            if (result.audioDataUri) {
+                onReplyChange(commandKey, `${lang}_audio`, result.audioDataUri);
+                setGeneratedAudio(prev => ({ ...prev, [lang]: result.audioDataUri }));
+                toast({ title: `Voice generated for ${lang.toUpperCase()}!` });
+            } else {
+                throw new Error("AI did not return any audio data.");
             }
-        });
+        } catch (error: any) {
+            console.error("AI voice generation failed:", error);
+            const errorMessage = error.message || 'An unknown error occurred.';
+            
+            if (errorMessage.toLowerCase().includes('rate limit')) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Rate Limit Exceeded',
+                    description: 'You have made too many requests. Please wait for a minute and try again.',
+                });
+            } else {
+                toast({
+                    variant: 'destructive',
+                    title: 'Voice Generation Failed',
+                    description: errorMessage,
+                });
+            }
+        } finally {
+            setGeneratingLang(null);
+        }
     };
 
     const replies = typeof commandData.reply === 'object' && commandData.reply !== null && !Array.isArray(commandData.reply)
@@ -110,10 +111,10 @@ function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestRep
                                     variant="secondary"
                                     size="sm"
                                     onClick={() => handleGenerateVoice(lang)}
-                                    disabled={isGeneratingVoice || isDynamicReply}
+                                    disabled={!!generatingLang || isDynamicReply}
                                     title={isDynamicReply ? "Voice generation is disabled for dynamic replies" : "Generate voice for this text"}
                                 >
-                                    {isGeneratingVoice ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Volume2 className="mr-2 h-4 w-4" />}
+                                    {generatingLang === lang ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Volume2 className="mr-2 h-4 w-4" />}
                                     Generate Voice
                                 </Button>
                                  {(generatedAudio[lang] || (commandData.reply as any)[`${lang}_audio`]) && (
