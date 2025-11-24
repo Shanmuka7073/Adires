@@ -226,3 +226,15 @@ export const VerifyVoiceprintOutputSchema = z.object({
     error: z.string().optional().describe('An error message if verification failed.'),
 });
 export type VerifyVoiceprintOutput = z.infer<typeof VerifyVoiceprintOutputSchema>;
+
+export type CommandGroup = {
+  display: string;
+  reply: {
+    en?: string;
+    te?: string;
+    hi?: string;
+    en_audio?: string;
+    te_audio?: string;
+    hi_audio?: string;
+  } | string;
+};

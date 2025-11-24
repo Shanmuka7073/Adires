@@ -290,23 +290,42 @@ export function VoiceCommander({
     
     const targetLang = lang.split('-')[0] as 'en' | 'te' | 'hi';
     let textToSpeak = '';
+    let audioUrl: string | undefined = undefined;
 
-    if (typeof textOrReply === 'string') {
+    if (typeof textOrReply === 'object' && textOrReply !== null) {
+        audioUrl = textOrReply[`${targetLang}_audio`];
+        textToSpeak = textOrReply[targetLang] || textOrReply['en'] || '';
+    } else if (typeof textOrReply === 'string') {
         textToSpeak = textOrReply;
-    } else if (typeof textOrReply === 'object' && textOrReply !== null && textOrReply[targetLang]) {
-        textToSpeak = textOrReply[targetLang];
-    } else if (typeof textOrReply === 'object' && textOrReply !== null && textOrReply['en']) {
-        textToSpeak = textOrReply['en']; // Fallback to English
     } else {
         console.warn('No suitable reply found for language:', targetLang, 'from', textOrReply);
         if (typeof onEndCallback === 'function') onEndCallback();
         return;
     }
     
-    // Pick one reply randomly if comma-separated
+    const onEnd = () => {
+        isSpeakingRef.current = false;
+        if (typeof onEndCallback === 'function') onEndCallback();
+        if (isEnabledRef.current && recognition) {
+            try { recognition.start(); } catch(e) {}
+        }
+    };
+    
+    // Prioritize playing the recorded audio
+    if (audioUrl) {
+        const audio = new Audio(audioUrl);
+        audio.onended = onEnd;
+        audio.onerror = (e) => {
+            console.error('Audio playback error', e);
+            onEnd();
+        };
+        audio.play().catch(onEnd);
+        return;
+    }
+
+    // Fallback to text-to-speech if no audio URL
     const replies = textToSpeak.split(',').map(r => r.trim());
     const text = replies[Math.floor(Math.random() * replies.length)];
-
     const utterance = new SpeechSynthesisUtterance(text);
     
     let voice = speechSynthesisVoices.find(v => v.lang.startsWith(targetLang) && v.name.includes('Google')) ||
@@ -319,25 +338,10 @@ export function VoiceCommander({
       console.warn(`No voice found for language: ${lang}. Using default.`);
     }
 
-    utterance.onend = () => {
-      isSpeakingRef.current = false;
-      if (typeof onEndCallback === 'function') onEndCallback();
-      if (isEnabledRef.current && recognition) {
-        try {
-          recognition.start();
-        } catch(e) {}
-      }
-    };
-    
+    utterance.onend = onEnd;
     utterance.onerror = (e) => {
       console.error('Speech synthesis error', e);
-      isSpeakingRef.current = false;
-      if (typeof onEndCallback === 'function') onEndCallback();
-      if (isEnabledRef.current && recognition) {
-        try {
-          recognition.start();
-        } catch(e) {}
-      }
+      onEnd();
     };
 
     window.speechSynthesis.speak(utterance);
@@ -683,11 +687,13 @@ export function VoiceCommander({
         }
     
         if (selectedVariant) {
-            addItemToCart(product, selectedVariant, 1);
+            const productWithContext = { ...product, isAiAssisted: true, matchedAlias: `Price: ${selectedVariant.price}` };
+            addItemToCart(productWithContext, selectedVariant, 1);
             onOpenCart();
-            const speech = t('adding-item-speech', replyLang).replace('{quantity}', '1').replace('{weight}', selectedVariant.weight).replace('{productName}', getProductName(product));
-            speak(speech, langWithRegion);
-
+            const reply = commands['addItem']?.reply;
+            if(reply) {
+                speak(reply, langWithRegion);
+            }
         } else {
             speak(`I'm sorry, I couldn't find that price option for ${getProductName(product)}. Please try again.`, langWithRegion);
         }
@@ -707,11 +713,13 @@ export function VoiceCommander({
         if (yesKeywords.some(kw => commandText.toLowerCase().includes(kw))) {
             const { variant, requestedQty } = await findProductAndVariant(commandText);
             if (variant) {
-                addItemToCart(productForCheck, variant, requestedQty);
+                const productWithContext = { ...productForCheck, isAiAssisted: true, matchedAlias: `Price check` };
+                addItemToCart(productWithContext, variant, requestedQty);
                 onOpenCart();
-                const speech = t('adding-item-speech', replyLang).replace('{quantity}', `${requestedQty}`).replace('{weight}', variant.weight).replace('{productName}', getProductName(productForCheck));
-                speak(speech, langWithRegion);
-
+                const reply = commands['addItem']?.reply;
+                if(reply) {
+                    speak(reply, langWithRegion);
+                }
             } else {
                  speak(t('sorry-i-didnt-understand-that', replyLang), langWithRegion);
             }
@@ -795,7 +803,7 @@ export function VoiceCommander({
     }
     
     const multiItemSeparators = ['and', 'మరియు'];
-    const separatorUsed = multiItemSeparators.find(sep => commandText.toLowerCase().includes(` ${sep} `));
+    const separatorUsed = multiItemSeparators.find(sep => ` ${commandText.toLowerCase()} `.includes(` ${sep} `));
     
     if (separatorUsed && recognizeIntent(commandText, spokenLang).type === 'ORDER_ITEM') {
         await commandActionsRef.current.orderMultipleItems(commandText.split(new RegExp(` ${separatorUsed} `, 'i')), spokenLang, commandText);
@@ -864,19 +872,9 @@ export function VoiceCommander({
                 const productWithContext = { ...product, matchedAlias: matchedAlias || commandText, isAiAssisted: !!matchedAlias };
                 addItemToCart(productWithContext, variant, requestedQty);
                 onOpenCart();
-                const productLang = lang;
-                
                 const reply = commands['addItem']?.reply;
                 if (reply) {
-                    let speech = (typeof reply === 'string' ? reply : reply[replyLang] || reply['en']) || '';
-                    speech = speech
-                        .replace('{quantity}', `${requestedQty}`)
-                        .replace('{weight}', `${variant.weight}`)
-                        .replace('{productName}', t(product.name.toLowerCase().replace(/ /g, '-'), productLang));
-                    speak(speech, langWithRegion);
-                } else {
-                    // Fallback if the command doesn't exist
-                    speak(t('adding-item-speech', replyLang).replace('{quantity}', `${requestedQty}`).replace('{weight}', `${variant.weight}`).replace('{productName}', t(product.name.toLowerCase().replace(/ /g, '-'), productLang)), langWithRegion);
+                    speak(reply, langWithRegion);
                 }
             } else {
                 handleCommandFailure(commandText, spokenLang, `ORDER_ITEM intent failed. Product not found or no variants. Phrase: "${remainingPhrase}"`);

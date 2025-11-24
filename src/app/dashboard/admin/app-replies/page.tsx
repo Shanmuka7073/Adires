@@ -9,21 +9,47 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Loader2, Save, MessageSquare, Sparkles } from 'lucide-react';
+import { Loader2, Save, MessageSquare, Sparkles, Volume2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { collection, doc, writeBatch } from 'firebase/firestore';
-import type { CommandGroup } from '@/lib/locales/commands';
+import type { CommandGroup } from '@/lib/types';
 import { suggestLocalReplies } from '@/ai/flows/suggest-local-replies-flow';
-
+import { generateVoiceReply } from '@/ai/flows/generate-voice-reply-flow';
 
 function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestReplies }) {
     const [isSuggesting, startSuggestion] = useTransition();
+    const [isGeneratingVoice, startVoiceGeneration] = useTransition();
+    const [generatedAudio, setGeneratedAudio] = useState<Record<string, string>>({});
 
     const handleSuggest = () => {
         startSuggestion(() => {
             onSuggestReplies(commandKey);
         });
     }
+    
+    const handleGenerateVoice = async (lang: 'en' | 'te' | 'hi') => {
+        const textToSpeak = (commandData.reply as any)[lang];
+        if (!textToSpeak) {
+            toast({ variant: 'destructive', title: 'No text to generate from.' });
+            return;
+        }
+
+        startVoiceGeneration(async () => {
+            try {
+                const result = await generateVoiceReply({ text: textToSpeak, language: lang });
+                if (result.audioDataUri) {
+                    onReplyChange(commandKey, `${lang}_audio`, result.audioDataUri);
+                    setGeneratedAudio(prev => ({ ...prev, [lang]: result.audioDataUri }));
+                    toast({ title: `Voice generated for ${lang.toUpperCase()}!` });
+                } else {
+                    throw new Error("AI did not return any audio data.");
+                }
+            } catch (error) {
+                console.error("AI voice generation failed:", error);
+                toast({ variant: 'destructive', title: 'Voice Generation Failed', description: 'Could not get audio from the AI.' });
+            }
+        });
+    };
 
     const replies = typeof commandData.reply === 'object' && commandData.reply !== null && !Array.isArray(commandData.reply)
         ? commandData.reply
@@ -38,33 +64,34 @@ function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestRep
                         {isSuggesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                         Suggest Local Replies with AI
                     </Button>
-                    <div className="space-y-2">
-                        <Label htmlFor={`reply-en-${commandKey}`}>English Reply</Label>
-                        <Textarea
-                            id={`reply-en-${commandKey}`}
-                            placeholder="e.g., Okay, heading home."
-                            value={replies.en || ''}
-                            onChange={e => onReplyChange(commandKey, 'en', e.target.value)}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor={`reply-te-${commandKey}`}>Telugu Reply</Label>
-                        <Textarea
-                            id={`reply-te-${commandKey}`}
-                            placeholder="e.g., సరే, ఇంటికి వెళ్తున్నాను."
-                            value={replies.te || ''}
-                            onChange={e => onReplyChange(commandKey, 'te', e.target.value)}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor={`reply-hi-${commandKey}`}>Hindi Reply</Label>
-                        <Textarea
-                            id={`reply-hi-${commandKey}`}
-                            placeholder="e.g., ठीक है, घर जा रहा हूँ।"
-                            value={replies.hi || ''}
-                            onChange={e => onReplyChange(commandKey, 'hi', e.target.value)}
-                        />
-                    </div>
+                    {(['en', 'te', 'hi'] as const).map(lang => (
+                        <div key={lang} className="space-y-2">
+                            <Label htmlFor={`reply-${lang}-${commandKey}`}>
+                                {lang === 'en' ? 'English' : lang === 'te' ? 'Telugu' : 'Hindi'} Reply
+                            </Label>
+                            <Textarea
+                                id={`reply-${lang}-${commandKey}`}
+                                placeholder={`e.g., Okay, heading home.`}
+                                value={replies[lang] || ''}
+                                onChange={e => onReplyChange(commandKey, lang, e.target.value)}
+                            />
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => handleGenerateVoice(lang)}
+                                    disabled={isGeneratingVoice}
+                                >
+                                    {isGeneratingVoice ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Volume2 className="mr-2 h-4 w-4" />}
+                                    Generate Voice
+                                </Button>
+                                 {(generatedAudio[lang] || (commandData.reply as any)[`${lang}_audio`]) && (
+                                    <audio controls src={generatedAudio[lang] || (commandData.reply as any)[`${lang}_audio`]} className="h-8" />
+                                )}
+                            </div>
+                        </div>
+                    ))}
                     <p className="text-xs text-muted-foreground">
                         Tip: You can provide multiple replies for each language separated by a comma (`,`) and the app will pick one at random.
                     </p>
@@ -93,7 +120,7 @@ export default function AppRepliesPage() {
         }
     }, [firestore, initialCommands, fetchInitialData]);
 
-    const handleReplyChange = (commandKey: string, lang: 'en' | 'te' | 'hi', value: string) => {
+    const handleReplyChange = (commandKey: string, langOrField: string, value: string) => {
         setCommands(currentCommands => {
             const command = currentCommands[commandKey];
             if (!command) return currentCommands;
@@ -102,7 +129,7 @@ export default function AppRepliesPage() {
                 ? command.reply 
                 : { en: (typeof command.reply === 'string' ? command.reply : ''), te: '', hi: '' };
     
-            const updatedReply = { ...currentReply, [lang]: value };
+            const updatedReply = { ...currentReply, [langOrField]: value };
     
             return {
                 ...currentCommands,
@@ -120,7 +147,7 @@ export default function AppRepliesPage() {
 
         const currentReplies = typeof commandData.reply === 'object' && commandData.reply !== null
             ? commandData.reply
-            : { en: commandData.reply, te: '', hi: '' };
+            : { en: commandData.reply as string, te: '', hi: '' };
 
         try {
             const result = await suggestLocalReplies({
@@ -156,6 +183,7 @@ export default function AppRepliesPage() {
 
             Object.entries(commands).forEach(([key, commandData]) => {
                 const commandRef = doc(commandsRef, key);
+                // Ensure reply is always an object before saving
                 const dataToSave = {
                     ...commandData,
                     reply: typeof commandData.reply === 'object' ? commandData.reply : { en: commandData.reply, te: '', hi: '' }

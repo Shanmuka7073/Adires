@@ -2,8 +2,14 @@
 
 export type CommandGroup = {
   display: string;
-  // Reply can be a single string or an object with language keys.
-  reply: string | Record<'en' | 'te' | 'hi', string>;
+  reply: {
+    en?: string;
+    te?: string;
+    hi?: string;
+    en_audio?: string;
+    te_audio?: string;
+    hi_audio?: string;
+  } | string;
 };
 
 // Rewritten replies to be more conversational and varied.
