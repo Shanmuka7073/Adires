@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
 import ProductCard from '@/components/product-card';
+import { useFirebase } from '@/firebase';
 
 function classNames(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(' ');
