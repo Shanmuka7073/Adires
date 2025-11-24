@@ -53,7 +53,7 @@ function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestRep
                 }
             } catch (error) {
                 console.error("AI voice generation failed:", error);
-                toast({ variant: 'destructive', title: 'Voice Generation Failed', description: 'Could not get audio from the AI.' });
+                toast({ variant: 'destructive', title: 'Voice Generation Failed', description: (error as Error).message || 'Could not get audio from the AI.' });
             }
         });
     };
@@ -75,7 +75,7 @@ function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestRep
                     {isDynamicReply && (
                         <div className="flex items-center gap-2 p-2 text-sm text-blue-800 bg-blue-100 rounded-md">
                             <Info className="h-4 w-4" />
-                            <p>Voice generation is disabled for this reply because it contains dynamic variables like '{'{productName}'}' or '{'{total}'}'.</p>
+                            <p>Voice generation is disabled for this reply because it contains dynamic variables like `{'`{productName}`'}` or `{'`{total}`'}`.</p>
                         </div>
                     )}
 
