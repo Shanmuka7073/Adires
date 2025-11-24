@@ -59,15 +59,15 @@ export const useAppStore = create<AppState>()(
       },
 
       fetchInitialData: async (db: Firestore) => {
-        if (get().isInitialized || get().loading) {
-          // Prevent re-fetching if already initialized or in progress
-          // Set loading true only if not already initialized
-          if (!get().isInitialized) set({ loading: true });
-          else return;
-        } else {
-            set({ loading: true });
+        // Prevent re-fetching if already initialized
+        if (get().isInitialized) {
+            return; 
         }
-
+        // Set loading to true only if it's not already loading
+        if (!get().loading) {
+          set({ loading: true });
+        }
+        
         set({ error: null });
         try {
           const aliasGroupCollection = collection(db, 'voiceAliasGroups');
@@ -156,11 +156,14 @@ export const useInitializeApp = () => {
     const { fetchInitialData, isInitialized, loading } = useAppStore();
 
     useEffect(() => {
+        // Trigger fetch only if we have the necessary firebase services and user is logged in,
+        // and we haven't already initialized the data.
         if (firestore && user && !isInitialized && !loading) {
             fetchInitialData(firestore);
         }
     }, [firestore, user, isInitialized, loading, fetchInitialData]);
 
+    // The hook now correctly represents the loading state for the *initialization* process.
     return loading && !isInitialized;
 };
 
@@ -183,3 +186,4 @@ export const useMyStorePageStore = create<MyStorePageState>((set) => ({
   saveInventoryBtnRef: null,
   setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
 }));
+

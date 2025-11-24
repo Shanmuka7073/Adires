@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, createContext, useContext, useCallback, useEffect } from 'react';
@@ -12,6 +13,7 @@ import { getLanguageForLocation } from '@/lib/location-service';
 import { useToast } from '@/hooks/use-toast';
 import { usePathname } from 'next/navigation';
 import { BottomNavBar } from './bottom-nav-bar';
+import { useFirebase } from '@/firebase';
 
 // Create a context to provide the trigger function
 const VoiceCommandContext = createContext<{ triggerVoicePrompt: () => void, retryCommand?: (command: string) => void; } | undefined>(undefined);
@@ -37,8 +39,16 @@ export function MainLayout({
   const { toast } = useToast();
   const pathname = usePathname();
   
-  // Initialize the app data and get the loading status from the global store
-  const isAppLoading = useInitializeApp();
+  const { user } = useFirebase();
+  const { isInitialized, fetchInitialData, firestore } = useAppStore(state => ({
+      isInitialized: state.isInitialized,
+      fetchInitialData: state.fetchInitialData,
+      firestore: useFirebase().firestore,
+  }));
+  
+  // This hook now correctly handles the initial data load for the entire app
+  useInitializeApp();
+
   const { setLanguage } = useAppStore();
 
   // State to trigger re-evaluation in VoiceCommander
@@ -76,7 +86,7 @@ export function MainLayout({
         }
       );
     }
-  }, [setLanguage, toast]); // Dependencies ensure this runs only once with stable functions.
+  }, [setLanguage, toast]);
 
 
   // Stable callback to trigger the voice prompt check
@@ -88,7 +98,6 @@ export function MainLayout({
     setRetryCommandText(command);
   }, []);
 
-  const isHomePage = pathname === '/';
 
   return (
     <VoiceCommandContext.Provider value={{ triggerVoicePrompt, retryCommand }}>
@@ -101,7 +110,7 @@ export function MainLayout({
             isCartOpen={isCartOpen}
             onCartOpenChange={setIsCartOpen}
         />
-        {!isAppLoading && (
+        {user && isInitialized && (
             <VoiceCommander 
                 enabled={voiceEnabled} 
                 onStatusUpdate={setVoiceStatus}
