@@ -1,9 +1,9 @@
 
 'use server';
 /**
- * @fileOverview An AI flow to suggest multilingual aliases for a general voice command.
+ * @fileOverview An AI flow to suggest multilingual aliases and replies for a general voice command.
  *
- * - suggestCommandAliases - A function that suggests aliases.
+ * - suggestCommandAliases - A function that suggests aliases and replies.
  * - SuggestCommandAliasesInput - The input type for the flow.
  * - SuggestCommandAliasesOutput - The return type for the flow.
  */
@@ -24,8 +24,15 @@ const AliasesSchema = z.object({
     hi: z.array(z.string()).describe("A list of common Hindi aliases, including both Devanagari script (e.g., 'होम पर जाओ') and their Roman script transliterations (e.g., 'home par jao')."),
 });
 
+const RepliesSchema = z.object({
+    en: z.array(z.string()).describe("A list of 3-4 creative and conversational replies in English."),
+    te: z.array(z.string()).describe("A list of 3-4 creative and conversational replies in Telugu native script."),
+    hi: z.array(z.string()).describe("A list of 3-4 creative and conversational replies in Hindi native script."),
+});
+
 const SuggestCommandAliasesOutputSchema = z.object({
   aliases: AliasesSchema.describe("The suggested aliases for the command in different languages."),
+  replies: RepliesSchema.describe("A list of suggested conversational replies for the app to speak."),
 });
 export type SuggestCommandAliasesOutput = z.infer<typeof SuggestCommandAliasesOutputSchema>;
 
@@ -38,18 +45,23 @@ const prompt = ai.definePrompt({
   input: {schema: SuggestCommandAliasesInputSchema},
   output: {schema: SuggestCommandAliasesOutputSchema},
   model: googleAI.model('gemini-2.5-flash'),
-  prompt: `You are a UX writer and linguist for a voice-controlled app in India. Your task is to generate intuitive and natural voice command aliases for a given action.
+  prompt: `You are a UX writer and linguist for a voice-controlled app in India. Your task is to generate intuitive voice command aliases and conversational replies for a given action.
 
 For the command with the display name: "{{commandDisplay}}"
 
+Part 1: Generate Aliases
 Generate a list of common ways a user might say this. Include variations, synonyms, and different phrasing.
-
-Provide the following:
 1.  **te (Telugu)**: A list of common phrases in Telugu. CRUCIALLY, include both the native Telugu script (e.g., 'హోమ్ కి వెళ్ళు') AND their common English letter transliterations (e.g., 'home ki vellu').
 2.  **hi (Hindi)**: A list of common phrases in Hindi. CRUCIALLY, you MUST include both the native Devanagari script (e.g., 'होम पर जाओ') AND their common English letter transliterations (e.g., 'home par jao'). This is a strict requirement.
 3.  **en (English)**: A list of common English phrases. IMPORTANT: You MUST also include all the Roman-script (English letter) transliterations from the 'te' and 'hi' lists here in the 'en' list as well.
 
-Keep the lists concise and focused on the most natural and common user commands.
+Part 2: Generate Replies
+Generate a list of 3-4 creative, varied, and conversational replies the app could speak in response to the command.
+1. **en (English)**: A list of replies in English.
+2. **te (Telugu)**: A list of replies in Telugu (native script).
+3. **hi (Hindi)**: A list of replies in Hindi (native script).
+
+Keep all lists concise and focused on the most natural and common user commands and replies.
 `,
 });
 

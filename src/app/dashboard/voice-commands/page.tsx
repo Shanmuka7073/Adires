@@ -308,9 +308,10 @@ export default function VoiceCommandsPage() {
 
                     if (result && result.aliases) {
                         const batch = writeBatch(firestore);
-                        const docRef = doc(firestore, 'voiceAliasGroups', commandKey);
+                        const aliasDocRef = doc(firestore, 'voiceAliasGroups', commandKey);
+                        const commandDocRef = doc(firestore, 'voiceCommands', commandKey);
                         
-                        const updates: Record<string, any> = {};
+                        const aliasUpdates: Record<string, any> = {};
                         for (const lang in result.aliases) {
                             const newAliases = result.aliases[lang];
                             const existingAliases = new Set(
@@ -319,14 +320,18 @@ export default function VoiceCommandsPage() {
                                     : (locales[commandKey]?.[lang] ? [locales[commandKey][lang] as string] : [])
                             );
                             newAliases.forEach(alias => existingAliases.add(alias));
-                            updates[lang] = Array.from(existingAliases);
+                            aliasUpdates[lang] = Array.from(existingAliases);
                         }
                         
-                        updates.type = 'command';
-                        batch.set(docRef, updates, { merge: true });
+                        aliasUpdates.type = 'command';
+                        batch.set(aliasDocRef, aliasUpdates, { merge: true });
+
+                        // Update the replies for the command
+                        const replyString = [...(result.replies.en || []), ...(result.replies.te || []), ...(result.replies.hi || [])].join(',');
+                        batch.update(commandDocRef, { reply: replyString });
 
                         await batch.commit();
-                        toast({ title: 'AI Suggestions Saved!', description: `New aliases for "${commandData.display}" have been saved.` });
+                        toast({ title: 'AI Suggestions Saved!', description: `New aliases and replies for "${commandData.display}" have been saved.` });
                         await fetchInitialData(firestore);
                     }
                 } catch (error) {
@@ -359,7 +364,7 @@ export default function VoiceCommandsPage() {
                         
                         <Button onClick={handleSuggestCommandAliases} size="sm" disabled={isSuggesting}>
                             {isSuggesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                            Suggest Aliases with AI
+                            Suggest Aliases & Replies with AI
                         </Button>
 
                          {['en', 'te', 'hi'].map(lang => {
@@ -607,6 +612,7 @@ export default function VoiceCommandsPage() {
 }
 
     
+
 
 
 
