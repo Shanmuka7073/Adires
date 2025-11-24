@@ -322,3 +322,29 @@ export async function bulkUploadRecipes(csvText: string): Promise<{ success: boo
         return { success: false, error: error.message || 'An unknown server error occurred.' };
     }
 }
+
+const getPlaceholderImagesPath = () => {
+    return path.join(process.cwd(), 'src', 'lib', 'placeholder-images.json');
+};
+
+export async function getPlaceholderImages() {
+    try {
+        const imagesPath = getPlaceholderImagesPath();
+        const imagesFile = await fs.readFile(imagesPath, 'utf-8');
+        return JSON.parse(imagesFile);
+    } catch (error) {
+        console.error('Failed to read placeholder-images.json file:', error);
+        return { placeholderImages: [] };
+    }
+}
+
+export async function updatePlaceholderImages(newData: { placeholderImages: any[] }): Promise<{ success: boolean; error?: string }> {
+    try {
+        const imagesPath = getPlaceholderImagesPath();
+        await fs.writeFile(imagesPath, JSON.stringify(newData, null, 2), 'utf-8');
+        return { success: true };
+    } catch (error: any) {
+        console.error('Failed to update placeholder-images.json file:', error);
+        return { success: false, error: error.message || 'An unknown error occurred.' };
+    }
+}
