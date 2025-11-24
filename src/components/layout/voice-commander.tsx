@@ -741,29 +741,22 @@ export function VoiceCommander({
         const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(lowerCommand, kw.toLowerCase())));
     
         if (homeSimilarity > 0.6 && homeSimilarity > locationSimilarity) {
-            // Success: Reset flags
             isWaitingForAddressTypeRef.current = false;
-            addressRetryCountRef.current = 0; // Reset retry count
+            addressRetryCountRef.current = 0;
             
             handleUseHomeAddress();
-            speak(t('setting-delivery-to-home-speech', replyLang), langWithRegion, triggerVoicePrompt);
+            speak(commands['homeAddress'].reply, langWithRegion, triggerVoicePrompt);
         } else if (locationSimilarity > 0.6) {
-            // Success: Reset flags
             isWaitingForAddressTypeRef.current = false;
-            addressRetryCountRef.current = 0; // Reset retry count
+            addressRetryCountRef.current = 0;
     
             handleUseCurrentLocation();
-            speak(t('using-current-location-speech', replyLang), langWithRegion, triggerVoicePrompt);
+            speak(commands['currentLocation'].reply, langWithRegion, triggerVoicePrompt);
         } else {
-            // Failure Logic
             if (addressRetryCountRef.current < 2) {
-                // ALLOW RETRY: Increment counter, keep flag TRUE
                 addressRetryCountRef.current += 1;
-                
-                // Speak a specific prompt asking them to try again
                 speak(t('did-not-understand-please-repeat', replyLang), langWithRegion, triggerVoicePrompt);
             } else {
-                // STOP LOOP: Max retries reached. Reset everything.
                 isWaitingForAddressTypeRef.current = false;
                 addressRetryCountRef.current = 0;
                 
@@ -1008,7 +1001,8 @@ export function VoiceCommander({
         onCloseCart();
         if (cartTotal > 0) {
             const total = cartTotal + 30; // Delivery fee
-            speak(t('proceeding-to-checkout-speech', replyLang).replace('{total}', `₹${total.toFixed(2)}`), langWithRegion, () => {
+            const reply = t('proceeding-to-checkout-speech', replyLang).replace('{total}', `₹${total.toFixed(2)}`);
+            speak(reply, langWithRegion, () => {
                 router.push('/checkout');
                 triggerVoicePrompt();
             });
@@ -1324,3 +1318,5 @@ export function VoiceCommander({
 
   return null;
 }
+
+    
