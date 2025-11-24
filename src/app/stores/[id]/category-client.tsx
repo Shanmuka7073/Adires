@@ -21,9 +21,9 @@ interface CategoryClientProps {
 
 function CategorySidebar({ categories, selectedCategory, onSelectCategory }) {
   return (
-      <nav className="w-24 flex-shrink-0 border-r bg-muted/20">
+      <nav className="w-20 flex-shrink-0 border-r bg-muted/20">
         <ScrollArea className="h-full py-4">
-          <div className="space-y-4 px-2">
+          <div className="space-y-4 px-1">
             {categories.map((category) => {
               const isSelected = category.categoryName === selectedCategory;
               return (
@@ -31,7 +31,7 @@ function CategorySidebar({ categories, selectedCategory, onSelectCategory }) {
                   key={category.categoryName}
                   onClick={() => onSelectCategory(category.categoryName)}
                   className={cn(
-                    'flex flex-col items-center gap-2 p-2 rounded-lg w-full text-center transition-colors',
+                    'flex flex-col items-center gap-1 p-1 rounded-lg w-full text-center transition-colors',
                     isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted/50'
                   )}
                 >
