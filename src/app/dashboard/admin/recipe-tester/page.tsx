@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition } from 'react';
@@ -6,15 +5,23 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Beaker, Check, AlertTriangle } from 'lucide-react';
+import { Loader2, Beaker, Check, AlertTriangle, ShoppingCart } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
+import { useAppStore } from '@/lib/store';
+import { useCart } from '@/lib/cart';
+import { calculateSimilarity } from '@/lib/calculate-similarity';
+import { useRouter } from 'next/navigation';
 
 export default function RecipeTesterPage() {
     const { toast } = useToast();
+    const router = useRouter();
     const [isGenerating, startGeneration] = useTransition();
     const [dishName, setDishName] = useState('');
     const [result, setResult] = useState<{ isSuccess: boolean; reason: string; ingredients: string[] } | null>(null);
+
+    const { masterProducts, productPrices } = useAppStore();
+    const { addItem, clearCart } = useCart();
 
     const handleGetIngredients = async () => {
         if (!dishName.trim()) {
@@ -57,6 +64,49 @@ export default function RecipeTesterPage() {
                 });
             }
         });
+    };
+    
+    const handleAddAllToCart = () => {
+        if (!result || !result.isSuccess || result.ingredients.length === 0) return;
+
+        clearCart();
+        let itemsAdded = 0;
+        
+        result.ingredients.forEach(ingredientName => {
+            let bestMatch = { product: null, score: 0 };
+
+            masterProducts.forEach(product => {
+                const similarity = calculateSimilarity(ingredientName.toLowerCase(), product.name.toLowerCase());
+                if (similarity > bestMatch.score) {
+                    bestMatch = { product, score: similarity };
+                }
+            });
+
+            if (bestMatch.product && bestMatch.score > 0.7) {
+                const priceData = productPrices[bestMatch.product.name.toLowerCase()];
+                if (priceData && priceData.variants && priceData.variants.length > 0) {
+                    // Find the smallest variant (e.g., '1 pc', '100gm', '250gm')
+                    const sortedVariants = [...priceData.variants].sort((a, b) => {
+                        const weightA = parseInt(a.weight);
+                        const weightB = parseInt(b.weight);
+                        if (!isNaN(weightA) && !isNaN(weightB)) {
+                            return weightA - weightB;
+                        }
+                        return a.weight.localeCompare(b.weight); // Fallback for non-numeric like '1 pc'
+                    });
+                    const smallestVariant = sortedVariants[0];
+                    addItem(bestMatch.product, smallestVariant, 1);
+                    itemsAdded++;
+                }
+            }
+        });
+
+        toast({
+            title: 'Items Added to Cart',
+            description: `Successfully added ${itemsAdded} out of ${result.ingredients.length} ingredients to your cart.`,
+        });
+
+        router.push('/cart');
     };
 
     return (
@@ -104,12 +154,16 @@ export default function RecipeTesterPage() {
                                     <CardDescription>{result.reason}</CardDescription>
                                 </CardHeader>
                                 {result.isSuccess && result.ingredients.length > 0 && (
-                                    <CardContent>
+                                    <CardContent className="space-y-4">
                                         <div className="flex flex-wrap gap-2">
                                             {result.ingredients.map((ing, index) => (
                                                 <Badge key={index} variant="secondary">{ing}</Badge>
                                             ))}
                                         </div>
+                                         <Button onClick={handleAddAllToCart} className="w-full mt-4">
+                                            <ShoppingCart className="mr-2 h-4 w-4" />
+                                            Add All Ingredients to Cart
+                                        </Button>
                                     </CardContent>
                                 )}
                             </Card>
