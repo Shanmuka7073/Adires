@@ -324,8 +324,8 @@ export default function VoiceCommandsPage() {
                         
                         aliasUpdates.type = 'command';
                         batch.set(aliasDocRef, aliasUpdates, { merge: true });
+                        await batch.commit();
 
-                        // Update the UI state for the command replies, but do not save them directly.
                         if (result.replies) {
                             const allReplies = [
                                 ...(result.replies.en || []),
@@ -336,8 +336,7 @@ export default function VoiceCommandsPage() {
                             handleCommandUpdate(commandKey, 'reply', replyString);
                         }
 
-                        await batch.commit();
-                        toast({ title: 'AI Suggestions Saved!', description: `New aliases for "${commandData.display}" have been saved. Suggested replies have been populated for review.` });
+                        toast({ title: 'AI Suggestions Saved!', description: `New aliases for "${commandData.display}" have been saved.` });
                         await fetchInitialData(firestore);
                     }
                 } catch (error) {
@@ -619,6 +618,7 @@ export default function VoiceCommandsPage() {
 }
 
     
+
 
 
 
