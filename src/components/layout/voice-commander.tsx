@@ -295,9 +295,15 @@ export function VoiceCommander({
     isSpeakingRef.current = true;
     window.speechSynthesis.cancel();
     
-    const text = Array.isArray(textOrReplies) 
+    let text = Array.isArray(textOrReplies) 
       ? textOrReplies[Math.floor(Math.random() * textOrReplies.length)] 
       : textOrReplies;
+
+    // Check if the reply is a comma-separated list and pick one.
+    if (typeof text === 'string' && text.includes(',')) {
+        const replies = text.split(',').map(r => r.trim());
+        text = replies[Math.floor(Math.random() * replies.length)];
+    }
 
     const utterance = new SpeechSynthesisUtterance(text);
     
@@ -826,9 +832,15 @@ export function VoiceCommander({
         case 'NAVIGATE':
         case 'CONVERSATIONAL': {
             const commandKey = intent.type === 'NAVIGATE' ? intent.destination : intent.commandKey;
-            if(commandKey) {
+            if (commandKey) {
                 const action = commandActionsRef.current[commandKey];
-                const reply = commands[commandKey]?.reply || `Executing ${commands[commandKey]?.display}`;
+                let reply = commands[commandKey]?.reply || `Executing ${commands[commandKey]?.display}`;
+                
+                // If reply is a comma-separated string, split it into an array
+                if (typeof reply === 'string' && reply.includes(',')) {
+                    reply = reply.split(',').map(r => r.trim());
+                }
+
                 if (action) {
                     speak(reply, langWithRegion, () => action({ lang: intent.lang }));
                 } else {
