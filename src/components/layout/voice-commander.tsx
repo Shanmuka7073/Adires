@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -294,12 +293,12 @@ export function VoiceCommander({
 
     if (typeof textOrReply === 'string') {
         textToSpeak = textOrReply;
-    } else if (typeof textOrReply === 'object' && textOrReply[targetLang]) {
+    } else if (typeof textOrReply === 'object' && textOrReply !== null && textOrReply[targetLang]) {
         textToSpeak = textOrReply[targetLang];
-    } else if (typeof textOrReply === 'object' && textOrReply['en']) {
+    } else if (typeof textOrReply === 'object' && textOrReply !== null && textOrReply['en']) {
         textToSpeak = textOrReply['en']; // Fallback to English
     } else {
-        console.warn('No suitable reply found for language:', targetLang);
+        console.warn('No suitable reply found for language:', targetLang, 'from', textOrReply);
         if (typeof onEndCallback === 'function') onEndCallback();
         return;
     }
@@ -799,7 +798,7 @@ export function VoiceCommander({
     const separatorUsed = multiItemSeparators.find(sep => commandText.toLowerCase().includes(` ${sep} `));
     
     if (separatorUsed && recognizeIntent(commandText, spokenLang).type === 'ORDER_ITEM') {
-        await commandActionsRef.current.orderMultipleItems(commandText.split(new RegExp(` ${sep} `, 'i')), spokenLang, commandText);
+        await commandActionsRef.current.orderMultipleItems(commandText.split(new RegExp(` ${separatorUsed} `, 'i')), spokenLang, commandText);
         return;
     }
 
@@ -866,14 +865,18 @@ export function VoiceCommander({
                 addItemToCart(productWithContext, variant, requestedQty);
                 onOpenCart();
                 const productLang = lang;
-                const replyProductName = t(product.name.toLowerCase().replace(/ /g, '-'), productLang);
                 
                 const reply = commands['addItem']?.reply;
                 if (reply) {
-                    speak(reply, langWithRegion);
+                    let speech = t('addItem', replyLang, 'reply');
+                    speech = speech
+                        .replace('{quantity}', `${requestedQty}`)
+                        .replace('{weight}', `${variant.weight}`)
+                        .replace('{productName}', t(product.name.toLowerCase().replace(/ /g, '-'), productLang));
+                    speak(speech, langWithRegion);
                 } else {
                     // Fallback if the command doesn't exist
-                    speak(t('adding-item-speech', replyLang).replace('{quantity}', `${requestedQty}`).replace('{weight}', `${variant.weight}`).replace('{productName}', replyProductName), langWithRegion);
+                    speak(t('adding-item-speech', replyLang).replace('{quantity}', `${requestedQty}`).replace('{weight}', `${variant.weight}`).replace('{productName}', t(product.name.toLowerCase().replace(/ /g, '-'), productLang)), langWithRegion);
                 }
             } else {
                 handleCommandFailure(commandText, spokenLang, `ORDER_ITEM intent failed. Product not found or no variants. Phrase: "${remainingPhrase}"`);
@@ -965,7 +968,7 @@ export function VoiceCommander({
       'recipe-tester': (params: {lang: string}) => router.push('/dashboard/admin/recipe-tester'),
       
       getKnowledge: async ({ topic, lang }: { topic: string; lang: string }) => {
-        const replyLang = lang === 'hi' ? 'en' : lang;
+        const replyLang = lang;
         const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         speak(`Looking up information on ${topic}...`, langWithRegion, false);
         const result = await getWikipediaSummary(topic);
@@ -982,7 +985,7 @@ export function VoiceCommander({
           return;
         }
 
-        const replyLang = lang === 'hi' ? 'en' : lang;
+        const replyLang = lang;
         const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         if (!firestore) return;
 
