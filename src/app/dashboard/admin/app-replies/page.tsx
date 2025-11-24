@@ -9,28 +9,84 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Loader2, Save, MessageSquare } from 'lucide-react';
+import { Loader2, Save, MessageSquare, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 import type { CommandGroup } from '@/lib/locales/commands';
+import { suggestLocalReplies } from '@/ai/flows/suggest-local-replies-flow';
+
+
+function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestReplies }) {
+    const [isSuggesting, startSuggestion] = useTransition();
+
+    const handleSuggest = () => {
+        startSuggestion(() => {
+            onSuggestReplies(commandKey);
+        });
+    }
+
+    const replies = typeof commandData.reply === 'object' && commandData.reply !== null && !Array.isArray(commandData.reply)
+        ? commandData.reply
+        : { en: (commandData.reply as string) || '', te: '', hi: '' };
+
+    return (
+        <AccordionItem value={commandKey} key={commandKey}>
+            <AccordionTrigger className="text-lg font-semibold">{commandData.display}</AccordionTrigger>
+            <AccordionContent>
+                <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
+                    <Button onClick={handleSuggest} size="sm" variant="outline" disabled={isSuggesting}>
+                        {isSuggesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                        Suggest Local Replies with AI
+                    </Button>
+                    <div className="space-y-2">
+                        <Label htmlFor={`reply-en-${commandKey}`}>English Reply</Label>
+                        <Textarea
+                            id={`reply-en-${commandKey}`}
+                            placeholder="e.g., Okay, heading home."
+                            value={replies.en || ''}
+                            onChange={e => onReplyChange(commandKey, 'en', e.target.value)}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor={`reply-te-${commandKey}`}>Telugu Reply</Label>
+                        <Textarea
+                            id={`reply-te-${commandKey}`}
+                            placeholder="e.g., సరే, ఇంటికి వెళ్తున్నాను."
+                            value={replies.te || ''}
+                            onChange={e => onReplyChange(commandKey, 'te', e.target.value)}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor={`reply-hi-${commandKey}`}>Hindi Reply</Label>
+                        <Textarea
+                            id={`reply-hi-${commandKey}`}
+                            placeholder="e.g., ठीक है, घर जा रहा हूँ।"
+                            value={replies.hi || ''}
+                            onChange={e => onReplyChange(commandKey, 'hi', e.target.value)}
+                        />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                        Tip: You can provide multiple replies for each language separated by a comma (`,`) and the app will pick one at random.
+                    </p>
+                </div>
+            </AccordionContent>
+        </AccordionItem>
+    );
+}
+
 
 export default function AppRepliesPage() {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isSaving, startSaveTransition] = useTransition();
 
-    // Get commands from the global store
     const { commands: initialCommands, fetchInitialData, loading } = useAppStore();
-
-    // Local state for editing, initialized from the global store
     const [commands, setCommands] = useState<Record<string, CommandGroup>>(initialCommands);
 
-    // Re-initialize local state if the global store's data changes
     useEffect(() => {
         setCommands(initialCommands);
     }, [initialCommands]);
     
-    // Fetch data on mount if not already initialized
     useEffect(() => {
         if(firestore && !Object.keys(initialCommands).length) {
             fetchInitialData(firestore);
@@ -42,7 +98,6 @@ export default function AppRepliesPage() {
             const command = currentCommands[commandKey];
             if (!command) return currentCommands;
     
-            // Ensure reply is a structured object for multilingual support
             const currentReply = typeof command.reply === 'object' && command.reply !== null && !Array.isArray(command.reply) 
                 ? command.reply 
                 : { en: (typeof command.reply === 'string' ? command.reply : ''), te: '', hi: '' };
@@ -58,6 +113,36 @@ export default function AppRepliesPage() {
             };
         });
     };
+    
+    const handleSuggestReplies = async (commandKey: string) => {
+        const commandData = commands[commandKey];
+        if (!commandData) return;
+
+        const currentReplies = typeof commandData.reply === 'object' && commandData.reply !== null
+            ? commandData.reply
+            : { en: commandData.reply, te: '', hi: '' };
+
+        try {
+            const result = await suggestLocalReplies({
+                commandDisplay: commandData.display,
+                englishReply: currentReplies.en || '',
+                teluguReply: currentReplies.te || '',
+                hindiReply: currentReplies.hi || '',
+            });
+
+            if (result) {
+                handleReplyChange(commandKey, 'en', result.english);
+                handleReplyChange(commandKey, 'te', result.telugu);
+                handleReplyChange(commandKey, 'hi', result.hindi);
+                toast({ title: 'AI Suggestions Applied!', description: `Localized replies for "${commandData.display}" have been generated.` });
+            } else {
+                throw new Error("AI did not return any suggestions.");
+            }
+        } catch (error) {
+            console.error("AI suggestion failed:", error);
+            toast({ variant: 'destructive', title: 'Suggestion Failed', description: 'Could not get suggestions from the AI.' });
+        }
+    };
 
     const handleSaveChanges = () => {
         if (!firestore) {
@@ -71,7 +156,6 @@ export default function AppRepliesPage() {
 
             Object.entries(commands).forEach(([key, commandData]) => {
                 const commandRef = doc(commandsRef, key);
-                 // Ensure the reply being saved is the structured object
                 const dataToSave = {
                     ...commandData,
                     reply: typeof commandData.reply === 'object' ? commandData.reply : { en: commandData.reply, te: '', hi: '' }
@@ -82,7 +166,6 @@ export default function AppRepliesPage() {
             try {
                 await batch.commit();
                 toast({ title: 'Success!', description: 'App replies have been updated.' });
-                // Refetch data to sync the app store
                 await fetchInitialData(firestore);
             } catch (error) {
                 console.error('Failed to save replies:', error);
@@ -111,51 +194,15 @@ export default function AppRepliesPage() {
                 </CardHeader>
                 <CardContent>
                     <Accordion type="multiple" className="w-full">
-                        {Object.entries(commands).sort(([a], [b]) => a.localeCompare(b)).map(([key, commandData]) => {
-                            const replies = typeof commandData.reply === 'object' && commandData.reply !== null && !Array.isArray(commandData.reply)
-                                ? commandData.reply
-                                : { en: (commandData.reply as string) || '', te: '', hi: '' };
-                            
-                            return (
-                                <AccordionItem value={key} key={key}>
-                                    <AccordionTrigger className="text-lg font-semibold">{commandData.display}</AccordionTrigger>
-                                    <AccordionContent>
-                                        <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
-                                            <div className="space-y-2">
-                                                <Label htmlFor={`reply-en-${key}`}>English Reply</Label>
-                                                <Textarea
-                                                    id={`reply-en-${key}`}
-                                                    placeholder="e.g., Okay, heading home."
-                                                    value={replies.en || ''}
-                                                    onChange={e => handleReplyChange(key, 'en', e.target.value)}
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label htmlFor={`reply-te-${key}`}>Telugu Reply</Label>
-                                                <Textarea
-                                                    id={`reply-te-${key}`}
-                                                    placeholder="e.g., సరే, ఇంటికి వెళ్తున్నాను."
-                                                    value={replies.te || ''}
-                                                    onChange={e => handleReplyChange(key, 'te', e.target.value)}
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label htmlFor={`reply-hi-${key}`}>Hindi Reply</Label>
-                                                <Textarea
-                                                    id={`reply-hi-${key}`}
-                                                    placeholder="e.g., ठीक है, घर जा रहा हूँ।"
-                                                    value={replies.hi || ''}
-                                                    onChange={e => handleReplyChange(key, 'hi', e.target.value)}
-                                                />
-                                            </div>
-                                            <p className="text-xs text-muted-foreground">
-                                                Tip: You can provide multiple replies for each language separated by a comma (`,`) and the app will pick one at random.
-                                            </p>
-                                        </div>
-                                    </AccordionContent>
-                                </AccordionItem>
-                            );
-                        })}
+                        {Object.entries(commands).sort(([a], [b]) => a.localeCompare(b)).map(([key, commandData]) => (
+                            <CommandReplyItem
+                                key={key}
+                                commandKey={key}
+                                commandData={commandData}
+                                onReplyChange={handleReplyChange}
+                                onSuggestReplies={handleSuggestReplies}
+                            />
+                        ))}
                     </Accordion>
 
                     <Button onClick={handleSaveChanges} disabled={isSaving} className="w-full mt-8" size="lg">
