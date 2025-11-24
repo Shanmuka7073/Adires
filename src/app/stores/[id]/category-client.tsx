@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import ProductCard from '@/components/product-card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
 import { Button } from '@/components/ui/button';
@@ -118,6 +118,7 @@ function MobileCategoryScroller({ categories, selectedCategory, onSelectCategory
 }
 
 export function CategoryClient({ store, allProducts, productPrices, isLoading }: CategoryClientProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const categoryFromUrl = searchParams.get('category');
   
@@ -154,6 +155,12 @@ export function CategoryClient({ store, allProducts, productPrices, isLoading }:
     }
   }, [categories, selectedCategory, categoryFromUrl]);
 
+  const handleSelectCategory = (categoryName: string) => {
+    setSelectedCategory(categoryName);
+    router.push(`/stores/${store.id}?category=${categoryName}`, { scroll: false });
+  };
+
+
   const filteredProducts = useMemo(() => {
     if (searchTerm) {
       return allProducts.filter(product =>
@@ -168,9 +175,9 @@ export function CategoryClient({ store, allProducts, productPrices, isLoading }:
 
   return (
     <div className="flex flex-col md:flex-row w-full h-full bg-[#f4f9f0]">
-      <DesktopCategorySidebar categories={categories} selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} />
+      <DesktopCategorySidebar categories={categories} selectedCategory={selectedCategory} onSelectCategory={handleSelectCategory} />
       <div className="flex flex-col flex-1">
-        <MobileCategoryScroller categories={categories} selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} />
+        <MobileCategoryScroller categories={categories} selectedCategory={selectedCategory} onSelectCategory={handleSelectCategory} />
         <main className="flex-1 overflow-y-auto p-4">
             <div className="flex justify-between items-start md:items-center mb-6 flex-col md:flex-row gap-4">
               <div>

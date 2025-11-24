@@ -51,6 +51,13 @@ export default function ProductCard({ product, priceData }: ProductCardProps) {
   useEffect(() => {
     if (priceVariants.length > 0 && !selectedVariant) {
       setSelectedVariant(priceVariants[0]);
+    } else if (priceVariants.length > 0 && selectedVariant) {
+        // Ensure the selected variant is still valid after a potential data update
+        if (!priceVariants.find(v => v.sku === selectedVariant.sku)) {
+            setSelectedVariant(priceVariants[0]);
+        }
+    } else if (priceVariants.length === 0) {
+        setSelectedVariant(null);
     }
   }, [priceVariants, selectedVariant]);
   
@@ -113,11 +120,13 @@ export default function ProductCard({ product, priceData }: ProductCardProps) {
         <p className="text-xs text-muted-foreground">{teluguName}</p>
         {isLoadingPrice ? (
             <Skeleton className="h-6 w-20 mx-auto mt-1" />
-        ) : (
+        ) : finalPrice > 0 ? (
             <div className="flex items-center justify-center gap-2 mt-1">
               <p className="text-lg font-bold text-primary">₹{finalPrice.toFixed(2)}</p>
               <p className="text-sm text-muted-foreground line-through">₹{originalPrice.toFixed(2)}</p>
             </div>
+        ) : (
+             <div className="h-6 w-20 mx-auto mt-1" /> // Placeholder for when price is 0 or null
         )}
       </CardContent>
       <CardFooter className="p-2 pt-0 flex-col items-stretch gap-2">

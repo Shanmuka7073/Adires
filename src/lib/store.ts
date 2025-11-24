@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Firestore, collection, getDocs, query, writeBatch, doc } from 'firebase/firestore';
+import { Firestore, collection, getDocs, query, where } from 'firebase/firestore';
 import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
 import { getStores, getMasterProducts, getProductPrice } from './data';
 import { useFirebase } from '@/firebase';
@@ -45,7 +45,7 @@ export const useAppStore = create<AppState>()(
       productPrices: {},
       locales: {},
       commands: {},
-      loading: false, // Start with loading: false
+      loading: false,
       isInitialized: false,
       error: null,
       language: getInitialLanguage(),
@@ -58,7 +58,6 @@ export const useAppStore = create<AppState>()(
       },
 
       fetchInitialData: async (db: Firestore) => {
-        // Prevent re-fetching if already initialized or currently loading
         if (get().isInitialized || get().loading) {
             return; 
         }
@@ -90,12 +89,21 @@ export const useAppStore = create<AppState>()(
             locales,
             commands: enrichedCommands,
             isInitialized: true,
-            loading: false, // Set loading to false after success
           });
+
+          // After master products are loaded, fetch their prices
+          if (masterProducts.length > 0) {
+            const productNames = masterProducts.map(p => p.name);
+            get().fetchProductPrices(db, productNames).finally(() => {
+                set({ loading: false });
+            });
+          } else {
+             set({ loading: false });
+          }
           
         } catch (error) {
           console.error("Failed to fetch initial app data:", error);
-          set({ error: error as Error, loading: false }); // Set loading to false on error
+          set({ error: error as Error, loading: false });
         }
       },
       
@@ -104,28 +112,24 @@ export const useAppStore = create<AppState>()(
           const namesToFetch = productNames.filter(name => name && productPrices[name.toLowerCase()] === undefined);
 
           if (namesToFetch.length === 0) return;
-
+          
           try {
               const pricesToUpdate: Record<string, ProductPrice | null> = {};
-              const batchSize = 30; // Firestore 'in' query limit
+              const batchSize = 30;
 
               for (let i = 0; i < namesToFetch.length; i += batchSize) {
-                  const batchNames = namesToFetch.slice(i, i + batchSize);
+                  const batchNames = namesToFetch.slice(i, i + batchSize).map(n => n.toLowerCase());
                   if (batchNames.length > 0) {
-                      const priceQuery = query(collection(db, 'productPrices'), where('productName', 'in', batchNames.map(n => n.toLowerCase())));
+                      const priceQuery = query(collection(db, 'productPrices'), where('productName', 'in', batchNames));
                       const priceSnapshot = await getDocs(priceQuery);
-                      priceSnapshot.forEach(doc => {
-                          pricesToUpdate[doc.id] = doc.data() as ProductPrice;
+                      
+                      const fetchedPrices = new Map(priceSnapshot.docs.map(doc => [doc.id, doc.data() as ProductPrice]));
+                      
+                      batchNames.forEach(name => {
+                          pricesToUpdate[name] = fetchedPrices.get(name) || null;
                       });
                   }
               }
-
-              // Ensure all fetched names have an entry, even if null
-              namesToFetch.forEach(name => {
-                  if (pricesToUpdate[name.toLowerCase()] === undefined) {
-                      pricesToUpdate[name.toLowerCase()] = null;
-                  }
-              });
 
               set(state => ({
                   productPrices: { ...state.productPrices, ...pricesToUpdate }
@@ -159,7 +163,6 @@ export const useInitializeApp = () => {
     const { fetchInitialData, isInitialized, loading } = useAppStore();
 
     useEffect(() => {
-        // Trigger fetch only if firestore/user are available and data isn't already loaded/loading.
         if (firestore && user && !isInitialized && !loading) {
             fetchInitialData(firestore);
         }
