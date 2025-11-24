@@ -1,9 +1,8 @@
 
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy, Upload, MessageSquare, Image as ImageIcon } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy, Upload, MessageSquare, Image as ImageIcon, Home } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -632,11 +631,18 @@ export default function AdminDashboardPage() {
                         href="/dashboard/admin/checkout-loop-help"
                         icon={Bug}
                     />
+                    <AdminActionCard
+                        title="Homepage Code"
+                        description="View the source code for the main homepage UI."
+                        href="/dashboard/admin/homepage-help"
+                        icon={Home}
+                    />
                 </div>
             </div>
         </div>
     );
 }
+
 
 
 
