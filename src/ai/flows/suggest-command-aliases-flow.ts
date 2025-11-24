@@ -37,7 +37,7 @@ const prompt = ai.definePrompt({
   name: 'suggestCommandAliasesPrompt',
   input: {schema: SuggestCommandAliasesInputSchema},
   output: {schema: SuggestCommandAliasesOutputSchema},
-  model: googleAI.model('gemini-2.5-flash'),
+  model: googleAI.model('gemini-1.5-flash'),
   prompt: `You are a UX writer and linguist for a voice-controlled app in India. Your task is to generate intuitive and natural voice command aliases for a given action.
 
 For the command with the display name: "{{commandDisplay}}"
