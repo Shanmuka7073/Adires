@@ -16,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useFirebase } from '@/firebase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { collection, writeBatch, doc, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
-import type { VoiceAliasGroup } from '@/lib/types';
+import type { VoiceAliasGroup, Locales } from '@/lib/types';
 import { CommandGroup, generalCommands as defaultGeneralCommands } from '@/lib/locales/commands';
 import { suggestProductAliases } from '@/ai/flows/suggest-product-aliases-flow';
 
@@ -406,7 +406,9 @@ export default function VoiceCommandsPage() {
                     if (result && result.aliases) {
                         setLocales(currentLocales => {
                             const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
-                            if (!updatedLocales[itemKey]) updatedLocales[itemKey] = {};
+                            if (!updatedLocales[itemKey]) {
+                                updatedLocales[itemKey] = {};
+                            }
                             
                             for (const lang in result.aliases) {
                                 const newAliases = result.aliases[lang];
@@ -544,4 +546,5 @@ export default function VoiceCommandsPage() {
 }
 
     
+
 

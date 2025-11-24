@@ -19,8 +19,8 @@ export type SuggestProductAliasesInput = z.infer<typeof SuggestProductAliasesInp
 
 const AliasesSchema = z.object({
     en: z.array(z.string()).describe("A list of common English aliases, including singular and plural forms."),
-    te: z.array(z.string()).describe("A list of common Telugu aliases, written in Telugu script."),
-    hi: z.array(z.string()).describe("A list of common Hindi aliases, written in Devanagari script."),
+    te: z.array(z.string()).describe("A list of common Telugu aliases, including both native script (e.g., 'ఉల్లిపాయలు') and their Roman script transliterations (e.g., 'ullipayalu', 'erragadda')."),
+    hi: z.array(z.string()).describe("A list of common Hindi aliases, including both Devanagari script (e.g., 'प्याज') and their Roman script transliterations (e.g., 'pyaaz')."),
 });
 
 const SuggestProductAliasesOutputSchema = z.object({
@@ -37,16 +37,16 @@ const prompt = ai.definePrompt({
   input: {schema: SuggestProductAliasesInputSchema},
   output: {schema: SuggestProductAliasesOutputSchema},
   model: googleAI.model('gemini-2.5-flash'),
-  prompt: `You are a linguistic expert for an Indian grocery app. Your task is to generate common aliases for a given product in multiple languages and their scripts.
+  prompt: `You are a linguistic expert for an Indian grocery app. Your task is to generate common aliases for a given product in multiple languages, their native scripts, and their English transliterations.
 
 For the product: "{{productName}}"
 
-Generate a list of common aliases, including colloquialisms, common misspellings, and transliterations (e.g., "pyaaz" for onions).
+Generate a list of common aliases, including colloquialisms, common misspellings, and transliterations.
 
 Provide the following:
 1.  **en (English)**: A list of common English names. Include singular and plural forms.
-2.  **te (Telugu)**: A list of common names in Telugu script and their English transliterations (e.g., 'ఉల్లిపాయలు', 'ullipayalu', 'erragadda').
-3.  **hi (Hindi)**: A list of common names in Devanagari script and their English transliterations (e.g., 'प्याज', 'pyaaz').
+2.  **te (Telugu)**: A list of common names in Telugu. CRUCIALLY, include both the native Telugu script (e.g., 'ఉల్లిపాయలు') AND their common English letter transliterations (e.g., 'ullipayalu', 'erragadda').
+3.  **hi (Hindi)**: A list of common names in Hindi. CRUCIALLY, include both the Devanagari script (e.g., 'प्याज') AND their common English letter transliterations (e.g., 'pyaaz').
 
 Keep the lists concise and focused on the most common terms.
 `,
