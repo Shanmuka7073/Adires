@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect, useTransition, useMemo } from 'react';
 import { useAppStore } from '@/lib/store';
 import { useFirebase } from '@/firebase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -75,7 +75,7 @@ function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestRep
                     {isDynamicReply && (
                         <div className="flex items-center gap-2 p-2 text-sm text-blue-800 bg-blue-100 rounded-md">
                             <Info className="h-4 w-4" />
-                            <p>Voice generation is disabled for this reply because it contains dynamic variables like {'`{productName}` or `{total}`'}.</p>
+                            <p>Voice generation is disabled for this reply because it contains dynamic variables like '{'{productName}'}' or '{'{total}'}'.</p>
                         </div>
                     )}
 
