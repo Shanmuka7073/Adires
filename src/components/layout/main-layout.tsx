@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, createContext, useContext, useCallback, useEffect } from 'react';
@@ -40,16 +39,11 @@ export function MainLayout({
   const pathname = usePathname();
   
   const { user } = useFirebase();
-  const { isInitialized, fetchInitialData, firestore } = useAppStore(state => ({
-      isInitialized: state.isInitialized,
-      fetchInitialData: state.fetchInitialData,
-      firestore: useFirebase().firestore,
-  }));
   
   // This hook now correctly handles the initial data load for the entire app
   useInitializeApp();
 
-  const { setLanguage } = useAppStore();
+  const { setLanguage, isInitialized } = useAppStore();
 
   // State to trigger re-evaluation in VoiceCommander
   const [voiceTrigger, setVoiceTrigger] = useState(0);
@@ -126,7 +120,7 @@ export function MainLayout({
             />
         )}
         <ProfileCompletionChecker />
-        <main className="flex-1 pb-16 md:pb-10">{children}</main>
+        <main className="flex-1 pb-16 md:pb-0">{children}</main>
         <NotificationPermissionManager />
         <Footer />
         <BottomNavBar />

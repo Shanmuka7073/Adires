@@ -1,4 +1,3 @@
-
 'use client';
 
 import { create } from 'zustand';
@@ -59,25 +58,23 @@ export const useAppStore = create<AppState>()(
       },
 
       fetchInitialData: async (db: Firestore) => {
-        // Prevent re-fetching if already initialized
-        if (get().isInitialized) {
+        if (get().isInitialized || get().loading) {
             return; 
         }
-        // Set loading to true only if it's not already loading
-        if (!get().loading) {
-          set({ loading: true });
-        }
+        set({ loading: true, error: null });
         
-        set({ error: null });
         try {
-          const aliasGroupCollection = collection(db, 'voiceAliasGroups');
-          const aliasSnapshot = await getDocs(aliasGroupCollection);
-          const voiceAliasGroups = aliasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
+          const [stores, masterProducts, aliasDocs, commandDocs] = await Promise.all([
+            getStores(db),
+            getMasterProducts(db),
+            getDocs(collection(db, 'voiceAliasGroups')),
+            getDocs(collection(db, 'voiceCommands'))
+          ]);
+
+          const voiceAliasGroups = aliasDocs.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
           const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
           
-          const commandsCollection = collection(db, 'voiceCommands');
-          const commandsSnapshot = await getDocs(commandsCollection);
-          const dbCommands = commandsSnapshot.docs.reduce((acc, doc) => {
+          const dbCommands = commandDocs.docs.reduce((acc, doc) => {
               acc[doc.id] = doc.data() as CommandGroup;
               return acc;
           }, {} as Record<string, CommandGroup>);
@@ -86,47 +83,53 @@ export const useAppStore = create<AppState>()(
 
           initializeTranslations(locales); 
 
-          const [stores, masterProducts] = await Promise.all([
-            getStores(db),
-            getMasterProducts(db),
-          ]);
-          
           set({
             stores,
             masterProducts,
             locales,
             commands: enrichedCommands,
-            loading: false,
             isInitialized: true,
           });
           
         } catch (error) {
           console.error("Failed to fetch initial app data:", error);
-          set({ error: error as Error, loading: false });
+          set({ error: error as Error });
+        } finally {
+            set({ loading: false });
         }
       },
       
       fetchProductPrices: async (db: Firestore, productNames: string[]) => {
-          const existingPrices = get().productPrices;
-          const namesToFetch = productNames.filter(name => name && existingPrices[name.toLowerCase()] === undefined);
+          const { productPrices } = get();
+          const namesToFetch = productNames.filter(name => name && productPrices[name.toLowerCase()] === undefined);
 
-          if (namesToFetch.length === 0) {
-              return;
-          }
-          
+          if (namesToFetch.length === 0) return;
+
           try {
-              const pricePromises = namesToFetch.map(name => getProductPrice(db, name));
-              const results = await Promise.all(pricePromises);
+              const pricesToUpdate: Record<string, ProductPrice | null> = {};
+              const batchSize = 30; // Firestore 'in' query limit
 
-              const newPrices = namesToFetch.reduce((acc, name, index) => {
-                  acc[name.toLowerCase()] = results[index];
-                  return acc;
-              }, {} as Record<string, ProductPrice | null>);
+              for (let i = 0; i < namesToFetch.length; i += batchSize) {
+                  const batchNames = namesToFetch.slice(i, i + batchSize);
+                  if (batchNames.length > 0) {
+                      const priceQuery = query(collection(db, 'productPrices'), where('productName', 'in', batchNames.map(n => n.toLowerCase())));
+                      const priceSnapshot = await getDocs(priceQuery);
+                      priceSnapshot.forEach(doc => {
+                          pricesToUpdate[doc.id] = doc.data() as ProductPrice;
+                      });
+                  }
+              }
+
+              // Ensure all fetched names have an entry, even if null
+              namesToFetch.forEach(name => {
+                  if (pricesToUpdate[name.toLowerCase()] === undefined) {
+                      pricesToUpdate[name.toLowerCase()] = null;
+                  }
+              });
 
               set(state => ({
-                  productPrices: { ...state.productPrices, ...newPrices }
+                  productPrices: { ...state.productPrices, ...pricesToUpdate }
               }));
-
           } catch (error) {
               console.error("Failed to fetch product prices:", error);
           }
@@ -156,14 +159,11 @@ export const useInitializeApp = () => {
     const { fetchInitialData, isInitialized, loading } = useAppStore();
 
     useEffect(() => {
-        // Trigger fetch only if we have the necessary firebase services and user is logged in,
-        // and we haven't already initialized the data.
         if (firestore && user && !isInitialized && !loading) {
             fetchInitialData(firestore);
         }
     }, [firestore, user, isInitialized, loading, fetchInitialData]);
 
-    // The hook now correctly represents the loading state for the *initialization* process.
     return loading && !isInitialized;
 };
 
@@ -186,4 +186,3 @@ export const useMyStorePageStore = create<MyStorePageState>((set) => ({
   saveInventoryBtnRef: null,
   setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
 }));
-
