@@ -523,6 +523,12 @@ export default function AdminDashboardPage() {
                         href="/dashboard/admin/knowledge-chat"
                         icon={MessageSquare}
                     />
+                     <AdminActionCard
+                        title="App Replies Editor"
+                        description="Manage the voice assistant's conversational replies."
+                        href="/dashboard/admin/app-replies"
+                        icon={MessageSquare}
+                    />
                     <AdminActionCard 
                         title="manage-master-store-and-products"
                         description="add-or-edit-products-in-the-master-catalog"
@@ -642,10 +648,4 @@ export default function AdminDashboardPage() {
         </div>
     );
 }
-
-
-
-
-
-
 

@@ -1,0 +1,165 @@
+
+'use client';
+
+import { useState, useEffect, useTransition } from 'react';
+import { useAppStore } from '@/lib/store';
+import { useFirebase } from '@/firebase';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Loader2, Save, MessageSquare } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { collection, doc, writeBatch } from 'firebase/firestore';
+import type { CommandGroup } from '@/lib/locales/commands';
+
+export default function AppRepliesPage() {
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+    const [isSaving, startSaveTransition] = useTransition();
+
+    // Get commands from the global store
+    const { commands: initialCommands, fetchInitialData, loading } = useAppStore();
+
+    // Local state for editing, initialized from the global store
+    const [commands, setCommands] = useState<Record<string, CommandGroup>>(initialCommands);
+
+    // Re-initialize local state if the global store's data changes
+    useEffect(() => {
+        setCommands(initialCommands);
+    }, [initialCommands]);
+    
+    // Fetch data on mount if not already initialized
+    useEffect(() => {
+        if(firestore && !Object.keys(initialCommands).length) {
+            fetchInitialData(firestore);
+        }
+    }, [firestore, initialCommands, fetchInitialData]);
+
+    const handleReplyChange = (commandKey: string, lang: 'en' | 'te' | 'hi', value: string) => {
+        setCommands(currentCommands => {
+            const command = currentCommands[commandKey];
+            if (!command) return currentCommands;
+    
+            // Ensure reply is an object
+            const reply = typeof command.reply === 'object' && !Array.isArray(command.reply) 
+                ? command.reply 
+                : { en: '', te: '', hi: '' };
+    
+            const updatedReply = { ...reply, [lang]: value };
+    
+            return {
+                ...currentCommands,
+                [commandKey]: {
+                    ...command,
+                    reply: updatedReply,
+                },
+            };
+        });
+    };
+
+    const handleSaveChanges = () => {
+        if (!firestore) {
+            toast({ variant: 'destructive', title: 'Firestore not available.' });
+            return;
+        }
+
+        startSaveTransition(async () => {
+            const batch = writeBatch(firestore);
+            const commandsRef = collection(firestore, 'voiceCommands');
+
+            Object.entries(commands).forEach(([key, commandData]) => {
+                const commandRef = doc(commandsRef, key);
+                batch.set(commandRef, commandData, { merge: true });
+            });
+
+            try {
+                await batch.commit();
+                toast({ title: 'Success!', description: 'App replies have been updated.' });
+                // Refetch data to sync the app store
+                await fetchInitialData(firestore);
+            } catch (error) {
+                console.error('Failed to save replies:', error);
+                toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save replies to the database.' });
+            }
+        });
+    };
+
+    if (loading && !Object.keys(commands).length) {
+        return <div className="container mx-auto py-12">Loading command replies...</div>
+    }
+
+    return (
+        <div className="container mx-auto py-12 px-4 md:px-6">
+            <Card className="max-w-4xl mx-auto">
+                <CardHeader>
+                    <div className="flex items-center gap-3">
+                        <MessageSquare className="h-8 w-8 text-primary" />
+                        <div>
+                            <CardTitle className="text-3xl font-headline">App Voice Replies</CardTitle>
+                            <CardDescription>
+                                Edit the conversational replies for your voice assistant's general commands.
+                            </CardDescription>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <Accordion type="multiple" className="w-full">
+                        {Object.entries(commands).sort(([a], [b]) => a.localeCompare(b)).map(([key, commandData]) => {
+                            const replies = typeof commandData.reply === 'object' && !Array.isArray(commandData.reply)
+                                ? commandData.reply
+                                : { en: commandData.reply || '', te: '', hi: '' };
+                            
+                            return (
+                                <AccordionItem value={key} key={key}>
+                                    <AccordionTrigger className="text-lg font-semibold">{commandData.display}</AccordionTrigger>
+                                    <AccordionContent>
+                                        <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
+                                            <div className="space-y-2">
+                                                <Label htmlFor={`reply-en-${key}`}>English Reply</Label>
+                                                <Textarea
+                                                    id={`reply-en-${key}`}
+                                                    placeholder="e.g., Okay, heading home."
+                                                    value={replies.en || ''}
+                                                    onChange={e => handleReplyChange(key, 'en', e.target.value)}
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor={`reply-te-${key}`}>Telugu Reply</Label>
+                                                <Textarea
+                                                    id={`reply-te-${key}`}
+                                                    placeholder="e.g., సరే, ఇంటికి వెళ్తున్నాను."
+                                                    value={replies.te || ''}
+                                                    onChange={e => handleReplyChange(key, 'te', e.target.value)}
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor={`reply-hi-${key}`}>Hindi Reply</Label>
+                                                <Textarea
+                                                    id={`reply-hi-${key}`}
+                                                    placeholder="e.g., ठीक है, घर जा रहा हूँ।"
+                                                    value={replies.hi || ''}
+                                                    onChange={e => handleReplyChange(key, 'hi', e.target.value)}
+                                                />
+                                            </div>
+                                            <p className="text-xs text-muted-foreground">
+                                                Tip: You can provide multiple replies separated by a comma (`,`) and the app will pick one at random.
+                                            </p>
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            );
+                        })}
+                    </Accordion>
+
+                    <Button onClick={handleSaveChanges} disabled={isSaving} className="w-full mt-8" size="lg">
+                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        Save All Reply Changes
+                    </Button>
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
+
