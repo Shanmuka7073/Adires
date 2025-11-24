@@ -18,7 +18,7 @@ const SuggestProductAliasesInputSchema = z.object({
 export type SuggestProductAliasesInput = z.infer<typeof SuggestProductAliasesInputSchema>;
 
 const AliasesSchema = z.object({
-    en: z.array(z.string()).describe("A list of common English aliases, including singular and plural forms."),
+    en: z.array(z.string()).describe("A list of common English aliases, including singular, plural forms, and the Roman-script transliterations from Telugu and Hindi."),
     te: z.array(z.string()).describe("A list of common Telugu aliases, including both native script (e.g., 'ఉల్లిపాయలు') and their Roman script transliterations (e.g., 'ullipayalu', 'erragadda')."),
     hi: z.array(z.string()).describe("A list of common Hindi aliases, including both Devanagari script (e.g., 'प्याज') and their Roman script transliterations (e.g., 'pyaaz')."),
 });
@@ -44,9 +44,9 @@ For the product: "{{productName}}"
 Generate a list of common aliases, including colloquialisms, common misspellings, and transliterations.
 
 Provide the following:
-1.  **en (English)**: A list of common English names. Include singular and plural forms.
-2.  **te (Telugu)**: A list of common names in Telugu. CRUCIALLY, include both the native Telugu script (e.g., 'ఉల్లిపాయలు') AND their common English letter transliterations (e.g., 'ullipayalu', 'erragadda').
-3.  **hi (Hindi)**: A list of common names in Hindi. CRUCIALLY, you MUST include both the native Devanagari script (e.g., 'प्याज') AND their common English letter transliterations (e.g., 'pyaaz', 'gajar'). This is a strict requirement.
+1.  **te (Telugu)**: A list of common names in Telugu. CRUCIALLY, include both the native Telugu script (e.g., 'ఉల్లిపాయలు') AND their common English letter transliterations (e.g., 'ullipayalu', 'erragadda').
+2.  **hi (Hindi)**: A list of common names in Hindi. CRUCIALLY, you MUST include both the native Devanagari script (e.g., 'प्याज') AND their common English letter transliterations (e.g., 'pyaaz', 'gajar'). This is a strict requirement.
+3.  **en (English)**: A list of common English names. Include singular and plural forms. IMPORTANT: You MUST also include all the Roman-script (English letter) transliterations from the 'te' and 'hi' lists here in the 'en' list as well.
 
 Keep the lists concise and focused on the most common terms.
 `,
