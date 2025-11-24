@@ -10,6 +10,8 @@ import ProductCard from '@/components/product-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSearchParams } from 'next/navigation';
 import CategoryIcon from '@/components/features/CategoryIcon';
+import Image from 'next/image';
+import { getProductImage } from '@/lib/data';
 
 interface CategoryClientProps {
   store: Store;
@@ -19,29 +21,71 @@ interface CategoryClientProps {
   isLoading: boolean;
 }
 
+// Single Category Button component for the new sidebar
+function CategoryButton({ category, isSelected, onSelectCategory }) {
+    const [image, setImage] = useState({ imageUrl: '', imageHint: '' });
+    const [isImageLoading, setIsImageLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchImage = async () => {
+            setIsImageLoading(true);
+            const imageId = `cat-${category.categoryName.toLowerCase().replace(/ & /g, '-&-').replace(/ /g, '-')}`;
+            try {
+                const fetchedImage = await getProductImage(imageId);
+                setImage(fetchedImage);
+            } catch (error) {
+                console.error("Failed to fetch image for category:", category.categoryName, error);
+                // Set a fallback image
+                setImage({ imageUrl: 'https://picsum.photos/seed/placeholder/128/128', imageHint: 'placeholder' });
+            }
+            setIsImageLoading(false);
+        };
+        fetchImage();
+    }, [category.categoryName]);
+
+    return (
+        <button
+            onClick={() => onSelectCategory(category.categoryName)}
+            className={cn(
+                "flex flex-col items-center w-20 bg-white rounded-2xl shadow-sm py-3 px-2 transition-all hover:shadow-md hover:-translate-y-1",
+                isSelected && "ring-2 ring-primary"
+            )}
+        >
+            {isImageLoading ? (
+                 <Skeleton className="w-12 h-12 rounded-full" />
+            ) : (
+                <Image
+                    src={image.imageUrl}
+                    alt={category.categoryName}
+                    width={48}
+                    height={48}
+                    data-ai-hint={image.imageHint}
+                    className="w-12 h-12 object-cover rounded-full border"
+                />
+            )}
+            <span className="text-xs text-gray-700 font-medium mt-2 text-center truncate w-full">
+              {category.categoryName}
+            </span>
+        </button>
+    );
+}
+
 function CategorySidebar({ categories, selectedCategory, onSelectCategory }) {
   return (
-      <nav className="w-20 flex-shrink-0 border-r bg-muted/20">
-        <ScrollArea className="h-full py-4">
-          <div className="space-y-4 px-1">
-            {categories.map((category) => {
-              const isSelected = category.categoryName === selectedCategory;
-              return (
-                <button
-                  key={category.categoryName}
-                  onClick={() => onSelectCategory(category.categoryName)}
-                  className={cn(
-                    'flex flex-col items-center gap-1 p-1 rounded-lg w-full text-center transition-colors',
-                    isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted/50'
-                  )}
-                >
-                  <CategoryIcon category={category} />
-                </button>
-              );
-            })}
-          </div>
+      <aside className="w-24 bg-[#f4f9f0] h-screen overflow-y-auto py-4 border-r border-gray-200 sticky top-0">
+        <ScrollArea className="h-full">
+            <div className="flex flex-col items-center space-y-4">
+                {categories.map((cat) => (
+                    <CategoryButton 
+                        key={cat.categoryName}
+                        category={cat}
+                        isSelected={cat.categoryName === selectedCategory}
+                        onSelectCategory={onSelectCategory}
+                    />
+                ))}
+            </div>
         </ScrollArea>
-      </nav>
+      </aside>
   );
 }
 
@@ -88,10 +132,9 @@ export function CategoryClient({ store, initialCategories, allProducts, productP
   }, [allProducts, selectedCategory, searchTerm]);
 
   return (
-    <div className="flex flex-row min-h-screen">
+    <div className="flex w-full h-screen bg-[#f4f9f0]">
       <CategorySidebar categories={initialCategories} selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} />
-      <div className="flex-1">
-        <main className="p-4 md:p-6">
+      <main className="flex-1 overflow-y-auto p-4">
           <div className="flex justify-between items-start md:items-center mb-6 flex-col md:flex-row gap-4">
             <div>
               <h2 className="text-2xl font-bold font-headline">{searchTerm ? "Search Results" : selectedCategory}</h2>
@@ -126,7 +169,6 @@ export function CategoryClient({ store, initialCategories, allProducts, productP
             )}
           </div>
         </main>
-      </div>
     </div>
   );
 }
