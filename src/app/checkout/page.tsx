@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useCart } from '@/lib/cart';
@@ -37,7 +38,7 @@ import { create } from 'zustand';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAppStore } from '@/lib/store';
 import { t } from '@/lib/locales';
-import { useVoiceCommander } from '@/components/layout/main-layout';
+import { useVoiceCommanderContext } from '@/components/layout/main-layout';
 
 
 const checkoutSchema = z.object({
@@ -138,7 +139,7 @@ export default function CheckoutPage() {
       setAddressHandlers,
     } = useCheckoutStore();
   
-  const { triggerVoicePrompt } = useVoiceCommander();
+  const { triggerVoicePrompt } = useVoiceCommanderContext();
 
   const hasItemsInCart = cartItems.length > 0;
   const finalTotal = hasItemsInCart ? cartTotal + DELIVERY_FEE : 0;
