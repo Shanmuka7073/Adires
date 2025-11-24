@@ -20,6 +20,7 @@ function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestRep
     const [isSuggesting, startSuggestion] = useTransition();
     const [isGeneratingVoice, startVoiceGeneration] = useTransition();
     const [generatedAudio, setGeneratedAudio] = useState<Record<string, string>>({});
+    const { toast } = useToast();
 
     const handleSuggest = () => {
         startSuggestion(() => {
@@ -145,7 +146,7 @@ export default function AppRepliesPage() {
         const commandData = commands[commandKey];
         if (!commandData) return;
 
-        const currentReplies = typeof commandData.reply === 'object' && commandData.reply !== null
+        const currentReplies = typeof commandData.reply === 'object' && commandData.reply !== null && !Array.isArray(commandData.reply)
             ? commandData.reply
             : { en: commandData.reply as string, te: '', hi: '' };
 
