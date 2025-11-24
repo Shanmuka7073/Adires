@@ -43,7 +43,7 @@ export default function AppRepliesPage() {
             if (!command) return currentCommands;
     
             // Ensure reply is a structured object for multilingual support
-            const currentReply = typeof command.reply === 'object' && !Array.isArray(command.reply) 
+            const currentReply = typeof command.reply === 'object' && command.reply !== null && !Array.isArray(command.reply) 
                 ? command.reply 
                 : { en: (typeof command.reply === 'string' ? command.reply : ''), te: '', hi: '' };
     
@@ -112,9 +112,9 @@ export default function AppRepliesPage() {
                 <CardContent>
                     <Accordion type="multiple" className="w-full">
                         {Object.entries(commands).sort(([a], [b]) => a.localeCompare(b)).map(([key, commandData]) => {
-                            const replies = typeof commandData.reply === 'object' && !Array.isArray(commandData.reply)
+                            const replies = typeof commandData.reply === 'object' && commandData.reply !== null && !Array.isArray(commandData.reply)
                                 ? commandData.reply
-                                : { en: commandData.reply || '', te: '', hi: '' };
+                                : { en: (commandData.reply as string) || '', te: '', hi: '' };
                             
                             return (
                                 <AccordionItem value={key} key={key}>
@@ -126,7 +126,7 @@ export default function AppRepliesPage() {
                                                 <Textarea
                                                     id={`reply-en-${key}`}
                                                     placeholder="e.g., Okay, heading home."
-                                                    value={typeof replies === 'object' ? replies.en || '' : replies}
+                                                    value={replies.en || ''}
                                                     onChange={e => handleReplyChange(key, 'en', e.target.value)}
                                                 />
                                             </div>
@@ -135,7 +135,7 @@ export default function AppRepliesPage() {
                                                 <Textarea
                                                     id={`reply-te-${key}`}
                                                     placeholder="e.g., సరే, ఇంటికి వెళ్తున్నాను."
-                                                    value={typeof replies === 'object' ? replies.te || '' : ''}
+                                                    value={replies.te || ''}
                                                     onChange={e => handleReplyChange(key, 'te', e.target.value)}
                                                 />
                                             </div>
@@ -144,7 +144,7 @@ export default function AppRepliesPage() {
                                                 <Textarea
                                                     id={`reply-hi-${key}`}
                                                     placeholder="e.g., ठीक है, घर जा रहा हूँ।"
-                                                    value={typeof replies === 'object' ? replies.hi || '' : ''}
+                                                    value={replies.hi || ''}
                                                     onChange={e => handleReplyChange(key, 'hi', e.target.value)}
                                                 />
                                             </div>
