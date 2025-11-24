@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useTransition, useEffect, useMemo, useRef, RefObject } from 'react';
@@ -301,6 +300,7 @@ function EditProductDialog({ storeId, product, isOpen, onOpenChange }: { storeId
     const [isPending, startTransition] = useTransition();
     const [isGeneratingImage, startImageGeneration] = useTransition();
     const { firestore } = useFirebase();
+    const { masterProducts } = useAppStore();
 
     // Fetch current prices for default values
     const priceDocRef = useMemoFirebase(() => {
@@ -1537,7 +1537,9 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
     const [isDeleting, startDeleteTransition] = useTransition();
     const [isOpening, startOpenTransition] = useTransition();
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-    const { getProductName, language } = useAppStore();
+    const { masterProducts } = useAppStore(state => ({ masterProducts: state.masterProducts }));
+    const [selectedCategory, setSelectedCategory] = useState<string>('all');
+    const { language } = useAppStore();
 
     const productsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -1548,6 +1550,12 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
     
     const needsLocationUpdate = !store.latitude || !store.longitude;
     
+    const filteredProducts = useMemo(() => {
+        if (!products) return [];
+        const uniqueProducts = Array.from(new Map(products.map(p => [p.id, p])).values());
+        if (selectedCategory === 'all') return uniqueProducts;
+        return uniqueProducts.filter(p => p.category === selectedCategory);
+    }, [products, selectedCategory]);
 
     const handleOpenStore = () => {
         if (!firestore) return;
@@ -1670,12 +1678,27 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
                             {isAdmin ? t('this-is-the-master-list-of-products') : t('this-is-your-current-store-inventory')}
                         </CardDescription>
                     </div>
+                    {isAdmin && (
+                        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                            <SelectTrigger className="w-full sm:w-[200px]">
+                                <SelectValue placeholder="Filter by category..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Categories</SelectItem>
+                                {Array.from(new Set(masterProducts.map(p => p.category).filter(Boolean))).map(cat => (
+                                    <SelectItem key={cat} value={cat}>
+                                        {t(cat.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
                 </div>
             </CardHeader>
             <CardContent>
                 {isLoading ? (
                     <p>{t('loading-products')}...</p>
-                ) : products && products.length > 0 ? (
+                ) : filteredProducts && filteredProducts.length > 0 ? (
                     <Table>
                     <TableHeader>
                         <TableRow>
@@ -1686,7 +1709,7 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {products.map(product => 
+                        {filteredProducts.map(product => 
                             isAdmin ? (
                                 <AdminProductRow 
                                     key={product.id}
@@ -2041,3 +2064,4 @@ export default function MyStorePage() {
         </div>
     );
 }
+

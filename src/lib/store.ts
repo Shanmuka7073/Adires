@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { create } from 'zustand';
@@ -47,7 +46,7 @@ export const useAppStore = create<AppState>()(
       productPrices: {},
       locales: {},
       commands: {},
-      loading: false,
+      loading: true,
       isInitialized: false,
       error: null,
       language: getInitialLanguage(),
@@ -60,10 +59,16 @@ export const useAppStore = create<AppState>()(
       },
 
       fetchInitialData: async (db: Firestore) => {
-        if (get().isInitialized) {
-          return;
+        if (get().isInitialized || get().loading) {
+          // Prevent re-fetching if already initialized or in progress
+          // Set loading true only if not already initialized
+          if (!get().isInitialized) set({ loading: true });
+          else return;
+        } else {
+            set({ loading: true });
         }
-        set({ loading: true, error: null });
+
+        set({ error: null });
         try {
           const aliasGroupCollection = collection(db, 'voiceAliasGroups');
           const aliasSnapshot = await getDocs(aliasGroupCollection);
@@ -103,7 +108,7 @@ export const useAppStore = create<AppState>()(
       
       fetchProductPrices: async (db: Firestore, productNames: string[]) => {
           const existingPrices = get().productPrices;
-          const namesToFetch = productNames.filter(name => existingPrices[name.toLowerCase()] === undefined);
+          const namesToFetch = productNames.filter(name => name && existingPrices[name.toLowerCase()] === undefined);
 
           if (namesToFetch.length === 0) {
               return;
@@ -134,38 +139,31 @@ export const useAppStore = create<AppState>()(
       },
 
       getAllAliases: (key: string) => {
-        // This function now depends on the 'locales' from its own state
         return getAliasesFromLocales(get().locales, key);
       }
     }),
     {
-      name: 'localbasket-app-storage', // Name of the item in localStorage
-      storage: createJSONStorage(() => localStorage), // Use localStorage
-      // Only persist a subset of the state that is safe and useful to persist
-      partialize: (state) => ({ 
-          language: state.language
-      }),
+      name: 'localbasket-app-storage',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({ language: state.language }),
     }
   )
 );
 
 
-// Custom hook to initialize the store's data on app load
 export const useInitializeApp = () => {
     const { firestore, user } = useFirebase();
     const { fetchInitialData, isInitialized, loading } = useAppStore();
 
     useEffect(() => {
-        // Only fetch data if we have the necessary services and it hasn't been fetched yet.
-        if (firestore && user && !isInitialized) {
+        if (firestore && user && !isInitialized && !loading) {
             fetchInitialData(firestore);
         }
-    }, [firestore, user, isInitialized, fetchInitialData]);
+    }, [firestore, user, isInitialized, loading, fetchInitialData]);
 
     return loading && !isInitialized;
 };
 
-// --- Store for Profile Page Form ---
 interface ProfileFormState {
   form: UseFormReturn<ProfileFormValues> | null;
   setForm: (form: UseFormReturn<ProfileFormValues> | null) => void;
@@ -176,8 +174,6 @@ export const useProfileFormStore = create<ProfileFormState>((set) => ({
   setForm: (form) => set({ form }),
 }));
 
-
-// --- Store for My Store Page ---
 interface MyStorePageState {
   saveInventoryBtnRef: RefObject<HTMLButtonElement> | null;
   setSaveInventoryBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
@@ -187,7 +183,3 @@ export const useMyStorePageStore = create<MyStorePageState>((set) => ({
   saveInventoryBtnRef: null,
   setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
 }));
-
-
-
-
