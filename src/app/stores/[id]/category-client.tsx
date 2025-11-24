@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Product, ProductPrice, Store } from '@/lib/types';
@@ -15,7 +14,6 @@ import { Button } from '@/components/ui/button';
 
 interface CategoryClientProps {
   store: Store;
-  initialCategories: { categoryName: string; items: string[] }[];
   allProducts: Product[];
   productPrices: Record<string, ProductPrice | null>;
   isLoading: boolean;
@@ -36,24 +34,24 @@ function CategoryButton({ category, isSelected, onSelectCategory }) {
     useEffect(() => {
         const fetchImage = async () => {
             setIsImageLoading(true);
-            const imageId = `cat-${category.categoryName.toLowerCase().replace(/ & /g, '-&-').replace(/ /g, '-')}`;
+            const imageId = `cat-${category.name.toLowerCase().replace(/ & /g, '-&-').replace(/ /g, '-')}`;
             try {
                 const fetchedImage = await getProductImage(imageId);
                 setImage(fetchedImage);
             } catch (error) {
-                console.error("Failed to fetch image for category:", category.categoryName, error);
+                console.error("Failed to fetch image for category:", category.name, error);
                 setImage({ imageUrl: 'https://picsum.photos/seed/placeholder/128/128', imageHint: 'placeholder' });
             } finally {
                 setIsImageLoading(false);
             }
         };
         fetchImage();
-    }, [category.categoryName]);
+    }, [category.name]);
 
     return (
         <button
             ref={buttonRef}
-            onClick={() => onSelectCategory(category.categoryName)}
+            onClick={() => onSelectCategory(category.name)}
             className={cn(
                 "flex flex-col items-center justify-start w-20 flex-shrink-0 text-center gap-2 py-3 px-1 rounded-2xl transition-all duration-200",
                 isSelected ? "bg-white shadow-md ring-2 ring-primary" : "bg-white/80"
@@ -64,7 +62,7 @@ function CategoryButton({ category, isSelected, onSelectCategory }) {
             ) : (
                 <Image
                     src={image.imageUrl}
-                    alt={category.categoryName}
+                    alt={category.name}
                     width={48}
                     height={48}
                     data-ai-hint={image.imageHint}
@@ -72,7 +70,7 @@ function CategoryButton({ category, isSelected, onSelectCategory }) {
                 />
             )}
             <span className="text-xs text-gray-700 font-medium truncate w-full">
-              {category.categoryName}
+              {category.name}
             </span>
         </button>
     );
@@ -81,14 +79,14 @@ function CategoryButton({ category, isSelected, onSelectCategory }) {
 // Sidebar for Desktop
 function DesktopCategorySidebar({ categories, selectedCategory, onSelectCategory }) {
   return (
-      <aside className="hidden md:block w-28 bg-[#f4f9f0] h-full overflow-y-auto py-4 border-r border-gray-200 sticky top-16">
+      <aside className="hidden md:block w-24 bg-[#f4f9f0] h-full overflow-y-auto py-4 border-r border-gray-200 sticky top-16">
         <ScrollArea className="h-full">
             <div className="flex flex-col items-center space-y-4">
                 {categories.map((cat) => (
                     <CategoryButton 
-                        key={cat.categoryName}
+                        key={cat.name}
                         category={cat}
-                        isSelected={cat.categoryName === selectedCategory}
+                        isSelected={cat.name === selectedCategory}
                         onSelectCategory={onSelectCategory}
                     />
                 ))}
@@ -106,9 +104,9 @@ function MobileCategoryScroller({ categories, selectedCategory, onSelectCategory
                  <div className="flex space-x-4 p-4">
                     {categories.map((cat) => (
                          <CategoryButton 
-                            key={cat.categoryName}
+                            key={cat.name}
                             category={cat}
-                            isSelected={cat.categoryName === selectedCategory}
+                            isSelected={cat.name === selectedCategory}
                             onSelectCategory={onSelectCategory}
                         />
                     ))}
@@ -119,9 +117,20 @@ function MobileCategoryScroller({ categories, selectedCategory, onSelectCategory
     );
 }
 
-export function CategoryClient({ store, initialCategories, allProducts, productPrices, isLoading }: CategoryClientProps) {
+export function CategoryClient({ store, allProducts, productPrices, isLoading }: CategoryClientProps) {
   const searchParams = useSearchParams();
   const categoryFromUrl = searchParams.get('category');
+  
+  const categories = useMemo(() => {
+    if (!allProducts) return [];
+    const categorySet = new Set<string>();
+    allProducts.forEach(p => {
+        if (p.category) {
+            categorySet.add(p.category);
+        }
+    });
+    return Array.from(categorySet).map(name => ({ name }));
+  }, [allProducts]);
   
   const [selectedCategory, setSelectedCategory] = useState<string | null>(categoryFromUrl);
   const [searchTerm, setSearchTerm] = useState('');
@@ -137,13 +146,13 @@ export function CategoryClient({ store, initialCategories, allProducts, productP
   }, [store.id, setActiveStoreId]);
 
   useEffect(() => {
-    if (categoryFromUrl && initialCategories.some(c => c.categoryName === categoryFromUrl)) {
+    if (categoryFromUrl && categories.some(c => c.name === categoryFromUrl)) {
       setSelectedCategory(categoryFromUrl);
     } 
-    else if (!selectedCategory && initialCategories.length > 0) {
-      setSelectedCategory(initialCategories[0].categoryName);
+    else if (!selectedCategory && categories.length > 0) {
+      setSelectedCategory(categories[0].name);
     }
-  }, [initialCategories, selectedCategory, categoryFromUrl]);
+  }, [categories, selectedCategory, categoryFromUrl]);
 
   const filteredProducts = useMemo(() => {
     if (searchTerm) {
@@ -159,9 +168,9 @@ export function CategoryClient({ store, initialCategories, allProducts, productP
 
   return (
     <div className="flex flex-col md:flex-row w-full h-full bg-[#f4f9f0]">
-      <DesktopCategorySidebar categories={initialCategories} selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} />
+      <DesktopCategorySidebar categories={categories} selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} />
       <div className="flex flex-col flex-1">
-        <MobileCategoryScroller categories={initialCategories} selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} />
+        <MobileCategoryScroller categories={categories} selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} />
         <main className="flex-1 overflow-y-auto p-4">
             <div className="flex justify-between items-start md:items-center mb-6 flex-col md:flex-row gap-4">
               <div>

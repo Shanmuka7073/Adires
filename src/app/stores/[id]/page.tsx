@@ -1,7 +1,5 @@
-
 'use client';
 import { Store, Product, ProductPrice } from '@/lib/types';
-import groceryData from '@/lib/grocery-data.json';
 import { useParams, notFound } from 'next/navigation';
 import { useDoc, useCollection, useMemoFirebase, useFirebase } from '@/firebase';
 import { collection, doc, query, where, getDocs } from 'firebase/firestore';
@@ -69,14 +67,7 @@ export default function StoreDetailPage() {
   if (storeError) {
     notFound();
   }
-
-  const storeCategories = useMemo(() => {
-    if (!products) return [];
-    return [...new Set(products.map(p => p.category || 'Miscellaneous'))]
-      .map(catName => groceryData.categories.find(gc => gc.categoryName === catName))
-      .filter(Boolean) as { categoryName: string; items: string[] }[];
-  }, [products]);
-
+  
   if (isLoading || !store || !products) {
     return (
       <div className="container mx-auto py-12 px-4 md:px-6">
@@ -91,11 +82,15 @@ export default function StoreDetailPage() {
     );
   }
 
+  // The initialCategories are now derived from the products themselves.
+  const initialCategories = Array.from(new Set(products.map(p => p.category || 'Miscellaneous')))
+    .map(categoryName => ({ categoryName, items: [] }));
+
 
   return (
     <CategoryClient
       store={store}
-      initialCategories={storeCategories}
+      initialCategories={initialCategories}
       allProducts={products}
       productPrices={productPrices}
       isLoading={isLoading}
