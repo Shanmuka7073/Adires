@@ -30,32 +30,38 @@ export default function StoreDetailPage() {
       return;
     };
 
-    const fetchPrices = async () => {
-      setArePricesLoading(true);
-      const productNames = products.map(p => p.name);
-      
-      // Batch fetching prices in chunks to avoid hitting query limits if necessary, though getDocs can handle up to 30 'in' comparisons
-      const priceQuery = query(collection(firestore, 'productPrices'), where('productName', 'in', productNames.map(name => name.toLowerCase())));
-      const priceSnapshot = await getDocs(priceQuery);
-      
-      const prices: Record<string, ProductPrice | null> = {};
-      priceSnapshot.forEach(doc => {
-          const priceData = doc.data() as ProductPrice;
-          prices[doc.id] = priceData;
-      });
+    const fetchPricesInBatches = async () => {
+        setArePricesLoading(true);
+        const productNames = products.map(p => p.name.toLowerCase());
+        const allPrices: Record<string, ProductPrice | null> = {};
 
-      // Fill in null for products that didn't have a price document
-      productNames.forEach(name => {
-          if (!prices[name.toLowerCase()]) {
-              prices[name.toLowerCase()] = null;
-          }
-      });
+        // Firestore 'in' query limit is 30
+        const batchSize = 30; 
+        for (let i = 0; i < productNames.length; i += batchSize) {
+            const batchNames = productNames.slice(i, i + batchSize);
+            if (batchNames.length > 0) {
+                const priceQuery = query(collection(firestore, 'productPrices'), where('productName', 'in', batchNames));
+                const priceSnapshot = await getDocs(priceQuery);
+                
+                priceSnapshot.forEach(doc => {
+                    const priceData = doc.data() as ProductPrice;
+                    allPrices[doc.id] = priceData;
+                });
+            }
+        }
+        
+        // Ensure all product names have an entry, even if it's null
+        productNames.forEach(name => {
+            if (!allPrices[name]) {
+                allPrices[name] = null;
+            }
+        });
       
-      setProductPrices(prices);
-      setArePricesLoading(false);
+        setProductPrices(allPrices);
+        setArePricesLoading(false);
     };
 
-    fetchPrices();
+    fetchPricesInBatches();
   }, [firestore, products]);
   
   const isLoading = isStoreLoading || areProductsLoading || arePricesLoading;
@@ -96,4 +102,3 @@ export default function StoreDetailPage() {
     />
   );
 }
-
