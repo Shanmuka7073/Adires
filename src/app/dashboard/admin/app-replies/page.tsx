@@ -51,16 +51,30 @@ function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestRep
                 } else {
                     throw new Error("AI did not return any audio data.");
                 }
-            } catch (error) {
+            } catch (error: any) {
                 console.error("AI voice generation failed:", error);
-                toast({ variant: 'destructive', title: 'Voice Generation Failed', description: (error as Error).message || 'Could not get audio from the AI.' });
+                const errorMessage = error.message || 'An unknown error occurred.';
+                
+                if (errorMessage.toLowerCase().includes('rate limit')) {
+                    toast({
+                        variant: 'destructive',
+                        title: 'Rate Limit Exceeded',
+                        description: 'You have made too many requests. Please wait for a minute and try again.',
+                    });
+                } else {
+                    toast({
+                        variant: 'destructive',
+                        title: 'Voice Generation Failed',
+                        description: errorMessage,
+                    });
+                }
             }
         });
     };
 
     const replies = typeof commandData.reply === 'object' && commandData.reply !== null && !Array.isArray(commandData.reply)
         ? commandData.reply
-        : { en: (commandData.reply as string) || '', te: '', hi: '' };
+        : { en: (typeof commandData.reply as string) || '', te: '', hi: '' };
 
     return (
         <AccordionItem value={commandKey} key={commandKey}>
@@ -75,7 +89,7 @@ function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestRep
                     {isDynamicReply && (
                         <div className="flex items-center gap-2 p-2 text-sm text-blue-800 bg-blue-100 rounded-md">
                             <Info className="h-4 w-4" />
-                            <p>Voice generation is disabled for this reply because it contains dynamic variables like `{'`{productName}`'}` or `{'`{total}`'}`.</p>
+                            <p>Voice generation is disabled for this reply because it contains dynamic variables like `{'{productName}'}` or `{'{total}'}`.</p>
                         </div>
                     )}
 
