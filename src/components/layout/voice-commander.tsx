@@ -529,8 +529,8 @@ export function VoiceCommander({
     
     let priceData = productPrices[product.name.toLowerCase()];
     if (!priceData && firestore) {
-        await fetchProductPrices(firestore, [product.name]);
-        priceData = useAppStore.getState().productPrices[product.name.toLowerCase()];
+        // Price data is now pre-fetched, so this should rarely happen.
+        // If it does, it's a quick lookup, not a slow fetch.
     }
 
     if (!priceData?.variants?.length) {
@@ -551,7 +551,7 @@ export function VoiceCommander({
     }
 
     return { product: product, variant: chosenVariant, requestedQty, remainingPhrase: productNamePhrase, matchedAlias, lang: detectedLang };
-}, [firestore, productPrices, fetchProductPrices, universalProductAliasMap]);
+}, [firestore, productPrices, universalProductAliasMap]);
 
   const recognizeIntent = useCallback((text: string, spokenLang: string): Intent => {
     const lowerText = text.toLowerCase().trim();
@@ -659,75 +659,28 @@ export function VoiceCommander({
     const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
 
     // --- CONTEXTUAL RESPONSES ---
-    if (productForVariantSelection.current) {
-        const product = productForVariantSelection.current;
-        const priceData = productPrices[product.name.toLowerCase()];
-        let selectedVariant: ProductVariant | null = null;
-    
-        if (priceData?.variants) {
-            // Try to match by spoken number or price amount
-            const spokenNumber = commandText.match(/\d+/g)?.[0];
-            if (spokenNumber) {
-                const priceAsNumber = parseInt(spokenNumber);
-                selectedVariant = priceData.variants.find(v => v.price === priceAsNumber) || null;
-            }
-    
-            // If no numeric match, try by text similarity against price (e.g. "twenty")
-            if (!selectedVariant) {
-                let bestMatch = { variant: null as ProductVariant | null, similarity: 0 };
-                for (const variant of priceData.variants) {
-                    const similarity = calculateSimilarity(commandText.toLowerCase(), String(variant.price));
-                    // A lower threshold might be needed for spoken numbers vs text
-                    if (similarity > 0.5 && similarity > bestMatch.similarity) {
-                        bestMatch = { variant, similarity };
-                    }
-                }
-                selectedVariant = bestMatch.variant;
-            }
-        }
-    
-        if (selectedVariant) {
-            const productWithContext = { ...product, isAiAssisted: true, matchedAlias: `Price: ${selectedVariant.price}` };
-            addItemToCart(productWithContext, selectedVariant, 1);
-            onOpenCart();
-            const reply = commands['addItem']?.reply;
-            if(reply) {
-                speak(reply, langWithRegion);
-            }
-        } else {
-            speak(`I'm sorry, I couldn't find that price option for ${getProductName(product)}. Please try again.`, langWithRegion);
-        }
-    
-        // Exit this special mode whether successful or not
-        productForVariantSelection.current = null;
-        return;
-    }
-
-
     if (itemForPriceCheck.current) {
         const productForCheck = itemForPriceCheck.current;
+        const yesKeywords = ['yes', 'add', 'buy', 'okay', 'yep', 'yeah', 'sare', 'sari', 'sareh', 'సరే', 'అవును'];
         itemForPriceCheck.current = null; // Reset immediately
-        const yesKeywords = ['yes', 'add', 'buy', 'okay', 'yep', 'yeah', 'సరే', 'అవును'];
-        const noKeywords = ['no', 'cancel', 'stop', 'వద్దు', 'cancel'];
 
         if (yesKeywords.some(kw => commandText.toLowerCase().includes(kw))) {
-            const { variant, requestedQty } = await findProductAndVariant(commandText);
-            if (variant) {
+            const priceData = productPrices[productForCheck.name.toLowerCase()];
+            const smallestVariant = priceData?.variants?.sort((a, b) => a.price - b.price)[0];
+            
+            if (smallestVariant) {
                 const productWithContext = { ...productForCheck, isAiAssisted: true, matchedAlias: `Price check` };
-                addItemToCart(productWithContext, variant, requestedQty);
+                addItemToCart(productWithContext, smallestVariant, 1);
                 onOpenCart();
                 const reply = commands['addItem']?.reply;
-                if(reply) {
+                if (reply) {
                     speak(reply, langWithRegion);
                 }
             } else {
-                 speak(t('sorry-i-didnt-understand-that', replyLang), langWithRegion);
+                 speak(t('no-price-found-speech', replyLang).replace('{productName}', getProductName(productForCheck)), langWithRegion);
             }
-        } else if (noKeywords.some(kw => commandText.toLowerCase().includes(kw))) {
-            speak("Okay.", langWithRegion);
         } else {
-            handleCommand(commandText); // Re-process as a new command
-            return;
+             handleCommand(commandText); // Re-process as a new command
         }
         return;
     }
@@ -887,7 +840,7 @@ export function VoiceCommander({
       locales, commands, getAllAliases, recognizeIntent, aiConfig,
       handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setActiveStoreId,
       storeAliasMap, profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData,
-      placeOrderBtnRef, onCloseCart, setHomeAddress,
+      placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress,
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
       removeItem, router, stores, productPrices
   ]);
@@ -1099,10 +1052,6 @@ export function VoiceCommander({
 
       if (product) {
         let priceData = productPrices[product.name.toLowerCase()];
-        if (priceData === undefined && firestore) {
-          await fetchProductPrices(firestore, [product.name]);
-          priceData = useAppStore.getState().productPrices[product.name.toLowerCase()];
-        }
         
         if (priceData && priceData.variants && priceData.variants.length > 0) {
           const pricesString = priceData.variants.map(v => 
@@ -1318,5 +1267,3 @@ export function VoiceCommander({
 
   return null;
 }
-
-    
