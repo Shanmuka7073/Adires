@@ -45,7 +45,7 @@ export const useAppStore = create<AppState>()(
       productPrices: {},
       locales: {},
       commands: {},
-      loading: true,
+      loading: false, // Start with loading: false
       isInitialized: false,
       error: null,
       language: getInitialLanguage(),
@@ -58,6 +58,7 @@ export const useAppStore = create<AppState>()(
       },
 
       fetchInitialData: async (db: Firestore) => {
+        // Prevent re-fetching if already initialized or currently loading
         if (get().isInitialized || get().loading) {
             return; 
         }
@@ -89,13 +90,12 @@ export const useAppStore = create<AppState>()(
             locales,
             commands: enrichedCommands,
             isInitialized: true,
+            loading: false, // Set loading to false after success
           });
           
         } catch (error) {
           console.error("Failed to fetch initial app data:", error);
-          set({ error: error as Error });
-        } finally {
-            set({ loading: false });
+          set({ error: error as Error, loading: false }); // Set loading to false on error
         }
       },
       
@@ -159,12 +159,13 @@ export const useInitializeApp = () => {
     const { fetchInitialData, isInitialized, loading } = useAppStore();
 
     useEffect(() => {
+        // Trigger fetch only if firestore/user are available and data isn't already loaded/loading.
         if (firestore && user && !isInitialized && !loading) {
             fetchInitialData(firestore);
         }
     }, [firestore, user, isInitialized, loading, fetchInitialData]);
 
-    return loading && !isInitialized;
+    return { isLoading: loading && !isInitialized };
 };
 
 interface ProfileFormState {

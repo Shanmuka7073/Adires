@@ -4,15 +4,24 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { Loader2 } from 'lucide-react';
+import { useFirebase } from '@/firebase';
 
 export default function HomePage() {
   const router = useRouter();
-  const { stores, isInitialized, loading } = useAppStore();
+  const { stores, isInitialized, loading, fetchInitialData } = useAppStore();
+  const { firestore, user } = useFirebase();
+
+  // This effect ensures data fetching starts as soon as firebase is ready.
+  useEffect(() => {
+    if (firestore && user && !isInitialized && !loading) {
+      fetchInitialData(firestore);
+    }
+  }, [firestore, user, isInitialized, loading, fetchInitialData]);
+
 
   useEffect(() => {
-    // Only proceed if initialization is complete and not in the middle of loading.
+    // Only proceed if initialization is complete and we are not in the middle of loading.
     if (isInitialized && !loading) {
-      // Find the master "LocalBasket" store to serve as the default entry point.
       const masterStore = stores.find(s => s.name === 'LocalBasket');
       
       if (masterStore) {
