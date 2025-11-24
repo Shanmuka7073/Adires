@@ -309,7 +309,6 @@ export default function VoiceCommandsPage() {
                     if (result && result.aliases) {
                         const batch = writeBatch(firestore);
                         const aliasDocRef = doc(firestore, 'voiceAliasGroups', commandKey);
-                        const commandDocRef = doc(firestore, 'voiceCommands', commandKey);
                         
                         const aliasUpdates: Record<string, any> = {};
                         for (const lang in result.aliases) {
@@ -326,12 +325,19 @@ export default function VoiceCommandsPage() {
                         aliasUpdates.type = 'command';
                         batch.set(aliasDocRef, aliasUpdates, { merge: true });
 
-                        // Update the replies for the command
-                        const replyString = [...(result.replies.en || []), ...(result.replies.te || []), ...(result.replies.hi || [])].join(',');
-                        batch.update(commandDocRef, { reply: replyString });
+                        // Update the UI state for the command replies, but do not save them directly.
+                        if (result.replies) {
+                            const allReplies = [
+                                ...(result.replies.en || []),
+                                ...(result.replies.te || []),
+                                ...(result.replies.hi || [])
+                            ];
+                            const replyString = [...new Set(allReplies)].join(',');
+                            handleCommandUpdate(commandKey, 'reply', replyString);
+                        }
 
                         await batch.commit();
-                        toast({ title: 'AI Suggestions Saved!', description: `New aliases and replies for "${commandData.display}" have been saved.` });
+                        toast({ title: 'AI Suggestions Saved!', description: `New aliases for "${commandData.display}" have been saved. Suggested replies have been populated for review.` });
                         await fetchInitialData(firestore);
                     }
                 } catch (error) {
@@ -360,6 +366,7 @@ export default function VoiceCommandsPage() {
                         <div className="space-y-2">
                             <Label htmlFor={`reply-${commandKey}`} className="flex items-center gap-2 font-semibold"><MessageSquare className="h-4 w-4" />App's Reply</Label>
                             <Input id={`reply-${commandKey}`} value={commandData.reply || ''} onChange={(e) => handleCommandUpdate(commandKey, 'reply', e.target.value)} placeholder="Enter what the app should say..." />
+                             <p className="text-xs text-muted-foreground">If multiple replies are provided (comma-separated), the app will choose one at random.</p>
                         </div>
                         
                         <Button onClick={handleSuggestCommandAliases} size="sm" disabled={isSuggesting}>
@@ -612,6 +619,7 @@ export default function VoiceCommandsPage() {
 }
 
     
+
 
 
 
