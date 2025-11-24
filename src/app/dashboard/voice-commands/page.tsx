@@ -297,8 +297,6 @@ export default function VoiceCommandsPage() {
         const [isSuggesting, startSuggestion] = useTransition();
 
         const handleSuggestCommandAliases = () => {
-            if (!firestore) return;
-
             startSuggestion(async () => {
                 try {
                     const result = await suggestCommandAliases({
@@ -307,37 +305,38 @@ export default function VoiceCommandsPage() {
                     });
 
                     if (result && result.aliases) {
-                        const batch = writeBatch(firestore);
-                        const aliasDocRef = doc(firestore, 'voiceAliasGroups', commandKey);
-                        
-                        const aliasUpdates: Record<string, any> = {};
-                        for (const lang in result.aliases) {
-                            const newAliases = result.aliases[lang];
-                            const existingAliases = new Set(
-                                Array.isArray(locales[commandKey]?.[lang]) 
-                                    ? locales[commandKey][lang] as string[] 
-                                    : (locales[commandKey]?.[lang] ? [locales[commandKey][lang] as string] : [])
-                            );
-                            newAliases.forEach(alias => existingAliases.add(alias));
-                            aliasUpdates[lang] = Array.from(existingAliases);
-                        }
-                        
-                        aliasUpdates.type = 'command';
-                        batch.set(aliasDocRef, aliasUpdates, { merge: true });
-                        await batch.commit();
+                        // Update Aliases in local state
+                        setLocales(currentLocales => {
+                            const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
+                            if (!updatedLocales[commandKey]) {
+                                updatedLocales[commandKey] = {};
+                            }
 
+                            for (const lang in result.aliases) {
+                                const newAliases = result.aliases[lang];
+                                const existingAliases = new Set(
+                                    Array.isArray(updatedLocales[commandKey][lang])
+                                        ? updatedLocales[commandKey][lang] as string[]
+                                        : []
+                                );
+                                newAliases.forEach(alias => existingAliases.add(alias));
+                                updatedLocales[commandKey][lang] = Array.from(existingAliases);
+                            }
+                            return updatedLocales;
+                        });
+
+                        // Update Replies in local state
                         if (result.replies) {
                             const allReplies = [
                                 ...(result.replies.en || []),
                                 ...(result.replies.te || []),
                                 ...(result.replies.hi || [])
                             ];
-                            const replyString = [...new Set(allReplies)].join(',');
-                            handleCommandUpdate(commandKey, 'reply', replyString);
+                            const uniqueReplies = [...new Set(allReplies)];
+                            handleCommandUpdate(commandKey, 'reply', uniqueReplies.join(', '));
                         }
 
-                        toast({ title: 'AI Suggestions Saved!', description: `New aliases for "${commandData.display}" have been saved.` });
-                        await fetchInitialData(firestore);
+                        toast({ title: 'AI Suggestions Loaded!', description: `New suggestions for "${commandData.display}" are ready for review. Remember to save.` });
                     }
                 } catch (error) {
                     console.error("AI Command Alias Suggestion failed:", error);
@@ -468,29 +467,27 @@ export default function VoiceCommandsPage() {
                 try {
                     const result = await suggestProductAliases({ productName: item.name });
                     if (result && result.aliases) {
-                        const batch = writeBatch(firestore);
-                        const docRef = doc(firestore, 'voiceAliasGroups', itemKey);
+                         // Update local state instead of saving directly
+                        setLocales(currentLocales => {
+                            const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
+                            if (!updatedLocales[itemKey]) {
+                                updatedLocales[itemKey] = {};
+                            }
+                            
+                            for (const lang in result.aliases) {
+                                const newAliases = result.aliases[lang];
+                                const existingAliases = new Set(
+                                    Array.isArray(updatedLocales[itemKey][lang]) 
+                                        ? updatedLocales[itemKey][lang] as string[] 
+                                        : (updatedLocales[itemKey][lang] ? [updatedLocales[itemKey][lang] as string] : [])
+                                );
+                                newAliases.forEach(alias => existingAliases.add(alias));
+                                updatedLocales[itemKey][lang] = Array.from(existingAliases);
+                            }
+                            return updatedLocales;
+                        });
                         
-                        const updates: Record<string, any> = {};
-                        for (const lang in result.aliases) {
-                            const newAliases = result.aliases[lang];
-                            // Get existing aliases from local state to merge correctly
-                            const existingAliases = new Set(
-                                Array.isArray(locales[itemKey]?.[lang]) 
-                                    ? locales[itemKey][lang] as string[] 
-                                    : (locales[itemKey]?.[lang] ? [locales[itemKey][lang] as string] : [])
-                            );
-                            newAliases.forEach(alias => existingAliases.add(alias));
-                            updates[lang] = Array.from(existingAliases);
-                        }
-                        
-                        updates.type = item.ownerId ? 'store' : 'product'; // Simple check to determine type
-                        batch.set(docRef, updates, { merge: true });
-                        
-                        await batch.commit();
-
-                        toast({ title: 'AI Suggestions Saved!', description: `New aliases for "${item.name}" have been saved to the database.` });
-                        await fetchInitialData(firestore); // Refetch all data to update the UI
+                        toast({ title: 'AI Suggestions Loaded!', description: `New aliases for "${item.name}" are ready for review. Remember to save.` });
                     }
                 } catch (error) {
                     console.error("AI Suggestion failed:", error);
@@ -511,7 +508,7 @@ export default function VoiceCommandsPage() {
                     <div className="space-y-6 p-4 bg-muted/50 rounded-lg">
                         <Button onClick={handleSuggestAliases} size="sm" disabled={isSuggesting}>
                             {isSuggesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                            Suggest with AI & Save
+                            Suggest with AI
                         </Button>
                         {['en', 'te', 'hi'].map(lang => {
                             const currentAliases: string[] = Array.isArray(itemAliases[lang]) ? itemAliases[lang] as string[] : (itemAliases[lang] ? [itemAliases[lang] as string] : []);
@@ -624,3 +621,6 @@ export default function VoiceCommandsPage() {
 
 
 
+
+
+    
