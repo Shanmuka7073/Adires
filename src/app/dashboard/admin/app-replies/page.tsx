@@ -42,12 +42,12 @@ export default function AppRepliesPage() {
             const command = currentCommands[commandKey];
             if (!command) return currentCommands;
     
-            // Ensure reply is an object
-            const reply = typeof command.reply === 'object' && !Array.isArray(command.reply) 
+            // Ensure reply is a structured object for multilingual support
+            const currentReply = typeof command.reply === 'object' && !Array.isArray(command.reply) 
                 ? command.reply 
-                : { en: '', te: '', hi: '' };
+                : { en: (typeof command.reply === 'string' ? command.reply : ''), te: '', hi: '' };
     
-            const updatedReply = { ...reply, [lang]: value };
+            const updatedReply = { ...currentReply, [lang]: value };
     
             return {
                 ...currentCommands,
@@ -71,7 +71,12 @@ export default function AppRepliesPage() {
 
             Object.entries(commands).forEach(([key, commandData]) => {
                 const commandRef = doc(commandsRef, key);
-                batch.set(commandRef, commandData, { merge: true });
+                 // Ensure the reply being saved is the structured object
+                const dataToSave = {
+                    ...commandData,
+                    reply: typeof commandData.reply === 'object' ? commandData.reply : { en: commandData.reply, te: '', hi: '' }
+                };
+                batch.set(commandRef, dataToSave, { merge: true });
             });
 
             try {
@@ -121,7 +126,7 @@ export default function AppRepliesPage() {
                                                 <Textarea
                                                     id={`reply-en-${key}`}
                                                     placeholder="e.g., Okay, heading home."
-                                                    value={replies.en || ''}
+                                                    value={typeof replies === 'object' ? replies.en || '' : replies}
                                                     onChange={e => handleReplyChange(key, 'en', e.target.value)}
                                                 />
                                             </div>
@@ -130,7 +135,7 @@ export default function AppRepliesPage() {
                                                 <Textarea
                                                     id={`reply-te-${key}`}
                                                     placeholder="e.g., సరే, ఇంటికి వెళ్తున్నాను."
-                                                    value={replies.te || ''}
+                                                    value={typeof replies === 'object' ? replies.te || '' : ''}
                                                     onChange={e => handleReplyChange(key, 'te', e.target.value)}
                                                 />
                                             </div>
@@ -139,12 +144,12 @@ export default function AppRepliesPage() {
                                                 <Textarea
                                                     id={`reply-hi-${key}`}
                                                     placeholder="e.g., ठीक है, घर जा रहा हूँ।"
-                                                    value={replies.hi || ''}
+                                                    value={typeof replies === 'object' ? replies.hi || '' : ''}
                                                     onChange={e => handleReplyChange(key, 'hi', e.target.value)}
                                                 />
                                             </div>
                                             <p className="text-xs text-muted-foreground">
-                                                Tip: You can provide multiple replies separated by a comma (`,`) and the app will pick one at random.
+                                                Tip: You can provide multiple replies for each language separated by a comma (`,`) and the app will pick one at random.
                                             </p>
                                         </div>
                                     </AccordionContent>
@@ -162,4 +167,3 @@ export default function AppRepliesPage() {
         </div>
     );
 }
-

@@ -25,7 +25,7 @@ export interface Command {
   command: string;
   action: (params?: any) => void;
   display: string;
-  reply: string | string[]; // Can now be an array
+  reply: string | Record<string, string>;
 }
 
 interface VoiceCommanderProps {
@@ -172,7 +172,7 @@ export function VoiceCommander({
          if (term) {
             const normalizedTerm = term.toLowerCase();
             map.set(normalizedTerm, s);
-            map.set(normalizedTerm.replace(/\s/g, ''), s);
+            map.set(normalizedTerm.replace(/\s/g, ''), { ...s });
         }
       }
     }
@@ -275,7 +275,7 @@ export function VoiceCommander({
     }
 }, [enabled]);
 
- const speak = useCallback((textOrReplies: string | string[], lang: string, onEndCallback?: (() => void) | boolean) => {
+ const speak = useCallback((textOrReply: string | Record<string, string>, lang: string, onEndCallback?: (() => void) | boolean) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       if (typeof onEndCallback === 'function') onEndCallback();
       return;
@@ -288,18 +288,27 @@ export function VoiceCommander({
     isSpeakingRef.current = true;
     window.speechSynthesis.cancel();
     
-    let text: string;
-    if (Array.isArray(textOrReplies)) {
-        text = textOrReplies[Math.floor(Math.random() * textOrReplies.length)];
+    const targetLang = lang.split('-')[0] as 'en' | 'te' | 'hi';
+    let textToSpeak = '';
+
+    if (typeof textOrReply === 'string') {
+        textToSpeak = textOrReply;
+    } else if (typeof textOrReply === 'object' && textOrReply[targetLang]) {
+        textToSpeak = textOrReply[targetLang];
+    } else if (typeof textOrReply === 'object' && textOrReply['en']) {
+        textToSpeak = textOrReply['en']; // Fallback to English
     } else {
-        // Check if the reply is a comma-separated list and pick one.
-        const replies = textOrReplies.split(',').map(r => r.trim());
-        text = replies[Math.floor(Math.random() * replies.length)];
+        console.warn('No suitable reply found for language:', targetLang);
+        if (typeof onEndCallback === 'function') onEndCallback();
+        return;
     }
+    
+    // Pick one reply randomly if comma-separated
+    const replies = textToSpeak.split(',').map(r => r.trim());
+    const text = replies[Math.floor(Math.random() * replies.length)];
 
     const utterance = new SpeechSynthesisUtterance(text);
     
-    const targetLang = lang.split('-')[0];
     let voice = speechSynthesisVoices.find(v => v.lang.startsWith(targetLang) && v.name.includes('Google')) ||
                 speechSynthesisVoices.find(v => v.lang.startsWith(targetLang)) ||
                 speechSynthesisVoices.find(v => v.default);
@@ -821,11 +830,10 @@ export function VoiceCommander({
             const commandKey = intent.type === 'NAVIGATE' ? intent.destination : intent.commandKey;
             if (commandKey) {
                 const action = commandActionsRef.current[commandKey];
-                let reply = commands[commandKey]?.reply || `Executing ${commands[commandKey]?.display}`;
-                
-                // If reply is a comma-separated string, split it into an array
-                if (typeof reply === 'string' && reply.includes(',')) {
-                    reply = reply.split(',').map(r => r.trim());
+                const reply = commands[commandKey]?.reply;
+                if (!reply) {
+                    console.warn(`No reply found for command: ${commandKey}`);
+                    return;
                 }
 
                 if (action) {
@@ -857,7 +865,7 @@ export function VoiceCommander({
 
                 let speech = t('adding-item-speech', replyLang)
                     .replace('{quantity}', `${requestedQty}`)
-                    .replace('{weight}', `${variant.weight}`)
+                    .replace('{weight}`, `${variant.weight}`)
                     .replace('{productName}', replyProductName);
 
                 speak(speech, langWithRegion);
