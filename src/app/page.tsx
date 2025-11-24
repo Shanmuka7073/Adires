@@ -11,6 +11,7 @@ import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
 import { ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 function classNames(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(' ');
@@ -107,6 +108,7 @@ function CategorySidebar({ categories, activeCategory, onSelectCategory, isLoadi
   const activeButtonRef = useRef<HTMLButtonElement | null>(null);
   const { stores } = useAppStore();
   const firstStoreId = stores.find(s => s.name === 'LocalBasket')?.id;
+  const router = useRouter();
 
 
   useEffect(() => {
@@ -177,6 +179,7 @@ export default function LocalBasketHomepage() {
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [categoryIcons, setCategoryIcons] = useState<any[]>([]);
+  const router = useRouter();
 
   useEffect(() => {
     setIsLoading(true);
