@@ -60,11 +60,9 @@ const generateVoiceReplyFlow = ai.defineFlow(
     outputSchema: GenerateVoiceOutputSchema,
   },
   async (input) => {
-    // Construct a more detailed prompt for the TTS model
-    const prompt = `Please say the following text in a natural, friendly, and conversational tone, using a pure Rayalaseema dialect as spoken in Kurnool, Andhra Pradesh.
-    
-    Language: ${input.language}
-    Text: "${input.text}"`;
+    // The prompt should ONLY contain the text to be synthesized.
+    // The voice and dialect are handled by the model configuration.
+    const prompt = input.text;
 
     const { media } = await ai.generate({
       model: googleAI.model('gemini-2.5-flash-preview-tts'),
@@ -72,7 +70,8 @@ const generateVoiceReplyFlow = ai.defineFlow(
         responseModalities: ['AUDIO'],
         speechConfig: {
           voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Algenib' }, // Choose a suitable base voice
+            // This voice is chosen for its suitability for Indian accents.
+            prebuiltVoiceConfig: { voiceName: 'Algenib' },
           },
         },
       },
