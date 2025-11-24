@@ -207,8 +207,8 @@ export function VoiceCommander({
     }
 
     const langKeywords = [
-        { lang: 'te', keywords: ['naku', 'naaku', 'kavali', 'ధర'] },
-        { lang: 'hi', keywords: ['मुझे', 'चाहिए', 'mujhe', 'chahiye'] },
+        { lang: 'te', keywords: ['naku', 'naaku', 'kavali', 'dhara'] },
+        { lang: 'hi', keywords: ['mujhe', 'chahiye'] },
         { lang: 'en', keywords: ['i want', 'i need', 'get me', 'add', 'get', 'buy', 'order', 'send', 'go', 'open', 'what is', 'how', 'price', 'cost'] }
     ];
      for (const langInfo of langKeywords) {
@@ -229,16 +229,9 @@ export function VoiceCommander({
         }
     }
 
-    return language; // Default to the current app language
-  }, [language, locales]);
+    return 'en'; // Default to English if no specific language is detected
+  }, [locales]);
 
-
-  const updateRecognitionLanguage = useCallback((newLang: string) => {
-    if (recognition && recognition.lang !== newLang) {
-      console.log('Switching recognition language to:', newLang);
-      recognition.lang = newLang;
-    }
-  }, []);
 
   useEffect(() => {
     if(pathname !== '/checkout') {
@@ -265,7 +258,7 @@ export function VoiceCommander({
     isEnabledRef.current = enabled;
     if (recognition) {
         if (enabled) {
-            recognition.lang = language === 'te' ? 'te-IN' : 'en-IN';
+            recognition.lang = 'en-IN'; // Always listen in English
             recognition.continuous = false;
             recognition.interimResults = false;
             try {
@@ -280,7 +273,7 @@ export function VoiceCommander({
             recognition.stop();
         }
     }
-}, [enabled, language]);
+}, [enabled]);
 
  const speak = useCallback((textOrReplies: string | string[], lang: string, onEndCallback?: (() => void) | boolean) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -295,13 +288,12 @@ export function VoiceCommander({
     isSpeakingRef.current = true;
     window.speechSynthesis.cancel();
     
-    let text = Array.isArray(textOrReplies) 
-      ? textOrReplies[Math.floor(Math.random() * textOrReplies.length)] 
-      : textOrReplies;
-
-    // Check if the reply is a comma-separated list and pick one.
-    if (typeof text === 'string' && text.includes(',')) {
-        const replies = text.split(',').map(r => r.trim());
+    let text: string;
+    if (Array.isArray(textOrReplies)) {
+        text = textOrReplies[Math.floor(Math.random() * textOrReplies.length)];
+    } else {
+        // Check if the reply is a comma-separated list and pick one.
+        const replies = textOrReplies.split(',').map(r => r.trim());
         text = replies[Math.floor(Math.random() * replies.length)];
     }
 
@@ -650,13 +642,8 @@ export function VoiceCommander({
     }
 
     let spokenLang = determinePhraseLanguage(commandText);
-    const replyLang = spokenLang === 'hi' ? 'en' : spokenLang; // Always reply in English if Hindi is detected.
+    const replyLang = spokenLang === 'hi' ? 'en' : spokenLang;
     const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
-    
-    if (spokenLang !== language && spokenLang !== 'hi') {
-        setLanguage(spokenLang);
-        updateRecognitionLanguage(`${spokenLang}-IN`);
-    }
 
     // --- CONTEXTUAL RESPONSES ---
     if (productForVariantSelection.current) {
@@ -886,7 +873,7 @@ export function VoiceCommander({
             break;
     }
   }, [
-      firestore, user, language, determinePhraseLanguage, updateRecognitionLanguage, speak, resetAllContext,
+      firestore, user, language, determinePhraseLanguage, speak, resetAllContext,
       isWaitingForQuickOrderConfirmation,
       findProductAndVariant, addItemToCart, onOpenCart, t, getProductName,
       locales, commands, getAllAliases, recognizeIntent, aiConfig,
@@ -912,7 +899,7 @@ export function VoiceCommander({
     }
 
     recognition.onstart = () => {
-        onStatusUpdate(`Listening... (${language}-IN)`);
+        onStatusUpdate(`Listening... (en-IN)`);
     };
 
     recognition.onresult = (event) => {
@@ -930,8 +917,6 @@ export function VoiceCommander({
     };
     
     recognition.onend = () => {
-      // This is the robust restart logic. It will always try to restart if enabled.
-      // The `isSpeakingRef` check ensures it doesn't restart while the app is talking.
       if (isEnabledRef.current && !isSpeakingRef.current) {
         setTimeout(() => {
           try {
@@ -939,12 +924,11 @@ export function VoiceCommander({
               recognition.start();
             }
           } catch (e) {
-            // Ignore 'InvalidStateError' which can happen if it's already starting.
             if (!(e instanceof DOMException && e.name === 'InvalidStateError')) {
               console.error("Could not restart recognition:", e);
             }
           }
-        }, 300); // A short delay can help prevent race conditions.
+        }, 300);
       }
     };
 
@@ -1315,7 +1299,7 @@ export function VoiceCommander({
   }, [
       handleCommand, cartTotal, cartItemsProp, pathname, masterProducts, t, aiConfig, isAppStoreLoading,
       productPrices, fetchProductPrices, firestore, user, router, language, setLanguage, speak,
-      updateRecognitionLanguage, determinePhraseLanguage, resetAllContext, storeAliasMap,
+      determinePhraseLanguage, resetAllContext, storeAliasMap,
       handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setActiveStoreId,
       profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData,
       placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress,
