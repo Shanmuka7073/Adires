@@ -17,7 +17,7 @@ import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { useCheckoutStore } from '@/app/checkout/page';
 import { useProfileFormStore, ProfileFormValues } from '@/lib/store';
 import { getWikipediaSummary, getMealDbRecipe } from '@/app/actions';
-import { useVoiceCommander as useVoiceCommanderContext } from './main-layout';
+import { useVoiceCommanderContext } from './main-layout';
 import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
 
 
@@ -94,7 +94,7 @@ export function VoiceCommander({
   const { toast } = useToast();
   const { firestore, user } = useFirebase();
   const { clearCart, addItem: addItemToCart, removeItem, updateQuantity, addUnidentifiedItem, updateUnidentifiedItem, addIdentifiedItem, activeStoreId, setActiveStoreId, cartTotal } = useCart();
-  const { retryCommand } = useVoiceCommanderContext();
+  const { retryCommand, showPriceCheck } = useVoiceCommanderContext();
 
   const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands, loading: isAppStoreLoading, fetchInitialData } = useAppStore();
 
@@ -842,7 +842,7 @@ export function VoiceCommander({
       storeAliasMap, profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData,
       placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress,
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
-      removeItem, router, stores, productPrices
+      removeItem, router, stores, productPrices, showPriceCheck
   ]);
 
     // Effect to handle retrying a command
@@ -1064,7 +1064,8 @@ export function VoiceCommander({
             .replace('{productName}', getProductName(product))
             .replace('{prices}', pricesString);
           
-          speak(`${reply} Would you like to add it to your cart?`, langWithRegion);
+          showPriceCheck({ product, priceData });
+          speak(`${reply} Would you like to add it to your cart?`, langWithRegion, false);
           itemForPriceCheck.current = product;
           return;
 

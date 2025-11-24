@@ -13,14 +13,19 @@ import { useToast } from '@/hooks/use-toast';
 import { usePathname } from 'next/navigation';
 import { BottomNavBar } from './bottom-nav-bar';
 import { useFirebase } from '@/firebase';
+import { PriceCheckDisplay, PriceCheckInfo } from './price-check-display';
 
 // Create a context to provide the trigger function
-const VoiceCommandContext = createContext<{ triggerVoicePrompt: () => void, retryCommand?: (command: string) => void; } | undefined>(undefined);
+const VoiceCommandContext = createContext<{ 
+    triggerVoicePrompt: () => void, 
+    retryCommand?: (command: string) => void; 
+    showPriceCheck: (info: PriceCheckInfo) => void;
+} | undefined>(undefined);
 
-export function useVoiceCommander() {
+export function useVoiceCommanderContext() {
     const context = useContext(VoiceCommandContext);
     if (!context) {
-        throw new Error('useVoiceCommander must be used within a MainLayout');
+        throw new Error('useVoiceCommanderContext must be used within a MainLayout');
     }
     return context;
 }
@@ -44,6 +49,7 @@ export function MainLayout({
   useInitializeApp();
 
   const { setLanguage, isInitialized } = useAppStore();
+  const [priceCheckInfo, setPriceCheckInfo] = useState<PriceCheckInfo | null>(null);
 
   // State to trigger re-evaluation in VoiceCommander
   const [voiceTrigger, setVoiceTrigger] = useState(0);
@@ -51,9 +57,9 @@ export function MainLayout({
 
   // --- Location-based language detection ---
   useEffect(() => {
-    // Only run this check if no language has been manually set by the user.
     const savedLanguage = localStorage.getItem('app-language');
     if (savedLanguage) {
+      setLanguage(savedLanguage);
       return;
     }
 
@@ -62,7 +68,6 @@ export function MainLayout({
         (position) => {
           const { latitude, longitude } = position.coords;
           const detectedLang = getLanguageForLocation(latitude, longitude);
-          // Only set the language if it hasn't been set by the user yet.
           if (!localStorage.getItem('app-language')) {
             setLanguage(detectedLang);
             toast({
@@ -76,7 +81,7 @@ export function MainLayout({
         },
         {
           timeout: 10000,
-          maximumAge: 600000, // Use a cached position up to 10 minutes old
+          maximumAge: 600000,
         }
       );
     }
@@ -92,9 +97,16 @@ export function MainLayout({
     setRetryCommandText(command);
   }, []);
 
+  const showPriceCheck = useCallback((info: PriceCheckInfo) => {
+      setPriceCheckInfo(info);
+      setTimeout(() => {
+          setPriceCheckInfo(null);
+      }, 5000); // Hide after 5 seconds
+  }, []);
+
 
   return (
-    <VoiceCommandContext.Provider value={{ triggerVoicePrompt, retryCommand }}>
+    <VoiceCommandContext.Provider value={{ triggerVoicePrompt, retryCommand, showPriceCheck }}>
         <div className="relative flex min-h-dvh flex-col bg-background">
         <Header 
             voiceEnabled={voiceEnabled}
@@ -120,6 +132,7 @@ export function MainLayout({
             />
         )}
         <ProfileCompletionChecker />
+        <PriceCheckDisplay info={priceCheckInfo} />
         <main className="flex-1 pb-16 md:pb-0">{children}</main>
         <NotificationPermissionManager />
         <Footer />
