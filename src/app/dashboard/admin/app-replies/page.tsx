@@ -22,8 +22,11 @@ function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestRep
     const [generatedAudio, setGeneratedAudio] = useState<Record<string, string>>({});
     const { toast } = useToast();
 
-    // A reply is dynamic if it contains placeholders like {productName} or {total}.
-    const isDynamicReply = (commandKey === 'addItem' || commandKey === 'checkout');
+    const isDynamicReply = useMemo(() => {
+        const replyObject = typeof commandData.reply === 'object' && commandData.reply !== null ? commandData.reply : { en: commandData.reply as string };
+        const replyString = Object.values(replyObject).join('');
+        return replyString.includes('{productName}') || replyString.includes('{total}');
+    }, [commandData.reply]);
 
     const handleSuggest = () => {
         startSuggestion(() => {
@@ -72,7 +75,7 @@ function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestRep
                     {isDynamicReply && (
                         <div className="flex items-center gap-2 p-2 text-sm text-blue-800 bg-blue-100 rounded-md">
                             <Info className="h-4 w-4" />
-                            <p>Voice generation is disabled for this reply because it contains dynamic variables like `{{productName}}` or `{{total}}`.</p>
+                            <p>Voice generation is disabled for this reply because it contains dynamic variables like {'`{productName}` or `{total}`'}.</p>
                         </div>
                     )}
 
