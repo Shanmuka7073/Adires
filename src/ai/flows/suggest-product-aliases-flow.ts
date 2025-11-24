@@ -46,7 +46,7 @@ Generate a list of common aliases, including colloquialisms, common misspellings
 Provide the following:
 1.  **en (English)**: A list of common English names. Include singular and plural forms.
 2.  **te (Telugu)**: A list of common names in Telugu. CRUCIALLY, include both the native Telugu script (e.g., 'ఉల్లిపాయలు') AND their common English letter transliterations (e.g., 'ullipayalu', 'erragadda').
-3.  **hi (Hindi)**: A list of common names in Hindi. CRUCIALLY, include both the Devanagari script (e.g., 'प्याज') AND their common English letter transliterations (e.g., 'pyaaz').
+3.  **hi (Hindi)**: A list of common names in Hindi. CRUCIALLY, you MUST include both the native Devanagari script (e.g., 'प्याज') AND their common English letter transliterations (e.g., 'pyaaz', 'gajar'). This is a strict requirement.
 
 Keep the lists concise and focused on the most common terms.
 `,
