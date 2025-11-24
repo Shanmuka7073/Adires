@@ -62,7 +62,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
-import groceryData from '@/lib/grocery-data.json';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Camera, CameraOff, Sparkles, PlusCircle, Edit, Link2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -407,6 +406,10 @@ function EditProductDialog({ storeId, product, isOpen, onOpenChange }: { storeId
         });
     };
 
+    const categories = useAppStore(state => 
+        Array.from(new Set(state.masterProducts.map(p => p.category).filter(Boolean)))
+    );
+
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-2xl">
@@ -459,8 +462,8 @@ function EditProductDialog({ storeId, product, isOpen, onOpenChange }: { storeId
                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                                             <FormControl><SelectTrigger><SelectValue placeholder={t('select-a-category')} /></SelectTrigger></FormControl>
                                             <SelectContent>
-                                                {groceryData.categories.map(cat => (
-                                                    <SelectItem key={cat.categoryName} value={cat.categoryName}>{cat.categoryName}</SelectItem>
+                                                {categories.map(cat => (
+                                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
@@ -827,7 +830,11 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
   const [isPending, startTransition] = useTransition();
   const [isGeneratingImage, startImageGeneration] = useTransition();
   const { firestore } = useFirebase();
-  const { language, fetchInitialData } = useAppStore();
+  const { language, fetchInitialData, masterProducts } = useAppStore();
+  
+  const categories = useMemo(() => 
+    Array.from(new Set(masterProducts.map(p => p.category).filter(Boolean)))
+  , [masterProducts]);
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -838,13 +845,6 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
     control: form.control,
     name: 'variants'
   });
-
-  const handleTemplateSelect = (value: string) => {
-    if (!value) return;
-    const [itemName, categoryName] = value.split('::');
-    form.setValue('name', itemName);
-    form.setValue('category', categoryName);
-  };
 
   const handleGenerateImage = () => {
     const productName = form.getValues('name');
@@ -941,32 +941,6 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-             <FormItem>
-                <FormLabel>{t('product-template-optional')}</FormLabel>
-                <Select onValueChange={handleTemplateSelect}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder={t('select-a-predefined-item')} />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                        {groceryData.categories.map(cat => (
-                            <SelectGroup key={cat.categoryName}>
-                                <SelectLabel>{cat.categoryName}</SelectLabel>
-                                {cat.items.map(item => (
-                                    <SelectItem key={`${cat.categoryName}-${item}`} value={`${item}::${cat.categoryName}`}>
-                                        {item}
-                                    </SelectItem>
-                                ))}
-                            </SelectGroup>
-                        ))}
-                    </SelectContent>
-                </Select>
-                <FormDescription>
-                    {t('select-an-item-to-auto-fill')}
-                </FormDescription>
-            </FormItem>
-
             <FormField
               control={form.control}
               name="name"
@@ -1015,8 +989,8 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {groceryData.categories.map(cat => (
-                        <SelectItem key={cat.categoryName} value={cat.categoryName}>{t(cat.categoryName.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</SelectItem>
+                      {categories.map(cat => (
+                        <SelectItem key={cat} value={cat}>{t(cat.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -1515,8 +1489,8 @@ function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Prod
                     <div>
                         <span className="font-semibold">{getProductName(product)}</span>
                          <div className="flex flex-wrap gap-1 mt-1">
-                            {Object.entries(productAliases).flatMap(([lang, langAliases]) => 
-                                langAliases.map(alias => (
+                            {Object.entries(productAliases).flatMap(([lang, aliases]) => 
+                                aliases.map(alias => (
                                     <Badge key={`${lang}-${alias}`} variant="outline">{alias} ({lang})</Badge>
                                 ))
                             )}
@@ -1563,8 +1537,7 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
     const [isDeleting, startDeleteTransition] = useTransition();
     const [isOpening, startOpenTransition] = useTransition();
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-    const { getProductName, language } = useAppStore(state => ({ getProductName: state.getProductName, language: state.language }));
-    const [selectedCategory, setSelectedCategory] = useState<string>('all');
+    const { getProductName, language } = useAppStore();
 
     const productsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -1575,13 +1548,6 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
     
     const needsLocationUpdate = !store.latitude || !store.longitude;
     
-    const filteredProducts = useMemo(() => {
-        if (!products) return [];
-        // FIX: Ensure products are unique by ID before filtering
-        const uniqueProducts = Array.from(new Map(products.map(p => [p.id, p])).values());
-        if (selectedCategory === 'all') return uniqueProducts;
-        return uniqueProducts.filter(p => p.category === selectedCategory);
-    }, [products, selectedCategory]);
 
     const handleOpenStore = () => {
         if (!firestore) return;
@@ -1704,21 +1670,6 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
                             {isAdmin ? t('this-is-the-master-list-of-products') : t('this-is-your-current-store-inventory')}
                         </CardDescription>
                     </div>
-                    {isAdmin && (
-                        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                            <SelectTrigger className="w-full sm:w-[200px]">
-                                <SelectValue placeholder="Filter by category..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Categories</SelectItem>
-                                {groceryData.categories.map(cat => (
-                                    <SelectItem key={cat.categoryName} value={cat.categoryName}>
-                                        {t(cat.categoryName.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    )}
                 </div>
             </CardHeader>
             <CardContent>
@@ -1735,7 +1686,7 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredProducts.map(product => 
+                        {products.map(product => 
                             isAdmin ? (
                                 <AdminProductRow 
                                     key={product.id}
