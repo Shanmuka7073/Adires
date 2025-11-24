@@ -4,7 +4,7 @@ import { Store, Product, ProductPrice } from '@/lib/types';
 import groceryData from '@/lib/grocery-data.json';
 import { useParams, notFound } from 'next/navigation';
 import { useDoc, useCollection, useMemoFirebase, useFirebase } from '@/firebase';
-import { collection, doc, query, where } from 'firebase/firestore';
+import { collection, doc, query, where, getDocs } from 'firebase/firestore';
 import { getProductPrice } from '@/lib/data';
 import { CategoryClient } from './category-client';
 import { useEffect, useState, useMemo } from 'react';
@@ -25,16 +25,32 @@ export default function StoreDetailPage() {
   const [arePricesLoading, setArePricesLoading] = useState(true);
 
   useEffect(() => {
-    if (!firestore || !products) return;
+    if (!firestore || !products || products.length === 0) {
+      if(products && products.length === 0) setArePricesLoading(false);
+      return;
+    };
 
     const fetchPrices = async () => {
       setArePricesLoading(true);
-      const pricePromises = products.map(p => getProductPrice(firestore, p.name));
-      const priceResults = await Promise.all(pricePromises);
-      const prices = products.reduce((acc, product, index) => {
-        acc[product.name.toLowerCase()] = priceResults[index];
-        return acc;
-      }, {} as Record<string, ProductPrice | null>);
+      const productNames = products.map(p => p.name);
+      
+      // Batch fetching prices in chunks to avoid hitting query limits if necessary, though getDocs can handle up to 30 'in' comparisons
+      const priceQuery = query(collection(firestore, 'productPrices'), where('productName', 'in', productNames.map(name => name.toLowerCase())));
+      const priceSnapshot = await getDocs(priceQuery);
+      
+      const prices: Record<string, ProductPrice | null> = {};
+      priceSnapshot.forEach(doc => {
+          const priceData = doc.data() as ProductPrice;
+          prices[doc.id] = priceData;
+      });
+
+      // Fill in null for products that didn't have a price document
+      productNames.forEach(name => {
+          if (!prices[name.toLowerCase()]) {
+              prices[name.toLowerCase()] = null;
+          }
+      });
+      
       setProductPrices(prices);
       setArePricesLoading(false);
     };
@@ -80,3 +96,4 @@ export default function StoreDetailPage() {
     />
   );
 }
+
