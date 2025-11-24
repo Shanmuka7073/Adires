@@ -868,7 +868,7 @@ export function VoiceCommander({
                 
                 const reply = commands['addItem']?.reply;
                 if (reply) {
-                    let speech = t('addItem', replyLang, 'reply');
+                    let speech = (typeof reply === 'string' ? reply : reply[replyLang] || reply['en']) || '';
                     speech = speech
                         .replace('{quantity}', `${requestedQty}`)
                         .replace('{weight}', `${variant.weight}`)
