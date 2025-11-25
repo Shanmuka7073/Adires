@@ -271,11 +271,10 @@ export default function CheckoutPage() {
         
         const orderDocRef = doc(collection(firestore, 'orders'));
 
-        const orderData: any = {
+        const orderData = {
             id: orderDocRef.id,
             userId: user.uid,
             storeId: activeStoreId,
-            storeOwnerId: storeData.ownerId,
             customerName: data.name,
             deliveryAddress: data.deliveryAddress,
             deliveryLat: deliveryCoords?.lat || 0,
@@ -291,7 +290,7 @@ export default function CheckoutPage() {
                 variantSku: item.variant.sku,
                 variantWeight: item.variant.weight,
                 quantity: item.quantity,
-                price: item.variant.price * 1.20,
+                price: item.variant.price * 1.20, // This should match the display price
             })),
         };
 

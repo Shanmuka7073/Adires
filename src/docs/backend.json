@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Store": {
@@ -225,6 +226,13 @@
         "deliveryPartnerId": {
             "type": "string",
             "description": "The ID of the user who is assigned to deliver this order."
+        },
+        "items": {
+          "type": "array",
+          "description": "A list of items included in the order.",
+          "items": {
+            "$ref": "#/entities/OrderItem"
+          }
         }
       },
       "required": [
@@ -234,7 +242,8 @@
         "orderDate",
         "totalAmount",
         "status",
-        "deliveryAddress"
+        "deliveryAddress",
+        "items"
       ]
     },
     "VoiceOrder": {
@@ -288,14 +297,6 @@
       "type": "object",
       "description": "Represents an item within an order, pointing to a specific product variant.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the OrderItem entity."
-        },
-        "orderId": {
-          "type": "string",
-          "description": "Reference to Order. (Relationship: Order 1:N OrderItem)"
-        },
         "productId": {
           "type": "string",
           "description": "Reference to the base Product."
@@ -322,9 +323,8 @@
         }
       },
       "required": [
-        "id",
-        "orderId",
         "productId",
+        "productName",
         "variantSku",
         "variantWeight",
         "quantity",
@@ -421,30 +421,30 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "CachedRecipe",
       "type": "object",
-      "description": "Represents a cached recipe with ingredients and instructions.",
+      "description": "Represents a cached list of ingredients for a specific recipe to reduce AI calls.",
       "properties": {
-        "id": { "type": "string", "description": "Unique identifier, typically the normalized dish name." },
-        "dishName": { "type": "string", "description": "The name of the dish." },
+        "id": {
+          "type": "string",
+          "description": "Unique identifier, typically the normalized dish name."
+        },
+        "dishName": {
+          "type": "string",
+          "description": "The name of the dish."
+        },
         "ingredients": {
           "type": "array",
           "items": {
-            "type": "object",
-            "properties": {
-              "name": { "type": "string" },
-              "quantity": { "type": "string" }
-            },
-            "required": ["name", "quantity"]
+            "type": "string"
           },
-          "description": "List of ingredients with quantities."
+          "description": "The list of ingredients for the dish."
         },
-        "instructions": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "Step-by-step cooking instructions."
-        },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the recipe was cached."
+        }
       },
-      "required": ["id", "dishName", "ingredients", "instructions", "createdAt"]
+      "required": ["id", "dishName", "ingredients", "createdAt"]
     },
     "CachedAIResponse": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -1003,7 +1003,7 @@
           "schema": {
             "$ref": "#/backend/entities/VoiceCommand"
           },
-          "description": "Stores the core information for a general voice command.",
+          "description": "Stores the core information for general voice commands.",
           "params": [
             {
               "name": "commandKey",

@@ -2,7 +2,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { X, ShoppingCart, Check } from 'lucide-react';
+import { X, ShoppingCart, Check, Mic } from 'lucide-react';
 import type { Product, ProductPrice, ProductVariant } from '@/lib/types';
 import { useCart } from '@/lib/cart';
 import { t } from '@/lib/locales';
@@ -75,7 +75,7 @@ export function PriceCheckDisplay({ info, onClose }: PriceCheckDisplayProps) {
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", stiffness: 100, damping: 20 }}
-            className="fixed bottom-0 left-0 right-0 bg-white z-50 rounded-t-3xl p-5 pb-8 shadow-2xl w-full max-w-lg mx-auto max-h-[80vh] flex flex-col"
+            className="fixed bottom-0 left-0 right-0 bg-white z-50 rounded-t-3xl p-5 shadow-2xl w-full max-w-lg mx-auto max-h-[80vh] flex flex-col"
           >
             <div className="flex justify-between items-center mb-4 flex-shrink-0">
               <h2 className="text-lg font-semibold text-gray-900">
@@ -84,8 +84,8 @@ export function PriceCheckDisplay({ info, onClose }: PriceCheckDisplayProps) {
               <button onClick={onClose} className="text-2xl text-gray-500 hover:text-gray-900 transition-colors">&times;</button>
             </div>
             
-            <div className="flex items-center gap-4 mb-5 flex-shrink-0">
-              <div className="relative w-20 h-20 rounded-xl overflow-hidden border">
+            <div className="grid grid-cols-2 gap-4 mb-5 flex-shrink-0">
+              <div className="relative w-full aspect-square rounded-xl overflow-hidden border">
                 <Image
                     src={image.imageUrl}
                     alt={productNameEn}
@@ -94,8 +94,16 @@ export function PriceCheckDisplay({ info, onClose }: PriceCheckDisplayProps) {
                     data-ai-hint={image.imageHint}
                   />
               </div>
-              <div>
+              <div className="space-y-2">
                 <p className="text-gray-600 text-sm">{productDesc}</p>
+                <div className="p-3 bg-primary/10 rounded-lg text-primary-foreground">
+                    <h4 className="font-semibold text-sm flex items-center gap-1 text-primary"><Mic className="h-4 w-4"/> Try Saying:</h4>
+                    <ul className="text-xs list-disc list-inside mt-1 space-y-1 text-primary/90">
+                        <li>"Add the first one"</li>
+                        <li>"The 50 rupee one"</li>
+                        <li>"Select 1 kg"</li>
+                    </ul>
+                </div>
               </div>
             </div>
 
@@ -123,7 +131,7 @@ export function PriceCheckDisplay({ info, onClose }: PriceCheckDisplayProps) {
               </div>
             </ScrollArea>
 
-            <div className="flex-shrink-0 pt-4 border-t">
+            <div className="flex-shrink-0 pt-4 mt-auto border-t">
                 <Button
                     onClick={handleAddToCart}
                     disabled={!selectedVariant}
