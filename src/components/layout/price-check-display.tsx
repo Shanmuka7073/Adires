@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -157,7 +158,7 @@ export function PriceCheckDisplay({ info, onClose }: PriceCheckDisplayProps) {
                  {recommendedProducts && recommendedProducts.length > 0 && (
                     <>
                         <div className="space-y-3 mb-6">
-                            <h3 className="text-sm font-semibold text-muted-foreground">Recipe Suggestions</h3>
+                            <h3 className="text-sm font-semibold text-muted-foreground">Frequently Bought With</h3>
                             <ScrollArea className="w-full">
                                 <div className="flex gap-3 pb-2">
                                     {recommendedProducts.map(p => <RecommendedItem key={p.id} product={p} />)}
