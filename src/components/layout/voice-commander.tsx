@@ -988,24 +988,7 @@ export function VoiceCommander({
       managePacks: (params: {lang: string}) => router.push('/dashboard/owner/packs'),
       'recipe-tester': (params: {lang: string}) => router.push('/dashboard/admin/recipe-tester'),
       
-      getKnowledge: async ({ topic, lang }: { topic: string; lang: string }) => {
-        const replyLang = lang;
-        const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
-        speak(`Looking up information on ${topic}...`, langWithRegion, false);
-        const result = await getWikipediaSummary(topic);
-        if (result.summary) {
-          speak(result.summary, langWithRegion);
-        } else {
-          speak(result.error || `I'm sorry, I couldn't find information on ${topic}.`, langWithRegion);
-        }
-      },
-
       'get-recipe': async ({ dishName, lang }: { dishName: string, lang: string }) => {
-        if (!aiConfig?.isRecipeApiEnabled) {
-          speak("I'm sorry, the recipe feature is currently disabled.", lang);
-          return;
-        }
-
         const replyLang = lang;
         const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         if (!firestore) return;
@@ -1131,7 +1114,24 @@ export function VoiceCommander({
         let priceData = productPrices[product.name.toLowerCase()];
         
         if (priceData && priceData.variants && priceData.variants.length > 0) {
-          showPriceCheck({ product, priceData });
+          
+          let recommendedProducts: Product[] = [];
+          if (aiConfig?.isRecipeApiEnabled) {
+              const recipeResult = await getIngredientsForDish({ dishName: product.name, language: 'en' });
+              if (recipeResult.isSuccess) {
+                  recommendedProducts = recipeResult.ingredients
+                    .map(ing => masterProducts.find(p => p.name.toLowerCase() === ing.toLowerCase()))
+                    .filter((p): p is Product => Boolean(p) && p.id !== product.id);
+              }
+          }
+          if (recommendedProducts.length === 0) {
+               recommendedProducts = masterProducts
+                .filter(p => p.category === product.category && p.id !== product.id)
+                .sort(() => 0.5 - Math.random())
+                .slice(0, 5);
+          }
+
+          showPriceCheck({ product, priceData, recommendedProducts });
           
           const reply = t('price-check-reply-speech', replyLang)
             .replace('{productName}', getProductName(product))
@@ -1336,7 +1336,8 @@ export function VoiceCommander({
       profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData,
       placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress,
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
-      getProductName, addItemToCart, removeItem, locales, commands, getAllAliases, recognizeIntent, stores
+      removeItem, addUnidentifiedItem, updateUnidentifiedItem,
+      getProductName, addItemToCart, locales, commands, getAllAliases, recognizeIntent, stores
   ]);
 
   return null;

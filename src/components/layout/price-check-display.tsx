@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -16,6 +15,7 @@ import { Separator } from '../ui/separator';
 export interface PriceCheckInfo {
   product: Product;
   priceData: ProductPrice;
+  recommendedProducts: Product[];
 }
 
 interface PriceCheckDisplayProps {
@@ -71,7 +71,6 @@ export function PriceCheckDisplay({ info, onClose }: PriceCheckDisplayProps) {
   const { addItem } = useCart();
   const [image, setImage] = useState({ imageUrl: '', imageHint: 'loading' });
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
-  const { masterProducts } = useAppStore();
 
   useEffect(() => {
     if (info?.product) {
@@ -89,14 +88,6 @@ export function PriceCheckDisplay({ info, onClose }: PriceCheckDisplayProps) {
     }
   }, [info]);
 
-  const recommendedProducts = useMemo(() => {
-      if (!info?.product?.category) return [];
-      return masterProducts
-          .filter(p => p.category === info.product.category && p.id !== info.product.id)
-          .sort(() => 0.5 - Math.random()) // Shuffle
-          .slice(0, 5); // Show up to 5 recommendations
-  }, [info, masterProducts]);
-
   const handleAddToCart = () => {
     if (info && selectedVariant) {
         const productWithContext = { ...info.product, isAiAssisted: true, matchedAlias: `Price check` };
@@ -105,7 +96,7 @@ export function PriceCheckDisplay({ info, onClose }: PriceCheckDisplayProps) {
     }
   };
 
-  const { product, priceData } = info || {};
+  const { product, priceData, recommendedProducts } = info || {};
   const productNameEn = product ? t(product.name.toLowerCase().replace(/ /g, '-'), 'en') : '';
   const productDesc = product ? product.description : '';
 
@@ -162,6 +153,20 @@ export function PriceCheckDisplay({ info, onClose }: PriceCheckDisplayProps) {
                     </div>
                   </div>
                 </div>
+                
+                 {recommendedProducts && recommendedProducts.length > 0 && (
+                    <>
+                        <div className="space-y-3 mb-6">
+                            <h3 className="text-sm font-semibold text-muted-foreground">Recipe Suggestions</h3>
+                            <ScrollArea className="w-full">
+                                <div className="flex gap-3 pb-2">
+                                    {recommendedProducts.map(p => <RecommendedItem key={p.id} product={p} />)}
+                                </div>
+                            </ScrollArea>
+                        </div>
+                        <Separator className="my-4" />
+                    </>
+                )}
 
                 <div className="space-y-3 mb-6">
                     {priceData.variants.map((v, idx) => (
@@ -184,20 +189,6 @@ export function PriceCheckDisplay({ info, onClose }: PriceCheckDisplayProps) {
                       </div>
                     ))}
                 </div>
-                
-                {recommendedProducts.length > 0 && (
-                    <>
-                        <Separator className="my-4" />
-                        <div className="space-y-3">
-                            <h3 className="text-sm font-semibold text-muted-foreground">Frequently Bought With</h3>
-                            <ScrollArea className="w-full">
-                                <div className="flex gap-3 pb-2">
-                                    {recommendedProducts.map(p => <RecommendedItem key={p.id} product={p} />)}
-                                </div>
-                            </ScrollArea>
-                        </div>
-                    </>
-                )}
 
             </ScrollArea>
 
