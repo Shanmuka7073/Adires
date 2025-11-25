@@ -58,7 +58,7 @@ export const useAppStore = create<AppState>()(
       },
 
       fetchInitialData: async (db: Firestore) => {
-        if (get().loading) return; 
+        if (get().loading || get().isInitialized) return; 
 
         set({ loading: true, error: null });
         
@@ -88,13 +88,11 @@ export const useAppStore = create<AppState>()(
             locales,
             commands: enrichedCommands,
             isInitialized: true,
-            loading: false, // Set loading to false after all initial data is set
+            loading: false,
           });
 
-          // After master products are loaded, fetch their prices
           if (masterProducts.length > 0) {
-            const productNames = masterProducts.map(p => p.name);
-            get().fetchProductPrices(db, productNames);
+            await get().fetchProductPrices(db, masterProducts.map(p => p.name));
           }
           
         } catch (error) {
@@ -146,9 +144,8 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'localbasket-app-storage',
+      name: 'localbasket-app-storage', // The key for localStorage
       storage: createJSONStorage(() => localStorage),
-      // Only persist the main data, not transient state like loading/error
       partialize: (state) => ({ 
           stores: state.stores,
           masterProducts: state.masterProducts,
@@ -167,16 +164,11 @@ export const useInitializeApp = () => {
     const { fetchInitialData, isInitialized, loading } = useAppStore();
 
     useEffect(() => {
-        // We fetch only if Firestore is available, the user is logged in,
-        // and we haven't already initialized the data.
         if (firestore && user && !isInitialized && !loading) {
             fetchInitialData(firestore);
         }
     }, [firestore, user, isInitialized, loading, fetchInitialData]);
 
-    // The hook now signals loading only if data is not yet initialized.
-    // On subsequent visits, isInitialized will be true from the start due to persistence,
-    // so this will return false, allowing the app to render instantly.
     return { isLoading: !isInitialized && loading };
 };
 
