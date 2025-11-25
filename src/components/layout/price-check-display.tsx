@@ -85,6 +85,7 @@ export function PriceCheckDisplay({ info, onClose }: PriceCheckDisplayProps) {
                 alt={productNameEn}
                 width={80}
                 height={80}
+                data-ai-hint={image.imageHint}
                 className="w-20 h-20 rounded-xl object-cover border"
               />
               <div>
@@ -103,7 +104,7 @@ export function PriceCheckDisplay({ info, onClose }: PriceCheckDisplayProps) {
                   </div>
                   <Button
                     onClick={() => handleAddToCart(v)}
-                    className="flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-xl shadow-md"
+                    className="flex items-center gap-2 bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded-xl shadow-md"
                   >
                     <ShoppingCart className="h-4 w-4" /> Add
                   </Button>

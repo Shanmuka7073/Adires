@@ -694,8 +694,6 @@ export function VoiceCommander({
         const isYes = yesKeywords.some(kw => lowerCommandText.includes(kw));
         const isNo = noKeywords.some(kw => lowerCommandText.includes(kw));
     
-        // --- START OF NEW LOGIC ---
-    
         // Case 1: Match by specific weight (e.g., "add 1kg" or "one kilo")
         const { variant: foundVariantByWeight, requestedQty } = await findProductAndVariant(commandText);
         if (foundVariantByWeight && context.variants.some(v => v.sku === foundVariantByWeight.sku)) {
@@ -737,8 +735,6 @@ export function VoiceCommander({
         if (!chosenVariant && isYes) {
             chosenVariant = context.variants[0];
         }
-    
-        // --- END OF NEW LOGIC ---
     
         if (chosenVariant) {
             const productWithContext = { ...context.product, isAiAssisted: true, matchedAlias: `Price check` };
