@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -70,11 +71,11 @@ export function PriceCheckDisplay({ info, onClose }: PriceCheckDisplayProps) {
           />
           <motion.div
             key="sheet"
-            initial={{ y: "-100%", opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: "-100%", opacity: 0 }}
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
             transition={{ type: "spring", stiffness: 100, damping: 20 }}
-            className="fixed top-4 left-1/2 -translate-x-1/2 bg-white z-50 rounded-2xl p-5 shadow-2xl w-[90vw] max-w-md max-h-[90vh] flex flex-col"
+            className="fixed bottom-0 left-0 right-0 bg-white z-50 rounded-t-3xl p-5 pb-8 shadow-2xl w-full max-w-lg mx-auto max-h-[80vh] flex flex-col"
           >
             <div className="flex justify-between items-center mb-4 flex-shrink-0">
               <h2 className="text-lg font-semibold text-gray-900">

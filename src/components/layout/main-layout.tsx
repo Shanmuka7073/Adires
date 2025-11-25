@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, createContext, useContext, useCallback, useEffect } from 'react';
@@ -38,7 +39,7 @@ export function MainLayout({
 }) {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState('Click the mic to start listening.');
-  const [suggestedCommands, setSuggestedCommands] = useState<any[]>([]);
+  const [suggestedCommands, setSuggestedCommands] = useState<Command[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { cartItems } = useCart();
   const { toast } = useToast();
@@ -138,7 +139,7 @@ export function MainLayout({
         <main className="flex-1 pb-16 md:pb-0">{children}</main>
         <NotificationPermissionManager />
         <Footer />
-        <BottomNavBar />
+        {!priceCheckInfo && <BottomNavBar />}
         </div>
     </VoiceCommandContext.Provider>
   );
