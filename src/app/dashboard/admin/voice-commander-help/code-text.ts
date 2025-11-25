@@ -1,9 +1,11 @@
 
 'use client';
 
+// This file now holds the full source code for the VoiceCommander component and the new AI refactoring flow.
+
 export const voiceCommanderCodeText = [
     {
-        path: 'src/components/layout/voice-commander.tsx (Lines 1-500)',
+        path: 'src/components/layout/voice-commander.tsx',
         content: `
 'use client';
 
@@ -583,11 +585,7 @@ export function VoiceCommander({
 
     return { product: product, variant: chosenVariant, requestedQty, remainingPhrase: productNamePhrase, matchedAlias, lang: detectedLang };
 }, [firestore, productPrices, universalProductAliasMap]);
-`
-    },
-    {
-        path: 'src/components/layout/voice-commander.tsx (Lines 501-800)',
-        content: `
+
   const recognizeIntent = useCallback((text: string, spokenLang: string): Intent => {
     const lowerText = text.toLowerCase().trim();
     
@@ -846,11 +844,6 @@ export function VoiceCommander({
     const intent = recognizeIntent(commandText, spokenLang);
 
     switch (intent.type) {
-`
-    },
-    {
-        path: 'src/components/layout/voice-commander.tsx (Lines 801-end)',
-        content: `
         case 'SMART_ORDER':
             await commandActionsRef.current.handleSmartOrder(intent.originalText, intent.lang);
             break;
@@ -1256,7 +1249,7 @@ export function VoiceCommander({
             return;
         }
 
-        const productPhrase = text.substring(0, fromIndex).replace(/^(order|buy|get|send)\\s+/i, '').trim();
+        const productPhrase = text.substring(0, fromIndex).replace(/^(order|buy|get|send)\s+/i, '').trim();
         const storePhrase = text.substring(fromIndex + fromKeyword.length + 1, toIndex).trim();
         const addressPhrase = text.substring(toIndex + toKeyword.length + 1).trim();
 
@@ -1358,6 +1351,6 @@ export function VoiceCommander({
 
   return null;
 }
-`
-    }
-]
+`,
+    },
+];
