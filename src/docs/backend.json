@@ -1,4 +1,5 @@
 
+
 {
   "entities": {
     "Store": {
@@ -841,26 +842,6 @@
         }
       },
       {
-        "path": "/orders/{orderId}/orderItems/{orderItemId}",
-        "definition": {
-          "entityName": "OrderItem",
-          "schema": {
-            "$ref": "#/backend/entities/OrderItem"
-          },
-          "description": "Stores order item information for each order. Includes denormalized 'orderId' for authorization independence.",
-          "params": [
-            {
-              "name": "orderId",
-              "description": "The unique identifier of the order."
-            },
-            {
-              "name": "orderItemId",
-              "description": "The unique identifier of the order item."
-            }
-          ]
-        }
-      },
-      {
         "path": "/users/{userId}/productRecommendations/{productRecommendationId}",
         "definition": {
           "entityName": "ProductRecommendation",
@@ -1047,3 +1028,4 @@
     ]
   }
 }
+

@@ -16,7 +16,6 @@ service cloud.firestore {
      * - /stores/{storeId}: Store information, owned by a specific user.
      * - /stores/{storeId}/products/{productId}: Products listed under a store, managed by the store owner.
      * - /orders/{orderId}: Order information, with denormalized userId and storeId.
-     * - /orders/{orderId}/orderItems/{orderItemId}: Items within an order.
      * - /users/{userId}/productRecommendations/{productRecommendationId}: Product recommendations for a user.
      * - /cachedRecipes/{recipeId}: Cached recipe ingredients.
      * - /deliveryPartners/{partnerId}: Delivery partner earnings and payout information. Document ID is the same as the user ID.
@@ -93,14 +92,8 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    match /orders/{orderId}/orderItems/{orderItemId} {
-      allow get, list: if true;
-      allow create, update, delete: if false;
-    }
-
     match /users/{userId}/productRecommendations/{productRecommendationId} {
-      allow get, list: if isOwner(userId);
-      allow create, update, delete: if false;
+      allow get, list, create, update, delete: if isOwner(userId);
     }
     
     match /voice-orders/{voiceOrderId} {
