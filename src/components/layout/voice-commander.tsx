@@ -118,7 +118,7 @@ export function VoiceCommander({
   const isWaitingForStoreNameRef = useRef(false);
   const isWaitingForAddressTypeRef = useRef(false);
   const addressRetryCountRef = useRef(0);
-  const itemForPriceCheck = useRef<Product | null>(null);
+  const itemForPriceCheck = useRef<{product: Product, variants: ProductVariant[]} | null>(null);
   const productForVariantSelection = useRef<Product | null>(null);
   const lastTranscriptRef = useRef<string>('');
   
@@ -660,46 +660,65 @@ export function VoiceCommander({
 
     // --- CONTEXTUAL RESPONSES ---
     if (itemForPriceCheck.current) {
-        const productForCheck = itemForPriceCheck.current;
-        const yesKeywords = ['yes', 'add', 'buy', 'okay', 'yep', 'yeah', 'sare', 'sari', 'sareh', 'సరే', 'అవును'];
-        const noKeywords = ['no', 'cancel', 'stop', 'వద్దు', 'not now'];
+        const context = itemForPriceCheck.current;
         const lowerCommandText = commandText.toLowerCase();
 
+        const yesKeywords = ['yes', 'add', 'buy', 'okay', 'yep', 'yeah', 'sare', 'sari', 'sareh', 'సరే', 'అవును'];
+        const noKeywords = ['no', 'cancel', 'stop', 'వద్దు', 'not now'];
+        
         const isYes = yesKeywords.some(kw => lowerCommandText.includes(kw));
         const isNo = noKeywords.some(kw => lowerCommandText.includes(kw));
 
-        // If it's a confirmation, handle it.
+        // Case 1: Simple "yes" confirmation
         if (isYes) {
-            itemForPriceCheck.current = null;
-            hidePriceCheck();
-            const priceData = productPrices[productForCheck.name.toLowerCase()];
-            const smallestVariant = priceData?.variants?.sort((a, b) => a.price - b.price)[0];
-            
-            if (smallestVariant) {
-                const productWithContext = { ...productForCheck, isAiAssisted: true, matchedAlias: `Price check` };
-                addItemToCart(productWithContext, smallestVariant, 1);
+            const defaultVariant = context.variants[0];
+            if (defaultVariant) {
+                const productWithContext = { ...context.product, isAiAssisted: true, matchedAlias: `Price check` };
+                addItemToCart(productWithContext, defaultVariant, 1);
                 onOpenCart();
-                const reply = commands['addItem']?.reply;
-                if (reply) {
-                    speak(reply, langWithRegion);
-                }
-            } else {
-                 speak(t('no-price-found-speech', replyLang).replace('{productName}', getProductName(productForCheck)), langWithRegion);
+                speak(commands['addItem']?.reply, langWithRegion);
             }
-             return;
-        } 
-        
-        // If it's a cancellation, handle it.
-        if (isNo) {
-            itemForPriceCheck.current = null; 
-            hidePriceCheck();
-            speak("Okay, cancelled.", langWithRegion);
+            resetAllContext();
             return;
         }
 
-        // If it's neither yes nor no, it's a new command. Reset context and re-process.
-        itemForPriceCheck.current = null;
-        hidePriceCheck();
+        // Case 2: Simple "no" cancellation
+        if (isNo) {
+            speak("Okay, cancelled.", langWithRegion);
+            resetAllContext();
+            return;
+        }
+
+        // Case 3: Positional command ("add the second one")
+        const positionalWords = { 'first': 0, 'second': 1, 'third': 2, 'fourth': 3, 'last': context.variants.length - 1 };
+        for (const word in positionalWords) {
+            if (lowerCommandText.includes(word)) {
+                const index = positionalWords[word];
+                const variant = context.variants[index];
+                if (variant) {
+                    const productWithContext = { ...context.product, isAiAssisted: true, matchedAlias: `Price check (${word})` };
+                    addItemToCart(productWithContext, variant, 1);
+                    onOpenCart();
+                    speak(commands['addItem']?.reply, langWithRegion);
+                }
+                resetAllContext();
+                return;
+            }
+        }
+        
+        // Case 4: Specific weight command ("add 500 grams")
+        const { variant: foundVariant } = await findProductAndVariant(commandText);
+        if (foundVariant && context.variants.some(v => v.sku === foundVariant.sku)) {
+            const productWithContext = { ...context.product, isAiAssisted: true, matchedAlias: `Price check (${foundVariant.weight})` };
+            addItemToCart(productWithContext, foundVariant, 1);
+            onOpenCart();
+            speak(commands['addItem']?.reply, langWithRegion);
+            resetAllContext();
+            return;
+        }
+
+        // If it's none of the above, it's a new command. Reset context and re-process.
+        resetAllContext();
     }
     
     if (isWaitingForAddressTypeRef.current) {
@@ -1081,9 +1100,9 @@ export function VoiceCommander({
             .replace('{productName}', getProductName(product))
             .replace('{prices}', pricesString);
           
+          itemForPriceCheck.current = {product, variants: priceData.variants};
           showPriceCheck({ product, priceData });
           speak(`${reply} Would you like to add it to your cart?`, langWithRegion, false);
-          itemForPriceCheck.current = product;
           return;
 
         } else {
