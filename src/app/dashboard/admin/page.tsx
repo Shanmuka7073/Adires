@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy, Upload, MessageSquare, Image as ImageIcon, Home, Lightbulb, Binary } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy, Upload, MessageSquare, Image as ImageIcon, Home, Lightbulb, Binary, TestTube } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -644,6 +644,12 @@ export default function AdminDashboardPage() {
                         description="Test how the new deterministic number engine parses sentences."
                         href="/dashboard/admin/number-engine-demo"
                         icon={Binary}
+                    />
+                    <AdminActionCard
+                        title="Number Engine Tester"
+                        description="View the source code for the number engine's automated test script."
+                        href="/dashboard/admin/number-engine-test-help"
+                        icon={TestTube}
                     />
                      <AdminActionCard
                         title="Asha AI Agent"
