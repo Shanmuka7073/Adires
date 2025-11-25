@@ -53,10 +53,10 @@ Here is the text block to analyze:
 
 1.  **Analyze the Text**: Read through the text and identify any words or phrases that are likely synonyms for the existing products. For example, if "Toor Dal" is an existing product, you might find "Kandi Pappu" or "Arhar dal" in the text.
 2.  **Extract Suggestions**: For each potential alias you find, create a suggestion object.
-    *   `productName`: The canonical product name from the provided list that the alias refers to.
-    *   `suggestedAlias`: The new alias you discovered.
-    *   `context`: The direct sentence or phrase from the text where you found the alias. This is crucial for verification.
-    *   `confidence`: Your confidence score (0.0 to 1.0) that this is a correct and useful alias. Be critical. A direct statement like "X is also known as Y" should have high confidence (e.g., 0.9). A contextual guess should be lower (e.g., 0.6).
+    *   \`productName\`: The canonical product name from the provided list that the alias refers to.
+    *   \`suggestedAlias\`: The new alias you discovered.
+    *   \`context\`: The direct sentence or phrase from the text where you found the alias. This is crucial for verification.
+    *   \`confidence\`: Your confidence score (0.0 to 1.0) that this is a correct and useful alias. Be critical. A direct statement like "X is also known as Y" should have high confidence (e.g., 0.9). A contextual guess should be lower (e.g., 0.6).
 3.  **Formatting**:
     *   Do not suggest an alias that is identical to the product name.
     *   Do not suggest aliases that are too generic (e.g., 'item', 'vegetable').
