@@ -71,7 +71,7 @@ export function PriceCheckDisplay({ info, onClose }: PriceCheckDisplayProps) {
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", stiffness: 100, damping: 20 }}
-            className="fixed bottom-0 left-0 right-0 bg-white z-50 rounded-t-3xl p-5 shadow-2xl max-h-[80vh] overflow-y-auto"
+            className="fixed bottom-0 left-0 right-0 bg-white z-50 rounded-t-3xl p-5 pb-20 md:pb-5 shadow-2xl max-h-[80vh] overflow-y-auto"
           >
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-gray-900">
