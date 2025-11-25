@@ -215,9 +215,12 @@ export default function AppRepliesPage() {
 
             try {
                 await batch.commit();
-                toast({ title: 'Success!', description: 'App replies have been updated.' });
-                // Re-fetch data to sync global store with the new saved state
+                toast({ title: 'Success!', description: 'App replies have been updated in the database.' });
+                
+                // **THE FIX**: Force a re-fetch of all data from Firestore to overwrite the stale local cache.
                 await fetchInitialData(firestore);
+                toast({ title: 'Cache Updated!', description: 'Your local app data has been synchronized with the latest changes.' });
+
             } catch (error) {
                 console.error('Failed to save replies:', error);
                 toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save replies to the database.' });
