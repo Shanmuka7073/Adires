@@ -729,6 +729,21 @@
         }
       },
       "required": ["userId", "voiceprint", "createdAt"]
+    },
+    "NluExtractedSentence": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "NLU Extracted Sentence",
+      "type": "object",
+      "description": "Represents a sentence extracted from a document for NLU rule generation.",
+      "properties": {
+        "id": { "type": "string" },
+        "rawText": { "type": "string" },
+        "extractedNumbers": { "type": "array" },
+        "confidence": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "rawText", "status", "createdAt"]
     }
   },
   "auth": {
@@ -1044,6 +1059,15 @@
               "description": "The unique identifier of the user, matching their auth UID."
             }
           ]
+        }
+      },
+      {
+        "path": "/nlu_extracted_sentences/{sentenceId}",
+        "definition": {
+          "entityName": "NluExtractedSentence",
+          "schema": { "$ref": "#/entities/NluExtractedSentence" },
+          "description": "Stores sentences extracted from documents for NLU rule training.",
+          "params": [{ "name": "sentenceId" }]
         }
       }
     ]

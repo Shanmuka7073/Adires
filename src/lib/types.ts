@@ -1,5 +1,4 @@
 
-
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -239,3 +238,13 @@ export type CommandGroup = {
 };
 
 export type Locales = Record<string, VoiceAliasGroup>;
+
+// NLU Training Dashboard Types
+export type NluExtractedSentence = {
+    id: string;
+    rawText: string;
+    extractedNumbers: any[]; // Consider defining a more specific type for extracted numbers later
+    confidence: number;
+    status: 'pending' | 'approved' | 'rejected';
+    createdAt: any;
+};
