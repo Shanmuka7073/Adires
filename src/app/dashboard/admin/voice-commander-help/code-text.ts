@@ -927,8 +927,7 @@ export function VoiceCommander({
       storeAliasMap, profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData,
       placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress,
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
-      removeItem, addUnidentifiedItem, updateUnidentifiedItem,
-      getProductName, addItemToCart, locales, commands, getAllAliases, recognizeIntent, stores, productPrices, showPriceCheck, hidePriceCheck
+      removeItem, router, stores, productPrices, showPriceCheck, hidePriceCheck
   ]);
 
     // Effect to handle retrying a command
@@ -1249,7 +1248,7 @@ export function VoiceCommander({
             return;
         }
 
-        const productPhrase = text.substring(0, fromIndex).replace(/^(order|buy|get|send)\s+/i, '').trim();
+        const productPhrase = text.substring(0, fromIndex).replace(/^(order|buy|get|send)\\s+/i, '').trim();
         const storePhrase = text.substring(fromIndex + fromKeyword.length + 1, toIndex).trim();
         const addressPhrase = text.substring(toIndex + toKeyword.length + 1).trim();
 
@@ -1346,7 +1345,7 @@ export function VoiceCommander({
       placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress,
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
       removeItem, addUnidentifiedItem, updateUnidentifiedItem,
-      getProductName, addItemToCart, locales, commands, getAllAliases, recognizeIntent, stores, productPrices, showPriceCheck, hidePriceCheck
+      getProductName, addItemToCart, locales, commands, getAllAliases, recognizeIntent, stores
   ]);
 
   return null;

@@ -61,7 +61,7 @@ export default function VoiceCommanderHelpPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                   <Accordion type="single" collapsible className="w-full">
+                   <Accordion type="single" collapsible className="w-full" defaultValue={voiceCommanderCodeText[0]?.path}>
                         {voiceCommanderCodeText.map((file) => (
                              <AccordionItem value={file.path} key={file.path}>
                                 <AccordionTrigger className="font-mono text-sm">{file.path}</AccordionTrigger>
@@ -91,7 +91,7 @@ export default function VoiceCommanderHelpPage() {
                                     <CardHeader>
                                         <CardTitle>Explanation of Changes</CardTitle>
                                     </CardHeader>
-                                    <CardContent className="prose prose-sm max-w-none">
+                                    <CardContent className="prose prose-sm max-w-none dark:prose-invert">
                                         <p>{suggestion.explanation}</p>
                                     </CardContent>
                                  </Card>
