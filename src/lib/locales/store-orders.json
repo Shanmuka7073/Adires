@@ -1,0 +1,15 @@
+
+{
+  "store-orders": {
+    "en": [
+      "store orders",
+      "view store orders",
+      "shop orders",
+      "incoming orders"
+    ],
+    "te": [
+      "స్టోర్ ఆర్డర్లు",
+      "దుకాణం ఆర్డర్లు"
+    ]
+  }
+}

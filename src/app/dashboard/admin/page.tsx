@@ -586,6 +586,12 @@ export default function AdminDashboardPage() {
                         href="/dashboard/admin/app-overview"
                         icon={FileSignature}
                     />
+                    <AdminActionCard
+                        title="Store Orders"
+                        description="View and manage incoming orders for all stores."
+                        href="/dashboard/owner/orders"
+                        icon={ShoppingBag}
+                    />
                      <AdminActionCard
                         title="Knowledge Chat"
                         description="Ask questions and get factual summaries from Wikipedia."
@@ -717,5 +723,6 @@ export default function AdminDashboardPage() {
         </div>
     );
 }
+
 
 

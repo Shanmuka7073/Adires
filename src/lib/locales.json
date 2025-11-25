@@ -1,3 +1,4 @@
+
 {
   "home": {
     "en": "Home",
@@ -1436,5 +1437,9 @@
   "check-price": {
     "en": "Check Price",
     "te": "ధరను తనిఖీ చేయండి"
+  },
+  "store-orders": {
+    "en": "Store Orders",
+    "te": "స్టోర్ ఆర్డర్లు"
   }
 }

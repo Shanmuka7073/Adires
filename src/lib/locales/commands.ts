@@ -54,6 +54,14 @@ export const generalCommands: Record<string, CommandGroup> = {
             hi: 'आपके पिछले ऑर्डर यहाँ हैं।,आपका ऑर्डर इतिहास खोल रहा हूँ।'
         }
     },
+    'store-orders': {
+        display: 'Store Orders',
+        reply: {
+            en: 'Opening the store order management page.',
+            te: 'స్టోర్ ఆర్డర్ నిర్వహణ పేజీని తెరుస్తున్నాను.',
+            hi: 'स्टोर ऑर्डर प्रबंधन पृष्ठ खोल रहा हूँ।'
+        }
+    },
     'deliveries': { 
         display: 'My Deliveries', 
         reply: {
