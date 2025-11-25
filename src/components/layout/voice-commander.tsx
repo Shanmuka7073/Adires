@@ -684,74 +684,84 @@ export function VoiceCommander({
 
     // --- CONTEXTUAL RESPONSES ---
     if (itemForPriceCheck.current) {
-        const context = itemForPriceCheck.current;
-        const lowerCommandText = commandText.toLowerCase();
-        let chosenVariant: ProductVariant | null = null;
-    
-        const yesKeywords = ['yes', 'add', 'buy', 'okay', 'yep', 'yeah', 'sare', 'sari', 'sareh', 'సరే', 'అవును'];
-        const noKeywords = ['no', 'cancel', 'stop', 'వద్దు', 'not now'];
-        
-        const isYes = yesKeywords.some(kw => lowerCommandText.includes(kw));
-        const isNo = noKeywords.some(kw => lowerCommandText.includes(kw));
-    
-        // Case 1: Match by specific weight (e.g., "add 1kg" or "one kilo")
-        const { variant: foundVariantByWeight, requestedQty } = await findProductAndVariant(commandText);
-        if (foundVariantByWeight && context.variants.some(v => v.sku === foundVariantByWeight.sku)) {
-            chosenVariant = foundVariantByWeight;
-        }
-    
-        // Case 2: Match by spoken price (e.g., "the 50 rupee one")
-        if (!chosenVariant) {
-            const numbersInCommand = lowerCommandText.match(/\d+/g)?.map(Number);
-            if (numbersInCommand) {
-                for (const price of numbersInCommand) {
-                    const matchedVariant = context.variants.find(v => Math.round(v.price * 1.20) === price);
-                    if (matchedVariant) {
-                        chosenVariant = matchedVariant;
-                        break;
-                    }
-                }
-            }
-        }
-        
-        // Case 3: Match by position ("the first one", "second", "3")
-        if (!chosenVariant) {
-            const positionalWords: { [key: string]: number } = { 
-                'first': 0, '1st': 0, 'one': 0, '1': 0,
-                'second': 1, '2nd': 1, 'two': 1, '2': 1,
-                'third': 2, '3rd': 2, 'three': 2, '3': 2,
-                'fourth': 3, '4th': 3, 'four': 3, '4': 3,
-                'last': context.variants.length - 1 
-            };
-            for (const word of lowerCommandText.split(' ')) {
-                if (positionalWords[word] !== undefined) {
-                    chosenVariant = context.variants[positionalWords[word]];
-                    break;
-                }
-            }
-        }
-        
-        // Case 4: Simple "yes" confirmation (defaults to first variant)
-        if (!chosenVariant && isYes) {
-            chosenVariant = context.variants[0];
-        }
-    
-        if (chosenVariant) {
-            const productWithContext = { ...context.product, isAiAssisted: true, matchedAlias: `Price check` };
-            addItemToCart(productWithContext, chosenVariant, requestedQty || 1);
-            onOpenCart();
-            speak(commands['addItem']?.reply, langWithRegion);
-            resetAllContext();
-            return;
-        }
-    
-        if (isNo) {
-            speak("Okay, cancelled.", langWithRegion);
-            resetAllContext();
-            return;
-        }
-    
-        resetAllContext();
+      const context = itemForPriceCheck.current;
+      itemForPriceCheck.current = null; // Clear context immediately
+      hidePriceCheck(); // Close the UI
+  
+      const lowerCommandText = commandText.toLowerCase();
+      let chosenVariant: ProductVariant | null = null;
+      let requestedQty = 1;
+  
+      // Keywords for confirmation/cancellation
+      const yesKeywords = ['yes', 'add', 'buy', 'okay', 'yep', 'yeah', 'sare', 'sari', 'sareh', 'సరే', 'అవును'];
+      const noKeywords = ['no', 'cancel', 'stop', 'వద్దు', 'not now'];
+  
+      const isYes = yesKeywords.some(kw => lowerCommandText.includes(kw));
+      const isNo = noKeywords.some(kw => lowerCommandText.includes(kw));
+  
+      // --- Start of Variant Selection Logic ---
+      
+      // Case 1: Direct match by spoken weight (e.g., "add 1kg" or "one kilo")
+      const { variant: foundVariantByWeight, requestedQty: foundQty } = await findProductAndVariant(commandText);
+      if (foundVariantByWeight && context.variants.some(v => v.sku === foundVariantByWeight.sku)) {
+          chosenVariant = foundVariantByWeight;
+          requestedQty = foundQty;
+      }
+  
+      // Case 2: Match by spoken price (e.g., "the 50 rupee one")
+      if (!chosenVariant) {
+          const numbersInCommand = lowerCommandText.match(/\d+/g)?.map(Number);
+          if (numbersInCommand) {
+              for (const price of numbersInCommand) {
+                  const matchedVariant = context.variants.find(v => Math.round(v.price * 1.20) === price);
+                  if (matchedVariant) {
+                      chosenVariant = matchedVariant;
+                      break;
+                  }
+              }
+          }
+      }
+      
+      // Case 3: Match by position ("the first one", "second", "3")
+      if (!chosenVariant) {
+          const positionalWords: { [key: string]: number } = { 
+              'first': 0, '1st': 0, 'one': 0, '1': 0, 'modati': 0, 'okati': 0, 'पहला': 0,
+              'second': 1, '2nd': 1, 'two': 1, '2': 1, 'rendava': 1, 'दूसरा': 1,
+              'third': 2, '3rd': 2, 'three': 2, '3': 2, 'moodava': 2, 'तीसरा': 2,
+              'fourth': 3, '4th': 3, 'four': 3, '4': 3, 'nalugava': 3, 'चौथा': 3,
+              'last': context.variants.length - 1 
+          };
+          for (const word of lowerCommandText.split(' ')) {
+              if (positionalWords[word] !== undefined && context.variants[positionalWords[word]]) {
+                  chosenVariant = context.variants[positionalWords[word]];
+                  break;
+              }
+          }
+      }
+      
+      // Case 4: Simple "yes" confirmation (defaults to first variant)
+      if (!chosenVariant && isYes) {
+          chosenVariant = context.variants[0];
+      }
+  
+      // --- End of Variant Selection Logic ---
+  
+      if (chosenVariant) {
+          const productWithContext = { ...context.product, isAiAssisted: true, matchedAlias: `Price check` };
+          addItemToCart(productWithContext, chosenVariant, requestedQty || 1);
+          onOpenCart();
+          const reply = commands['addItem']?.reply;
+          if (reply) {
+            speak(reply, langWithRegion);
+          }
+      } else if (isNo) {
+          speak("Okay, cancelled.", langWithRegion, false);
+      } else {
+          // If no variant was selected and it wasn't a "no", assume it's a new command
+          handleCommand(commandText);
+      }
+      resetAllContext(); // Ensure context is cleared
+      return;
     }
 
     
@@ -1124,20 +1134,15 @@ export function VoiceCommander({
         let priceData = productPrices[product.name.toLowerCase()];
         
         if (priceData && priceData.variants && priceData.variants.length > 0) {
-          const pricesString = priceData.variants.map(v => 
-            t('price-check-variant-speech', replyLang)
-              .replace('{weight}', v.weight)
-              .replace('{price}', `₹${(v.price * 1.20).toFixed(2)}`)
-          ).join(', ');
-
-          const reply = t('price-check-reply-speech', replyLang)
-            .replace('{productName}', getProductName(product))
-            .replace('{prices}', pricesString);
-          
-          itemForPriceCheck.current = { product, variants: priceData.variants };
           showPriceCheck({ product, priceData });
           
-          speak(`${reply} Would you like to add it to your cart?`, langWithRegion, false);
+          const reply = t('price-check-reply-speech', replyLang)
+            .replace('{productName}', getProductName(product))
+          
+          speak(`${reply} Please select an option or say 'cancel'.`, langWithRegion, () => {
+            // Set context for follow-up commands
+            itemForPriceCheck.current = { product, variants: priceData.variants };
+          });
           return;
 
         } else {
