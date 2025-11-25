@@ -50,7 +50,7 @@ function RecommendedItem({ product }: { product: Product }) {
     }
 
     return (
-        <div className="flex-shrink-0 w-32 space-y-1">
+        <div className="flex-shrink-0 w-24 space-y-1">
             <div className="w-full h-24 relative rounded-lg overflow-hidden border">
                 <Image src={image.imageUrl} alt={product.name} data-ai-hint={image.imageHint} fill className="object-cover" />
             </div>
@@ -94,7 +94,7 @@ export function PriceCheckDisplay({ info, onClose }: PriceCheckDisplayProps) {
       return masterProducts
           .filter(p => p.category === info.product.category && p.id !== info.product.id)
           .sort(() => 0.5 - Math.random()) // Shuffle
-          .slice(0, 4);
+          .slice(0, 5); // Show up to 5 recommendations
   }, [info, masterProducts]);
 
   const handleAddToCart = () => {
@@ -190,9 +190,11 @@ export function PriceCheckDisplay({ info, onClose }: PriceCheckDisplayProps) {
                         <Separator className="my-4" />
                         <div className="space-y-3">
                             <h3 className="text-sm font-semibold text-muted-foreground">Frequently Bought With</h3>
-                            <div className="flex gap-3 overflow-x-auto pb-2 -mb-2">
-                                {recommendedProducts.map(p => <RecommendedItem key={p.id} product={p} />)}
-                            </div>
+                            <ScrollArea className="w-full">
+                                <div className="flex gap-3 pb-2">
+                                    {recommendedProducts.map(p => <RecommendedItem key={p.id} product={p} />)}
+                                </div>
+                            </ScrollArea>
                         </div>
                     </>
                 )}
