@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, createContext, useContext, useCallback, useEffect } from 'react';
@@ -21,6 +20,7 @@ const VoiceCommandContext = createContext<{
     triggerVoicePrompt: () => void, 
     retryCommand?: (command: string) => void; 
     showPriceCheck: (info: PriceCheckInfo) => void;
+    hidePriceCheck: () => void;
 } | undefined>(undefined);
 
 export function useVoiceCommanderContext() {
@@ -100,14 +100,15 @@ export function MainLayout({
 
   const showPriceCheck = useCallback((info: PriceCheckInfo) => {
       setPriceCheckInfo(info);
-      setTimeout(() => {
-          setPriceCheckInfo(null);
-      }, 5000); // Hide after 5 seconds
+  }, []);
+  
+  const hidePriceCheck = useCallback(() => {
+      setPriceCheckInfo(null);
   }, []);
 
 
   return (
-    <VoiceCommandContext.Provider value={{ triggerVoicePrompt, retryCommand, showPriceCheck }}>
+    <VoiceCommandContext.Provider value={{ triggerVoicePrompt, retryCommand, showPriceCheck, hidePriceCheck }}>
         <div className="relative flex min-h-dvh flex-col bg-background">
         <Header 
             voiceEnabled={voiceEnabled}
@@ -133,7 +134,7 @@ export function MainLayout({
             />
         )}
         <ProfileCompletionChecker />
-        <PriceCheckDisplay info={priceCheckInfo} />
+        <PriceCheckDisplay info={priceCheckInfo} onClose={hidePriceCheck} />
         <main className="flex-1 pb-16 md:pb-0">{children}</main>
         <NotificationPermissionManager />
         <Footer />

@@ -3,9 +3,11 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X, ShoppingCart } from 'lucide-react';
-import { Product, ProductPrice } from '@/lib/types';
+import { Product, ProductPrice, ProductVariant } from '@/lib/types';
 import { useCart } from '@/lib/cart';
 import { t } from '@/lib/locales';
+import Image from 'next/image';
+import { getProductImage } from '@/lib/data';
 
 export interface PriceCheckInfo {
   product: Product;
@@ -14,31 +16,32 @@ export interface PriceCheckInfo {
 
 interface PriceCheckDisplayProps {
   info: PriceCheckInfo | null;
+  onClose: () => void;
 }
 
-export function PriceCheckDisplay({ info }: PriceCheckDisplayProps) {
-  const [isVisible, setIsVisible] = useState(false);
+export function PriceCheckDisplay({ info, onClose }: PriceCheckDisplayProps) {
   const { addItem } = useCart();
+  const [image, setImage] = useState({ imageUrl: '', imageHint: 'loading' });
 
   useEffect(() => {
-    if (info) {
-      setIsVisible(true);
-      const timer = setTimeout(() => {
-        setIsVisible(false);
-      }, 5000); // Auto-hide after 5 seconds
-
-      return () => clearTimeout(timer);
-    } else {
-      setIsVisible(false);
+    if (info?.product) {
+      const fetchImage = async () => {
+        const fetchedImage = await getProductImage(info.product.imageId);
+        setImage(fetchedImage);
+      };
+      fetchImage();
     }
   }, [info]);
 
-  const handleAddToCart = (variant) => {
-    addItem(info!.product, variant, 1);
-    setIsVisible(false);
+  const handleAddToCart = (variant: ProductVariant) => {
+    if (info) {
+        const productWithContext = { ...info.product, isAiAssisted: true, matchedAlias: `Price check` };
+        addItem(productWithContext, variant, 1);
+        onClose();
+    }
   };
 
-  if (!isVisible || !info) {
+  if (!info) {
     return null;
   }
 
@@ -51,11 +54,22 @@ export function PriceCheckDisplay({ info }: PriceCheckDisplayProps) {
       <Card className="shadow-2xl animate-in fade-in-0 slide-in-from-bottom-4 duration-300">
         <CardHeader>
           <div className="flex justify-between items-start">
-            <div>
-                <CardTitle className="font-headline">{productNameEn}</CardTitle>
-                <CardDescription>{productNameTe}</CardDescription>
+             <div className="flex items-start gap-4">
+                 <div className="relative h-16 w-16 rounded-md overflow-hidden bg-muted">
+                    <Image
+                        src={image.imageUrl}
+                        alt={product.name}
+                        data-ai-hint={image.imageHint}
+                        fill
+                        className="object-cover"
+                    />
+                 </div>
+                <div>
+                    <CardTitle className="font-headline text-xl">{productNameEn}</CardTitle>
+                    <CardDescription>{productNameTe}</CardDescription>
+                </div>
             </div>
-             <Button variant="ghost" size="icon" className="h-6 w-6 -mt-2 -mr-2" onClick={() => setIsVisible(false)}>
+             <Button variant="ghost" size="icon" className="h-7 w-7 -mt-2 -mr-2 flex-shrink-0" onClick={onClose}>
                 <X className="h-4 w-4" />
             </Button>
           </div>
@@ -67,7 +81,7 @@ export function PriceCheckDisplay({ info }: PriceCheckDisplayProps) {
                         <p className="font-semibold">{variant.weight}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                        <p className="font-bold text-lg text-primary">₹{(variant.price * 1.20).toFixed(2)}</p>
+                        <p className="font-bold text-lg text-primary">₹{(variant.price).toFixed(2)}</p>
                         <Button size="sm" onClick={() => handleAddToCart(variant)}>
                             <ShoppingCart className="h-4 w-4 mr-2" />
                             Add

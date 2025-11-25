@@ -93,7 +93,7 @@ export function VoiceCommander({
   const { toast } = useToast();
   const { firestore, user } = useFirebase();
   const { clearCart, addItem: addItemToCart, removeItem, updateQuantity, addUnidentifiedItem, updateUnidentifiedItem, addIdentifiedItem, activeStoreId, setActiveStoreId, cartTotal } = useCart();
-  const { retryCommand, showPriceCheck } = useVoiceCommanderContext();
+  const { retryCommand, showPriceCheck, hidePriceCheck } = useVoiceCommanderContext();
 
   const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands, loading: isAppStoreLoading, fetchInitialData } = useAppStore();
 
@@ -185,6 +185,7 @@ export function VoiceCommander({
 
   const resetAllContext = useCallback(() => {
     itemForPriceCheck.current = null;
+    hidePriceCheck();
     productForVariantSelection.current = null;
     isWaitingForStoreNameRef.current = false;
     isWaitingForAddressTypeRef.current = false;
@@ -194,7 +195,7 @@ export function VoiceCommander({
     formFieldToFillRef.current = null;
     useCheckoutStore.getState().setShouldPlaceOrderDirectly(false);
     setHasRunCheckoutPrompt(false);
-  }, [onSuggestions, setIsWaitingForQuickOrderConfirmation]);
+  }, [onSuggestions, setIsWaitingForQuickOrderConfirmation, hidePriceCheck]);
 
 
   const determinePhraseLanguage = useCallback((text: string): string => {
@@ -667,10 +668,10 @@ export function VoiceCommander({
         const isYes = yesKeywords.some(kw => lowerCommandText.includes(kw));
         const isNo = noKeywords.some(kw => lowerCommandText.includes(kw));
 
-        // Reset the context as soon as we start handling it.
-        itemForPriceCheck.current = null; 
-
+        // If it's a confirmation, handle it.
         if (isYes) {
+            itemForPriceCheck.current = null;
+            hidePriceCheck();
             const priceData = productPrices[productForCheck.name.toLowerCase()];
             const smallestVariant = priceData?.variants?.sort((a, b) => a.price - b.price)[0];
             
@@ -685,13 +686,20 @@ export function VoiceCommander({
             } else {
                  speak(t('no-price-found-speech', replyLang).replace('{productName}', getProductName(productForCheck)), langWithRegion);
             }
-        } else if (isNo) {
-            speak("Okay, cancelled.", langWithRegion); // Acknowledge cancellation
-        } else {
-            // It was not a yes or a no, so re-process as a new command.
-            handleCommand(commandText); 
+             return;
+        } 
+        
+        // If it's a cancellation, handle it.
+        if (isNo) {
+            itemForPriceCheck.current = null; 
+            hidePriceCheck();
+            speak("Okay, cancelled.", langWithRegion);
+            return;
         }
-        return; // Exit after handling the contextual response.
+
+        // If it's neither yes nor no, it's a new command. Reset context and re-process.
+        itemForPriceCheck.current = null;
+        hidePriceCheck();
     }
     
     if (isWaitingForAddressTypeRef.current) {
@@ -851,7 +859,7 @@ export function VoiceCommander({
       storeAliasMap, profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData,
       placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress,
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
-      removeItem, router, stores, productPrices, showPriceCheck
+      removeItem, router, stores, productPrices, showPriceCheck, hidePriceCheck
   ]);
 
     // Effect to handle retrying a command
