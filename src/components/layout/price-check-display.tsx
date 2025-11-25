@@ -26,8 +26,14 @@ export function PriceCheckDisplay({ info, onClose }: PriceCheckDisplayProps) {
   useEffect(() => {
     if (info?.product) {
       const fetchImage = async () => {
-        const fetchedImage = await getProductImage(info.product.imageId);
-        setImage(fetchedImage);
+        // Prioritize the direct imageUrl if it exists on the product
+        if (info.product.imageUrl) {
+          setImage({ imageUrl: info.product.imageUrl, imageHint: info.product.name });
+        } else {
+          // Fallback to fetching from placeholder data
+          const fetchedImage = await getProductImage(info.product.imageId);
+          setImage(fetchedImage);
+        }
       };
       fetchImage();
     }
