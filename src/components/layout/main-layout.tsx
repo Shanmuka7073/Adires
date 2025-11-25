@@ -139,6 +139,7 @@ export function MainLayout({
         <main className="flex-1 pb-16 md:pb-0">{children}</main>
         <NotificationPermissionManager />
         <Footer />
+        {/* Conditionally render BottomNavBar */}
         {!priceCheckInfo && <BottomNavBar />}
         </div>
     </VoiceCommandContext.Provider>
