@@ -9,19 +9,56 @@ export function CodeDisplay({ codeText }: { codeText: string }) {
     const { toast } = useToast();
 
     const handleCopy = () => {
-        navigator.clipboard.writeText(codeText).then(() => {
-            toast({
-                title: "Code Copied!",
-                description: "The source code has been copied to your clipboard.",
+        // Modern browsers with secure context (HTTPS)
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(codeText).then(() => {
+                toast({
+                    title: "Code Copied!",
+                    description: "The source code has been copied to your clipboard.",
+                });
+            }).catch(err => {
+                // If modern API fails, try the fallback
+                fallbackCopy(codeText);
             });
-        }, (err) => {
+        } else {
+            // Fallback for older browsers or insecure contexts (HTTP)
+            fallbackCopy(codeText);
+        }
+    };
+
+    const fallbackCopy = (text: string) => {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        
+        // Avoid scrolling to bottom
+        textArea.style.top = "0";
+        textArea.style.left = "0";
+        textArea.style.position = "fixed";
+
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                 toast({
+                    title: "Code Copied!",
+                    description: "The source code has been copied to your clipboard.",
+                });
+            } else {
+                 throw new Error('Fallback copy failed');
+            }
+        } catch (err) {
             toast({
                 variant: 'destructive',
                 title: "Copy Failed",
                 description: "Could not copy the code to your clipboard.",
             });
             console.error('Could not copy text: ', err);
-        });
+        }
+
+        document.body.removeChild(textArea);
     };
 
     return (
