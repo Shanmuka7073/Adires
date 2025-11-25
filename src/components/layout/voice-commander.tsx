@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -503,26 +504,35 @@ export function VoiceCommander({
     }
     let productNamePhrase = remainingWords.join(' ');
 
-    let productMatch: { product: Product, alias: string, lang: string } | null = null;
-    const directMatch = universalProductAliasMap.get(productNamePhrase) || universalProductAliasMap.get(productNamePhrase.replace(/\s/g, ''));
-    
-    if (directMatch) {
-      productMatch = { ...directMatch, alias: productNamePhrase };
-    } else {
-      let bestMatch: { product: Product, alias: string, similarity: number, lang: string } | null = null;
-      for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
-          const similarity = calculateSimilarity(productNamePhrase, alias);
-          if (similarity > 0.8 && (!bestMatch || similarity > bestMatch.similarity)) { 
-              bestMatch = { product, alias, similarity, lang };
-          }
-      }
-      if (bestMatch) {
-        productMatch = { product: bestMatch.product, alias: bestMatch.alias, lang: bestMatch.lang };
-      }
+    // If the only thing left is a number, it's not a product name.
+    if (productNamePhrase.length > 0 && !isNaN(Number(productNamePhrase))) {
+        productNamePhrase = '';
     }
 
+    let productMatch: { product: Product, alias: string, lang: string } | null = null;
+    
+    // Only search for a product if there's a phrase to search for.
+    if (productNamePhrase) {
+        const directMatch = universalProductAliasMap.get(productNamePhrase) || universalProductAliasMap.get(productNamePhrase.replace(/\s/g, ''));
+        if (directMatch) {
+            productMatch = { ...directMatch, alias: productNamePhrase };
+        } else {
+            let bestMatch: { product: Product, alias: string, similarity: number, lang: string } | null = null;
+            for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
+                const similarity = calculateSimilarity(productNamePhrase, alias);
+                if (similarity > 0.8 && (!bestMatch || similarity > bestMatch.similarity)) {
+                    bestMatch = { product, alias, similarity, lang };
+                }
+            }
+            if (bestMatch) {
+                productMatch = { product: bestMatch.product, alias: bestMatch.alias, lang: bestMatch.lang };
+            }
+        }
+    }
+
+
     if (!productMatch) {
-      return { product: null, variant: null, requestedQty: 1, remainingPhrase: phrase, matchedAlias: null, lang: 'en' };
+      return { product: null, variant: null, requestedQty, remainingPhrase: phrase, matchedAlias: null, lang: 'en' };
     }
 
     const { product, lang: detectedLang, alias: matchedAlias } = productMatch;
@@ -530,7 +540,6 @@ export function VoiceCommander({
     let priceData = productPrices[product.name.toLowerCase()];
     if (!priceData && firestore) {
         // Price data is now pre-fetched, so this should rarely happen.
-        // If it does, it's a quick lookup, not a slow fetch.
     }
 
     if (!priceData?.variants?.length) {
@@ -538,10 +547,19 @@ export function VoiceCommander({
     }
 
     let chosenVariant: ProductVariant | null = null;
+    
+    // If a unit was specified, try to find a matching variant
     if (requestedUnit) {
-        chosenVariant = priceData.variants.find(v => v.weight.toLowerCase().includes(requestedUnit)) || null;
+      const weightRegex = new RegExp(`(\\d*\\.?\\d+)\\s*${requestedUnit}`, 'i');
+      for (const v of priceData.variants) {
+        if (v.weight.toLowerCase().includes(requestedUnit)) {
+           chosenVariant = v;
+           break;
+        }
+      }
     }
 
+    // Fallback logic if no specific variant was matched
     if (!chosenVariant) {
         chosenVariant =
             priceData.variants.find(v => v.weight === '1kg') ||
@@ -669,27 +687,20 @@ export function VoiceCommander({
         const isYes = yesKeywords.some(kw => lowerCommandText.includes(kw));
         const isNo = noKeywords.some(kw => lowerCommandText.includes(kw));
 
-        // Case 1: Simple "yes" confirmation
-        if (isYes) {
-            const defaultVariant = context.variants[0];
-            if (defaultVariant) {
-                const productWithContext = { ...context.product, isAiAssisted: true, matchedAlias: `Price check` };
-                addItemToCart(productWithContext, defaultVariant, 1);
-                onOpenCart();
-                speak(commands['addItem']?.reply, langWithRegion);
-            }
+        // Attempt to find a specific variant from the phrase (e.g., "1kg" or "500 grams")
+        const { variant: foundVariant } = await findProductAndVariant(commandText);
+        
+        // Case 1: A specific variant was mentioned ("add 1kg")
+        if (foundVariant && context.variants.some(v => v.sku === foundVariant.sku)) {
+            const productWithContext = { ...context.product, isAiAssisted: true, matchedAlias: `Price check (${foundVariant.weight})` };
+            addItemToCart(productWithContext, foundVariant, 1);
+            onOpenCart();
+            speak(commands['addItem']?.reply, langWithRegion);
             resetAllContext();
             return;
         }
-
-        // Case 2: Simple "no" cancellation
-        if (isNo) {
-            speak("Okay, cancelled.", langWithRegion);
-            resetAllContext();
-            return;
-        }
-
-        // Case 3: Positional command ("add the second one")
+        
+        // Case 2: Positional command ("add the second one")
         const positionalWords = { 'first': 0, 'second': 1, 'third': 2, 'fourth': 3, 'last': context.variants.length - 1 };
         for (const word in positionalWords) {
             if (lowerCommandText.includes(word)) {
@@ -705,14 +716,23 @@ export function VoiceCommander({
                 return;
             }
         }
-        
-        // Case 4: Specific weight command ("add 500 grams")
-        const { variant: foundVariant } = await findProductAndVariant(commandText);
-        if (foundVariant && context.variants.some(v => v.sku === foundVariant.sku)) {
-            const productWithContext = { ...context.product, isAiAssisted: true, matchedAlias: `Price check (${foundVariant.weight})` };
-            addItemToCart(productWithContext, foundVariant, 1);
-            onOpenCart();
-            speak(commands['addItem']?.reply, langWithRegion);
+
+        // Case 3: Simple "yes" confirmation
+        if (isYes) {
+            const defaultVariant = context.variants[0];
+            if (defaultVariant) {
+                const productWithContext = { ...context.product, isAiAssisted: true, matchedAlias: `Price check` };
+                addItemToCart(productWithContext, defaultVariant, 1);
+                onOpenCart();
+                speak(commands['addItem']?.reply, langWithRegion);
+            }
+            resetAllContext();
+            return;
+        }
+
+        // Case 4: Simple "no" cancellation
+        if (isNo) {
+            speak("Okay, cancelled.", langWithRegion);
             resetAllContext();
             return;
         }
