@@ -140,16 +140,15 @@ export default function StoreDetailPage() {
   // Once everything is loaded, render the main client component.
   return (
       <div className="flex-1 overflow-y-auto">
+        <div className="px-4">
+            <Recommendations />
+        </div>
         <CategoryClient
           store={store}
           allProducts={masterProducts}
           productPrices={productPrices}
           isLoading={isLoading}
         />
-        <div className="px-4">
-            <Recommendations />
-        </div>
       </div>
   );
 }
-

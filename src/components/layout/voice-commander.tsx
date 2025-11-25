@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -685,14 +686,10 @@ export function VoiceCommander({
     // --- CONTEXTUAL RESPONSES ---
     if (itemForPriceCheck.current) {
       const context = itemForPriceCheck.current;
-      itemForPriceCheck.current = null; // Clear context immediately
-      hidePriceCheck(); // Close the UI
-  
       const lowerCommandText = commandText.toLowerCase();
       let chosenVariant: ProductVariant | null = null;
       let requestedQty = 1;
   
-      // Keywords for confirmation/cancellation
       const yesKeywords = ['yes', 'add', 'buy', 'okay', 'yep', 'yeah', 'sare', 'sari', 'sareh', 'సరే', 'అవును'];
       const noKeywords = ['no', 'cancel', 'stop', 'వద్దు', 'not now'];
   
