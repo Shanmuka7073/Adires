@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -19,7 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { bulkUploadRecipes } from '@/app/actions';
+import { bulkUploadRecipes, importProductsFromUrl } from '@/app/actions';
 
 
 function StatCard({ title, value, icon: Icon, loading }: { title: string, value: string | number, icon: React.ElementType, loading?: boolean }) {
@@ -50,6 +51,73 @@ function CreateMasterStoreCard() {
             </AlertDescription>
         </Alert>
     )
+}
+
+function ProductUrlImporterCard() {
+    const { toast } = useToast();
+    const [isImporting, startImportTransition] = useTransition();
+    const [url, setUrl] = useState('');
+    const { fetchInitialData } = useAppStore();
+    const { firestore } = useFirebase();
+
+    const handleImport = () => {
+        if (!url) {
+            toast({ variant: 'destructive', title: 'URL is required.' });
+            return;
+        }
+
+        startImportTransition(async () => {
+            try {
+                const result = await importProductsFromUrl(url);
+                if (result.success) {
+                    toast({
+                        title: 'Import Complete!',
+                        description: `Successfully imported ${result.count} products.`,
+                    });
+                    setUrl('');
+                    if (firestore) {
+                        await fetchInitialData(firestore);
+                    }
+                } else {
+                    throw new Error(result.error || 'An unknown error occurred.');
+                }
+            } catch (error: any) {
+                console.error("URL Import failed:", error);
+                toast({ variant: 'destructive', title: 'Import Failed', description: error.message });
+            }
+        });
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Product URL Importer</CardTitle>
+                <CardDescription>
+                    Import products from a publicly accessible CSV file URL. The format should be: `name,category,description,imageUrl,weight,price`.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <Input
+                    type="url"
+                    placeholder="https://example.com/products.csv"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    disabled={isImporting}
+                />
+                 {isImporting ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Importing from URL... this may take some time.</span>
+                    </div>
+                ) : (
+                    <Button onClick={handleImport} className="w-full">
+                        <Download className="mr-2 h-4 w-4" />
+                        Fetch & Import Products
+                    </Button>
+                )}
+            </CardContent>
+        </Card>
+    );
 }
 
 function BulkRecipeUploadCard() {
@@ -498,6 +566,7 @@ export default function AdminDashboardPage() {
             <div className="mt-16">
                  <h2 className="text-2xl font-bold text-center mb-8 font-headline">{t('admin-tools')}</h2>
                  <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
+                    <ProductUrlImporterCard />
                     <BulkRecipeUploadCard />
                      <AdminActionCard 
                         title="System Status"
@@ -648,4 +717,5 @@ export default function AdminDashboardPage() {
         </div>
     );
 }
+
 

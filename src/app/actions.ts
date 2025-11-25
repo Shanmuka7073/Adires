@@ -1,9 +1,10 @@
 
+
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { getStorage } from 'firebase-admin/storage';
-import { updateDoc, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
+import { updateDoc, doc, writeBatch, serverTimestamp, collection, getDocs, where, query } from 'firebase/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
 
@@ -66,6 +67,93 @@ export async function getSystemStatus() {
                 voiceCommands: 0,
             },
         };
+    }
+}
+
+const createSlug = (text: string) => {
+    return text
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^\w-]+/g, '')
+      .replace(/--+/g, '-')
+      .replace(/^-+/, '')
+      .replace(/-+$/, '');
+};
+
+/**
+ * Fetches a CSV file from a public URL and bulk-uploads products.
+ * @param url The URL of the raw CSV file.
+ * @returns An object indicating success, count, or an error message.
+ */
+export async function importProductsFromUrl(url: string): Promise<{ success: boolean; count?: number; error?: string; }> {
+    if (!url) {
+        return { success: false, error: 'URL cannot be empty.' };
+    }
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch from URL: ${response.statusText}`);
+        }
+        const csvText = await response.text();
+        const { db } = await getAdminServices();
+        const batch = writeBatch(db);
+        
+        const adminStoreQuery = query(collection(db, 'stores'), where('name', '==', 'LocalBasket'));
+        const adminStoreSnap = await getDocs(adminStoreQuery);
+        if (adminStoreSnap.empty) {
+            return { success: false, error: 'Master "LocalBasket" store not found. Please create it first.' };
+        }
+        const adminStoreId = adminStoreSnap.docs[0].id;
+
+        const rows = csvText.split('\n').slice(1);
+        let processedCount = 0;
+
+        for (const row of rows) {
+            if (!row.trim()) continue;
+            
+            const [name, category, description, imageUrl, weight, priceStr] = row.split(',').map(s => s.trim());
+            const price = parseFloat(priceStr);
+            
+            if (!name || !category || !weight || isNaN(price)) {
+                console.warn(`Skipping invalid row: ${row}`);
+                continue;
+            }
+
+            const productNameLower = name.toLowerCase();
+            const imageId = `prod-${createSlug(name)}`;
+            const productRef = doc(collection(db, 'stores', adminStoreId, 'products'));
+            batch.set(productRef, {
+                name,
+                category,
+                description: description || '',
+                imageUrl: imageUrl || '',
+                storeId: adminStoreId,
+                imageId: imageId,
+                imageHint: productNameLower,
+            });
+
+            const priceRef = doc(db, 'productPrices', productNameLower);
+            const newVariant = {
+                weight,
+                price,
+                stock: 50,
+                sku: `${createSlug(name)}-${createSlug(weight)}-${processedCount}`
+            };
+            batch.set(priceRef, { productName: productNameLower, variants: [newVariant] }, { merge: true });
+
+            processedCount++;
+        }
+
+        if (processedCount > 0) {
+            await batch.commit();
+        }
+
+        return { success: true, count: processedCount };
+
+    } catch (error: any) {
+        console.error('Product import from URL failed:', error);
+        return { success: false, error: error.message || 'An unknown server error occurred.' };
     }
 }
 
