@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -1127,8 +1126,8 @@ export function VoiceCommander({
             .replace('{productName}', getProductName(product))
             .replace('{prices}', pricesString);
           
-          itemForPriceCheck.current = {product, variants: priceData.variants};
           showPriceCheck({ product, priceData });
+          
           speak(`${reply} Would you like to add it to your cart?`, langWithRegion, false);
           return;
 

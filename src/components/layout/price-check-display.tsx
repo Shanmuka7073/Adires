@@ -8,6 +8,7 @@ import { useCart } from '@/lib/cart';
 import { t } from '@/lib/locales';
 import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export interface PriceCheckInfo {
   product: Product;
@@ -26,11 +27,9 @@ export function PriceCheckDisplay({ info, onClose }: PriceCheckDisplayProps) {
   useEffect(() => {
     if (info?.product) {
       const fetchImage = async () => {
-        // Prioritize the direct imageUrl if it exists on the product
         if (info.product.imageUrl) {
           setImage({ imageUrl: info.product.imageUrl, imageHint: info.product.name });
         } else {
-          // Fallback to fetching from placeholder data
           const fetchedImage = await getProductImage(info.product.imageId);
           setImage(fetchedImage);
         }
@@ -47,56 +46,73 @@ export function PriceCheckDisplay({ info, onClose }: PriceCheckDisplayProps) {
     }
   };
 
-  if (!info) {
-    return null;
-  }
+  const { product, priceData } = info || {};
+  const productNameEn = product ? t(product.name.toLowerCase().replace(/ /g, '-'), 'en') : '';
+  const productDesc = product ? product.description : '';
 
-  const { product, priceData } = info;
-  const productNameEn = t(product.name.toLowerCase().replace(/ /g, '-'), 'en');
-  const productNameTe = t(product.name.toLowerCase().replace(/ /g, '-'), 'te');
+
+  if (!info || !product || !priceData) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-[100] w-full max-w-sm">
-      <Card className="shadow-2xl animate-in fade-in-0 slide-in-from-bottom-4 duration-300">
-        <CardHeader>
-          <div className="flex justify-between items-start">
-             <div className="flex items-start gap-4">
-                 <div className="relative h-16 w-16 rounded-md overflow-hidden bg-muted">
-                    <Image
-                        src={image.imageUrl}
-                        alt={product.name}
-                        data-ai-hint={image.imageHint}
-                        fill
-                        className="object-cover"
-                    />
-                 </div>
-                <div>
-                    <CardTitle className="font-headline text-xl">{productNameEn}</CardTitle>
-                    <CardDescription>{productNameTe}</CardDescription>
-                </div>
+    <AnimatePresence>
+      {info && (
+        <>
+          <motion.div
+            key="overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
+            onClick={onClose}
+          />
+          <motion.div
+            key="sheet"
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", stiffness: 100, damping: 20 }}
+            className="fixed bottom-0 left-0 right-0 bg-white z-50 rounded-t-3xl p-5 shadow-2xl max-h-[80vh] overflow-y-auto"
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {productNameEn}
+              </h2>
+              <button onClick={onClose} className="text-2xl text-gray-500 hover:text-gray-900 transition-colors">×</button>
             </div>
-             <Button variant="ghost" size="icon" className="h-7 w-7 -mt-2 -mr-2 flex-shrink-0" onClick={onClose}>
-                <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-2">
-            {priceData.variants.map((variant) => (
-                <div key={variant.sku} className="flex justify-between items-center p-2 rounded-md hover:bg-muted">
-                    <div>
-                        <p className="font-semibold">{variant.weight}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <p className="font-bold text-lg text-primary">₹{(variant.price).toFixed(2)}</p>
-                        <Button size="sm" onClick={() => handleAddToCart(variant)}>
-                            <ShoppingCart className="h-4 w-4 mr-2" />
-                            Add
-                        </Button>
-                    </div>
+            <div className="flex items-center gap-4 mb-5">
+              <Image
+                src={image.imageUrl}
+                alt={productNameEn}
+                width={80}
+                height={80}
+                className="w-20 h-20 rounded-xl object-cover border"
+              />
+              <div>
+                <p className="text-gray-600 text-sm">{productDesc}</p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {priceData.variants.map((v, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between bg-gray-50 px-4 py-3 rounded-xl shadow-sm border border-gray-100"
+                >
+                  <div>
+                    <p className="text-gray-800 font-medium">{v.weight}</p>
+                    <p className="text-green-600 font-bold text-lg">₹{(v.price * 1.20).toFixed(2)}</p>
+                  </div>
+                  <Button
+                    onClick={() => handleAddToCart(v)}
+                    className="flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-xl shadow-md"
+                  >
+                    <ShoppingCart className="h-4 w-4" /> Add
+                  </Button>
                 </div>
-            ))}
-        </CardContent>
-      </Card>
-    </div>
+              ))}
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }
