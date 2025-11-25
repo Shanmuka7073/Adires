@@ -15,6 +15,7 @@ import { doc, arrayUnion, writeBatch } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Label } from '@/components/ui/label';
 
 const createSlug = (text: string) => text.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-');
 
