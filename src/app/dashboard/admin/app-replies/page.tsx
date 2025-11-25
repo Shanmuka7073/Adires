@@ -16,15 +16,13 @@ import type { CommandGroup } from '@/lib/types';
 import { suggestLocalReplies } from '@/ai/flows/suggest-local-replies-flow';
 import { generateVoiceReply } from '@/ai/flows/generate-voice-reply-flow';
 
-function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestReplies }) {
+function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestReplies, isSaving }) {
     const { toast } = useToast();
     const [isSuggesting, startSuggestion] = useTransition();
     const [generatingLang, setGeneratingLang] = useState<string | null>(null);
-    const [generatedAudio, setGeneratedAudio] = useState<Record<string, string>>({});
 
     const isDynamicReply = useMemo(() => {
-        const replyObject = typeof commandData.reply === 'object' && commandData.reply !== null ? commandData.reply : { en: commandData.reply as string };
-        const replyString = Object.values(replyObject).join('');
+        const replyString = Object.values(commandData.reply).join('');
         return replyString.includes('{productName}') || replyString.includes('{total}');
     }, [commandData.reply]);
 
@@ -35,7 +33,7 @@ function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestRep
     }
     
     const handleGenerateVoice = async (lang: 'en' | 'te' | 'hi') => {
-        const textToSpeak = (commandData.reply as any)[lang];
+        const textToSpeak = commandData.reply[lang];
         if (!textToSpeak) {
             toast({ variant: 'destructive', title: 'No text to generate from.' });
             return;
@@ -46,8 +44,7 @@ function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestRep
             const result = await generateVoiceReply({ text: textToSpeak, language: lang });
             if (result.audioDataUri) {
                 onReplyChange(commandKey, `${lang}_audio`, result.audioDataUri);
-                setGeneratedAudio(prev => ({ ...prev, [lang]: result.audioDataUri }));
-                toast({ title: `Voice generated for ${lang.toUpperCase()}!` });
+                toast({ title: `Voice generated for ${lang.toUpperCase()}! Remember to save.` });
             } else {
                 throw new Error("AI did not return any audio data.");
             }
@@ -73,16 +70,14 @@ function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestRep
         }
     };
 
-    const replies = typeof commandData.reply === 'object' && commandData.reply !== null && !Array.isArray(commandData.reply)
-        ? commandData.reply
-        : { en: (typeof commandData.reply as string) || '', te: '', hi: '' };
+    const replies = commandData.reply;
 
     return (
         <AccordionItem value={commandKey} key={commandKey}>
             <AccordionTrigger className="text-lg font-semibold">{commandData.display}</AccordionTrigger>
             <AccordionContent>
                 <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
-                    <Button onClick={handleSuggest} size="sm" variant="outline" disabled={isSuggesting}>
+                    <Button onClick={handleSuggest} size="sm" variant="outline" disabled={isSuggesting || isSaving}>
                         {isSuggesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                         Suggest Local Replies with AI
                     </Button>
@@ -111,14 +106,14 @@ function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestRep
                                     variant="secondary"
                                     size="sm"
                                     onClick={() => handleGenerateVoice(lang)}
-                                    disabled={!!generatingLang || isDynamicReply}
+                                    disabled={!!generatingLang || isDynamicReply || isSaving}
                                     title={isDynamicReply ? "Voice generation is disabled for dynamic replies" : "Generate voice for this text"}
                                 >
                                     {generatingLang === lang ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Volume2 className="mr-2 h-4 w-4" />}
                                     Generate Voice
                                 </Button>
-                                 {(generatedAudio[lang] || (commandData.reply as any)[`${lang}_audio`]) && (
-                                    <audio controls src={generatedAudio[lang] || (commandData.reply as any)[`${lang}_audio`]} className="h-8" />
+                                 {replies[`${lang}_audio`] && (
+                                    <audio controls src={replies[`${lang}_audio`]} className="h-8" />
                                 )}
                             </div>
                         </div>
@@ -139,10 +134,11 @@ export default function AppRepliesPage() {
     const [isSaving, startSaveTransition] = useTransition();
 
     const { commands: initialCommands, fetchInitialData, loading } = useAppStore();
-    const [commands, setCommands] = useState<Record<string, CommandGroup>>(initialCommands);
+    const [commands, setCommands] = useState<Record<string, CommandGroup>>({});
 
     useEffect(() => {
-        setCommands(initialCommands);
+        // Deep copy to prevent direct mutation of the global store
+        setCommands(JSON.parse(JSON.stringify(initialCommands)));
     }, [initialCommands]);
     
     useEffect(() => {
@@ -151,34 +147,24 @@ export default function AppRepliesPage() {
         }
     }, [firestore, initialCommands, fetchInitialData]);
 
-    const handleReplyChange = (commandKey: string, langOrField: string, value: string) => {
-        setCommands(currentCommands => {
-            const command = currentCommands[commandKey];
-            if (!command) return currentCommands;
-    
-            const currentReply = typeof command.reply === 'object' && command.reply !== null && !Array.isArray(command.reply) 
-                ? command.reply 
-                : { en: (typeof command.reply === 'string' ? command.reply : ''), te: '', hi: '' };
-    
-            const updatedReply = { ...currentReply, [langOrField]: value };
-    
-            return {
-                ...currentCommands,
-                [commandKey]: {
-                    ...command,
-                    reply: updatedReply,
-                },
-            };
-        });
+    const handleReplyChange = (commandKey: string, field: string, value: string) => {
+        setCommands(currentCommands => ({
+            ...currentCommands,
+            [commandKey]: {
+                ...currentCommands[commandKey],
+                reply: {
+                    ...currentCommands[commandKey].reply,
+                    [field]: value,
+                }
+            },
+        }));
     };
     
     const handleSuggestReplies = async (commandKey: string) => {
         const commandData = commands[commandKey];
         if (!commandData) return;
 
-        const currentReplies = typeof commandData.reply === 'object' && commandData.reply !== null && !Array.isArray(commandData.reply)
-            ? commandData.reply
-            : { en: commandData.reply as string, te: '', hi: '' };
+        const currentReplies = commandData.reply;
 
         try {
             const result = await suggestLocalReplies({
@@ -189,10 +175,19 @@ export default function AppRepliesPage() {
             });
 
             if (result) {
-                handleReplyChange(commandKey, 'en', result.english);
-                handleReplyChange(commandKey, 'te', result.telugu);
-                handleReplyChange(commandKey, 'hi', result.hindi);
-                toast({ title: 'AI Suggestions Applied!', description: `Localized replies for "${commandData.display}" have been generated.` });
+                setCommands(current => ({
+                    ...current,
+                    [commandKey]: {
+                        ...current[commandKey],
+                        reply: {
+                            ...current[commandKey].reply,
+                            en: result.english,
+                            te: result.telugu,
+                            hi: result.hindi,
+                        }
+                    }
+                }));
+                toast({ title: 'AI Suggestions Applied!', description: `Localized replies for "${commandData.display}" have been generated. Remember to save!` });
             } else {
                 throw new Error("AI did not return any suggestions.");
             }
@@ -214,17 +209,14 @@ export default function AppRepliesPage() {
 
             Object.entries(commands).forEach(([key, commandData]) => {
                 const commandRef = doc(commandsRef, key);
-                // Ensure reply is always an object before saving
-                const dataToSave = {
-                    ...commandData,
-                    reply: typeof commandData.reply === 'object' ? commandData.reply : { en: commandData.reply, te: '', hi: '' }
-                };
-                batch.set(commandRef, dataToSave, { merge: true });
+                // The 'commands' state now always has the correct object structure for 'reply'
+                batch.set(commandRef, commandData, { merge: true });
             });
 
             try {
                 await batch.commit();
                 toast({ title: 'Success!', description: 'App replies have been updated.' });
+                // Re-fetch data to sync global store with the new saved state
                 await fetchInitialData(firestore);
             } catch (error) {
                 console.error('Failed to save replies:', error);
@@ -260,6 +252,7 @@ export default function AppRepliesPage() {
                                 commandData={commandData}
                                 onReplyChange={handleReplyChange}
                                 onSuggestReplies={handleSuggestReplies}
+                                isSaving={isSaving}
                             />
                         ))}
                     </Accordion>

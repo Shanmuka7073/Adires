@@ -3,14 +3,15 @@
 export type CommandGroup = {
   display: string;
   reply: {
-    en?: string;
+    en: string;
     te?: string;
     hi?: string;
     en_audio?: string;
     te_audio?: string;
     hi_audio?: string;
-  } | string;
+  };
 };
+
 
 // Rewritten replies to be more conversational and varied.
 export const generalCommands: Record<string, CommandGroup> = {
@@ -220,6 +221,12 @@ export const generalCommands: Record<string, CommandGroup> = {
             en: "Okay, I've added {quantity} {weight} of {productName} to your cart.",
             te: 'సరే, నేను మీ కార్ట్‌కి {quantity} {weight} {productName} జోడించాను.',
             hi: 'ठीक है, मैंने आपकी कार्ट में {productName} का {quantity} {weight} जोड़ दिया है।'
+        }
+    },
+    'checkPrice': {
+        display: 'Check Price',
+        reply: {
+            en: 'Which item would you like to check the price for?'
         }
     }
 };

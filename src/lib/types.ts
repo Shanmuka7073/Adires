@@ -147,8 +147,7 @@ export type VoiceAliasGroup = {
 export type CachedRecipe = {
     id: string;
     dishName: string;
-    ingredients: { name: string; quantity: string }[];
-    instructions: string[];
+    ingredients: string[];
     createdAt: any; // Allow serverTimestamp
 }
 
@@ -230,11 +229,13 @@ export type VerifyVoiceprintOutput = z.infer<typeof VerifyVoiceprintOutputSchema
 export type CommandGroup = {
   display: string;
   reply: {
-    en?: string;
+    en: string;
     te?: string;
     hi?: string;
     en_audio?: string;
     te_audio?: string;
     hi_audio?: string;
-  } | string;
+  };
 };
+
+export type Locales = Record<string, VoiceAliasGroup>;
