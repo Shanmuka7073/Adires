@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy, Upload, MessageSquare, Image as ImageIcon, Home } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy, Upload, MessageSquare, Image as ImageIcon, Home, Lightbulb } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -633,6 +633,12 @@ export default function AdminDashboardPage() {
                         href="/dashboard/admin/failed-commands"
                         icon={Bot}
                     />
+                    <AdminActionCard
+                        title="AI Training Ground"
+                        description="Paste any text to teach the AI new product aliases and concepts."
+                        href="/dashboard/admin/training-ground"
+                        icon={Lightbulb}
+                    />
                      <AdminActionCard
                         title="Asha AI Agent"
                         description="Use the conversational diagnostic assistant."
@@ -722,6 +728,7 @@ export default function AdminDashboardPage() {
         </div>
     );
 }
+
 
 
 
