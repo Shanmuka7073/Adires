@@ -136,7 +136,7 @@ export function VoiceCommander({
 
   const [hasMounted, setHasMounted] = useState(false);
   
-  const [speechSynthesisVoices, setSpeechSynthesisVoice] = useState<SpeechSynthesisVoice[]>([]);
+  const [speechSynthesisVoices, setSpeechSynthesisVoices] = useState<SpeechSynthesisVoice[]>([]);
   
   const [hasRunCheckoutPrompt, setHasRunCheckoutPrompt] = useState(false);
   
@@ -155,13 +155,13 @@ export function VoiceCommander({
       
       const normalizedCanonicalName = p.name.toLowerCase();
       map.set(normalizedCanonicalName, { product: p, lang: 'en' });
-      map.set(normalizedCanonicalName.replace(/\s/g, ''), { product: p, lang: 'en' });
+      map.set(normalizedCanonicalName.replace(/\\s/g, ''), { product: p, lang: 'en' });
 
       for (const lang in productAliasesByLang) {
         for (const alias of productAliasesByLang[lang]) {
           const normalizedAlias = alias.toLowerCase();
           map.set(normalizedAlias, { product: p, lang: lang });
-          map.set(normalizedAlias.replace(/\s/g, ''), { product: p, lang: lang });
+          map.set(normalizedAlias.replace(/\\s/g, ''), { product: p, lang: lang });
         }
       }
     }
@@ -184,7 +184,7 @@ export function VoiceCommander({
          if (term) {
             const normalizedTerm = term.toLowerCase();
             map.set(normalizedTerm, s);
-            map.set(normalizedTerm.replace(/\s/g, ''), { ...s });
+            map.set(normalizedTerm.replace(/\\s/g, ''), { ...s });
         }
       }
     }
@@ -259,7 +259,7 @@ export function VoiceCommander({
       const getVoices = () => {
         const voices = window.speechSynthesis.getVoices();
         if (voices.length > 0) {
-          setSpeechSynthesisVoice(voices);
+          setSpeechSynthesisVoices(voices);
         }
       };
       getVoices();
@@ -306,7 +306,7 @@ export function VoiceCommander({
     let audioUrl: string | undefined = undefined;
 
     if (typeof textOrReply === 'object' && textOrReply !== null) {
-        audioUrl = textOrReply[\`\${targetLang}_audio\`];
+        audioUrl = textOrReply[`${targetLang}_audio`];
         textToSpeak = textOrReply[targetLang] || textOrReply['en'] || '';
     } else if (typeof textOrReply === 'string') {
         textToSpeak = textOrReply;
@@ -348,7 +348,7 @@ export function VoiceCommander({
     if (voice) {
       utterance.voice = voice;
     } else {
-      console.warn(\`No voice found for language: \${lang}. Using default.\`);
+      console.warn(`No voice found for language: ${lang}. Using default.`);
     }
 
     utterance.onend = onEnd;
@@ -358,7 +358,7 @@ export function VoiceCommander({
     };
 
     window.speechSynthesis.speak(utterance);
-  }, [speechSynthesisVoice]);
+  }, [speechSynthesisVoices]);
 
   const handleProfileFormInteraction = useCallback(() => {
     if (!profileForm?.getValues) {
@@ -376,7 +376,7 @@ export function VoiceCommander({
 
     if (firstEmptyField) {
       formFieldToFillRef.current = firstEmptyField.name;
-      speak(\`What is your \${firstEmptyField.label}?\`, 'en-IN');
+      speak(`What is your ${firstEmptyField.label}?`, 'en-IN');
     } else {
       formFieldToFillRef.current = null;
       speak("Your profile looks complete! You can say 'save changes' to submit.", 'en-IN');
@@ -398,7 +398,7 @@ export function VoiceCommander({
         setHasRunCheckoutPrompt(true);
         
         const detectedLang = language;
-        const langWithRegion = detectedLang === 'en' ? 'en-IN' : \`\${detectedLang}-IN\`;
+        const langWithRegion = detectedLang === 'en' ? 'en-IN' : `${detectedLang}-IN`;
 
         const addressInput = typeof document !== 'undefined' ? (document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement) : null;
         const currentAddress = addressInput?.value || '';
@@ -425,7 +425,7 @@ export function VoiceCommander({
             });
         } else {
             const total = cartTotal + 30;
-            const speech = t('finalConfirmPrompt', detectedLang).replace('{total}', \`₹\${total.toFixed(2)}\`);
+            const speech = t('finalConfirmPrompt', detectedLang).replace('{total}', `₹${total.toFixed(2)}`);
             speak(speech, langWithRegion, onPromptEnd);
         }
         promptTimeoutRef.current = null;
@@ -477,7 +477,7 @@ export function VoiceCommander({
   const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null; variant: ProductVariant | null; requestedQty: number; remainingPhrase: string; matchedAlias: string | null; lang: string; }> => {
     
     let lowerPhrase = phrase.toLowerCase();
-    let sanitizedPhrase = lowerPhrase.replace(/[-.,]/g, ' ').replace(/\s+/g, ' ').trim();
+    let sanitizedPhrase = lowerPhrase.replace(/[-.,]/g, ' ').replace(/\\s+/g, ' ').trim();
 
     let requestedQty = 1;
     let requestedUnit: 'kg' | 'gm' | 'pc' | 'pack' | null = null;
@@ -525,7 +525,7 @@ export function VoiceCommander({
     
     // Only search for a product if there's a phrase to search for.
     if (productNamePhrase) {
-        const directMatch = universalProductAliasMap.get(productNamePhrase) || universalProductAliasMap.get(productNamePhrase.replace(/\s/g, ''));
+        const directMatch = universalProductAliasMap.get(productNamePhrase) || universalProductAliasMap.get(productNamePhrase.replace(/\\s/g, ''));
         if (directMatch) {
             productMatch = { ...directMatch, alias: productNamePhrase };
         } else {
@@ -562,7 +562,7 @@ export function VoiceCommander({
     
     // If a unit was specified, try to find a matching variant
     if (requestedUnit) {
-      const weightRegex = new RegExp(\`(\\d*\\.?\\d+)\\s*\${requestedUnit}\`, 'i');
+      const weightRegex = new RegExp(`(\\d*\\.?\\d+)\\s*${requestedUnit}`, 'i');
       for (const v of priceData.variants) {
         if (v.weight.toLowerCase().includes(requestedUnit)) {
            chosenVariant = v;
@@ -588,7 +588,7 @@ export function VoiceCommander({
         
         if (!firestore || !user) {
             updateUnidentifiedItem(tempId, 'failed');
-            speak(t('sorry-i-didnt-understand-that', spokenLang), \`\${spokenLang}-IN\`);
+            speak(t('sorry-i-didnt-understand-that', spokenLang), `${spokenLang}-IN`);
             return;
         }
     
@@ -611,9 +611,9 @@ export function VoiceCommander({
           variants: productPriceVariants,
           lang: language,
           addItem: (product: Product | null, variant: ProductVariant, qty: number) => {
-              const productToAdd = product ?? selectedProduct;
-              if (productToAdd) {
-                  addItemToCart(productToAdd, variant, qty);
+              const productToUse = product ?? selectedProduct;
+              if (productToUse) {
+                  addItemToCart(productToUse, variant, qty);
                   onOpenCart();
               }
           },
@@ -639,20 +639,20 @@ export function VoiceCommander({
     }
 
     recognition.onstart = () => {
-        onStatusUpdate(\`Listening... (en-IN)\`);
+        onStatusUpdate(`Listening... (en-IN)`);
     };
 
     recognition.onresult = (event) => {
         if (isSpeakingRef.current) return;
       const transcript = event.results[event.results.length - 1][0].transcript.trim();
-      onStatusUpdate(\`Processing: "\${transcript}"\`);
+      onStatusUpdate(`Processing: "${transcript}"`);
       handleCommand(transcript);
     };
 
     recognition.onerror = (event) => {
       if (event.error !== 'aborted' && event.error !== 'no-speech' && event.error !== 'not-allowed') {
         console.error('Speech recognition error', event.error);
-        onStatusUpdate(\`⚠️ Error: \${event.error}\`);
+        onStatusUpdate(`⚠️ Error: ${event.error}`);
       }
     };
     
@@ -692,31 +692,31 @@ export function VoiceCommander({
       
       'get-recipe': async ({ dishName, lang }: { dishName: string, lang: string }) => {
         const replyLang = lang;
-        const langWithRegion = replyLang === 'en' ? 'en-IN' : \`\${replyLang}-IN\`;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         if (!firestore) return;
 
-        speak(\`Let me check the ingredients for \${dishName}...\`, langWithRegion, false);
+        speak(`Let me check the ingredients for ${dishName}...`, langWithRegion, false);
         try {
             const result = await getIngredientsForDish({ dishName, language: replyLang });
             if (result.isSuccess && result.ingredients.length > 0) {
                 const ingredientsText = result.ingredients.join(', ');
-                speak(\`The main ingredients for \${dishName} are: \${ingredientsText}\`, langWithRegion);
+                speak(`The main ingredients for ${dishName} are: ${ingredientsText}`, langWithRegion);
             } else {
-                speak(\`I'm sorry, I couldn't find the ingredients for \${dishName}.\`, langWithRegion);
+                speak(`I'm sorry, I couldn't find the ingredients for ${dishName}.`, langWithRegion);
             }
         } catch (error) {
             console.error("AI recipe flow failed:", error);
-            speak(\`I'm having trouble connecting to my knowledge base right now. Please try again later.\`, langWithRegion);
+            speak(`I'm having trouble connecting to my knowledge base right now. Please try again later.`, langWithRegion);
         }
       },
       checkout: (params: { lang: string }) => {
         const lang = params.lang || language;
         const replyLang = lang;
-        const langWithRegion = replyLang === 'en' ? 'en-IN' : \`\${replyLang}-IN\`;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         onCloseCart();
         if (cartTotal > 0) {
             const total = cartTotal + 30; // Delivery fee
-            const reply = t('proceeding-to-checkout-speech', replyLang).replace('{total}', \`₹\${total.toFixed(2)}\`);
+            const reply = t('proceeding-to-checkout-speech', replyLang).replace('{total}', `₹${total.toFixed(2)}`);
             speak(reply, langWithRegion, () => {
                 router.push('/checkout');
                 triggerVoicePrompt();
@@ -738,7 +738,7 @@ export function VoiceCommander({
       placeOrder: (params: {lang: string}) => {
         const lang = params?.lang || language;
         const replyLang = lang;
-        const langWithRegion = replyLang === 'en' ? 'en-IN' : \`\${replyLang}-IN\`;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         if (pathname === '/checkout' && placeOrderBtnRef?.current) {
           speak(t('placing-your-order-now-speech', replyLang), langWithRegion, () => {
               placeOrderBtnRef?.current?.click();
@@ -752,7 +752,7 @@ export function VoiceCommander({
       saveChanges: (params: {lang: string}) => {
         const lang = params?.lang || language;
         const replyLang = lang;
-        const langWithRegion = replyLang === 'en' ? 'en-IN' : \`\${replyLang}-IN\`;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         if (pathname === '/dashboard/owner/my-store' && saveInventoryBtnRef?.current) {
           saveInventoryBtnRef.current.click();
           speak(t('saving-changes', replyLang), langWithRegion);
@@ -768,7 +768,7 @@ export function VoiceCommander({
       },
       acceptDeliveryJob: ({ lang }: {lang: string}) => {
           const replyLang = lang;
-          const langWithRegion = replyLang === 'en' ? 'en-IN' : \`\${replyLang}-IN\`;
+          const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
           if (pathname === '/dashboard/delivery/deliveries' && typeof document !== 'undefined') {
               const acceptButton = document.querySelector('.accordion-content button') as HTMLButtonElement | null;
               if (acceptButton) {
@@ -783,7 +783,7 @@ export function VoiceCommander({
       },
       showDetails: ({ target, lang }: {target: string, lang: string}) => {
         const replyLang = lang;
-        const langWithRegion = replyLang === 'en' ? 'en-IN' : \`\${replyLang}-IN\`;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         if (pathname === '/dashboard/delivery/deliveries') {
             const detailsButton = document.querySelector('[id^="details-btn-"]') as HTMLButtonElement | null;
             if (detailsButton) {
@@ -801,16 +801,16 @@ export function VoiceCommander({
       },
       goToStore: ({ store, lang }: {store: Store, lang: string}) => {
         const replyLang = lang;
-        const langWithRegion = replyLang === 'en' ? 'en-IN' : \`\${replyLang}-IN\`;
-        speak(\`Okay, opening \${store.name}.\`, langWithRegion, false);
-        router.push(\`/stores/\${store.id}\`);
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
+        speak(`Okay, opening ${store.name}.`, langWithRegion, false);
+        router.push(`/stores/${store.id}`);
       },
     checkPrice: async ({ phrase, lang, originalText }: { phrase?: string; lang: string, originalText: string }) => {
       if (!phrase) return;
 
       const { product, lang: detectedLang } = await findProductAndVariant(phrase);
       const replyLang = detectedLang;
-      const langWithRegion = replyLang === 'en' ? 'en-IN' : \`\${replyLang}-IN\`;
+      const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
 
       if (product) {
         let priceData = productPrices[product.name.toLowerCase()];
@@ -838,7 +838,7 @@ export function VoiceCommander({
           const reply = t('price-check-reply-speech', replyLang)
             .replace('{productName}', getProductName(product))
           
-          speak(\`\${reply} Please select an option or say 'cancel'.\`, langWithRegion, () => {
+          speak(`${reply} Please select an option or say 'cancel'.`, langWithRegion, () => {
             // Set context for follow-up commands
             itemForPriceCheck.current = { product, variants: priceData.variants };
           });
@@ -846,16 +846,16 @@ export function VoiceCommander({
 
         } else {
           speak(t('no-price-found-speech', replyLang).replace('{productName}', getProductName(product)), langWithRegion);
-          handleCommandFailure(originalText, detectedLang, \`Price check: product "\${product.name}" found but no price data available.\`);
+          handleCommandFailure(originalText, detectedLang, `Price check: product "${product.name}" found but no price data available.`);
           return;
         }
       }
       
-      handleCommandFailure(originalText, lang, \`Price check: product not found in phrase "\${phrase}".\`);
+      handleCommandFailure(originalText, lang, `Price check: product not found in phrase "${phrase}".`);
     },
     removeItemFromCart: async ({ phrase, lang }: { phrase?: string; lang: string }) => {
         const replyLang = lang;
-        const langWithRegion = replyLang === 'en' ? 'en-IN' : \`\${replyLang}-IN\`;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         if (!phrase) return;
         if (cartItemsProp.length === 0) {
             speak("Your cart is already empty.", langWithRegion);
@@ -873,15 +873,15 @@ export function VoiceCommander({
         if (bestMatch && bestMatch.similarity > 0.6) {
             const { item } = bestMatch;
             removeItem(item.variant.sku);
-            speak(\`Okay, I've removed \${getProductName(item.product)} from your cart.\`, langWithRegion);
+            speak(`Okay, I've removed ${getProductName(item.product)} from your cart.`, langWithRegion);
         } else {
-            speak(\`I couldn't find "\${phrase}" in your cart.\`, langWithRegion);
+            speak(`I couldn't find "${phrase}" in your cart.`, langWithRegion);
         }
     },
     orderMultipleItems: async (phrases: string[], lang: string, originalText: string) => {
         let addedItems: string[] = [];
         let failedItems: string[] = [];
-        const multiplePhrases = phrases.flatMap(p => p.split(new RegExp(\` మరియు \`, 'i')));
+        const multiplePhrases = phrases.flatMap(p => p.split(new RegExp(` మరియు `, 'i')));
 
         for (const phrase of multiplePhrases) {
             const { product, variant, requestedQty } = await findProductAndVariant(phrase);
@@ -894,24 +894,24 @@ export function VoiceCommander({
         }
         
         const replyLang = lang;
-        const langWithRegion = replyLang === 'en' ? 'en-IN' : \`\${replyLang}-IN\`;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         
         if (addedItems.length > 0) {
             onOpenCart();
             let speech;
             if (failedItems.length > 0) {
-                speech = \`\${t('ive-added-to-your-cart', replyLang).replace('{items}', addedItems.join(', '))} \${t('but-i-couldnt-find', replyLang).replace('{items}', failedItems.join(', '))}\`;
+                speech = `${t('ive-added-to-your-cart', replyLang).replace('{items}', addedItems.join(', '))} ${t('but-i-couldnt-find', replyLang).replace('{items}', failedItems.join(', '))}`;
             } else {
                 speech = t('ive-added-to-your-cart', replyLang).replace('{items}', addedItems.join(', '));
             }
             speak(speech, langWithRegion);
         } else {
-            handleCommandFailure(originalText, lang, \`Multi-order: No products found. Failed items: \${failedItems.join(', ')}\`);
+            handleCommandFailure(originalText, lang, `Multi-order: No products found. Failed items: ${failedItems.join(', ')}`);
         }
     },
     handleSmartOrder: async (text: string, lang: string) => {
         const replyLang = lang;
-        const langWithRegion = replyLang === 'en' ? 'en-IN' : \`\${replyLang}-IN\`;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         clearCart(); // Start with a fresh cart for a smart order
         
         const fromKeywords = ['from', 'at', 'in'];
@@ -920,7 +920,7 @@ export function VoiceCommander({
         let fromIndex = -1;
         let fromKeyword = '';
         for (const kw of fromKeywords) {
-            const index = text.toLowerCase().lastIndexOf(\` \${kw} \`);
+            const index = text.toLowerCase().lastIndexOf(` ${kw} `);
             if (index > fromIndex) {
                 fromIndex = index;
                 fromKeyword = kw;
@@ -930,7 +930,7 @@ export function VoiceCommander({
         let toIndex = -1;
         let toKeyword = '';
         for (const kw of toKeywords) {
-            const index = text.toLowerCase().lastIndexOf(\` \${kw} \`);
+            const index = text.toLowerCase().lastIndexOf(` ${kw} `);
             if (index > toIndex) {
                 toIndex = index;
                 toKeyword = kw;
@@ -994,7 +994,7 @@ export function VoiceCommander({
 
         // 4. Execute Actions
         const speech = t('preparing-order-speech', replyLang)
-            .replace('{items}', \`\${requestedQty} \${variant.weight} of \${getProductName(product)}\`)
+            .replace('{items}', `${requestedQty} ${variant.weight} of ${getProductName(product)}`)
             .replace('{storeName}', bestStoreMatch.name);
 
         speak(speech, langWithRegion, () => {
@@ -1009,8 +1009,19 @@ export function VoiceCommander({
             useCheckoutStore.getState().setShouldPlaceOrderDirectly(true); // Signal the checkout page to auto-submit
             router.push('/checkout');
         });
-    },
-  };
+    }
+  }, [
+      handleCommand, cartTotal, cartItemsProp, pathname, masterProducts, t, aiConfig, isAppStoreLoading,
+      productPrices, fetchProductPrices, firestore, user, router, language, setLanguage, speak,
+      determinePhraseLanguage, resetAllContext, storeAliasMap,
+      handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setActiveStoreId,
+      profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData,
+      placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress,
+      setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
+      removeItem, addUnidentifiedItem, updateUnidentifiedItem,
+      getProductName, addItemToCart, locales, commands, getAllAliases, 
+      showPriceCheck, hidePriceCheck, selectedProduct, onOpenCart, onStatusUpdate
+  ]);
 
 
     if (firestore && user) {
