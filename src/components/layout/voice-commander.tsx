@@ -24,7 +24,14 @@ export interface Command {
   command: string;
   action: (params?: any) => void;
   display: string;
-  reply: string | Record<string, string>;
+  reply: {
+    en: string;
+    te?: string;
+    hi?: string;
+    en_audio?: string;
+    te_audio?: string;
+    hi_audio?: string;
+  };
 }
 
 interface VoiceCommanderProps {
@@ -275,7 +282,7 @@ export function VoiceCommander({
     }
 }, [enabled]);
 
- const speak = useCallback((textOrReply: string | Record<string, string>, lang: string, onEndCallback?: (() => void) | boolean) => {
+ const speak = useCallback((textOrReply: Command['reply'] | string, lang: string, onEndCallback?: (() => void) | boolean) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       if (typeof onEndCallback === 'function') onEndCallback();
       return;
@@ -679,29 +686,28 @@ export function VoiceCommander({
     if (itemForPriceCheck.current) {
         const context = itemForPriceCheck.current;
         const lowerCommandText = commandText.toLowerCase();
-
+        let chosenVariant: ProductVariant | null = null;
+    
         const yesKeywords = ['yes', 'add', 'buy', 'okay', 'yep', 'yeah', 'sare', 'sari', 'sareh', 'సరే', 'అవును'];
         const noKeywords = ['no', 'cancel', 'stop', 'వద్దు', 'not now'];
         
         const isYes = yesKeywords.some(kw => lowerCommandText.includes(kw));
         const isNo = noKeywords.some(kw => lowerCommandText.includes(kw));
-
-        // Attempt to find a specific variant from the phrase
-        const { variant: foundVariantByWeight } = await findProductAndVariant(commandText);
-        
-        let chosenVariant: ProductVariant | null = null;
-        
-        // Case 1: Match by specific weight (e.g., "add 1kg")
+    
+        // --- START OF NEW LOGIC ---
+    
+        // Case 1: Match by specific weight (e.g., "add 1kg" or "one kilo")
+        const { variant: foundVariantByWeight, requestedQty } = await findProductAndVariant(commandText);
         if (foundVariantByWeight && context.variants.some(v => v.sku === foundVariantByWeight.sku)) {
             chosenVariant = foundVariantByWeight;
         }
-        
+    
         // Case 2: Match by spoken price (e.g., "the 50 rupee one")
         if (!chosenVariant) {
             const numbersInCommand = lowerCommandText.match(/\d+/g)?.map(Number);
             if (numbersInCommand) {
                 for (const price of numbersInCommand) {
-                    const matchedVariant = context.variants.find(v => v.price * 1.20 === price);
+                    const matchedVariant = context.variants.find(v => Math.round(v.price * 1.20) === price);
                     if (matchedVariant) {
                         chosenVariant = matchedVariant;
                         break;
@@ -710,42 +716,48 @@ export function VoiceCommander({
             }
         }
         
-        // Case 3: Match by position ("the second one")
+        // Case 3: Match by position ("the first one", "second", "3")
         if (!chosenVariant) {
-            const positionalWords: { [key: string]: number } = { 'first': 0, 'second': 1, 'third': 2, 'fourth': 3, 'last': context.variants.length - 1 };
-            for (const word in positionalWords) {
-                if (lowerCommandText.includes(word)) {
+            const positionalWords: { [key: string]: number } = { 
+                'first': 0, '1st': 0, 'one': 0, '1': 0,
+                'second': 1, '2nd': 1, 'two': 1, '2': 1,
+                'third': 2, '3rd': 2, 'three': 2, '3': 2,
+                'fourth': 3, '4th': 3, 'four': 3, '4': 3,
+                'last': context.variants.length - 1 
+            };
+            for (const word of lowerCommandText.split(' ')) {
+                if (positionalWords[word] !== undefined) {
                     chosenVariant = context.variants[positionalWords[word]];
                     break;
                 }
             }
         }
-
+        
         // Case 4: Simple "yes" confirmation (defaults to first variant)
         if (!chosenVariant && isYes) {
             chosenVariant = context.variants[0];
         }
-
-        // If a variant was successfully chosen by any method:
+    
+        // --- END OF NEW LOGIC ---
+    
         if (chosenVariant) {
             const productWithContext = { ...context.product, isAiAssisted: true, matchedAlias: `Price check` };
-            addItemToCart(productWithContext, chosenVariant, 1);
+            addItemToCart(productWithContext, chosenVariant, requestedQty || 1);
             onOpenCart();
             speak(commands['addItem']?.reply, langWithRegion);
             resetAllContext();
             return;
         }
-
-        // Handle cancellation
+    
         if (isNo) {
             speak("Okay, cancelled.", langWithRegion);
             resetAllContext();
             return;
         }
-
-        // If it's none of the above, it's a new command. Reset context and re-process.
+    
         resetAllContext();
     }
+
     
     if (isWaitingForAddressTypeRef.current) {
         const lowerCommand = commandText.toLowerCase();
@@ -1126,6 +1138,7 @@ export function VoiceCommander({
             .replace('{productName}', getProductName(product))
             .replace('{prices}', pricesString);
           
+          itemForPriceCheck.current = { product, variants: priceData.variants };
           showPriceCheck({ product, priceData });
           
           speak(`${reply} Would you like to add it to your cart?`, langWithRegion, false);
