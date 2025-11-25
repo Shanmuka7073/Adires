@@ -126,14 +126,6 @@ export const generalCommands: Record<string, CommandGroup> = {
             hi: 'मैं तैयार हूँ। कृपया उन वस्तुओं की सूची बनाएँ जिन्हें आप ऑर्डर करना चाहते हैं।'
         }
     },
-    'checkPrice': { 
-        display: 'Check Price', 
-        reply: {
-            en: 'Sure, which item\'s price do you want to check?',
-            te: 'తప్పకుండా, మీరు ఏ వస్తువు ధరను తనిఖీ చేయాలనుకుంటున్నారు?',
-            hi: 'ज़रूर, आप किस वस्तु की कीमत जाँचना चाहते हैं?'
-        }
-    },
     'refresh': { 
         display: 'Refresh Page', 
         reply: {

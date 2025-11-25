@@ -1432,5 +1432,9 @@
   "thums-up": {
     "en": "Thums Up",
     "te": "థమ్స్ అప్"
+  },
+  "check-price": {
+    "en": "Check Price",
+    "te": "ధరను తనిఖీ చేయండి"
   }
 }
