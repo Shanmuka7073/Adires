@@ -1,4 +1,5 @@
 
+
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -58,6 +59,17 @@ export type User = {
     authenticators?: Authenticator[];
     currentChallenge?: string | null; // Can be null
 }
+
+const profileSchema = z.object({
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+  email: z.string().email(),
+  phone: z.string().min(10, 'A valid phone number is required'),
+  address: z.string().min(10, 'A valid address is required'),
+});
+
+export type ProfileFormValues = z.infer<typeof profileSchema>;
+
 
 export type CartItem = {
   product: Product; // The base product

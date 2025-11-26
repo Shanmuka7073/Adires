@@ -13,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useToast } from '@/hooks/use-toast';
 import { doc, setDoc } from 'firebase/firestore';
 import { useTransition, useEffect } from 'react';
-import type { User as AppUser } from '@/lib/types';
+import type { User as AppUser, ProfileFormValues } from '@/lib/types';
 import { Loader2, Fingerprint, Store, Truck, Voicemail, LogOut, LayoutDashboard } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useProfileFormStore } from '@/lib/store';
@@ -29,8 +29,6 @@ const profileSchema = z.object({
   phone: z.string().min(10, 'A valid phone number is required'),
   address: z.string().min(10, 'A valid address is required'),
 });
-
-export type ProfileFormValues = z.infer<typeof profileSchema>;
 
 export default function MyProfilePage() {
   const { user, isUserLoading, firestore } = useFirebase();
