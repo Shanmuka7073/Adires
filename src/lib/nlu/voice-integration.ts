@@ -72,11 +72,19 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
   let money: number | null = null;
   let text = nlu.cleanedText.toLowerCase();
 
+  // Regex to find currency amounts, e.g., "rs 30", "30 rupees", "₹50"
   const moneyRegex = /(?:rs|rupees|₹|rupay|rupayalu)\.?\s*(\d+\.?\d*)|(\d+\.?\d*)\s*(?:rs|rupees|₹|rupay|rupayalu)\.?/i;
-  const weightRegex = /(\d+\.?\d*)\s*(kg|kilos|kilo|grams|gram|g|gms|milliliter|ml|liter|ltr)/i;
+  
+  // Regex to find weights, e.g., "5kg", "250 gm", "1.5 kilo"
+  const weightRegex = /(\d+\.?\d*)\s*(kg|kilo|kilos|g|gm|grams|gram|gms|milliliter|ml|liter|ltr)/i;
+
+  // Regex for pieces/packets, e.g., "2 packs", "1 piece"
   const pieceRegex = /(\d+)\s*(pack|packet|pc|piece|pieces)/i;
+  
+  // Words representing fractions
   const fractionWords: Record<string, number> = {
-    "half": 0.5, "1/2": 0.5, "one half": 0.5, "quarter": 0.25, "1/4": 0.25,
+    "half": 0.5, "1/2": 0.5, "one half": 0.5,
+    "quarter": 0.25, "1/4": 0.25,
     "three fourths": 0.75, "three quarters": 0.75, "3/4": 0.75,
     "సగం": 0.5, "అర": 0.5, "పావు": 0.25, "మూడొంతులు": 0.75,
     "आधा": 0.5, "पाव": 0.25, "तीन चौथाई": 0.75
@@ -84,17 +92,18 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
 
   let match;
 
+  // Check for money, weight, or pieces
   if ((match = text.match(moneyRegex))) {
     money = parseFloat(match[1] || match[2]);
     text = text.replace(match[0], '').trim();
   } else if ((match = text.match(weightRegex))) {
     qty = parseFloat(match[1]);
     const unitRaw = match[2];
+    // Normalize unit
     if (unitRaw.startsWith('k')) {
         unit = 'kg';
     } else if (unitRaw.startsWith('g')) {
-        unit = 'gm';
-        qty = qty / 1000; // Convert grams to kg equivalent for quantity
+        unit = 'gm'; 
     } else if (unitRaw.startsWith('m') || unitRaw.startsWith('l')) {
         unit = 'ml';
     }
@@ -104,16 +113,18 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     unit = 'pc';
     text = text.replace(match[0], '').trim();
   } else {
+    // Check for fraction words if no other pattern matched
     for (const word in fractionWords) {
         if (text.includes(word)) {
             qty = fractionWords[word];
-            unit = 'kg'; // Default unit for fractions is kg
+            unit = 'kg'; // Assume fractions of a kilo by default
             text = text.replace(word, '').trim();
             break;
         }
     }
   }
   
+  // The remaining text is assumed to be the product phrase
   const remainder = text.trim();
 
   return {
