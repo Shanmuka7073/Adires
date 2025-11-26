@@ -9,7 +9,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf .next",
-    "test-nlu": "node scripts/test-nlu.js"
+    "test-nlu": "ts-node scripts/test-nlu.ts"
   },
   "dependencies": {
     "@genkit-ai/firebase": "^1.2.1",
