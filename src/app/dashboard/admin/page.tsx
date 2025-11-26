@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy, Upload, MessageSquare, Image as ImageIcon, Home, Lightbulb, Binary, TestTube, Cog } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy, Upload, MessageSquare, Image as ImageIcon, Home, Lightbulb, Binary, TestTube, Cog, Share2 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -701,7 +701,7 @@ export default function AdminDashboardPage() {
                     />
                      <AdminActionCard
                         title="Voice ID Code"
-                        description="View the source code for the voiceprint verification feature."
+                        description="View the source code for the voiceprint verification system."
                         href="/dashboard/admin/voice-id-help"
                         icon={Voicemail}
                     />
@@ -729,6 +729,12 @@ export default function AdminDashboardPage() {
                         href="/dashboard/admin/voice-commander-help"
                         icon={Mic}
                     />
+                    <AdminActionCard
+                        title="Voice Integration Help"
+                        description="View the source code for the NLU voice integration functions."
+                        href="/dashboard/admin/voice-integration-help"
+                        icon={Share2}
+                    />
                      <AdminActionCard
                         title="Checkout Loop Debug"
                         description="Isolate the specific code related to the checkout page command loop."
@@ -746,4 +752,3 @@ export default function AdminDashboardPage() {
         </div>
     );
 }
-
