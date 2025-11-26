@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useTransition, useEffect, useRef } from 'react';
@@ -175,7 +174,7 @@ export default function VoiceCommandsPage() {
         }
         setCommands(current => ({
             ...current,
-            [key]: { display: newCommandDisplay, reply: newCommandReply }
+            [key]: { display: newCommandDisplay, reply: { en: newCommandReply } }
         }));
         setIsAddDialogOpen(false);
         setNewCommandKey('');
@@ -327,13 +326,17 @@ export default function VoiceCommandsPage() {
 
                         // Update Replies in local state
                         if (result.replies) {
-                            const allReplies = [
-                                ...(result.replies.en || []),
-                                ...(result.replies.te || []),
-                                ...(result.replies.hi || [])
-                            ];
-                            const uniqueReplies = [...new Set(allReplies)];
-                            handleCommandUpdate(commandKey, 'reply', uniqueReplies.join(', '));
+                           setCommands(current => ({
+                                ...current,
+                                [commandKey]: { 
+                                    ...current[commandKey], 
+                                    reply: {
+                                        en: result.replies.en.join(', '),
+                                        te: result.replies.te.join(', '),
+                                        hi: result.replies.hi.join(', '),
+                                    }
+                                }
+                            }));
                         }
 
                         toast({ title: 'AI Suggestions Loaded!', description: `New suggestions for "${commandData.display}" are ready for review. Remember to save.` });
@@ -363,7 +366,9 @@ export default function VoiceCommandsPage() {
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor={`reply-${commandKey}`} className="flex items-center gap-2 font-semibold"><MessageSquare className="h-4 w-4" />App's Reply</Label>
-                            <Input id={`reply-${commandKey}`} value={commandData.reply || ''} onChange={(e) => handleCommandUpdate(commandKey, 'reply', e.target.value)} placeholder="Enter what the app should say..." />
+                             <Textarea id={`reply-${commandKey}`} value={commandData.reply.en || ''} onChange={(e) => handleCommandUpdate(commandKey, 'reply', e.target.value)} placeholder="Enter English reply..." />
+                             <Textarea value={commandData.reply.te || ''} onChange={(e) => setCommands(c => ({...c, [commandKey]: {...c[commandKey], reply: {...c[commandKey].reply, te: e.target.value}} }))} placeholder="Enter Telugu reply..." />
+                             <Textarea value={commandData.reply.hi || ''} onChange={(e) => setCommands(c => ({...c, [commandKey]: {...c[commandKey], reply: {...c[commandKey].reply, hi: e.target.value}} }))} placeholder="Enter Hindi reply..." />
                              <p className="text-xs text-muted-foreground">If multiple replies are provided (comma-separated), the app will choose one at random.</p>
                         </div>
                         
@@ -389,9 +394,11 @@ export default function VoiceCommandsPage() {
                                   {currentAliases.length === 0 && <p className="text-xs text-muted-foreground">No aliases yet.</p>}
                                 </div>
                                 <div className="flex items-center gap-2 pt-2 border-t">
-                                  <Input placeholder={`Add ${lang} alias(es), comma-separated...`} value={newAliases[commandKey]?.[lang] || ''} onChange={(e) => setNewAliases(p => ({ ...p, [commandKey]: { ...p[commandKey], [lang]: e.target.value } }))} onKeyDown={(e) => {if (e.key === 'Enter') { e.preventDefault(); handleAddAlias(commandKey, lang); }}} />
-                                  <Button size="sm" onClick={() => handleAddAlias(commandKey, lang)}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
-                                  <Button size="sm" variant="outline" onClick={() => handleVoiceAdd(commandKey, lang)} disabled={isListening}><Mic className="h-4 w-4" /><span className="sr-only">Add by voice</span></Button>
+                                  <Textarea placeholder={`Add ${lang} alias(es), comma-separated...`} value={newAliases[commandKey]?.[lang] || ''} onChange={(e) => setNewAliases(p => ({ ...p, [commandKey]: { ...p[commandKey], [lang]: e.target.value } }))} onKeyDown={(e) => {if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddAlias(commandKey, lang); }}} />
+                                  <div className="flex flex-col gap-2">
+                                    <Button size="sm" onClick={() => handleAddAlias(commandKey, lang)}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
+                                    <Button size="sm" variant="outline" onClick={() => handleVoiceAdd(commandKey, lang)} disabled={isListening}><Mic className="h-4 w-4" /><span className="sr-only">Add by voice</span></Button>
+                                  </div>
                                 </div>
                               </div>
                             )
@@ -434,7 +441,7 @@ export default function VoiceCommandsPage() {
                                     <Input id="new-cmd-display" value={newCommandDisplay} onChange={e => setNewCommandDisplay(e.target.value)} placeholder="e.g., Show Promotions" />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="new-cmd-reply">App's Reply</Label>
+                                    <Label htmlFor="new-cmd-reply">App's Reply (English)</Label>
                                     <Input id="new-cmd-reply" value={newCommandReply} onChange={e => setNewCommandReply(e.target.value)} placeholder="e.g., Okay, here are the latest promotions." />
                                 </div>
                             </div>
@@ -527,9 +534,11 @@ export default function VoiceCommandsPage() {
                                         {currentAliases.length === 0 && <p className="text-xs text-muted-foreground">No aliases yet.</p>}
                                     </div>
                                     <div className="flex items-center gap-2 pt-2 border-t">
-                                        <Input placeholder={`Add ${lang} alias(es), comma-separated...`} value={newAliases[itemKey]?.[lang] || ''} onChange={(e) => setNewAliases(p => ({ ...p, [itemKey]: { ...(p[itemKey] || {}), [lang]: e.target.value } }))} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddAlias(itemKey, lang); } }} />
-                                        <Button size="sm" onClick={() => handleAddAlias(itemKey, lang)}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
-                                        <Button size="sm" variant="outline" onClick={() => handleVoiceAdd(itemKey, lang)} disabled={isListening}><Mic className="h-4 w-4" /><span className="sr-only">Add by voice</span></Button>
+                                        <Textarea placeholder={`Add ${lang} alias(es), comma-separated...`} value={newAliases[itemKey]?.[lang] || ''} onChange={(e) => setNewAliases(p => ({ ...p, [itemKey]: { ...(p[itemKey] || {}), [lang]: e.target.value } }))} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddAlias(itemKey, lang); } }} />
+                                        <div className="flex flex-col gap-2">
+                                            <Button size="sm" onClick={() => handleAddAlias(itemKey, lang)}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
+                                            <Button size="sm" variant="outline" onClick={() => handleVoiceAdd(itemKey, lang)} disabled={isListening}><Mic className="h-4 w-4" /><span className="sr-only">Add by voice</span></Button>
+                                        </div>
                                     </div>
                                 </div>
                             )
