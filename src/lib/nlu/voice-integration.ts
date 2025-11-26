@@ -73,39 +73,51 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
 
   let text = nlu.cleanedText.toLowerCase();
 
-  // 1. If NLU found quantity → use it
-  if (nlu.quantity !== null) qty = nlu.quantity;
-  if (nlu.unit) unit = nlu.unit;
+  const numberResults = nlu.numbers;
+  
+  // New logic using number-engine-v2 results
+  if (numberResults.length > 0) {
+      const primaryNumber = numberResults[0];
+      qty = primaryNumber.value;
+      
+      const currencyKeywords = ['rs', 'rupees', '₹', 'rupay'];
+      const unitKeywords = ['kg', 'kilo', 'g', 'gm', 'grams', 'ml', 'ltr', 'liter', 'litre', 'pack', 'packet', 'pc', 'piece', 'pieces'];
 
-  // 2. Detect MONEY → rupees, rs, ₹, rupay, రూపాయల, रुपय
-  const moneyRegex =
-    /(₹\s*\d+\.?\d*)|(\d+\.?\d*\s*rs)|(\d+\.?\d*\s*rs\.)|(\d+\.?\d*\s*rupees?)|(\d+\.?\d*\s*rupay)|(\d+\s*रुपय)|(\d+\s*రూపాయల)/;
+      // Check words immediately after the number for units/currency
+      const textAfterNumber = text.substring(primaryNumber.span[1]).trim();
+      const nextWord = textAfterNumber.split(' ')[0];
 
-  const match = text.match(moneyRegex);
-  if (match) {
-    const extractedNumber = match[0].replace(/[^\d.]/g, "");
-    money = parseFloat(extractedNumber);
-    text = text.replace(match[0], '').trim(); // Remove money part from text
+      if (currencyKeywords.some(kw => nextWord.startsWith(kw))) {
+          money = primaryNumber.value;
+          // Remove number and currency word
+          text = text.replace(primaryNumber.raw, '').replace(nextWord, '').trim();
+      } else if (unitKeywords.some(kw => nextWord.startsWith(kw))) {
+          unit = nextWord;
+          text = text.replace(primaryNumber.raw, '').replace(nextWord, '').trim();
+      } else {
+           text = text.replace(primaryNumber.raw, '').trim();
+      }
+
+      // Check words before the number
+      const textBeforeNumber = text.substring(0, primaryNumber.span[0]).trim();
+      const prevWord = textBeforeNumber.split(' ').pop();
+       if (prevWord && currencyKeywords.some(kw => prevWord.startsWith(kw))) {
+          money = primaryNumber.value;
+          text = text.replace(prevWord, '').replace(primaryNumber.raw, '').trim();
+      }
   }
 
-  // 3. Detect explicit weight expressions (e.g., 250kg, 250 kg, kg250)
-  const unitWords = ['kg', 'kilo', 'g', 'gm', 'grams', 'ml', 'ltr', 'liter', 'litre'];
-  const weightRegex = new RegExp(`(?:(\\d+\\.?\\d*)\\s*(${unitWords.join('|')}))|(?:(${unitWords.join('|')})\\s*(\\d+\\.?\\d*))`, 'i');
-  let weightMatch = text.match(weightRegex);
 
-  if (weightMatch) {
-    qty = parseFloat(weightMatch[1] || weightMatch[4]);
-    unit = (weightMatch[2] || weightMatch[3]).toLowerCase();
-
-    // Normalize
-    if (unit.startsWith("g")) unit = "gm";
-    if (unit.startsWith("k")) unit = "kg";
-    if (unit.startsWith("l")) unit = "ltr";
-
-    text = text.replace(weightMatch[0], '').trim();
+  // Normalize units
+  if (unit) {
+      const u = unit.toLowerCase();
+      if (u.startsWith('g')) unit = 'gm';
+      else if (u.startsWith('k')) unit = 'kg';
+      else if (u.startsWith('l')) unit = 'ltr';
+      else if (u.startsWith('p')) unit = 'pc';
   }
 
-  // 4. Fractions & word fractions
+  // Handle fractions
   const fractionWords: Record<string, number> = {
     "half": 0.5, "1/2": 0.5, "one half": 0.5,
     "quarter": 0.25, "1/4": 0.25,
@@ -117,16 +129,12 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
   for (const k in fractionWords) {
     if (text.includes(k)) {
       qty = fractionWords[k];
-      if (!unit) unit = "kg"; // default
+      if (!unit) unit = "kg"; // default unit for fractions
       text = text.replace(k, '').trim();
     }
   }
-
-  // 5. Remove any remaining number/unit parts to isolate the product phrase
-  const remainder = text
-    .replace(/(\d+)\s*(kg|gm|g|ml|ltr|pack|piece|pieces)/, "")
-    .replace(/half|quarter|three fourth|three quarters|1\/2|1\/4|3\/4/gi, "")
-    .trim();
+  
+  const remainder = text.trim();
 
   return {
     qty,
@@ -135,3 +143,5 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     productPhrase: remainder
   };
 }
+
+    

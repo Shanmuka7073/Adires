@@ -477,179 +477,100 @@ const findProductAndVariant = useCallback(
     product: Product | null;
     variant: ProductVariant | null;
     requestedQty: number;
-    requestedUnit: string | null;
     remainingPhrase: string;
     matchedAlias: string | null;
     lang: string;
   }> => {
-    const nlu = runNLU(phrase, language);
-    const extracted = extractQuantityAndProduct(nlu);
-
-    let qty = extracted.qty || 1;
-    let unit = extracted.unit || null;
-    let money = (extracted as any).money || null;
-
-    let lowerPhrase = extracted.productPhrase.toLowerCase().trim();
-    let sanitizedPhrase = lowerPhrase.replace(/[-.,]/g, ' ').replace(/\s+/g, ' ').trim();
-
-    // ---------- PRODUCT MATCHING ----------
-    let productMatch: { product: Product; alias: string; lang: string } | null = null;
-
-    if (sanitizedPhrase) {
-      const direct =
-        universalProductAliasMap.get(sanitizedPhrase) ||
-        universalProductAliasMap.get(sanitizedPhrase.replace(/\s/g, ''));
-
-      if (direct) {
-        productMatch = { ...direct, alias: sanitizedPhrase };
-      } else {
-        let best: { product: Product; alias: string; similarity: number; lang: string } | null = null;
-
-        for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
-          const s = calculateSimilarity(sanitizedPhrase, alias);
-          if (s > 0.8 && (!best || s > best.similarity)) {
-            best = { product, alias, similarity: s, lang };
-          }
+    
+    const { qty, unit, money, productPhrase } = extractQuantityAndProduct(runNLU(phrase, language));
+    
+    let productMatch: { product: Product, alias: string, lang: string } | null = null;
+    if (productPhrase) {
+        const directMatch = universalProductAliasMap.get(productPhrase) || universalProductAliasMap.get(productPhrase.replace(/\s/g, ''));
+        if (directMatch) {
+            productMatch = { ...directMatch, alias: productPhrase };
+        } else {
+            let bestMatch: { product: Product, alias: string, similarity: number, lang: string } | null = null;
+            for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
+                const similarity = calculateSimilarity(productPhrase, alias);
+                if (similarity > 0.8 && (!bestMatch || similarity > bestMatch.similarity)) {
+                    bestMatch = { product, alias, similarity, lang };
+                }
+            }
+            if (bestMatch) {
+                productMatch = { product: bestMatch.product, alias: bestMatch.alias, lang: bestMatch.lang };
+            }
         }
-        if (best) productMatch = { product: best.product, alias: best.alias, lang: best.lang };
-      }
     }
 
     if (!productMatch) {
-      return {
-        product: null,
-        variant: null,
-        requestedQty: qty,
-        requestedUnit: unit,
-        remainingPhrase: sanitizedPhrase,
-        matchedAlias: null,
-        lang: "en"
-      };
+      return { product: null, variant: null, requestedQty: qty, remainingPhrase: productPhrase, matchedAlias: null, lang: 'en' };
     }
 
     const { product, lang: detectedLang, alias: matchedAlias } = productMatch;
-
-    // ---------- PRICE DATA ----------
+    
     let priceData = productPrices[product.name.toLowerCase()];
-    if (!priceData || priceData.variants.length === 0) {
-      return {
-        product,
-        variant: null,
-        requestedQty: qty,
-        requestedUnit: unit,
-        remainingPhrase: sanitizedPhrase,
-        matchedAlias,
-        lang: detectedLang
-      };
+    if (!priceData && firestore) {
+        // Price data is now pre-fetched, so this should rarely happen.
     }
 
-    // ---------- MONEY → WEIGHT MATH ----------
-    if (money) {
-        const perKgVariant =
-            priceData.variants.find(v => v.weight.includes('kg') || v.weight.includes('ltr') || v.weight.includes('liter')) ||
-            priceData.variants[0];
-
-        if (perKgVariant && perKgVariant.price > 0) {
-            const basePrice = perKgVariant.price;
-            const baseWeightMatch = perKgVariant.weight.match(/(\d+)/);
-            const baseWeight = baseWeightMatch ? parseFloat(baseWeightMatch[0]) : 1;
-            const pricePerUnit = basePrice / baseWeight;
-            
-            const calculatedWeight = money / pricePerUnit;
-            qty = calculatedWeight;
-            unit = perKgVariant.weight.includes('kg') ? 'kg' : 'ltr';
-        }
-    }
-
-    // ---------- EXPLICIT WEIGHTS ----------
-    if (unit === "gm" || unit === "g" || unit === "grams") {
-      qty = qty / 1000;
-      unit = "kg";
-    }
-
-    if (unit === "ml") {
-      qty = qty / 1000;
-      unit = "ltr";
+    if (!priceData?.variants?.length) {
+        return { product, variant: null, requestedQty: qty, remainingPhrase: productPhrase, matchedAlias, lang: detectedLang };
     }
     
-    if (unit === "liter" || unit === "litre") {
-        unit = "ltr";
+    let finalQty = qty;
+
+    // --- MONEY-TO-WEIGHT CONVERSION ---
+    if (money && money > 0) {
+        // Find the base variant for calculation (e.g., '1kg' or the first one)
+        const baseVariant = priceData.variants.find(v => v.weight.includes('1kg')) || priceData.variants[0];
+        if (baseVariant && baseVariant.price > 0) {
+            const baseWeightMatch = baseVariant.weight.match(/(\d+\.?\d*)/);
+            const baseWeight = baseWeightMatch ? parseFloat(baseWeightMatch[0]) : 1;
+            const pricePerUnit = baseVariant.price / baseWeight;
+            
+            // Calculate how much quantity the money buys
+            finalQty = money / pricePerUnit;
+        }
     }
 
-    // ---------- FRACTIONS ----------
-    if (!extracted.unit && qty < 1 && qty !== 1) {
-      unit = "kg";
-    }
-
-    // ---------- VARIANT SELECTION ----------
+    // Now, find the best variant for the final quantity
     let chosenVariant: ProductVariant | null = null;
 
-    // Case 1: If unit matches, find exact variant.
+    // Try to find a variant that matches the specified unit (kg, gm, ltr, etc.)
     if (unit) {
-      for (const v of priceData.variants) {
-        if (v.weight.toLowerCase().includes(unit)) {
-          chosenVariant = v;
-          break;
-        }
-      }
+      const normalizedUnit = unit.startsWith('k') ? 'kg' : unit.startsWith('g') ? 'gm' : 'ltr';
+      chosenVariant = priceData.variants.find(v => v.weight.toLowerCase().includes(normalizedUnit)) || null;
     }
 
-    // Case 2: If weight is fractional (e.g., 0.25kg, 0.5kg) find the closest variant.
-    if (!chosenVariant && unit === "kg" && qty > 0 && qty < 1) {
-      const grams = qty * 1000;
-      const variantByGram = priceData.variants.find((v) => {
-        const numeric = parseFloat(v.weight);
-        return Math.abs(numeric - grams) < 5; // Allow for small rounding errors
-      });
-      if (variantByGram) {
-        chosenVariant = variantByGram;
-      }
-    }
-
-    // Case 3: If still no variant, use the base variant for calculation but create a NEW temporary one
-    if (!chosenVariant) {
-        const baseVariant = priceData.variants.find(v => v.weight.includes('kg') || v.weight.includes('ltr')) || priceData.variants[0];
-        
+    // If a fractional quantity was requested (like 250gm -> 0.25kg), create a temporary variant
+    if (!chosenVariant && finalQty < 1) {
+        const baseVariant = priceData.variants.find(v => v.weight.includes('1kg')) || priceData.variants[0];
         if (baseVariant) {
             const basePrice = baseVariant.price;
             const baseWeightMatch = baseVariant.weight.match(/(\d+(\.\d+)?)/);
             const baseWeight = baseWeightMatch ? parseFloat(baseWeightMatch[0]) : 1;
             const pricePerUnit = basePrice / baseWeight;
             
-            const newPrice = pricePerUnit * qty;
-            const newWeightUnit = unit || (baseVariant.weight.includes('kg') ? 'kg' : 'ltr');
-            const displayWeight = newWeightUnit === 'kg' ? `${qty * 1000}gm` : `${qty * 1000}ml`;
-
-            // This is a temporary variant. It doesn't exist in the DB, it's created for this transaction.
+            const newPrice = pricePerUnit * finalQty;
+            
             chosenVariant = {
                 price: newPrice,
-                weight: qty === 0.25 ? '250gm' : qty === 0.5 ? '500gm' : displayWeight,
-                sku: `${baseVariant.sku}-custom-${qty}`,
-                stock: baseVariant.stock, // Assume stock is available
+                weight: `${finalQty * 1000}gm`,
+                sku: `${baseVariant.sku}-custom-${finalQty}`,
+                stock: baseVariant.stock, 
             };
-            // Override the final quantity to 1, since the 'variant' now represents the full requested amount.
-            qty = 1;
+            finalQty = 1; // Since the variant itself represents the full requested amount now
         }
     }
     
-    // Case 4: Absolute Fallback
+    // Absolute fallback: if no other logic matches, pick the first available variant.
     if (!chosenVariant) {
         chosenVariant = priceData.variants[0];
     }
-
-
-    return {
-      product,
-      variant: chosenVariant,
-      requestedQty: qty,
-      requestedUnit: unit,
-      remainingPhrase: sanitizedPhrase,
-      matchedAlias,
-      lang: detectedLang
-    };
-  },
-  [language, universalProductAliasMap, productPrices]
-);
+    
+    return { product, variant: chosenVariant, requestedQty: finalQty, remainingPhrase: productPhrase, matchedAlias, lang: detectedLang };
+}, [firestore, productPrices, universalProductAliasMap, language]);
 
 
   const recognizeIntent = useCallback((text: string, spokenLang: string): Intent => {
