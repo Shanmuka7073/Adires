@@ -304,7 +304,7 @@ export function VoiceCommander({
     let audioUrl: string | undefined = undefined;
 
     if (typeof textOrReply === 'object' && textOrReply !== null) {
-        audioUrl = textOrReply[`${targetLang}_audio`];
+        audioUrl = textOrReply[targetLang + '_audio' as keyof typeof textOrReply];
         textToSpeak = textOrReply[targetLang] || textOrReply['en'] || '';
     } else if (typeof textOrReply === 'string') {
         textToSpeak = textOrReply;
@@ -496,8 +496,9 @@ export function VoiceCommander({
     let productMatch: { product: Product; alias: string; lang: string } | null = null;
 
     if (sanitizedPhrase) {
-      const direct = universalProductAliasMap.get(sanitizedPhrase) ||
-                     universalProductAliasMap.get(sanitizedPhrase.replace(/\s/g, ''));
+      const direct =
+        universalProductAliasMap.get(sanitizedPhrase) ||
+        universalProductAliasMap.get(sanitizedPhrase.replace(/\s/g, ''));
 
       if (direct) {
         productMatch = { ...direct, alias: sanitizedPhrase };
@@ -549,27 +550,24 @@ export function VoiceCommander({
         priceData.variants[0];
 
       const pricePerKg = perKgVariant.price;
-      const weightKg = money / pricePerKg; // REAL grocery math
+      const weightKg = money / pricePerKg; 
 
       qty = weightKg;
       unit = "kg";
     }
 
     // ---------- EXPLICIT WEIGHTS ----------
-    // Convert grams to kg
-    if (unit === "gm" || unit === "g") {
+    if (unit === "gm" || unit === "g" || unit === "grams") {
       qty = qty / 1000;
       unit = "kg";
     }
 
-    // Convert ml to litre
     if (unit === "ml") {
       qty = qty / 1000;
       unit = "ltr";
     }
 
-    // ---------- FRACTIONAL KG ----------
-    // People say: half kg, 1/2 kg, quarter kg etc
+    // ---------- FRACTIONS ----------
     if (!extracted.unit && qty < 1 && qty !== 1) {
       unit = "kg";
     }
@@ -577,7 +575,7 @@ export function VoiceCommander({
     // ---------- VARIANT SELECTION ----------
     let chosenVariant: ProductVariant | null = null;
 
-    // Case 1: User asked for specific unit matching variant
+    // Case 1: Match unit → kg/gm/ltr
     if (unit) {
       for (const v of priceData.variants) {
         if (v.weight.toLowerCase().includes(unit)) {
@@ -587,13 +585,13 @@ export function VoiceCommander({
       }
     }
 
-    // Case 2: If weight is fractional (0.25kg, 0.5kg, 0.75kg etc)
+    // Case 2: Fractional KG (0.25kg → 250gm)
     if (!chosenVariant && unit === "kg" && qty > 0 && qty < 1) {
-      // CHECK if any exact pack matches grams
       const grams = qty * 1000;
+
       const variantByGram = priceData.variants.find((v) => {
         const numeric = parseFloat(v.weight);
-        return Math.abs(numeric - grams) < 5; // close match
+        return Math.abs(numeric - grams) < 5;
       });
 
       if (variantByGram) {
@@ -601,7 +599,7 @@ export function VoiceCommander({
       }
     }
 
-    // Case 3: Normal fallback → pick the first variant
+    // Case 3: Fallback
     if (!chosenVariant) {
       chosenVariant =
         priceData.variants.find((v) => v.weight === "1kg") ||
@@ -979,7 +977,7 @@ export function VoiceCommander({
       storeAliasMap, profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData,
       placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress,
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
-      removeItem, addUnidentifiedItem, updateUnidentifiedItem,
+      removeItem, addUnidentifiedItem, updateUnidentifiedItem, router, stores, productPrices,
       showPriceCheck, hidePriceCheck
   ]);
 
