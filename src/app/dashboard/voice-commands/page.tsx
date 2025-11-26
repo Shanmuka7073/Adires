@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useEffect, useRef } from 'react';
@@ -6,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Save, X, Mic, MessageSquare, Code, Package, Store as StoreIcon, Trash2, Sparkles } from 'lucide-react';
+import { Loader2, PlusCircle, Save, X, Mic, MessageSquare, Code, Package, Store as StoreIcon, Trash2, Sparkles, Hash } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -19,6 +18,7 @@ import type { VoiceAliasGroup, Locales } from '@/lib/types';
 import { CommandGroup, generalCommands as defaultGeneralCommands } from '@/lib/locales/commands';
 import { suggestProductAliases } from '@/ai/flows/suggest-product-aliases-flow';
 import { suggestCommandAliases } from '@/ai/flows/suggest-command-aliases-flow';
+import { suggestNumberAliases } from '@/ai/flows/suggest-number-aliases-flow';
 
 
 const createSlug = (text: string) => text.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-');
@@ -462,6 +462,104 @@ export default function VoiceCommandsPage() {
             </CardContent>
         </Card>
     );
+
+    const NumberAliasItem = ({ number, name }: { number: number, name: string }) => {
+        const itemKey = `number-${number}`;
+        const itemAliases = locales[itemKey] || {};
+        const [isSuggesting, startSuggestion] = useTransition();
+
+        const handleSuggestNumberAliases = () => {
+            startSuggestion(async () => {
+                try {
+                    const result = await suggestNumberAliases({ number: number.toString(), name });
+                    if (result && result.aliases) {
+                         setLocales(currentLocales => {
+                            const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
+                            if (!updatedLocales[itemKey]) {
+                                updatedLocales[itemKey] = {};
+                            }
+                            for (const lang in result.aliases) {
+                                const newAliases = result.aliases[lang];
+                                const existingAliases = new Set(Array.isArray(updatedLocales[itemKey][lang]) ? updatedLocales[itemKey][lang] : []);
+                                newAliases.forEach(alias => existingAliases.add(alias));
+                                updatedLocales[itemKey][lang] = Array.from(existingAliases);
+                            }
+                            return updatedLocales;
+                        });
+                        toast({ title: 'AI Suggestions Loaded!', description: `New aliases for "${name}" are ready for review. Remember to save.` });
+                    }
+                } catch (error) {
+                    toast({ variant: 'destructive', title: 'AI Suggestion Failed' });
+                }
+            });
+        };
+
+        return (
+            <AccordionItem value={itemKey}>
+                <AccordionTrigger>
+                    <div className="flex items-center gap-2">
+                        <span className="font-semibold text-lg">{number} ({name})</span>
+                    </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                    <div className="space-y-6 p-4 bg-muted/50 rounded-lg">
+                        <Button onClick={handleSuggestNumberAliases} size="sm" disabled={isSuggesting}>
+                            {isSuggesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                            Suggest with AI
+                        </Button>
+                        {['en', 'te', 'hi'].map(lang => {
+                            const currentAliases: string[] = Array.isArray(itemAliases[lang]) ? itemAliases[lang] as string[] : (itemAliases[lang] ? [itemAliases[lang] as string] : []);
+                            return (
+                              <div key={lang} className="space-y-2">
+                                <Label className="font-semibold text-sm uppercase">{lang} Aliases</Label>
+                                <div className="flex flex-wrap gap-2">
+                                  {currentAliases.map((alias, index) => (
+                                    <Badge key={`${alias}-${index}`} variant="secondary" className="relative pr-6 group text-base py-1">
+                                      {alias}
+                                      <button onClick={() => handleRemoveAlias(itemKey, lang, alias)} className="absolute top-1/2 -translate-y-1/2 right-1 rounded-full p-0.5 bg-background/50 hover:bg-background text-muted-foreground hover:text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <X className="h-3 w-3" /><span className="sr-only">Remove {alias}</span>
+                                      </button>
+                                    </Badge>
+                                  ))}
+                                  {currentAliases.length === 0 && <p className="text-xs text-muted-foreground">No aliases yet.</p>}
+                                </div>
+                                <div className="flex items-center gap-2 pt-2 border-t">
+                                  <Textarea placeholder={`Add ${lang} alias(es), comma-separated...`} value={newAliases[itemKey]?.[lang] || ''} onChange={(e) => setNewAliases(p => ({ ...p, [itemKey]: { ...p[itemKey], [lang]: e.target.value } }))} onKeyDown={(e) => {if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddAlias(itemKey, lang); }}} />
+                                  <div className="flex flex-col gap-2">
+                                    <Button size="sm" onClick={() => handleAddAlias(itemKey, lang)}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
+                                    <Button size="sm" variant="outline" onClick={() => handleVoiceAdd(itemKey, lang)} disabled={isListening}><Mic className="h-4 w-4" /><span className="sr-only">Add by voice</span></Button>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                        })}
+                    </div>
+                </AccordionContent>
+            </AccordionItem>
+        );
+    };
+
+    const renderNumberCommands = () => {
+        const numbers = Array.from({ length: 100 }, (_, i) => i + 1);
+        const numberNames = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen", "Twenty", "Twenty-One", "Twenty-Two", "Twenty-Three", "Twenty-Four", "Twenty-Five", "Twenty-Six", "Twenty-Seven", "Twenty-Eight", "Twenty-Nine", "Thirty", "Thirty-One", "Thirty-Two", "Thirty-Three", "Thirty-Four", "Thirty-Five", "Thirty-Six", "Thirty-Seven", "Thirty-Eight", "Thirty-Nine", "Forty", "Forty-One", "Forty-Two", "Forty-Three", "Forty-Four", "Forty-Five", "Forty-Six", "Forty-Seven", "Forty-Eight", "Forty-Nine", "Fifty", "Fifty-One", "Fifty-Two", "Fifty-Three", "Fifty-Four", "Fifty-Five", "Fifty-Six", "Fifty-Seven", "Fifty-Eight", "Fifty-Nine", "Sixty", "Sixty-One", "Sixty-Two", "Sixty-Three", "Sixty-Four", "Sixty-Five", "Sixty-Six", "Sixty-Seven", "Sixty-Eight", "Sixty-Nine", "Seventy", "Seventy-One", "Seventy-Two", "Seventy-Three", "Seventy-Four", "Seventy-Five", "Seventy-Six", "Seventy-Seven", "Seventy-Eight", "Seventy-Nine", "Eighty", "Eighty-One", "Eighty-Two", "Eighty-Three", "Eighty-Four", "Eighty-Five", "Eighty-Six", "Eighty-Seven", "Eighty-Eight", "Eighty-Nine", "Ninety", "Ninety-One", "Ninety-Two", "Ninety-Three", "Ninety-Four", "Ninety-Five", "Ninety-Six", "Ninety-Seven", "Ninety-Eight", "Ninety-Nine", "One Hundred"];
+        return (
+            <Card className="max-w-4xl mx-auto">
+                 <CardHeader>
+                    <CardTitle>Manage Number Aliases</CardTitle>
+                    <CardDescription>
+                        Add regional spellings, transliterations, and colloquialisms for numbers to improve voice recognition for quantities.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Accordion type="multiple" className="w-full">
+                       {numbers.map((num) => (
+                           <NumberAliasItem key={num} number={num} name={numberNames[num-1]} />
+                       ))}
+                    </Accordion>
+                </CardContent>
+            </Card>
+        );
+    };
     
     const AliasAccordionItem = ({ item, icon: IconComponent }) => {
         const itemKey = createSlug(item.name);
@@ -581,6 +679,7 @@ export default function VoiceCommandsPage() {
                 <Button variant={activeTab === 'general' ? 'default' : 'outline'} onClick={() => setActiveTab('general')}>General Commands</Button>
                 <Button variant={activeTab === 'products' ? 'default' : 'outline'} onClick={() => setActiveTab('products')}>Product Aliases</Button>
                 <Button variant={activeTab === 'stores' ? 'default' : 'outline'} onClick={() => setActiveTab('stores')}>Store Aliases</Button>
+                <Button variant={activeTab === 'numbers' ? 'default' : 'outline'} onClick={() => setActiveTab('numbers')}>Number Aliases</Button>
             </div>
 
             {useAppStore.getState().loading ? (
@@ -593,6 +692,7 @@ export default function VoiceCommandsPage() {
                     {activeTab === 'general' && renderGeneralCommands()}
                     {activeTab === 'products' && renderAliasAccordion(masterProducts, "Manage Product Aliases", "Add alternative names for products in different languages to improve voice recognition.", Package)}
                     {activeTab === 'stores' && renderAliasAccordion(stores, "Manage Store Aliases", "Add alternative names for your stores in different languages.", StoreIcon)}
+                    {activeTab === 'numbers' && renderNumberCommands()}
                 </>
             )}
 
@@ -624,12 +724,71 @@ export default function VoiceCommandsPage() {
 }
 
     
+```
+  </change>
+  <change>
+    <file>/src/ai/flows/suggest-number-aliases-flow.ts</file>
+    <content><![CDATA[
+'use server';
+/**
+ * @fileOverview An AI flow to suggest multilingual aliases for a number.
+ *
+ * - suggestNumberAliases - A function that suggests aliases for a number.
+ * - SuggestNumberAliasesInput - The input type for the flow.
+ * - SuggestNumberAliasesOutput - The return type for the flow.
+ */
 
+import { ai } from '@/ai/genkit';
+import { z } from 'zod';
+import { googleAI } from '@genkit-ai/google-genai';
 
+const SuggestNumberAliasesInputSchema = z.object({
+  number: z.string().describe('The cardinal number (e.g., "1", "25").'),
+  name: z.string().describe('The English word for the number (e.g., "one", "twenty-five").'),
+});
+export type SuggestNumberAliasesInput = z.infer<typeof SuggestNumberAliasesInputSchema>;
 
+const AliasesSchema = z.object({
+    en: z.array(z.string()).describe("A list of common English aliases and misspellings."),
+    te: z.array(z.string()).describe("A list of common Telugu aliases, including both native script and their Roman script transliterations."),
+    hi: z.array(z.string()).describe("A list of common Hindi aliases, including both Devanagari script and their Roman script transliterations."),
+});
 
+const SuggestNumberAliasesOutputSchema = z.object({
+  aliases: AliasesSchema.describe("The suggested aliases for the number in different languages."),
+});
+export type SuggestNumberAliasesOutput = z.infer<typeof SuggestNumberAliasesOutputSchema>;
 
+export async function suggestNumberAliases(input: SuggestNumberAliasesInput): Promise<SuggestNumberAliasesOutput> {
+  return suggestNumberAliasesFlow(input);
+}
 
+const prompt = ai.definePrompt({
+  name: 'suggestNumberAliasesPrompt',
+  input: {schema: SuggestNumberAliasesInputSchema},
+  output: {schema: SuggestNumberAliasesOutputSchema},
+  model: googleAI.model('gemini-2.5-flash'),
+  prompt: `You are a linguistic expert for a voice-controlled app in India. Your task is to generate common aliases for the number {{number}} ({{name}}).
 
+Generate common ways people might say or spell this number.
 
-    
+1.  **te (Telugu)**: Provide the Telugu word in its native script (e.g., 'ఒకటి') AND its common Roman script transliterations (e.g., 'okati', 'oka').
+2.  **hi (Hindi)**: Provide the Hindi word in Devanagari script (e.g., 'एक') AND its common Roman script transliteration (e.g., 'ek').
+3.  **en (English)**: Provide common misspellings or alternative phrasings for the English word. Include the Roman transliterations from Telugu and Hindi here as well.
+
+Keep the lists concise and focused on the most common terms.
+`,
+});
+
+const suggestNumberAliasesFlow = ai.defineFlow(
+  {
+    name: 'suggestNumberAliasesFlow',
+    inputSchema: SuggestNumberAliasesInputSchema,
+    outputSchema: SuggestNumberAliasesOutputSchema,
+  },
+  async (input) => {
+    const { output } = await prompt(input);
+    return output!;
+  }
+);
+`
