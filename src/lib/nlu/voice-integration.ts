@@ -70,67 +70,47 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
   let qty = 1;
   let unit: string | null = null;
   let money: number | null = null;
-
   let text = nlu.cleanedText.toLowerCase();
 
-  const numberResults = nlu.numbers;
-  
-  // New logic using number-engine-v2 results
-  if (numberResults.length > 0) {
-      const primaryNumber = numberResults[0];
-      qty = primaryNumber.value;
-      
-      const currencyKeywords = ['rs', 'rupees', '₹', 'rupay', 'rupayalu'];
-      const unitKeywords = ['kg', 'kilo', 'kilos', 'g', 'gm', 'grams', 'gram', 'ml', 'milliliter', 'millilitre', 'ltr', 'liter', 'litre', 'pack', 'packet', 'pc', 'piece', 'pieces'];
-
-      // Check words immediately after the number for units/currency
-      const textAfterNumber = text.substring(primaryNumber.span[1]).trim();
-      const nextWord = textAfterNumber.split(' ')[0];
-
-      if (currencyKeywords.some(kw => nextWord.startsWith(kw))) {
-          money = primaryNumber.value;
-          // Remove number and currency word
-          text = text.replace(primaryNumber.raw, '').replace(nextWord, '').trim();
-      } else if (unitKeywords.some(kw => nextWord.startsWith(kw))) {
-          unit = nextWord;
-          text = text.replace(primaryNumber.raw, '').replace(nextWord, '').trim();
-      } else {
-           text = text.replace(primaryNumber.raw, '').trim();
-      }
-
-      // Check words before the number
-      const textBeforeNumber = text.substring(0, primaryNumber.span[0]).trim();
-      const prevWord = textBeforeNumber.split(' ').pop();
-       if (prevWord && currencyKeywords.some(kw => prevWord.startsWith(kw))) {
-          money = primaryNumber.value;
-          text = text.replace(prevWord, '').replace(primaryNumber.raw, '').trim();
-      }
-  }
-
-
-  // Normalize units
-  if (unit) {
-      const u = unit.toLowerCase();
-      if (u.startsWith('g')) unit = 'gm';
-      else if (u.startsWith('k')) unit = 'kg';
-      else if (u.startsWith('l') || u.startsWith('m')) unit = 'ml'; // liters and ml
-      else if (u.startsWith('p')) unit = 'pc';
-  }
-
-  // Handle fractions
+  const moneyRegex = /(?:rs|rupees|₹|rupay|rupayalu)\.?\s*(\d+\.?\d*)|(\d+\.?\d*)\s*(?:rs|rupees|₹|rupay|rupayalu)\.?/i;
+  const weightRegex = /(\d+\.?\d*)\s*(kg|kilos|kilo|grams|gram|g|gms|milliliter|ml|liter|ltr)/i;
+  const pieceRegex = /(\d+)\s*(pack|packet|pc|piece|pieces)/i;
   const fractionWords: Record<string, number> = {
-    "half": 0.5, "1/2": 0.5, "one half": 0.5,
-    "quarter": 0.25, "1/4": 0.25,
-    "three fourth": 0.75, "three quarters": 0.75, "3/4": 0.75,
+    "half": 0.5, "1/2": 0.5, "one half": 0.5, "quarter": 0.25, "1/4": 0.25,
+    "three fourths": 0.75, "three quarters": 0.75, "3/4": 0.75,
     "సగం": 0.5, "అర": 0.5, "పావు": 0.25, "మూడొంతులు": 0.75,
     "आधा": 0.5, "पाव": 0.25, "तीन चौथाई": 0.75
   };
 
-  for (const k in fractionWords) {
-    if (text.includes(k)) {
-      qty = fractionWords[k];
-      if (!unit) unit = "kg"; // default unit for fractions
-      text = text.replace(k, '').trim();
+  let match;
+
+  if ((match = text.match(moneyRegex))) {
+    money = parseFloat(match[1] || match[2]);
+    text = text.replace(match[0], '').trim();
+  } else if ((match = text.match(weightRegex))) {
+    qty = parseFloat(match[1]);
+    const unitRaw = match[2];
+    if (unitRaw.startsWith('k')) {
+        unit = 'kg';
+    } else if (unitRaw.startsWith('g')) {
+        unit = 'gm';
+        qty = qty / 1000; // Convert grams to kg equivalent for quantity
+    } else if (unitRaw.startsWith('m') || unitRaw.startsWith('l')) {
+        unit = 'ml';
+    }
+    text = text.replace(match[0], '').trim();
+  } else if ((match = text.match(pieceRegex))) {
+    qty = parseInt(match[1], 10);
+    unit = 'pc';
+    text = text.replace(match[0], '').trim();
+  } else {
+    for (const word in fractionWords) {
+        if (text.includes(word)) {
+            qty = fractionWords[word];
+            unit = 'kg'; // Default unit for fractions is kg
+            text = text.replace(word, '').trim();
+            break;
+        }
     }
   }
   
