@@ -25,10 +25,12 @@ import { generateAllNumberAliases } from '@/ai/flows/generate-all-number-aliases
 
 const createSlug = (text: string) => text.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-');
 
-function NumberAliasItem({ number, name, locales, newAliases, handleRemoveAlias, handleAddAlias, handleVoiceAdd, setLocales, setNewAliases, isListening }: { number: number, name: string, locales: Locales, newAliases: any, handleRemoveAlias: any, handleAddAlias: any, handleVoiceAdd: any, setLocales: any, setNewAliases: any, isListening: boolean }) {
+
+function NumberAliasItem({ number, name, locales, handleRemoveAlias, handleAddAlias, handleVoiceAdd, setLocales, isListening }: { number: number, name: string, locales: Locales, handleRemoveAlias: any, handleAddAlias: any, handleVoiceAdd: any, setLocales: any, isListening: boolean }) {
     const itemKey = `number-${number}`;
     const itemAliases = locales[itemKey] || {};
     const [isSuggesting, startSuggestion] = useTransition();
+    const [newNumberAliases, setNewNumberAliases] = useState<Record<string, string>>({});
     const { toast } = useToast();
 
     const handleSuggestNumberAliases = () => {
@@ -56,6 +58,13 @@ function NumberAliasItem({ number, name, locales, newAliases, handleRemoveAlias,
             }
         });
     };
+
+    const handleLocalAdd = (lang: string) => {
+        const aliasInput = newNumberAliases[lang];
+        if (!aliasInput) return;
+        handleAddAlias(itemKey, lang, aliasInput);
+        setNewNumberAliases(prev => ({...prev, [lang]: ''}));
+    }
 
     return (
         <AccordionItem value={itemKey}>
@@ -87,9 +96,9 @@ function NumberAliasItem({ number, name, locales, newAliases, handleRemoveAlias,
                               {currentAliases.length === 0 && <p className="text-xs text-muted-foreground">No aliases yet.</p>}
                             </div>
                             <div className="flex items-center gap-2 pt-2 border-t">
-                              <Textarea placeholder={`Add ${lang} alias(es), comma-separated...`} value={newAliases[itemKey]?.[lang] || ''} onChange={(e) => setNewAliases((p: any) => ({ ...p, [itemKey]: { ...p[itemKey], [lang]: e.target.value } }))} onKeyDown={(e) => {if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddAlias(itemKey, lang); }}} />
+                              <Textarea placeholder={`Add ${lang} alias(es), comma-separated...`} value={newNumberAliases[lang] || ''} onChange={(e) => setNewNumberAliases((p: any) => ({ ...p, [lang]: e.target.value }))} onKeyDown={(e) => {if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleLocalAdd(lang); }}} />
                               <div className="flex flex-col gap-2">
-                                <Button size="sm" onClick={() => handleAddAlias(itemKey, lang)}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
+                                <Button size="sm" onClick={() => handleLocalAdd(lang)}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
                                 <Button size="sm" variant="outline" onClick={() => handleVoiceAdd(itemKey, lang)} disabled={isListening}><Mic className="h-4 w-4" /><span className="sr-only">Add by voice</span></Button>
                               </div>
                             </div>
@@ -102,17 +111,20 @@ function NumberAliasItem({ number, name, locales, newAliases, handleRemoveAlias,
     );
 }
 
-const GeneralCommandItem = ({ commandKey, commandData, commands, setCommands, locales, setLocales, newAliases, setNewAliases, handleRemoveAlias, handleAddAlias, handleVoiceAdd, handleDeleteCommand, isListening }: any) => {
+const GeneralCommandItem = ({ commandKey, commandData, handleCommandUpdate, locales, setLocales, handleRemoveAlias, handleAddAlias, handleVoiceAdd, handleDeleteCommand, isListening, setCommands }: any) => {
     const [isSuggesting, startSuggestion] = useTransition();
     const { toast } = useToast();
+    const [newGeneralAliases, setNewGeneralAliases] = useState<Record<string, string>>({});
 
-    const handleCommandUpdate = (key: string, field: 'display' | 'reply', value: string) => {
-        setCommands((current: Record<string, CommandGroup>) => ({
-            ...current,
-            [key]: { ...current[key], [field]: value }
-        }));
-    };
-    
+    const itemAliases = locales[commandKey] || {};
+
+    const handleLocalAdd = (lang: string) => {
+        const aliasInput = newGeneralAliases[lang];
+        if (!aliasInput) return;
+        handleAddAlias(commandKey, lang, aliasInput);
+        setNewGeneralAliases(prev => ({...prev, [lang]: ''}));
+    }
+
     const handleSuggestCommandAliases = () => {
         startSuggestion(async () => {
             try {
@@ -194,7 +206,7 @@ const GeneralCommandItem = ({ commandKey, commandData, commands, setCommands, lo
                     </Button>
 
                      {['en', 'te', 'hi'].map(lang => {
-                        const currentAliases: string[] = Array.isArray(locales[commandKey]?.[lang]) ? locales[commandKey]?.[lang] as string[] : (locales[commandKey]?.[lang] ? [locales[commandKey][lang] as string] : []);
+                        const currentAliases: string[] = Array.isArray(itemAliases?.[lang]) ? itemAliases[lang] as string[] : (itemAliases?.[lang] ? [itemAliases[lang] as string] : []);
                         return (
                           <div key={lang} className="space-y-2">
                             <Label className="font-semibold text-sm uppercase">{lang} Aliases</Label>
@@ -210,9 +222,9 @@ const GeneralCommandItem = ({ commandKey, commandData, commands, setCommands, lo
                               {currentAliases.length === 0 && <p className="text-xs text-muted-foreground">No aliases yet.</p>}
                             </div>
                             <div className="flex items-center gap-2 pt-2 border-t">
-                              <Textarea placeholder={`Add ${lang} alias(es), comma-separated...`} value={newAliases[commandKey]?.[lang] || ''} onChange={(e) => setNewAliases((p: any) => ({ ...p, [commandKey]: { ...p[commandKey], [lang]: e.target.value } }))} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddAlias(commandKey, lang); } }} />
+                              <Textarea placeholder={`Add ${lang} alias(es), comma-separated...`} value={newGeneralAliases[lang] || ''} onChange={(e) => setNewGeneralAliases((p: any) => ({ ...p, [lang]: e.target.value }))} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleLocalAdd(lang); } }} />
                               <div className="flex flex-col gap-2">
-                                <Button size="sm" onClick={() => handleAddAlias(commandKey, lang)}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
+                                <Button size="sm" onClick={() => handleLocalAdd(lang)}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
                                 <Button size="sm" variant="outline" onClick={() => handleVoiceAdd(commandKey, lang)} disabled={isListening}><Mic className="h-4 w-4" /><span className="sr-only">Add by voice</span></Button>
                               </div>
                             </div>
@@ -225,12 +237,20 @@ const GeneralCommandItem = ({ commandKey, commandData, commands, setCommands, lo
     );
 }
 
-const AliasAccordionItem = ({ item, icon: IconComponent, locales, newAliases, handleRemoveAlias, handleAddAlias, handleVoiceAdd, setLocales, isListening }: { item: { id: string; name: string, ownerId?: string }, icon: React.ElementType, locales: Locales, newAliases: any, handleRemoveAlias: any, handleAddAlias: any, handleVoiceAdd: any, setLocales: any, isListening: boolean }) => {
+const AliasAccordionItem = ({ item, icon: IconComponent, locales, handleRemoveAlias, handleAddAlias, handleVoiceAdd, setLocales, isListening }: { item: { id: string; name: string, ownerId?: string }, icon: React.ElementType, locales: Locales, handleRemoveAlias: any, handleAddAlias: any, handleVoiceAdd: any, setLocales: any, isListening: boolean }) => {
     const itemKey = createSlug(item.name);
     const itemAliases = locales[itemKey] || {};
     const [isSuggesting, startSuggestion] = useTransition();
+    const [newProductAliases, setNewProductAliases] = useState<Record<string, string>>({});
     const { firestore } = useFirebase();
     const { toast } = useToast();
+
+    const handleLocalAdd = (lang: string) => {
+        const aliasInput = newProductAliases[lang];
+        if (!aliasInput) return;
+        handleAddAlias(itemKey, lang, aliasInput);
+        setNewProductAliases(prev => ({...prev, [lang]: ''}));
+    };
 
     const handleSuggestAliases = () => {
         if (!firestore) return;
@@ -238,7 +258,6 @@ const AliasAccordionItem = ({ item, icon: IconComponent, locales, newAliases, ha
             try {
                 const result = await suggestProductAliases({ productName: item.name });
                 if (result && result.aliases) {
-                     // Update local state instead of saving directly
                     setLocales((currentLocales: Locales) => {
                         const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
                         if (!updatedLocales[itemKey]) {
@@ -282,7 +301,7 @@ const AliasAccordionItem = ({ item, icon: IconComponent, locales, newAliases, ha
                         Suggest with AI
                     </Button>
                     {['en', 'te', 'hi'].map(lang => {
-                        const currentAliases: string[] = Array.isArray(itemAliases[lang]) ? itemAliases[lang] as string[] : (itemAliases[lang] ? [itemAliases[lang] as string] : []);
+                        const currentAliases: string[] = Array.isArray(itemAliases?.[lang]) ? itemAliases[lang] as string[] : (itemAliases?.[lang] ? [itemAliases[lang] as string] : []);
                         return (
                             <div key={lang} className="space-y-2">
                                 <Label className="font-semibold text-sm uppercase">{lang} Aliases</Label>
@@ -298,9 +317,9 @@ const AliasAccordionItem = ({ item, icon: IconComponent, locales, newAliases, ha
                                     {currentAliases.length === 0 && <p className="text-xs text-muted-foreground">No aliases yet.</p>}
                                 </div>
                                 <div className="flex items-center gap-2 pt-2 border-t">
-                                    <Textarea placeholder={`Add ${lang} alias(es), comma-separated...`} value={newAliases[itemKey]?.[lang] || ''} onChange={(e) => setNewAliases((p: any) => ({ ...p, [itemKey]: { ...(p[itemKey] || {}), [lang]: e.target.value } }))} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddAlias(itemKey, lang); } }} />
+                                    <Textarea placeholder={`Add ${lang} alias(es), comma-separated...`} value={newProductAliases[lang] || ''} onChange={(e) => setNewProductAliases((p: any) => ({ ...p, [lang]: e.target.value }))} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleLocalAdd(lang); } }} />
                                     <div className="flex flex-col gap-2">
-                                        <Button size="sm" onClick={() => handleAddAlias(itemKey, lang)}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
+                                        <Button size="sm" onClick={() => handleLocalAdd(lang)}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
                                         <Button size="sm" variant="outline" onClick={() => handleVoiceAdd(itemKey, lang)} disabled={isListening}><Mic className="h-4 w-4" /><span className="sr-only">Add by voice</span></Button>
                                     </div>
                                 </div>
@@ -314,7 +333,6 @@ const AliasAccordionItem = ({ item, icon: IconComponent, locales, newAliases, ha
 };
 
 
-// This component now relies on the global useAppStore for its data.
 export default function VoiceCommandsPage() {
     const { firestore } = useFirebase();
     const { toast } = useToast();
@@ -322,34 +340,24 @@ export default function VoiceCommandsPage() {
     const [activeTab, setActiveTab] = useState('general');
     const [isBulkGenerating, startBulkGeneration] = useTransition();
 
-    // Data from the global store
+    // Directly use and modify the global state from useAppStore
     const {
         masterProducts,
         stores,
-        locales: initialLocales,
-        commands: initialCommands,
-        fetchInitialData
+        locales,
+        commands,
+        fetchInitialData,
+        setLocales,
+        setCommands,
     } = useAppStore();
-
-    // Local state for UI edits, initialized from the global store
-    const [locales, setLocales] = useState<Locales>(initialLocales);
-    const [commands, setCommands] = useState<Record<string, CommandGroup>>(initialCommands);
-
-    // Local state for UI interactions
-    const [newAliases, setNewAliases] = useState<Record<string, Record<string, string>>>({});
+    
+    // Local state for UI interactions ONLY
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [newCommandKey, setNewCommandKey] = useState('');
     const [newCommandDisplay, setNewCommandDisplay] = useState('');
     const [newCommandReply, setNewCommandReply] = useState('');
     const [isListening, setIsListening] = useState(false);
     const recognitionRef = useRef<SpeechRecognition | null>(null);
-
-    // Re-initialize local state whenever the global store's data changes
-    useEffect(() => {
-        setLocales(initialLocales);
-        setCommands(initialCommands);
-    }, [initialLocales, initialCommands]);
-
 
     useEffect(() => {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -373,9 +381,8 @@ export default function VoiceCommandsPage() {
     }, [toast]);
 
 
-    const handleAddAlias = (itemKey: string, lang: string) => {
-        const newAliasInput = newAliases[itemKey]?.[lang]?.trim();
-        if (!newAliasInput) {
+    const handleAddAlias = (itemKey: string, lang: string, aliasInput: string) => {
+        if (!aliasInput) {
             toast({ variant: 'destructive', title: 'Cannot add empty alias' });
             return;
         }
@@ -386,7 +393,7 @@ export default function VoiceCommandsPage() {
         setLocales(currentLocales => {
             const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
             if (!updatedLocales[itemKey]) {
-                updatedLocales[itemKey] = {};
+                updatedLocales[itemKey] = { type: 'product' }; // default type
             }
 
             const existingAliases = Array.isArray(updatedLocales[itemKey][lang])
@@ -394,7 +401,7 @@ export default function VoiceCommandsPage() {
                 : (updatedLocales[itemKey][lang] ? [updatedLocales[itemKey][lang] as string] : []);
 
             const existingAliasSet = new Set(existingAliases.map(a => a.toLowerCase()));
-            const aliasesToAdd = [...new Set(newAliasInput.split(',').map(alias => alias.trim()).filter(Boolean))];
+            const aliasesToAdd = [...new Set(aliasInput.split(',').map(alias => alias.trim()).filter(Boolean))];
 
             aliasesToAdd.forEach(newAlias => {
                 if (!existingAliasSet.has(newAlias.toLowerCase())) {
@@ -415,12 +422,6 @@ export default function VoiceCommandsPage() {
         if (addedCount > 0) {
             toast({ title: 'Alias Added Locally', description: `Added new alias(es). Remember to save your changes.` });
         }
-
-        // Clear the input field
-        setNewAliases(prev => ({
-            ...prev,
-            [itemKey]: { ...prev[itemKey], [lang]: '' }
-        }));
     };
 
     const handleRemoveAlias = (itemKey: string, lang: string, aliasToRemove: string) => {
@@ -429,17 +430,15 @@ export default function VoiceCommandsPage() {
             const itemLangEntry = updatedLocales[itemKey]?.[lang];
 
             if (Array.isArray(itemLangEntry)) {
-                const newAliases = itemLangEntry.filter(alias => alias !== aliasToRemove);
-                if (newAliases.length === 0) {
+                updatedLocales[itemKey][lang] = itemLangEntry.filter(alias => alias !== aliasToRemove);
+                if (updatedLocales[itemKey][lang].length === 0) {
                     delete updatedLocales[itemKey][lang];
-                } else {
-                    updatedLocales[itemKey][lang] = newAliases;
                 }
             } else if (itemLangEntry === aliasToRemove) {
                 delete updatedLocales[itemKey][lang];
             }
 
-            if (updatedLocales[itemKey] && Object.keys(updatedLocales[itemKey]).length === 0) {
+            if (updatedLocales[itemKey] && Object.keys(updatedLocales[itemKey]).length <= 1 && updatedLocales[itemKey].type) {
                 delete updatedLocales[itemKey];
             }
             return updatedLocales;
@@ -491,6 +490,9 @@ export default function VoiceCommandsPage() {
             const batch = writeBatch(firestore);
             const aliasGroupCollectionRef = collection(firestore, 'voiceAliasGroups');
             const commandCollectionRef = collection(firestore, 'voiceCommands');
+            
+            const currentLocales = useAppStore.getState().locales;
+            const currentCommands = useAppStore.getState().commands;
 
             const existingAliasDocs = await getDocs(aliasGroupCollectionRef);
             const existingKeys = new Set(existingAliasDocs.docs.map(d => d.id));
@@ -499,34 +501,35 @@ export default function VoiceCommandsPage() {
             const itemTypes = new Map([
                 ...masterProducts.map(p => [createSlug(p.name), 'product']),
                 ...stores.map(s => [createSlug(s.name), 'store']),
-                ...Object.keys(commands).map(c => [c, 'command'])
+                ...Object.keys(currentCommands).map(c => [c, 'command'])
             ]);
 
             // Sync Aliases
-            for (const key in locales) {
+            for (const key in currentLocales) {
                 const docRef = doc(aliasGroupCollectionRef, key);
                 const newData: Partial<VoiceAliasGroup> = {};
-                for (const lang in locales[key]) {
-                    const aliases = locales[key][lang];
+                for (const lang in currentLocales[key]) {
+                    if (lang === 'type') continue; // Skip the type property
+                    const aliases = currentLocales[key][lang];
                     newData[lang] = Array.isArray(aliases) ? aliases : (aliases ? [aliases] : []);
                 }
 
-                newData.type = itemTypes.get(key) || 'command';
+                newData.type = itemTypes.get(key) || currentLocales[key].type || 'command';
                 batch.set(docRef, newData, { merge: true });
             }
             existingKeys.forEach(key => {
-                if (!locales[key]) {
+                if (!currentLocales[key]) {
                     batch.delete(doc(aliasGroupCollectionRef, key));
                 }
             });
 
             // Sync Commands
-            for (const key in commands) {
+            for (const key in currentCommands) {
                 const docRef = doc(commandCollectionRef, key);
-                batch.set(docRef, commands[key]);
+                batch.set(docRef, currentCommands[key]);
             }
             existingCommandKeys.forEach(key => {
-                if (!commands[key]) {
+                if (!currentCommands[key]) {
                     batch.delete(doc(commandCollectionRef, key));
                 }
             });
@@ -537,9 +540,8 @@ export default function VoiceCommandsPage() {
                     title: 'Changes Saved!',
                     description: `Your voice command configuration has been updated.`,
                 });
-                // After saving, tell the app store to re-fetch all data.
                 await fetchInitialData(firestore);
-                toast({
+                 toast({
                     title: 'App Data Synced!',
                     description: `The application's memory has been updated with your latest changes.`
                 });
@@ -564,21 +566,16 @@ export default function VoiceCommandsPage() {
         recognition.lang = recognitionLang;
         recognition.onresult = (event) => {
             const transcript = event.results[0][0].transcript;
-            setLocales(currentLocales => {
-                const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
-                if (!updatedLocales[key]) updatedLocales[key] = {};
-                const existing = Array.isArray(updatedLocales[key][lang]) ? updatedLocales[key][lang] : (updatedLocales[key][lang] ? [updatedLocales[key][lang]] : []);
-                if (!existing.includes(transcript)) {
-                    existing.push(transcript);
-                    toast({ title: 'Alias Added Locally', description: `Added "${transcript}". Remember to save.` });
-                } else {
-                    toast({ variant: 'destructive', title: 'Duplicate Alias', description: `"${transcript}" already exists.` });
-                }
-                updatedLocales[key][lang] = existing;
-                return updatedLocales;
-            });
+            handleAddAlias(key, lang, transcript);
         };
         recognition.start();
+    };
+
+    const handleCommandUpdate = (key: string, field: 'display' | 'reply', value: string) => {
+        setCommands((current) => ({
+            ...current,
+            [key]: { ...current[key], [field]: value }
+        }));
     };
 
     const renderGeneralCommands = () => (
@@ -632,16 +629,14 @@ export default function VoiceCommandsPage() {
                             key={key} 
                             commandKey={key} 
                             commandData={group} 
-                            commands={commands}
                             setCommands={setCommands}
                             locales={locales}
                             setLocales={setLocales}
-                            newAliases={newAliases}
-                            setNewAliases={setNewAliases}
                             handleRemoveAlias={handleRemoveAlias}
                             handleAddAlias={handleAddAlias}
                             handleVoiceAdd={handleVoiceAdd}
                             handleDeleteCommand={handleDeleteCommand}
+                            handleCommandUpdate={handleCommandUpdate}
                             isListening={isListening}
                         />
                     ))}
@@ -694,7 +689,7 @@ export default function VoiceCommandsPage() {
                 <CardContent>
                     <Accordion type="multiple" className="w-full">
                        {numbers.map((num) => (
-                           <NumberAliasItem key={num} number={num} name={numberNames[num-1]} locales={locales} newAliases={newAliases} handleRemoveAlias={handleRemoveAlias} handleAddAlias={handleAddAlias} handleVoiceAdd={handleVoiceAdd} setLocales={setLocales} setNewAliases={setNewAliases} isListening={isListening} />
+                           <NumberAliasItem key={num} number={num} name={numberNames[num-1]} locales={locales} handleRemoveAlias={handleRemoveAlias} handleAddAlias={handleAddAlias} handleVoiceAdd={handleVoiceAdd} setLocales={setLocales} isListening={isListening} />
                        ))}
                     </Accordion>
                 </CardContent>
@@ -716,7 +711,7 @@ export default function VoiceCommandsPage() {
             <CardContent>
                 <Accordion type="multiple" className="w-full">
                     {items.map((item) => (
-                       <AliasAccordionItem key={item.id} item={item} icon={icon} locales={locales} newAliases={newAliases} handleRemoveAlias={handleRemoveAlias} handleAddAlias={handleAddAlias} handleVoiceAdd={handleVoiceAdd} setLocales={setLocales} isListening={isListening} />
+                       <AliasAccordionItem key={item.id} item={item} icon={icon} locales={locales} handleRemoveAlias={handleRemoveAlias} handleAddAlias={handleAddAlias} handleVoiceAdd={handleVoiceAdd} setLocales={setLocales} isListening={isListening} />
                     ))}
                 </Accordion>
             </CardContent>
@@ -756,24 +751,8 @@ export default function VoiceCommandsPage() {
                     {isProcessing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving All Changes...</> : <><Save className="mr-2 h-4 w-4" />Save All Changes</>}
                 </Button>
             </div>
-
-
-            <Card className="max-w-4xl mx-auto">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Code className="h-5 w-5" />Raw JSON View</CardTitle>
-                    <CardDescription>This is a read-only view of the local UI state that will be saved to the database.</CardDescription>
-                </CardHeader>
-                <CardContent className="grid md:grid-cols-2 gap-4">
-                     <div>
-                        <Label htmlFor="commands-json">Commands</Label>
-                        <Textarea id="commands-json" readOnly value={JSON.stringify(commands, null, 2)} className="bg-muted font-mono text-xs h-96" />
-                     </div>
-                      <div>
-                        <Label htmlFor="locales-json">Aliases</Label>
-                        <Textarea id="locales-json" readOnly value={JSON.stringify(locales, null, 2)} className="bg-muted font-mono text-xs h-96" />
-                     </div>
-                </CardContent>
-            </Card>
         </div>
     );
 }
+
+    
