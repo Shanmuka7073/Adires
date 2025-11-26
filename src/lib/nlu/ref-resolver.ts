@@ -1,5 +1,6 @@
 
 'use client';
+
 // src/lib/nlu/ref-resolver.ts
 import { parseNumbers } from './number-engine-v2';
 import { safeEvaluate } from '../math-solver';
@@ -15,18 +16,22 @@ export type RefResolverResult = {
 
 function resolveRefs(text: string, refs: any): RefResolverResult {
   const { clearedTokens } = refs;
-  const numResult = parseNumbers(clearedTokens.join(' '));
+
+  // Use new number engine
+  const numResult = parseNumbers(clearedTokens.join(" "));
+
   let mathResult: number | null = null;
   let mathExpression: string | null = null;
 
-  // basic math expression detection
+  // Basic math detection: e.g., "5 + 3", "40 - 10", "1/2 * 4"
   const mathy = text.match(/(\d[\d\.\s]*[\+\-\*\/]\s*[\d\.\s]+)/g);
+  
   if (mathy) {
-    mathExpression = mathy[0];
+    mathExpression = mathy[0].trim();
     mathResult = safeEvaluate(mathExpression);
   }
-  
-  const hints = [];
+
+  const hints: string[] = [];
   if (numResult.length > 0) hints.push('has_numbers');
   if (mathy) hints.push('has_math');
 
@@ -40,8 +45,8 @@ function resolveRefs(text: string, refs: any): RefResolverResult {
   };
 }
 
-
-// Named export to fix the module resolution issue
+// Named export to fix imports
 export function resolveRefData(text: string, refs: any) {
   return resolveRefs(text, refs);
 }
+

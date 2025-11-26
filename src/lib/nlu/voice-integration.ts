@@ -1,7 +1,9 @@
 
 'use client';
+
 import { parseRefsFromText } from './ref-parser';
 import { resolveRefData, type RefResolverResult } from './ref-resolver';
+import { parseNumbers } from './number-engine-v2';
 
 export interface NLUResult extends RefResolverResult {
   cleanedText: string;
@@ -14,8 +16,7 @@ export interface NLUResult extends RefResolverResult {
 }
 
 /**
- * Main NLU entry point used by VoiceCommander.
- * Takes raw voice text → returns complete NLU analysis.
+ * MAIN NLU ENTRY
  */
 export function runNLU(text: string, lang: string = 'en'): NLUResult {
   if (!text || typeof text !== 'string') {
@@ -44,22 +45,26 @@ export function runNLU(text: string, lang: string = 'en'): NLUResult {
   const refs = parseRefsFromText(cleanedText);
   const resolved = resolveRefData(cleanedText, refs);
 
-  const first = resolved.numbers[0] || null;
+  const numParsed = parseNumbers(cleanedText);
+  const allNumbers = [...resolved.numbers, ...numParsed];
+
+  const first = allNumbers[0] || null;
 
   return {
     ...resolved,
+    numbers: allNumbers,
     cleanedText,
     language: lang,
-    hasNumbers: resolved.numbers.length > 0,
+    hasNumbers: allNumbers.length > 0,
     hasMath: resolved.mathExpression !== null,
     firstNumber: first?.value ?? null,
-    quantity: first?.type === 'quantity' || first?.unit ? first?.value ?? null : null,
+    quantity: first?.type === 'quantity' ? first?.value ?? null : null,
     unit: first?.unit ?? null,
   };
 }
 
 /**
- * Utility used by VoiceCommander to quickly extract quantity + product phrase.
+ * EXTRACT QUANTITY + PRODUCT PHRASE
  */
 export function extractQuantityAndProduct(nlu: NLUResult) {
   let qty = 1;

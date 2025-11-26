@@ -304,7 +304,7 @@ export function VoiceCommander({
     let audioUrl: string | undefined = undefined;
 
     if (typeof textOrReply === 'object' && textOrReply !== null) {
-        audioUrl = textOrReply[`${targetLang}_audio`];
+        audioUrl = textOrReply[targetLang + '_audio'];
         textToSpeak = textOrReply[targetLang] || textOrReply['en'] || '';
     } else if (typeof textOrReply === 'string') {
         textToSpeak = textOrReply;
@@ -1180,7 +1180,7 @@ const findProductAndVariant = useCallback(
               const recipeResult = await getIngredientsForDish({ dishName: product.name, language: 'en' });
               if (recipeResult.isSuccess) {
                   recommendedProducts = recipeResult.ingredients
-                    .map(ing => masterProducts.find(p => p.name.toLowerCase() === ing.toLowerCase()))
+                    .map(ing => masterProducts.find(p => p?.name.toLowerCase() === ing.toLowerCase()))
                     .filter((p): p is Product => Boolean(p) && p.id !== product.id);
               }
           }
