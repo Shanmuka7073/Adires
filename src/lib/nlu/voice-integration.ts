@@ -78,13 +78,17 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
   if (nlu.unit) unit = nlu.unit;
 
   // 2. Detect MONEY → rupees, rs, ₹, rupay, రూపాయల, रुपय
+  // This regex now handles currency symbols/words before OR after the number.
   const moneyRegex =
-    /(₹\s*\d+)|(\d+\s*rs)|(\d+\s*rs\.)|(\d+\s*rupees?)|(\d+\s*rupay)|(\d+\s*रुपय)|(\d+\s*రూపాయల)/;
+    /(?:₹\s*|rs\.?\s*|rupees?\s*|rupay\s*|रुपय\s*|రూపాయల\s*)(\d+\.?\d*)|(\d+\.?\d*)\s*(?:₹|rs\.?|rupees?|rupay|रुपय|రూపాయల)/;
 
   const match = text.match(moneyRegex);
   if (match) {
-    const extractedNumber = match[0].replace(/[^\d.]/g, "");
-    money = parseFloat(extractedNumber);
+    // The number will be in either the first or second capturing group
+    const extractedNumber = match[1] || match[2];
+    if (extractedNumber) {
+        money = parseFloat(extractedNumber);
+    }
   }
 
   // 3. Detect explicit weight expressions
