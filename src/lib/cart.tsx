@@ -6,9 +6,9 @@ import type { CartItem, Product, ProductVariant } from './types';
 import { useToast } from '@/hooks/use-toast';
 
 export interface UnidentifiedCartItem {
-  id: string; 
-  term: string; 
-  status: 'pending' | 'failed'; 
+  id: string;
+  term: string;
+  status: 'pending' | 'failed';
 }
 
 
@@ -96,7 +96,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         if (prevItems.length === 0) {
             setActiveStoreId(product.storeId);
         }
-        
+
         const existingItem = prevItems.find((item) => item.variant.sku === variant.sku);
         let newItems;
         if (existingItem) {
@@ -108,7 +108,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         } else {
             newItems = [...prevItems, { product, variant, quantity }];
         }
-        
+
         toast({
             title: 'Item added to cart',
             description: `${product.name} (${variant.weight}) has been added.`,
@@ -117,7 +117,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return newItems;
     });
   }, [toast, activeStoreId]);
-  
+
   const removeItem = useCallback((variantSku: string) => {
     setCartItems((prevItems) => {
         const newItems = prevItems.filter((item) => item.variant.sku !== variantSku);
@@ -132,7 +132,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   }, [toast, unidentifiedItems.length]);
 
-  
+
 
   const addIdentifiedItem = useCallback((product: Product, variant: ProductVariant, quantity: number, originalTermId: string) => {
     removeUnidentifiedItem(originalTermId);
@@ -170,7 +170,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setUnidentifiedItems([]);
     setActiveStoreId(null);
   }, []);
-  
+
   const cartCount = cartItems.reduce((count, item) => count + item.quantity, 0);
 
   const cartTotal = cartItems.reduce(

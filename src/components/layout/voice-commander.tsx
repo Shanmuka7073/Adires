@@ -59,7 +59,7 @@ if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSp
 type AliasToProductMap = Map<string, { product: Product; lang: string }>;
 
 // --- NEW: Intent Recognition System ---
-type Intent = 
+type Intent =
   | { type: 'SMART_ORDER', originalText: string, lang: string }
   | { type: 'CHECK_PRICE', productPhrase: string, originalText: string, lang: string }
   | { type: 'ORDER_ITEM', originalText: string, lang: string }
@@ -110,12 +110,12 @@ export function VoiceCommander({
 
   const { form: profileForm } = useProfileFormStore();
   const { saveInventoryBtnRef } = useMyStorePageStore();
-  const { 
+  const {
     handleUseCurrentLocation,
     handleUseHomeAddress,
-    placeOrderBtnRef, 
-    setIsWaitingForQuickOrderConfirmation, 
-    isWaitingForQuickOrderConfirmation, 
+    placeOrderBtnRef,
+    setIsWaitingForQuickOrderConfirmation,
+    isWaitingForQuickOrderConfirmation,
     setHomeAddress,
     setShouldUseCurrentLocation
   } = useCheckoutStore();
@@ -132,25 +132,25 @@ export function VoiceCommander({
   const itemForPriceCheck = useRef<{product: Product, variants: ProductVariant[]} | null>(null);
   const productForVariantSelection = useRef<Product | null>(null);
   const lastTranscriptRef = useRef<string>('');
-  
+
   const userProfileRef = useRef<User | null>(null);
 
   const [hasMounted, setHasMounted] = useState(false);
-  
+
   const [speechSynthesisVoices, setSpeechSynthesisVoices] = useState<SpeechSynthesisVoice[]>([]);
-  
+
   const [hasRunCheckoutPrompt, setHasRunCheckoutPrompt] = useState(false);
-  
+
     // --- Performance Optimization: Memoized Alias Maps ---
   const universalProductAliasMap = useMemo<AliasToProductMap>(() => {
     const map: AliasToProductMap = new Map();
     if (isAppStoreLoading || !masterProducts) return map;
 
     for (const p of masterProducts) {
-      if (!p.name) continue;
-      const productSlug = p?.name?.toLowerCase().replace(/ /g, '-') ?? '';
+      if (!p?.name) continue;
+      const productSlug = p.name.toLowerCase().replace(/ /g, '-');
       const productAliasesByLang = getAllAliases(productSlug);
-      
+
       const normalizedCanonicalName = p.name.toLowerCase();
       map.set(normalizedCanonicalName, { product: p, lang: 'en' });
       map.set(normalizedCanonicalName.replace(/\s/g, ''), { product: p, lang: 'en' });
@@ -188,7 +188,7 @@ export function VoiceCommander({
     }
     return map;
   }, [isAppStoreLoading, stores, getAllAliases]);
-  
+
   // Client-side AI config fetching
   const configDocRef = useMemoFirebase(() => firestore ? doc(firestore, 'siteConfig', 'aiFeatures') : null, [firestore]);
   const { data: aiConfig } = useDoc<SiteConfig>(configDocRef);
@@ -211,7 +211,7 @@ export function VoiceCommander({
 
   const determinePhraseLanguage = useCallback((text: string): string => {
     const lowerText = text.toLowerCase();
-    
+
     // If it contains Telugu script, it's Telugu
     if (/[\u0C00-\u0C7F]/.test(lowerText)) {
       return 'te';
@@ -280,7 +280,7 @@ export function VoiceCommander({
                 }
             }
         } else {
-            recognition.onend = null; 
+            recognition.onend = null;
             recognition.stop();
         }
     }
@@ -291,14 +291,14 @@ export function VoiceCommander({
       if (typeof onEndCallback === 'function') onEndCallback();
       return;
     }
-    
+
     if (recognition) {
       recognition.stop();
     }
 
     isSpeakingRef.current = true;
     window.speechSynthesis.cancel();
-    
+
     const targetLang = lang.split('-')[0] as 'en' | 'te' | 'hi';
     let textToSpeak = '';
     let audioUrl: string | undefined = undefined;
@@ -313,7 +313,7 @@ export function VoiceCommander({
         if (typeof onEndCallback === 'function') onEndCallback();
         return;
     }
-    
+
     const onEnd = () => {
         isSpeakingRef.current = false;
         if (typeof onEndCallback === 'function') onEndCallback();
@@ -321,7 +321,7 @@ export function VoiceCommander({
             try { recognition.start(); } catch(e) {}
         }
     };
-    
+
     // Prioritize playing the recorded audio
     if (audioUrl) {
         const audio = new Audio(audioUrl);
@@ -338,11 +338,11 @@ export function VoiceCommander({
     const replies = textToSpeak.split(',').map(r => r.trim());
     const text = replies[Math.floor(Math.random() * replies.length)];
     const utterance = new SpeechSynthesisUtterance(text);
-    
+
     let voice = speechSynthesisVoices.find(v => v.lang.startsWith(targetLang) && v.name.includes('Google')) ||
                 speechSynthesisVoices.find(v => v.lang.startsWith(targetLang)) ||
                 speechSynthesisVoices.find(v => v.default);
-    
+
     if (voice) {
       utterance.voice = voice;
     } else {
@@ -394,13 +394,13 @@ export function VoiceCommander({
 
       promptTimeoutRef.current = setTimeout(() => {
         setHasRunCheckoutPrompt(true);
-        
+
         const detectedLang = language;
         const langWithRegion = detectedLang === 'en' ? 'en-IN' : `${detectedLang}-IN`;
 
         const addressInput = typeof document !== 'undefined' ? (document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement) : null;
         const currentAddress = addressInput?.value || '';
-        
+
         const onPromptEnd = () => {
             setHasRunCheckoutPrompt(false);
              if (isEnabledRef.current && recognition && !isSpeakingRef.current) {
@@ -427,24 +427,24 @@ export function VoiceCommander({
             speak(speech, langWithRegion, onPromptEnd);
         }
         promptTimeoutRef.current = null;
-      }, 500); 
+      }, 500);
   }, [
       pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, hasRunCheckoutPrompt,
       cartItemsProp.length, language, speak, cartTotal, t, activeStoreId
   ]);
-  
+
   useEffect(() => {
       if (pathname === '/checkout' && hasMounted && enabled && voiceTrigger > 0) {
-        setHasRunCheckoutPrompt(false); 
+        setHasRunCheckoutPrompt(false);
         runCheckoutPrompt();
       }
-  }, [voiceTrigger, pathname, hasMounted, enabled, runCheckoutPrompt]); 
+  }, [voiceTrigger, pathname, hasMounted, enabled, runCheckoutPrompt]);
 
   useEffect(() => {
     if (pathname === '/checkout' && enabled && !isSpeakingRef.current && !hasRunCheckoutPrompt) {
       runCheckoutPrompt();
     }
-    
+
     return () => {
       if (promptTimeoutRef.current) {
         clearTimeout(promptTimeoutRef.current);
@@ -487,7 +487,7 @@ const findProductAndVariant = useCallback(
 
     let qty = extracted.qty || 1;
     let unit = extracted.unit || null;
-    let money = extracted.money || null;
+    let money = (extracted as any).money || null;
 
     let lowerPhrase = extracted.productPhrase.toLowerCase().trim();
     let sanitizedPhrase = lowerPhrase.replace(/[-.,]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -545,18 +545,20 @@ const findProductAndVariant = useCallback(
 
     // ---------- MONEY → WEIGHT MATH ----------
     if (money) {
-      const perKgVariant =
-        priceData.variants.find((v) => v.weight.includes("kg")) ||
-        priceData.variants.find((v) => v.weight.includes("ltr")) ||
-        priceData.variants.find((v) => v.weight.includes("liter")) ||
-        priceData.variants[0];
+        const perKgVariant =
+            priceData.variants.find(v => v.weight.includes('kg') || v.weight.includes('ltr') || v.weight.includes('liter')) ||
+            priceData.variants[0];
 
-      if (perKgVariant && perKgVariant.price > 0) {
-          const pricePerBaseUnit = perKgVariant.price;
-          const weightInBaseUnits = money / pricePerBaseUnit;
-          qty = weightInBaseUnits;
-          unit = perKgVariant.weight.includes("kg") ? "kg" : "ltr";
-      }
+        if (perKgVariant && perKgVariant.price > 0) {
+            const basePrice = perKgVariant.price;
+            const baseWeightMatch = perKgVariant.weight.match(/(\d+)/);
+            const baseWeight = baseWeightMatch ? parseFloat(baseWeightMatch[0]) : 1;
+            const pricePerUnit = basePrice / baseWeight;
+            
+            const calculatedWeight = money / pricePerUnit;
+            qty = calculatedWeight;
+            unit = perKgVariant.weight.includes('kg') ? 'kg' : 'ltr';
+        }
     }
 
     // ---------- EXPLICIT WEIGHTS ----------
@@ -570,11 +572,9 @@ const findProductAndVariant = useCallback(
       unit = "ltr";
     }
     
-    // Normalize liter variations
     if (unit === "liter" || unit === "litre") {
-      unit = "ltr";
+        unit = "ltr";
     }
-
 
     // ---------- FRACTIONS ----------
     if (!extracted.unit && qty < 1 && qty !== 1) {
@@ -584,44 +584,59 @@ const findProductAndVariant = useCallback(
     // ---------- VARIANT SELECTION ----------
     let chosenVariant: ProductVariant | null = null;
 
-    // Case 1: Match unit → kg/gm/ltr/pc
+    // Case 1: If unit matches, find exact variant.
     if (unit) {
       for (const v of priceData.variants) {
-        const lowerWeight = v.weight.toLowerCase();
-        if (unit === 'ltr' && (lowerWeight.includes('ltr') || lowerWeight.includes('liter'))) {
-             chosenVariant = v;
-             break;
-        }
-        if (lowerWeight.includes(unit)) {
+        if (v.weight.toLowerCase().includes(unit)) {
           chosenVariant = v;
           break;
         }
       }
     }
 
-    // Case 2: Fractional KG (0.25kg → 250gm)
+    // Case 2: If weight is fractional (e.g., 0.25kg, 0.5kg) find the closest variant.
     if (!chosenVariant && unit === "kg" && qty > 0 && qty < 1) {
       const grams = qty * 1000;
       const variantByGram = priceData.variants.find((v) => {
         const numeric = parseFloat(v.weight);
-        return Math.abs(numeric - grams) < 5;
+        return Math.abs(numeric - grams) < 5; // Allow for small rounding errors
       });
-
       if (variantByGram) {
         chosenVariant = variantByGram;
       }
     }
 
-    // Case 3: Fallback
+    // Case 3: If still no variant, use the base variant for calculation but create a NEW temporary one
     if (!chosenVariant) {
-      chosenVariant =
-        priceData.variants.find((v) => v.weight === "1kg") ||
-        priceData.variants.find((v) => v.weight.includes("kg")) ||
-        priceData.variants.find((v) => v.weight.includes("ltr")) ||
-        priceData.variants.find((v) => v.weight.includes("liter")) ||
-        priceData.variants.find((v) => v.weight.includes("pc")) ||
-        priceData.variants[0];
+        const baseVariant = priceData.variants.find(v => v.weight.includes('kg') || v.weight.includes('ltr')) || priceData.variants[0];
+        
+        if (baseVariant) {
+            const basePrice = baseVariant.price;
+            const baseWeightMatch = baseVariant.weight.match(/(\d+(\.\d+)?)/);
+            const baseWeight = baseWeightMatch ? parseFloat(baseWeightMatch[0]) : 1;
+            const pricePerUnit = basePrice / baseWeight;
+            
+            const newPrice = pricePerUnit * qty;
+            const newWeightUnit = unit || (baseVariant.weight.includes('kg') ? 'kg' : 'ltr');
+            const displayWeight = newWeightUnit === 'kg' ? `${qty * 1000}gm` : `${qty * 1000}ml`;
+
+            // This is a temporary variant. It doesn't exist in the DB, it's created for this transaction.
+            chosenVariant = {
+                price: newPrice,
+                weight: qty === 0.25 ? '250gm' : qty === 0.5 ? '500gm' : displayWeight,
+                sku: `${baseVariant.sku}-custom-${qty}`,
+                stock: baseVariant.stock, // Assume stock is available
+            };
+            // Override the final quantity to 1, since the 'variant' now represents the full requested amount.
+            qty = 1;
+        }
     }
+    
+    // Case 4: Absolute Fallback
+    if (!chosenVariant) {
+        chosenVariant = priceData.variants[0];
+    }
+
 
     return {
       product,
@@ -644,7 +659,7 @@ const findProductAndVariant = useCallback(
     if (nlu.hasMath) {
         return { type: 'MATH', originalText: text, lang: spokenLang };
     }
-    
+
     const fromKeywords = ['from', 'at', 'in'];
     const toKeywords = ['to', 'at'];
     const hasFrom = fromKeywords.some(kw => lowerText.includes(` ${kw} `));
@@ -653,7 +668,7 @@ const findProductAndVariant = useCallback(
     if (intentKeywords.SMART_ORDER.some(kw => lowerText.startsWith(kw)) && hasFrom && hasTo) {
         return { type: 'SMART_ORDER', originalText: text, lang: spokenLang };
     }
-    
+
     const priceKeyword = intentKeywords.CHECK_PRICE.find(kw => lowerText.includes(kw));
     if (priceKeyword) {
         const productPhrase = lowerText.replace(priceKeyword, '').trim();
@@ -665,7 +680,7 @@ const findProductAndVariant = useCallback(
         const productPhrase = lowerText.replace(removeKeyword, '').trim();
         return { type: 'REMOVE_ITEM', productPhrase, originalText: text, lang: spokenLang };
     }
-    
+
     const detailsKeyword = intentKeywords.SHOW_DETAILS.find(kw => lowerText.includes(kw));
     if (detailsKeyword) {
         const target = lowerText.replace(detailsKeyword, '').trim();
@@ -693,7 +708,7 @@ const findProductAndVariant = useCallback(
         }
       }
     }
-    
+
     if (bestCommandMatch) {
       if (bestCommandMatch.key === 'get-recipe') {
           const recipeAliases = (getAllAliases('get-recipe')[spokenLang] || ['recipe for']);
@@ -717,13 +732,13 @@ const findProductAndVariant = useCallback(
 
     const handleCommandFailure = useCallback(async (commandText: string, spokenLang: string, reason: string) => {
         const tempId = addUnidentifiedItem(commandText);
-        
+
         if (!firestore || !user) {
             updateUnidentifiedItem(tempId, 'failed');
             speak(t('sorry-i-didnt-understand-that', spokenLang), `${spokenLang}-IN`);
             return;
         }
-    
+
         // For now, we are disabling the AI auto-correction feature.
         // We will log all failed commands for manual review.
         addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp() });
@@ -737,7 +752,7 @@ const findProductAndVariant = useCallback(
       return;
     }
     lastTranscriptRef.current = commandText;
-    
+
     if (!firestore || !user) {
         speak("I can't process commands without being connected. Please log in.", 'en-IN');
         return;
@@ -753,22 +768,22 @@ const findProductAndVariant = useCallback(
       const lowerCommandText = commandText.toLowerCase();
       let chosenVariant: ProductVariant | null = null;
       let requestedQty = 1;
-  
+
       const yesKeywords = ['yes', 'add', 'buy', 'okay', 'yep', 'yeah', 'sare', 'sari', 'sareh', 'సరే', 'అవును'];
       const noKeywords = ['no', 'cancel', 'stop', 'వద్దు', 'not now'];
-  
+
       const isYes = yesKeywords.some(kw => lowerCommandText.includes(kw));
       const isNo = noKeywords.some(kw => lowerCommandText.includes(kw));
-  
+
       // --- Start of Variant Selection Logic ---
-      
+
       // Case 1: Direct match by spoken weight (e.g., "add 1kg" or "one kilo")
       const { variant: foundVariantByWeight, requestedQty: foundQty } = await findProductAndVariant(commandText);
       if (foundVariantByWeight && context.variants.some(v => v.sku === foundVariantByWeight.sku)) {
           chosenVariant = foundVariantByWeight;
           requestedQty = foundQty;
       }
-  
+
       // Case 2: Match by spoken price (e.g., "the 50 rupee one")
       if (!chosenVariant) {
           const numbersInCommand = lowerCommandText.match(/\d+/g)?.map(Number);
@@ -782,15 +797,15 @@ const findProductAndVariant = useCallback(
               }
           }
       }
-      
+
       // Case 3: Match by position ("the first one", "second", "3")
       if (!chosenVariant) {
-          const positionalWords: { [key: string]: number } = { 
+          const positionalWords: { [key: string]: number } = {
               'first': 0, '1st': 0, 'one': 0, '1': 0, 'modati': 0, 'okati': 0, 'पहला': 0,
               'second': 1, '2nd': 1, 'two': 1, '2': 1, 'rendava': 1, 'दूसरा': 1,
               'third': 2, '3rd': 2, 'three': 2, '3': 2, 'moodava': 2, 'तीसरा': 2,
               'fourth': 3, '4th': 3, 'four': 3, '4': 3, 'nalugava': 3, 'चौथा': 3,
-              'last': context.variants.length - 1 
+              'last': context.variants.length - 1
           };
           for (const word of lowerCommandText.split(' ')) {
               if (positionalWords[word] !== undefined && context.variants[positionalWords[word]]) {
@@ -799,14 +814,14 @@ const findProductAndVariant = useCallback(
               }
           }
       }
-      
+
       // Case 4: Simple "yes" confirmation (defaults to first variant)
       if (!chosenVariant && isYes) {
           chosenVariant = context.variants[0];
       }
-  
+
       // --- End of Variant Selection Logic ---
-  
+
       if (chosenVariant) {
           const productWithContext = { ...context.product, isAiAssisted: true, matchedAlias: `Price check` };
           addItemToCart(productWithContext, chosenVariant, requestedQty || 1);
@@ -819,31 +834,33 @@ const findProductAndVariant = useCallback(
           speak("Okay, cancelled.", langWithRegion, false);
       } else {
           // If no variant was selected and it wasn't a "no", assume it's a new command
+          resetAllContext();
           handleCommand(commandText);
+          return;
       }
       resetAllContext(); // Ensure context is cleared
       return;
     }
 
-    
+
     if (isWaitingForAddressTypeRef.current) {
         const lowerCommand = commandText.toLowerCase();
         const homeKeywords = getAllAliases('homeAddress')[spokenLang] || ['home'];
         const locationKeywords = getAllAliases('currentLocation')[spokenLang] || ['current', 'location'];
-        
+
         const homeSimilarity = Math.max(...homeKeywords.map(kw => calculateSimilarity(lowerCommand, kw.toLowerCase())));
         const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(lowerCommand, kw.toLowerCase())));
-    
+
         if (homeSimilarity > 0.6 && homeSimilarity > locationSimilarity) {
             isWaitingForAddressTypeRef.current = false;
             addressRetryCountRef.current = 0;
-            
+
             handleUseHomeAddress();
             speak(commands['homeAddress'].reply, langWithRegion, triggerVoicePrompt);
         } else if (locationSimilarity > 0.6) {
             isWaitingForAddressTypeRef.current = false;
             addressRetryCountRef.current = 0;
-    
+
             handleUseCurrentLocation();
             speak(commands['currentLocation'].reply, langWithRegion, triggerVoicePrompt);
         } else {
@@ -853,12 +870,12 @@ const findProductAndVariant = useCallback(
             } else {
                 isWaitingForAddressTypeRef.current = false;
                 addressRetryCountRef.current = 0;
-                
+
                 speak(t('address-selection-cancelled-speech', replyLang), langWithRegion, false); // Pass false to stop listening
                 handleCommandFailure(commandText, spokenLang, `Address type clarification failed. Max retries reached.`);
             }
         }
-        return; 
+        return;
     }
 
 
@@ -882,16 +899,16 @@ const findProductAndVariant = useCallback(
        }
        return;
     }
-    
+
     if (formFieldToFillRef.current && profileForm) {
         profileForm.setValue(formFieldToFillRef.current, commandText, { shouldValidate: true });
         handleProfileFormInteraction();
         return;
     }
-    
+
     const multiItemSeparators = ['and', 'మరియు'];
     const separatorUsed = multiItemSeparators.find(sep => ` ${commandText.toLowerCase()} `.includes(` ${sep} `));
-    
+
     if (separatorUsed && recognizeIntent(commandText, spokenLang).type === 'ORDER_ITEM') {
         await commandActionsRef.current.orderMultipleItems(commandText.split(new RegExp(` ${separatorUsed} `, 'i')), spokenLang, commandText);
         return;
@@ -903,7 +920,7 @@ const findProductAndVariant = useCallback(
         case 'SMART_ORDER':
             await commandActionsRef.current.handleSmartOrder(intent.originalText, intent.lang);
             break;
-            
+
         case 'GET_KNOWLEDGE':
             await commandActionsRef.current.getKnowledge({ topic: intent.topic, lang: intent.lang });
             break;
@@ -911,7 +928,7 @@ const findProductAndVariant = useCallback(
         case 'GET_RECIPE':
             await commandActionsRef.current.getRecipe({ dishName: intent.dishName, lang: intent.lang });
             break;
-            
+
         case 'CHECK_PRICE':
             await commandActionsRef.current.checkPrice({ phrase: intent.productPhrase, lang: intent.lang, originalText: intent.originalText });
             break;
@@ -919,11 +936,11 @@ const findProductAndVariant = useCallback(
         case 'REMOVE_ITEM':
             await commandActionsRef.current.removeItemFromCart({ phrase: intent.productPhrase, lang: intent.lang });
             break;
-        
+
         case 'SHOW_DETAILS':
             commandActionsRef.current.showDetails({ target: intent.target, lang: intent.lang });
             break;
-        
+
         case 'MATH': {
           const nlu = runNLU(commandText, spokenLang);
           if (nlu.mathResult !== null) {
@@ -955,17 +972,8 @@ const findProductAndVariant = useCallback(
         }
         case 'ORDER_ITEM': {
             const { product, variant, requestedQty, remainingPhrase, matchedAlias, lang } = await findProductAndVariant(commandText);
-            
-            const priceData = product ? productPrices[product.name.toLowerCase()] : null;
-            const hasMultipleVariants = priceData && priceData.variants && priceData.variants.length > 1;
 
-            if (product && hasMultipleVariants && !variant) {
-                // Enter drill-down mode
-                productForVariantSelection.current = product;
-                const pricesString = priceData.variants.map(v => `₹${v.price}`).join(', ');
-                speak(`${getProductName(product)} is available for ${pricesString}. Which price would you like?`, replyLang);
-            }
-            else if (product && variant) {
+            if (product && variant) {
                 const productWithContext = { ...product, matchedAlias: matchedAlias || commandText, isAiAssisted: !!matchedAlias };
                 addItemToCart(productWithContext, variant, requestedQty);
                 onOpenCart();
@@ -1028,7 +1036,7 @@ const findProductAndVariant = useCallback(
         onStatusUpdate(`⚠️ Error: ${event.error}`);
       }
     };
-    
+
     recognition.onend = () => {
       if (isEnabledRef.current && !isSpeakingRef.current) {
         setTimeout(() => {
@@ -1062,7 +1070,7 @@ const findProductAndVariant = useCallback(
       myProfile: (params: {lang: string}) => router.push('/dashboard/customer/my-profile'),
       managePacks: (params: {lang: string}) => router.push('/dashboard/owner/packs'),
       'recipe-tester': (params: {lang: string}) => router.push('/dashboard/admin/recipe-tester'),
-      
+
       'get-recipe': async ({ dishName, lang }: { dishName: string, lang: string }) => {
         const replyLang = lang;
         const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
@@ -1187,9 +1195,9 @@ const findProductAndVariant = useCallback(
 
       if (product) {
         let priceData = productPrices[product.name.toLowerCase()];
-        
+
         if (priceData && priceData.variants && priceData.variants.length > 0) {
-          
+
           let recommendedProducts: Product[] = [];
           if (aiConfig?.isRecipeApiEnabled) {
               const recipeResult = await getIngredientsForDish({ dishName: product.name, language: 'en' });
@@ -1207,10 +1215,10 @@ const findProductAndVariant = useCallback(
           }
 
           showPriceCheck({ product, priceData, recommendedProducts });
-          
+
           const reply = t('price-check-reply-speech', replyLang)
             .replace('{productName}', getProductName(product))
-          
+
           speak(`${reply} Please select an option or say 'cancel'.`, langWithRegion, () => {
             // Set context for follow-up commands
             itemForPriceCheck.current = { product, variants: priceData.variants };
@@ -1223,7 +1231,7 @@ const findProductAndVariant = useCallback(
           return;
         }
       }
-      
+
       handleCommandFailure(originalText, lang, `Price check: product not found in phrase "${phrase}".`);
     },
     removeItemFromCart: async ({ phrase, lang }: { phrase?: string; lang: string }) => {
@@ -1242,7 +1250,7 @@ const findProductAndVariant = useCallback(
                 bestMatch = { item, similarity };
             }
         }
-        
+
         if (bestMatch && bestMatch.similarity > 0.6) {
             const { item } = bestMatch;
             removeItem(item.variant.sku);
@@ -1265,10 +1273,10 @@ const findProductAndVariant = useCallback(
                 failedItems.push(phrase.trim());
             }
         }
-        
+
         const replyLang = lang;
         const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
-        
+
         if (addedItems.length > 0) {
             onOpenCart();
             let speech;
@@ -1286,7 +1294,7 @@ const findProductAndVariant = useCallback(
         const replyLang = lang;
         const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
         clearCart(); // Start with a fresh cart for a smart order
-        
+
         const fromKeywords = ['from', 'at', 'in'];
         const toKeywords = ['to', 'at'];
 
@@ -1299,7 +1307,7 @@ const findProductAndVariant = useCallback(
                 fromKeyword = kw;
             }
         }
-        
+
         let toIndex = -1;
         let toKeyword = '';
         for (const kw of toKeywords) {
@@ -1315,7 +1323,7 @@ const findProductAndVariant = useCallback(
             return;
         }
 
-        const productPhrase = text.substring(0, fromIndex).replace(/^(order|buy|get|send)\\s+/i, '').trim();
+        const productPhrase = text.substring(0, fromIndex).replace(/^(order|buy|get|send)\s+/i, '').trim();
         const storePhrase = text.substring(fromIndex + fromKeyword.length + 1, toIndex).trim();
         const addressPhrase = text.substring(toIndex + toKeyword.length + 1).trim();
 
@@ -1418,5 +1426,3 @@ const findProductAndVariant = useCallback(
 
   return null;
 }
-
-    
