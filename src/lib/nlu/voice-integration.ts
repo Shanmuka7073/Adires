@@ -70,76 +70,76 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
   let qty = 1;
   let unit: string | null = null;
   let money: number | null = null;
+  let remainder = nlu.cleanedText;
 
   const text = nlu.cleanedText.toLowerCase();
 
-  // 1. If NLU found quantity → use it
-  if (nlu.quantity !== null) qty = nlu.quantity;
-  if (nlu.unit) unit = nlu.unit;
+  // 1. If NLU found a number, check if it's related to money.
+  if (nlu.numbers.length > 0) {
+    const currencyTerms = ['rs', 'rupees', 'rupay', '₹', 'रुपय', 'రూపాయల'];
+    // Look for a number and a currency term next to each other.
+    const moneyRegex = new RegExp(`(?:${currencyTerms.join('|')})\\s*(\\d+\\.?\\d*)|(\\d+\\.?\\d*)\\s*(?:${currencyTerms.join('|')})`, 'i');
+    const moneyMatch = text.match(moneyRegex);
 
-  // 2. Detect MONEY → rupees, rs, ₹, rupay, రూపాయల, रुपय
-  // This regex now handles currency symbols/words before OR after the number.
-  const moneyRegex =
-    /(?:₹\s*|rs\.?\s*|rupees?\s*|rupay\s*|रुपय\s*|రూపాయల\s*)(\d+\.?\d*)|(\d+\.?\d*)\s*(?:₹|rs\.?|rupees?|rupay|रुपय|రూపాయల)/;
-
-  const match = text.match(moneyRegex);
-  if (match) {
-    // The number will be in either the first or second capturing group
-    const extractedNumber = match[1] || match[2];
-    if (extractedNumber) {
-        money = parseFloat(extractedNumber);
+    if (moneyMatch) {
+      // The number will be in one of the capturing groups.
+      const numStr = moneyMatch[1] || moneyMatch[2];
+      if (numStr) {
+        money = parseFloat(numStr);
+        // Remove the money part from the remainder string
+        remainder = remainder.replace(moneyMatch[0], '').trim();
+      }
     }
   }
 
-  // 3. Detect explicit weight expressions
+  // 2. Use the first number found by NLU as quantity if not money
+  if (nlu.firstNumber !== null && money === null) {
+      qty = nlu.firstNumber;
+  }
+  if (nlu.unit) {
+    unit = nlu.unit;
+  }
+
+  // 3. Detect explicit weight expressions that NLU might have missed
   let weightMatch = text.match(/(\d+)\s*(kg|kilo|g|gm|grams|ml|ltr|liter|litre)/);
   if (weightMatch) {
     qty = parseFloat(weightMatch[1]);
     unit = weightMatch[2];
 
-    // Normalize
+    // Normalize units
     if (unit.startsWith("g")) unit = "gm";
     if (unit.startsWith("k")) unit = "kg";
     if (unit.startsWith("l")) unit = "ltr";
   }
-
-  // 4. Fractions & word fractions
+  
+  // 4. Word-based fractions
   const fractionWords: Record<string, number> = {
-    "half": 0.5,
-    "1/2": 0.5,
-    "one half": 0.5,
-    "quarter": 0.25,
-    "1/4": 0.25,
-    "three fourth": 0.75,
-    "three quarters": 0.75,
-    "3/4": 0.75,
-    "సగం": 0.5,
-    "అర": 0.5,
-    "పావు": 0.25,
-    "మూడొంతులు": 0.75,
-    "आधा": 0.5,
-    "पाव": 0.25,
-    "तीन चौथाई": 0.75
+    "half": 0.5, "one half": 0.5, "quarter": 0.25,
+    "three fourth": 0.75, "three quarters": 0.75,
+    "సగం": 0.5, "అర": 0.5, "పావు": 0.25, "మూడొంతులు": 0.75,
+    "आधा": 0.5, "पाव": 0.25, "तीन चौथाई": 0.75,
   };
 
   for (const k in fractionWords) {
     if (text.includes(k)) {
       qty = fractionWords[k];
-      if (!unit) unit = "kg"; // default
+      if (!unit) unit = "kg"; // default assumption
     }
   }
 
-  // 5. Remove number/unit/money parts → leave ONLY product
-  const remainder = text
-    .replace(moneyRegex, "")
-    .replace(/(\d+)\s*(kg|gm|g|ml|ltr|pack|piece|pieces)/, "")
-    .replace(/half|quarter|three fourth|three quarters|1\/2|1\/4|3\/4/gi, "")
-    .trim();
+  // 5. Remove quantity/unit parts to isolate the product phrase
+  if (remainder === nlu.cleanedText) { // only run if money wasn't already removed
+    remainder = text
+      .replace(/(\d+)\s*(kg|gm|g|ml|ltr|pack|piece|pieces)/, "")
+      .replace(/half|quarter|three fourth|three quarters|1\/2|1\/4|3\/4/gi, "")
+      .trim();
+  }
+
 
   return {
     qty,
     unit,
     money,
-    productPhrase: remainder
+    productPhrase: remainder,
   };
 }
