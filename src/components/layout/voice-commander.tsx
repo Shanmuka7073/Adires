@@ -481,10 +481,11 @@ const findProductAndVariant = useCallback(
     matchedAlias: string | null;
     lang: string;
   }> => {
-    
-    const { qty, unit, money, productPhrase } = extractQuantityAndProduct(runNLU(phrase, language));
+    const nluResult = runNLU(phrase, language);
+    const { qty, unit, money, productPhrase } = extractQuantityAndProduct(nluResult);
     
     let productMatch: { product: Product, alias: string, lang: string } | null = null;
+    
     if (productPhrase) {
         const directMatch = universalProductAliasMap.get(productPhrase) || universalProductAliasMap.get(productPhrase.replace(/\s/g, ''));
         if (directMatch) {
@@ -509,7 +510,7 @@ const findProductAndVariant = useCallback(
 
     const { product, lang: detectedLang, alias: matchedAlias } = productMatch;
     
-    let priceData = productPrices[product.name.toLowerCase()];
+    const priceData = productPrices[product.name.toLowerCase()];
 
     if (!priceData?.variants?.length) {
         return { product, variant: null, requestedQty: qty, remainingPhrase: productPhrase, matchedAlias, lang: detectedLang };
@@ -518,40 +519,42 @@ const findProductAndVariant = useCallback(
     let chosenVariant: ProductVariant | null = null;
     let finalQty = qty;
 
-    // Determine the base unit for this product (kg or g)
-    const baseVariant = priceData.variants[0];
-    const isBaseKg = baseVariant.weight.includes('kg');
-    const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
-    const baseWeight = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
-    const pricePerBaseUnit = baseVariant.price / baseWeight;
-
-    // Convert requested quantity to the product's base unit.
-    let requestedQtyInBaseUnit = finalQty;
-    if (unit === 'kg' && !isBaseKg) { // User said KG, product sold in G
-        requestedQtyInBaseUnit = finalQty * 1000;
-    } else if (unit === 'gm' && isBaseKg) { // User said G, product sold in KG
-        requestedQtyInBaseUnit = finalQty / 1000;
-    }
-
     if (money && money > 0) {
-        requestedQtyInBaseUnit = money / pricePerBaseUnit;
-    }
-    
-    const newPrice = requestedQtyInBaseUnit * pricePerBaseUnit;
-    const newWeight = isBaseKg ? `${requestedQtyInBaseUnit * 1000}gm` : `${requestedQtyInBaseUnit}gm`;
-    
-    // Create a temporary, perfectly-priced variant for the exact requested amount.
-    chosenVariant = {
-        price: newPrice,
-        weight: newWeight,
-        sku: `${baseVariant.sku}-custom-${requestedQtyInBaseUnit}`,
-        stock: baseVariant.stock, // Assume base stock is sufficient
-    };
-    finalQty = 1; // Quantity is now 1, because the variant itself represents the total amount.
+        const baseVariant = priceData.variants.find(v => v.weight.includes('kg')) || priceData.variants[0];
+        const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
+        const baseWeight = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
+        const isBaseKg = baseVariant.weight.includes('kg');
+        const pricePerGram = baseVariant.price / (isBaseKg ? baseWeight * 1000 : baseWeight);
 
+        const requestedGrams = money / pricePerGram;
 
-    // If no specific unit was mentioned and it's a simple number, find the best matching variant.
-    if (!unit && !money) {
+        chosenVariant = {
+            price: money,
+            weight: `${Math.round(requestedGrams)}gm`,
+            sku: `${baseVariant.sku}-custom-${money}`,
+            stock: baseVariant.stock,
+        };
+        finalQty = 1;
+    } else if (unit) { // Handle explicit units like 'kg' or 'gm'
+        const isKgRequested = unit === 'kg';
+        const requestedGrams = isKgRequested ? finalQty * 1000 : finalQty;
+
+        const baseVariant = priceData.variants.find(v => v.weight.includes('kg')) || priceData.variants[0];
+        const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
+        const baseWeight = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
+        const isBaseKg = baseVariant.weight.includes('kg');
+        const pricePerGram = baseVariant.price / (isBaseKg ? baseWeight * 1000 : baseWeight);
+        
+        const newPrice = requestedGrams * pricePerGram;
+        
+        chosenVariant = {
+            price: newPrice,
+            weight: `${Math.round(requestedGrams)}gm`,
+            sku: `${baseVariant.sku}-custom-${requestedGrams}gm`,
+            stock: baseVariant.stock,
+        };
+        finalQty = 1;
+    } else { // Handle case with no unit, just a number
         chosenVariant = priceData.variants.find(v => {
             const variantWeightMatch = v.weight.match(/(\d+\.?\d*)/);
             const variantWeight = variantWeightMatch ? parseFloat(variantWeightMatch[0]) : 0;

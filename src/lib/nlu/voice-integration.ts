@@ -75,13 +75,11 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
   // Regex to find currency amounts, e.g., "rs 30", "30 rupees", "₹50"
   const moneyRegex = /(?:rs|rupees|₹|rupay|rupayalu)\.?\s*(\d+\.?\d*)|(\d+\.?\d*)\s*(?:rs|rupees|₹|rupay|rupayalu)\.?/i;
   
-  // Regex to find weights, e.g., "5kg", "250 gm", "1.5 kilo"
-  const weightRegex = /(\d+\.?\d*)\s*(kg|kilo|kilos|g|gm|grams|gram|gms|milliliter|ml|liter|ltr)/i;
-
-  // Regex for pieces/packets, e.g., "2 packs", "1 piece"
+  // This more specific regex prevents "g" from matching "kg" accidentally.
+  const weightRegex = /(\d+\.?\d*)\s*(kg|kilos?|kilogram|grams?|gm|g|milliliter|ml|liters?|ltr)/i;
+  
   const pieceRegex = /(\d+)\s*(pack|packet|pc|piece|pieces)/i;
   
-  // Words representing fractions
   const fractionWords: Record<string, number> = {
     "half": 0.5, "1/2": 0.5, "one half": 0.5,
     "quarter": 0.25, "1/4": 0.25,
@@ -98,7 +96,8 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     text = text.replace(match[0], '').trim();
   } else if ((match = text.match(weightRegex))) {
     qty = parseFloat(match[1]);
-    const unitRaw = match[2];
+    const unitRaw = match[2].toLowerCase();
+    
     // Normalize unit
     if (unitRaw.startsWith('k')) {
         unit = 'kg';
