@@ -487,7 +487,7 @@ const findProductAndVariant = useCallback(
 
     let qty = extracted.qty || 1;
     let unit = extracted.unit || null;
-    let money = (extracted as any).money || null;
+    let money = extracted.money || null;
 
     let lowerPhrase = extracted.productPhrase.toLowerCase().trim();
     let sanitizedPhrase = lowerPhrase.replace(/[-.,]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -547,13 +547,16 @@ const findProductAndVariant = useCallback(
     if (money) {
       const perKgVariant =
         priceData.variants.find((v) => v.weight.includes("kg")) ||
+        priceData.variants.find((v) => v.weight.includes("ltr")) ||
+        priceData.variants.find((v) => v.weight.includes("liter")) ||
         priceData.variants[0];
 
-      const pricePerKg = perKgVariant.price;
-      const weightKg = money / pricePerKg; 
-
-      qty = weightKg;
-      unit = "kg";
+      if (perKgVariant && perKgVariant.price > 0) {
+          const pricePerBaseUnit = perKgVariant.price;
+          const weightInBaseUnits = money / pricePerBaseUnit;
+          qty = weightInBaseUnits;
+          unit = perKgVariant.weight.includes("kg") ? "kg" : "ltr";
+      }
     }
 
     // ---------- EXPLICIT WEIGHTS ----------
@@ -566,6 +569,12 @@ const findProductAndVariant = useCallback(
       qty = qty / 1000;
       unit = "ltr";
     }
+    
+    // Normalize liter variations
+    if (unit === "liter" || unit === "litre") {
+      unit = "ltr";
+    }
+
 
     // ---------- FRACTIONS ----------
     if (!extracted.unit && qty < 1 && qty !== 1) {
@@ -575,10 +584,15 @@ const findProductAndVariant = useCallback(
     // ---------- VARIANT SELECTION ----------
     let chosenVariant: ProductVariant | null = null;
 
-    // Case 1: Match unit → kg/gm/ltr
+    // Case 1: Match unit → kg/gm/ltr/pc
     if (unit) {
       for (const v of priceData.variants) {
-        if (v.weight.toLowerCase().includes(unit)) {
+        const lowerWeight = v.weight.toLowerCase();
+        if (unit === 'ltr' && (lowerWeight.includes('ltr') || lowerWeight.includes('liter'))) {
+             chosenVariant = v;
+             break;
+        }
+        if (lowerWeight.includes(unit)) {
           chosenVariant = v;
           break;
         }
@@ -588,7 +602,6 @@ const findProductAndVariant = useCallback(
     // Case 2: Fractional KG (0.25kg → 250gm)
     if (!chosenVariant && unit === "kg" && qty > 0 && qty < 1) {
       const grams = qty * 1000;
-
       const variantByGram = priceData.variants.find((v) => {
         const numeric = parseFloat(v.weight);
         return Math.abs(numeric - grams) < 5;
@@ -604,6 +617,8 @@ const findProductAndVariant = useCallback(
       chosenVariant =
         priceData.variants.find((v) => v.weight === "1kg") ||
         priceData.variants.find((v) => v.weight.includes("kg")) ||
+        priceData.variants.find((v) => v.weight.includes("ltr")) ||
+        priceData.variants.find((v) => v.weight.includes("liter")) ||
         priceData.variants.find((v) => v.weight.includes("pc")) ||
         priceData.variants[0];
     }
@@ -1403,3 +1418,5 @@ const findProductAndVariant = useCallback(
 
   return null;
 }
+
+    

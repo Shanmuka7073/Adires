@@ -70,25 +70,18 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
   let qty = 1;
   let unit: string | null = null;
   let money: number | null = null;
-  let remainder = nlu.cleanedText;
 
   const text = nlu.cleanedText.toLowerCase();
 
   // 1. If NLU found a number, check if it's related to money.
-  if (nlu.numbers.length > 0) {
-    const currencyTerms = ['rs', 'rupees', 'rupay', '₹', 'रुपय', 'రూపాయల'];
-    // Look for a number and a currency term next to each other.
-    const moneyRegex = new RegExp(`(?:${currencyTerms.join('|')})\\s*(\\d+\\.?\\d*)|(\\d+\\.?\\d*)\\s*(?:${currencyTerms.join('|')})`, 'i');
-    const moneyMatch = text.match(moneyRegex);
+  const currencyTerms = ['rs', 'rupees', 'rupay', '₹', 'रुपय', 'రూపాయల'];
+  const moneyRegex = new RegExp(`(?:${currencyTerms.join('|')})\\s*(\\d+\\.?\\d*)|(\\d+\\.?\\d*)\\s*(?:${currencyTerms.join('|')})`, 'i');
+  const moneyMatch = text.match(moneyRegex);
 
-    if (moneyMatch) {
-      // The number will be in one of the capturing groups.
-      const numStr = moneyMatch[1] || moneyMatch[2];
-      if (numStr) {
-        money = parseFloat(numStr);
-        // Remove the money part from the remainder string
-        remainder = remainder.replace(moneyMatch[0], '').trim();
-      }
+  if (moneyMatch) {
+    const numStr = moneyMatch[1] || moneyMatch[2];
+    if (numStr) {
+      money = parseFloat(numStr);
     }
   }
 
@@ -126,15 +119,25 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
       if (!unit) unit = "kg"; // default assumption
     }
   }
-
-  // 5. Remove quantity/unit parts to isolate the product phrase
-  if (remainder === nlu.cleanedText) { // only run if money wasn't already removed
-    remainder = text
-      .replace(/(\d+)\s*(kg|gm|g|ml|ltr|pack|piece|pieces)/, "")
-      .replace(/half|quarter|three fourth|three quarters|1\/2|1\/4|3\/4/gi, "")
-      .trim();
+  
+  const fractionRegex = /(\d+)\/(\d+)/;
+  const fractionMatch = text.match(fractionRegex);
+  if(fractionMatch) {
+      const numerator = parseInt(fractionMatch[1], 10);
+      const denominator = parseInt(fractionMatch[2], 10);
+      if(denominator !== 0) {
+          qty = numerator / denominator;
+          if (!unit) unit = "kg"; // default assumption
+      }
   }
 
+
+  // 5. Remove number/unit/money parts to isolate the product phrase
+  const remainder = text
+    .replace(moneyRegex, "")
+    .replace(/(\d+)\s*(kg|gm|g|ml|ltr|pack|piece|pieces|liter|litre)/, "")
+    .replace(/half|quarter|three fourth|three quarters|1\/2|1\/4|3\/4/gi, "")
+    .trim();
 
   return {
     qty,
@@ -143,3 +146,5 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     productPhrase: remainder,
   };
 }
+
+    
