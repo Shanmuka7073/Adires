@@ -1,7 +1,8 @@
 
 'use client';
 import { parseRefsFromText } from './ref-parser';
-import { resolveRefData, RefResolverResult } from './ref-resolver';
+// Corrected import to use named import
+import { resolveRefData, type RefResolverResult } from './ref-resolver';
 
 export interface NLUResult extends RefResolverResult {
   cleanedText: string;
