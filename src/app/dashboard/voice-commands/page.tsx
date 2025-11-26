@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useEffect, useRef } from 'react';
@@ -31,18 +32,18 @@ export default function VoiceCommandsPage() {
     const [activeTab, setActiveTab] = useState('general');
 
     // Data from the global store
-    const { 
-        masterProducts, 
-        stores, 
-        locales: initialLocales, 
-        commands: initialCommands, 
-        fetchInitialData 
+    const {
+        masterProducts,
+        stores,
+        locales: initialLocales,
+        commands: initialCommands,
+        fetchInitialData
     } = useAppStore();
 
     // Local state for UI edits, initialized from the global store
     const [locales, setLocales] = useState<Locales>(initialLocales);
     const [commands, setCommands] = useState<Record<string, CommandGroup>>(initialCommands);
-    
+
     // Local state for UI interactions
     const [newAliases, setNewAliases] = useState<Record<string, Record<string, string>>>({});
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -90,17 +91,17 @@ export default function VoiceCommandsPage() {
 
         let addedCount = 0;
         const duplicates: string[] = [];
-        
+
         setLocales(currentLocales => {
             const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
             if (!updatedLocales[itemKey]) {
                 updatedLocales[itemKey] = {};
             }
-            
-            const existingAliases = Array.isArray(updatedLocales[itemKey][lang]) 
-                ? updatedLocales[itemKey][lang] as string[] 
+
+            const existingAliases = Array.isArray(updatedLocales[itemKey][lang])
+                ? updatedLocales[itemKey][lang] as string[]
                 : (updatedLocales[itemKey][lang] ? [updatedLocales[itemKey][lang] as string] : []);
-            
+
             const existingAliasSet = new Set(existingAliases.map(a => a.toLowerCase()));
             const aliasesToAdd = [...new Set(newAliasInput.split(',').map(alias => alias.trim()).filter(Boolean))];
 
@@ -146,7 +147,7 @@ export default function VoiceCommandsPage() {
             } else if (itemLangEntry === aliasToRemove) {
                 delete updatedLocales[itemKey][lang];
             }
-            
+
             if (updatedLocales[itemKey] && Object.keys(updatedLocales[itemKey]).length === 0) {
                 delete updatedLocales[itemKey];
             }
@@ -154,7 +155,7 @@ export default function VoiceCommandsPage() {
         });
         toast({ title: 'Alias Removed Locally', description: 'Remember to save your changes.' });
     };
-    
+
     const handleCommandUpdate = (key: string, field: 'display' | 'reply', value: string) => {
         setCommands(current => ({
             ...current,
@@ -182,7 +183,7 @@ export default function VoiceCommandsPage() {
         setNewCommandReply('');
         toast({ title: 'New command added!', description: `Don't forget to save your changes.` });
     };
-    
+
     const handleDeleteCommand = (keyToDelete: string) => {
         if (window.confirm(`Are you sure you want to permanently delete the "${commands[keyToDelete]?.display || keyToDelete}" command and all its aliases? This cannot be undone.`)) {
             setCommands(current => {
@@ -210,13 +211,13 @@ export default function VoiceCommandsPage() {
             const existingAliasDocs = await getDocs(aliasGroupCollectionRef);
             const existingKeys = new Set(existingAliasDocs.docs.map(d => d.id));
             const existingCommandKeys = new Set((await getDocs(commandCollectionRef)).docs.map(d => d.id));
-            
+
             const itemTypes = new Map([
                 ...masterProducts.map(p => [createSlug(p.name), 'product']),
                 ...stores.map(s => [createSlug(s.name), 'store']),
                 ...Object.keys(commands).map(c => [c, 'command'])
             ]);
-            
+
             // Sync Aliases
             for (const key in locales) {
                 const docRef = doc(aliasGroupCollectionRef, key);
@@ -225,7 +226,7 @@ export default function VoiceCommandsPage() {
                     const aliases = locales[key][lang];
                     newData[lang] = Array.isArray(aliases) ? aliases : (aliases ? [aliases] : []);
                 }
-                
+
                 // Use set with merge instead of trying to figure out if it's an update or create
                 newData.type = itemTypes.get(key) || 'command';
                 batch.set(docRef, newData, { merge: true });
@@ -328,8 +329,8 @@ export default function VoiceCommandsPage() {
                         if (result.replies) {
                            setCommands(current => ({
                                 ...current,
-                                [commandKey]: { 
-                                    ...current[commandKey], 
+                                [commandKey]: {
+                                    ...current[commandKey],
                                     reply: {
                                         en: result.replies.en.join(', '),
                                         te: result.replies.te.join(', '),
@@ -371,7 +372,7 @@ export default function VoiceCommandsPage() {
                              <Textarea value={commandData.reply.hi || ''} onChange={(e) => setCommands(c => ({...c, [commandKey]: {...c[commandKey], reply: {...c[commandKey].reply, hi: e.target.value}} }))} placeholder="Enter Hindi reply..." />
                              <p className="text-xs text-muted-foreground">If multiple replies are provided (comma-separated), the app will choose one at random.</p>
                         </div>
-                        
+
                         <Button onClick={handleSuggestCommandAliases} size="sm" disabled={isSuggesting}>
                             {isSuggesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                             Suggest Aliases & Replies with AI
@@ -560,7 +561,7 @@ export default function VoiceCommandsPage() {
             </Card>
         );
     };
-    
+
     const AliasAccordionItem = ({ item, icon: IconComponent }) => {
         const itemKey = createSlug(item.name);
         const itemAliases = locales[itemKey] || {};
@@ -578,12 +579,12 @@ export default function VoiceCommandsPage() {
                             if (!updatedLocales[itemKey]) {
                                 updatedLocales[itemKey] = {};
                             }
-                            
+
                             for (const lang in result.aliases) {
                                 const newAliases = result.aliases[lang];
                                 const existingAliases = new Set(
-                                    Array.isArray(updatedLocales[itemKey][lang]) 
-                                        ? updatedLocales[itemKey][lang] as string[] 
+                                    Array.isArray(updatedLocales[itemKey][lang])
+                                        ? updatedLocales[itemKey][lang] as string[]
                                         : (updatedLocales[itemKey][lang] ? [updatedLocales[itemKey][lang] as string] : [])
                                 );
                                 newAliases.forEach(alias => existingAliases.add(alias));
@@ -591,7 +592,7 @@ export default function VoiceCommandsPage() {
                             }
                             return updatedLocales;
                         });
-                        
+
                         toast({ title: 'AI Suggestions Loaded!', description: `New aliases for "${item.name}" are ready for review. Remember to save.` });
                     }
                 } catch (error) {
@@ -674,7 +675,7 @@ export default function VoiceCommandsPage() {
                 <h1 className="text-4xl font-bold font-headline">AI Training Center</h1>
                 <p className="text-lg text-muted-foreground mt-2">This is the brain of your app. Add aliases and commands to make the AI smarter.</p>
             </div>
-            
+
             <div className="flex justify-center gap-2 mb-8">
                 <Button variant={activeTab === 'general' ? 'default' : 'outline'} onClick={() => setActiveTab('general')}>General Commands</Button>
                 <Button variant={activeTab === 'products' ? 'default' : 'outline'} onClick={() => setActiveTab('products')}>Product Aliases</Button>
@@ -722,73 +723,3 @@ export default function VoiceCommandsPage() {
         </div>
     );
 }
-
-    
-```
-  </change>
-  <change>
-    <file>/src/ai/flows/suggest-number-aliases-flow.ts</file>
-    <content><![CDATA[
-'use server';
-/**
- * @fileOverview An AI flow to suggest multilingual aliases for a number.
- *
- * - suggestNumberAliases - A function that suggests aliases for a number.
- * - SuggestNumberAliasesInput - The input type for the flow.
- * - SuggestNumberAliasesOutput - The return type for the flow.
- */
-
-import { ai } from '@/ai/genkit';
-import { z } from 'zod';
-import { googleAI } from '@genkit-ai/google-genai';
-
-const SuggestNumberAliasesInputSchema = z.object({
-  number: z.string().describe('The cardinal number (e.g., "1", "25").'),
-  name: z.string().describe('The English word for the number (e.g., "one", "twenty-five").'),
-});
-export type SuggestNumberAliasesInput = z.infer<typeof SuggestNumberAliasesInputSchema>;
-
-const AliasesSchema = z.object({
-    en: z.array(z.string()).describe("A list of common English aliases and misspellings."),
-    te: z.array(z.string()).describe("A list of common Telugu aliases, including both native script and their Roman script transliterations."),
-    hi: z.array(z.string()).describe("A list of common Hindi aliases, including both Devanagari script and their Roman script transliterations."),
-});
-
-const SuggestNumberAliasesOutputSchema = z.object({
-  aliases: AliasesSchema.describe("The suggested aliases for the number in different languages."),
-});
-export type SuggestNumberAliasesOutput = z.infer<typeof SuggestNumberAliasesOutputSchema>;
-
-export async function suggestNumberAliases(input: SuggestNumberAliasesInput): Promise<SuggestNumberAliasesOutput> {
-  return suggestNumberAliasesFlow(input);
-}
-
-const prompt = ai.definePrompt({
-  name: 'suggestNumberAliasesPrompt',
-  input: {schema: SuggestNumberAliasesInputSchema},
-  output: {schema: SuggestNumberAliasesOutputSchema},
-  model: googleAI.model('gemini-2.5-flash'),
-  prompt: `You are a linguistic expert for a voice-controlled app in India. Your task is to generate common aliases for the number {{number}} ({{name}}).
-
-Generate common ways people might say or spell this number.
-
-1.  **te (Telugu)**: Provide the Telugu word in its native script (e.g., 'ఒకటి') AND its common Roman script transliterations (e.g., 'okati', 'oka').
-2.  **hi (Hindi)**: Provide the Hindi word in Devanagari script (e.g., 'एक') AND its common Roman script transliteration (e.g., 'ek').
-3.  **en (English)**: Provide common misspellings or alternative phrasings for the English word. Include the Roman transliterations from Telugu and Hindi here as well.
-
-Keep the lists concise and focused on the most common terms.
-`,
-});
-
-const suggestNumberAliasesFlow = ai.defineFlow(
-  {
-    name: 'suggestNumberAliasesFlow',
-    inputSchema: SuggestNumberAliasesInputSchema,
-    outputSchema: SuggestNumberAliasesOutputSchema,
-  },
-  async (input) => {
-    const { output } = await prompt(input);
-    return output!;
-  }
-);
-`
