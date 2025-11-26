@@ -1,17 +1,26 @@
 
-
 'use client';
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Firestore, collection, getDocs, query, where } from 'firebase/firestore';
-import { Store, Product, ProductPrice, VoiceAliasGroup, ProfileFormValues } from './types';
+import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
 import { getStores, getMasterProducts, getProductPrice } from './data';
 import { useFirebase } from '@/firebase';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { t as translate, initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups } from '@/lib/locales';
 import { generalCommands as defaultGeneralCommands, CommandGroup } from '@/lib/locales/commands';
+
+
+export interface ProfileFormValues {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  [key: string]: any;
+}
 
 export interface AppState {
   stores: Store[];

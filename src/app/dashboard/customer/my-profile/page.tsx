@@ -13,10 +13,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useToast } from '@/hooks/use-toast';
 import { doc, setDoc } from 'firebase/firestore';
 import { useTransition, useEffect } from 'react';
-import type { User as AppUser, ProfileFormValues } from '@/lib/types';
+import type { User as AppUser } from '@/lib/types';
 import { Loader2, Fingerprint, Store, Truck, Voicemail, LogOut, LayoutDashboard } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useProfileFormStore } from '@/lib/store';
+import { useProfileFormStore, ProfileFormValues } from '@/lib/store';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { getAuth, signOut } from 'firebase/auth';

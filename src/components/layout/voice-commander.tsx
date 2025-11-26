@@ -8,14 +8,14 @@ import { useFirebase, errorEmitter, useDoc, useMemoFirebase } from '@/firebase';
 import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, SiteConfig, VoiceAliasGroup } from '@/lib/types';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
-import { useAppStore } from '@/lib/store';
+import { useAppStore, ProfileFormValues } from '@/lib/store';
 import { useMyStorePageStore } from '@/lib/store';
 import { t } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection, query, where, getDocs, writeBatch, arrayUnion, setDoc } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { useCheckoutStore } from '@/app/checkout/page';
-import { useProfileFormStore, ProfileFormValues } from '@/lib/store';
+import { useProfileFormStore } from '@/lib/store';
 import { getWikipediaSummary, getMealDbRecipe } from '@/app/actions';
 import { useVoiceCommanderContext } from './main-layout';
 import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
@@ -148,7 +148,7 @@ export function VoiceCommander({
 
     for (const p of masterProducts) {
       if (!p.name) continue;
-      const productSlug = p.name.toLowerCase().replace(/ /g, '-');
+      const productSlug = p?.name?.toLowerCase().replace(/ /g, '-') ?? '';
       const productAliasesByLang = getAllAliases(productSlug);
       
       const normalizedCanonicalName = p.name.toLowerCase();
@@ -304,7 +304,7 @@ export function VoiceCommander({
     let audioUrl: string | undefined = undefined;
 
     if (typeof textOrReply === 'object' && textOrReply !== null) {
-        audioUrl = textOrReply[targetLang + '_audio' as keyof typeof textOrReply];
+        audioUrl = textOrReply[`${targetLang}_audio`];
         textToSpeak = textOrReply[targetLang] || textOrReply['en'] || '';
     } else if (typeof textOrReply === 'string') {
         textToSpeak = textOrReply;
@@ -472,7 +472,7 @@ export function VoiceCommander({
     };
   }, [pathname, hasMounted, enabled, profileForm, handleProfileFormInteraction]);
 
-  const findProductAndVariant = useCallback(
+const findProductAndVariant = useCallback(
   async (phrase: string): Promise<{
     product: Product | null;
     variant: ProductVariant | null;
@@ -620,6 +620,7 @@ export function VoiceCommander({
   },
   [language, universalProductAliasMap, productPrices]
 );
+
 
   const recognizeIntent = useCallback((text: string, spokenLang: string): Intent => {
     const lowerText = text.toLowerCase().trim();
@@ -978,7 +979,7 @@ export function VoiceCommander({
       placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress,
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
       removeItem, addUnidentifiedItem, updateUnidentifiedItem, router, stores, productPrices,
-      showPriceCheck, hidePriceCheck
+      showPriceCheck, hidePriceCheck, masterProducts
   ]);
 
     // Effect to handle retrying a command
@@ -1185,7 +1186,7 @@ export function VoiceCommander({
           }
           if (recommendedProducts.length === 0) {
                recommendedProducts = masterProducts
-                .filter(p => p.category === product.category && p.id !== product.id)
+                .filter(p => p?.category === product.category && p.id !== product.id)
                 .sort(() => 0.5 - Math.random())
                 .slice(0, 5);
           }
@@ -1299,7 +1300,7 @@ export function VoiceCommander({
             return;
         }
 
-        const productPhrase = text.substring(0, fromIndex).replace(/^(order|buy|get|send)\s+/i, '').trim();
+        const productPhrase = text.substring(0, fromIndex).replace(/^(order|buy|get|send)\\s+/i, '').trim();
         const storePhrase = text.substring(fromIndex + fromKeyword.length + 1, toIndex).trim();
         const addressPhrase = text.substring(toIndex + toKeyword.length + 1).trim();
 
@@ -1397,7 +1398,7 @@ export function VoiceCommander({
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
       removeItem, addUnidentifiedItem, updateUnidentifiedItem,
       getProductName, addItemToCart, locales, commands, getAllAliases, recognizeIntent, stores,
-      showPriceCheck, hidePriceCheck
+      showPriceCheck, hidePriceCheck, findProductAndVariant
   ]);
 
   return null;
