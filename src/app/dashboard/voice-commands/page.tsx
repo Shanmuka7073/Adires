@@ -20,6 +20,7 @@ import { CommandGroup, generalCommands as defaultGeneralCommands } from '@/lib/l
 import { suggestProductAliases } from '@/ai/flows/suggest-product-aliases-flow';
 import { suggestCommandAliases } from '@/ai/flows/suggest-command-aliases-flow';
 import { suggestNumberAliases } from '@/ai/flows/suggest-number-aliases-flow';
+import { generateAllNumberAliases } from '@/ai/flows/generate-all-number-aliases-flow';
 
 
 const createSlug = (text: string) => text.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-');
@@ -543,13 +544,44 @@ export default function VoiceCommandsPage() {
     const renderNumberCommands = () => {
         const numbers = Array.from({ length: 100 }, (_, i) => i + 1);
         const numberNames = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen", "Twenty", "Twenty-One", "Twenty-Two", "Twenty-Three", "Twenty-Four", "Twenty-Five", "Twenty-Six", "Twenty-Seven", "Twenty-Eight", "Twenty-Nine", "Thirty", "Thirty-One", "Thirty-Two", "Thirty-Three", "Thirty-Four", "Thirty-Five", "Thirty-Six", "Thirty-Seven", "Thirty-Eight", "Thirty-Nine", "Forty", "Forty-One", "Forty-Two", "Forty-Three", "Forty-Four", "Forty-Five", "Forty-Six", "Forty-Seven", "Forty-Eight", "Forty-Nine", "Fifty", "Fifty-One", "Fifty-Two", "Fifty-Three", "Fifty-Four", "Fifty-Five", "Fifty-Six", "Fifty-Seven", "Fifty-Eight", "Fifty-Nine", "Sixty", "Sixty-One", "Sixty-Two", "Sixty-Three", "Sixty-Four", "Sixty-Five", "Sixty-Six", "Sixty-Seven", "Sixty-Eight", "Sixty-Nine", "Seventy", "Seventy-One", "Seventy-Two", "Seventy-Three", "Seventy-Four", "Seventy-Five", "Seventy-Six", "Seventy-Seven", "Seventy-Eight", "Seventy-Nine", "Eighty", "Eighty-One", "Eighty-Two", "Eighty-Three", "Eighty-Four", "Eighty-Five", "Eighty-Six", "Eighty-Seven", "Eighty-Eight", "Eighty-Nine", "Ninety", "Ninety-One", "Ninety-Two", "Ninety-Three", "Ninety-Four", "Ninety-Five", "Ninety-Six", "Ninety-Seven", "Ninety-Eight", "Ninety-Nine", "One Hundred"];
+        const [isBulkGenerating, startBulkGeneration] = useTransition();
+
+        const handleGenerateAll = () => {
+            startBulkGeneration(async () => {
+                try {
+                    const result = await generateAllNumberAliases();
+                    if (result && result.allAliases) {
+                        setLocales(currentLocales => {
+                            const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
+                            for (const key in result.allAliases) {
+                                if (Object.prototype.hasOwnProperty.call(result.allAliases, key)) {
+                                    updatedLocales[key] = result.allAliases[key];
+                                }
+                            }
+                            return updatedLocales;
+                        });
+                        toast({ title: 'AI Generation Complete!', description: 'All number aliases have been populated. Please review and save.' });
+                    }
+                } catch (error) {
+                     toast({ variant: 'destructive', title: 'Bulk AI Generation Failed', description: (error as Error).message });
+                }
+            });
+        };
+
+
         return (
             <Card className="max-w-4xl mx-auto">
                  <CardHeader>
                     <CardTitle>Manage Number Aliases</CardTitle>
-                    <CardDescription>
-                        Add regional spellings, transliterations, and colloquialisms for numbers to improve voice recognition for quantities.
-                    </CardDescription>
+                    <div className="flex justify-between items-center">
+                        <CardDescription>
+                            Add regional spellings, transliterations, and colloquialisms for numbers to improve voice recognition for quantities.
+                        </CardDescription>
+                        <Button onClick={handleGenerateAll} disabled={isBulkGenerating}>
+                            {isBulkGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                            Generate All (1-100)
+                        </Button>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <Accordion type="multiple" className="w-full">
