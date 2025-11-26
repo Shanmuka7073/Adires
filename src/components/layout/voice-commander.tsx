@@ -19,8 +19,6 @@ import { useProfileFormStore, ProfileFormValues } from '@/lib/store';
 import { getWikipediaSummary, getMealDbRecipe } from '@/app/actions';
 import { useVoiceCommanderContext } from './main-layout';
 import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
-import { runNLU, extractQuantityAndProduct } from '@/lib/nlu/voice-integration';
-import RefConfirmDialog from '@/components/RefConfirmDialog';
 
 
 export interface Command {
@@ -139,9 +137,6 @@ export function VoiceCommander({
   const [speechSynthesisVoices, setSpeechSynthesisVoices] = useState<SpeechSynthesisVoice[]>([]);
   
   const [hasRunCheckoutPrompt, setHasRunCheckoutPrompt] = useState(false);
-  
-  const [confirmCandidates, setConfirmCandidates] = useState<ProductVariant[] | null>(null);
-  const lastIndexRef = useRef(-1);
   
     // --- Performance Optimization: Memoized Alias Maps ---
   const universalProductAliasMap = useMemo<AliasToProductMap>(() => {
@@ -475,60 +470,102 @@ export function VoiceCommander({
   }, [pathname, hasMounted, enabled, profileForm, handleProfileFormInteraction]);
 
   const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null; variant: ProductVariant | null; requestedQty: number; remainingPhrase: string; matchedAlias: string | null; lang: string; }> => {
-    const nlu = runNLU(phrase, language);
-    const { qty, productPhrase } = extractQuantityAndProduct(nlu);
+    const lowerPhrase = phrase.toLowerCase();
+    const sanitizedPhrase = lowerPhrase.replace(/[-.,]/g, ' ').replace(/\s+/g, ' ').trim();
+    const words = sanitizedPhrase.split(' ');
 
-    if (!productPhrase) {
-        return { product: null, variant: null, requestedQty: qty, remainingPhrase: phrase, matchedAlias: null, lang: language };
+    let requestedQty = 1;
+    let requestedUnit: 'kg' | 'gm' | 'pc' | 'pack' | null = null;
+    const remainingWords: string[] = [];
+
+    const numberWords: { [key: string]: number } = {
+        'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+        'oka': 1, 'okati': 1, 'rendu': 2, 'moodu': 3, 'nalugu': 4, 'aidu': 5, 'aaru': 6, 'yedu': 7, 'enimidi': 8, 'tommidi': 9, 'padi': 10,
+        'ek': 1, 'do': 2, 'teen': 3, 'char': 4, 'paanch': 5, 'chhe': 6, 'saat': 7, 'aath': 8, 'nau': 9, 'das': 10,
+        'half': 0.5, 'ara': 0.5, 'paavu': 0.25, 'quarter': 0.25,
+    };
+    const unitKeywords: { [key: string]: { type: 'kg' | 'gm' | 'pc' | 'pack' } } = {
+        'kg': { type: 'kg' }, 'kilo': { type: 'kg' }, 'kilos': { type: 'kg' }, 'కిలో': { type: 'kg' }, 'కేజీ': { type: 'kg' }, 'किलो': { type: 'kg' },
+        'gm': { type: 'gm' }, 'g': { type: 'gm' }, 'grams': { type: 'gm' }, 'గ్రాములు': { type: 'gm' }, 'ग्राम': { type: 'gm' },
+        'pc': { type: 'pc' }, 'piece': { type: 'pc' }, 'pieces': { type: 'pc' }, 'పీస్': { type: 'pc' }, 'पीस': { type: 'pc' },
+        'pack': { type: 'pack' }, 'packet': { type: 'pack' }, 'ప్యాక్': { type: 'pack' }, 'पैकेट': { type: 'pack' }
+    };
+
+    let foundNumberWord = false;
+    for (const word of words) {
+        let consumed = false;
+        
+        // Prioritize number words
+        if (numberWords[word]) {
+            requestedQty = numberWords[word];
+            consumed = true;
+            foundNumberWord = true;
+        } 
+        // Then check for digits, but only if a number word hasn't been found
+        else if (!foundNumberWord && !isNaN(parseFloat(word))) {
+            requestedQty = parseFloat(word);
+            consumed = true;
+        } 
+        // Then check for units
+        else if (unitKeywords[word]) {
+            requestedUnit = unitKeywords[word].type;
+            consumed = true;
+        }
+
+        if (!consumed) {
+            remainingWords.push(word);
+        }
     }
+
+    let productNamePhrase = remainingWords.join(' ');
+
 
     let productMatch: { product: Product, alias: string, lang: string } | null = null;
     
-    const directMatch = universalProductAliasMap.get(productPhrase) || universalProductAliasMap.get(productPhrase.replace(/\s/g, ''));
-    if (directMatch) {
-        productMatch = { ...directMatch, alias: productPhrase };
-    } else {
-        let bestMatch: { product: Product, alias: string, similarity: number, lang: string } | null = null;
-        for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
-            const similarity = calculateSimilarity(productPhrase, alias);
-            if (similarity > 0.8 && (!bestMatch || similarity > bestMatch.similarity)) {
-                bestMatch = { product, alias, similarity, lang };
+    if (productNamePhrase) {
+        const directMatch = universalProductAliasMap.get(productNamePhrase) || universalProductAliasMap.get(productNamePhrase.replace(/\s/g, ''));
+        if (directMatch) {
+            productMatch = { ...directMatch, alias: productNamePhrase };
+        } else {
+            let bestMatch: { product: Product, alias: string, similarity: number, lang: string } | null = null;
+            for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
+                const similarity = calculateSimilarity(productNamePhrase, alias);
+                if (similarity > 0.8 && (!bestMatch || similarity > bestMatch.similarity)) {
+                    bestMatch = { product, alias, similarity, lang };
+                }
             }
-        }
-        if (bestMatch) {
-            productMatch = { product: bestMatch.product, alias: bestMatch.alias, lang: bestMatch.lang };
+            if (bestMatch) {
+                productMatch = { product: bestMatch.product, alias: bestMatch.alias, lang: bestMatch.lang };
+            }
         }
     }
 
 
     if (!productMatch) {
-      return { product: null, variant: null, requestedQty: qty, remainingPhrase: phrase, matchedAlias: null, lang: language };
+      return { product: null, variant: null, requestedQty, remainingPhrase: phrase, matchedAlias: null, lang: 'en' };
     }
 
     const { product, lang: detectedLang, alias: matchedAlias } = productMatch;
     
     let priceData = productPrices[product.name.toLowerCase()];
     if (!priceData && firestore) {
-        // This should be rare as prices are pre-fetched
     }
 
     if (!priceData?.variants?.length) {
-        return { product, variant: null, requestedQty: qty, remainingPhrase: productPhrase, matchedAlias, lang: detectedLang };
+        return { product, variant: null, requestedQty, remainingPhrase: productNamePhrase, matchedAlias, lang: detectedLang };
     }
 
     let chosenVariant: ProductVariant | null = null;
     
-    // Find variant by unit
-    if (nlu.unit) {
+    if (requestedUnit) {
       for (const v of priceData.variants) {
-        if (v.weight.toLowerCase().includes(nlu.unit)) {
+        if (v.weight.toLowerCase().includes(requestedUnit)) {
            chosenVariant = v;
            break;
         }
       }
     }
-    
-    // Fallback logic
+
     if (!chosenVariant) {
         chosenVariant =
             priceData.variants.find(v => v.weight === '1kg') ||
@@ -537,14 +574,45 @@ export function VoiceCommander({
             priceData.variants[0];
     }
 
-    return { product: product, variant: chosenVariant, requestedQty: qty, remainingPhrase: productPhrase, matchedAlias, lang: detectedLang };
+    return { product: product, variant: chosenVariant, requestedQty, remainingPhrase: productNamePhrase, matchedAlias, lang: detectedLang };
+}, [firestore, productPrices, universalProductAliasMap]);
 
-}, [firestore, productPrices, universalProductAliasMap, language]);
-
-const recognizeIntent = useCallback((text: string, spokenLang: string): Intent => {
+  const recognizeIntent = useCallback((text: string, spokenLang: string): Intent => {
     const lowerText = text.toLowerCase().trim();
     
-    // 1. Check for high-priority conversational/navigational commands first
+    const fromKeywords = ['from', 'at', 'in'];
+    const toKeywords = ['to', 'at'];
+    const hasFrom = fromKeywords.some(kw => lowerText.includes(` ${kw} `));
+    const hasTo = toKeywords.some(kw => lowerText.includes(` ${kw} `));
+
+    if (intentKeywords.SMART_ORDER.some(kw => lowerText.startsWith(kw)) && hasFrom && hasTo) {
+        return { type: 'SMART_ORDER', originalText: text, lang: spokenLang };
+    }
+    
+    const priceKeyword = intentKeywords.CHECK_PRICE.find(kw => lowerText.includes(kw));
+    if (priceKeyword) {
+        const productPhrase = lowerText.replace(priceKeyword, '').trim();
+        return { type: 'CHECK_PRICE', productPhrase, originalText: text, lang: spokenLang };
+    }
+
+    const removeKeyword = intentKeywords.REMOVE_ITEM.find(kw => lowerText.includes(kw));
+    if (removeKeyword) {
+        const productPhrase = lowerText.replace(removeKeyword, '').trim();
+        return { type: 'REMOVE_ITEM', productPhrase, originalText: text, lang: spokenLang };
+    }
+    
+    const detailsKeyword = intentKeywords.SHOW_DETAILS.find(kw => lowerText.includes(kw));
+    if (detailsKeyword) {
+        const target = lowerText.replace(detailsKeyword, '').trim();
+        return { type: 'SHOW_DETAILS', target, originalText: text, lang: spokenLang };
+    }
+
+    const knowledgeKeyword = intentKeywords.GET_KNOWLEDGE.find(kw => lowerText.startsWith(kw));
+    if (knowledgeKeyword) {
+        const topic = lowerText.substring(knowledgeKeyword.length).trim();
+        return { type: 'GET_KNOWLEDGE', topic, originalText: text, lang: spokenLang };
+    }
+
     let bestCommandMatch: { key: string, similarity: number } | null = null;
     for (const key in commands) {
       const commandAliases = getAllAliases(key);
@@ -560,11 +628,8 @@ const recognizeIntent = useCallback((text: string, spokenLang: string): Intent =
         }
       }
     }
-
+    
     if (bestCommandMatch) {
-      if (intentKeywords.NAVIGATE.some(kw => lowerText.includes(kw))) {
-        return { type: 'NAVIGATE', destination: bestCommandMatch.key, originalText: text, lang: spokenLang };
-      }
       if (bestCommandMatch.key === 'get-recipe') {
           const recipeAliases = (getAllAliases('get-recipe')[spokenLang] || ['recipe for']);
           const recipeKeywordUsed = recipeAliases.find(alias => lowerText.includes(alias));
@@ -573,48 +638,16 @@ const recognizeIntent = useCallback((text: string, spokenLang: string): Intent =
             return { type: 'GET_RECIPE', dishName, originalText: text, lang: spokenLang };
           }
       }
+
+      if (intentKeywords.NAVIGATE.some(kw => lowerText.includes(kw))) {
+        return { type: 'NAVIGATE', destination: bestCommandMatch.key, originalText: text, lang: spokenLang };
+      }
       return { type: 'CONVERSATIONAL', commandKey: bestCommandMatch.key, originalText: text, lang: spokenLang };
     }
 
-    // 2. Check for other specific intents
-    const fromKeywords = ['from', 'at', 'in'];
-    const toKeywords = ['to', 'at'];
-    const hasFrom = fromKeywords.some(kw => lowerText.includes(` ${kw} `));
-    const hasTo = toKeywords.some(kw => lowerText.includes(` ${kw} `));
-    if (intentKeywords.SMART_ORDER.some(kw => lowerText.startsWith(kw)) && hasFrom && hasTo) {
-        return { type: 'SMART_ORDER', originalText: text, lang: spokenLang };
-    }
-    const priceKeyword = intentKeywords.CHECK_PRICE.find(kw => lowerText.includes(kw));
-    if (priceKeyword) {
-        const productPhrase = lowerText.replace(priceKeyword, '').trim();
-        return { type: 'CHECK_PRICE', productPhrase, originalText: text, lang: spokenLang };
-    }
-    const removeKeyword = intentKeywords.REMOVE_ITEM.find(kw => lowerText.includes(kw));
-    if (removeKeyword) {
-        const productPhrase = lowerText.replace(removeKeyword, '').trim();
-        return { type: 'REMOVE_ITEM', productPhrase, originalText: text, lang: spokenLang };
-    }
-    const detailsKeyword = intentKeywords.SHOW_DETAILS.find(kw => lowerText.includes(kw));
-    if (detailsKeyword) {
-        const target = lowerText.replace(detailsKeyword, '').trim();
-        return { type: 'SHOW_DETAILS', target, originalText: text, lang: spokenLang };
-    }
-    const knowledgeKeyword = intentKeywords.GET_KNOWLEDGE.find(kw => lowerText.startsWith(kw));
-    if (knowledgeKeyword) {
-        const topic = lowerText.substring(knowledgeKeyword.length).trim();
-        return { type: 'GET_KNOWLEDGE', topic, originalText: text, lang: spokenLang };
-    }
-    
-    // 3. Default to ORDER_ITEM if any alias matches or contains an order keyword.
-    const potentialProduct = Array.from(universalProductAliasMap.keys()).find(alias => lowerText.includes(alias));
-    if (potentialProduct || intentKeywords.ORDER_ITEM.some(kw => lowerText.includes(kw))) {
-        return { type: 'ORDER_ITEM', originalText: text, lang: spokenLang };
-    }
+    return { type: 'ORDER_ITEM', originalText: text, lang: spokenLang };
 
-    // 4. Default to UNKNOWN if no other intent is matched
-    return { type: 'UNKNOWN', originalText: text, lang: spokenLang };
-
-  }, [commands, getAllAliases, universalProductAliasMap]);
+  }, [commands, getAllAliases]);
 
 
     const handleCommandFailure = useCallback(async (commandText: string, spokenLang: string, reason: string) => {
@@ -626,14 +659,13 @@ const recognizeIntent = useCallback((text: string, spokenLang: string): Intent =
             return;
         }
     
+        // For now, we are disabling the AI auto-correction feature.
+        // We will log all failed commands for manual review.
         addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp() });
         updateUnidentifiedItem(tempId, 'failed');
 
     }, [addUnidentifiedItem, updateUnidentifiedItem, firestore, user, speak, t]);
 
-
-  const selectedProduct = productForVariantSelection.current;
-  const productPriceVariants = selectedProduct ? productPrices[selectedProduct.name.toLowerCase()]?.variants : [];
 
   const handleCommand = useCallback(async (commandText: string) => {
     if (lastTranscriptRef.current === commandText) {
@@ -653,43 +685,62 @@ const recognizeIntent = useCallback((text: string, spokenLang: string): Intent =
     // --- CONTEXTUAL RESPONSES ---
     if (itemForPriceCheck.current) {
       const context = itemForPriceCheck.current;
-      const nlu = runNLU(commandText, spokenLang);
+      const lowerCommandText = commandText.toLowerCase();
       let chosenVariant: ProductVariant | null = null;
-      let requestedQty = nlu.quantity || 1;
+      let requestedQty = 1;
   
       const yesKeywords = ['yes', 'add', 'buy', 'okay', 'yep', 'yeah', 'sare', 'sari', 'sareh', 'సరే', 'అవును'];
       const noKeywords = ['no', 'cancel', 'stop', 'వద్దు', 'not now'];
   
-      const isYes = yesKeywords.some(kw => nlu.cleanedText.includes(kw));
-      const isNo = noKeywords.some(kw => nlu.cleanedText.includes(kw));
+      const isYes = yesKeywords.some(kw => lowerCommandText.includes(kw));
+      const isNo = noKeywords.some(kw => lowerCommandText.includes(kw));
   
-      if(nlu.numbers.length > 0) {
-        const numValue = nlu.firstNumber;
-        if(numValue) {
-            // Check if it's a price match
-            const priceMatch = context.variants.find(v => Math.round(v.price * 1.20) === numValue);
-            if(priceMatch) {
-                chosenVariant = priceMatch;
-            } else {
-                // Check if it's a positional index
-                const indexMatch = context.variants[numValue - 1];
-                if(indexMatch) {
-                    chosenVariant = indexMatch;
-                }
-            }
-        }
+      // --- Start of Variant Selection Logic ---
+      
+      // Case 1: Direct match by spoken weight (e.g., "add 1kg" or "one kilo")
+      const { variant: foundVariantByWeight, requestedQty: foundQty } = await findProductAndVariant(commandText);
+      if (foundVariantByWeight && context.variants.some(v => v.sku === foundVariantByWeight.sku)) {
+          chosenVariant = foundVariantByWeight;
+          requestedQty = foundQty;
       }
-
-      if(!chosenVariant) {
-        const { variant: foundVariantByWeight } = await findProductAndVariant(commandText);
-        if (foundVariantByWeight && context.variants.some(v => v.sku === foundVariantByWeight.sku)) {
-            chosenVariant = foundVariantByWeight;
-        }
+  
+      // Case 2: Match by spoken price (e.g., "the 50 rupee one")
+      if (!chosenVariant) {
+          const numbersInCommand = lowerCommandText.match(/\d+/g)?.map(Number);
+          if (numbersInCommand) {
+              for (const price of numbersInCommand) {
+                  const matchedVariant = context.variants.find(v => Math.round(v.price * 1.20) === price);
+                  if (matchedVariant) {
+                      chosenVariant = matchedVariant;
+                      break;
+                  }
+              }
+          }
       }
       
+      // Case 3: Match by position ("the first one", "second", "3")
+      if (!chosenVariant) {
+          const positionalWords: { [key: string]: number } = { 
+              'first': 0, '1st': 0, 'one': 0, '1': 0, 'modati': 0, 'okati': 0, 'पहला': 0,
+              'second': 1, '2nd': 1, 'two': 1, '2': 1, 'rendava': 1, 'दूसरा': 1,
+              'third': 2, '3rd': 2, 'three': 2, '3': 2, 'moodava': 2, 'तीसरा': 2,
+              'fourth': 3, '4th': 3, 'four': 3, '4': 3, 'nalugava': 3, 'चौथा': 3,
+              'last': context.variants.length - 1 
+          };
+          for (const word of lowerCommandText.split(' ')) {
+              if (positionalWords[word] !== undefined && context.variants[positionalWords[word]]) {
+                  chosenVariant = context.variants[positionalWords[word]];
+                  break;
+              }
+          }
+      }
+      
+      // Case 4: Simple "yes" confirmation (defaults to first variant)
       if (!chosenVariant && isYes) {
           chosenVariant = context.variants[0];
       }
+  
+      // --- End of Variant Selection Logic ---
   
       if (chosenVariant) {
           const productWithContext = { ...context.product, isAiAssisted: true, matchedAlias: `Price check` };
@@ -702,11 +753,10 @@ const recognizeIntent = useCallback((text: string, spokenLang: string): Intent =
       } else if (isNo) {
           speak("Okay, cancelled.", langWithRegion, false);
       } else {
-          resetAllContext();
+          // If no variant was selected and it wasn't a "no", assume it's a new command
           handleCommand(commandText);
-          return;
       }
-      resetAllContext();
+      resetAllContext(); // Ensure context is cleared
       return;
     }
 
@@ -748,7 +798,7 @@ const recognizeIntent = useCallback((text: string, spokenLang: string): Intent =
 
 
     if (isWaitingForStoreNameRef.current) {
-        isWaitingForStoreNameRef.current = false;
+        isWaitingForStoreNameRef.current = false; // Reset immediately
         let bestMatch: { store: Store, similarity: number } | null = null;
         for (const [alias, store] of storeAliasMap.entries()) {
             const similarity = calculateSimilarity(commandText.toLowerCase(), alias);
@@ -777,12 +827,9 @@ const recognizeIntent = useCallback((text: string, spokenLang: string): Intent =
     const multiItemSeparators = ['and', 'మరియు'];
     const separatorUsed = multiItemSeparators.find(sep => ` ${commandText.toLowerCase()} `.includes(` ${sep} `));
     
-    if (separatorUsed) {
-        const orderIntent = recognizeIntent(commandText, spokenLang);
-        if(orderIntent.type === 'ORDER_ITEM' || orderIntent.type === 'UNKNOWN') {
-          await commandActionsRef.current.orderMultipleItems(commandText.split(new RegExp(` ${separatorUsed} `, 'i')), spokenLang, commandText);
-          return;
-        }
+    if (separatorUsed && recognizeIntent(commandText, spokenLang).type === 'ORDER_ITEM') {
+        await commandActionsRef.current.orderMultipleItems(commandText.split(new RegExp(` ${separatorUsed} `, 'i')), spokenLang, commandText);
+        return;
     }
 
     const intent = recognizeIntent(commandText, spokenLang);
@@ -1282,24 +1329,18 @@ return () => {
   }
 };
 
-}, [ handleCommand, cartTotal, cartItemsProp, pathname, masterProducts, t, aiConfig, isAppStoreLoading, productPrices, fetchProductPrices, firestore, user, router, language, setLanguage, speak, determinePhraseLanguage, resetAllContext, storeAliasMap, handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setActiveStoreId, profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData, placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress, setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity, removeItem, addUnidentifiedItem, updateUnidentifiedItem, getProductName, addItemToCart, locales, commands, getAllAliases, recognizeIntent, stores, showPriceCheck, hidePriceCheck ]);
+}, [
+      handleCommand, cartTotal, cartItemsProp, pathname, masterProducts, t, aiConfig, isAppStoreLoading,
+      productPrices, fetchProductPrices, firestore, user, router, language, setLanguage, speak,
+      determinePhraseLanguage, resetAllContext, storeAliasMap,
+      handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setActiveStoreId,
+      profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData,
+      placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress,
+      setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
+      removeItem, addUnidentifiedItem, updateUnidentifiedItem,
+      getProductName, addItemToCart, locales, commands, getAllAliases, recognizeIntent, stores,
+      showPriceCheck, hidePriceCheck
+  ]);
 
-return (
-      <>
-          <RefConfirmDialog
-              open={!!confirmCandidates}
-              candidates={confirmCandidates}
-              onClose={() => setConfirmCandidates(null)}
-              onSelect={(c: ProductVariant) => {
-                  const productToUse = productForVariantSelection.current;
-                  if(productToUse) {
-                      addItemToCart(productToUse, c, 1);
-                  }
-                  setConfirmCandidates(null);
-                  onOpenCart();
-                  onStatusUpdate("Added");
-              }}
-          />
-      </>
-  );
+  return null;
 }
