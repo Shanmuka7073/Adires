@@ -1285,21 +1285,21 @@ return () => {
 }, [ handleCommand, cartTotal, cartItemsProp, pathname, masterProducts, t, aiConfig, isAppStoreLoading, productPrices, fetchProductPrices, firestore, user, router, language, setLanguage, speak, determinePhraseLanguage, resetAllContext, storeAliasMap, handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setActiveStoreId, profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData, placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress, setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity, removeItem, addUnidentifiedItem, updateUnidentifiedItem, getProductName, addItemToCart, locales, commands, getAllAliases, recognizeIntent, stores, showPriceCheck, hidePriceCheck ]);
 
 return (
-        <>
-            <RefConfirmDialog
-                open={!!confirmCandidates}
-                candidates={confirmCandidates}
-                onClose={() => setConfirmCandidates(null)}
-                onSelect={(c: ProductVariant) => {
-                    const productToUse = productForVariantSelection.current;
-                    if(productToUse) {
-                        addItemToCart(productToUse, c, 1);
-                    }
-                    setConfirmCandidates(null);
-                    onOpenCart();
-                    onStatusUpdate("Added");
-                }}
-            />
-        </>
-    );
+      <>
+          <RefConfirmDialog
+              open={!!confirmCandidates}
+              candidates={confirmCandidates}
+              onClose={() => setConfirmCandidates(null)}
+              onSelect={(c: ProductVariant) => {
+                  const productToUse = productForVariantSelection.current;
+                  if(productToUse) {
+                      addItemToCart(productToUse, c, 1);
+                  }
+                  setConfirmCandidates(null);
+                  onOpenCart();
+                  onStatusUpdate("Added");
+              }}
+          />
+      </>
+  );
 }

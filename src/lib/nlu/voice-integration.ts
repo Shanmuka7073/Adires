@@ -1,64 +1,83 @@
-'use client';
-import { parseNumbers } from './number-engine-v2';
-import { parseRefsFromText } from './ref-parser';
-import { chooseVariantFromPriceList } from './ref-resolver';
-import type { Product, ProductVariant } from '@/lib/types';
 
-function detectProductName(products: Product[], text: string): Product | null {
-  for (const p of products) {
-    if (text.includes(p.name.toLowerCase())) return p;
-  }
-  return null;
+'use client';
+import { parseRefsFromText } from './ref-parser';
+import { resolveRefData, RefResolverResult } from './ref-resolver';
+
+export interface NLUResult extends RefResolverResult {
+  cleanedText: string;
+  language: string;
+  hasNumbers: boolean;
+  hasMath: boolean;
+  firstNumber: number | null;
+  quantity: number | null;
+  unit: string | null;
 }
 
-export async function processVoiceCommand(commandText: string, ctx: any) {
-  const text = commandText.toLowerCase().trim();
-  const { products, variants, addItem, speak, showConfirm, lastIndexRef } = ctx;
-
-  // 1) Number parsing
-  const nums = parseNumbers(text);
-  const qty = nums.find(n => n.unit === undefined)?.normalizedValue || 1;
-
-  // 2) Reference parsing (first, second, last, cheapest, big…)
-  const refParsed = parseRefsFromText(text, ctx.lang || 'en', variants?.length || 0);
-
-  // 3) If explicit product search phrase
-  const productName = detectProductName(products, text);
-  if (productName) {
-    if (!variants || variants.length === 0) {
-      speak("No variants found");
-      return;
-    }
-
-    // If reference ie. "add the second one"
-    const pick = chooseVariantFromPriceList(variants, text, ctx.lang || 'en');
-
-    if (pick.chosen) {
-      addItem(productName, pick.chosen, qty);
-      if (pick.chosenIndex !== null) {
-          lastIndexRef.current = pick.chosenIndex;
-      }
-      speak("Added to cart");
-      return;
-    }
-
-    // fallback ask confirmation
-    showConfirm(variants);
-    return;
+/**
+ * Main NLU entry point used by VoiceCommander.
+ * Takes raw voice text → returns complete NLU analysis.
+ */
+export function runNLU(text: string, lang: string = 'en'): NLUResult {
+  if (!text || typeof text !== 'string') {
+    return {
+      original: '',
+      tokens: [],
+      numbers: [],
+      mathExpression: null,
+      mathResult: null,
+      intentHints: [],
+      cleanedText: '',
+      language: lang,
+      hasNumbers: false,
+      hasMath: false,
+      firstNumber: null,
+      quantity: null,
+      unit: null,
+    };
   }
 
-  // 4) If user said only "first one / second one / 1kg one / 40 rupees one"
-  if (variants && variants.length > 0) {
-    const pick = chooseVariantFromPriceList(variants, text, ctx.lang || 'en');
-    if (pick.chosen) {
-      addItem(null, pick.chosen, qty);
-      if (pick.chosenIndex !== null) {
-        lastIndexRef.current = pick.chosenIndex;
-      }
-      speak("Added");
-      return;
-    }
+  const cleanedText = text
+    .trim()
+    .replace(/\u00A0/g, ' ')
+    .replace(/\s+/g, ' ');
+
+  const refs = parseRefsFromText(cleanedText);
+  const resolved = resolveRefData(cleanedText, refs);
+
+  const first = resolved.numbers[0] || null;
+
+  return {
+    ...resolved,
+    cleanedText,
+    language: lang,
+    hasNumbers: resolved.numbers.length > 0,
+    hasMath: resolved.mathExpression !== null,
+    firstNumber: first?.value ?? null,
+    quantity: first?.type === 'quantity' || first?.unit ? first?.value ?? null : null,
+    unit: first?.unit ?? null,
+  };
+}
+
+/**
+ * Utility used by VoiceCommander to quickly extract quantity + product phrase.
+ */
+export function extractQuantityAndProduct(nlu: NLUResult) {
+  let qty = nlu.quantity ?? nlu.firstNumber ?? 1;
+  let unit = nlu.unit ?? null;
+
+  let remainder = nlu.cleanedText;
+  if (nlu.numbers.length > 0) {
+    const span = nlu.numbers[0].span;
+    remainder = nlu.cleanedText.slice(span[1]).trim();
   }
 
-  speak("Sorry, I didn't understand");
+  remainder = remainder.replace(/^(kg|gm|g|ml|ltr|pack|packet|pc|piece|pieces)/i, '').trim();
+
+  if (!remainder) remainder = nlu.cleanedText;
+
+  return {
+    qty,
+    unit,
+    productPhrase: remainder,
+  };
 }
