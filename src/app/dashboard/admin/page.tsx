@@ -1,8 +1,7 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy, Upload, MessageSquare, Image as ImageIcon, Home, Lightbulb, Binary, TestTube, Cog, Share2 } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy, Upload, MessageSquare, Image as ImageIcon, Home, Lightbulb, Binary, TestTube, Cog, Share2, Monitor } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -746,6 +745,12 @@ export default function AdminDashboardPage() {
                         description="View the source code for the main homepage UI."
                         href="/dashboard/admin/homepage-help"
                         icon={Home}
+                    />
+                    <AdminActionCard
+                        title="Desktop Dashboard"
+                        description="View a desktop-optimized product browsing dashboard."
+                        href="/dashboard/desktop"
+                        icon={Monitor}
                     />
                 </div>
             </div>
