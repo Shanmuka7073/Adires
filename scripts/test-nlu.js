@@ -5,8 +5,8 @@ function test(phrase) {
   console.log("\n--------------------------------");
   console.log("Input:", phrase);
   const nlu = runNLU(phrase, "en");
-  console.log("NLU:", nlu);
   const extracted = extractQuantityAndProduct(nlu);
+  console.log("NLU:", nlu);
   console.log("Extracted:", extracted);
   console.log("--------------------------------\n");
 }
