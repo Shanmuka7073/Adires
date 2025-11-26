@@ -112,14 +112,18 @@ export default function DesktopDashboardPage() {
   };
 
   const filteredProducts = useMemo(() => {
+    let productsToFilter = masterProducts;
+    
     if (searchTerm) {
-      return masterProducts.filter(product =>
+      return productsToFilter.filter(product =>
         product.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
+    
     if (selectedCategory) {
-      return masterProducts.filter(p => p.category === selectedCategory);
+      return productsToFilter.filter(p => p.category === selectedCategory);
     }
+    
     return [];
   }, [masterProducts, selectedCategory, searchTerm]);
 
@@ -138,7 +142,7 @@ export default function DesktopDashboardPage() {
                         <CategoryButton 
                             key={cat.name}
                             category={cat}
-                            isSelected={cat.name === selectedCategory}
+                            isSelected={cat.name === selectedCategory && !searchTerm}
                             onSelectCategory={handleSelectCategory}
                         />
                     ))
@@ -152,7 +156,7 @@ export default function DesktopDashboardPage() {
             <div>
                 <h1 className="text-3xl font-bold font-headline">{searchTerm ? "Search Results" : selectedCategory || 'Products'}</h1>
                 <p className="text-sm text-muted-foreground">
-                  {searchTerm ? `Found ${filteredProducts.length} products` : `Showing ${filteredProducts.length} products in this category.`}
+                  {searchTerm ? `Found ${filteredProducts.length} products matching "${searchTerm}"` : `Showing ${filteredProducts.length} products in this category.`}
                 </p>
             </div>
             <div className="w-full max-w-sm relative">
