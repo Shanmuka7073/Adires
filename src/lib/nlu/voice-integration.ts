@@ -1,7 +1,6 @@
 
 'use client';
 import { parseRefsFromText } from './ref-parser';
-// Corrected import to use named import
 import { resolveRefData, type RefResolverResult } from './ref-resolver';
 
 export interface NLUResult extends RefResolverResult {
@@ -67,9 +66,10 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
   let unit = nlu.unit ?? null;
 
   let remainder = nlu.cleanedText;
-  if (nlu.numbers.length > 0) {
-    const span = nlu.numbers[0].span;
-    remainder = nlu.cleanedText.slice(span[1]).trim();
+  if (nlu.numbers.length > 0 && nlu.numbers[0].idx !== undefined) {
+    const firstNumTokenIndex = nlu.numbers[0].idx;
+    // Rebuild the remainder string from tokens after the first number
+    remainder = nlu.tokens.slice(firstNumTokenIndex + 1).join(' ').trim();
   }
 
   remainder = remainder.replace(/^(kg|gm|g|ml|ltr|pack|packet|pc|piece|pieces)/i, '').trim();
