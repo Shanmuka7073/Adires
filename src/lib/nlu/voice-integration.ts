@@ -80,8 +80,8 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
       const primaryNumber = numberResults[0];
       qty = primaryNumber.value;
       
-      const currencyKeywords = ['rs', 'rupees', '₹', 'rupay'];
-      const unitKeywords = ['kg', 'kilo', 'g', 'gm', 'grams', 'ml', 'ltr', 'liter', 'litre', 'pack', 'packet', 'pc', 'piece', 'pieces'];
+      const currencyKeywords = ['rs', 'rupees', '₹', 'rupay', 'rupayalu'];
+      const unitKeywords = ['kg', 'kilo', 'kilos', 'g', 'gm', 'grams', 'gram', 'ml', 'milliliter', 'millilitre', 'ltr', 'liter', 'litre', 'pack', 'packet', 'pc', 'piece', 'pieces'];
 
       // Check words immediately after the number for units/currency
       const textAfterNumber = text.substring(primaryNumber.span[1]).trim();
@@ -113,7 +113,7 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
       const u = unit.toLowerCase();
       if (u.startsWith('g')) unit = 'gm';
       else if (u.startsWith('k')) unit = 'kg';
-      else if (u.startsWith('l')) unit = 'ltr';
+      else if (u.startsWith('l') || u.startsWith('m')) unit = 'ml'; // liters and ml
       else if (u.startsWith('p')) unit = 'pc';
   }
 
@@ -143,5 +143,3 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     productPhrase: remainder
   };
 }
-
-    
