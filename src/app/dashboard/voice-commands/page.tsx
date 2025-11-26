@@ -25,12 +25,90 @@ import { generateAllNumberAliases } from '@/ai/flows/generate-all-number-aliases
 
 const createSlug = (text: string) => text.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-');
 
+function NumberAliasItem({ number, name, locales, newAliases, handleRemoveAlias, handleAddAlias, handleVoiceAdd, setLocales, setNewAliases, isListening }: { number: number, name: string, locales: Locales, newAliases: any, handleRemoveAlias: any, handleAddAlias: any, handleVoiceAdd: any, setLocales: any, setNewAliases: any, isListening: boolean }) {
+    const itemKey = `number-${number}`;
+    const itemAliases = locales[itemKey] || {};
+    const [isSuggesting, startSuggestion] = useTransition();
+    const { toast } = useToast();
+
+    const handleSuggestNumberAliases = () => {
+        startSuggestion(async () => {
+            try {
+                const result = await suggestNumberAliases({ number: number.toString(), name });
+                if (result && result.aliases) {
+                     setLocales((currentLocales: Locales) => {
+                        const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
+                        if (!updatedLocales[itemKey]) {
+                            updatedLocales[itemKey] = {};
+                        }
+                        for (const lang in result.aliases) {
+                            const newAliases = result.aliases[lang as 'en' | 'te' | 'hi'];
+                            const existingAliases = new Set(Array.isArray(updatedLocales[itemKey][lang]) ? updatedLocales[itemKey][lang] as string[] : []);
+                            newAliases.forEach(alias => existingAliases.add(alias));
+                            updatedLocales[itemKey][lang] = Array.from(existingAliases);
+                        }
+                        return updatedLocales;
+                    });
+                    toast({ title: 'AI Suggestions Loaded!', description: `New aliases for "${name}" are ready for review. Remember to save.` });
+                }
+            } catch (error) {
+                toast({ variant: 'destructive', title: 'AI Suggestion Failed' });
+            }
+        });
+    };
+
+    return (
+        <AccordionItem value={itemKey}>
+            <AccordionTrigger>
+                <div className="flex items-center gap-2">
+                    <span className="font-semibold text-lg">{number} ({name})</span>
+                </div>
+            </AccordionTrigger>
+            <AccordionContent>
+                <div className="space-y-6 p-4 bg-muted/50 rounded-lg">
+                    <Button onClick={handleSuggestNumberAliases} size="sm" disabled={isSuggesting}>
+                        {isSuggesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                        Suggest with AI
+                    </Button>
+                    {['en', 'te', 'hi'].map(lang => {
+                        const currentAliases: string[] = Array.isArray(itemAliases[lang]) ? itemAliases[lang] as string[] : (itemAliases[lang] ? [itemAliases[lang] as string] : []);
+                        return (
+                          <div key={lang} className="space-y-2">
+                            <Label className="font-semibold text-sm uppercase">{lang} Aliases</Label>
+                            <div className="flex flex-wrap gap-2">
+                              {currentAliases.map((alias, index) => (
+                                <Badge key={`${alias}-${index}`} variant="secondary" className="relative pr-6 group text-base py-1">
+                                  {alias}
+                                  <button onClick={() => handleRemoveAlias(itemKey, lang, alias)} className="absolute top-1/2 -translate-y-1/2 right-1 rounded-full p-0.5 bg-background/50 hover:bg-background text-muted-foreground hover:text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <X className="h-3 w-3" /><span className="sr-only">Remove {alias}</span>
+                                  </button>
+                                </Badge>
+                              ))}
+                              {currentAliases.length === 0 && <p className="text-xs text-muted-foreground">No aliases yet.</p>}
+                            </div>
+                            <div className="flex items-center gap-2 pt-2 border-t">
+                              <Textarea placeholder={`Add ${lang} alias(es), comma-separated...`} value={newAliases[itemKey]?.[lang] || ''} onChange={(e) => setNewAliases((p: any) => ({ ...p, [itemKey]: { ...p[itemKey], [lang]: e.target.value } }))} onKeyDown={(e) => {if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddAlias(itemKey, lang); }}} />
+                              <div className="flex flex-col gap-2">
+                                <Button size="sm" onClick={() => handleAddAlias(itemKey, lang)}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
+                                <Button size="sm" variant="outline" onClick={() => handleVoiceAdd(itemKey, lang)} disabled={isListening}><Mic className="h-4 w-4" /><span className="sr-only">Add by voice</span></Button>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                    })}
+                </div>
+            </AccordionContent>
+        </AccordionItem>
+    );
+}
+
 // This component now relies on the global useAppStore for its data.
 export default function VoiceCommandsPage() {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isProcessing, startTransition] = useTransition();
     const [activeTab, setActiveTab] = useState('general');
+    const [isBulkGenerating, startBulkGeneration] = useTransition();
 
     // Data from the global store
     const {
@@ -294,7 +372,7 @@ export default function VoiceCommandsPage() {
         recognition.start();
     };
 
-    const GeneralCommandItem = ({ commandKey, commandData }) => {
+    const GeneralCommandItem = ({ commandKey, commandData }: { commandKey: string, commandData: CommandGroup }) => {
         const [isSuggesting, startSuggestion] = useTransition();
 
         const handleSuggestCommandAliases = () => {
@@ -314,7 +392,7 @@ export default function VoiceCommandsPage() {
                             }
 
                             for (const lang in result.aliases) {
-                                const newAliases = result.aliases[lang];
+                                const newAliases = result.aliases[lang as 'en' | 'te' | 'hi'];
                                 const existingAliases = new Set(
                                     Array.isArray(updatedLocales[commandKey][lang])
                                         ? updatedLocales[commandKey][lang] as string[]
@@ -465,87 +543,10 @@ export default function VoiceCommandsPage() {
         </Card>
     );
 
-    const NumberAliasItem = ({ number, name }: { number: number, name: string }) => {
-        const itemKey = `number-${number}`;
-        const itemAliases = locales[itemKey] || {};
-        const [isSuggesting, startSuggestion] = useTransition();
-
-        const handleSuggestNumberAliases = () => {
-            startSuggestion(async () => {
-                try {
-                    const result = await suggestNumberAliases({ number: number.toString(), name });
-                    if (result && result.aliases) {
-                         setLocales(currentLocales => {
-                            const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
-                            if (!updatedLocales[itemKey]) {
-                                updatedLocales[itemKey] = {};
-                            }
-                            for (const lang in result.aliases) {
-                                const newAliases = result.aliases[lang];
-                                const existingAliases = new Set(Array.isArray(updatedLocales[itemKey][lang]) ? updatedLocales[itemKey][lang] : []);
-                                newAliases.forEach(alias => existingAliases.add(alias));
-                                updatedLocales[itemKey][lang] = Array.from(existingAliases);
-                            }
-                            return updatedLocales;
-                        });
-                        toast({ title: 'AI Suggestions Loaded!', description: `New aliases for "${name}" are ready for review. Remember to save.` });
-                    }
-                } catch (error) {
-                    toast({ variant: 'destructive', title: 'AI Suggestion Failed' });
-                }
-            });
-        };
-
-        return (
-            <AccordionItem value={itemKey}>
-                <AccordionTrigger>
-                    <div className="flex items-center gap-2">
-                        <span className="font-semibold text-lg">{number} ({name})</span>
-                    </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                    <div className="space-y-6 p-4 bg-muted/50 rounded-lg">
-                        <Button onClick={handleSuggestNumberAliases} size="sm" disabled={isSuggesting}>
-                            {isSuggesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                            Suggest with AI
-                        </Button>
-                        {['en', 'te', 'hi'].map(lang => {
-                            const currentAliases: string[] = Array.isArray(itemAliases[lang]) ? itemAliases[lang] as string[] : (itemAliases[lang] ? [itemAliases[lang] as string] : []);
-                            return (
-                              <div key={lang} className="space-y-2">
-                                <Label className="font-semibold text-sm uppercase">{lang} Aliases</Label>
-                                <div className="flex flex-wrap gap-2">
-                                  {currentAliases.map((alias, index) => (
-                                    <Badge key={`${alias}-${index}`} variant="secondary" className="relative pr-6 group text-base py-1">
-                                      {alias}
-                                      <button onClick={() => handleRemoveAlias(itemKey, lang, alias)} className="absolute top-1/2 -translate-y-1/2 right-1 rounded-full p-0.5 bg-background/50 hover:bg-background text-muted-foreground hover:text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <X className="h-3 w-3" /><span className="sr-only">Remove {alias}</span>
-                                      </button>
-                                    </Badge>
-                                  ))}
-                                  {currentAliases.length === 0 && <p className="text-xs text-muted-foreground">No aliases yet.</p>}
-                                </div>
-                                <div className="flex items-center gap-2 pt-2 border-t">
-                                  <Textarea placeholder={`Add ${lang} alias(es), comma-separated...`} value={newAliases[itemKey]?.[lang] || ''} onChange={(e) => setNewAliases(p => ({ ...p, [itemKey]: { ...p[itemKey], [lang]: e.target.value } }))} onKeyDown={(e) => {if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddAlias(itemKey, lang); }}} />
-                                  <div className="flex flex-col gap-2">
-                                    <Button size="sm" onClick={() => handleAddAlias(itemKey, lang)}><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
-                                    <Button size="sm" variant="outline" onClick={() => handleVoiceAdd(itemKey, lang)} disabled={isListening}><Mic className="h-4 w-4" /><span className="sr-only">Add by voice</span></Button>
-                                  </div>
-                                </div>
-                              </div>
-                            )
-                        })}
-                    </div>
-                </AccordionContent>
-            </AccordionItem>
-        );
-    };
-
     const renderNumberCommands = () => {
         const numbers = Array.from({ length: 100 }, (_, i) => i + 1);
         const numberNames = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen", "Twenty", "Twenty-One", "Twenty-Two", "Twenty-Three", "Twenty-Four", "Twenty-Five", "Twenty-Six", "Twenty-Seven", "Twenty-Eight", "Twenty-Nine", "Thirty", "Thirty-One", "Thirty-Two", "Thirty-Three", "Thirty-Four", "Thirty-Five", "Thirty-Six", "Thirty-Seven", "Thirty-Eight", "Thirty-Nine", "Forty", "Forty-One", "Forty-Two", "Forty-Three", "Forty-Four", "Forty-Five", "Forty-Six", "Forty-Seven", "Forty-Eight", "Forty-Nine", "Fifty", "Fifty-One", "Fifty-Two", "Fifty-Three", "Fifty-Four", "Fifty-Five", "Fifty-Six", "Fifty-Seven", "Fifty-Eight", "Fifty-Nine", "Sixty", "Sixty-One", "Sixty-Two", "Sixty-Three", "Sixty-Four", "Sixty-Five", "Sixty-Six", "Sixty-Seven", "Sixty-Eight", "Sixty-Nine", "Seventy", "Seventy-One", "Seventy-Two", "Seventy-Three", "Seventy-Four", "Seventy-Five", "Seventy-Six", "Seventy-Seven", "Seventy-Eight", "Seventy-Nine", "Eighty", "Eighty-One", "Eighty-Two", "Eighty-Three", "Eighty-Four", "Eighty-Five", "Eighty-Six", "Eighty-Seven", "Eighty-Eight", "Eighty-Nine", "Ninety", "Ninety-One", "Ninety-Two", "Ninety-Three", "Ninety-Four", "Ninety-Five", "Ninety-Six", "Ninety-Seven", "Ninety-Eight", "Ninety-Nine", "One Hundred"];
-        const [isBulkGenerating, startBulkGeneration] = useTransition();
-
+        
         const handleGenerateAll = () => {
             startBulkGeneration(async () => {
                 try {
@@ -586,7 +587,7 @@ export default function VoiceCommandsPage() {
                 <CardContent>
                     <Accordion type="multiple" className="w-full">
                        {numbers.map((num) => (
-                           <NumberAliasItem key={num} number={num} name={numberNames[num-1]} />
+                           <NumberAliasItem key={num} number={num} name={numberNames[num-1]} locales={locales} newAliases={newAliases} handleRemoveAlias={handleRemoveAlias} handleAddAlias={handleAddAlias} handleVoiceAdd={handleVoiceAdd} setLocales={setLocales} setNewAliases={setNewAliases} isListening={isListening} />
                        ))}
                     </Accordion>
                 </CardContent>
@@ -594,7 +595,7 @@ export default function VoiceCommandsPage() {
         );
     };
 
-    const AliasAccordionItem = ({ item, icon: IconComponent }) => {
+    const AliasAccordionItem = ({ item, icon: IconComponent }: { item: { id: string; name: string, ownerId?: string }, icon: React.ElementType }) => {
         const itemKey = createSlug(item.name);
         const itemAliases = locales[itemKey] || {};
         const [isSuggesting, startSuggestion] = useTransition();
@@ -613,7 +614,7 @@ export default function VoiceCommandsPage() {
                             }
 
                             for (const lang in result.aliases) {
-                                const newAliases = result.aliases[lang];
+                                const newAliases = result.aliases[lang as 'en' | 'te' | 'hi'];
                                 const existingAliases = new Set(
                                     Array.isArray(updatedLocales[itemKey][lang])
                                         ? updatedLocales[itemKey][lang] as string[]
