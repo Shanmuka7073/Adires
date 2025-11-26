@@ -19,6 +19,7 @@ import { useProfileFormStore, ProfileFormValues } from '@/lib/store';
 import { getWikipediaSummary, getMealDbRecipe } from '@/app/actions';
 import { useVoiceCommanderContext } from './main-layout';
 import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
+import { runNLU, extractQuantityAndProduct } from '@/lib/nlu/voice-integration';
 
 
 export interface Command {
@@ -68,6 +69,7 @@ type Intent =
   | { type: 'GET_RECIPE', dishName: string, originalText: string, lang: string }
   | { type: 'SHOW_DETAILS', target: string, originalText: string, lang: string }
   | { type: 'GET_KNOWLEDGE', topic: string, originalText: string, lang: string }
+  | { type: 'MATH', originalText: string, lang: string }
   | { type: 'UNKNOWN', originalText: string, lang: string };
 
 const intentKeywords = {
@@ -80,6 +82,7 @@ const intentKeywords = {
   GET_RECIPE: ['recipe for', 'ingredients for', 'how to make', 'కోసం కావలసినవి', 'ఎలా చేయాలి'],
   SHOW_DETAILS: ['details for', 'show details', 'view details', 'వివరాలు చూపించు'],
   GET_KNOWLEDGE: ['what is', 'what are', 'tell me about', 'who is', 'explain'],
+  MATH: ['+', '-', '*', '/', 'plus', 'minus', 'times', 'divided by'],
 };
 
 
@@ -469,116 +472,164 @@ export function VoiceCommander({
     };
   }, [pathname, hasMounted, enabled, profileForm, handleProfileFormInteraction]);
 
-  const findProductAndVariant = useCallback(async (phrase: string): Promise<{ product: Product | null; variant: ProductVariant | null; requestedQty: number; remainingPhrase: string; matchedAlias: string | null; lang: string; }> => {
-    const lowerPhrase = phrase.toLowerCase();
-    const sanitizedPhrase = lowerPhrase.replace(/[-.,]/g, ' ').replace(/\s+/g, ' ').trim();
-    const words = sanitizedPhrase.split(' ');
+  const findProductAndVariant = useCallback(
+  async (phrase: string): Promise<{
+    product: Product | null;
+    variant: ProductVariant | null;
+    requestedQty: number;
+    requestedUnit: string | null;
+    remainingPhrase: string;
+    matchedAlias: string | null;
+    lang: string;
+  }> => {
+    const nlu = runNLU(phrase, language);
+    const extracted = extractQuantityAndProduct(nlu);
 
-    let requestedQty = 1;
-    let requestedUnit: 'kg' | 'gm' | 'pc' | 'pack' | null = null;
-    const remainingWords: string[] = [];
+    let qty = extracted.qty || 1;
+    let unit = extracted.unit || null;
+    let money = (extracted as any).money || null;
 
-    const numberWords: { [key: string]: number } = {
-        'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
-        'oka': 1, 'okati': 1, 'rendu': 2, 'moodu': 3, 'nalugu': 4, 'aidu': 5, 'aaru': 6, 'yedu': 7, 'enimidi': 8, 'tommidi': 9, 'padi': 10,
-        'ek': 1, 'do': 2, 'teen': 3, 'char': 4, 'paanch': 5, 'chhe': 6, 'saat': 7, 'aath': 8, 'nau': 9, 'das': 10,
-        'half': 0.5, 'ara': 0.5, 'paavu': 0.25, 'quarter': 0.25,
-    };
-    const unitKeywords: { [key: string]: { type: 'kg' | 'gm' | 'pc' | 'pack' } } = {
-        'kg': { type: 'kg' }, 'kilo': { type: 'kg' }, 'kilos': { type: 'kg' }, 'కిలో': { type: 'kg' }, 'కేజీ': { type: 'kg' }, 'किलो': { type: 'kg' },
-        'gm': { type: 'gm' }, 'g': { type: 'gm' }, 'grams': { type: 'gm' }, 'గ్రాములు': { type: 'gm' }, 'ग्राम': { type: 'gm' },
-        'pc': { type: 'pc' }, 'piece': { type: 'pc' }, 'pieces': { type: 'pc' }, 'పీస్': { type: 'pc' }, 'पीस': { type: 'pc' },
-        'pack': { type: 'pack' }, 'packet': { type: 'pack' }, 'ప్యాక్': { type: 'pack' }, 'पैकेट': { type: 'pack' }
-    };
+    let lowerPhrase = extracted.productPhrase.toLowerCase().trim();
+    let sanitizedPhrase = lowerPhrase.replace(/[-.,]/g, ' ').replace(/\s+/g, ' ').trim();
 
-    let foundNumberWord = false;
-    for (const word of words) {
-        let consumed = false;
-        
-        // Prioritize number words
-        if (numberWords[word]) {
-            requestedQty = numberWords[word];
-            consumed = true;
-            foundNumberWord = true;
-        } 
-        // Then check for digits, but only if a number word hasn't been found
-        else if (!foundNumberWord && !isNaN(parseFloat(word))) {
-            requestedQty = parseFloat(word);
-            consumed = true;
-        } 
-        // Then check for units
-        else if (unitKeywords[word]) {
-            requestedUnit = unitKeywords[word].type;
-            consumed = true;
+    // ---------- PRODUCT MATCHING ----------
+    let productMatch: { product: Product; alias: string; lang: string } | null = null;
+
+    if (sanitizedPhrase) {
+      const direct = universalProductAliasMap.get(sanitizedPhrase) ||
+                     universalProductAliasMap.get(sanitizedPhrase.replace(/\s/g, ''));
+
+      if (direct) {
+        productMatch = { ...direct, alias: sanitizedPhrase };
+      } else {
+        let best: { product: Product; alias: string; similarity: number; lang: string } | null = null;
+
+        for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
+          const s = calculateSimilarity(sanitizedPhrase, alias);
+          if (s > 0.8 && (!best || s > best.similarity)) {
+            best = { product, alias, similarity: s, lang };
+          }
         }
-
-        if (!consumed) {
-            remainingWords.push(word);
-        }
+        if (best) productMatch = { product: best.product, alias: best.alias, lang: best.lang };
+      }
     }
-
-    let productNamePhrase = remainingWords.join(' ');
-
-
-    let productMatch: { product: Product, alias: string, lang: string } | null = null;
-    
-    if (productNamePhrase) {
-        const directMatch = universalProductAliasMap.get(productNamePhrase) || universalProductAliasMap.get(productNamePhrase.replace(/\s/g, ''));
-        if (directMatch) {
-            productMatch = { ...directMatch, alias: productNamePhrase };
-        } else {
-            let bestMatch: { product: Product, alias: string, similarity: number, lang: string } | null = null;
-            for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
-                const similarity = calculateSimilarity(productNamePhrase, alias);
-                if (similarity > 0.8 && (!bestMatch || similarity > bestMatch.similarity)) {
-                    bestMatch = { product, alias, similarity, lang };
-                }
-            }
-            if (bestMatch) {
-                productMatch = { product: bestMatch.product, alias: bestMatch.alias, lang: bestMatch.lang };
-            }
-        }
-    }
-
 
     if (!productMatch) {
-      return { product: null, variant: null, requestedQty, remainingPhrase: phrase, matchedAlias: null, lang: 'en' };
+      return {
+        product: null,
+        variant: null,
+        requestedQty: qty,
+        requestedUnit: unit,
+        remainingPhrase: sanitizedPhrase,
+        matchedAlias: null,
+        lang: "en"
+      };
     }
 
     const { product, lang: detectedLang, alias: matchedAlias } = productMatch;
-    
+
+    // ---------- PRICE DATA ----------
     let priceData = productPrices[product.name.toLowerCase()];
-    if (!priceData && firestore) {
+    if (!priceData || priceData.variants.length === 0) {
+      return {
+        product,
+        variant: null,
+        requestedQty: qty,
+        requestedUnit: unit,
+        remainingPhrase: sanitizedPhrase,
+        matchedAlias,
+        lang: detectedLang
+      };
     }
 
-    if (!priceData?.variants?.length) {
-        return { product, variant: null, requestedQty, remainingPhrase: productNamePhrase, matchedAlias, lang: detectedLang };
+    // ---------- MONEY → WEIGHT MATH ----------
+    if (money) {
+      const perKgVariant =
+        priceData.variants.find((v) => v.weight.includes("kg")) ||
+        priceData.variants[0];
+
+      const pricePerKg = perKgVariant.price;
+      const weightKg = money / pricePerKg; // REAL grocery math
+
+      qty = weightKg;
+      unit = "kg";
     }
 
+    // ---------- EXPLICIT WEIGHTS ----------
+    // Convert grams to kg
+    if (unit === "gm" || unit === "g") {
+      qty = qty / 1000;
+      unit = "kg";
+    }
+
+    // Convert ml to litre
+    if (unit === "ml") {
+      qty = qty / 1000;
+      unit = "ltr";
+    }
+
+    // ---------- FRACTIONAL KG ----------
+    // People say: half kg, 1/2 kg, quarter kg etc
+    if (!extracted.unit && qty < 1 && qty !== 1) {
+      unit = "kg";
+    }
+
+    // ---------- VARIANT SELECTION ----------
     let chosenVariant: ProductVariant | null = null;
-    
-    if (requestedUnit) {
+
+    // Case 1: User asked for specific unit matching variant
+    if (unit) {
       for (const v of priceData.variants) {
-        if (v.weight.toLowerCase().includes(requestedUnit)) {
-           chosenVariant = v;
-           break;
+        if (v.weight.toLowerCase().includes(unit)) {
+          chosenVariant = v;
+          break;
         }
       }
     }
 
-    if (!chosenVariant) {
-        chosenVariant =
-            priceData.variants.find(v => v.weight === '1kg') ||
-            priceData.variants.find(v => v.weight.includes('kg')) ||
-            priceData.variants.find(v => v.weight.includes('pc')) ||
-            priceData.variants[0];
+    // Case 2: If weight is fractional (0.25kg, 0.5kg, 0.75kg etc)
+    if (!chosenVariant && unit === "kg" && qty > 0 && qty < 1) {
+      // CHECK if any exact pack matches grams
+      const grams = qty * 1000;
+      const variantByGram = priceData.variants.find((v) => {
+        const numeric = parseFloat(v.weight);
+        return Math.abs(numeric - grams) < 5; // close match
+      });
+
+      if (variantByGram) {
+        chosenVariant = variantByGram;
+      }
     }
 
-    return { product: product, variant: chosenVariant, requestedQty, remainingPhrase: productNamePhrase, matchedAlias, lang: detectedLang };
-}, [firestore, productPrices, universalProductAliasMap]);
+    // Case 3: Normal fallback → pick the first variant
+    if (!chosenVariant) {
+      chosenVariant =
+        priceData.variants.find((v) => v.weight === "1kg") ||
+        priceData.variants.find((v) => v.weight.includes("kg")) ||
+        priceData.variants.find((v) => v.weight.includes("pc")) ||
+        priceData.variants[0];
+    }
+
+    return {
+      product,
+      variant: chosenVariant,
+      requestedQty: qty,
+      requestedUnit: unit,
+      remainingPhrase: sanitizedPhrase,
+      matchedAlias,
+      lang: detectedLang
+    };
+  },
+  [language, universalProductAliasMap, productPrices]
+);
 
   const recognizeIntent = useCallback((text: string, spokenLang: string): Intent => {
     const lowerText = text.toLowerCase().trim();
+    const nlu = runNLU(text, spokenLang);
+
+    if (nlu.hasMath) {
+        return { type: 'MATH', originalText: text, lang: spokenLang };
+    }
     
     const fromKeywords = ['from', 'at', 'in'];
     const toKeywords = ['to', 'at'];
@@ -647,7 +698,7 @@ export function VoiceCommander({
 
     return { type: 'ORDER_ITEM', originalText: text, lang: spokenLang };
 
-  }, [commands, getAllAliases]);
+  }, [commands, getAllAliases, language]);
 
 
     const handleCommandFailure = useCallback(async (commandText: string, spokenLang: string, reason: string) => {
@@ -789,7 +840,7 @@ export function VoiceCommander({
                 isWaitingForAddressTypeRef.current = false;
                 addressRetryCountRef.current = 0;
                 
-                speak(t('address-selection-cancelled-speech', replyLang), langWithRegion, false);
+                speak(t('address-selection-cancelled-speech', replyLang), langWithRegion, false); // Pass false to stop listening
                 handleCommandFailure(commandText, spokenLang, `Address type clarification failed. Max retries reached.`);
             }
         }
@@ -859,6 +910,16 @@ export function VoiceCommander({
             commandActionsRef.current.showDetails({ target: intent.target, lang: intent.lang });
             break;
         
+        case 'MATH': {
+          const nlu = runNLU(commandText, spokenLang);
+          if (nlu.mathResult !== null) {
+            speak(`The answer is ${nlu.mathResult}`, langWithRegion);
+          } else {
+            speak("I couldn't solve that math problem.", langWithRegion);
+          }
+          break;
+        }
+
         case 'NAVIGATE':
         case 'CONVERSATIONAL': {
             const commandKey = intent.type === 'NAVIGATE' ? intent.destination : intent.commandKey;
@@ -1308,28 +1369,27 @@ export function VoiceCommander({
             router.push('/checkout');
         });
     },
-
-};
-
-if (firestore && user) {
-    const userDocRef = doc(firestore, 'users', user.uid);
-    getDoc(userDocRef).then(docSnap => {
-        if (docSnap.exists()) {
-            const data = docSnap.data() as User;
-            userProfileRef.current = data;
-        };
-    });
-}
+  };
 
 
-return () => {
-  if (recognition) {
-    recognition.onend = null;
-    recognition.stop();
-  }
-};
+    if (firestore && user) {
+        const userDocRef = doc(firestore, 'users', user.uid);
+        getDoc(userDocRef).then(docSnap => {
+            if (docSnap.exists()) {
+                const data = docSnap.data() as User;
+                userProfileRef.current = data;
+            };
+        });
+    }
 
-}, [
+
+    return () => {
+      if (recognition) {
+        recognition.onend = null;
+        recognition.stop();
+      }
+    };
+  }, [
       handleCommand, cartTotal, cartItemsProp, pathname, masterProducts, t, aiConfig, isAppStoreLoading,
       productPrices, fetchProductPrices, firestore, user, router, language, setLanguage, speak,
       determinePhraseLanguage, resetAllContext, storeAliasMap,
