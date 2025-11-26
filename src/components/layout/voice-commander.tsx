@@ -516,7 +516,6 @@ export function VoiceCommander({
     }
     let productNamePhrase = remainingWords.join(' ');
 
-    // If the only thing left is a number, it's not a product name.
     if (productNamePhrase.length > 0 && !isNaN(Number(productNamePhrase))) {
         productNamePhrase = '';
     }
@@ -526,7 +525,7 @@ export function VoiceCommander({
     if (productNamePhrase) {
         let bestMatch: { product: Product, alias: string, similarity: number, lang: string } | null = null;
         for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
-            // Check if the phrase contains the alias, which is more robust
+            // FIX: Check if the phrase contains the alias, which is more robust for natural language.
             if (productNamePhrase.includes(alias)) {
                 const similarity = calculateSimilarity(productNamePhrase, alias);
                 if (!bestMatch || similarity > bestMatch.similarity) {
@@ -549,7 +548,6 @@ export function VoiceCommander({
     
     let priceData = productPrices[product.name.toLowerCase()];
     if (!priceData && firestore) {
-        // Price data is now pre-fetched, so this should rarely happen.
     }
 
     if (!priceData?.variants?.length) {
@@ -558,7 +556,6 @@ export function VoiceCommander({
 
     let chosenVariant: ProductVariant | null = null;
     
-    // If a unit was specified, try to find a matching variant
     if (requestedUnit) {
       const weightRegex = new RegExp(`(\\d*\\.?\\d+)\\s*${requestedUnit}`, 'i');
       for (const v of priceData.variants) {
@@ -569,7 +566,6 @@ export function VoiceCommander({
       }
     }
 
-    // Fallback logic if no specific variant was matched
     if (!chosenVariant) {
         chosenVariant =
             priceData.variants.find(v => v.weight === '1kg') ||
@@ -602,11 +598,9 @@ export function VoiceCommander({
     }
 
     if (bestCommandMatch) {
-      // If a navigation keyword is used with a command, it's definitely navigation.
       if (intentKeywords.NAVIGATE.some(kw => lowerText.includes(kw))) {
         return { type: 'NAVIGATE', destination: bestCommandMatch.key, originalText: text, lang: spokenLang };
       }
-      // Handle special commands like 'get-recipe'
       if (bestCommandMatch.key === 'get-recipe') {
           const recipeAliases = (getAllAliases('get-recipe')[spokenLang] || ['recipe for']);
           const recipeKeywordUsed = recipeAliases.find(alias => lowerText.includes(alias));
@@ -615,7 +609,6 @@ export function VoiceCommander({
             return { type: 'GET_RECIPE', dishName, originalText: text, lang: spokenLang };
           }
       }
-      // If it's a direct match to a general command, it's conversational.
       return { type: 'CONVERSATIONAL', commandKey: bestCommandMatch.key, originalText: text, lang: spokenLang };
     }
 
@@ -648,15 +641,17 @@ export function VoiceCommander({
         return { type: 'GET_KNOWLEDGE', topic, originalText: text, lang: spokenLang };
     }
     
-    // 3. If it contains an order keyword, assume it's an order
-    if (intentKeywords.ORDER_ITEM.some(kw => lowerText.includes(kw))) {
+    // FIX: If it's not a command, it's likely an order, even without explicit keywords.
+    // Check if the phrase contains a product. This is an approximation.
+    const potentialProduct = Array.from(universalProductAliasMap.keys()).find(alias => lowerText.includes(alias));
+    if (potentialProduct || intentKeywords.ORDER_ITEM.some(kw => lowerText.includes(kw))) {
         return { type: 'ORDER_ITEM', originalText: text, lang: spokenLang };
     }
 
     // 4. Default to UNKNOWN if no other intent is matched
     return { type: 'UNKNOWN', originalText: text, lang: spokenLang };
 
-  }, [commands, getAllAliases]);
+  }, [commands, getAllAliases, universalProductAliasMap]);
 
 
     const handleCommandFailure = useCallback(async (commandText: string, spokenLang: string, reason: string) => {
@@ -712,7 +707,7 @@ export function VoiceCommander({
           requestedQty = foundQty;
       }
       if (!chosenVariant) {
-          const numbersInCommand = lowerCommandText.match(/\\d+/g)?.map(Number);
+          const numbersInCommand = lowerCommandText.match(/\d+/g)?.map(Number);
           if (numbersInCommand) {
               for (const price of numbersInCommand) {
                   const matchedVariant = context.variants.find(v => Math.round(v.price * 1.20) === price);
@@ -754,12 +749,11 @@ export function VoiceCommander({
       } else if (isNo) {
           speak("Okay, cancelled.", langWithRegion, false);
       } else {
-          // If no variant was selected and it wasn't a "no", assume it's a new command
-          resetAllContext(); // Clear context before re-handling
+          resetAllContext();
           handleCommand(commandText);
           return;
       }
-      resetAllContext(); // Ensure context is cleared
+      resetAllContext();
       return;
     }
 
@@ -792,7 +786,7 @@ export function VoiceCommander({
                 isWaitingForAddressTypeRef.current = false;
                 addressRetryCountRef.current = 0;
                 
-                speak(t('address-selection-cancelled-speech', replyLang), langWithRegion, false); // Pass false to stop listening
+                speak(t('address-selection-cancelled-speech', replyLang), langWithRegion, false);
                 handleCommandFailure(commandText, spokenLang, `Address type clarification failed. Max retries reached.`);
             }
         }
@@ -801,7 +795,7 @@ export function VoiceCommander({
 
 
     if (isWaitingForStoreNameRef.current) {
-        isWaitingForStoreNameRef.current = false; // Reset immediately
+        isWaitingForStoreNameRef.current = false;
         let bestMatch: { store: Store, similarity: number } | null = null;
         for (const [alias, store] of storeAliasMap.entries()) {
             const similarity = calculateSimilarity(commandText.toLowerCase(), alias);
@@ -1143,7 +1137,6 @@ export function VoiceCommander({
             .replace('{productName}', getProductName(product))
           
           speak(`${reply} Please select an option or say 'cancel'.`, langWithRegion, () => {
-            // Set context for follow-up commands
             itemForPriceCheck.current = { product, variants: priceData.variants };
           });
           return;
@@ -1216,7 +1209,7 @@ export function VoiceCommander({
     handleSmartOrder: async (text: string, lang: string) => {
         const replyLang = lang;
         const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
-        clearCart(); // Start with a fresh cart for a smart order
+        clearCart(); 
         
         const fromKeywords = ['from', 'at', 'in'];
         const toKeywords = ['to', 'at'];
@@ -1246,18 +1239,16 @@ export function VoiceCommander({
             return;
         }
 
-        const productPhrase = text.substring(0, fromIndex).replace(/^(order|buy|get|send)\\s+/i, '').trim();
+        const productPhrase = text.substring(0, fromIndex).replace(/^(order|buy|get|send)\s+/i, '').trim();
         const storePhrase = text.substring(fromIndex + fromKeyword.length + 1, toIndex).trim();
         const addressPhrase = text.substring(toIndex + toKeyword.length + 1).trim();
 
-        // 1. Process Product
         const { product, variant, requestedQty } = await findProductAndVariant(productPhrase);
         if (!product || !variant) {
             speak(t('could-not-find-item-speech', replyLang).replace('{itemName}', productPhrase), langWithRegion);
             return;
         }
 
-        // 2. Process Store
         let bestStoreMatch: Store | null = null;
         let bestSimilarity = 0;
         for (const [alias, store] of storeAliasMap.entries()) {
@@ -1273,7 +1264,6 @@ export function VoiceCommander({
             return;
         }
 
-        // 3. Process Address
         const homeKeywords = getAllAliases('homeAddress')[lang] || ['home'];
         const locationKeywords = getAllAliases('currentLocation')[lang] || ['current', 'location'];
         const homeSimilarity = Math.max(...homeKeywords.map(kw => calculateSimilarity(addressPhrase.toLowerCase(), kw)));
@@ -1292,17 +1282,15 @@ export function VoiceCommander({
         } else if (locationSimilarity > 0.7) {
             useCurrentLocation = true;
         } else {
-            // If it's not clearly home or current, set it to the raw phrase and let the user fix it.
             deliveryAddress = addressPhrase;
         }
 
-        // 4. Execute Actions
         const speech = t('preparing-order-speech', replyLang)
             .replace('{items}', `${requestedQty} ${variant.weight} of ${getProductName(product)}`)
             .replace('{storeName}', bestStoreMatch.name);
 
         speak(speech, langWithRegion, () => {
-            setIsWaitingForQuickOrderConfirmation(true); // Prevents checkout page from prompting
+            setIsWaitingForQuickOrderConfirmation(true);
             addItemToCart(product, variant, requestedQty);
             setActiveStoreId(bestStoreMatch!.id);
             if(useCurrentLocation) {
@@ -1310,10 +1298,10 @@ export function VoiceCommander({
             } else {
                 setHomeAddress(deliveryAddress);
             }
-            useCheckoutStore.getState().setShouldPlaceOrderDirectly(true); // Signal the checkout page to auto-submit
+            useCheckoutStore.getState().setShouldPlaceOrderDirectly(true);
             router.push('/checkout');
         });
-      },
+    },
     };
 
 
@@ -1366,3 +1354,5 @@ export function VoiceCommander({
         </>
     );
 }
+
+    
