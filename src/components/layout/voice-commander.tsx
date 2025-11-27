@@ -269,7 +269,7 @@ export function VoiceCommander({
     isEnabledRef.current = enabled;
     if (recognition) {
         if (enabled) {
-            recognition.lang = 'en-IN'; // Always listen in English
+            recognition.lang = 'te-IN'; // Always listen in Telugu
             recognition.continuous = false;
             recognition.interimResults = false;
             try {
@@ -524,9 +524,9 @@ const findProductAndVariant = useCallback(
         const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
         const baseWeight = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
         const isBaseKg = baseVariant.weight.includes('kg');
-        const pricePerGram = baseVariant.price / (isBaseKg ? baseWeight * 1000 : baseWeight);
+        const pricePerBaseUnit = baseVariant.price / (isBaseKg ? baseWeight * 1000 : baseWeight); // Price per gram
 
-        const requestedGrams = money / pricePerGram;
+        const requestedGrams = money / pricePerBaseUnit;
 
         chosenVariant = {
             price: money,
@@ -934,7 +934,7 @@ const findProductAndVariant = useCallback(
     }
 
     recognition.onstart = () => {
-        onStatusUpdate(`Listening... (en-IN)`);
+        onStatusUpdate(`Listening... (te-IN)`);
     };
 
     recognition.onresult = (event) => {
