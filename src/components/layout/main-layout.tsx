@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, createContext, useContext, useCallback, useEffect } from 'react';
@@ -123,12 +124,8 @@ export function MainLayout({
     <VoiceCommandContext.Provider value={{ triggerVoicePrompt, retryCommand, showPriceCheck, hidePriceCheck, voiceEnabled, onToggleVoice, isCartOpen, onCartOpenChange: setIsCartOpen }}>
         <div className="relative flex min-h-dvh flex-col bg-background">
         <Header 
-            voiceEnabled={voiceEnabled}
-            onToggleVoice={onToggleVoice}
             voiceStatus={voiceStatus}
             suggestedCommands={suggestedCommands}
-            isCartOpen={isCartOpen}
-            onCartOpenChange={setIsCartOpen}
         />
         {user && isInitialized && (
             <VoiceCommander 

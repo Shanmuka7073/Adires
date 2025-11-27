@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -37,7 +38,6 @@ import { useVoiceCommanderContext } from './main-layout';
 const ADMIN_EMAIL = 'admin@gmail.com';
 
 const navLinks = [
-  { href: '/', label: 'home' },
   { href: '/dashboard/desktop', label: 'desktop' },
 ];
 
