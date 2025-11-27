@@ -19,7 +19,7 @@ import { useProfileFormStore } from '@/lib/store';
 import { getWikipediaSummary, getMealDbRecipe } from '@/app/actions';
 import { useVoiceCommanderContext } from './main-layout';
 import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
-import { runNLU, extractQuantityAndProduct } from '@/lib/nlu/voice-integration';
+import { runNLU, extractQuantityAndProduct } from '@/lib/nlu/engine';
 
 
 export interface Command {
@@ -1116,11 +1116,15 @@ const findProductAndVariant = useCallback(
       if (!phrase) return;
 
       const { product, lang: detectedLang } = await findProductAndVariant(phrase);
+      const replyLang = detectedLang;
+      const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
       
       if (product) {
           const masterStoreId = stores.find(s => s.name === 'LocalBasket')?.id;
           if (masterStoreId) {
-            router.push(`/stores/${masterStoreId}?category=${encodeURIComponent(product.category || '')}&highlight=${encodeURIComponent(product.name)}`);
+            speak(`Okay, let's see about ${product.name}.`, langWithRegion, () => {
+              router.push(`/stores/${masterStoreId}?category=${encodeURIComponent(product.category || '')}&highlight=${encodeURIComponent(product.name)}`);
+            });
           } else {
             speak("I can't navigate to the product page right now.", langWithRegion);
           }

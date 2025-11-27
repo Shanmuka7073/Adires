@@ -17,6 +17,11 @@ import * as fs from 'fs';
 import * as readline from 'readline';
 import * as path from 'path';
 
+// --- Direct import from the new engine file ---
+import { runNLU, extractQuantityAndProduct } from '@/lib/nlu/engine';
+import type { NLUResult } from '@/lib/nlu/engine';
+
+
 type TestCase = {
   id?: string;
   text: string;
@@ -36,20 +41,6 @@ type TestResult = {
   error?: string | null;
 };
 
-async function dynamicImport<T = any>(candidates: string[]): Promise<T> {
-  for (const candidate of candidates) {
-    try {
-      // Try ts/alias-style first (your project may use tsconfig paths)
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      // Use dynamic import to support esm/cjs variants
-      const mod = await import(candidate);
-      return mod as T;
-    } catch (e) {
-      // ignore and try next
-    }
-  }
-  throw new Error(`Cannot import any of: ${candidates.join(', ')}`);
-}
 
 function compareFields(expect: Record<string, any>, actual: Record<string, any>): Record<string, any> {
   const mismatches: Record<string, any> = {};
@@ -96,29 +87,7 @@ async function main() {
   console.log('Output file:', outFile);
   console.log('Concurrency:', concurrency);
   console.log('Mode:', mode);
-
-  // Import your NLU functions (attempt several import paths)
-  const nluModule = await dynamicImport<any>([
-    // try common variants — adjust if your project uses different paths
-    'ts-node/register', // no-op candidate (skip)
-    '@/lib/nlu/voice-integration',
-    './src/lib/nlu/voice-integration',
-    '../src/lib/nlu/voice-integration',
-  ]).catch(() => null);
-
-  if (!nluModule) {
-    console.error('Could not import runNLU / extractQuantityAndProduct. Make sure path is correct relative to project root.');
-    process.exit(2);
-  }
-
-  const runNLU = nluModule.runNLU || nluModule.default?.runNLU;
-  const extractQuantityAndProduct = nluModule.extractQuantityAndProduct || nluModule.default?.extractQuantityAndProduct;
-
-  if (!runNLU || !extractQuantityAndProduct) {
-    console.error('runNLU or extractQuantityAndProduct not found in imported module. Export names must match.');
-    process.exit(3);
-  }
-
+  
   // optional product catalog fixtures — if you have JSON files of products and aliases place them here
   let productCatalog: { masterProducts?: any[]; productPrices?: Record<string, any> } = {};
   const catalogCandidates = [
