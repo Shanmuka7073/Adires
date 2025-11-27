@@ -1116,48 +1116,17 @@ const findProductAndVariant = useCallback(
       if (!phrase) return;
 
       const { product, lang: detectedLang } = await findProductAndVariant(phrase);
-      const replyLang = detectedLang;
-      const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
-
+      
       if (product) {
-        let priceData = productPrices[product.name.toLowerCase()];
-
-        if (priceData && priceData.variants && priceData.variants.length > 0) {
-
-          let recommendedProducts: Product[] = [];
-          if (aiConfig?.isRecipeApiEnabled) {
-              const recipeResult = await getIngredientsForDish({ dishName: product.name, language: 'en' });
-              if (recipeResult.isSuccess) {
-                  recommendedProducts = recipeResult.ingredients
-                    .map(ing => masterProducts.find(p => p?.name.toLowerCase() === ing.toLowerCase()))
-                    .filter((p): p is Product => Boolean(p) && p.id !== product.id);
-              }
+          const masterStoreId = stores.find(s => s.name === 'LocalBasket')?.id;
+          if (masterStoreId) {
+            router.push(`/stores/${masterStoreId}?category=${encodeURIComponent(product.category || '')}&highlight=${encodeURIComponent(product.name)}`);
+          } else {
+            speak("I can't navigate to the product page right now.", langWithRegion);
           }
-          if (recommendedProducts.length === 0) {
-               recommendedProducts = masterProducts
-                .filter(p => p?.category === product.category && p.id !== product.id)
-                .sort(() => 0.5 - Math.random())
-                .slice(0, 5);
-          }
-
-          showPriceCheck({ product, priceData, recommendedProducts });
-
-          const reply = t('price-check-reply-speech', replyLang)
-            .replace('{productName}', getProductName(product))
-
-          speak(`${reply} Please select an option or say 'cancel'.`, langWithRegion, () => {
-            // Set context for follow-up commands
-            itemForPriceCheck.current = { product, variants: priceData.variants };
-          });
           return;
-
-        } else {
-          speak(t('no-price-found-speech', replyLang).replace('{productName}', getProductName(product)), langWithRegion);
-          handleCommandFailure(originalText, detectedLang, `Price check: product "${product.name}" found but no price data available.`);
-          return;
-        }
       }
-
+      
       handleCommandFailure(originalText, lang, `Price check: product not found in phrase "${phrase}".`);
     },
     removeItemFromCart: async ({ phrase, lang }: { phrase?: string; lang: string }) => {

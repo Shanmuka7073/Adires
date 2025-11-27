@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Product, ProductPrice, Store } from '@/lib/types';
@@ -121,6 +122,7 @@ export function CategoryClient({ store, allProducts, productPrices, isLoading }:
   const router = useRouter();
   const searchParams = useSearchParams();
   const categoryFromUrl = searchParams.get('category');
+  const highlightProduct = searchParams.get('highlight');
   
   const categories = useMemo(() => {
     if (!allProducts) return [];
@@ -157,21 +159,33 @@ export function CategoryClient({ store, allProducts, productPrices, isLoading }:
 
   const handleSelectCategory = (categoryName: string) => {
     setSelectedCategory(categoryName);
-    router.push(`/stores/${store.id}?category=${categoryName}`, { scroll: false });
+    router.push(`/stores/${store.id}?category=${categoryName}`);
   };
 
 
   const filteredProducts = useMemo(() => {
+    let productsToFilter = allProducts;
+    
     if (searchTerm) {
-      return allProducts.filter(product =>
+      productsToFilter = productsToFilter.filter(product =>
         product.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
+    } else if (selectedCategory) {
+      productsToFilter = productsToFilter.filter(p => p.category === selectedCategory);
     }
-    if (selectedCategory) {
-      return allProducts.filter(p => p.category === selectedCategory);
+
+    if (highlightProduct) {
+        const highlighted = productsToFilter.find(p => p.name === highlightProduct);
+        if (highlighted) {
+            return [
+                highlighted,
+                ...productsToFilter.filter(p => p.name !== highlightProduct)
+            ];
+        }
     }
-    return [];
-  }, [allProducts, selectedCategory, searchTerm]);
+    
+    return productsToFilter;
+  }, [allProducts, selectedCategory, searchTerm, highlightProduct]);
 
   return (
     <div className="flex flex-col md:flex-row w-full h-full bg-[#f4f9f0]">
