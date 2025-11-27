@@ -250,9 +250,6 @@ function ProductCard({
 
   const itemInCart = cartItems.find(item => item.variant.sku === priceInfo?.sku);
   
-  const originalPrice = priceInfo ? priceInfo.price * 1.20 : null;
-  const finalPrice = originalPrice ? originalPrice * 0.85 : null;
-
   const handleAddToCart = () => {
     if (priceInfo) {
       addItem(product, priceInfo, 1);
@@ -279,9 +276,6 @@ function ProductCard({
         ) : (
           <div className="w-24 h-24 rounded-md bg-gray-100" />
         )}
-        <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-            15% OFF
-        </div>
         <Button 
             size="icon" 
             variant="ghost" 
@@ -298,15 +292,10 @@ function ProductCard({
         <p className="text-xs text-gray-400 mt-0.5">{priceInfo?.weight || ''}</p>
 
         <div className="mt-auto pt-2 flex items-center justify-between">
-            {finalPrice !== null && originalPrice ? (
-              <div className="flex items-center gap-2">
-                <p className="text-green-700 font-bold text-sm">
-                  ₹{finalPrice.toFixed(2)}
-                </p>
-                <s className="text-gray-400 text-xs">
-                  ₹{originalPrice.toFixed(2)}
-                </s>
-              </div>
+            {priceInfo ? (
+              <p className="text-green-700 font-bold text-sm">
+                ₹{priceInfo.price.toFixed(2)}
+              </p>
             ) : (
               <div className="text-gray-400 text-sm">—</div>
             )}

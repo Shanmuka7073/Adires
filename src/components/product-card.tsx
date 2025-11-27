@@ -43,10 +43,6 @@ export default function ProductCard({ product, priceData }: ProductCardProps) {
   
   const englishName = t(product.name.toLowerCase().replace(/ /g, '-'), 'en');
 
-  // Apply a 20% markup for the "original" price, then apply a 15% discount
-  const originalPrice = priceInfo ? priceInfo.price * 1.20 : null;
-  const finalPrice = originalPrice ? originalPrice * 0.85 : null; // 15% discount
-
   return (
     <div className="bg-white rounded-2xl shadow-sm p-3 transition-all hover:shadow-md flex flex-col">
       <div className="w-full h-36 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center relative group">
@@ -55,9 +51,6 @@ export default function ProductCard({ product, priceData }: ProductCardProps) {
         ) : (
           <div className="w-24 h-24 rounded-md bg-gray-100" />
         )}
-        <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-            15% OFF
-        </div>
         <Button 
             size="icon" 
             variant="ghost" 
@@ -74,15 +67,10 @@ export default function ProductCard({ product, priceData }: ProductCardProps) {
         <p className="text-xs text-gray-400 mt-0.5">{priceInfo?.weight || ''}</p>
 
         <div className="mt-auto pt-2 flex items-center justify-between">
-            {finalPrice !== null && originalPrice ? (
-              <div className="flex items-center gap-2">
-                <p className="text-green-700 font-bold text-sm">
-                  ₹{finalPrice.toFixed(2)}
-                </p>
-                <s className="text-gray-400 text-xs">
-                  ₹{originalPrice.toFixed(2)}
-                </s>
-              </div>
+            {priceInfo ? (
+              <p className="text-green-700 font-bold text-sm">
+                ₹{priceInfo.price.toFixed(2)}
+              </p>
             ) : (
               <div className="text-gray-400 text-sm">—</div>
             )}

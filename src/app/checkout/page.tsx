@@ -58,9 +58,6 @@ function OrderSummaryItem({ item, image }) {
     const englishName = t(productNameKey, 'en');
     const teluguName = t(productNameKey, 'te');
     
-    const originalPrice = variant.price * 1.20;
-    const finalPrice = originalPrice * 0.85;
-
     return (
         <div className="flex justify-between items-center">
             <div className="flex items-center gap-4">
@@ -72,8 +69,7 @@ function OrderSummaryItem({ item, image }) {
                 </div>
             </div>
             <div className="text-right">
-                <p>₹{(finalPrice * quantity).toFixed(2)}</p>
-                <s className="text-xs text-muted-foreground">₹{(originalPrice * quantity).toFixed(2)}</s>
+                <p>₹{(variant.price * quantity).toFixed(2)}</p>
             </div>
         </div>
     );
@@ -294,7 +290,7 @@ export default function CheckoutPage() {
                 variantSku: item.variant.sku,
                 variantWeight: item.variant.weight,
                 quantity: item.quantity,
-                price: (item.variant.price * 1.20) * 0.85,
+                price: item.variant.price,
             })),
         };
 

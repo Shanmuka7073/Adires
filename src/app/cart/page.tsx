@@ -66,8 +66,6 @@ function UnidentifiedCartRow({ item }: { item: UnidentifiedCartItem }) {
 function CartRow({ item, image }) {
   const { removeItem, updateQuantity } = useCart();
   const { product, variant, quantity } = item;
-  const originalPrice = variant.price * 1.20;
-  const finalPrice = originalPrice * 0.85;
 
   const productNameKey = product.name.toLowerCase().replace(/ /g, '-');
   const englishName = t(productNameKey, 'en');
@@ -98,8 +96,7 @@ function CartRow({ item, image }) {
       </TableCell>
       <TableCell>
         <div className="flex flex-col">
-            <span className="font-semibold">₹{finalPrice.toFixed(2)}</span>
-            <s className="text-xs text-muted-foreground">₹{originalPrice.toFixed(2)}</s>
+            <span className="font-semibold">₹{variant.price.toFixed(2)}</span>
         </div>
       </TableCell>
       <TableCell>
@@ -113,7 +110,7 @@ function CartRow({ item, image }) {
         />
       </TableCell>
       <TableCell className="text-right">
-        ₹{(finalPrice * quantity).toFixed(2)}
+        ₹{(variant.price * quantity).toFixed(2)}
       </TableCell>
       <TableCell>
         <Button variant="ghost" size="icon" onClick={() => removeItem(variant.sku)}>
@@ -128,8 +125,6 @@ function CartRow({ item, image }) {
 function MobileCartItem({ item, image }) {
     const { removeItem, updateQuantity } = useCart();
     const { product, variant, quantity } = item;
-    const originalPrice = variant.price * 1.20;
-    const finalPrice = originalPrice * 0.85;
 
     const productNameKey = product.name.toLowerCase().replace(/ /g, '-');
     const englishName = t(productNameKey, 'en');
@@ -156,8 +151,7 @@ function MobileCartItem({ item, image }) {
                          {product.isAiAssisted && <p className="text-xs text-green-700 font-medium">Was: "{product.matchedAlias}"</p>}
                     </div>
                      <div className="flex items-baseline gap-2">
-                        <p className="font-bold text-lg">₹{(finalPrice * quantity).toFixed(2)}</p>
-                        <s className="text-sm text-muted-foreground">₹{(originalPrice * quantity).toFixed(2)}</s>
+                        <p className="font-bold text-lg">₹{(variant.price * quantity).toFixed(2)}</p>
                     </div>
                      <div className="flex items-center gap-2">
                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(variant.sku, quantity - 1)}>
