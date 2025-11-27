@@ -574,13 +574,9 @@ const findProductAndVariant = useCallback(
         return { type: 'MATH', originalText: text, lang: spokenLang };
     }
     
-    // Check if the command is JUST a product name
-    const { product: foundProduct } = findProductAndVariant(lowerText);
-    if (foundProduct && lowerText.split(' ').length <= 3) {
-      const isJustProduct = intentKeywords.ORDER_ITEM.every(kw => !lowerText.includes(kw));
-      if (isJustProduct) {
+    const isJustProduct = universalProductAliasMap.has(lowerText) && intentKeywords.ORDER_ITEM.every(kw => !lowerText.includes(kw));
+    if (isJustProduct) {
         return { type: 'CHECK_PRICE', productPhrase: lowerText, originalText: text, lang: spokenLang };
-      }
     }
 
     const fromKeywords = ['from', 'at', 'in'];
@@ -650,7 +646,7 @@ const findProductAndVariant = useCallback(
 
     return { type: 'ORDER_ITEM', originalText: text, lang: spokenLang };
 
-  }, [commands, getAllAliases, language, findProductAndVariant]);
+  }, [commands, getAllAliases, language, universalProductAliasMap]);
 
 
     const handleCommandFailure = useCallback(async (commandText: string, spokenLang: string, reason: string) => {
@@ -719,7 +715,7 @@ const findProductAndVariant = useCallback(
           const numbersInCommand = lowerCommandText.match(/\d+/g)?.map(Number);
           if (numbersInCommand) {
               for (const price of numbersInCommand) {
-                  const matchedVariant = context.variants.find(v => Math.round(v.price) === price);
+                  const matchedVariant = context.variants.find(v => Math.round(v.price * 1.20) === price);
                   if (matchedVariant) {
                       chosenVariant = matchedVariant;
                       break;
