@@ -74,7 +74,7 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
 
   const moneyRegex = /(?:rs|rupees|₹|rup(?:ay|ayalu|aay)?)\.?\s*(\d+\.?\d*)|(\d+\.?\d*)\s*(?:rs|rupees|₹|rup(?:ay|ayalu|aay)?)\.?/i;
   
-  const weightRegex = /(\d+\.?\d*)\s*(kg|kilos?|kilogram|grams?|gm|g|gms|g\sm\ss|liters?|ltrs?|l|milliliters?|ml)/i;
+  const weightRegex = /(\d+\.?\d*)\s*(kg|kilos?|kilogram|grams?|gm|g|gms|liters?|ltrs?|l|milliliters?|ml)/i;
   
   const pieceRegex = /(\d+)\s*(pack|packet|pc|piece|pieces)/i;
   
