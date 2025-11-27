@@ -96,14 +96,19 @@ function GroceryCategoryCard({ categoryName, imageHint, count }: { categoryName:
 // New Header component specific to this page layout
 function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: (term: string) => void, user: User | null, onMicClick: () => void }) {
     const [activeMainCategory, setActiveMainCategory] = useState('All');
-    const deliveryTime = useMemo(() => Math.floor(Math.random() * 10) + 15, []);
+    const [deliveryTime, setDeliveryTime] = useState<number | null>(null);
+
+    useEffect(() => {
+        // Generate random time only on the client-side
+        setDeliveryTime(Math.floor(Math.random() * 10) + 15);
+    }, []);
 
     return (
         <header className="bg-[#f0faff] sticky top-0 z-20 px-4 pt-4 pb-2 border-b">
             <div className="flex justify-between items-center mb-3">
                 <div>
                      <p className="text-xs font-bold text-gray-700 uppercase">Blinkit in</p>
-                     <p className="text-xl font-bold text-gray-900">{deliveryTime} minutes</p>
+                     <p className="text-xl font-bold text-gray-900">{deliveryTime ? `${deliveryTime} minutes` : '...'}</p>
                      {user && (
                          <div className="flex items-center text-xs text-gray-600 mt-1">
                             <MapPin className="h-3 w-3 mr-1" />
