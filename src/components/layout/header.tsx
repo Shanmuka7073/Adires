@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -29,10 +28,11 @@ import {
 import { getAuth, signOut } from 'firebase/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useState, useEffect } from 'react';
-import { Command } from './voice-commander';
+import type { Command } from './voice-commander';
 import { useToast } from '@/hooks/use-toast';
 import { t } from '@/lib/locales';
 import { useAppStore } from '@/lib/store';
+import { useVoiceCommanderContext } from './main-layout';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -161,38 +161,28 @@ function UserMenu() {
 }
 
 interface HeaderProps {
-  voiceEnabled: boolean;
-  onToggleVoice: () => void;
   voiceStatus: string;
   suggestedCommands: Command[];
-  isCartOpen: boolean;
-  onCartOpenChange: (open: boolean) => void;
 }
 
-export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedCommands, isCartOpen, onCartOpenChange }: HeaderProps) {
+export function Header({ voiceStatus, suggestedCommands }: HeaderProps) {
   const pathname = usePathname();
-  const { user, isUserLoading } = useFirebase();
   const { toast } = useToast();
   const [hasMounted, setHasMounted] = useState(false);
+  const { voiceEnabled, onToggleVoice, isCartOpen, onCartOpenChange } = useVoiceCommanderContext();
+
 
   useEffect(() => {
     setHasMounted(true);
   }, []);
 
-  const handleToggleVoiceWithCheck = () => {
-    if (!user) {
-      toast({
-        variant: 'destructive',
-        title: 'Login Required',
-        description: 'You must be logged in to use voice commands.',
-      });
-      return;
-    }
-    onToggleVoice();
-  };
-  
   const handleSuggestionClick = (command: Command) => {
     command.action();
+  }
+
+  // Hide the header on the homepage, as it now has its own integrated header
+  if (pathname === '/') {
+    return null;
   }
 
   return (
@@ -260,7 +250,7 @@ export function Header({ voiceEnabled, onToggleVoice, voiceStatus, suggestedComm
       
       <div className="flex w-full items-center justify-end gap-2 md:ml-auto md:gap-2 lg:gap-4">
         <LanguageSwitcher />
-        <Button variant={voiceEnabled ? 'secondary' : 'outline'} size="icon" onClick={handleToggleVoiceWithCheck} className="relative">
+        <Button variant={voiceEnabled ? 'secondary' : 'outline'} size="icon" onClick={onToggleVoice} className="relative">
           {voiceEnabled ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
           {voiceEnabled && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>}
           <span className="sr-only">{voiceEnabled ? 'Stop voice commands' : 'Start voice commands'}</span>

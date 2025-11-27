@@ -1,9 +1,7 @@
-
 'use client';
 
 import { useState, createContext, useContext, useCallback, useEffect } from 'react';
 import { useCart } from '@/lib/cart';
-import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { VoiceCommander, Command } from '@/components/layout/voice-commander';
 import { ProfileCompletionChecker } from '@/components/profile-completion-checker';
@@ -22,6 +20,10 @@ const VoiceCommandContext = createContext<{
     retryCommand?: (command: string) => void; 
     showPriceCheck: (info: PriceCheckInfo) => void;
     hidePriceCheck: () => void;
+    voiceEnabled: boolean;
+    onToggleVoice: () => void;
+    isCartOpen: boolean;
+    onCartOpenChange: (open: boolean) => void;
 } | undefined>(undefined);
 
 export function useVoiceCommanderContext() {
@@ -43,17 +45,14 @@ export function MainLayout({
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { cartItems } = useCart();
   const { toast } = useToast();
-  const pathname = usePathname();
   
   const { user } = useFirebase();
   
-  // This hook now correctly handles the initial data load for the entire app
   useInitializeApp();
 
   const { setLanguage, isInitialized } = useAppStore();
   const [priceCheckInfo, setPriceCheckInfo] = useState<PriceCheckInfo | null>(null);
 
-  // State to trigger re-evaluation in VoiceCommander
   const [voiceTrigger, setVoiceTrigger] = useState(0);
   const [retryCommandText, setRetryCommandText] = useState<string | null>(null);
 
@@ -90,7 +89,6 @@ export function MainLayout({
   }, [setLanguage, toast]);
 
 
-  // Stable callback to trigger the voice prompt check
   const triggerVoicePrompt = useCallback(() => {
     setVoiceTrigger(v => v + 1);
   }, []);
@@ -106,19 +104,24 @@ export function MainLayout({
   const hidePriceCheck = useCallback(() => {
       setPriceCheckInfo(null);
   }, []);
+  
+  const onToggleVoice = useCallback(() => {
+     if (!user) {
+      toast({
+        variant: 'destructive',
+        title: 'Login Required',
+        description: 'You must be logged in to use voice commands.',
+      });
+      return;
+    }
+    setVoiceEnabled(prev => !prev);
+  }, [user, toast]);
 
 
   return (
-    <VoiceCommandContext.Provider value={{ triggerVoicePrompt, retryCommand, showPriceCheck, hidePriceCheck }}>
+    <VoiceCommandContext.Provider value={{ triggerVoicePrompt, retryCommand, showPriceCheck, hidePriceCheck, voiceEnabled, onToggleVoice, isCartOpen, onCartOpenChange: setIsCartOpen }}>
         <div className="relative flex min-h-dvh flex-col bg-background">
-        <Header 
-            voiceEnabled={voiceEnabled}
-            onToggleVoice={() => setVoiceEnabled(prev => !prev)}
-            voiceStatus={voiceStatus}
-            suggestedCommands={suggestedCommands}
-            isCartOpen={isCartOpen}
-            onCartOpenChange={setIsCartOpen}
-        />
+        {/* The main header is now part of the homepage itself, not the layout */}
         {user && isInitialized && (
             <VoiceCommander 
                 enabled={voiceEnabled} 
@@ -139,7 +142,6 @@ export function MainLayout({
         <main className="flex-1 pb-16 md:pb-0">{children}</main>
         <NotificationPermissionManager />
         <Footer />
-        {/* Conditionally render BottomNavBar */}
         {!priceCheckInfo && <BottomNavBar />}
         </div>
     </VoiceCommandContext.Provider>
