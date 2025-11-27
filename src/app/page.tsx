@@ -34,11 +34,11 @@ const homePageSections = [
     {
         title: 'Frequently bought',
         categories: [
-            { name: 'Oil, Ghee & Masala', imageHint: 'oil ghee masala', count: 8 },
-            { name: 'Rajma, Chole & Dal', imageHint: 'lentils dal', count: 0 },
-            { name: 'Home Essentials', imageHint: 'cleaning supplies', count: 0 },
-            { name: 'Rice, Atta & more', imageHint: 'rice flour', count: 0 },
-            { name: 'Dry Fruits & Cereals', imageHint: 'dry fruits', count: 1 },
+            { name: 'Oils & Ghee', imageHint: 'oil ghee masala', count: 8 },
+            { name: 'Dals & Pulses', imageHint: 'lentils dal', count: 0 },
+            { name: 'Home Care', imageHint: 'cleaning supplies', count: 0 },
+            { name: 'Grains & Cereals', imageHint: 'rice flour', count: 0 },
+            { name: 'Dry Fruits & Nuts', imageHint: 'dry fruits', count: 1 },
         ]
     },
     {
