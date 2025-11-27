@@ -1,3 +1,4 @@
+
 'use client';
 
 export const homepageCodeText = [
@@ -11,11 +12,15 @@ import { useAppStore } from '@/lib/store';
 import { Product as ProductType, ProductPrice } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
 import ProductCard from '@/components/product-card';
 import { useFirebase } from '@/firebase';
+import { Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+import { t } from '@/lib/locales';
 
 function classNames(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(' ');
@@ -64,7 +69,7 @@ function CategorySidebar({ categories, activeCategory, onSelectCategory, isLoadi
                 passHref
                 legacyBehavior
               >
-              <a
+              <button
                 ref={active ? activeButtonRef : undefined}
                 onClick={(e) => { e.preventDefault(); onSelectCategory(cat.name); router.push(\`/stores/\${firstStoreId}?category=\${cat.name}\`)}}
                 className={classNames(
@@ -78,7 +83,7 @@ function CategorySidebar({ categories, activeCategory, onSelectCategory, isLoadi
                   <Image src={cat.icon} alt={cat.name} width={40} height={40} className="w-10 h-10 object-cover" />
                 </div>
                 <span className="text-[11px] mt-1 text-center text-gray-700 truncate w-[52px]">{cat.name}</span>
-              </a>
+              </button>
               </Link>
             );
           })
@@ -94,11 +99,20 @@ function CategorySidebar({ categories, activeCategory, onSelectCategory, isLoadi
 
 // --- Main Homepage Component ---
 export default function LocalBasketHomepage() {
-    const { masterProducts, productPrices, loading: isAppLoading, fetchProductPrices } = useAppStore();
+    const { masterProducts, productPrices, loading: isAppLoading, fetchProductPrices, fetchInitialData } = useAppStore();
     const { firestore } = useFirebase();
-    const [activeCategory, setActiveCategory] = useState<string>('');
-    const [categoryIcons, setCategoryIcons] = useState<any[]>([]);
     const router = useRouter();
+    const searchParams = useSearchParams();
+
+    const [activeCategory, setActiveCategory] = useState<string>('');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [categoryIcons, setCategoryIcons] = useState<any[]>([]);
+
+    useEffect(() => {
+        if(firestore && !useAppStore.getState().isInitialized) {
+            fetchInitialData(firestore);
+        }
+    }, [firestore, fetchInitialData]);
 
     const categories = useMemo(() => {
         if (!masterProducts) return [];
@@ -106,12 +120,17 @@ export default function LocalBasketHomepage() {
           .map(catName => ({ id: catName, name: catName, icon: '' }));
     }, [masterProducts]);
 
-    // Set the default active category once categories are loaded
+    // Set the default active category from URL or fallback to first category
     useEffect(() => {
-        if (categories.length > 0 && !activeCategory) {
-            setActiveCategory(categories[0].name);
+        const categoryFromUrl = searchParams.get('category');
+        if (categories.length > 0) {
+            if (categoryFromUrl && categories.some(c => c.name === categoryFromUrl)) {
+                 setActiveCategory(categoryFromUrl);
+            } else if (!activeCategory) {
+                 setActiveCategory(categories[0].name);
+            }
         }
-    }, [categories, activeCategory]);
+    }, [categories, activeCategory, searchParams]);
 
     // Fetch images for the categories
     useEffect(() => {
@@ -127,36 +146,60 @@ export default function LocalBasketHomepage() {
         fetchCategoryIcons();
     }, [categories]);
 
-    // Fetch prices for the featured products
-    const featuredProducts = useMemo(() => {
+    const filteredProducts = useMemo(() => {
         if (!masterProducts) return [];
-        return masterProducts.slice(0, 8);
-    }, [masterProducts]);
+        if (searchTerm) {
+            return masterProducts.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+        }
+        if (activeCategory) {
+            return masterProducts.filter(p => p.category === activeCategory);
+        }
+        return masterProducts.slice(0, 12); // Fallback to a few products
+    }, [masterProducts, activeCategory, searchTerm]);
 
     useEffect(() => {
-        if (firestore && featuredProducts.length > 0) {
-            const productNamesToFetch = featuredProducts.map(p => p.name);
+        if (firestore && filteredProducts.length > 0) {
+            const productNamesToFetch = filteredProducts.map(p => p.name);
             fetchProductPrices(firestore, productNamesToFetch);
         }
-    }, [firestore, featuredProducts, fetchProductPrices]);
+    }, [firestore, filteredProducts, fetchProductPrices]);
+
+    const handleSelectCategory = (categoryName: string) => {
+        setActiveCategory(categoryName);
+        setSearchTerm('');
+        const { stores } = useAppStore.getState();
+        const firstStoreId = stores.find(s => s.name === 'LocalBasket')?.id;
+        if(firstStoreId) {
+             router.push(\`/stores/\${firstStoreId}?category=\${categoryName}\`);
+        } else {
+             router.push(\`/?category=\${categoryName}\`);
+        }
+    }
 
     const gridCols = 'grid-cols-2 md:grid-cols-3';
 
     return (
         <div className="min-h-screen bg-[#ecf8ee] text-[#1f2937]">
             <div className="max-w-6xl mx-auto px-3 md:px-6 py-4 flex gap-4">
-                <CategorySidebar categories={categoryIcons} activeCategory={activeCategory} onSelectCategory={setActiveCategory} isLoading={isAppLoading} />
+                <CategorySidebar categories={categoryIcons} activeCategory={activeCategory} onSelectCategory={handleSelectCategory} isLoading={isAppLoading} />
                 <main className="flex-1">
                     <div className="mb-4 flex items-center justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold text-[#0f172a]">Featured Products</h1>
-                            <p className="text-sm text-gray-500 mt-1">Curated products just for you</p>
+                            <h1 className="text-2xl font-bold text-[#0f172a]">{t(activeCategory?.toLowerCase(),'en') || 'Featured Products'}</h1>
+                            <p className="text-sm text-gray-500 mt-1">{filteredProducts.length} products</p>
                         </div>
                         <div className="w-full md:w-96 ml-4">
                             <label htmlFor="search" className="sr-only">Search</label>
                             <div className="relative">
-                                <input id="search" type="search" placeholder="Search all products..." className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-green-200 focus:border-green-400" />
-                                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</div>
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                <Input 
+                                  id="search" 
+                                  type="search" 
+                                  placeholder="Search all products..." 
+                                  className="w-full px-4 py-2 pl-9 rounded-lg border border-gray-200 focus:ring-2 focus:ring-green-200 focus:border-green-400"
+                                  value={searchTerm}
+                                  onChange={(e) => setSearchTerm(e.target.value)}
+                                />
                             </div>
                         </div>
                     </div>
@@ -169,7 +212,7 @@ export default function LocalBasketHomepage() {
                             </div>
                         ) : (
                             <div className={\`grid gap-4 \${gridCols}\`}>
-                                {featuredProducts.map((p) => (
+                                {filteredProducts.map((p) => (
                                     <ProductCard 
                                         key={p.id} 
                                         product={p} 
