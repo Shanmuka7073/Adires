@@ -10,7 +10,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
 import { useFirebase } from '@/firebase';
-import { Search, Menu as MenuIcon, ShoppingCart, User as UserIcon, Mic, Package2, MicOff, Globe, Box, LogOut, LayoutDashboard, Store as StoreIcon, Truck, Plus, Minus } from 'lucide-react';
+import { Search, Menu as MenuIcon, ShoppingCart, User as UserIcon, Mic, Package2, MicOff, Globe, Box, LogOut, LayoutDashboard, Store as StoreIcon, Truck, Plus, Minus, Heart } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { t } from '@/lib/locales';
@@ -119,7 +119,7 @@ function UserMenu() {
 
 
 /* ---------------- HEADER ---------------- */
-function Header({ isMobileMenuOpen, setIsMobileMenuOpen, searchTerm, setSearchTerm }) {
+function Header({ isMobileMenuOpen, setIsMobileMenuOpen, searchTerm, setSearchTerm }: { isMobileMenuOpen: boolean, setIsMobileMenuOpen: (open: boolean) => void, searchTerm: string, setSearchTerm: (term: string) => void}) {
   const { voiceEnabled, onToggleVoice, isCartOpen, onCartOpenChange } = useVoiceCommanderContext();
   const { user } = useFirebase();
   
@@ -288,6 +288,7 @@ function ProductCard({
 }) {
   const { cartItems, addItem, updateQuantity } = useCart();
   const priceInfo = priceData?.variants?.[0] ?? null;
+  const [isFavorite, setIsFavorite] = useState(false);
 
   const itemInCart = cartItems.find(item => item.variant.sku === priceInfo?.sku);
 
@@ -311,19 +312,28 @@ function ProductCard({
 
   return (
     <div className="bg-white rounded-2xl shadow-sm p-3 transition-all hover:shadow-md flex flex-col">
-      <div className="w-full h-36 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center">
+      <div className="w-full h-36 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center relative group">
         {product.imageUrl ? (
           <Image src={product.imageUrl} alt={product.name} width={320} height={320} className="object-cover w-full h-full" />
         ) : (
           <div className="w-24 h-24 rounded-md bg-gray-100" />
         )}
+        <Button 
+            size="icon" 
+            variant="ghost" 
+            className="absolute top-2 right-2 h-8 w-8 rounded-full bg-white/70 backdrop-blur-sm hover:bg-white"
+            onClick={() => setIsFavorite(!isFavorite)}
+        >
+            <Heart className={cn("h-4 w-4 text-gray-500", isFavorite && "fill-red-500 text-red-500")} />
+            <span className="sr-only">Favorite</span>
+        </Button>
       </div>
 
       <div className="mt-3 flex-1 flex flex-col">
         <h3 className="text-sm font-semibold text-gray-900 line-clamp-2">{product.name}</h3>
         <p className="text-xs text-gray-400 mt-0.5">{priceInfo?.weight || ''}</p>
 
-        <div className="mt-2 flex items-center justify-between">
+        <div className="mt-auto pt-2 flex items-center justify-between">
             {priceInfo !== null ? (
               <div className="text-green-600 font-bold text-sm">₹{priceInfo.price.toFixed(2)}</div>
             ) : (
@@ -340,14 +350,14 @@ function ProductCard({
                     </Button>
                 </div>
             ) : (
-                <Button
-                    size="sm"
-                    className="h-8 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 shadow-none font-bold"
+                 <Button
+                    size="icon"
+                    className="h-8 w-8 rounded-full bg-green-100 text-green-700 hover:bg-green-200 shadow-none font-bold"
                     type="button"
                     aria-label={`Add ${product.name} to cart`}
                     onClick={handleAddToCart}
                 >
-                    Add
+                    <Plus className="h-4 w-4" />
                 </Button>
             )}
         </div>
@@ -468,7 +478,7 @@ export default function LocalBasketHomepage() {
       {/* Overlay for mobile menu */}
        {isMobileMenuOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/30 md:hidden"
+          className="fixed inset-0 z-40 bg-black/30 md:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
@@ -484,7 +494,7 @@ export default function LocalBasketHomepage() {
         />
 
         {/* Main area */}
-        <main className="flex-1">
+        <main className="flex-1" onClick={() => isMobileMenuOpen && setIsMobileMenuOpen(false)}>
           {/* Title section (visible on desktop) */}
           <div className="hidden md:block mb-4">
             <h1 className="text-2xl font-semibold text-gray-900">{title}</h1>
