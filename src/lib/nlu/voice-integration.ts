@@ -72,11 +72,10 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
   let money: number | null = null;
   let text = nlu.cleanedText.toLowerCase();
 
-  // Regex to find currency amounts, e.g., "rs 30", "30 rupees", "₹50"
   const moneyRegex = /(?:rs|rupees|₹|rupay|rupayalu)\.?\s*(\d+\.?\d*)|(\d+\.?\d*)\s*(?:rs|rupees|₹|rupay|rupayalu)\.?/i;
   
   // This more specific regex prevents "g" from matching "kg" accidentally.
-  const weightRegex = /(\d+\.?\d*)\s*(kg|kilos?|kilogram|grams?|gm|g|milliliter|ml|liters?|ltr)/i;
+  const weightRegex = /(\d+\.?\d*)\s*(kg|kilos?|kilogram|grams?|gm|g|gms|milliliter|ml|liters?|ltr|గ్రాములు|గ్రామ్లు|గ్రాం|గ్రాము|గ్రామ్స్|జీ ఎం)/i;
   
   const pieceRegex = /(\d+)\s*(pack|packet|pc|piece|pieces)/i;
   
@@ -101,7 +100,7 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     // Normalize unit
     if (unitRaw.startsWith('k')) {
         unit = 'kg';
-    } else if (unitRaw.startsWith('g')) {
+    } else if (unitRaw.startsWith('g') || unitRaw.startsWith('గ్రా') || unitRaw.startsWith('జీ')) {
         unit = 'gm'; 
     } else if (unitRaw.startsWith('m') || unitRaw.startsWith('l')) {
         unit = 'ml';
