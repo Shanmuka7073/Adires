@@ -51,7 +51,7 @@ type CheckoutFormValues = z.infer<typeof checkoutSchema>;
 
 const DELIVERY_FEE = 30;
 
-function OrderSummaryItem({ item, image }) {
+function OrderSummaryItem({ item, image }: { item: any, image: any }) {
     const { product, variant, quantity } = item;
     
     const productNameKey = product.name.toLowerCase().replace(/ /g, '-');
@@ -117,11 +117,12 @@ export default function CheckoutPage() {
   const { firestore, user } = useFirebase();
   const form = useForm<CheckoutFormValues>({
     resolver: zodResolver(checkoutSchema),
+    mode: 'onChange', // Validate on change to update isValid status
     defaultValues: { name: '', phone: '', deliveryAddress: '' },
   });
 
   const [deliveryCoords, setDeliveryCoords] = useState<{lat: number, lng: number} | null>(null);
-  const [images, setImages] = useState({});
+  const [images, setImages] = useState<Record<string, {imageUrl: string, imageHint: string}>>({});
   const placeOrderBtnRef = useRef<HTMLButtonElement>(null);
   
   const { allStores, fetchInitialData } = useAppStore((state) => ({
@@ -235,7 +236,7 @@ export default function CheckoutPage() {
         const imageMap = cartItems.reduce((acc, item, index) => {
             acc[item.variant.sku] = resolvedImages[index];
             return acc;
-        }, {});
+        }, {} as Record<string, {imageUrl: string, imageHint: string}>);
         setImages(imageMap);
     };
 
@@ -323,9 +324,8 @@ export default function CheckoutPage() {
     });
   };
 
-  const areAllDetailsReady = useMemo(() => {
-    return cartItems.length > 0 && activeStoreId && form.getValues('deliveryAddress').length > 10;
-  }, [cartItems.length, activeStoreId, form]);
+  const areAllDetailsReady = form.formState.isValid && cartItems.length > 0 && activeStoreId;
+
 
   useEffect(() => {
       if (shouldPlaceOrderDirectly && areAllDetailsReady && placeOrderBtnRef.current) {
