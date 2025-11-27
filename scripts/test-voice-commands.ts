@@ -14,8 +14,8 @@
  */
 
 import * as fs from 'fs';
-import *s readline from 'readline';
-import *s path from 'path';
+import * as readline from 'readline';
+import * as path from 'path';
 
 type TestCase = {
   id?: string;
