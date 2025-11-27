@@ -522,20 +522,23 @@ const findProductAndVariant = useCallback(
     if (money && money > 0) {
         // Money-to-weight/volume conversion logic
         const baseVariant = priceData.variants.find(v => v.weight.includes('kg') || v.weight.includes('ltr')) || priceData.variants[0];
-        const isBaseVolume = baseVariant.weight.includes('ltr') || baseVariant.weight.includes('ml');
         const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
-        const baseWeight = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
+        const baseUnitQty = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
 
+        const isBaseVolume = baseVariant.weight.includes('ltr') || baseVariant.weight.includes('ml');
+        
         let pricePerSmallestUnit = 0;
         let finalUnit = '';
         let requestedSmallestUnit = 0;
 
         if (isBaseVolume) {
-            pricePerSmallestUnit = baseVariant.price / (baseVariant.weight.includes('ltr') ? baseWeight * 1000 : baseWeight);
+            const isBaseLtr = baseVariant.weight.includes('ltr');
+            pricePerSmallestUnit = baseVariant.price / (isBaseLtr ? baseUnitQty * 1000 : baseUnitQty);
             requestedSmallestUnit = money / pricePerSmallestUnit;
             finalUnit = 'ml';
         } else { // It's weight
-            pricePerSmallestUnit = baseVariant.price / (baseVariant.weight.includes('kg') ? baseWeight * 1000 : baseWeight);
+            const isBaseKg = baseVariant.weight.includes('kg');
+            pricePerSmallestUnit = baseVariant.price / (isBaseKg ? baseUnitQty * 1000 : baseUnitQty);
             requestedSmallestUnit = money / pricePerSmallestUnit;
             finalUnit = 'gm';
         }
@@ -548,8 +551,8 @@ const findProductAndVariant = useCallback(
         };
         finalQty = 1;
         
-    } else if (unit) { // Handle explicit units like 'kg' or 'gm' or 'ltr' or 'ml'
-        const isVolume = ['ltr', 'ml'].includes(unit);
+    } else if (unit) { // Handle explicit units like 'kg', 'gm', 'l', 'ml'
+        const isVolume = ['ltr', 'ml', 'l'].includes(unit);
 
         const baseVariant = isVolume
             ? priceData.variants.find(v => v.weight.includes('ltr')) || priceData.variants.find(v => v.weight.includes('ml')) || priceData.variants[0]
@@ -561,30 +564,29 @@ const findProductAndVariant = useCallback(
             
             let pricePerSmallestUnit = 0;
             let requestedSmallestUnit = 0;
-            let finalUnit = '';
+            let finalUnitString = '';
 
             if (isVolume) {
                 const isBaseLtr = baseVariant.weight.includes('ltr');
                 pricePerSmallestUnit = baseVariant.price / (isBaseLtr ? baseUnitQty * 1000 : baseUnitQty); // Price per ml
-                requestedSmallestUnit = unit === 'ltr' ? finalQty * 1000 : finalQty;
-                finalUnit = 'ml';
+                requestedSmallestUnit = unit === 'ltr' || unit === 'l' ? finalQty * 1000 : finalQty;
+                finalUnitString = `${Math.round(requestedSmallestUnit)}ml`;
             } else { // It's weight
                 const isBaseKg = baseVariant.weight.includes('kg');
                 pricePerSmallestUnit = baseVariant.price / (isBaseKg ? baseUnitQty * 1000 : baseUnitQty); // Price per gm
                 requestedSmallestUnit = unit === 'kg' ? finalQty * 1000 : finalQty;
-                finalUnit = 'gm';
+                finalUnitString = `${Math.round(requestedSmallestUnit)}gm`;
             }
 
             const newPrice = requestedSmallestUnit * pricePerSmallestUnit;
             chosenVariant = {
                 price: newPrice,
-                weight: `${Math.round(requestedSmallestUnit)}${finalUnit}`,
-                sku: `${baseVariant.sku}-custom-${requestedSmallestUnit}${finalUnit}`,
+                weight: finalUnitString,
+                sku: `${baseVariant.sku}-custom-${finalUnitString}`,
                 stock: baseVariant.stock,
             };
             finalQty = 1;
         } else {
-            // Cannot calculate price without a base variant
             return { product, variant: null, requestedQty: qty, remainingPhrase: productPhrase, matchedAlias, lang: detectedLang };
         }
     } else { // Handle case with no unit, just a number or a piece
@@ -592,7 +594,7 @@ const findProductAndVariant = useCallback(
             const variantWeightMatch = v.weight.match(/(\d+\.?\d*)/);
             const variantWeight = variantWeightMatch ? parseFloat(variantWeightMatch[0]) : 0;
             return variantWeight === finalQty;
-        }) || priceData.variants[0]; // Fallback to first variant
+        }) || priceData.variants.find(v => v.weight.includes('pc')) || priceData.variants[0]; // Fallback to first variant
     }
     
     return { product, variant: chosenVariant, requestedQty: finalQty, remainingPhrase: productPhrase, matchedAlias, lang: detectedLang };
