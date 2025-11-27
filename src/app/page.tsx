@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import { Product as ProductType, ProductPrice } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
@@ -28,6 +29,7 @@ import { Button } from '@/components/ui/button';
 import { getAuth, signOut } from 'firebase/auth';
 import { CartIcon } from '@/components/cart/cart-icon';
 import { useVoiceCommanderContext } from '@/components/layout/main-layout';
+import ProductCard from '@/components/product-card';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -201,7 +203,7 @@ function CategorySidebar({
                     "flex items-center gap-3 px-3 py-2 rounded-2xl w-full transition-all duration-200 text-left",
                     active
                       ? "bg-green-500 text-white shadow-lg transform scale-[1.02]"
-                      : "bg-white hover:bg-green-50 border border-gray-100"
+                      : "bg-white border border-gray-200 hover:bg-green-50"
                   )}
                 >
                   <div className={cn('w-12 h-12 rounded-full flex items-center justify-center overflow-hidden', active ? 'bg-white/20' : 'bg-white')}>
@@ -217,66 +219,7 @@ function CategorySidebar({
             })}
 
       </div>
-       <style jsx>{`
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
     </aside>
-  );
-}
-
-/* ---------------- PRODUCT CARD ---------------- */
-function ProductCard({
-  product,
-  priceData
-}: {
-  product: ProductType;
-  priceData?: { variants?: { price: number; weight: string; sku: string }[] };
-}) {
-  const { addItem } = useCart();
-  const priceInfo = priceData?.variants?.[0] ?? null;
-
-  const handleAddToCart = () => {
-    if (product && priceInfo) {
-      addItem(product, priceInfo);
-    }
-  };
-
-  return (
-    <div className="bg-white rounded-2xl shadow-sm p-3 hover:shadow-md transition flex flex-col">
-      <div className="w-full h-40 overflow-hidden rounded-xl bg-gray-50">
-        {product.imageUrl ? (
-          <Image
-            src={product.imageUrl}
-            alt={product.name}
-            width={300}
-            height={300}
-            className="object-cover w-full h-full"
-          />
-        ) : (
-          <Skeleton className="w-full h-full" />
-        )}
-      </div>
-
-      <h3 className="mt-3 text-sm font-semibold text-gray-900 line-clamp-2">{product.name}</h3>
-
-      <div className="mt-2 flex items-center justify-between">
-        <div>
-          <div className="text-green-600 font-bold text-sm">
-            {priceInfo ? `₹${priceInfo.price.toFixed(2)}` : '—'}
-          </div>
-          <div className="text-xs text-gray-400">{priceInfo?.weight || ''}</div>
-        </div>
-
-        <button 
-          onClick={handleAddToCart}
-          disabled={!priceInfo}
-          className="bg-green-500 hover:bg-green-600 text-white text-sm px-4 py-1.5 rounded-lg shadow-sm disabled:bg-gray-300"
-        >
-          Add
-        </button>
-      </div>
-    </div>
   );
 }
 
@@ -290,7 +233,7 @@ export default function LocalBasketHomepage() {
   const [activeCategory, setActiveCategory] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryIcons, setCategoryIcons] = useState<{ id: string; name: string; icon?: string }[]>([]);
-  const [sidebarLoading, setSidebarLoading] = useState<boolean>(true);
+  const [sidebarLoading, setSidebarLoading] = useState(true);
 
   // Load initial data on mount
   useEffect(() => {
@@ -325,6 +268,7 @@ export default function LocalBasketHomepage() {
       try {
         setSidebarLoading(true);
         const promises = categories.map(async cat => {
+          // Build image id the same as earlier; fallback if not present
           const imageId = `cat-${cat.name.toLowerCase().replace(/ /g, '-')}`;
           try {
             const { imageUrl } = await getProductImage(imageId);
@@ -348,12 +292,11 @@ export default function LocalBasketHomepage() {
     };
   }, [categories]);
 
-  // Filter products based on search / category
+  // Filtered products based on search / category
   const filteredProducts = useMemo(() => {
     if (!masterProducts) return [];
-    const term = searchTerm.trim().toLowerCase();
-    if (term) {
-      return masterProducts.filter(p => p.name.toLowerCase().includes(term));
+    if (searchTerm) {
+      return masterProducts.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
     }
     if (activeCategory) {
       return masterProducts.filter(p => p.category === activeCategory);
