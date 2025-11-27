@@ -269,7 +269,7 @@ export function VoiceCommander({
     isEnabledRef.current = enabled;
     if (recognition) {
         if (enabled) {
-            recognition.lang = 'te-IN'; // Always listen in Telugu
+            recognition.lang = 'en-IN'; // Always listen in English
             recognition.continuous = false;
             recognition.interimResults = false;
             try {
@@ -934,7 +934,7 @@ const findProductAndVariant = useCallback(
     }
 
     recognition.onstart = () => {
-        onStatusUpdate(`Listening... (te-IN)`);
+        onStatusUpdate(`Listening... (en-IN)`);
     };
 
     recognition.onresult = (event) => {
