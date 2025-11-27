@@ -96,20 +96,16 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     const rawQty = parseFloat(match[1]);
     const unitRaw = match[2].toLowerCase();
     
+    qty = rawQty;
     if (unitRaw.startsWith('k')) {
         unit = 'kg';
-        qty = rawQty;
     } else if (unitRaw.startsWith('g')) {
-        unit = 'kg';
-        qty = rawQty / 1000;
+        unit = 'gm';
     } else if (unitRaw.startsWith('l')) {
         unit = 'ltr';
-        qty = rawQty;
     } else if (unitRaw.startsWith('m')) {
         unit = 'ml';
-        qty = rawQty;
     } else {
-        qty = rawQty;
         unit = unitRaw;
     }
     text = text.replace(match[0], '').trim();
@@ -123,14 +119,15 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
         if (text.includes(word)) {
             qty = fractionWords[word];
             unit = 'kg'; // Assume fractions of a kilo by default
-            text = text.replace(word, '').trim();
+            // Remove the fraction word AND any standalone unit that follows
+            text = text.replace(new RegExp(`${word}\\s*(kg|kilo|gram|gm)?`, 'i'), '').trim();
             break;
         }
     }
   }
   
   // The remaining text is assumed to be the product phrase
-  const remainder = text.trim();
+  const remainder = text.replace(/\b(kg|g|gm|grams|ml|ltr|liter|litre|packet|pack|piece|pieces)\b/g, "").trim();
 
   return {
     qty,
