@@ -20,16 +20,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadio
 import { CartIcon } from '@/components/cart/cart-icon';
 
 
-// Main categories for the top scroller
-const mainCategories = [
-  { name: 'All', icon: LayoutGrid },
-  { name: 'Wedding', icon: Heart, tag: 'New' },
-  { name: 'Electronics', icon: Briefcase },
-  { name: 'Beauty', icon: Sparkles },
-  { name: 'Decor', icon: Lamp },
-  { name: 'Home', icon: HomeIcon },
-];
-
 const homePageSections = [
     {
         title: 'Frequently bought',
@@ -162,7 +152,6 @@ function LanguageSwitcher() {
 
 // New Header component specific to this page layout
 function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: (term: string) => void, user: User | null, onMicClick: () => void }) {
-    const [activeMainCategory, setActiveMainCategory] = useState('All');
     const [deliveryTime, setDeliveryTime] = useState<number | null>(null);
     const { onCartOpenChange, isCartOpen, voiceEnabled } = useVoiceCommanderContext();
 
@@ -176,7 +165,11 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
             <div className="flex justify-between items-center mb-3">
                 <div>
                      <p className="text-xs font-bold text-gray-700 uppercase">Delivery in</p>
-                     <p className="text-xl font-bold text-gray-900">{deliveryTime ? `${deliveryTime} minutes` : '...'}</p>
+                     {deliveryTime !== null ? (
+                        <p className="text-xl font-bold text-gray-900">{deliveryTime} minutes</p>
+                     ) : (
+                        <Skeleton className="h-7 w-24 mt-1" />
+                     )}
                      {user && user.address && (
                          <div className="flex items-center text-xs text-gray-600 mt-1">
                             <MapPin className="h-3 w-3 mr-1" />
@@ -208,31 +201,6 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
                     onChange={(e) => onSearchChange(e.target.value)}
                 />
             </div>
-             <div className="mt-4 flex items-center gap-4 overflow-x-auto pb-2 no-scrollbar">
-                {mainCategories.map(cat => {
-                    const Icon = cat.icon;
-                    const isActive = cat.name === activeMainCategory;
-                    return (
-                        <button 
-                            key={cat.name} 
-                            onClick={() => setActiveMainCategory(cat.name)}
-                            className={cn(
-                                "flex flex-col items-center gap-1.5 flex-shrink-0 w-16 text-xs font-medium transition-colors relative",
-                                isActive ? "text-primary" : "text-gray-600"
-                            )}
-                        >
-                            <Icon className="h-5 w-5" />
-                            <span>{cat.name}</span>
-                            {cat.tag && <span className="absolute -top-1 -right-1 text-[9px] bg-red-500 text-white font-bold px-1.5 py-0.5 rounded-full">{cat.tag}</span>}
-                            {isActive && <div className="h-1 w-4 bg-primary rounded-full mt-1" />}
-                        </button>
-                    )
-                })}
-            </div>
-            <style jsx>{`
-                .no-scrollbar::-webkit-scrollbar { display: none; }
-                .no-scrollbar { -ms-overflow-style: none;  scrollbar-width: none; }
-            `}</style>
         </header>
     );
 }
@@ -241,7 +209,7 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
 /* ---------------- MAIN PAGE ---------------- */
 export default function LocalBasketHomepage() {
   const { firestore, user } = useFirebase();
-  const { masterProducts, productPrices, loading: isAppLoading, fetchInitialData, isInitialized } = useAppStore();
+  const { masterProducts, productPrices, loading: isAppLoading, fetchInitialData, isInitialized, setActiveStoreId, stores } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const { onToggleVoice } = useVoiceCommanderContext();
   
@@ -250,6 +218,8 @@ export default function LocalBasketHomepage() {
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
   const { data: userData } = useDoc<User>(userDocRef);
+  
+  const masterStoreId = useMemo(() => stores.find(s => s.name === 'LocalBasket')?.id, [stores]);
 
 
   // Load initial data on mount
@@ -258,6 +228,15 @@ export default function LocalBasketHomepage() {
       fetchInitialData(firestore);
     }
   }, [firestore, isInitialized, fetchInitialData]);
+
+  // Set the active store to the master store when on the homepage
+  useEffect(() => {
+    if(masterStoreId) {
+      setActiveStoreId(masterStoreId);
+    }
+    // Cleanup when leaving the page
+    return () => setActiveStoreId(null);
+  }, [masterStoreId, setActiveStoreId]);
 
 
   const filteredProducts = useMemo(() => {
