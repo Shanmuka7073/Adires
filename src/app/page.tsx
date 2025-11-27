@@ -24,50 +24,50 @@ const homePageSections = [
     {
         title: 'Frequently bought',
         categories: [
-            { name: 'Oils & Ghee', imageHint: 'oil ghee masala', count: 8 },
-            { name: 'Dals & Pulses', imageHint: 'lentils dal', count: 0 },
-            { name: 'Home Care', imageHint: 'cleaning supplies', count: 0 },
-            { name: 'Grains & Cereals', imageHint: 'rice flour', count: 0 },
-            { name: 'Dry Fruits & Nuts', imageHint: 'dry fruits', count: 1 },
+            { name: 'Oils & Ghee', imageHint: 'oil ghee masala', count: 8, bgColor: 'bg-yellow-50' },
+            { name: 'Dals & Pulses', imageHint: 'lentils dal', count: 0, bgColor: 'bg-orange-50' },
+            { name: 'Home Care', imageHint: 'cleaning supplies', count: 0, bgColor: 'bg-blue-50' },
+            { name: 'Grains & Cereals', imageHint: 'rice flour', count: 0, bgColor: 'bg-amber-50' },
+            { name: 'Dry Fruits & Nuts', imageHint: 'dry fruits', count: 1, bgColor: 'bg-stone-50' },
         ]
     },
     {
         title: 'Groceries & Kitchen',
         categories: [
-            { name: 'Vegetables', imageHint: 'fresh vegetables', count: 0},
-            { name: 'Fruits', imageHint: 'assorted fruits', count: 0},
-            { name: 'Dals & Pulses', imageHint: 'lentils dal', count: 0},
-            { name: 'Oils & Ghee', imageHint: 'cooking oil', count: 0},
-            { name: 'Spices & Masalas', imageHint: 'spices masala', count: 0},
-            { name: 'Kitchen Essentials', imageHint: 'kitchen essentials', count: 0},
+            { name: 'Vegetables', imageHint: 'fresh vegetables', count: 0, bgColor: 'bg-green-50'},
+            { name: 'Fruits', imageHint: 'assorted fruits', count: 0, bgColor: 'bg-red-50'},
+            { name: 'Dals & Pulses', imageHint: 'lentils dal', count: 0, bgColor: 'bg-orange-50'},
+            { name: 'Oils & Ghee', imageHint: 'cooking oil', count: 0, bgColor: 'bg-yellow-50'},
+            { name: 'Spices & Masalas', imageHint: 'spices masala', count: 0, bgColor: 'bg-red-50'},
+            { name: 'Kitchen Essentials', imageHint: 'kitchen essentials', count: 0, bgColor: 'bg-gray-50'},
         ]
     },
     {
         title: 'Snacks & Drinks',
         categories: [
-            { name: 'Snacks & Breakfast', imageHint: 'cereal snacks', count: 0},
-            { name: 'Beverages', imageHint: 'soft drinks', count: 0},
-            { name: 'Sauces & Condiments', imageHint: 'sauces condiments', count: 0},
+            { name: 'Snacks & Breakfast', imageHint: 'cereal snacks', count: 0, bgColor: 'bg-purple-50'},
+            { name: 'Beverages', imageHint: 'soft drinks', count: 0, bgColor: 'bg-blue-50'},
+            { name: 'Sauces & Condiments', imageHint: 'sauces condiments', count: 0, bgColor: 'bg-rose-50'},
         ]
     },
     {
         title: 'Beauty & Personal Care',
         categories: [
-            { name: 'Personal Care', imageHint: 'soap', count: 0},
+            { name: 'Personal Care', imageHint: 'soap', count: 0, bgColor: 'bg-pink-50'},
         ]
     },
      {
         title: 'Household Essentials',
         categories: [
-            { name: 'Home Care', imageHint: 'cleaning supplies', count: 0},
-            { name: 'Pet Care', imageHint: 'pet food', count: 0},
+            { name: 'Home Care', imageHint: 'cleaning supplies', count: 0, bgColor: 'bg-sky-50'},
+            { name: 'Pet Care', imageHint: 'pet food', count: 0, bgColor: 'bg-lime-50'},
         ]
     }
 ];
 
 
 // Reusable Category Card for the main grid
-function GroceryCategoryCard({ categoryName, imageHint, count }: { categoryName: string, imageHint: string, count?: number }) {
+function GroceryCategoryCard({ categoryName, imageHint, count, bgColor }: { categoryName: string, imageHint: string, count?: number, bgColor?: string }) {
     const [image, setImage] = useState({ imageUrl: 'https://picsum.photos/seed/placeholder/200/200', imageHint: 'placeholder' });
     const [isLoading, setIsLoading] = useState(true);
     const slug = categoryName.toLowerCase().replace(/ & /g, '-&-').replace(/ /g, '-');
@@ -103,7 +103,7 @@ function GroceryCategoryCard({ categoryName, imageHint, count }: { categoryName:
     
     return (
         <Link href={href} className="flex flex-col items-center gap-2 text-center group bg-white p-2 rounded-lg shadow-sm">
-             <div className="w-full h-16 relative rounded-lg overflow-hidden flex justify-center items-center gap-1 bg-gray-50">
+             <div className={cn("w-full h-16 relative rounded-lg overflow-hidden flex justify-center items-center gap-1", bgColor || 'bg-gray-50')}>
                 <Image 
                     src={image.imageUrl} 
                     alt={categoryName} 
@@ -192,7 +192,7 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
                     </Link>
                 </div>
             </div>
-            <div className="flex items-center gap-3 bg-white p-2.5 rounded-lg border border-gray-200 shadow-sm">
+            <div className="flex items-center gap-3 bg-[#F1F3F5] p-2.5 rounded-xl border border-gray-200">
                 <Search className="h-5 w-5 text-gray-500" />
                 <input
                     type="text"
@@ -291,6 +291,7 @@ export default function LocalBasketHomepage() {
                                 categoryName={item.name} 
                                 imageHint={item.imageHint}
                                 count={item.count}
+                                bgColor={item.bgColor}
                             />
                         ))}
                     </div>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -8,11 +9,11 @@ import { useFirebase } from '@/firebase';
 import { t } from '@/lib/locales';
 
 const navItems = [
-  { href: '/', label: 'home' },
-  { href: '/dashboard/customer/my-orders', label: 'my-orders' },
-  { href: '/dashboard/owner/my-store', label: 'my-store' },
-  { href: '/dashboard/delivery/deliveries', label: 'deliveries' },
-  { href: '/dashboard/customer/my-profile', label: 'my-profile' },
+  { href: '/', label: 'home', color: 'text-primary' },
+  { href: '/dashboard/customer/my-orders', label: 'my-orders', color: 'text-blue-500' },
+  { href: '/dashboard/owner/my-store', label: 'my-store', color: 'text-orange-500' },
+  { href: '/dashboard/delivery/deliveries', label: 'deliveries', color: 'text-purple-500' },
+  { href: '/dashboard/customer/my-profile', label: 'my-profile', color: 'text-gray-500' },
 ];
 
 const navIcons = {
@@ -49,7 +50,7 @@ export function BottomNavBar() {
               href={item.href}
               className={cn(
                 'flex flex-col items-center justify-center gap-1 text-xs font-medium transition-colors',
-                isActive ? 'text-primary' : 'text-muted-foreground hover:text-primary'
+                isActive ? item.color : 'text-muted-foreground hover:text-primary'
               )}
             >
               <Icon className="h-5 w-5" />

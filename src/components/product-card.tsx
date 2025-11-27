@@ -44,7 +44,7 @@ export default function ProductCard({ product, priceData }: ProductCardProps) {
   const englishName = t(product.name.toLowerCase().replace(/ /g, '-'), 'en');
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm p-3 transition-all hover:shadow-md flex flex-col">
+    <div className="bg-white rounded-2xl shadow-md p-3 transition-all hover:shadow-lg flex flex-col mb-3">
       <div className="w-full h-24 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center relative group">
         {product.imageUrl ? (
           <Image src={product.imageUrl} alt={product.name} width={320} height={320} className="object-cover w-full h-full" />
