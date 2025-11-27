@@ -9,7 +9,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
 import { useFirebase } from '@/firebase';
-import { Search, Menu as MenuIcon, ShoppingCart, User as UserIcon, Mic, Plus, Minus, Heart, Package2, LogOut, LayoutDashboard } from 'lucide-react';
+import { Search, Menu as MenuIcon, ShoppingCart, User as UserIcon, Mic, Plus, Minus, Heart, Package2, LogOut, LayoutDashboard, MicOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { t } from '@/lib/locales';
 import { useCart } from '@/lib/cart';
@@ -26,6 +26,7 @@ import {
 import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useVoiceCommanderContext } from '@/components/layout/main-layout';
 import { getAuth, signOut } from 'firebase/auth';
+import { CartIcon } from '@/components/cart/cart-icon';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -150,6 +151,7 @@ function Header({ isMobileMenuOpen, setIsMobileMenuOpen, searchTerm, setSearchTe
                 {voiceEnabled && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>}
                 <span className="sr-only">{voiceEnabled ? 'Stop voice commands' : 'Start voice commands'}</span>
             </Button>
+            <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />
             <UserMenu />
         </div>
 
@@ -277,10 +279,10 @@ function ProductCard({
         <Button 
             size="icon" 
             variant="ghost" 
-            className="absolute top-1 right-1 h-6 w-6 rounded-full bg-white/50 backdrop-blur-sm hover:bg-white"
+            className="absolute top-1 right-1 h-7 w-7 rounded-full bg-white/50 backdrop-blur-sm hover:bg-white opacity-0 group-hover:opacity-100 transition-opacity"
             onClick={() => setIsFavorite(!isFavorite)}
         >
-            <Heart className={cn("h-3 w-3 text-gray-500", isFavorite && "fill-red-500 text-red-500")} />
+            <Heart className={cn("h-4 w-4 text-gray-500", isFavorite && "fill-red-500 text-red-500")} />
             <span className="sr-only">Favorite</span>
         </Button>
       </div>
@@ -498,4 +500,3 @@ export default function LocalBasketHomepage() {
     </div>
   );
 }
-
