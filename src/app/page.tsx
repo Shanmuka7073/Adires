@@ -42,10 +42,11 @@ function CategorySidebar({ categories, activeCategory, onSelectCategory, isLoadi
   return (
     <aside
       ref={sidebarRef}
-      className="w-[72px] bg-[#f3faf3] border-r border-[#e2f0e2] rounded-lg py-4 px-1 h-[calc(100vh-8rem)] overflow-y-auto no-scrollbar"
+      className="w-[80px] bg-white/60 backdrop-blur-md shadow-md border border-green-100 rounded-3xl py-4 px-2 
+             h-[calc(100vh-8rem)] overflow-y-auto no-scrollbar transition-all duration-300"
       aria-label="Categories"
     >
-      <div className="flex flex-col items-center gap-3">
+      <div className="flex flex-col items-center gap-4">
         {isLoading ? (
           Array.from({ length: 6 }).map((_, i) => (
              <div key={i} className="flex flex-col items-center w-[60px] p-2 rounded-2xl space-y-1">
@@ -57,28 +58,28 @@ function CategorySidebar({ categories, activeCategory, onSelectCategory, isLoadi
           categories.map((cat: { id: string; name: string; icon: string; }) => {
             const active = cat.name === activeCategory;
             return (
-              <Link
-                key={cat.id}
-                href={`/stores/${firstStoreId}?category=${cat.name}`}
-                passHref
-                legacyBehavior
-              >
               <button
-                ref={active ? activeButtonRef : undefined}
-                onClick={(e) => { e.preventDefault(); onSelectCategory(cat.name); router.push(`/stores/${firstStoreId}?category=${cat.name}`)}}
-                className={classNames(
-                  'flex flex-col items-center w-[60px] p-2 rounded-2xl transition-transform focus:outline-none cursor-pointer',
-                  active ? 'border-2 border-green-600 shadow-md bg-white' : 'border border-transparent bg-white/90'
+                key={cat.id}
+                onClick={() => onSelectCategory(cat.name)}
+                ref={active ? activeButtonRef : null}
+                className={cn(
+                  "flex flex-col items-center w-[64px] p-3 rounded-2xl cursor-pointer group transition-all duration-300",
+                  active
+                    ? "bg-green-500 text-white shadow-lg scale-[1.05]"
+                    : "bg-white hover:shadow-md hover:bg-green-50"
                 )}
-                aria-pressed={active}
-                title={cat.name}
               >
-                <div className="w-12 h-12 rounded-full overflow-hidden bg-white flex items-center justify-center">
-                  <Image src={cat.icon} alt={cat.name} width={40} height={40} className="w-10 h-10 object-cover" />
-                </div>
-                <span className="text-[11px] mt-1 text-center text-gray-700 truncate w-[52px]">{cat.name}</span>
+                <Image
+                  src={cat.icon}
+                  alt={cat.name}
+                  width={40}
+                  height={40}
+                  className="rounded-full object-cover group-hover:scale-110 transition-all duration-200"
+                />
+                <span className="text-[11px] mt-1 text-center truncate w-[52px]">
+                  {cat.name}
+                </span>
               </button>
-              </Link>
             );
           })
         )}
@@ -170,10 +171,8 @@ export default function LocalBasketHomepage() {
         }
     }
 
-    const gridCols = 'grid-cols-2 md:grid-cols-3';
-
     return (
-        <div className="min-h-screen bg-[#ecf8ee] text-[#1f2937]">
+        <div className="min-h-screen bg-gradient-to-br from-[#f0fff4] to-[#e8f5e9] text-[#1f2937]">
             <div className="max-w-6xl mx-auto px-3 md:px-6 py-4 flex gap-4">
                 <CategorySidebar categories={categoryIcons} activeCategory={activeCategory} onSelectCategory={handleSelectCategory} isLoading={isAppLoading} />
                 <main className="flex-1">
@@ -183,29 +182,28 @@ export default function LocalBasketHomepage() {
                             <p className="text-sm text-gray-500 mt-1">{filteredProducts.length} products</p>
                         </div>
                         <div className="w-full md:w-96 ml-4">
-                            <label htmlFor="search" className="sr-only">Search</label>
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                <Input 
-                                  id="search" 
-                                  type="search" 
-                                  placeholder="Search all products..." 
-                                  className="w-full px-4 py-2 pl-9 rounded-lg border border-gray-200 focus:ring-2 focus:ring-green-200 focus:border-green-400"
-                                  value={searchTerm}
-                                  onChange={(e) => setSearchTerm(e.target.value)}
-                                />
-                            </div>
+                          <div className="relative">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-green-600" />
+                            <input
+                              type="search"
+                              placeholder="Search 3000+ products instantly..."
+                              className="w-full bg-white border border-green-200 shadow-sm px-4 py-2 pl-11 rounded-xl 
+                                         focus:ring-2 focus:ring-green-300 focus:border-green-500 transition-all"
+                              value={searchTerm}
+                              onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                          </div>
                         </div>
                     </div>
                     <section>
                         {isAppLoading ? (
-                            <div className={`grid gap-4 ${gridCols}`}>
+                            <div className="grid gap-5 grid-cols-2 md:grid-cols-3">
                                 {Array.from({ length: 6 }).map((_, i) => (
                                     <Skeleton key={i} className="h-64 w-full" />
                                 ))}
                             </div>
                         ) : (
-                            <div className={`grid gap-4 ${gridCols}`}>
+                            <div className="grid gap-5 grid-cols-2 md:grid-cols-3">
                                 {filteredProducts.map((p) => (
                                     <ProductCard 
                                         key={p.id} 
