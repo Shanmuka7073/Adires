@@ -535,31 +535,47 @@ const findProductAndVariant = useCallback(
             stock: baseVariant.stock,
         };
         finalQty = 1;
-    } else if (unit) { // Handle explicit units like 'kg' or 'gm'
-        const isKgRequested = unit === 'kg';
-        const requestedGrams = isKgRequested ? finalQty * 1000 : finalQty;
+    } else if (unit) {
+        if (unit === 'kg' || unit === 'gm') {
+            const requestedGrams = unit === 'kg' ? finalQty * 1000 : finalQty;
+            const baseVariant = priceData.variants.find(v => v.weight.includes('kg')) || priceData.variants[0];
+            const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
+            const baseWeight = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
+            const pricePerGram = baseVariant.price / (baseWeight * (baseVariant.weight.includes('kg') ? 1000 : 1));
+            const newPrice = requestedGrams * pricePerGram;
+            
+            chosenVariant = {
+                price: newPrice,
+                weight: `${Math.round(requestedGrams)}gm`,
+                sku: `${baseVariant.sku}-custom-${requestedGrams}gm`,
+                stock: baseVariant.stock
+            };
+            finalQty = 1;
 
-        const baseVariant = priceData.variants.find(v => v.weight.includes('kg')) || priceData.variants[0];
-        const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
-        const baseWeight = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
-        const isBaseKg = baseVariant.weight.includes('kg');
-        const pricePerGram = baseVariant.price / (isBaseKg ? baseWeight * 1000 : baseWeight);
-        
-        const newPrice = requestedGrams * pricePerGram;
-        
-        chosenVariant = {
-            price: newPrice,
-            weight: `${Math.round(requestedGrams)}gm`,
-            sku: `${baseVariant.sku}-custom-${requestedGrams}gm`,
-            stock: baseVariant.stock,
-        };
-        finalQty = 1;
-    } else { // Handle case with no unit, just a number
+        } else if (unit === 'ltr' || unit === 'ml') {
+             const requestedMl = unit === 'ltr' ? finalQty * 1000 : finalQty;
+             const baseVariant = priceData.variants.find(v => v.weight.includes('ltr')) || priceData.variants[0];
+             const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
+             const baseWeight = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
+             const pricePerMl = baseVariant.price / (baseWeight * (baseVariant.weight.includes('ltr') ? 1000 : 1));
+             const newPrice = requestedMl * pricePerMl;
+             
+             chosenVariant = {
+                price: newPrice,
+                weight: `${Math.round(requestedMl)}ml`,
+                sku: `${baseVariant.sku}-custom-${requestedMl}ml`,
+                stock: baseVariant.stock
+             };
+             finalQty = 1;
+        } else {
+             chosenVariant = priceData.variants[0];
+        }
+    } else {
         chosenVariant = priceData.variants.find(v => {
             const variantWeightMatch = v.weight.match(/(\d+\.?\d*)/);
             const variantWeight = variantWeightMatch ? parseFloat(variantWeightMatch[0]) : 0;
             return variantWeight === finalQty;
-        }) || priceData.variants[0]; // Fallback to first variant
+        }) || priceData.variants[0];
     }
     
     return { product, variant: chosenVariant, requestedQty: finalQty, remainingPhrase: productPhrase, matchedAlias, lang: detectedLang };
