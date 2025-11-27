@@ -321,7 +321,7 @@ function ProductCard({
         <Button 
             size="icon" 
             variant="ghost" 
-            className="absolute top-2 right-2 h-8 w-8 rounded-full bg-white/70 backdrop-blur-sm hover:bg-white"
+            className="absolute top-2 right-2 h-7 w-7 rounded-full bg-white/70 backdrop-blur-sm hover:bg-white"
             onClick={() => setIsFavorite(!isFavorite)}
         >
             <Heart className={cn("h-4 w-4 text-gray-500", isFavorite && "fill-red-500 text-red-500")} />
