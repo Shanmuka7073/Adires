@@ -520,58 +520,74 @@ const findProductAndVariant = useCallback(
     let finalQty = qty;
 
     if (money && money > 0) {
-        const baseVariant = priceData.variants.find(v => v.weight.includes('kg')) || priceData.variants[0];
+        // Money-to-weight/volume conversion logic
+        const baseVariant = priceData.variants.find(v => v.weight.includes('kg') || v.weight.includes('ltr')) || priceData.variants[0];
+        const isBaseVolume = baseVariant.weight.includes('ltr') || baseVariant.weight.includes('ml');
         const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
         const baseWeight = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
-        const isBaseKg = baseVariant.weight.includes('kg');
-        const pricePerBaseUnit = baseVariant.price / (isBaseKg ? baseWeight * 1000 : baseWeight); // Price per gram
 
-        const requestedGrams = money / pricePerBaseUnit;
+        let pricePerSmallestUnit = 0;
+        let finalUnit = '';
+        let requestedSmallestUnit = 0;
 
+        if (isBaseVolume) {
+            pricePerSmallestUnit = baseVariant.price / (baseVariant.weight.includes('ltr') ? baseWeight * 1000 : baseWeight);
+            requestedSmallestUnit = money / pricePerSmallestUnit;
+            finalUnit = 'ml';
+        } else { // It's weight
+            pricePerSmallestUnit = baseVariant.price / (baseVariant.weight.includes('kg') ? baseWeight * 1000 : baseWeight);
+            requestedSmallestUnit = money / pricePerSmallestUnit;
+            finalUnit = 'gm';
+        }
+        
         chosenVariant = {
             price: money,
-            weight: `${Math.round(requestedGrams)}gm`,
+            weight: `${Math.round(requestedSmallestUnit)}${finalUnit}`,
             sku: `${baseVariant.sku}-custom-${money}`,
             stock: baseVariant.stock,
         };
         finalQty = 1;
-    } else if (unit) {
-        // Find a base variant for price calculation (e.g., 1kg or 1ltr)
-        const isVolume = unit === 'ltr' || unit === 'ml';
+        
+    } else if (unit) { // Handle explicit units like 'kg' or 'gm' or 'ltr' or 'ml'
+        const isVolume = ['ltr', 'ml'].includes(unit);
+
         const baseVariant = isVolume
-            ? priceData.variants.find(v => v.weight.includes('ltr')) || priceData.variants[0]
-            : priceData.variants.find(v => v.weight.includes('kg')) || priceData.variants[0];
-        
-        const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
-        const baseWeight = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
-        
-        let pricePerSmallestUnit = 0;
-        let requestedSmallestUnit = 0;
-        let finalUnit = '';
+            ? priceData.variants.find(v => v.weight.includes('ltr')) || priceData.variants.find(v => v.weight.includes('ml')) || priceData.variants[0]
+            : priceData.variants.find(v => v.weight.includes('kg')) || priceData.variants.find(v => v.weight.includes('gm')) || priceData.variants[0];
+            
+        if (baseVariant) {
+            const baseUnitStr = baseVariant.weight.match(/(\d+\.?\d*)/);
+            const baseUnitQty = baseUnitStr ? parseFloat(baseUnitStr[0]) : 1;
+            
+            let pricePerSmallestUnit = 0;
+            let requestedSmallestUnit = 0;
+            let finalUnit = '';
 
-        if (isVolume) {
-            const isBaseLtr = baseVariant.weight.includes('ltr');
-            pricePerSmallestUnit = baseVariant.price / (isBaseLtr ? baseWeight * 1000 : baseWeight); // Price per ml
-            requestedSmallestUnit = unit === 'ltr' ? finalQty * 1000 : finalQty;
-            finalUnit = 'ml';
-        } else { // It's weight
-            const isBaseKg = baseVariant.weight.includes('kg');
-            pricePerSmallestUnit = baseVariant.price / (isBaseKg ? baseWeight * 1000 : baseWeight); // Price per gm
-            requestedSmallestUnit = unit === 'kg' ? finalQty * 1000 : finalQty;
-            finalUnit = 'gm';
+            if (isVolume) {
+                const isBaseLtr = baseVariant.weight.includes('ltr');
+                pricePerSmallestUnit = baseVariant.price / (isBaseLtr ? baseUnitQty * 1000 : baseUnitQty); // Price per ml
+                requestedSmallestUnit = unit === 'ltr' ? finalQty * 1000 : finalQty;
+                finalUnit = 'ml';
+            } else { // It's weight
+                const isBaseKg = baseVariant.weight.includes('kg');
+                pricePerSmallestUnit = baseVariant.price / (isBaseKg ? baseUnitQty * 1000 : baseUnitQty); // Price per gm
+                requestedSmallestUnit = unit === 'kg' ? finalQty * 1000 : finalQty;
+                finalUnit = 'gm';
+            }
+
+            const newPrice = requestedSmallestUnit * pricePerSmallestUnit;
+            chosenVariant = {
+                price: newPrice,
+                weight: `${Math.round(requestedSmallestUnit)}${finalUnit}`,
+                sku: `${baseVariant.sku}-custom-${requestedSmallestUnit}${finalUnit}`,
+                stock: baseVariant.stock,
+            };
+            finalQty = 1;
+        } else {
+            // Cannot calculate price without a base variant
+            return { product, variant: null, requestedQty: qty, remainingPhrase: productPhrase, matchedAlias, lang: detectedLang };
         }
-        
-        const newPrice = requestedSmallestUnit * pricePerSmallestUnit;
-        
-        chosenVariant = {
-            price: newPrice,
-            weight: `${Math.round(requestedSmallestUnit)}${finalUnit}`,
-            sku: `${baseVariant.sku}-custom-${requestedSmallestUnit}${finalUnit}`,
-            stock: baseVariant.stock
-        };
-        finalQty = 1;
-
-    } else { // Handle case with no unit, just a number
+    } else { // Handle case with no unit, just a number or a piece
         chosenVariant = priceData.variants.find(v => {
             const variantWeightMatch = v.weight.match(/(\d+\.?\d*)/);
             const variantWeight = variantWeightMatch ? parseFloat(variantWeightMatch[0]) : 0;
@@ -658,7 +674,7 @@ const findProductAndVariant = useCallback(
 
     return { type: 'ORDER_ITEM', originalText: text, lang: spokenLang };
 
-  }, [commands, getAllAliases, language, universalProductAliasMap]);
+  }, [commands, getAllAliases, language]);
 
 
     const handleCommandFailure = useCallback(async (commandText: string, spokenLang: string, reason: string) => {
@@ -687,13 +703,6 @@ const findProductAndVariant = useCallback(
     if (!firestore || !user) {
         speak("I can't process commands without being connected. Please log in.", 'en-IN');
         return;
-    }
-    
-    if (pathname === '/') {
-      const masterStoreId = stores.find(s => s.name === 'LocalBasket')?.id;
-      if (masterStoreId) {
-          setActiveStoreId(masterStoreId);
-      }
     }
 
     let spokenLang = determinePhraseLanguage(commandText);
@@ -1337,4 +1346,3 @@ const findProductAndVariant = useCallback(
 
   return null;
 }
-
