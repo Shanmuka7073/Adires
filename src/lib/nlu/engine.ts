@@ -83,7 +83,7 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
 
   // STRICT full-word volume regex
   const volumeRegex =
-    /\b(\d+\.?\d*)\s*\b(liter|litre|ltr|liters|litres|ml|milliliter|millilitre)\b/i;
+    /\b(\d+\.?\d*)\s*\b(liter|litre|ltr|liters|litres|l|ml|milliliter|millilitre)\b/i;
 
   // STRICT piece regex
   const pieceRegex = /\b(\d+)\s*\b(pack|packet|piece|pieces|pc)\b/i;
@@ -152,7 +152,7 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
         qty = fractionWords[key];
 
         // check if next word is liter
-        if (/\b(liter|litre|ltr)\b/.test(text)) unit = "ltr";
+        if (/\b(liter|litre|ltr|l)\b/.test(text)) unit = "ltr";
         else unit = "kg"; // default only if weight product
 
         text = text.replace(key, "").trim();
@@ -163,7 +163,7 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
 
   // 6) CLEANUP — remove true standalone units only
   text = text.replace(
-    /\b(kg|g|gm|grams|ml|ltr|liter|litre|packet|pack|piece|pieces|pc)\b/gi,
+    /\b(kg|g|gm|grams|ml|l|ltr|liter|litre|packet|pack|piece|pieces|pc)\b/gi,
     ""
   );
 
