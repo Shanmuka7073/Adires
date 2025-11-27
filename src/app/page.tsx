@@ -27,6 +27,8 @@ import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetHeader, SheetTitle 
 import { useVoiceCommanderContext } from '@/components/layout/main-layout';
 import { getAuth, signOut } from 'firebase/auth';
 import { CartIcon } from '@/components/cart/cart-icon';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -234,6 +236,62 @@ function CategorySidebar({
       `}</style>
     </aside>
   );
+}
+
+// Horizontal Scroll for Mobile
+function MobileCategoryScroller({ categories, selectedCategory, onSelectCategory, isLoading }) {
+    const activeRef = useRef<HTMLButtonElement>(null);
+
+    useEffect(() => {
+        if (activeRef.current) {
+            activeRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+    }, [selectedCategory]);
+    
+    return (
+        <div className="md:hidden w-full bg-transparent">
+            <ScrollArea className="w-full whitespace-nowrap">
+                 <div className="flex space-x-4 p-4">
+                    {isLoading ? (
+                         Array.from({ length: 6 }).map((_, i) => (
+                            <div key={i} className="flex-shrink-0 w-20 flex flex-col items-center gap-2">
+                                <Skeleton className="w-16 h-16 rounded-full" />
+                                <Skeleton className="h-3 w-12" />
+                            </div>
+                         ))
+                    ) : (
+                        categories.map((cat) => {
+                            const active = cat.name === selectedCategory;
+                            return (
+                                 <button
+                                    key={cat.id}
+                                    ref={active ? activeRef : undefined}
+                                    onClick={() => onSelectCategory(cat.name)}
+                                    className={cn(
+                                      'flex flex-col items-center w-20 flex-shrink-0 text-center gap-2 py-3 px-1 rounded-2xl transition-all duration-200',
+                                      active ? "bg-white shadow-md ring-2 ring-primary" : "bg-white/80"
+                                    )}
+                                    aria-pressed={active}
+                                >
+                                    <div className="w-16 h-16 rounded-full flex items-center justify-center overflow-hidden border-2 border-white ring-1 ring-gray-200">
+                                        {cat.icon ? (
+                                            <Image src={cat.icon} alt={cat.name} width={64} height={64} className="object-cover w-full h-full" />
+                                        ) : (
+                                            <div className="w-full h-full bg-gray-100" />
+                                        )}
+                                    </div>
+                                    <span className="text-xs text-gray-700 font-medium truncate w-full">
+                                      {cat.name}
+                                    </span>
+                                </button>
+                            );
+                        })
+                    )}
+                </div>
+                <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+        </div>
+    );
 }
 
 /* ---------------- PRODUCT CARD ---------------- */
@@ -445,59 +503,65 @@ export default function LocalBasketHomepage() {
       )}
 
       {/* Main Layout */}
-      <div className="max-w-6xl mx-auto px-3 md:px-6 py-6 flex gap-4">
-        {/* Sidebar */}
+      <div className="max-w-6xl mx-auto md:px-6 md:py-6 flex flex-col md:flex-row md:gap-4">
+        {/* Sidebar for Desktop */}
         <CategorySidebar
           categories={categoryIcons.length ? categoryIcons : categories}
           activeCategory={activeCategory}
           onSelectCategory={handleSelectCategory}
           isLoading={sidebarLoading || isAppLoading}
         />
-
-        {/* Main area */}
+        
         <main className="flex-1" onClick={() => isMobileMenuOpen && setIsMobileMenuOpen(false)}>
-          {/* Title section (visible on desktop) */}
-          <div className="hidden md:block mb-4">
-            <h1 className="text-2xl font-semibold text-gray-900">{title}</h1>
-            <p className="text-sm text-gray-600">{filteredProducts.length} products</p>
-          </div>
-          
-          {/* Mobile search */}
-          <div className="md:hidden mb-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                aria-label="Search products"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search products..."
-                className="w-full pl-9 pr-3 py-2 bg-white rounded-lg border border-gray-200 shadow-sm"
-              />
+            {/* Horizontal Scroller for Mobile */}
+            <MobileCategoryScroller
+              categories={categoryIcons.length ? categoryIcons : categories}
+              selectedCategory={activeCategory}
+              onSelectCategory={handleSelectCategory}
+              isLoading={sidebarLoading || isAppLoading}
+            />
+            {/* Title section (visible on desktop) */}
+            <div className="hidden md:block mb-4 px-4 md:px-0 pt-4 md:pt-0">
+                <h1 className="text-2xl font-semibold text-gray-900">{title}</h1>
+                <p className="text-sm text-gray-600">{filteredProducts.length} products</p>
             </div>
-          </div>
+          
+            {/* Mobile search */}
+            <div className="md:hidden mt-4 px-4">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                        aria-label="Search products"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Search products..."
+                        className="w-full pl-9 pr-3 py-2 bg-white rounded-lg border border-gray-200 shadow-sm"
+                    />
+                </div>
+            </div>
 
-          {/* Products */}
-          <section>
-            {isAppLoading ? (
-              <div className={`grid gap-4 ${gridCols}`}>
-                {Array.from({ length: 8 }).map((_, idx) => (
-                  <Skeleton key={idx} className="h-56 w-full rounded-2xl" />
-                ))}
-              </div>
-            ) : filteredProducts.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">No products found.</div>
-            ) : (
-              <div className={`grid gap-4 ${gridCols}`}>
-                {filteredProducts.map((p: ProductType) => (
-                  <ProductCard
-                    key={p.id}
-                    product={p}
-                    priceData={productPrices?.[p.name.toLowerCase()]}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
+            {/* Products */}
+            <section className="p-4 md:p-0">
+                {isAppLoading ? (
+                    <div className={`grid gap-4 ${gridCols}`}>
+                        {Array.from({ length: 8 }).map((_, idx) => (
+                        <Skeleton key={idx} className="h-56 w-full rounded-2xl" />
+                        ))}
+                    </div>
+                ) : filteredProducts.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500">No products found.</div>
+                ) : (
+                    <div className={`grid gap-4 ${gridCols}`}>
+                        {filteredProducts.map((p: ProductType) => (
+                        <ProductCard
+                            key={p.id}
+                            product={p}
+                            priceData={productPrices?.[p.name.toLowerCase()]}
+                        />
+                        ))}
+                    </div>
+                )}
+            </section>
         </main>
       </div>
     </div>
