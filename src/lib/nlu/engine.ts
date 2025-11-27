@@ -78,10 +78,12 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
   const volumeRegex = /(\d+\.?\d*)\s*(liters?|ltrs?|l|milliliters?|ml)/i;
   
   const pieceRegex = /(\d+)\s*(pack|packet|pc|piece|pieces)/i;
+
+  const oneAndHalfRegex = /one and (a )?half/i;
   
   const fractionWords: Record<string, number> = {
     "half": 0.5, "1/2": 0.5, "one half": 0.5,
-    "quarter": 0.25, "1/4": 0.25,
+    "quarter": 0.25, "1/4": 0.25, "one quarter": 0.25,
     "three fourths": 0.75, "three quarters": 0.75, "3/4": 0.75,
     "సగం": 0.5, "అర": 0.5, "పావు": 0.25, "మూడొంతులు": 0.75,
     "आधा": 0.5, "पाव": 0.25, "तीन चौथाई": 0.75
@@ -101,13 +103,26 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
   } else if ((match = text.match(volumeRegex))) {
     qty = parseFloat(match[1]);
     const unitRaw = match[2].toLowerCase();
-    unit = unitRaw.startsWith('m') ? 'ml' : 'ltr';
+    unit = unitRaw.startsWith('l') ? 'ltr' : 'ml';
     text = text.replace(match[0], '').trim();
   } else if ((match = text.match(pieceRegex))) {
     qty = parseInt(match[1], 10);
     unit = 'pc';
     text = text.replace(match[0], '').trim();
-  } else {
+  } else if ((match = text.match(oneAndHalfRegex))) {
+    qty = 1.5;
+    text = text.replace(match[0], '').trim();
+    // Check for a unit immediately following "one and half"
+    const nextWord = text.split(' ')[0];
+    if (nextWord.startsWith('kg') || nextWord.startsWith('kilo')) {
+      unit = 'kg';
+      text = text.replace(nextWord, '').trim();
+    } else if (nextWord.startsWith('ltr') || nextWord.startsWith('liter')) {
+      unit = 'ltr';
+      text = text.replace(nextWord, '').trim();
+    }
+  }
+  else {
     // Check for fraction words if no other pattern matched
     for (const word in fractionWords) {
         if (text.includes(word)) {
