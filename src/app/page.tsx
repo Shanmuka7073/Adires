@@ -391,7 +391,7 @@ export default function LocalBasketHomepage() {
       try {
         setSidebarLoading(true);
         const promises = categories.map((cat) => {
-          const imageId = \`cat-\${cat.name.toLowerCase().replace(/ & /g, '-&-').replace(/ /g, '-')}\`;
+          const imageId = `cat-${cat.name.toLowerCase().replace(/ & /g, '-&-').replace(/ /g, '-')}`;
           return getProductImage(imageId).catch(() => ({ imageUrl: '' }));
         });
         const icons = await Promise.all(promises);
