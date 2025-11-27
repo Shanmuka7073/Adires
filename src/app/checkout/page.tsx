@@ -325,7 +325,7 @@ export default function CheckoutPage() {
 
   const areAllDetailsReady = useMemo(() => {
     return cartItems.length > 0 && activeStoreId && form.getValues('deliveryAddress').length > 10;
-  }, [cartItems.length, activeStoreId, form.getValues('deliveryAddress')]);
+  }, [cartItems.length, activeStoreId, form]);
 
   useEffect(() => {
       if (shouldPlaceOrderDirectly && areAllDetailsReady && placeOrderBtnRef.current) {
