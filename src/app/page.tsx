@@ -156,7 +156,19 @@ function Header({ isMobileMenuOpen, setIsMobileMenuOpen, searchTerm, setSearchTe
             <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />
             <UserMenu />
         </div>
-
+      </div>
+       {/* Mobile search */}
+      <div className="md:hidden pb-3 px-4">
+          <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                  aria-label="Search products"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search products..."
+                  className="w-full pl-9 pr-3 py-2 bg-white rounded-lg border border-gray-200 shadow-sm"
+              />
+          </div>
       </div>
     </div>
   );
@@ -189,7 +201,7 @@ function CategorySidebar({
   return (
     <aside
       ref={sidebarRef}
-      className="hidden md:block w-[96px] bg-white/60 backdrop-blur-sm shadow-sm rounded-3xl p-3 h-[calc(100vh-8rem)] overflow-y-auto no-scrollbar"
+      className="hidden md:block w-[96px] bg-white/60 backdrop-blur-sm shadow-sm rounded-3xl p-3 h-[calc(100vh-10rem)] overflow-y-auto no-scrollbar"
       aria-label="Categories"
     >
       <div className="flex flex-col gap-3">
@@ -524,20 +536,6 @@ export default function LocalBasketHomepage() {
             <div className="hidden md:block mb-4 px-4 md:px-0 pt-4 md:pt-0">
                 <h1 className="text-2xl font-semibold text-gray-900">{title}</h1>
                 <p className="text-sm text-gray-600">{filteredProducts.length} products</p>
-            </div>
-          
-            {/* Mobile search */}
-            <div className="md:hidden mt-4 px-4">
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                        aria-label="Search products"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Search products..."
-                        className="w-full pl-9 pr-3 py-2 bg-white rounded-lg border border-gray-200 shadow-sm"
-                    />
-                </div>
             </div>
 
             {/* Products */}
