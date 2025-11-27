@@ -107,12 +107,12 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
         <header className="bg-[#f0faff] sticky top-0 z-20 px-4 pt-4 pb-2 border-b">
             <div className="flex justify-between items-center mb-3">
                 <div>
-                     <p className="text-xs font-bold text-gray-700 uppercase">Blinkit in</p>
+                     <p className="text-xs font-bold text-gray-700 uppercase">Delivery in</p>
                      <p className="text-xl font-bold text-gray-900">{deliveryTime ? `${deliveryTime} minutes` : '...'}</p>
-                     {user && (
+                     {user && user.address && (
                          <div className="flex items-center text-xs text-gray-600 mt-1">
                             <MapPin className="h-3 w-3 mr-1" />
-                            <span className="font-semibold truncate max-w-[150px]">{user.firstName} {user.lastName} - {user.address}</span>
+                            <span className="font-semibold truncate max-w-[150px]">{user.address}</span>
                             <ChevronDown className="h-3 w-3" />
                          </div>
                      )}
