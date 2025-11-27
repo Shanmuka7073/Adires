@@ -3,15 +3,13 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '@/lib/store';
-import { Product as ProductType, ProductPrice } from '@/lib/types';
+import { Product as ProductType } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
-import ProductCard from '@/components/product-card';
 import { useFirebase } from '@/firebase';
-import { Search, Menu as MenuIcon, ShoppingCart, User as UserIcon, Mic, Package2, MicOff, Globe, Box, LogOut, LayoutDashboard, Store as StoreIcon, Truck } from 'lucide-react';
+import { Search, Menu as MenuIcon, ShoppingCart, User as UserIcon, Mic, Package2, MicOff, Globe, Box, LogOut, LayoutDashboard, Store as StoreIcon, Truck, Plus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { t } from '@/lib/locales';
@@ -38,6 +36,7 @@ import { Button } from '@/components/ui/button';
 import { getAuth, signOut } from 'firebase/auth';
 import { CartIcon } from '@/components/cart/cart-icon';
 import { useVoiceCommanderContext } from '@/components/layout/main-layout';
+import Link from 'next/link';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -278,6 +277,59 @@ function CategorySidebar({
   );
 }
 
+/* ---------------- PRODUCT CARD ---------------- */
+function ProductCard({
+  product,
+  priceData,
+}: {
+  product: ProductType;
+  priceData?: { variants?: { price: number; weight: string; sku: string; }[] };
+}) {
+  const { addItem } = useCart();
+  const priceInfo = priceData?.variants?.[0] ?? null;
+
+  const handleAddToCart = () => {
+    if (priceInfo) {
+      addItem(product, priceInfo, 1);
+    }
+  };
+  
+  return (
+    <div className="bg-white rounded-2xl shadow-sm p-3 transition-all hover:shadow-md flex flex-col">
+      <div className="w-full h-36 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center">
+        {product.imageUrl ? (
+          <Image src={product.imageUrl} alt={product.name} width={320} height={320} className="object-cover w-full h-full" />
+        ) : (
+          <div className="w-24 h-24 rounded-md bg-gray-100" />
+        )}
+      </div>
+
+      <div className="mt-3 flex-1 flex flex-col">
+        <h3 className="text-sm font-semibold text-gray-900 line-clamp-2">{product.name}</h3>
+        <p className="text-xs text-gray-400 mt-0.5">{priceInfo?.weight || ''}</p>
+
+        <div className="mt-2 flex items-center justify-between">
+            {priceInfo !== null ? (
+              <div className="text-green-600 font-bold text-sm">₹{priceInfo.price.toFixed(2)}</div>
+            ) : (
+              <div className="text-gray-400 text-sm">—</div>
+            )}
+            <Button
+                size="icon"
+                className="h-8 w-8 rounded-full bg-green-100 text-green-600 hover:bg-green-200 shadow-none"
+                type="button"
+                aria-label={`Add ${product.name} to cart`}
+                onClick={handleAddToCart}
+            >
+                <Plus className="h-4 w-4"/>
+            </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 /* ---------------- MAIN PAGE ---------------- */
 export default function LocalBasketHomepage() {
   const { masterProducts, productPrices, loading: isAppLoading, fetchProductPrices, fetchInitialData } = useAppStore();
@@ -439,7 +491,11 @@ export default function LocalBasketHomepage() {
             ) : (
               <div className={`grid gap-4 ${gridCols}`}>
                 {filteredProducts.map((p: ProductType) => (
-                  <ProductCard key={p.id} product={p} priceData={productPrices?.[p.name.toLowerCase()]} />
+                  <ProductCard
+                    key={p.id}
+                    product={p}
+                    priceData={productPrices?.[p.name.toLowerCase()]}
+                  />
                 ))}
               </div>
             )}
@@ -449,4 +505,3 @@ export default function LocalBasketHomepage() {
     </div>
   );
 }
-
