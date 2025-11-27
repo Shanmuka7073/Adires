@@ -1,0 +1,216 @@
+
+'use client';
+
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { Firestore, collection, getDocs, query, where } from 'firebase/firestore';
+import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
+import { getStores, getMasterProducts, getProductPrice } from './data';
+import { useFirebase } from '@/firebase';
+import { useEffect, RefObject } from 'react';
+import { UseFormReturn } from 'react-hook-form';
+import { t as translate, initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups } from '@/lib/locales';
+import { generalCommands as defaultGeneralCommands, CommandGroup } from '@/lib/locales/commands';
+
+
+export interface ProfileFormValues {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  [key: string]: any;
+}
+
+export interface AppState {
+  stores: Store[];
+  masterProducts: Product[];
+  productPrices: Record<string, ProductPrice | null>;
+  locales: Locales;
+  commands: Record<string, CommandGroup>;
+  loading: boolean;
+  isInitialized: boolean;
+  error: Error | null;
+  language: string;
+  activeStoreId: string | null; // Add activeStoreId to the store
+  setLanguage: (lang: string) => void;
+  setActiveStoreId: (storeId: string | null) => void;
+  fetchInitialData: (db: Firestore) => Promise<void>;
+  fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
+  getProductName: (product: Product) => string;
+  getAllAliases: (key: string) => Record<string, string[]>;
+  setLocales: (newLocales: Locales) => void;
+  setCommands: (newCommands: Record<string, CommandGroup>) => void;
+}
+
+const getInitialLanguage = (): string => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('app-language') || 'en';
+  }
+  return 'en';
+};
+
+
+export const useAppStore = create<AppState>()(
+  persist(
+    (set, get) => ({
+      stores: [],
+      masterProducts: [],
+      productPrices: {},
+      locales: {},
+      commands: {},
+      loading: false,
+      isInitialized: false,
+      error: null,
+      language: getInitialLanguage(),
+      activeStoreId: null,
+
+      setLanguage: (lang: string) => {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('app-language', lang);
+        }
+        set({ language: lang });
+      },
+
+      setActiveStoreId: (storeId: string | null) => {
+        set({ activeStoreId: storeId });
+      },
+
+      setLocales: (newLocales: Locales) => set({ locales: newLocales }),
+      setCommands: (newCommands: Record<string, CommandGroup>) => set({ commands: newCommands }),
+
+      fetchInitialData: async (db: Firestore) => {
+        if (get().loading || get().isInitialized) return; 
+
+        set({ loading: true, error: null });
+        
+        try {
+          const [stores, masterProducts, aliasDocs, commandDocs] = await Promise.all([
+            getStores(db),
+            getMasterProducts(db),
+            getDocs(collection(db, 'voiceAliasGroups')),
+            getDocs(collection(db, 'voiceCommands'))
+          ]);
+
+          const voiceAliasGroups = aliasDocs.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
+          const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
+          
+          const dbCommands = commandDocs.docs.reduce((acc, doc) => {
+              acc[doc.id] = doc.data() as CommandGroup;
+              return acc;
+          }, {} as Record<string, CommandGroup>);
+          
+          const enrichedCommands = { ...defaultGeneralCommands, ...dbCommands };
+
+          initializeTranslations(locales); 
+
+          set({
+            stores,
+            masterProducts,
+            locales,
+            commands: enrichedCommands,
+            isInitialized: true,
+            loading: false,
+          });
+
+          if (masterProducts.length > 0) {
+            await get().fetchProductPrices(db, masterProducts.map(p => p.name));
+          }
+          
+        } catch (error) {
+          console.error("Failed to fetch initial app data:", error);
+          set({ error: error as Error, loading: false });
+        }
+      },
+      
+      fetchProductPrices: async (db: Firestore, productNames: string[]) => {
+          const { productPrices } = get();
+          const namesToFetch = productNames.filter(name => name && productPrices[name.toLowerCase()] === undefined);
+
+          if (namesToFetch.length === 0) return;
+          
+          try {
+              const pricesToUpdate: Record<string, ProductPrice | null> = {};
+              const batchSize = 30;
+
+              for (let i = 0; i < namesToFetch.length; i += batchSize) {
+                  const batchNames = namesToFetch.slice(i, i + batchSize).map(n => n.toLowerCase());
+                  if (batchNames.length > 0) {
+                      const priceQuery = query(collection(db, 'productPrices'), where('productName', 'in', batchNames));
+                      const priceSnapshot = await getDocs(priceQuery);
+                      
+                      const fetchedPrices = new Map(priceSnapshot.docs.map(doc => [doc.id, doc.data() as ProductPrice]));
+                      
+                      batchNames.forEach(name => {
+                          pricesToUpdate[name] = fetchedPrices.get(name) || null;
+                      });
+                  }
+              }
+
+              set(state => ({
+                  productPrices: { ...state.productPrices, ...pricesToUpdate }
+              }));
+          } catch (error) {
+              console.error("Failed to fetch product prices:", error);
+          }
+      },
+
+      getProductName: (product: Product) => {
+        if (!product || !product.name) return '';
+        const lang = get().language;
+        return translate(product.name.toLowerCase().replace(/ /g, '-'), lang);
+      },
+
+      getAllAliases: (key: string) => {
+        return getAliasesFromLocales(get().locales, key);
+      }
+    }),
+    {
+      name: 'localbasket-app-storage', // The key for localStorage
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({ 
+          stores: state.stores,
+          masterProducts: state.masterProducts,
+          locales: state.locales,
+          commands: state.commands,
+          language: state.language,
+          isInitialized: state.isInitialized,
+          activeStoreId: state.activeStoreId,
+      }),
+    }
+  )
+);
+
+
+export const useInitializeApp = () => {
+    const { firestore, user } = useFirebase();
+    const { fetchInitialData, isInitialized, loading } = useAppStore();
+
+    useEffect(() => {
+        if (firestore && user && !isInitialized && !loading) {
+            fetchInitialData(firestore);
+        }
+    }, [firestore, user, isInitialized, loading, fetchInitialData]);
+
+    return { isLoading: !isInitialized && loading };
+};
+
+interface ProfileFormState {
+  form: UseFormReturn<ProfileFormValues> | null;
+  setForm: (form: UseFormReturn<ProfileFormValues> | null) => void;
+}
+
+export const useProfileFormStore = create<ProfileFormState>((set) => ({
+  form: null,
+  setForm: (form) => set({ form }),
+}));
+
+interface MyStorePageState {
+  saveInventoryBtnRef: RefObject<HTMLButtonElement> | null;
+  setSaveInventoryBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
+}
+
+export const useMyStorePageStore = create<MyStorePageState>((set) => ({
+  saveInventoryBtnRef: null,
+  setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
+}));
