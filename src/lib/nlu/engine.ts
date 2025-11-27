@@ -128,7 +128,7 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
         if (text.includes(word)) {
             qty = fractionWords[word];
             // Determine if it's a fraction of a kg or liter
-            if (text.includes('liter') || text.includes('litre')) {
+            if (text.includes('liter') || text.includes('litre') || text.includes('ltr')) {
                  unit = 'ltr';
             } else {
                  unit = 'kg'; // Default to kg for fractions if not specified
