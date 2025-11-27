@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useFirebase, errorEmitter, FirestorePermissionError, useCollection, useMemoFirebase } from '@/firebase';
@@ -250,7 +249,7 @@ export default function OrdersDashboardPage() {
   }, [allOrders, toast, myStore?.id, newOrderAlert]);
 
 
-  const handleStatusChange = (orderId: string, newStatus: Order['status']) => {
+  const handleStatusChange = async (orderId: string, newStatus: Order['status']) => {
     if (!firestore) return;
     
     const orderDocRef = doc(firestore, 'orders', orderId);
@@ -261,24 +260,23 @@ export default function OrdersDashboardPage() {
         updatePayload.deliveryPartnerId = null;
     }
 
-    updateDoc(orderDocRef, updatePayload)
-        .then(() => {
-            toast({
-                title: "Status Updated",
-                description: `Order ${orderId.substring(0,7)} marked as ${newStatus}.`,
-            });
-            if (newOrderAlert?.id === orderId) {
-                setNewOrderAlert(null);
-            }
-        })
-        .catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: orderDocRef.path,
-                operation: 'update',
-                requestResourceData: updatePayload,
-            });
-            errorEmitter.emit('permission-error', permissionError);
+    try {
+        await updateDoc(orderDocRef, updatePayload);
+        toast({
+            title: "Status Updated",
+            description: `Order ${orderId.substring(0,7)} marked as ${newStatus}.`,
         });
+        if (newOrderAlert?.id === orderId) {
+            setNewOrderAlert(null);
+        }
+    } catch (serverError) {
+        const permissionError = new FirestorePermissionError({
+            path: orderDocRef.path,
+            operation: 'update',
+            requestResourceData: updatePayload,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    }
   };
   
   const handleAlertAction = (action: 'accept' | 'reject') => {
@@ -287,18 +285,6 @@ export default function OrdersDashboardPage() {
     const newStatus = action === 'accept' ? 'Processing' : 'Cancelled';
     handleStatusChange(newOrderAlert.id, newStatus);
   };
-
-  const formatDate = (date: any) => {
-    if (!date) return 'N/A';
-    if (date.seconds) {
-      return format(new Date(date.seconds * 1000), 'PPP p');
-    }
-    try {
-        return format(new Date(date as string), 'PPP p');
-    } catch {
-        return 'Invalid Date';
-    }
-  }
 
   const finalLoading = isUserLoading || isStoreLoading || ordersLoading;
 
@@ -438,7 +424,7 @@ export default function OrdersDashboardPage() {
                         <CardContent className="space-y-4">
                              <div className="flex justify-between items-center text-sm">
                                 <span className="text-muted-foreground">Date</span>
-                                <span>{formatDate(order.orderDate)}</span>
+                                <span>{formatDateSafe(order.orderDate)}</span>
                             </div>
                             <div className="flex justify-between items-center text-sm">
                                 <span className="text-muted-foreground">Total</span>
@@ -482,7 +468,7 @@ export default function OrdersDashboardPage() {
                         )}
                         </TableCell>
                         <TableCell>{order.customerName}</TableCell>
-                        <TableCell>{formatDate(order.orderDate)}</TableCell>
+                        <TableCell>{formatDateSafe(order.orderDate)}</TableCell>
                         <TableCell>
                             <StatusManager order={order} onStatusChange={handleStatusChange} />
                         </TableCell>
@@ -504,3 +490,5 @@ export default function OrdersDashboardPage() {
     </div>
   );
 }
+
+    
