@@ -45,11 +45,11 @@ export default function ProductCard({ product, priceData }: ProductCardProps) {
 
   return (
     <div className="bg-white rounded-2xl shadow-sm p-3 transition-all hover:shadow-md flex flex-col">
-      <div className="w-full h-36 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center relative group">
+      <div className="w-full h-24 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center relative group">
         {product.imageUrl ? (
           <Image src={product.imageUrl} alt={product.name} width={320} height={320} className="object-cover w-full h-full" />
         ) : (
-          <div className="w-24 h-24 rounded-md bg-gray-100" />
+          <div className="w-16 h-16 rounded-md bg-gray-100" />
         )}
         <Button 
             size="icon" 

@@ -59,15 +59,15 @@ function CategoryButton({ category, isSelected, onSelectCategory }) {
             )}
         >
             {isImageLoading ? (
-                 <Skeleton className="w-12 h-12 rounded-full" />
+                 <Skeleton className="w-10 h-10 rounded-full" />
             ) : (
                 <Image
                     src={image.imageUrl}
                     alt={category.name}
-                    width={48}
-                    height={48}
+                    width={40}
+                    height={40}
                     data-ai-hint={image.imageHint}
-                    className="w-12 h-12 object-cover rounded-full border-2 border-white ring-1 ring-gray-200"
+                    className="w-10 h-10 object-cover rounded-full border-2 border-white ring-1 ring-gray-200"
                 />
             )}
             <span className="text-xs text-gray-700 font-medium truncate w-full">

@@ -35,9 +35,9 @@ function UnidentifiedCartRow({ item }: { item: UnidentifiedCartItem }) {
         <TableRow className={status === 'failed' ? 'bg-destructive/10' : 'bg-muted/50'}>
             <TableCell>
                 <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-md bg-muted flex items-center justify-center">
-                        {status === 'pending' && <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />}
-                        {status === 'failed' && <AlertTriangle className="h-6 w-6 text-destructive" />}
+                    <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center">
+                        {status === 'pending' && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
+                        {status === 'failed' && <AlertTriangle className="h-5 w-5 text-destructive" />}
                     </div>
                     <div>
                         <span className="font-medium italic">{term}</span>
@@ -79,8 +79,8 @@ function CartRow({ item, image }) {
             src={image.imageUrl}
             alt={product.name}
             data-ai-hint={image.imageHint}
-            width={64}
-            height={64}
+            width={40}
+            height={40}
             className="rounded-md object-cover"
           />
           <div>
@@ -137,8 +137,8 @@ function MobileCartItem({ item, image }) {
                     src={image.imageUrl}
                     alt={product.name}
                     data-ai-hint={image.imageHint}
-                    width={80}
-                    height={80}
+                    width={50}
+                    height={50}
                     className="rounded-lg object-cover"
                 />
                 <div className="flex-1 space-y-2">
@@ -184,9 +184,9 @@ function UnidentifiedMobileItem({ item }: { item: UnidentifiedCartItem }) {
     return (
         <Card className={status === 'failed' ? 'bg-destructive/10 border-destructive/30' : 'bg-muted/50'}>
              <CardContent className="flex items-center gap-4 p-4">
-                 <div className="w-20 h-20 rounded-lg bg-muted flex items-center justify-center">
-                    {status === 'pending' && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
-                    {status === 'failed' && <AlertTriangle className="h-8 w-8 text-destructive" />}
+                 <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
+                    {status === 'pending' && <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />}
+                    {status === 'failed' && <AlertTriangle className="h-6 w-6 text-destructive" />}
                  </div>
                  <div className="flex-1 space-y-2">
                      <p className="font-semibold italic">{term}</p>
@@ -264,7 +264,7 @@ export default function CartPage() {
             <div className="lg:hidden space-y-4">
                  {unidentifiedItems.map((item) => <UnidentifiedMobileItem key={item.id} item={item} />)}
                  {cartItems.map((item) => {
-                    const image = images[item.variant.sku] || { imageUrl: 'https://placehold.co/80x80/E2E8F0/64748B?text=...', imageHint: 'loading' };
+                    const image = images[item.variant.sku] || { imageUrl: 'https://placehold.co/50x50/E2E8F0/64748B?text=...', imageHint: 'loading' };
                     return <MobileCartItem key={item.variant.sku} item={item} image={image} />
                 })}
             </div>
@@ -286,7 +286,7 @@ export default function CartPage() {
                     <TableBody>
                       {unidentifiedItems.map(item => <UnidentifiedCartRow key={item.id} item={item} />)}
                       {cartItems.map((item) => {
-                        const image = images[item.variant.sku] || { imageUrl: 'https://placehold.co/64x64/E2E8F0/64748B?text=...', imageHint: 'loading' };
+                        const image = images[item.variant.sku] || { imageUrl: 'https://placehold.co/40x40/E2E8F0/64748B?text=...', imageHint: 'loading' };
                         return <CartRow key={item.variant.sku} item={item} image={image} />;
                       })}
                     </TableBody>

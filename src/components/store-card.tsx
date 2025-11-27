@@ -41,12 +41,12 @@ function StoreCard({ store }: StoreCardProps) {
                         src={image.imageUrl}
                         alt={store.name}
                         data-ai-hint={image.imageHint}
-                        width={400}
-                        height={300}
-                        className="w-full h-36 object-cover"
+                        width={250}
+                        height={120}
+                        className="w-full h-24 object-cover"
                     />
                 ) : (
-                    <Skeleton className="w-full h-36" />
+                    <Skeleton className="w-full h-24" />
                 )}
                  <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-green-600 px-2 py-1 text-xs font-bold text-white">
                     <Star className="h-3 w-3 fill-white" />
@@ -72,7 +72,7 @@ function StoreCard({ store }: StoreCardProps) {
 StoreCard.Skeleton = function StoreCardSkeleton() {
     return (
         <Card className="h-full border-0 shadow-md w-64 md:w-auto flex-shrink-0">
-            <Skeleton className="w-full h-36" />
+            <Skeleton className="w-full h-24" />
             <CardContent className="p-3 space-y-2">
                 <Skeleton className="h-6 w-3/4" />
                 <Skeleton className="h-4 w-full" />

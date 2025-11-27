@@ -61,15 +61,15 @@ function OrderSummaryItem({ item, image }: { item: any, image: any }) {
     return (
         <div className="flex justify-between items-center">
             <div className="flex items-center gap-4">
-                <Image src={image.imageUrl} alt={product.name} data-ai-hint={image.imageHint} width={48} height={48} className="rounded-md" />
+                <Image src={image.imageUrl} alt={product.name} data-ai-hint={image.imageHint} width={32} height={32} className="rounded-md" />
                 <div>
-                    <p className="font-medium">{englishName} <span className="text-sm text-muted-foreground">({variant.weight})</span></p>
+                    <p className="font-medium text-sm">{englishName} <span className="text-xs text-muted-foreground">({variant.weight})</span></p>
                     <p className="text-xs text-muted-foreground">{teluguName}</p>
-                    <p className="text-sm text-muted-foreground">Qty: {quantity}</p>
+                    <p className="text-xs text-muted-foreground">Qty: {quantity}</p>
                 </div>
             </div>
             <div className="text-right">
-                <p>₹{(variant.price * quantity).toFixed(2)}</p>
+                <p className="text-sm">₹{(variant.price * quantity).toFixed(2)}</p>
             </div>
         </div>
     );
@@ -363,7 +363,7 @@ export default function CheckoutPage() {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {cartItems.map((item) => {
-                                const image = images[item.variant.sku] || { imageUrl: 'https://placehold.co/48x48/E2E8F0/64748B?text=...', imageHint: 'loading' };
+                                const image = images[item.variant.sku] || { imageUrl: 'https://placehold.co/32x32/E2E8F0/64748B?text=...', imageHint: 'loading' };
                                 return <OrderSummaryItem key={item.variant.sku} item={item} image={image} />
                             })}
                             {cartItems.length === 0 && (

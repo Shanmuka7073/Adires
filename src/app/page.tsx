@@ -95,7 +95,7 @@ function GroceryCategoryCard({ categoryName, imageHint, count }: { categoryName:
     if (isLoading) {
         return (
             <div className="flex flex-col items-center gap-2">
-                <Skeleton className="w-full h-24 rounded-lg" />
+                <Skeleton className="w-full h-16 rounded-lg" />
                 <Skeleton className="h-4 w-20" />
             </div>
         );
@@ -103,13 +103,13 @@ function GroceryCategoryCard({ categoryName, imageHint, count }: { categoryName:
     
     return (
         <Link href={href} className="flex flex-col items-center gap-2 text-center group bg-white p-2 rounded-lg shadow-sm">
-             <div className="w-full h-24 relative rounded-lg overflow-hidden flex justify-center items-center gap-1 bg-gray-50">
+             <div className="w-full h-16 relative rounded-lg overflow-hidden flex justify-center items-center gap-1 bg-gray-50">
                 <Image 
                     src={image.imageUrl} 
                     alt={categoryName} 
-                    width={80}
-                    height={80}
-                    className="w-16 h-16 object-contain"
+                    width={50}
+                    height={50}
+                    className="w-12 h-12 object-contain"
                     data-ai-hint={image.imageHint}
                 />
                  {count && count > 0 && (
@@ -254,7 +254,7 @@ export default function LocalBasketHomepage() {
                 <div key={i} className="space-y-4">
                     <Skeleton className="h-6 w-48" />
                     <div className="grid grid-cols-3 gap-2">
-                        {Array.from({ length: 6 }).map((_, j) => <Skeleton key={j} className="h-32 w-full" />)}
+                        {Array.from({ length: 6 }).map((_, j) => <Skeleton key={j} className="h-24 w-full" />)}
                     </div>
                 </div>
             ))

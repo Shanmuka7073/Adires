@@ -28,8 +28,8 @@ function CartSheetItem({ item, image }) {
                 src={image.imageUrl}
                 alt={product.name}
                 data-ai-hint={image.imageHint}
-                width={64}
-                height={64}
+                width={40}
+                height={40}
                 className="rounded-md object-cover"
             />
             <div className="flex-1 grid gap-1">
@@ -104,7 +104,7 @@ export function CartSheetContent() {
         <ScrollArea className="flex-1 my-4 pr-4">
             <div className="flex flex-col divide-y">
               {cartItems.map((item) => {
-                const image = images[item.variant.sku] || { imageUrl: 'https://placehold.co/64x64/E2E8F0/64748B?text=...', imageHint: 'loading' };
+                const image = images[item.variant.sku] || { imageUrl: 'https://placehold.co/40x40/E2E8F0/64748B?text=...', imageHint: 'loading' };
                 return <CartSheetItem key={item.variant.sku} item={item} image={image} />
               })}
             </div>
