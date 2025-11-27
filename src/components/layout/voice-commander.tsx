@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -106,7 +105,7 @@ export function VoiceCommander({
   const { clearCart, addItem: addItemToCart, removeItem, updateQuantity, addUnidentifiedItem, updateUnidentifiedItem, addIdentifiedItem, activeStoreId, setActiveStoreId, cartTotal } = useCart();
   const { retryCommand, showPriceCheck, hidePriceCheck } = useVoiceCommanderContext();
 
-  const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands, loading: isAppStoreLoading, fetchInitialData } = useAppStore();
+  const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands, loading: isAppStoreLoading, fetchInitialData, setActiveStoreId: setGlobalActiveStoreId } = useAppStore();
 
   const { form: profileForm } = useProfileFormStore();
   const { saveInventoryBtnRef } = useMyStorePageStore();
@@ -137,7 +136,7 @@ export function VoiceCommander({
 
   const [hasMounted, setHasMounted] = useState(false);
 
-  const [speechSynthesisVoices, setSpeechSynthesisVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [speechSynthesisVoices, setSpeechSynthesisVoice] = useState<SpeechSynthesisVoice[]>([]);
 
   const [hasRunCheckoutPrompt, setHasRunCheckoutPrompt] = useState(false);
 
@@ -257,7 +256,7 @@ export function VoiceCommander({
       const getVoices = () => {
         const voices = window.speechSynthesis.getVoices();
         if (voices.length > 0) {
-          setSpeechSynthesisVoices(voices);
+          setSpeechSynthesisVoice(voices);
         }
       };
       getVoices();
@@ -499,7 +498,7 @@ const findProductAndVariant = useCallback(
                 }
             }
             if (bestMatch) {
-                productMatch = { product: bestMatch.product, alias: bestMatch.alias, lang: bestMatch.lang };
+                productMatch = { product: bestMatch.product, alias: bestMatch.alias, similarity: bestMatch.similarity, lang: bestMatch.lang };
             }
         }
     }
@@ -524,9 +523,9 @@ const findProductAndVariant = useCallback(
         const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
         const baseWeight = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
         const isBaseKg = baseVariant.weight.includes('kg');
-        const pricePerGram = (baseVariant.price * 1.2) / (isBaseKg ? baseWeight * 1000 : baseWeight);
+        const pricePerBaseUnit = baseVariant.price / (isBaseKg ? baseWeight * 1000 : baseWeight); // Price per gram
 
-        const requestedGrams = money / pricePerGram;
+        const requestedGrams = money / pricePerBaseUnit;
 
         chosenVariant = {
             price: money,
@@ -543,7 +542,7 @@ const findProductAndVariant = useCallback(
         const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
         const baseWeight = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
         const isBaseKg = baseVariant.weight.includes('kg');
-        const pricePerGram = (baseVariant.price * 1.2) / (isBaseKg ? baseWeight * 1000 : baseWeight);
+        const pricePerGram = baseVariant.price / (isBaseKg ? baseWeight * 1000 : baseWeight);
         
         const newPrice = requestedGrams * pricePerGram;
         
@@ -572,6 +571,15 @@ const findProductAndVariant = useCallback(
 
     if (nlu.hasMath) {
         return { type: 'MATH', originalText: text, lang: spokenLang };
+    }
+    
+    // Check if the command is JUST a product name
+    const { product: foundProduct } = findProductAndVariant(lowerText);
+    if (foundProduct && lowerText.split(' ').length <= 3) {
+      const isJustProduct = intentKeywords.ORDER_ITEM.every(kw => !lowerText.includes(kw));
+      if (isJustProduct) {
+        return { type: 'CHECK_PRICE', productPhrase: lowerText, originalText: text, lang: spokenLang };
+      }
     }
 
     const fromKeywords = ['from', 'at', 'in'];
@@ -641,7 +649,7 @@ const findProductAndVariant = useCallback(
 
     return { type: 'ORDER_ITEM', originalText: text, lang: spokenLang };
 
-  }, [commands, getAllAliases, language]);
+  }, [commands, getAllAliases, language, findProductAndVariant]);
 
 
     const handleCommandFailure = useCallback(async (commandText: string, spokenLang: string, reason: string) => {
@@ -670,6 +678,13 @@ const findProductAndVariant = useCallback(
     if (!firestore || !user) {
         speak("I can't process commands without being connected. Please log in.", 'en-IN');
         return;
+    }
+    
+    if (pathname === '/') {
+      const masterStoreId = stores.find(s => s.name === 'LocalBasket')?.id;
+      if (masterStoreId) {
+          setGlobalActiveStoreId(masterStoreId);
+      }
     }
 
     let spokenLang = determinePhraseLanguage(commandText);
@@ -703,7 +718,7 @@ const findProductAndVariant = useCallback(
           const numbersInCommand = lowerCommandText.match(/\d+/g)?.map(Number);
           if (numbersInCommand) {
               for (const price of numbersInCommand) {
-                  const matchedVariant = context.variants.find(v => Math.round(v.price * 1.20) === price);
+                  const matchedVariant = context.variants.find(v => Math.round(v.price) === price);
                   if (matchedVariant) {
                       chosenVariant = matchedVariant;
                       break;
@@ -763,7 +778,7 @@ const findProductAndVariant = useCallback(
         const locationKeywords = getAllAliases('currentLocation')[spokenLang] || ['current', 'location'];
 
         const homeSimilarity = Math.max(...homeKeywords.map(kw => calculateSimilarity(lowerCommand, kw.toLowerCase())));
-        const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(lowerCommand, kw.toLowerCase())));
+        const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(lowerCommand, kw)));
 
         if (homeSimilarity > 0.6 && homeSimilarity > locationSimilarity) {
             isWaitingForAddressTypeRef.current = false;
@@ -805,7 +820,7 @@ const findProductAndVariant = useCallback(
 
        if (bestMatch && bestMatch.similarity > 0.6) {
            const store = bestMatch.store;
-           setActiveStoreId(store.id);
+           setGlobalActiveStoreId(store.id);
           speak(t('okay-ordering-from-speech', replyLang).replace('{storeName}', store.name), langWithRegion, triggerVoicePrompt);
        } else {
           speak(t('could-not-find-store-speech', replyLang).replace('{storeName}', commandText), langWithRegion, triggerVoicePrompt);
@@ -911,12 +926,12 @@ const findProductAndVariant = useCallback(
       isWaitingForQuickOrderConfirmation,
       findProductAndVariant, addItemToCart, onOpenCart, t, getProductName,
       locales, commands, getAllAliases, recognizeIntent, aiConfig,
-      handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setActiveStoreId,
+      handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setGlobalActiveStoreId,
       storeAliasMap, profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData,
-      placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress,
+      placeOrderBtnRef, onCloseCart, setHomeAddress,
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
       removeItem, addUnidentifiedItem, updateUnidentifiedItem, router, stores, productPrices,
-      showPriceCheck, hidePriceCheck, masterProducts
+      showPriceCheck, hidePriceCheck, masterProducts, pathname
   ]);
 
     // Effect to handle retrying a command
@@ -1295,7 +1310,7 @@ const findProductAndVariant = useCallback(
         speak(speech, langWithRegion, () => {
             setIsWaitingForQuickOrderConfirmation(true); // Prevents checkout page from prompting
             addItemToCart(product, variant, requestedQty);
-            setActiveStoreId(bestStoreMatch!.id);
+            setGlobalActiveStoreId(bestStoreMatch!.id);
             if(useCurrentLocation) {
                 setShouldUseCurrentLocation(true);
             } else {
@@ -1329,7 +1344,7 @@ const findProductAndVariant = useCallback(
       handleCommand, cartTotal, cartItemsProp, pathname, masterProducts, t, aiConfig, isAppStoreLoading,
       productPrices, fetchProductPrices, firestore, user, router, language, setLanguage, speak,
       determinePhraseLanguage, resetAllContext, storeAliasMap,
-      handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setActiveStoreId,
+      handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setGlobalActiveStoreId,
       profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData,
       placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress,
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
@@ -1340,3 +1355,5 @@ const findProductAndVariant = useCallback(
 
   return null;
 }
+
+    
