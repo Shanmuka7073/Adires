@@ -1,11 +1,10 @@
 
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useAppStore } from '@/lib/store';
 import { Product as ProductType } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
@@ -37,6 +36,8 @@ import { Button } from '@/components/ui/button';
 import { getAuth, signOut } from 'firebase/auth';
 import { CartIcon } from '@/components/cart/cart-icon';
 import { useVoiceCommanderContext } from '@/components/layout/main-layout';
+import Link from 'next/link';
+
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -284,7 +285,7 @@ function ProductCard({
   priceData,
 }: {
   product: ProductType;
-  priceData?: { variants?: { price: number; weight: string; sku: string; }[] };
+  priceData?: { variants?: { price: number; weight: string; sku: string }[] };
 }) {
   const { cartItems, addItem, updateQuantity } = useCart();
   const priceInfo = priceData?.variants?.[0] ?? null;
@@ -321,10 +322,10 @@ function ProductCard({
         <Button 
             size="icon" 
             variant="ghost" 
-            className="absolute top-2 right-2 h-7 w-7 rounded-full bg-white/70 backdrop-blur-sm hover:bg-white"
+            className="absolute top-2 right-2 h-6 w-6 rounded-full bg-white/70 backdrop-blur-sm hover:bg-white"
             onClick={() => setIsFavorite(!isFavorite)}
         >
-            <Heart className={cn("h-4 w-4 text-gray-500", isFavorite && "fill-red-500 text-red-500")} />
+            <Heart className={cn("h-3.5 w-3.5 text-gray-500", isFavorite && "fill-red-500 text-red-500")} />
             <span className="sr-only">Favorite</span>
         </Button>
       </div>
@@ -542,3 +543,5 @@ export default function LocalBasketHomepage() {
     </div>
   );
 }
+
+    
