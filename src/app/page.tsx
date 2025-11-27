@@ -12,8 +12,9 @@ import { useFirebase } from '@/firebase';
 import { Search, Menu as MenuIcon, Mic, ShoppingBag, Heart, Star, Briefcase, Sparkles, Lamp, Home as HomeIcon, LayoutGrid } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import ProductCard from '@/components/product-card';
 
-// Main categories for the top scroller, as seen in the image.
+// Main categories for the top scroller
 const mainCategories = [
   { name: 'All', icon: LayoutGrid },
   { name: 'Wedding', icon: Heart },
@@ -123,7 +124,7 @@ function HomepageHeader({ onSearchChange }: { onSearchChange: (term: string) => 
 
 /* ---------------- MAIN PAGE ---------------- */
 export default function BlinkitStyleHomepage() {
-  const { masterProducts, loading: isAppLoading, fetchInitialData } = useAppStore();
+  const { masterProducts, productPrices, loading: isAppLoading, fetchInitialData } = useAppStore();
   const { firestore } = useFirebase();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -139,8 +140,10 @@ export default function BlinkitStyleHomepage() {
   const categories = useMemo(() => {
     if (!masterProducts) return [];
 
-    const groceryAndKitchen = ["Vegetables & Fruits", "Atta, Rice & Dal", "Oil, Ghee & Masala", "Dairy, Bread & Eggs", "Bakery & Biscuits", "Dry Fruits & Cereals", "Chicken, Meat & Fish", "Kitchenware & Appliances"];
-    const snacksAndDrinks = ["Chips & Namkeen", "Sweets & Chocolates", "Drinks & Juices", "Tea, Coffee & Milk Drinks", "Noodles & Sauces", "Mouth Fresheners", "Ice Creams & Desserts"];
+    const groceryAndKitchen = ["Vegetables & Fruits", "Grains & Cereals", "Dals & Pulses", "Spices & Masalas", "Oils & Ghee", "Dairy & Bakery", "Kitchen Essentials"];
+    const snacksAndDrinks = ["Snacks & Breakfast", "Beverages", "Instant Mixes"];
+    const personalAndHome = ["Personal Care", "Home Care", "Pet Care"];
+    const meat = ["Fresh Cut", "Meat & Fish"];
     
     // This creates a structure similar to the image for demonstration
     const categoryGroups = [
@@ -157,24 +160,30 @@ export default function BlinkitStyleHomepage() {
             name: name,
             hint: name.split(',')[0].split(' & ')[0].toLowerCase(), // e.g., "chips"
         }))
+      },
+      {
+        title: "Home & Personal Care",
+        items: personalAndHome.map(name => ({
+            name: name,
+            hint: name.split(',')[0].split(' & ')[0].toLowerCase(),
+        }))
+      },
+      {
+        title: "Meat & Fish",
+        items: meat.map(name => ({
+            name: name,
+            hint: name.split(',')[0].split(' & ')[0].toLowerCase(),
+        }))
       }
     ];
 
-    if (searchTerm) {
-        return [{
-            title: "Search Results",
-            items: masterProducts
-                .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
-                .map(p => ({
-                    name: p.name,
-                    hint: p.name,
-                    category: p.category
-                }))
-        }];
-    }
-
     return categoryGroups;
-  }, [masterProducts, searchTerm]);
+  }, [masterProducts]);
+
+  const filteredProducts = useMemo(() => {
+    if (!searchTerm) return [];
+    return masterProducts.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [searchTerm, masterProducts]);
 
   return (
     <div className="min-h-screen bg-[#f3f4f6]">
@@ -190,6 +199,23 @@ export default function BlinkitStyleHomepage() {
                     </div>
                 </div>
             ))
+        ) : searchTerm ? (
+             <div>
+                <h2 className="text-xl font-bold text-gray-800 mb-4">Search Results</h2>
+                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                    {filteredProducts.length > 0 ? (
+                        filteredProducts.map(product => (
+                            <ProductCard 
+                                key={product.id}
+                                product={product}
+                                priceData={productPrices[product.name.toLowerCase()]}
+                            />
+                        ))
+                    ) : (
+                        <p className="col-span-full text-center text-gray-500">No products found for "{searchTerm}"</p>
+                    )}
+                </div>
+            </div>
         ) : (
             categories.map(group => (
                 <div key={group.title}>
@@ -210,4 +236,3 @@ export default function BlinkitStyleHomepage() {
     </div>
   );
 }
-
