@@ -1,0 +1,6 @@
+
+{"id":"t1","text":"30 rupees tomatoes","lang":"en","expect":{"intent":"ORDER_ITEM","money":30,"productPhrase":"tomatoes"}}
+{"id":"t2","text":"40 rupay potato","lang":"en","expect":{"money":40,"productPhrase":"potato"}}
+{"id":"t3","text":"half kg onions","lang":"en","expect":{"qty":0.5,"unit":"kg","productPhrase":"onions"}}
+{"id":"t4","text":"100 gm ginger","lang":"en","expect":{"qty":100,"unit":"gm","productPhrase":"ginger"}}
+{"id":"t5","text":"5 liters sunflower oil","lang":"en","expect":{"qty":5,"unit":"ltr","productPhrase":"sunflower oil"}}
