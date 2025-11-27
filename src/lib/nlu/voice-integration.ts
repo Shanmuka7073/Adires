@@ -72,10 +72,10 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
   let money: number | null = null;
   let text = nlu.cleanedText.toLowerCase();
 
-  const moneyRegex = /(?:rs|rupees|₹|rupay|rupayalu)\.?\s*(\d+\.?\d*)|(\d+\.?\d*)\s*(?:rs|rupees|₹|rupay|rupayalu)\.?/i;
+  const moneyRegex = /(?:rs|rupees|₹|rup|rupay|rupayalu|రూపాయలు|రూపాయి|రూపాయ|రుపాయ|రుపాయలు|రూపాయలూ|రూపాయ్|రూపాల|రూపల|రూ|రూప|రుపేయి|రుపేయిలు)\.?\s*(\d+\.?\d*)|(\d+\.?\d*)\s*(?:rs|rupees|₹|rup|rupay|rupayalu|రూపాయలు|రూపాయి|రూపాయ|రుపాయ|రుపాయలు|రూపాయలూ|రూపాయ్|రూపాల|రూపల|రూ|రూప|రుపేయి|రుపేయిలు)\.?/i;
   
   // This more specific regex prevents "g" from matching "kg" accidentally.
-  const weightRegex = /(\d+\.?\d*)\s*(kg|kilos?|kilogram|grams?|gm|g|gms|milliliter|ml|liters?|ltr|గ్రాములు|గ్రామ్లు|గ్రాం|గ్రాము|గ్రామ్స్|జీ ఎం)/i;
+  const weightRegex = /(\d+\.?\d*)\s*(kg|kilos?|kilogram|grams?|gm|g|gms|g\sm\ss|జీ\sఎం|గ్రాములు|గ్రామ్లు|గ్రాం|గ్రాము|గ్రామ్స్)/i;
   
   const pieceRegex = /(\d+)\s*(pack|packet|pc|piece|pieces)/i;
   
@@ -132,3 +132,4 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     productPhrase: remainder
   };
 }
+
