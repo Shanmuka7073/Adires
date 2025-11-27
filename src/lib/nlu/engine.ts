@@ -96,19 +96,21 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     const rawQty = parseFloat(match[1]);
     const unitRaw = match[2].toLowerCase();
     
-    // Normalize unit and quantity
     if (unitRaw.startsWith('k')) {
         unit = 'kg';
         qty = rawQty;
     } else if (unitRaw.startsWith('g')) {
-        unit = 'kg'; // Convert grams to kg for the expected output
-        qty = rawQty / 1000; 
+        unit = 'kg';
+        qty = rawQty / 1000;
     } else if (unitRaw.startsWith('l')) {
         unit = 'ltr';
         qty = rawQty;
     } else if (unitRaw.startsWith('m')) {
         unit = 'ml';
         qty = rawQty;
+    } else {
+        qty = rawQty;
+        unit = unitRaw;
     }
     text = text.replace(match[0], '').trim();
   } else if ((match = text.match(pieceRegex))) {
