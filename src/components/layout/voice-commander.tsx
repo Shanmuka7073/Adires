@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -105,7 +106,7 @@ export function VoiceCommander({
   const { clearCart, addItem: addItemToCart, removeItem, updateQuantity, addUnidentifiedItem, updateUnidentifiedItem, addIdentifiedItem, activeStoreId, setActiveStoreId, cartTotal } = useCart();
   const { retryCommand, showPriceCheck, hidePriceCheck } = useVoiceCommanderContext();
 
-  const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands, loading: isAppStoreLoading, fetchInitialData, setActiveStoreId: setGlobalActiveStoreId } = useAppStore();
+  const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands, loading: isAppStoreLoading, fetchInitialData } = useAppStore();
 
   const { form: profileForm } = useProfileFormStore();
   const { saveInventoryBtnRef } = useMyStorePageStore();
@@ -136,7 +137,7 @@ export function VoiceCommander({
 
   const [hasMounted, setHasMounted] = useState(false);
 
-  const [speechSynthesisVoices, setSpeechSynthesisVoice] = useState<SpeechSynthesisVoice[]>([]);
+  const [speechSynthesisVoices, setSpeechSynthesisVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   const [hasRunCheckoutPrompt, setHasRunCheckoutPrompt] = useState(false);
 
@@ -256,7 +257,7 @@ export function VoiceCommander({
       const getVoices = () => {
         const voices = window.speechSynthesis.getVoices();
         if (voices.length > 0) {
-          setSpeechSynthesisVoice(voices);
+          setSpeechSynthesisVoices(voices);
         }
       };
       getVoices();
@@ -498,7 +499,7 @@ const findProductAndVariant = useCallback(
                 }
             }
             if (bestMatch) {
-                productMatch = { product: bestMatch.product, alias: bestMatch.alias, similarity: bestMatch.similarity, lang: bestMatch.lang };
+                productMatch = { product: bestMatch.product, alias: bestMatch.alias, lang: bestMatch.lang };
             }
         }
     }
@@ -683,7 +684,7 @@ const findProductAndVariant = useCallback(
     if (pathname === '/') {
       const masterStoreId = stores.find(s => s.name === 'LocalBasket')?.id;
       if (masterStoreId) {
-          setGlobalActiveStoreId(masterStoreId);
+          setActiveStoreId(masterStoreId);
       }
     }
 
@@ -778,7 +779,7 @@ const findProductAndVariant = useCallback(
         const locationKeywords = getAllAliases('currentLocation')[spokenLang] || ['current', 'location'];
 
         const homeSimilarity = Math.max(...homeKeywords.map(kw => calculateSimilarity(lowerCommand, kw.toLowerCase())));
-        const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(lowerCommand, kw)));
+        const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(lowerCommand, kw.toLowerCase())));
 
         if (homeSimilarity > 0.6 && homeSimilarity > locationSimilarity) {
             isWaitingForAddressTypeRef.current = false;
@@ -820,7 +821,7 @@ const findProductAndVariant = useCallback(
 
        if (bestMatch && bestMatch.similarity > 0.6) {
            const store = bestMatch.store;
-           setGlobalActiveStoreId(store.id);
+           setActiveStoreId(store.id);
           speak(t('okay-ordering-from-speech', replyLang).replace('{storeName}', store.name), langWithRegion, triggerVoicePrompt);
        } else {
           speak(t('could-not-find-store-speech', replyLang).replace('{storeName}', commandText), langWithRegion, triggerVoicePrompt);
@@ -926,7 +927,7 @@ const findProductAndVariant = useCallback(
       isWaitingForQuickOrderConfirmation,
       findProductAndVariant, addItemToCart, onOpenCart, t, getProductName,
       locales, commands, getAllAliases, recognizeIntent, aiConfig,
-      handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setGlobalActiveStoreId,
+      handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setActiveStoreId,
       storeAliasMap, profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData,
       placeOrderBtnRef, onCloseCart, setHomeAddress,
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
@@ -1310,7 +1311,7 @@ const findProductAndVariant = useCallback(
         speak(speech, langWithRegion, () => {
             setIsWaitingForQuickOrderConfirmation(true); // Prevents checkout page from prompting
             addItemToCart(product, variant, requestedQty);
-            setGlobalActiveStoreId(bestStoreMatch!.id);
+            setActiveStoreId(bestStoreMatch!.id);
             if(useCurrentLocation) {
                 setShouldUseCurrentLocation(true);
             } else {
@@ -1344,7 +1345,7 @@ const findProductAndVariant = useCallback(
       handleCommand, cartTotal, cartItemsProp, pathname, masterProducts, t, aiConfig, isAppStoreLoading,
       productPrices, fetchProductPrices, firestore, user, router, language, setLanguage, speak,
       determinePhraseLanguage, resetAllContext, storeAliasMap,
-      handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setGlobalActiveStoreId,
+      handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setActiveStoreId,
       profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData,
       placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress,
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
@@ -1355,5 +1356,3 @@ const findProductAndVariant = useCallback(
 
   return null;
 }
-
-    

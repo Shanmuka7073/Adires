@@ -39,6 +39,7 @@ export interface AppState {
   getAllAliases: (key: string) => Record<string, string[]>;
   setLocales: (newLocales: Locales) => void;
   setCommands: (newCommands: Record<string, CommandGroup>) => void;
+  setActiveStoreId: (storeId: string | null) => void;
 }
 
 const getInitialLanguage = (): string => {
@@ -71,6 +72,13 @@ export const useAppStore = create<AppState>()(
 
       setLocales: (newLocales: Locales) => set({ locales: newLocales }),
       setCommands: (newCommands: Record<string, CommandGroup>) => set({ commands: newCommands }),
+      
+      setActiveStoreId: (storeId: string | null) => {
+          const { activeStoreId } = get();
+          if (activeStoreId !== storeId) {
+            set({ activeStoreId });
+          }
+      },
 
       fetchInitialData: async (db: Firestore) => {
         if (get().loading || get().isInitialized) return; 
