@@ -9,12 +9,16 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
-import { Search, Menu as MenuIcon, Mic, ShoppingBag, Heart, Star, Briefcase, Sparkles, Lamp, Home as HomeIcon, LayoutGrid, ChevronDown, MapPin, User as UserCircle } from 'lucide-react';
+import { Search, Menu as MenuIcon, Mic, ShoppingBag, Heart, Star, Briefcase, Sparkles, Lamp, Home as HomeIcon, LayoutGrid, ChevronDown, MapPin, User as UserCircle, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import ProductCard from '@/components/product-card';
 import { doc } from 'firebase/firestore';
 import { useVoiceCommanderContext } from '@/components/layout/main-layout';
+import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { CartIcon } from '@/components/cart/cart-icon';
+
 
 // Main categories for the top scroller
 const mainCategories = [
@@ -130,18 +134,45 @@ function GroceryCategoryCard({ categoryName, imageHint, count }: { categoryName:
     );
 }
 
+function LanguageSwitcher() {
+    const { language, setLanguage } = useAppStore();
+
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                    <Globe className="h-5 w-5 text-gray-600" />
+                    <span className="sr-only">Change language</span>
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Select Language</DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={language} onValueChange={setLanguage}>
+                    <DropdownMenuRadioItem value="en">
+                        English
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="te">
+                        Telugu
+                    </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    )
+}
 
 // New Header component specific to this page layout
 function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: (term: string) => void, user: User | null, onMicClick: () => void }) {
     const [activeMainCategory, setActiveMainCategory] = useState('All');
     const [deliveryTime, setDeliveryTime] = useState<number | null>(null);
+    const { onCartOpenChange, isCartOpen, voiceEnabled } = useVoiceCommanderContext();
 
     useEffect(() => {
+        // Generate random delivery time only on the client-side to avoid hydration errors
         setDeliveryTime(Math.floor(Math.random() * 10) + 15);
     }, []);
 
     return (
-        <header className="bg-[#f0faff] sticky top-0 z-20 px-4 pt-4 pb-2 border-b">
+        <header className="bg-background sticky top-0 z-20 px-4 pt-4 pb-2 border-b">
             <div className="flex justify-between items-center mb-3">
                 <div>
                      <p className="text-xs font-bold text-gray-700 uppercase">Delivery in</p>
@@ -154,14 +185,18 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
                          </div>
                      )}
                 </div>
-                 <div className="flex items-center gap-2">
-                    <div className="relative">
-                        <Image src="https://i.ibb.co/VvZf0bY/rupee-bag.png" alt="Wallet" width={28} height={28} />
-                        <span className="absolute -bottom-1 -right-1 text-[10px] font-bold bg-white rounded-full px-1">₹0</span>
-                    </div>
-                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                        <UserCircle className="h-5 w-5 text-gray-600"/>
-                    </div>
+                 <div className="flex items-center gap-1">
+                    <LanguageSwitcher />
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full relative" onClick={onMicClick}>
+                        <Mic className="h-5 w-5 text-gray-600" />
+                        {voiceEnabled && <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>}
+                    </Button>
+                    <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />
+                     <Link href="/dashboard/customer/my-profile">
+                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                            <UserCircle className="h-5 w-5 text-gray-600"/>
+                        </div>
+                    </Link>
                 </div>
             </div>
             <div className="flex items-center gap-3 bg-white p-2.5 rounded-lg border border-gray-200 shadow-sm">
@@ -172,9 +207,6 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
                     className="w-full bg-transparent outline-none border-none text-sm placeholder:text-gray-500"
                     onChange={(e) => onSearchChange(e.target.value)}
                 />
-                <button onClick={onMicClick}>
-                    <Mic className="h-5 w-5 text-gray-500" />
-                </button>
             </div>
              <div className="mt-4 flex items-center gap-4 overflow-x-auto pb-2 no-scrollbar">
                 {mainCategories.map(cat => {
@@ -209,7 +241,7 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
 /* ---------------- MAIN PAGE ---------------- */
 export default function LocalBasketHomepage() {
   const { firestore, user } = useFirebase();
-  const { masterProducts, productPrices, loading: isAppLoading, fetchInitialData } = useAppStore();
+  const { masterProducts, productPrices, loading: isAppLoading, fetchInitialData, isInitialized } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const { onToggleVoice } = useVoiceCommanderContext();
   
@@ -222,10 +254,10 @@ export default function LocalBasketHomepage() {
 
   // Load initial data on mount
   useEffect(() => {
-    if (firestore && !useAppStore.getState().isInitialized) {
+    if (firestore && !isInitialized) {
       fetchInitialData(firestore);
     }
-  }, [firestore, fetchInitialData]);
+  }, [firestore, isInitialized, fetchInitialData]);
 
 
   const filteredProducts = useMemo(() => {
@@ -238,12 +270,12 @@ export default function LocalBasketHomepage() {
       <HomepageHeader onSearchChange={setSearchTerm} user={userData} onMicClick={onToggleVoice} />
 
       <main className="p-4 space-y-6">
-        {isAppLoading ? (
+        {isAppLoading && !isInitialized ? (
              Array.from({ length: 2 }).map((_, i) => (
                 <div key={i} className="space-y-4">
                     <Skeleton className="h-6 w-48" />
-                    <div className="grid grid-cols-4 gap-4">
-                        {Array.from({ length: 4 }).map((_, j) => <Skeleton key={j} className="h-32 w-full" />)}
+                    <div className="grid grid-cols-3 gap-2">
+                        {Array.from({ length: 6 }).map((_, j) => <Skeleton key={j} className="h-32 w-full" />)}
                     </div>
                 </div>
             ))
