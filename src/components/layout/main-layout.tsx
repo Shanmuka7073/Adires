@@ -2,6 +2,7 @@
 
 import { useState, createContext, useContext, useCallback, useEffect } from 'react';
 import { useCart } from '@/lib/cart';
+import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { VoiceCommander, Command } from '@/components/layout/voice-commander';
 import { ProfileCompletionChecker } from '@/components/profile-completion-checker';
@@ -121,7 +122,14 @@ export function MainLayout({
   return (
     <VoiceCommandContext.Provider value={{ triggerVoicePrompt, retryCommand, showPriceCheck, hidePriceCheck, voiceEnabled, onToggleVoice, isCartOpen, onCartOpenChange: setIsCartOpen }}>
         <div className="relative flex min-h-dvh flex-col bg-background">
-        {/* The main header is now part of the homepage itself, not the layout */}
+        <Header 
+            voiceEnabled={voiceEnabled}
+            onToggleVoice={onToggleVoice}
+            voiceStatus={voiceStatus}
+            suggestedCommands={suggestedCommands}
+            isCartOpen={isCartOpen}
+            onCartOpenChange={setIsCartOpen}
+        />
         {user && isInitialized && (
             <VoiceCommander 
                 enabled={voiceEnabled} 
