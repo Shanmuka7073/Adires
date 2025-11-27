@@ -74,8 +74,7 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
 
   const moneyRegex = /(?:rs|rupees|₹|rup|rupay|rupayalu|రూపాయలు|రూపాయి|రూపాయ|రుపాయ|రుపాయలు|రూపాయలూ|రూపాయ్|రూపాల|రూపల|రూ|రూప|రుపేయి|రుపేయిలు|రూపాయల)\.?\s*(\d+\.?\d*)|(\d+\.?\d*)\s*(?:rs|rupees|₹|rup|rupay|rupayalu|రూపాయలు|రూపాయి|రూపాయ|రుపాయ|రుపాయలు|రూపాయలూ|రూపాయ్|రూపాల|రూపల|రూ|రూప|రుపేయి|రుపేయిలు|రూపాయల)\.?/i;
   
-  // This more specific regex prevents "g" from matching "kg" accidentally.
-  const weightRegex = /(\d+\.?\d*)\s*(kg|kilos?|kilogram|grams?|gm|g|gms|g\sm\ss|జీ\sఎం|గ్రాములు|గ్రామ్లు|గ్రాం|గ్రాము|గ్రామ్స్|గ్రాముల)/i;
+  const weightRegex = /(\d+\.?\d*)\s*(kg|kilos?|kilogram|grams?|gm|g|gms|g\sm\ss|జీ\sఎం|గ్రాములు|గ్రామ్లు|గ్రాం|గ్రాము|గ్రామ్స్|గ్రాముల|liters?|ltr|milliliters?|ml)/i;
   
   const pieceRegex = /(\d+)\s*(pack|packet|pc|piece|pieces)/i;
   
@@ -94,16 +93,22 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     money = parseFloat(match[1] || match[2]);
     text = text.replace(match[0], '').trim();
   } else if ((match = text.match(weightRegex))) {
-    qty = parseFloat(match[1]);
+    const rawQty = parseFloat(match[1]);
     const unitRaw = match[2].toLowerCase();
     
-    // Normalize unit
+    // Normalize unit and quantity
     if (unitRaw.startsWith('k')) {
         unit = 'kg';
+        qty = rawQty;
     } else if (unitRaw.startsWith('g') || unitRaw.startsWith('గ్రా') || unitRaw.startsWith('జీ')) {
-        unit = 'gm'; 
-    } else if (unitRaw.startsWith('m') || unitRaw.startsWith('l')) {
+        unit = 'kg'; // Convert grams to kg for the expected output
+        qty = rawQty / 1000; 
+    } else if (unitRaw.startsWith('l')) {
+        unit = 'ltr';
+        qty = rawQty;
+    } else if (unitRaw.startsWith('m')) {
         unit = 'ml';
+        qty = rawQty;
     }
     text = text.replace(match[0], '').trim();
   } else if ((match = text.match(pieceRegex))) {
