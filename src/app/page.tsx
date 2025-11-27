@@ -267,7 +267,7 @@ export default function LocalBasketHomepage() {
         ) : (
           <>
             <div className="rounded-lg overflow-hidden">
-                <Image src="https://i.ibb.co/Yy9R8gJ/ocean-banner.png" alt="O'cean Fruit Drink Banner" width={800} height={400} className="w-full h-auto" />
+                <Image src="https://i.ibb.co/ZQC3c3h/file-00000000f15871fab9942ef91d9c2021.png" alt="Promotional Banner" width={800} height={400} className="w-full h-auto" />
             </div>
             
             {homePageSections.map(section => (
