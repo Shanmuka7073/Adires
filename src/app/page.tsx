@@ -5,11 +5,12 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import { Product as ProductType } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
 import { useFirebase } from '@/firebase';
-import { Search, Menu as MenuIcon, ShoppingCart, User as UserIcon, Mic, Package2, MicOff, Globe, Box, LogOut, LayoutDashboard, Store as StoreIcon, Truck, Plus } from 'lucide-react';
+import { Search, Menu as MenuIcon, ShoppingCart, User as UserIcon, Mic, Package2, MicOff, Globe, Box, LogOut, LayoutDashboard, Store as StoreIcon, Truck, Plus, Minus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { t } from '@/lib/locales';
@@ -36,7 +37,6 @@ import { Button } from '@/components/ui/button';
 import { getAuth, signOut } from 'firebase/auth';
 import { CartIcon } from '@/components/cart/cart-icon';
 import { useVoiceCommanderContext } from '@/components/layout/main-layout';
-import Link from 'next/link';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -235,8 +235,9 @@ function CategorySidebar({
       <div className="flex flex-col gap-3">
         {isLoading ? (
           Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-3 p-2 rounded-xl">
-              <Skeleton className="w-12 h-12 rounded-full" />
+            <div key={i} className="flex flex-col items-center w-full p-2 rounded-xl">
+                <Skeleton className="w-12 h-12 rounded-full" />
+                <Skeleton className="h-3 w-10 mt-1" />
             </div>
           ))
         ) : (
@@ -285,8 +286,10 @@ function ProductCard({
   product: ProductType;
   priceData?: { variants?: { price: number; weight: string; sku: string; }[] };
 }) {
-  const { addItem } = useCart();
+  const { cartItems, addItem, updateQuantity } = useCart();
   const priceInfo = priceData?.variants?.[0] ?? null;
+
+  const itemInCart = cartItems.find(item => item.variant.sku === priceInfo?.sku);
 
   const handleAddToCart = () => {
     if (priceInfo) {
@@ -294,6 +297,18 @@ function ProductCard({
     }
   };
   
+  const handleIncrease = () => {
+    if (itemInCart) {
+      updateQuantity(itemInCart.variant.sku, itemInCart.quantity + 1);
+    }
+  };
+
+  const handleDecrease = () => {
+    if (itemInCart) {
+      updateQuantity(itemInCart.variant.sku, itemInCart.quantity - 1);
+    }
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-sm p-3 transition-all hover:shadow-md flex flex-col">
       <div className="w-full h-36 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center">
@@ -314,15 +329,27 @@ function ProductCard({
             ) : (
               <div className="text-gray-400 text-sm">—</div>
             )}
-            <Button
-                size="icon"
-                className="h-8 w-8 rounded-full bg-green-100 text-green-600 hover:bg-green-200 shadow-none"
-                type="button"
-                aria-label={`Add ${product.name} to cart`}
-                onClick={handleAddToCart}
-            >
-                <Plus className="h-4 w-4"/>
-            </Button>
+             {itemInCart ? (
+                <div className="flex items-center gap-1">
+                    <Button size="icon" variant="outline" className="h-8 w-8 rounded-full" onClick={handleDecrease}>
+                        <Minus className="h-4 w-4" />
+                    </Button>
+                    <span className="w-8 text-center font-bold">{itemInCart.quantity}</span>
+                    <Button size="icon" variant="outline" className="h-8 w-8 rounded-full" onClick={handleIncrease}>
+                        <Plus className="h-4 w-4" />
+                    </Button>
+                </div>
+            ) : (
+                <Button
+                    size="sm"
+                    className="h-8 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 shadow-none font-bold"
+                    type="button"
+                    aria-label={`Add ${product.name} to cart`}
+                    onClick={handleAddToCart}
+                >
+                    Add
+                </Button>
+            )}
         </div>
       </div>
     </div>
