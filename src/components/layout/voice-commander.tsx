@@ -524,9 +524,9 @@ const findProductAndVariant = useCallback(
         const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
         const baseWeight = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
         const isBaseKg = baseVariant.weight.includes('kg');
-        const pricePerBaseUnit = baseVariant.price / (isBaseKg ? baseWeight * 1000 : baseWeight); // Price per gram
+        const pricePerGram = (baseVariant.price * 1.2) / (isBaseKg ? baseWeight * 1000 : baseWeight);
 
-        const requestedGrams = money / pricePerBaseUnit;
+        const requestedGrams = money / pricePerGram;
 
         chosenVariant = {
             price: money,
@@ -543,7 +543,7 @@ const findProductAndVariant = useCallback(
         const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
         const baseWeight = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
         const isBaseKg = baseVariant.weight.includes('kg');
-        const pricePerGram = baseVariant.price / (isBaseKg ? baseWeight * 1000 : baseWeight);
+        const pricePerGram = (baseVariant.price * 1.2) / (isBaseKg ? baseWeight * 1000 : baseWeight);
         
         const newPrice = requestedGrams * pricePerGram;
         
