@@ -22,7 +22,8 @@ function CartSheetItem({ item, image }) {
     const englishName = t(productNameKey, 'en');
     const teluguName = t(productNameKey, 'te');
     
-    const finalPrice = variant.price * 1.20;
+    const originalPrice = variant.price * 1.20;
+    const finalPrice = originalPrice * 0.85;
 
     return (
         <div className="flex items-center gap-4 py-3">
@@ -39,7 +40,10 @@ function CartSheetItem({ item, image }) {
                     <p className="font-medium leading-tight line-clamp-2">{englishName} <span className="text-sm text-muted-foreground">({variant.weight})</span></p>
                     <p className="text-xs text-muted-foreground">{teluguName}</p>
                 </div>
-                <p className="text-sm font-semibold">₹{(finalPrice * quantity).toFixed(2)}</p>
+                <div className="flex items-baseline gap-2">
+                    <p className="text-sm font-semibold">₹{(finalPrice * quantity).toFixed(2)}</p>
+                    <s className="text-xs text-muted-foreground">₹{(originalPrice * quantity).toFixed(2)}</s>
+                </div>
                  <div className="flex items-center gap-2">
                     <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateQuantity(variant.sku, quantity - 1)}>
                         <Minus className="h-3.5 w-3.5" />
