@@ -72,9 +72,9 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
   let money: number | null = null;
   let text = nlu.cleanedText.toLowerCase();
 
-  const moneyRegex = /(?:rs|rupees|₹|rup|rupay|rupayalu|రూపాయలు|రూపాయి|రూపాయ|రుపాయ|రుపాయలు|రూపాయలూ|రూపాయ్|రూపాల|రూపల|రూ|రూప|రుపేయి|రుపేయిలు|రూపాయల)\.?\s*(\d+\.?\d*)|(\d+\.?\d*)\s*(?:rs|rupees|₹|rup|rupay|rupayalu|రూపాయలు|రూపాయి|రూపాయ|రుపాయ|రుపాయలు|రూపాయలూ|రూపాయ్|రూపాల|రూపల|రూ|రూప|రుపేయి|రుపేయిలు|రూపాయల)\.?/i;
+  const moneyRegex = /(?:rs|rupees|₹|rup(?:ay|ayalu|aay)?)\.?\s*(\d+\.?\d*)|(\d+\.?\d*)\s*(?:rs|rupees|₹|rup(?:ay|ayalu|aay)?)\.?/i;
   
-  const weightRegex = /(\d+\.?\d*)\s*(kg|kilos?|kilogram|grams?|gm|g|gms|g\sm\ss|జీ\sఎం|గ్రాములు|గ్రామ్లు|గ్రాం|గ్రాము|గ్రామ్స్|గ్రాముల|liters?|ltr|milliliters?|ml)/i;
+  const weightRegex = /(\d+\.?\d*)\s*(kg|kilos?|kilogram|grams?|gm|g|gms|g\sm\ss|liters?|ltrs?|l|milliliters?|ml)/i;
   
   const pieceRegex = /(\d+)\s*(pack|packet|pc|piece|pieces)/i;
   
@@ -100,7 +100,7 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     if (unitRaw.startsWith('k')) {
         unit = 'kg';
         qty = rawQty;
-    } else if (unitRaw.startsWith('g') || unitRaw.startsWith('గ్రా') || unitRaw.startsWith('జీ')) {
+    } else if (unitRaw.startsWith('g')) {
         unit = 'kg'; // Convert grams to kg for the expected output
         qty = rawQty / 1000; 
     } else if (unitRaw.startsWith('l')) {
