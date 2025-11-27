@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -14,6 +13,7 @@ import { Search, Menu as MenuIcon, ShoppingCart, User as UserIcon, Mic } from 'l
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { t } from '@/lib/locales';
+import { useCart } from '@/lib/cart';
 
 /**
  * Full homepage component (Blinkit-style)
@@ -356,4 +356,3 @@ export default function LocalBasketHomepage() {
     </div>
   );
 }
-
