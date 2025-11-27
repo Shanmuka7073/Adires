@@ -38,19 +38,18 @@ function NumberAliasItem({ number, name, locales, handleRemoveAlias, handleAddAl
             try {
                 const result = await suggestNumberAliases({ number: number.toString(), name });
                 if (result && result.aliases) {
-                     setLocales((currentLocales: Locales) => {
-                        const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
-                        if (!updatedLocales[itemKey]) {
-                            updatedLocales[itemKey] = {};
-                        }
-                        for (const lang in result.aliases) {
-                            const newAliases = result.aliases[lang as 'en' | 'te' | 'hi'];
-                            const existingAliases = new Set(Array.isArray(updatedLocales[itemKey][lang]) ? updatedLocales[itemKey][lang] as string[] : []);
-                            newAliases.forEach(alias => existingAliases.add(alias));
-                            updatedLocales[itemKey][lang] = Array.from(existingAliases);
-                        }
-                        return updatedLocales;
-                    });
+                    const currentLocales = useAppStore.getState().locales;
+                    const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
+                    if (!updatedLocales[itemKey]) {
+                        updatedLocales[itemKey] = {};
+                    }
+                    for (const lang in result.aliases) {
+                        const newAliases = result.aliases[lang as 'en' | 'te' | 'hi'];
+                        const existingAliases = new Set(Array.isArray(updatedLocales[itemKey][lang]) ? updatedLocales[itemKey][lang] as string[] : []);
+                        newAliases.forEach(alias => existingAliases.add(alias));
+                        updatedLocales[itemKey][lang] = Array.from(existingAliases);
+                    }
+                    setLocales(updatedLocales);
                     toast({ title: 'AI Suggestions Loaded!', description: `New aliases for "${name}" are ready for review. Remember to save.` });
                 }
             } catch (error) {
@@ -134,24 +133,23 @@ const GeneralCommandItem = ({ commandKey, commandData, handleCommandUpdate, loca
                 });
 
                 if (result && result.aliases) {
-                    setLocales((currentLocales: Locales) => {
-                        const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
-                        if (!updatedLocales[commandKey]) {
-                            updatedLocales[commandKey] = {};
-                        }
+                    const currentLocales = useAppStore.getState().locales;
+                    const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
+                    if (!updatedLocales[commandKey]) {
+                        updatedLocales[commandKey] = {};
+                    }
 
-                        for (const lang in result.aliases) {
-                            const newAliases = result.aliases[lang as 'en' | 'te' | 'hi'];
-                            const existingAliases = new Set(
-                                Array.isArray(updatedLocales[commandKey][lang])
-                                    ? updatedLocales[commandKey][lang] as string[]
-                                    : []
-                            );
-                            newAliases.forEach(alias => existingAliases.add(alias));
-                            updatedLocales[commandKey][lang] = Array.from(existingAliases);
-                        }
-                        return updatedLocales;
-                    });
+                    for (const lang in result.aliases) {
+                        const newAliases = result.aliases[lang as 'en' | 'te' | 'hi'];
+                        const existingAliases = new Set(
+                            Array.isArray(updatedLocales[commandKey][lang])
+                                ? updatedLocales[commandKey][lang] as string[]
+                                : []
+                        );
+                        newAliases.forEach(alias => existingAliases.add(alias));
+                        updatedLocales[commandKey][lang] = Array.from(existingAliases);
+                    }
+                    setLocales(updatedLocales);
 
                     if (result.replies) {
                        setCommands((current: Record<string, CommandGroup>) => ({
@@ -258,24 +256,23 @@ const AliasAccordionItem = ({ item, icon: IconComponent, locales, handleRemoveAl
             try {
                 const result = await suggestProductAliases({ productName: item.name });
                 if (result && result.aliases) {
-                    setLocales((currentLocales: Locales) => {
-                        const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
-                        if (!updatedLocales[itemKey]) {
-                            updatedLocales[itemKey] = {};
-                        }
+                    const currentLocales = useAppStore.getState().locales;
+                    const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
+                    if (!updatedLocales[itemKey]) {
+                        updatedLocales[itemKey] = {};
+                    }
 
-                        for (const lang in result.aliases) {
-                            const newAliases = result.aliases[lang as 'en' | 'te' | 'hi'];
-                            const existingAliases = new Set(
-                                Array.isArray(updatedLocales[itemKey][lang])
-                                    ? updatedLocales[itemKey][lang] as string[]
-                                    : (updatedLocales[itemKey][lang] ? [updatedLocales[itemKey][lang] as string] : [])
-                            );
-                            newAliases.forEach(alias => existingAliases.add(alias));
-                            updatedLocales[itemKey][lang] = Array.from(existingAliases);
-                        }
-                        return updatedLocales;
-                    });
+                    for (const lang in result.aliases) {
+                        const newAliases = result.aliases[lang as 'en' | 'te' | 'hi'];
+                        const existingAliases = new Set(
+                            Array.isArray(updatedLocales[itemKey][lang])
+                                ? updatedLocales[itemKey][lang] as string[]
+                                : (updatedLocales[itemKey][lang] ? [updatedLocales[itemKey][lang] as string] : [])
+                        );
+                        newAliases.forEach(alias => existingAliases.add(alias));
+                        updatedLocales[itemKey][lang] = Array.from(existingAliases);
+                    }
+                    setLocales(updatedLocales);
 
                     toast({ title: 'AI Suggestions Loaded!', description: `New aliases for "${item.name}" are ready for review. Remember to save.` });
                 }
@@ -333,12 +330,65 @@ const AliasAccordionItem = ({ item, icon: IconComponent, locales, handleRemoveAl
 };
 
 
+function NumberCommandsComponent() {
+    const { locales, setLocales } = useAppStore();
+    const [isBulkGenerating, startBulkGeneration] = useTransition();
+    const { toast } = useToast();
+
+    const numbers = Array.from({ length: 100 }, (_, i) => i + 1);
+    const numberNames = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen", "Twenty", "Twenty-One", "Twenty-Two", "Twenty-Three", "Twenty-Four", "Twenty-Five", "Twenty-Six", "Twenty-Seven", "Twenty-Eight", "Twenty-Nine", "Thirty", "Thirty-One", "Thirty-Two", "Thirty-Three", "Thirty-Four", "Thirty-Five", "Thirty-Six", "Thirty-Seven", "Thirty-Eight", "Thirty-Nine", "Forty", "Forty-One", "Forty-Two", "Forty-Three", "Forty-Four", "Forty-Five", "Forty-Six", "Forty-Seven", "Forty-Eight", "Forty-Nine", "Fifty", "Fifty-One", "Fifty-Two", "Fifty-Three", "Fifty-Four", "Fifty-Five", "Fifty-Six", "Fifty-Seven", "Fifty-Eight", "Fifty-Nine", "Sixty", "Sixty-One", "Sixty-Two", "Sixty-Three", "Sixty-Four", "Sixty-Five", "Sixty-Six", "Sixty-Seven", "Sixty-Eight", "Sixty-Nine", "Seventy", "Seventy-One", "Seventy-Two", "Seventy-Three", "Seventy-Four", "Seventy-Five", "Seventy-Six", "Seventy-Seven", "Seventy-Eight", "Seventy-Nine", "Eighty", "Eighty-One", "Eighty-Two", "Eighty-Three", "Eighty-Four", "Eighty-Five", "Eighty-Six", "Eighty-Seven", "Eighty-Eight", "Eighty-Nine", "Ninety", "Ninety-One", "Ninety-Two", "Ninety-Three", "Ninety-Four", "Ninety-Five", "Ninety-Six", "Ninety-Seven", "Ninety-Eight", "Ninety-Nine", "One Hundred"];
+    
+    const handleGenerateAll = () => {
+        startBulkGeneration(async () => {
+            try {
+                const result = await generateAllNumberAliases();
+                if (result && result.allAliases) {
+                    const currentLocales = useAppStore.getState().locales;
+                    const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
+                    for (const key in result.allAliases) {
+                        if (Object.prototype.hasOwnProperty.call(result.allAliases, key)) {
+                            updatedLocales[key] = result.allAliases[key];
+                        }
+                    }
+                    setLocales(updatedLocales);
+                    toast({ title: 'AI Generation Complete!', description: 'All number aliases have been populated. Please review and save.' });
+                }
+            } catch (error) {
+                 toast({ variant: 'destructive', title: 'Bulk AI Generation Failed', description: (error as Error).message });
+            }
+        });
+    };
+
+    return (
+        <Card className="max-w-4xl mx-auto">
+             <CardHeader>
+                <CardTitle>Manage Number Aliases</CardTitle>
+                <div className="flex justify-between items-center">
+                    <CardDescription>
+                        Add regional spellings, transliterations, and colloquialisms for numbers to improve voice recognition for quantities.
+                    </CardDescription>
+                    <Button onClick={handleGenerateAll} disabled={isBulkGenerating}>
+                        {isBulkGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                        Generate All (1-100)
+                    </Button>
+                </div>
+            </CardHeader>
+            <CardContent>
+                <Accordion type="multiple" className="w-full">
+                   {numbers.map((num) => (
+                       <NumberAliasItem key={num} number={num} name={numberNames[num-1]} locales={locales} handleRemoveAlias={() => {}} handleAddAlias={() => {}} handleVoiceAdd={() => {}} setLocales={setLocales} isListening={false} />
+                   ))}
+                </Accordion>
+            </CardContent>
+        </Card>
+    );
+}
+
 export default function VoiceCommandsPage() {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isProcessing, startTransition] = useTransition();
     const [activeTab, setActiveTab] = useState('general');
-    const [isBulkGenerating, startBulkGeneration] = useTransition();
 
     // Directly use and modify the global state from useAppStore
     const {
@@ -390,31 +440,30 @@ export default function VoiceCommandsPage() {
         let addedCount = 0;
         const duplicates: string[] = [];
 
-        setLocales(currentLocales => {
-            const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
-            if (!updatedLocales[itemKey]) {
-                updatedLocales[itemKey] = { type: 'product' }; // default type
+        const currentLocales = useAppStore.getState().locales;
+        const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
+        if (!updatedLocales[itemKey]) {
+            updatedLocales[itemKey] = { type: 'product' }; // default type
+        }
+
+        const existingAliases = Array.isArray(updatedLocales[itemKey][lang])
+            ? updatedLocales[itemKey][lang] as string[]
+            : (updatedLocales[itemKey][lang] ? [updatedLocales[itemKey][lang] as string] : []);
+
+        const existingAliasSet = new Set(existingAliases.map(a => a.toLowerCase()));
+        const aliasesToAdd = [...new Set(aliasInput.split(',').map(alias => alias.trim()).filter(Boolean))];
+
+        aliasesToAdd.forEach(newAlias => {
+            if (!existingAliasSet.has(newAlias.toLowerCase())) {
+                existingAliases.push(newAlias);
+                addedCount++;
+            } else {
+                duplicates.push(newAlias);
             }
-
-            const existingAliases = Array.isArray(updatedLocales[itemKey][lang])
-                ? updatedLocales[itemKey][lang] as string[]
-                : (updatedLocales[itemKey][lang] ? [updatedLocales[itemKey][lang] as string] : []);
-
-            const existingAliasSet = new Set(existingAliases.map(a => a.toLowerCase()));
-            const aliasesToAdd = [...new Set(aliasInput.split(',').map(alias => alias.trim()).filter(Boolean))];
-
-            aliasesToAdd.forEach(newAlias => {
-                if (!existingAliasSet.has(newAlias.toLowerCase())) {
-                    existingAliases.push(newAlias);
-                    addedCount++;
-                } else {
-                    duplicates.push(newAlias);
-                }
-            });
-
-            updatedLocales[itemKey][lang] = existingAliases;
-            return updatedLocales;
         });
+
+        updatedLocales[itemKey][lang] = existingAliases;
+        setLocales(updatedLocales);
 
         if (duplicates.length > 0) {
              toast({ variant: 'destructive', title: 'Duplicate Item(s)', description: `"${duplicates.join(', ')}" already exist(s).` });
@@ -425,24 +474,23 @@ export default function VoiceCommandsPage() {
     };
 
     const handleRemoveAlias = (itemKey: string, lang: string, aliasToRemove: string) => {
-        setLocales(currentLocales => {
-            const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
-            const itemLangEntry = updatedLocales[itemKey]?.[lang];
+        const currentLocales = useAppStore.getState().locales;
+        const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
+        const itemLangEntry = updatedLocales[itemKey]?.[lang];
 
-            if (Array.isArray(itemLangEntry)) {
-                updatedLocales[itemKey][lang] = itemLangEntry.filter(alias => alias !== aliasToRemove);
-                if (updatedLocales[itemKey][lang].length === 0) {
-                    delete updatedLocales[itemKey][lang];
-                }
-            } else if (itemLangEntry === aliasToRemove) {
+        if (Array.isArray(itemLangEntry)) {
+            updatedLocales[itemKey][lang] = itemLangEntry.filter(alias => alias !== aliasToRemove);
+            if (updatedLocales[itemKey][lang].length === 0) {
                 delete updatedLocales[itemKey][lang];
             }
+        } else if (itemLangEntry === aliasToRemove) {
+            delete updatedLocales[itemKey][lang];
+        }
 
-            if (updatedLocales[itemKey] && Object.keys(updatedLocales[itemKey]).length <= 1 && updatedLocales[itemKey].type) {
-                delete updatedLocales[itemKey];
-            }
-            return updatedLocales;
-        });
+        if (updatedLocales[itemKey] && Object.keys(updatedLocales[itemKey]).length <= 1 && updatedLocales[itemKey].type) {
+            delete updatedLocales[itemKey];
+        }
+        setLocales(updatedLocales);
         toast({ title: 'Alias Removed Locally', description: 'Remember to save your changes.' });
     };
     
@@ -456,10 +504,10 @@ export default function VoiceCommandsPage() {
             toast({ variant: 'destructive', title: 'Command Key already exists.' });
             return;
         }
-        setCommands(current => ({
-            ...current,
+        setCommands({
+            ...commands,
             [key]: { display: newCommandDisplay, reply: { en: newCommandReply } }
-        }));
+        });
         setIsAddDialogOpen(false);
         setNewCommandKey('');
         setNewCommandDisplay('');
@@ -469,16 +517,14 @@ export default function VoiceCommandsPage() {
 
     const handleDeleteCommand = (keyToDelete: string) => {
         if (window.confirm(`Are you sure you want to permanently delete the "${commands[keyToDelete]?.display || keyToDelete}" command and all its aliases? This cannot be undone.`)) {
-            setCommands(current => {
-                const newCommands = { ...current };
-                delete newCommands[keyToDelete];
-                return newCommands;
-            });
-             setLocales(current => {
-                const newLocales = { ...current };
-                delete newLocales[keyToDelete];
-                return newLocales;
-            });
+            const newCommands = { ...commands };
+            delete newCommands[keyToDelete];
+            setCommands(newCommands);
+            
+            const newLocales = { ...locales };
+            delete newLocales[keyToDelete];
+            setLocales(newLocales);
+            
             toast({ title: 'Command Deleted Locally', description: `Remember to save your changes.` });
         }
     };
@@ -572,10 +618,10 @@ export default function VoiceCommandsPage() {
     };
 
     const handleCommandUpdate = (key: string, field: 'display' | 'reply', value: string) => {
-        setCommands((current) => ({
-            ...current,
-            [key]: { ...current[key], [field]: value }
-        }));
+        setCommands({
+            ...commands,
+            [key]: { ...commands[key], [field]: value }
+        });
     };
 
     const renderGeneralCommands = () => (
@@ -645,57 +691,9 @@ export default function VoiceCommandsPage() {
         </Card>
     );
 
-    const renderNumberCommands = () => {
-        const numbers = Array.from({ length: 100 }, (_, i) => i + 1);
-        const numberNames = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen", "Twenty", "Twenty-One", "Twenty-Two", "Twenty-Three", "Twenty-Four", "Twenty-Five", "Twenty-Six", "Twenty-Seven", "Twenty-Eight", "Twenty-Nine", "Thirty", "Thirty-One", "Thirty-Two", "Thirty-Three", "Thirty-Four", "Thirty-Five", "Thirty-Six", "Thirty-Seven", "Thirty-Eight", "Thirty-Nine", "Forty", "Forty-One", "Forty-Two", "Forty-Three", "Forty-Four", "Forty-Five", "Forty-Six", "Forty-Seven", "Forty-Eight", "Forty-Nine", "Fifty", "Fifty-One", "Fifty-Two", "Fifty-Three", "Fifty-Four", "Fifty-Five", "Fifty-Six", "Fifty-Seven", "Fifty-Eight", "Fifty-Nine", "Sixty", "Sixty-One", "Sixty-Two", "Sixty-Three", "Sixty-Four", "Sixty-Five", "Sixty-Six", "Sixty-Seven", "Sixty-Eight", "Sixty-Nine", "Seventy", "Seventy-One", "Seventy-Two", "Seventy-Three", "Seventy-Four", "Seventy-Five", "Seventy-Six", "Seventy-Seven", "Seventy-Eight", "Seventy-Nine", "Eighty", "Eighty-One", "Eighty-Two", "Eighty-Three", "Eighty-Four", "Eighty-Five", "Eighty-Six", "Eighty-Seven", "Eighty-Eight", "Eighty-Nine", "Ninety", "Ninety-One", "Ninety-Two", "Ninety-Three", "Ninety-Four", "Ninety-Five", "Ninety-Six", "Ninety-Seven", "Ninety-Eight", "Ninety-Nine", "One Hundred"];
-        
-        const handleGenerateAll = () => {
-            startBulkGeneration(async () => {
-                try {
-                    const result = await generateAllNumberAliases();
-                    if (result && result.allAliases) {
-                        setLocales(currentLocales => {
-                            const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
-                            for (const key in result.allAliases) {
-                                if (Object.prototype.hasOwnProperty.call(result.allAliases, key)) {
-                                    updatedLocales[key] = result.allAliases[key];
-                                }
-                            }
-                            return updatedLocales;
-                        });
-                        toast({ title: 'AI Generation Complete!', description: 'All number aliases have been populated. Please review and save.' });
-                    }
-                } catch (error) {
-                     toast({ variant: 'destructive', title: 'Bulk AI Generation Failed', description: (error as Error).message });
-                }
-            });
-        };
-
-
-        return (
-            <Card className="max-w-4xl mx-auto">
-                 <CardHeader>
-                    <CardTitle>Manage Number Aliases</CardTitle>
-                    <div className="flex justify-between items-center">
-                        <CardDescription>
-                            Add regional spellings, transliterations, and colloquialisms for numbers to improve voice recognition for quantities.
-                        </CardDescription>
-                        <Button onClick={handleGenerateAll} disabled={isBulkGenerating}>
-                            {isBulkGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                            Generate All (1-100)
-                        </Button>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <Accordion type="multiple" className="w-full">
-                       {numbers.map((num) => (
-                           <NumberAliasItem key={num} number={num} name={numberNames[num-1]} locales={locales} handleRemoveAlias={handleRemoveAlias} handleAddAlias={handleAddAlias} handleVoiceAdd={handleVoiceAdd} setLocales={setLocales} isListening={isListening} />
-                       ))}
-                    </Accordion>
-                </CardContent>
-            </Card>
-        );
-    };
+    const renderNumberCommands = () => (
+        <NumberCommandsComponent />
+    );
 
     const renderAliasAccordion = (
       items: { id: string; name: string, ownerId?: string }[],
@@ -754,5 +752,3 @@ export default function VoiceCommandsPage() {
         </div>
     );
 }
-
-    

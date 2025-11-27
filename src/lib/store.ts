@@ -37,6 +37,8 @@ export interface AppState {
   fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
   getProductName: (product: Product) => string;
   getAllAliases: (key: string) => Record<string, string[]>;
+  setLocales: (newLocales: Locales) => void;
+  setCommands: (newCommands: Record<string, CommandGroup>) => void;
 }
 
 const getInitialLanguage = (): string => {
@@ -66,6 +68,9 @@ export const useAppStore = create<AppState>()(
         }
         set({ language: lang });
       },
+
+      setLocales: (newLocales: Locales) => set({ locales: newLocales }),
+      setCommands: (newCommands: Record<string, CommandGroup>) => set({ commands: newCommands }),
 
       fetchInitialData: async (db: Firestore) => {
         if (get().loading || get().isInitialized) return; 
