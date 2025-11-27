@@ -519,20 +519,22 @@ const findProductAndVariant = useCallback(
     let chosenVariant: ProductVariant | null = null;
     let finalQty = qty;
 
-    if (money && money > 0) {
-        const isLiquidProduct = ['oil', 'milk', 'water', 'juice', 'ghee', 'sauce', 'vinegar'].some(kw => product.name.toLowerCase().includes(kw));
+    const isLiquidProduct = ['oil', 'milk', 'water', 'juice', 'ghee', 'sauce', 'vinegar'].some(kw => product.name.toLowerCase().includes(kw));
 
+    if (money && money > 0) {
         const baseVariant = isLiquidProduct
             ? priceData.variants.find(v => v.weight.includes('ltr')) || priceData.variants[0]
             : priceData.variants.find(v => v.weight.includes('kg')) || priceData.variants[0];
 
+        if (!baseVariant) return { product, variant: null, requestedQty: qty, remainingPhrase: productPhrase, matchedAlias, lang: detectedLang };
+
         const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
         const baseUnitQty = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
-
+        
         let pricePerSmallestUnit = 0;
         let requestedSmallestUnit = 0;
         let finalUnitString = '';
-        
+
         if (isLiquidProduct) {
             const isBaseLtr = baseVariant.weight.includes('ltr');
             pricePerSmallestUnit = baseVariant.price / (isBaseLtr ? baseUnitQty * 1000 : baseUnitQty); // price per ml
@@ -551,7 +553,7 @@ const findProductAndVariant = useCallback(
             sku: `${baseVariant.sku}-custom-${money}`,
             stock: baseVariant.stock,
         };
-        finalQty = 1; // When ordering by money, quantity is always 1 custom pack
+        finalQty = 1;
     } else if (unit) {
         const isVolume = ['ltr', 'ml'].includes(unit);
         const baseVariant = isVolume
@@ -567,12 +569,12 @@ const findProductAndVariant = useCallback(
 
             if (isVolume) {
                 const isBaseLtr = baseVariant.weight.includes('ltr');
-                pricePerSmallestUnit = baseVariant.price / (isBaseLtr ? baseUnitQty * 1000 : baseUnitQty); // Correct price per ml
+                pricePerSmallestUnit = baseVariant.price / (isBaseLtr ? baseUnitQty * 1000 : baseUnitQty);
                 requestedSmallestUnit = unit === 'ltr' ? finalQty * 1000 : finalQty;
                 finalUnitString = `${Math.round(requestedSmallestUnit)}ml`;
             } else { // Weight
                 const isBaseKg = baseVariant.weight.includes('kg');
-                pricePerSmallestUnit = baseVariant.price / (isBaseKg ? baseUnitQty * 1000 : baseUnitQty); // Correct price per gm
+                pricePerSmallestUnit = baseVariant.price / (isBaseKg ? baseUnitQty * 1000 : baseUnitQty);
                 requestedSmallestUnit = unit === 'kg' ? finalQty * 1000 : finalQty;
                 finalUnitString = `${Math.round(requestedSmallestUnit)}gm`;
             }
