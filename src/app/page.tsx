@@ -263,11 +263,11 @@ function MobileCategoryScroller({ categories, selectedCategory, onSelectCategory
     return (
         <div className="md:hidden w-full bg-transparent">
             <ScrollArea className="w-full whitespace-nowrap">
-                 <div className="flex space-x-4 p-4">
+                 <div className="flex space-x-3 p-4">
                     {isLoading ? (
                          Array.from({ length: 6 }).map((_, i) => (
                             <div key={i} className="flex-shrink-0 w-20 flex flex-col items-center gap-2">
-                                <Skeleton className="w-16 h-16 rounded-full" />
+                                <Skeleton className="w-14 h-14 rounded-full" />
                                 <Skeleton className="h-3 w-12" />
                             </div>
                          ))
@@ -280,14 +280,14 @@ function MobileCategoryScroller({ categories, selectedCategory, onSelectCategory
                                     ref={active ? activeRef : undefined}
                                     onClick={() => onSelectCategory(cat.name)}
                                     className={cn(
-                                      'flex flex-col items-center w-20 flex-shrink-0 text-center gap-2 py-3 px-1 rounded-2xl transition-all duration-200',
+                                      'flex flex-col items-center w-20 flex-shrink-0 text-center gap-1.5 py-2 px-1 rounded-2xl transition-all duration-200',
                                       active ? "bg-white shadow-md ring-2 ring-primary" : "bg-white/80"
                                     )}
                                     aria-pressed={active}
                                 >
-                                    <div className="w-16 h-16 rounded-full flex items-center justify-center overflow-hidden border-2 border-white ring-1 ring-gray-200">
+                                    <div className="w-14 h-14 rounded-full flex items-center justify-center overflow-hidden border-2 border-white ring-1 ring-gray-200">
                                         {cat.icon ? (
-                                            <Image src={cat.icon} alt={cat.name} width={64} height={64} className="object-cover w-full h-full" />
+                                            <Image src={cat.icon} alt={cat.name} width={56} height={56} className="object-cover w-full h-full" />
                                         ) : (
                                             <div className="w-full h-full bg-gray-100" />
                                         )}
@@ -532,8 +532,8 @@ export default function LocalBasketHomepage() {
               onSelectCategory={handleSelectCategory}
               isLoading={sidebarLoading || isAppLoading}
             />
-            {/* Title section (visible on desktop) */}
-            <div className="hidden md:block mb-4 px-4 md:px-0 pt-4 md:pt-0">
+            {/* Title section (visible on both mobile and desktop) */}
+            <div className="px-4 md:px-0 pt-4 md:pt-0">
                 <h1 className="text-2xl font-semibold text-gray-900">{title}</h1>
                 <p className="text-sm text-gray-600">{filteredProducts.length} products</p>
             </div>
