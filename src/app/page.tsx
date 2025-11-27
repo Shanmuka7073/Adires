@@ -26,13 +26,51 @@ const mainCategories = [
   { name: 'Home', icon: HomeIcon },
 ];
 
-const frequentlyBoughtCategories = [
-    { name: 'Oil, Ghee & Masala', imageHint: 'oil ghee masala', count: 8 },
-    { name: 'Rajma, Chole & Dal', imageHint: 'lentils dal', count: 0 },
-    { name: 'Home Essentials', imageHint: 'cleaning supplies', count: 0 },
-    { name: 'Rice, Atta & more', imageHint: 'rice flour', count: 0 },
-    { name: 'Dry Fruits & Cereals', imageHint: 'dry fruits', count: 1 },
+const homePageSections = [
+    {
+        title: 'Frequently bought',
+        categories: [
+            { name: 'Oil, Ghee & Masala', imageHint: 'oil ghee masala', count: 8 },
+            { name: 'Rajma, Chole & Dal', imageHint: 'lentils dal', count: 0 },
+            { name: 'Home Essentials', imageHint: 'cleaning supplies', count: 0 },
+            { name: 'Rice, Atta & more', imageHint: 'rice flour', count: 0 },
+            { name: 'Dry Fruits & Cereals', imageHint: 'dry fruits', count: 1 },
+        ]
+    },
+    {
+        title: 'Groceries & Kitchen',
+        categories: [
+            { name: 'Vegetables', imageHint: 'fresh vegetables', count: 0},
+            { name: 'Fruits', imageHint: 'assorted fruits', count: 0},
+            { name: 'Dals & Pulses', imageHint: 'lentils dal', count: 0},
+            { name: 'Oils & Ghee', imageHint: 'cooking oil', count: 0},
+            { name: 'Spices & Masalas', imageHint: 'spices masala', count: 0},
+            { name: 'Kitchen Essentials', imageHint: 'kitchen essentials', count: 0},
+        ]
+    },
+    {
+        title: 'Snacks & Drinks',
+        categories: [
+            { name: 'Snacks & Breakfast', imageHint: 'cereal snacks', count: 0},
+            { name: 'Beverages', imageHint: 'soft drinks', count: 0},
+            { name: 'Sauces & Condiments', imageHint: 'sauces condiments', count: 0},
+        ]
+    },
+    {
+        title: 'Beauty & Personal Care',
+        categories: [
+            { name: 'Personal Care', imageHint: 'soap', count: 0},
+        ]
+    },
+     {
+        title: 'Household Essentials',
+        categories: [
+            { name: 'Home Care', imageHint: 'cleaning supplies', count: 0},
+            { name: 'Pet Care', imageHint: 'pet food', count: 0},
+        ]
+    }
 ];
+
 
 // Reusable Category Card for the main grid
 function GroceryCategoryCard({ categoryName, imageHint, count }: { categoryName: string, imageHint: string, count?: number }) {
@@ -99,7 +137,6 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
     const [deliveryTime, setDeliveryTime] = useState<number | null>(null);
 
     useEffect(() => {
-        // Generate random time only on the client-side
         setDeliveryTime(Math.floor(Math.random() * 10) + 15);
     }, []);
 
@@ -170,7 +207,7 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
 
 
 /* ---------------- MAIN PAGE ---------------- */
-export default function BlinkitStyleHomepage() {
+export default function LocalBasketHomepage() {
   const { firestore, user } = useFirebase();
   const { masterProducts, productPrices, loading: isAppLoading, fetchInitialData } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
@@ -232,20 +269,22 @@ export default function BlinkitStyleHomepage() {
             <div className="rounded-lg overflow-hidden">
                 <Image src="https://i.ibb.co/Yy9R8gJ/ocean-banner.png" alt="O'cean Fruit Drink Banner" width={800} height={400} className="w-full h-auto" />
             </div>
-
-            <div>
-                <h2 className="text-xl font-bold text-gray-800 mb-4">Frequently bought</h2>
-                 <div className="grid grid-cols-3 gap-2">
-                    {frequentlyBoughtCategories.map(item => (
-                        <GroceryCategoryCard 
-                            key={item.name} 
-                            categoryName={item.name} 
-                            imageHint={item.imageHint}
-                            count={item.count}
-                        />
-                    ))}
+            
+            {homePageSections.map(section => (
+                <div key={section.title}>
+                    <h2 className="text-xl font-bold text-gray-800 mb-4">{section.title}</h2>
+                     <div className="grid grid-cols-3 gap-2">
+                        {section.categories.map(item => (
+                            <GroceryCategoryCard 
+                                key={item.name} 
+                                categoryName={item.name} 
+                                imageHint={item.imageHint}
+                                count={item.count}
+                            />
+                        ))}
+                    </div>
                 </div>
-            </div>
+            ))}
           </>
         )}
       </main>
