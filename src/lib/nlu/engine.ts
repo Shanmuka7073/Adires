@@ -74,7 +74,8 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
 
   const moneyRegex = /(?:rs|rupees|₹|rup(?:ay|ayalu|aay)?)\.?\s*(\d+\.?\d*)|(\d+\.?\d*)\s*(?:rs|rupees|₹|rup(?:ay|ayalu|aay)?)\.?/i;
   
-  const weightRegex = /(\d+\.?\d*)\s*(kg|kilos?|kilogram|grams?|gm|g|gms|liters?|ltrs?|l|milliliters?|ml)/i;
+  const weightRegex = /(\d+\.?\d*)\s*(kg|kilos?|kilogram|grams?|gm|g|gms)/i;
+  const volumeRegex = /(\d+\.?\d*)\s*(liters?|ltrs?|l|milliliters?|ml)/i;
   
   const pieceRegex = /(\d+)\s*(pack|packet|pc|piece|pieces)/i;
   
@@ -88,26 +89,19 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
 
   let match;
 
-  // Check for money, weight, or pieces
+  // Check for money, weight, volume, or pieces
   if ((match = text.match(moneyRegex))) {
     money = parseFloat(match[1] || match[2]);
     text = text.replace(match[0], '').trim();
   } else if ((match = text.match(weightRegex))) {
-    const rawQty = parseFloat(match[1]);
+    qty = parseFloat(match[1]);
     const unitRaw = match[2].toLowerCase();
-    
-    qty = rawQty;
-    if (unitRaw.startsWith('k')) {
-        unit = 'kg';
-    } else if (unitRaw.startsWith('g')) {
-        unit = 'gm';
-    } else if (unitRaw.startsWith('l')) {
-        unit = 'ltr';
-    } else if (unitRaw.startsWith('m')) {
-        unit = 'ml';
-    } else {
-        unit = unitRaw;
-    }
+    unit = unitRaw.startsWith('k') ? 'kg' : 'gm';
+    text = text.replace(match[0], '').trim();
+  } else if ((match = text.match(volumeRegex))) {
+    qty = parseFloat(match[1]);
+    const unitRaw = match[2].toLowerCase();
+    unit = unitRaw.startsWith('m') ? 'ml' : 'ltr';
     text = text.replace(match[0], '').trim();
   } else if ((match = text.match(pieceRegex))) {
     qty = parseInt(match[1], 10);
@@ -118,15 +112,20 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     for (const word in fractionWords) {
         if (text.includes(word)) {
             qty = fractionWords[word];
-            unit = 'kg'; // Assume fractions of a kilo by default
-            // Remove the fraction word AND any standalone unit that follows
-            text = text.replace(new RegExp(`${word}\\s*(kg|kilo|gram|gm)?`, 'i'), '').trim();
+            // Determine if it's a fraction of a kg or liter
+            if (text.includes('liter') || text.includes('litre')) {
+                 unit = 'ltr';
+            } else {
+                 unit = 'kg'; // Default to kg for fractions if not specified
+            }
+            // Remove the fraction word AND any unit that follows
+            text = text.replace(new RegExp(`${word}\\s*(kg|kilo|gram|gm|liter|litre|ltr)?`, 'i'), '').trim();
             break;
         }
     }
   }
   
-  // The remaining text is assumed to be the product phrase
+  // The remaining text is assumed to be the product phrase, clean up any stray unit words
   const remainder = text.replace(/\b(kg|g|gm|grams|ml|ltr|liter|litre|packet|pack|piece|pieces)\b/g, "").trim();
 
   return {
