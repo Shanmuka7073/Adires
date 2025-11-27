@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import { Product as ProductType } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -9,11 +9,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
 import { useFirebase } from '@/firebase';
-import { Search, Menu as MenuIcon, ShoppingCart, User as UserIcon, Mic, Package2, MicOff, Globe, Box, LogOut, LayoutDashboard, Store as StoreIcon, Truck, Plus, Minus, Heart } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { Search, Menu as MenuIcon, ShoppingCart, User as UserIcon, Mic, Plus, Minus, Heart, Package2, LogOut, LayoutDashboard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { t } from '@/lib/locales';
 import { useCart } from '@/lib/cart';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,53 +22,14 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-  SheetHeader,
-  SheetTitle,
-  SheetClose,
-} from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
-import { getAuth, signOut } from 'firebase/auth';
-import { CartIcon } from '@/components/cart/cart-icon';
+import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useVoiceCommanderContext } from '@/components/layout/main-layout';
-import Link from 'next/link';
-
+import { getAuth, signOut } from 'firebase/auth';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
-
-function LanguageSwitcher() {
-    const { language, setLanguage } = useAppStore();
-
-    return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" className="rounded-xl shadow-sm bg-white">
-                    <Globe className="h-5 w-5" />
-                    <span className="sr-only">Change language</span>
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Select Language</DropdownMenuLabel>
-                <DropdownMenuRadioGroup value={language} onValueChange={setLanguage}>
-                    <DropdownMenuRadioItem value="en">
-                        English
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="te">
-                        Telugu
-                    </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-        </DropdownMenu>
-    )
-}
-
+/* ---------------- USER MENU ---------------- */
 function UserMenu() {
   const { user, isUserLoading } = useFirebase();
   const isAdmin = user && user.email === ADMIN_EMAIL;
@@ -122,14 +84,12 @@ function UserMenu() {
 /* ---------------- HEADER ---------------- */
 function Header({ isMobileMenuOpen, setIsMobileMenuOpen, searchTerm, setSearchTerm }: { isMobileMenuOpen: boolean, setIsMobileMenuOpen: (open: boolean) => void, searchTerm: string, setSearchTerm: (term: string) => void}) {
   const { voiceEnabled, onToggleVoice, isCartOpen, onCartOpenChange } = useVoiceCommanderContext();
-  const { user } = useFirebase();
-  
   const navLinks = [
     { href: '/', label: 'home' },
     { href: '/stores', label: 'stores' },
-    { href: user ? (user.email === ADMIN_EMAIL ? '/dashboard/admin' : '/dashboard') : '/dashboard', label: 'dashboard' },
+    { href: '/dashboard', label: 'dashboard' },
   ];
-
+  
   return (
     <div className="bg-white/50 backdrop-blur-md sticky top-0 z-30 border-b border-green-50 shadow-sm">
       <div className="max-w-6xl mx-auto flex items-center justify-between px-4 py-3">
@@ -156,10 +116,7 @@ function Header({ isMobileMenuOpen, setIsMobileMenuOpen, searchTerm, setSearchTe
                        <SheetClose asChild key={href}>
                            <Link
                              href={href}
-                             className={cn(
-                               'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
-                               // pathname === href && 'bg-muted text-primary' // This can be added back if needed
-                             )}
+                             className={cn('flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary')}
                            >
                              {t(label)}
                            </Link>
@@ -188,13 +145,11 @@ function Header({ isMobileMenuOpen, setIsMobileMenuOpen, searchTerm, setSearchTe
 
         {/* Right icons */}
         <div className="flex items-center gap-3">
-            <LanguageSwitcher />
             <Button variant={voiceEnabled ? 'secondary' : 'outline'} size="icon" onClick={onToggleVoice} className="relative rounded-xl shadow-sm bg-white">
                 {voiceEnabled ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5 text-green-600" />}
                 {voiceEnabled && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>}
                 <span className="sr-only">{voiceEnabled ? 'Stop voice commands' : 'Start voice commands'}</span>
             </Button>
-            <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />
             <UserMenu />
         </div>
 
@@ -322,10 +277,10 @@ function ProductCard({
         <Button 
             size="icon" 
             variant="ghost" 
-            className="absolute top-2 right-2 h-6 w-6 rounded-full bg-white/70 backdrop-blur-sm hover:bg-white"
+            className="absolute top-1 right-1 h-6 w-6 rounded-full bg-white/50 backdrop-blur-sm hover:bg-white"
             onClick={() => setIsFavorite(!isFavorite)}
         >
-            <Heart className={cn("h-3.5 w-3.5 text-gray-500", isFavorite && "fill-red-500 text-red-500")} />
+            <Heart className={cn("h-3 w-3 text-gray-500", isFavorite && "fill-red-500 text-red-500")} />
             <span className="sr-only">Favorite</span>
         </Button>
       </div>
@@ -544,4 +499,3 @@ export default function LocalBasketHomepage() {
   );
 }
 
-    
