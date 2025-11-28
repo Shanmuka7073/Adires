@@ -24,11 +24,11 @@ function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking, onCopyIngredi
         if (!instructions || instructions.length === 0) return <p className="text-muted-foreground">No instructions provided.</p>;
 
         return (
-            <div className="space-y-4">
+            <ol className="space-y-4">
                 {instructions.map((step, index) => {
                     const stepTextToSpeak = `${step.title}. ${step.actions.join('. ')}`;
                     return (
-                        <div key={index} className="p-4 bg-gray-50 border-l-4 border-primary rounded-r-lg">
+                        <li key={index} className="p-4 bg-gray-50 border-l-4 border-primary rounded-r-lg">
                             <div className="flex justify-between items-center mb-2">
                                 <h4 className="font-bold text-base text-primary">{step.title}</h4>
                                 <Button variant="ghost" size="icon" onClick={() => onSpeak(stepTextToSpeak)} disabled={isSpeaking}>
@@ -41,10 +41,10 @@ function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking, onCopyIngredi
                                     <li key={actionIndex}>{action}</li>
                                 ))}
                             </ul>
-                        </div>
+                        </li>
                     );
                 })}
-            </div>
+            </ol>
         );
     };
 
@@ -156,21 +156,34 @@ export function RecipeCard() {
                 const lowerProductName = product.name.toLowerCase();
                 const similarity = calculateSimilarity(lowerIngredientName, lowerProductName);
                 
-                // New logic: Also check if the product name is a substring of the ingredient name
                 const isSubstring = lowerIngredientName.includes(lowerProductName);
 
                 if (isSubstring || (similarity > (bestMatch?.score || 0))) {
-                    const score = isSubstring ? 1.0 : similarity; // Prioritize substring matches
+                    const score = isSubstring ? 1.0 : similarity;
                      if (!bestMatch || score > bestMatch.score) {
                         bestMatch = { product, score };
                     }
                 }
             });
 
-            if (bestMatch && bestMatch.score > 0.6) { // Lowered threshold slightly
+            if (bestMatch && bestMatch.score > 0.6) {
                 const priceData = productPrices[bestMatch.product.name.toLowerCase()];
-                if (priceData?.variants?.[0]) {
-                    const smallestVariant = priceData.variants[0];
+                if (priceData?.variants?.length > 0) {
+                    // Sort variants to find the smallest one, prioritizing numeric weights
+                    const sortedVariants = [...priceData.variants].sort((a, b) => {
+                        const weightA = parseInt(a.weight);
+                        const weightB = parseInt(b.weight);
+                        // If both are numbers, compare them
+                        if (!isNaN(weightA) && !isNaN(weightB)) {
+                            return weightA - weightB;
+                        }
+                        // If one is not a number, it might be '1 pc' etc., treat it as smaller
+                        if (isNaN(weightA)) return -1;
+                        if (isNaN(weightB)) return 1;
+                        // Fallback to localeCompare if both are non-numeric strings
+                        return a.weight.localeCompare(b.weight);
+                    });
+                    const smallestVariant = sortedVariants[0];
                     addItem(bestMatch.product, smallestVariant, 1);
                     itemsAdded++;
                 }
@@ -189,13 +202,11 @@ export function RecipeCard() {
         startSpeaking(() => {
             try {
                 if ('speechSynthesis' in window) {
-                    window.speechSynthesis.cancel(); // Stop any previous speech
+                    window.speechSynthesis.cancel();
                     const utterance = new SpeechSynthesisUtterance(textToSpeak);
                     utterance.lang = currentLanguage === 'te' ? 'te-IN' : 'en-IN';
                     
-                    utterance.onend = () => {
-                       // Optional: handle end of speech
-                    };
+                    utterance.onend = () => {};
 
                     window.speechSynthesis.speak(utterance);
                 } else {
