@@ -585,6 +585,12 @@ export default function AdminDashboardPage() {
                         href="/dashboard/admin/app-overview"
                         icon={FileSignature}
                     />
+                     <AdminActionCard 
+                        title="AI-Powered Suggestions"
+                        description="View strategic recommendations for improving the app."
+                        href="/dashboard/admin/suggestions"
+                        icon={Bot}
+                    />
                     <AdminActionCard
                         title="Store Orders"
                         description="View and manage incoming orders for all stores."
