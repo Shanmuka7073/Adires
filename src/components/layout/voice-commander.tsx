@@ -522,80 +522,69 @@ const findProductAndVariant = useCallback(
     const isLiquidProduct = ['oil', 'milk', 'water', 'juice', 'ghee', 'sauce', 'vinegar'].some(kw => product.name.toLowerCase().includes(kw));
 
     if (money && money > 0) {
-        const baseVariant = isLiquidProduct
-            ? priceData.variants.find(v => v.weight.includes('ltr')) || priceData.variants[0]
-            : priceData.variants.find(v => v.weight.includes('kg')) || priceData.variants[0];
-
-        if (!baseVariant) return { product, variant: null, requestedQty: qty, remainingPhrase: productPhrase, matchedAlias, lang: detectedLang };
-
-        const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
-        const baseUnitQty = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
-        
-        let pricePerSmallestUnit = 0;
-        let requestedSmallestUnit = 0;
-        let finalUnitString = '';
-
         if (isLiquidProduct) {
-            const isBaseLtr = baseVariant.weight.includes('ltr');
-            pricePerSmallestUnit = baseVariant.price / (isBaseLtr ? baseUnitQty * 1000 : baseUnitQty); // price per ml
-            requestedSmallestUnit = money / pricePerSmallestUnit;
-            finalUnitString = `${Math.round(requestedSmallestUnit)}ml`;
-        } else { // Weight
-            const isBaseKg = baseVariant.weight.includes('kg');
-            pricePerSmallestUnit = baseVariant.price / (isBaseKg ? baseUnitQty * 1000 : baseUnitQty); // price per gm
-            requestedSmallestUnit = money / pricePerSmallestUnit;
-            finalUnitString = `${Math.round(requestedSmallestUnit)}gm`;
-        }
-
-        chosenVariant = {
-            price: money,
-            weight: finalUnitString,
-            sku: `${baseVariant.sku}-custom-${money}`,
-            stock: baseVariant.stock,
-        };
-        finalQty = 1;
-    } else if (unit) {
-        const baseVariant = isLiquidProduct
-            ? priceData.variants.find(v => v.weight.includes('ltr')) || priceData.variants[0]
-            : priceData.variants.find(v => v.weight.includes('kg')) || priceData.variants[0];
-
-        if (baseVariant) {
+            const baseVariant = priceData.variants.find(v => v.weight.includes('ltr')) || priceData.variants[0];
             const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
             const baseUnitQty = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
-            let pricePerSmallestUnit = 0;
-            let requestedSmallestUnit = 0;
-            let finalUnitString = '';
+            const pricePerMl = baseVariant.price / (baseUnitQty * 1000);
+            const requestedMl = money / pricePerMl;
 
-            if (isLiquidProduct) {
-                const isBaseLtr = baseVariant.weight.includes('ltr');
-                pricePerSmallestUnit = baseVariant.price / (isBaseLtr ? baseUnitQty * 1000 : baseUnitQty);
-                requestedSmallestUnit = unit === 'ltr' ? finalQty * 1000 : finalQty;
-                finalUnitString = `${Math.round(requestedSmallestUnit)}ml`;
-            } else { // Weight
-                const isBaseKg = baseVariant.weight.includes('kg');
-                pricePerSmallestUnit = baseVariant.price / (isBaseKg ? baseUnitQty * 1000 : baseUnitQty);
-                requestedSmallestUnit = unit === 'kg' ? finalQty * 1000 : finalQty;
-                finalUnitString = `${Math.round(requestedSmallestUnit)}gm`;
-            }
-            
-            const newPrice = requestedSmallestUnit * pricePerSmallestUnit;
-            
             chosenVariant = {
-                price: newPrice,
-                weight: finalUnitString,
-                sku: `${baseVariant.sku}-custom-${finalUnitString}`,
+                price: money,
+                weight: `${Math.round(requestedMl)}ml`,
+                sku: `${baseVariant.sku}-custom-${money}`,
                 stock: baseVariant.stock,
             };
-            finalQty = 1;
-        } else {
-             return { product, variant: null, requestedQty: qty, remainingPhrase: productPhrase, matchedAlias, lang: detectedLang };
+        } else { // Weight-based
+            const baseVariant = priceData.variants.find(v => v.weight.includes('kg')) || priceData.variants[0];
+            const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
+            const baseUnitQty = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
+            const pricePerGm = baseVariant.price / (baseUnitQty * 1000);
+            const requestedGm = money / pricePerGm;
+
+            chosenVariant = {
+                price: money,
+                weight: `${Math.round(requestedGm)}gm`,
+                sku: `${baseVariant.sku}-custom-${money}`,
+                stock: baseVariant.stock,
+            };
         }
-    } else { // Handle case with no unit, just a number
+        finalQty = 1;
+    } else if (unit) {
+        if (isLiquidProduct) {
+            const baseVariant = priceData.variants.find(v => v.weight.includes('ltr')) || priceData.variants[0];
+            const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
+            const baseUnitQty = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
+            const pricePerMl = baseVariant.price / (baseUnitQty * 1000);
+            const requestedMl = unit === 'ltr' ? finalQty * 1000 : finalQty;
+
+            chosenVariant = {
+                price: requestedMl * pricePerMl,
+                weight: `${Math.round(requestedMl)}ml`,
+                sku: `${baseVariant.sku}-custom-${requestedMl}ml`,
+                stock: baseVariant.stock,
+            };
+        } else { // Weight-based
+            const baseVariant = priceData.variants.find(v => v.weight.includes('kg')) || priceData.variants[0];
+            const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
+            const baseUnitQty = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
+            const pricePerGm = baseVariant.price / (baseUnitQty * 1000);
+            const requestedGm = unit === 'kg' ? finalQty * 1000 : finalQty;
+            
+            chosenVariant = {
+                price: requestedGm * pricePerGm,
+                weight: `${Math.round(requestedGm)}gm`,
+                sku: `${baseVariant.sku}-custom-${requestedGm}gm`,
+                stock: baseVariant.stock,
+            };
+        }
+        finalQty = 1;
+    } else {
         chosenVariant = priceData.variants.find(v => {
             const variantWeightMatch = v.weight.match(/(\d+\.?\d*)/);
             const variantWeight = variantWeightMatch ? parseFloat(variantWeightMatch[0]) : 0;
             return variantWeight === finalQty;
-        }) || priceData.variants[0]; // Fallback to first variant
+        }) || priceData.variants[0];
     }
     
     return { product, variant: chosenVariant, requestedQty: finalQty, remainingPhrase: productPhrase, matchedAlias, lang: detectedLang };
@@ -949,7 +938,7 @@ const findProductAndVariant = useCallback(
       locales, commands, getAllAliases, recognizeIntent, aiConfig,
       handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setActiveStoreId,
       storeAliasMap, profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData,
-      placeOrderBtnRef, onCloseCart, setHomeAddress,
+      placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress,
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
       removeItem, addUnidentifiedItem, updateUnidentifiedItem, router, stores, productPrices,
       showPriceCheck, hidePriceCheck, masterProducts, pathname
@@ -1340,7 +1329,7 @@ const findProductAndVariant = useCallback(
       determinePhraseLanguage, resetAllContext, storeAliasMap,
       handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setActiveStoreId,
       profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData,
-      placeOrderBtnRef, onCloseCart, setHomeAddress,
+      placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress,
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
       removeItem, addUnidentifiedItem, updateUnidentifiedItem,
       getProductName, addItemToCart, locales, commands, getAllAliases, recognizeIntent, stores,
@@ -1349,3 +1338,5 @@ const findProductAndVariant = useCallback(
 
   return null;
 }
+
+    
