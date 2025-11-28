@@ -86,7 +86,10 @@ export const useAppStore = create<AppState>()(
       setAppReady: (isReady: boolean) => set({ appReady: isReady }),
 
       fetchInitialData: async (db: Firestore) => {
-        if (get().loading || get().isInitialized) return; 
+        // This is the critical fix. If already initialized, do not fetch again.
+        if (get().isInitialized || get().loading) {
+          return;
+        }
 
         set({ loading: true, error: null });
         
@@ -185,9 +188,6 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
-
-// This hook is now removed from here, as its logic has been moved to ClientRoot.
-// export const useInitializeApp = () => { ... }
 
 
 interface ProfileFormState {
