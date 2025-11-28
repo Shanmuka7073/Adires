@@ -188,23 +188,27 @@ export const useAppStore = create<AppState>()(
 
 
 export const useInitializeApp = () => {
-    const { firestore, user } = useFirebase();
+    const { firestore } = useFirebase();
     const { fetchInitialData, isInitialized, loading, setAppReady } = useAppStore();
 
     useEffect(() => {
-        if (firestore && user && !isInitialized && !loading) {
+        // Corrected Logic: Fetch data as soon as firestore is available, regardless of user state.
+        if (firestore && !isInitialized && !loading) {
             fetchInitialData(firestore).then(() => {
                 // Once all initial data is fetched, set the app as ready
                 setAppReady(true);
             });
         } else if (isInitialized) {
-            // If data is already initialized (e.g., from persisted state), set ready
+            // If data is already initialized (e.g., from persisted state), set ready immediately.
+            setAppReady(true);
+        } else if (!firestore && !loading) {
+            // If firestore isn't available and we're not loading, there's a problem,
+            // but we still unlock the app to prevent an infinite loader.
             setAppReady(true);
         }
-    }, [firestore, user, isInitialized, loading, fetchInitialData, setAppReady]);
+    }, [firestore, isInitialized, loading, fetchInitialData, setAppReady]);
 
-    // This hook now also implicitly controls the readiness state.
-    // The loading state can still be used for finer-grained spinners within the app.
+    // isLoading now correctly reflects only the data fetching state.
     return { isLoading: !isInitialized && loading };
 };
 
