@@ -157,24 +157,11 @@ export function CategoryClient({ store, allProducts, productPrices, isLoading }:
       setSelectedCategory(categories[0].name);
     }
   }, [categories, selectedCategory, categoryFromUrl]);
-  
-  // Effect to scroll to the highlighted product
-  useEffect(() => {
-    if (highlightProduct && highlightedProductRef.current) {
-        setTimeout(() => {
-            highlightedProductRef.current?.scrollIntoView({
-                behavior: 'smooth',
-                block: 'center',
-            });
-        }, 300); // Small delay to ensure render is complete
-    }
-  }, [highlightProduct, filteredProducts]); // Rerun when highlightProduct or the list of products changes
 
   const handleSelectCategory = (categoryName: string) => {
     setSelectedCategory(categoryName);
     router.push(`/stores/${store.id}?category=${categoryName}`);
   };
-
 
   const filteredProducts = useMemo(() => {
     let productsToFilter = allProducts;
@@ -199,6 +186,18 @@ export function CategoryClient({ store, allProducts, productPrices, isLoading }:
     
     return productsToFilter;
   }, [allProducts, selectedCategory, searchTerm, highlightProduct]);
+  
+  // Effect to scroll to the highlighted product
+  useEffect(() => {
+    if (highlightProduct && highlightedProductRef.current) {
+        setTimeout(() => {
+            highlightedProductRef.current?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+            });
+        }, 300); // Small delay to ensure render is complete
+    }
+  }, [highlightProduct, filteredProducts]); // Rerun when highlightProduct or the list of products changes
 
   return (
     <div className="flex flex-col md:flex-row w-full h-full bg-[#f4f9f0]">
