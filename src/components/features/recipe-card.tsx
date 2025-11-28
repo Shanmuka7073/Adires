@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { ChefHat, Loader2, Sparkles, ShoppingCart, AlertCircle, Search, Volume2 } from 'lucide-react';
 import { getIngredientsForDish, GetIngredientsOutput } from '@/ai/flows/recipe-ingredients-flow';
-import { generateVoiceReply } from '@/ai/flows/generate-voice-reply-flow';
 import { useAppStore } from '@/lib/store';
 import { useCart } from '@/lib/cart';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
@@ -158,21 +157,27 @@ export function RecipeCard() {
         });
     };
 
-    const handleSpeakInstructions = async () => {
+    const handleSpeakInstructions = () => {
         if (!result?.instructions) return;
 
-        startSpeaking(async () => {
-             try {
-                const voiceResult = await generateVoiceReply({ text: result.instructions, language: currentLanguage });
-                if (voiceResult.audioDataUri) {
-                    const audio = new Audio(voiceResult.audioDataUri);
-                    audio.play();
+        startSpeaking(() => {
+            try {
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel(); // Stop any previous speech
+                    const utterance = new SpeechSynthesisUtterance(result.instructions);
+                    utterance.lang = currentLanguage === 'te' ? 'te-IN' : 'en-IN';
+                    
+                    utterance.onend = () => {
+                       // Optional: handle end of speech
+                    };
+
+                    window.speechSynthesis.speak(utterance);
                 } else {
-                    throw new Error("AI did not return audio data.");
+                    throw new Error("Speech synthesis not supported by this browser.");
                 }
             } catch (error) {
                 console.error("Text-to-speech failed:", error);
-                toast({ variant: 'destructive', title: 'Could not read aloud.', description: 'The text-to-speech service failed.' });
+                toast({ variant: 'destructive', title: 'Could not read aloud.', description: (error as Error).message });
             }
         });
     };
