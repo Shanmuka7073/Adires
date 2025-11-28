@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition } from 'react';
@@ -15,13 +16,117 @@ import { Alert, AlertTitle, AlertDescription } from '../ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useFirebase } from '@/firebase';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
-import { Ingredient, InstructionStep, Product } from '@/lib/types';
+import { Ingredient, InstructionStep, Product, ProductVariant } from '@/lib/types';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
-function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking, onCopyIngredients, onCopyInstructions }: { result: GetIngredientsOutput, onAddToCart: () => void, onSpeak: (text: string) => void, isSpeaking: boolean, onCopyIngredients: () => void, onCopyInstructions: () => void }) {
+function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking, onCopyIngredients, onCopyInstructions }: { result: GetIngredientsOutput, onAddToCart: (selected: Ingredient[]) => void, onSpeak: (text: string) => void, isSpeaking: boolean, onCopyIngredients: () => void, onCopyInstructions: () => void }) {
     
+    const [selectedIngredients, setSelectedIngredients] = useState<Ingredient[]>([]);
+    const [ingredientMatches, setIngredientMatches] = useState<Record<string, { product: Product, variant: ProductVariant } | null>>({});
+    const { masterProducts, productPrices } = useAppStore();
+    const [totalPrice, setTotalPrice] = useState(0);
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const [variantChoices, setVariantChoices] = useState<{ ingredient: Ingredient, products: Product[] } | null>(null);
+
+    const findBestVariant = (product: Product): ProductVariant | null => {
+        const priceData = productPrices[product.name.toLowerCase()];
+        if (!priceData?.variants?.length) return null;
+
+        const sortedVariants = [...priceData.variants].sort((a, b) => {
+            const weightA = parseInt(a.weight);
+            const weightB = parseInt(b.weight);
+            if (!isNaN(weightA) && !isNaN(weightB)) return weightA - weightB;
+            return a.weight.localeCompare(b.weight);
+        });
+        return sortedVariants[0];
+    };
+    
+    const findProductForIngredient = (ingredient: Ingredient): { product: Product, variant: ProductVariant }[] => {
+        const lowerIngName = ingredient.name.toLowerCase();
+        const matches: { product: Product, score: number }[] = [];
+
+        masterProducts.forEach(product => {
+            const lowerProdName = product.name.toLowerCase();
+            if (lowerIngName.includes(lowerProdName)) {
+                // Prioritize longer matches to avoid matching "chicken" in "country chicken"
+                matches.push({ product, score: lowerProdName.length });
+            }
+        });
+        
+        if (matches.length === 0) return [];
+
+        matches.sort((a, b) => b.score - a.score);
+
+        const bestScore = matches[0].score;
+        const potentialMatches = matches.filter(m => m.score === bestScore);
+
+        return potentialMatches.map(match => {
+            const variant = findBestVariant(match.product);
+            return variant ? { product: match.product, variant } : null;
+        }).filter((item): item is { product: Product, variant: ProductVariant } => item !== null);
+    };
+
+    useEffect(() => {
+        const newMatches: Record<string, { product: Product, variant: ProductVariant } | null> = {};
+        result.ingredients.forEach(ingredient => {
+            const potentialMatches = findProductForIngredient(ingredient);
+            if (potentialMatches.length === 1) {
+                newMatches[ingredient.name] = potentialMatches[0];
+            } else if (potentialMatches.length > 1) {
+                // If multiple matches, we'll let the user decide later
+                newMatches[ingredient.name] = null; // Mark as needs selection
+            }
+            else {
+                newMatches[ingredient.name] = null;
+            }
+        });
+        setIngredientMatches(newMatches);
+        // Pre-select all available ingredients
+        setSelectedIngredients(result.ingredients.filter(ing => newMatches[ing.name]));
+    }, [result.ingredients, masterProducts, productPrices]);
+    
+    useEffect(() => {
+        const newTotal = selectedIngredients.reduce((total, ing) => {
+            const match = ingredientMatches[ing.name];
+            return total + (match ? match.variant.price : 0);
+        }, 0);
+        setTotalPrice(newTotal);
+    }, [selectedIngredients, ingredientMatches]);
+
+
+    const handleSelectIngredient = (ingredient: Ingredient, checked: boolean) => {
+        if (checked) {
+             const potentialMatches = findProductForIngredient(ingredient);
+             if (potentialMatches.length > 1) {
+                 setVariantChoices({ ingredient, products: potentialMatches.map(p => p.product) });
+                 setDialogOpen(true);
+             } else {
+                setSelectedIngredients(prev => [...prev, ingredient]);
+             }
+        } else {
+            setSelectedIngredients(prev => prev.filter(i => i.name !== ingredient.name));
+        }
+    };
+    
+    const handleVariantSelection = (product: Product) => {
+        if (variantChoices) {
+            const variant = findBestVariant(product);
+            if (variant) {
+                setIngredientMatches(prev => ({
+                    ...prev,
+                    [variantChoices.ingredient.name]: { product, variant }
+                }));
+                 setSelectedIngredients(prev => [...prev, variantChoices.ingredient]);
+            }
+        }
+        setDialogOpen(false);
+        setVariantChoices(null);
+    };
+
     const renderInstructions = (instructions: InstructionStep[]) => {
         if (!instructions || instructions.length === 0) return <p className="text-muted-foreground">No instructions provided.</p>;
-
+        // ... (instruction rendering logic remains the same)
         return (
             <ol className="space-y-4">
                 {instructions.map((step, index) => {
@@ -49,6 +154,25 @@ function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking, onCopyIngredi
 
     return (
         <div className="space-y-6">
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                 <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Which ingredient did you mean?</DialogTitle>
+                        <DialogDescription>The term "{variantChoices?.ingredient.name}" could refer to multiple products. Please select the correct one.</DialogDescription>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-2">
+                        {variantChoices?.products.map(p => {
+                             const variant = findBestVariant(p);
+                             return (
+                                <Button key={p.id} variant="outline" className="justify-between" onClick={() => handleVariantSelection(p)}>
+                                    <span>{p.name}</span>
+                                    {variant && <span className="font-bold text-primary">₹{variant.price.toFixed(2)}</span>}
+                                </Button>
+                            )
+                        })}
+                    </div>
+                </DialogContent>
+            </Dialog>
             <div>
                  <div className="flex items-center justify-between mb-2">
                     <h4 className="font-semibold text-lg">Ingredients</h4>
@@ -57,10 +181,29 @@ function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking, onCopyIngredi
                         <span className="sr-only">Copy Ingredients</span>
                     </Button>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                    {result.ingredients.map((ing, index) => (
-                        <Badge key={index} variant="secondary" className="text-sm py-1 px-3">{ing.name} - {ing.quantity}</Badge>
-                    ))}
+                <div className="space-y-2">
+                    {result.ingredients.map((ing, index) => {
+                        const match = ingredientMatches[ing.name];
+                        const isChecked = selectedIngredients.some(si => si.name === ing.name);
+                        return (
+                            <div key={index} className="flex items-center gap-3 p-2 rounded-md bg-muted/50">
+                                <Checkbox
+                                    id={`ing-${index}`}
+                                    checked={isChecked}
+                                    onCheckedChange={(checked) => handleSelectIngredient(ing, !!checked)}
+                                    disabled={!match && findProductForIngredient(ing).length === 0}
+                                />
+                                <label htmlFor={`ing-${index}`} className="flex-1 text-sm">{ing.name} - <span className="text-muted-foreground">{ing.quantity}</span></label>
+                                {match ? (
+                                    <Badge variant="default" className="text-sm">₹{match.variant.price.toFixed(2)}</Badge>
+                                ) : (
+                                    findProductForIngredient(ing).length > 1 
+                                    ? <Badge variant="secondary">Multiple Options</Badge>
+                                    : <Badge variant="destructive">Not Available</Badge>
+                                )}
+                            </div>
+                        )
+                    })}
                 </div>
             </div>
              <div>
@@ -75,52 +218,13 @@ function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking, onCopyIngredi
                 </div>
                 {renderInstructions(result.instructions)}
             </div>
-            <Button onClick={onAddToCart} className="w-full mt-4" size="lg">
+            <Button onClick={() => onAddToCart(selectedIngredients)} className="w-full mt-4" size="lg" disabled={selectedIngredients.length === 0}>
                 <ShoppingCart className="mr-2 h-4 w-4" />
-                Add All Available Ingredients to Cart
+                 {selectedIngredients.length > 0 ? `Add ${selectedIngredients.length} Items - ₹${totalPrice.toFixed(2)}` : 'Select Ingredients to Add'}
             </Button>
         </div>
     )
 }
-
-// Simple parser to extract product, quantity, and unit from an ingredient string
-function parseIngredient(ingredientString: string, masterProducts: Product[]): { product: Product | null, quantity: number, unit: string | null } {
-    const lowerIngredientString = ingredientString.toLowerCase();
-    
-    // Find the best product match first
-    let bestMatch: { product: Product, score: number } | null = null;
-
-    masterProducts.forEach(product => {
-        const lowerProductName = product.name.toLowerCase();
-        // Check if product name is a substring of the ingredient string
-        if (lowerIngredientString.includes(lowerProductName)) {
-            // Prioritize longer matches to avoid matching "oil" in "sunflower oil"
-            const score = lowerProductName.length;
-            if (!bestMatch || score > bestMatch.score) {
-                bestMatch = { product, score };
-            }
-        }
-    });
-
-    if (!bestMatch) {
-      return { product: null, quantity: 1, unit: null };
-    }
-
-    // Now parse quantity and unit from the string
-    const quantityRegex = /(\d+\.?\d*)\s*(kg|g|gm|grams|kilos|l|ltr|liter|ml|tbsp|tablespoons|tsp|teaspoon|cup|cups|large|medium|small|pieces?|pinch)/i;
-    const match = lowerIngredientString.match(quantityRegex);
-    
-    let quantity = 1;
-    let unit: string | null = null;
-    
-    if (match) {
-        quantity = parseFloat(match[1]) || 1;
-        unit = match[2];
-    }
-    
-    return { product: bestMatch.product, quantity, unit };
-}
-
 
 export function RecipeCard() {
     const { toast } = useToast();
@@ -180,29 +284,36 @@ export function RecipeCard() {
         });
     };
     
-    const handleAddAllToCart = () => {
-        if (!result || !result.isSuccess || result.ingredients.length === 0) return;
+    const handleAddToCart = (selectedIngredients: Ingredient[]) => {
+        if (selectedIngredients.length === 0) return;
 
         let itemsAdded = 0;
         
-        result.ingredients.forEach((ingredient) => {
-            const ingredientString = `${ingredient.name} - ${ingredient.quantity}`;
-            const parsed = parseIngredient(ingredientString, masterProducts);
+        selectedIngredients.forEach((ingredient) => {
+            const lowerIngName = ingredient.name.toLowerCase();
+            let bestMatch: { product: Product, score: number } | null = null;
+            
+            masterProducts.forEach(product => {
+                const lowerProdName = product.name.toLowerCase();
+                if(lowerIngName.includes(lowerProdName)) {
+                     const score = lowerProdName.length;
+                     if (!bestMatch || score > bestMatch.score) {
+                        bestMatch = { product, score };
+                    }
+                }
+            });
 
-            if (parsed.product) {
-                const priceData = productPrices[parsed.product.name.toLowerCase()];
+            if (bestMatch) {
+                const priceData = productPrices[bestMatch.product.name.toLowerCase()];
                 if (priceData?.variants?.length > 0) {
-                    // Sort variants to find the smallest one
                     const sortedVariants = [...priceData.variants].sort((a, b) => {
                         const weightA = parseInt(a.weight);
                         const weightB = parseInt(b.weight);
                         if (!isNaN(weightA) && !isNaN(weightB)) return weightA - weightB;
-                        if (isNaN(weightA)) return -1;
-                        if (isNaN(weightB)) return 1;
                         return a.weight.localeCompare(b.weight);
                     });
                     const smallestVariant = sortedVariants[0];
-                    addItem(parsed.product, smallestVariant, 1);
+                    addItem(bestMatch.product, smallestVariant, 1);
                     itemsAdded++;
                 }
             }
@@ -210,9 +321,10 @@ export function RecipeCard() {
 
         toast({
             title: 'Items Added to Cart',
-            description: `Successfully matched and added ${itemsAdded} out of ${result.ingredients.length} ingredients to your cart.`,
+            description: `Successfully matched and added ${itemsAdded} out of ${selectedIngredients.length} ingredients to your cart.`,
         });
     };
+
 
     const handleSpeak = (textToSpeak: string) => {
         if (!textToSpeak) return;
@@ -298,7 +410,7 @@ export function RecipeCard() {
                                 <TabsContent value={currentLanguage}>
                                    <RecipeContent 
                                         result={result} 
-                                        onAddToCart={handleAddAllToCart} 
+                                        onAddToCart={handleAddToCart} 
                                         onSpeak={handleSpeak} 
                                         isSpeaking={isSpeaking}
                                         onCopyIngredients={handleCopyIngredients}
