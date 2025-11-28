@@ -150,15 +150,24 @@ export function RecipeCard() {
         
         result.ingredients.forEach((ingredient: Ingredient) => {
             let bestMatch: { product: any, score: number } | null = null;
+            const lowerIngredientName = ingredient.name.toLowerCase();
 
             masterProducts.forEach(product => {
-                const similarity = calculateSimilarity(ingredient.name.toLowerCase(), product.name.toLowerCase());
-                if (!bestMatch || similarity > bestMatch.score) {
-                    bestMatch = { product, score: similarity };
+                const lowerProductName = product.name.toLowerCase();
+                const similarity = calculateSimilarity(lowerIngredientName, lowerProductName);
+                
+                // New logic: Also check if the product name is a substring of the ingredient name
+                const isSubstring = lowerIngredientName.includes(lowerProductName);
+
+                if (isSubstring || (similarity > (bestMatch?.score || 0))) {
+                    const score = isSubstring ? 1.0 : similarity; // Prioritize substring matches
+                     if (!bestMatch || score > bestMatch.score) {
+                        bestMatch = { product, score };
+                    }
                 }
             });
 
-            if (bestMatch && bestMatch.score > 0.7) {
+            if (bestMatch && bestMatch.score > 0.6) { // Lowered threshold slightly
                 const priceData = productPrices[bestMatch.product.name.toLowerCase()];
                 if (priceData?.variants?.[0]) {
                     const smallestVariant = priceData.variants[0];
