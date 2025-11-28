@@ -186,31 +186,9 @@ export const useAppStore = create<AppState>()(
   )
 );
 
+// This hook is now removed from here, as its logic has been moved to ClientRoot.
+// export const useInitializeApp = () => { ... }
 
-export const useInitializeApp = () => {
-    const { firestore } = useFirebase();
-    const { fetchInitialData, isInitialized, loading, setAppReady } = useAppStore();
-
-    useEffect(() => {
-        // Corrected Logic: Fetch data as soon as firestore is available, regardless of user state.
-        if (firestore && !isInitialized && !loading) {
-            fetchInitialData(firestore).then(() => {
-                // Once all initial data is fetched, set the app as ready
-                setAppReady(true);
-            });
-        } else if (isInitialized) {
-            // If data is already initialized (e.g., from persisted state), set ready immediately.
-            setAppReady(true);
-        } else if (!firestore && !loading) {
-            // If firestore isn't available and we're not loading, there's a problem,
-            // but we still unlock the app to prevent an infinite loader.
-            setAppReady(true);
-        }
-    }, [firestore, isInitialized, loading, fetchInitialData, setAppReady]);
-
-    // isLoading now correctly reflects only the data fetching state.
-    return { isLoading: !isInitialized && loading };
-};
 
 interface ProfileFormState {
   form: UseFormReturn<ProfileFormValues> | null;

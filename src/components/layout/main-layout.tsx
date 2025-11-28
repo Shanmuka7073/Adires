@@ -8,7 +8,7 @@ import { Footer } from '@/components/layout/footer';
 import { VoiceCommander, Command } from '@/components/layout/voice-commander';
 import { ProfileCompletionChecker } from '@/components/profile-completion-checker';
 import { NotificationPermissionManager } from '@/components/layout/notification-permission-manager';
-import { useInitializeApp, useAppStore } from '@/lib/store';
+import { useAppStore } from '@/lib/store';
 import { getLanguageForLocation } from '@/lib/location-service';
 import { useToast } from '@/hooks/use-toast';
 import { usePathname } from 'next/navigation';
@@ -50,7 +50,7 @@ export function MainLayout({
   
   const { user } = useFirebase();
   
-  useInitializeApp();
+  // The useInitializeApp hook is no longer needed here as its logic is now in ClientRoot.
 
   const { setLanguage, isInitialized } = useAppStore();
   const [priceCheckInfo, setPriceCheckInfo] = useState<PriceCheckInfo | null>(null);
