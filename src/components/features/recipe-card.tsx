@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition } from 'react';
@@ -16,7 +15,7 @@ import { Alert, AlertTitle, AlertDescription } from '../ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useFirebase } from '@/firebase';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
-import { Ingredient, InstructionStep } from '@/lib/types';
+import { Ingredient, InstructionStep, Product } from '@/lib/types';
 
 function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking, onCopyIngredients, onCopyInstructions }: { result: GetIngredientsOutput, onAddToCart: () => void, onSpeak: (text: string) => void, isSpeaking: boolean, onCopyIngredients: () => void, onCopyInstructions: () => void }) {
     
@@ -84,6 +83,44 @@ function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking, onCopyIngredi
     )
 }
 
+// Simple parser to extract product, quantity, and unit from an ingredient string
+function parseIngredient(ingredientString: string, masterProducts: Product[]): { product: Product | null, quantity: number, unit: string | null } {
+    const lowerIngredientString = ingredientString.toLowerCase();
+    
+    // Find the best product match first
+    let bestMatch: { product: Product, score: number } | null = null;
+
+    masterProducts.forEach(product => {
+        const lowerProductName = product.name.toLowerCase();
+        // Check if product name is a substring of the ingredient string
+        if (lowerIngredientString.includes(lowerProductName)) {
+            // Prioritize longer matches to avoid matching "oil" in "sunflower oil"
+            const score = lowerProductName.length;
+            if (!bestMatch || score > bestMatch.score) {
+                bestMatch = { product, score };
+            }
+        }
+    });
+
+    if (!bestMatch) {
+      return { product: null, quantity: 1, unit: null };
+    }
+
+    // Now parse quantity and unit from the string
+    const quantityRegex = /(\d+\.?\d*)\s*(kg|g|gm|grams|kilos|l|ltr|liter|ml|tbsp|tablespoons|tsp|teaspoon|cup|cups|large|medium|small|pieces?|pinch)/i;
+    const match = lowerIngredientString.match(quantityRegex);
+    
+    let quantity = 1;
+    let unit: string | null = null;
+    
+    if (match) {
+        quantity = parseFloat(match[1]) || 1;
+        unit = match[2];
+    }
+    
+    return { product: bestMatch.product, quantity, unit };
+}
+
 
 export function RecipeCard() {
     const { toast } = useToast();
@@ -148,43 +185,24 @@ export function RecipeCard() {
 
         let itemsAdded = 0;
         
-        result.ingredients.forEach((ingredient: Ingredient) => {
-            let bestMatch: { product: any, score: number } | null = null;
-            const lowerIngredientName = ingredient.name.toLowerCase();
+        result.ingredients.forEach((ingredient) => {
+            const ingredientString = `${ingredient.name} - ${ingredient.quantity}`;
+            const parsed = parseIngredient(ingredientString, masterProducts);
 
-            masterProducts.forEach(product => {
-                const lowerProductName = product.name.toLowerCase();
-                const similarity = calculateSimilarity(lowerIngredientName, lowerProductName);
-                
-                const isSubstring = lowerIngredientName.includes(lowerProductName);
-
-                if (isSubstring || (similarity > (bestMatch?.score || 0))) {
-                    const score = isSubstring ? 1.0 : similarity;
-                     if (!bestMatch || score > bestMatch.score) {
-                        bestMatch = { product, score };
-                    }
-                }
-            });
-
-            if (bestMatch && bestMatch.score > 0.6) {
-                const priceData = productPrices[bestMatch.product.name.toLowerCase()];
+            if (parsed.product) {
+                const priceData = productPrices[parsed.product.name.toLowerCase()];
                 if (priceData?.variants?.length > 0) {
-                    // Sort variants to find the smallest one, prioritizing numeric weights
+                    // Sort variants to find the smallest one
                     const sortedVariants = [...priceData.variants].sort((a, b) => {
                         const weightA = parseInt(a.weight);
                         const weightB = parseInt(b.weight);
-                        // If both are numbers, compare them
-                        if (!isNaN(weightA) && !isNaN(weightB)) {
-                            return weightA - weightB;
-                        }
-                        // If one is not a number, it might be '1 pc' etc., treat it as smaller
+                        if (!isNaN(weightA) && !isNaN(weightB)) return weightA - weightB;
                         if (isNaN(weightA)) return -1;
                         if (isNaN(weightB)) return 1;
-                        // Fallback to localeCompare if both are non-numeric strings
                         return a.weight.localeCompare(b.weight);
                     });
                     const smallestVariant = sortedVariants[0];
-                    addItem(bestMatch.product, smallestVariant, 1);
+                    addItem(parsed.product, smallestVariant, 1);
                     itemsAdded++;
                 }
             }
