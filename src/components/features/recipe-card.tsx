@@ -43,25 +43,25 @@ function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking, onCopyIngredi
     };
     
     const findProductForIngredient = (ingredient: Ingredient): { product: Product, variant: ProductVariant }[] => {
-        const lowerIngName = ingredient.name.toLowerCase();
+        // Simple "first word" matching strategy as requested.
+        const firstWord = ingredient.name.split(/[\s,-(]/)[0].toLowerCase();
+        
         const matches: { product: Product, score: number }[] = [];
 
         masterProducts.forEach(product => {
-            const lowerProdName = product.name.toLowerCase();
-            if (lowerIngName.includes(lowerProdName)) {
-                // Prioritize longer matches to avoid matching "chicken" in "country chicken"
-                matches.push({ product, score: lowerProdName.length });
+            const productNameLower = product.name.toLowerCase();
+            // Check if the product name is exactly the first word of the ingredient.
+            if (productNameLower === firstWord) {
+                 matches.push({ product, score: 100 }); // High score for exact match
             }
         });
         
         if (matches.length === 0) return [];
 
+        // Sort by score if ever needed in the future, but with this logic, it's a direct match.
         matches.sort((a, b) => b.score - a.score);
 
-        const bestScore = matches[0].score;
-        const potentialMatches = matches.filter(m => m.score === bestScore);
-
-        return potentialMatches.map(match => {
+        return matches.map(match => {
             const variant = findBestVariant(match.product);
             return variant ? { product: match.product, variant } : null;
         }).filter((item): item is { product: Product, variant: ProductVariant } => item !== null);
@@ -71,13 +71,10 @@ function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking, onCopyIngredi
         const newMatches: Record<string, { product: Product, variant: ProductVariant } | null> = {};
         result.ingredients.forEach(ingredient => {
             const potentialMatches = findProductForIngredient(ingredient);
-            if (potentialMatches.length === 1) {
+            if (potentialMatches.length > 0) {
+                // With the new logic, we just take the first match.
                 newMatches[ingredient.name] = potentialMatches[0];
-            } else if (potentialMatches.length > 1) {
-                // If multiple matches, we'll let the user decide later
-                newMatches[ingredient.name] = null; // Mark as needs selection
-            }
-            else {
+            } else {
                 newMatches[ingredient.name] = null;
             }
         });
@@ -290,16 +287,13 @@ export function RecipeCard() {
         let itemsAdded = 0;
         
         selectedIngredients.forEach((ingredient) => {
-            const lowerIngName = ingredient.name.toLowerCase();
+            const firstWord = ingredient.name.split(/[\s,-(]/)[0].toLowerCase();
             let bestMatch: { product: Product, score: number } | null = null;
             
             masterProducts.forEach(product => {
                 const lowerProdName = product.name.toLowerCase();
-                if(lowerIngName.includes(lowerProdName)) {
-                     const score = lowerProdName.length;
-                     if (!bestMatch || score > bestMatch.score) {
-                        bestMatch = { product, score };
-                    }
+                 if(lowerProdName === firstWord) {
+                     bestMatch = { product, score: 100 };
                 }
             });
 
