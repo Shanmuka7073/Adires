@@ -20,19 +20,35 @@ import { Ingredient } from '@/lib/types';
 
 function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking, onCopyIngredients, onCopyInstructions }: { result: GetIngredientsOutput, onAddToCart: () => void, onSpeak: () => void, isSpeaking: boolean, onCopyIngredients: () => void, onCopyInstructions: () => void }) {
     
-    // Helper function to parse instructions into list items
+    // Helper function to parse instructions into a structured list
     const renderInstructions = (instructions: string) => {
         if (!instructions) return null;
-        // Split by newline, then filter out any empty lines
-        const steps = instructions.split(/\n/).filter(line => line.trim() !== '');
+
+        const lines = instructions.split('\n').filter(line => line.trim() !== '');
         
         return (
-            <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
-                {steps.map((step, index) => (
-                    <li key={index} className="pl-2">
-                        {step}
-                    </li>
-                ))}
+            <ol className="list-decimal list-inside space-y-4 text-sm text-muted-foreground">
+                {lines.map((line, index) => {
+                    if (line.match(/^\d+\.\s/)) {
+                        // Main step (e.g., "1. Marinate the Chicken")
+                        return (
+                            <li key={index} className="pl-2 font-semibold text-foreground/90">
+                                {line.replace(/^\d+\.\s/, '')}
+                            </li>
+                        );
+                    } else if (line.trim().startsWith('*') || line.trim().startsWith('-')) {
+                        // Unordered list item within a step
+                         return (
+                            <ul key={index} className="list-disc list-inside pl-6">
+                                <li>{line.replace(/^[\*\-]\s*/, '')}</li>
+                            </ul>
+                        );
+                    }
+                    else {
+                        // Regular text within a step
+                        return <p key={index} className="pl-8 -mt-2">{line}</p>;
+                    }
+                })}
             </ol>
         );
     };
