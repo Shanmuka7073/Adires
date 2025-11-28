@@ -17,9 +17,16 @@ const GetIngredientsInputSchema = z.object({
 });
 export type GetIngredientsInput = z.infer<typeof GetIngredientsInputSchema>;
 
+const IngredientSchema = z.object({
+    name: z.string().describe('The name of the ingredient.'),
+    quantity: z.string().describe('The quantity required for the ingredient (e.g., "1kg", "2 cups").'),
+});
+
 const GetIngredientsOutputSchema = z.object({
     isSuccess: z.boolean().describe("Whether the ingredients were found successfully."),
-    ingredients: z.array(z.string()).describe('The list of ingredients for the dish.'),
+    ingredients: z.array(IngredientSchema).describe('A list of ingredients with their quantities.'),
+    instructions: z.string().describe("The step-by-step cooking instructions for the dish."),
+    title: z.string().describe("The official name of the dish in the requested language."),
 });
 export type GetIngredientsOutput = z.infer<typeof GetIngredientsOutputSchema>;
 
@@ -32,13 +39,16 @@ const prompt = ai.definePrompt({
     input: { schema: GetIngredientsInputSchema },
     output: { schema: GetIngredientsOutputSchema },
     model: googleAI.model('gemini-2.5-flash'),
-    prompt: `You are a master chef. A user wants to know the main ingredients for a dish.
+    prompt: `You are a master chef. A user wants to know the full recipe for a dish.
     
 Dish: "{{dishName}}"
 
-Provide a list of the 10-15 most important ingredients for this dish.
-Return the list of ingredients in {{language}}.
-If you do not know the recipe or it is not a food item, set isSuccess to false and return an empty ingredients list.`,
+Provide the following in the user's requested language of '{{language}}':
+1. A list of all main ingredients with their specific quantities (e.g., "1 kg", "2 cups", "500 grams").
+2. The complete, step-by-step cooking instructions.
+3. The official title of the dish.
+
+If you do not know the recipe or it is not a food item, set isSuccess to false and return empty arrays and strings.`,
 });
 
 
@@ -52,7 +62,7 @@ const getIngredientsFlow = ai.defineFlow(
     const { output } = await prompt(input);
 
     if (!output) {
-        return { isSuccess: false, ingredients: [] };
+        return { isSuccess: false, ingredients: [], instructions: '', title: '' };
     }
     
     return output;
