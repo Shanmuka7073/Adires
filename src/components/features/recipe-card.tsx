@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition } from 'react';
@@ -19,6 +20,25 @@ import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { Ingredient } from '@/lib/types';
 
 function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking }: { result: GetIngredientsOutput, onAddToCart: () => void, onSpeak: () => void, isSpeaking: boolean }) {
+    
+    // Helper function to parse instructions into list items
+    const renderInstructions = (instructions: string) => {
+        if (!instructions) return null;
+        // Split by newline, then filter out any empty lines
+        const steps = instructions.split(/\n/).filter(line => line.trim() !== '');
+        
+        return (
+            <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                {steps.map((step, index) => (
+                    <li key={index} className="pl-2">
+                        {/* Remove the leading number and period from the original string */}
+                        {step.replace(/^\d+\.\s*/, '')}
+                    </li>
+                ))}
+            </ol>
+        );
+    };
+
     return (
         <div className="space-y-4">
             <div>
@@ -36,8 +56,8 @@ function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking }: { result: G
                         {isSpeaking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Volume2 className="h-4 w-4" />}
                      </Button>
                 </div>
-                <div className="prose prose-sm max-w-none text-sm text-muted-foreground whitespace-pre-wrap">
-                    {result.instructions}
+                <div className="prose prose-sm max-w-none">
+                    {renderInstructions(result.instructions)}
                 </div>
             </div>
             <Button onClick={onAddToCart} className="w-full mt-4">
