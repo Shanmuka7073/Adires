@@ -18,23 +18,32 @@ import { useFirebase } from '@/firebase';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { Ingredient, InstructionStep } from '@/lib/types';
 
-function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking, onCopyIngredients, onCopyInstructions }: { result: GetIngredientsOutput, onAddToCart: () => void, onSpeak: () => void, isSpeaking: boolean, onCopyIngredients: () => void, onCopyInstructions: () => void }) {
+function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking, onCopyIngredients, onCopyInstructions }: { result: GetIngredientsOutput, onAddToCart: () => void, onSpeak: (text: string) => void, isSpeaking: boolean, onCopyIngredients: () => void, onCopyInstructions: () => void }) {
     
     const renderInstructions = (instructions: InstructionStep[]) => {
         if (!instructions || instructions.length === 0) return <p className="text-muted-foreground">No instructions provided.</p>;
 
         return (
             <div className="space-y-4">
-                {instructions.map((step, index) => (
-                    <div key={index} className="p-4 bg-gray-50 border-l-4 border-primary rounded-r-lg">
-                        <h4 className="font-bold text-base text-primary mb-2">{step.title}</h4>
-                        <ul className="list-disc pl-5 space-y-2 text-sm text-gray-700">
-                            {step.actions.map((action, actionIndex) => (
-                                <li key={actionIndex}>{action}</li>
-                            ))}
-                        </ul>
-                    </div>
-                ))}
+                {instructions.map((step, index) => {
+                    const stepTextToSpeak = `${step.title}. ${step.actions.join('. ')}`;
+                    return (
+                        <div key={index} className="p-4 bg-gray-50 border-l-4 border-primary rounded-r-lg">
+                            <div className="flex justify-between items-center mb-2">
+                                <h4 className="font-bold text-base text-primary">{step.title}</h4>
+                                <Button variant="ghost" size="icon" onClick={() => onSpeak(stepTextToSpeak)} disabled={isSpeaking}>
+                                    <Volume2 className="h-4 w-4" />
+                                    <span className="sr-only">Read step aloud</span>
+                                </Button>
+                            </div>
+                            <ul className="list-disc pl-5 space-y-2 text-sm text-gray-700">
+                                {step.actions.map((action, actionIndex) => (
+                                    <li key={actionIndex}>{action}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    );
+                })}
             </div>
         );
     };
@@ -62,9 +71,6 @@ function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking, onCopyIngredi
                         <Button variant="ghost" size="icon" onClick={onCopyInstructions}>
                            <Copy className="h-4 w-4" />
                            <span className="sr-only">Copy Instructions</span>
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={onSpeak} disabled={isSpeaking}>
-                            {isSpeaking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Volume2 className="h-4 w-4" />}
                         </Button>
                      </div>
                 </div>
@@ -168,10 +174,8 @@ export function RecipeCard() {
         });
     };
 
-    const handleSpeakInstructions = () => {
-        if (!result?.instructions) return;
-
-        const textToSpeak = result.instructions.map(step => `${step.title}. ${step.actions.join('. ')}`).join('\n\n');
+    const handleSpeak = (textToSpeak: string) => {
+        if (!textToSpeak) return;
 
         startSpeaking(() => {
             try {
@@ -257,7 +261,7 @@ export function RecipeCard() {
                                    <RecipeContent 
                                         result={result} 
                                         onAddToCart={handleAddAllToCart} 
-                                        onSpeak={handleSpeakInstructions} 
+                                        onSpeak={handleSpeak} 
                                         isSpeaking={isSpeaking}
                                         onCopyIngredients={handleCopyIngredients}
                                         onCopyInstructions={handleCopyInstructions}
