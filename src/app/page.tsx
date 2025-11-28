@@ -9,7 +9,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
-import { Search, Menu as MenuIcon, Mic, ShoppingBag, Heart, Star, Briefcase, Sparkles, Lamp, Home as HomeIcon, LayoutGrid, ChevronDown, MapPin, User as UserCircle, Globe } from 'lucide-react';
+import { Search, Menu as MenuIcon, Mic, ShoppingBag, Heart, Star, Briefcase, Sparkles, Lamp, Home as HomeIcon, LayoutGrid, ChevronDown, MapPin, User as UserCircle, Globe, ChefHat } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import ProductCard from '@/components/product-card';
@@ -18,6 +18,7 @@ import { useVoiceCommanderContext } from '@/components/layout/main-layout';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { CartIcon } from '@/components/cart/cart-icon';
+import { RecipeCard } from '@/components/features/recipe-card';
 
 
 const homePageSections = [
@@ -84,6 +85,7 @@ function GroceryCategoryCard({ categoryName, imageHint, count, bgColor }: { cate
                 if (mounted) setImage(fetchedImage);
             } catch (error) {
                 console.error("Failed to fetch image for category:", categoryName, error);
+                setImage({ imageUrl: 'https://picsum.photos/seed/placeholder/128/128', imageHint: 'placeholder' });
             } finally {
                 if (mounted) setIsLoading(false);
             }
@@ -250,7 +252,7 @@ export default function LocalBasketHomepage() {
 
       <main className="p-4 space-y-6">
         {isAppLoading && !isInitialized ? (
-             Array.from({ length: 2 }).map((_, i) => (
+             Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="space-y-4">
                     <Skeleton className="h-6 w-48" />
                     <div className="grid grid-cols-3 gap-2">
@@ -280,6 +282,8 @@ export default function LocalBasketHomepage() {
             <div className="rounded-lg overflow-hidden">
                 <Image src="https://i.ibb.co/ZQC3c3h/file-00000000f15871fab9942ef91d9c2021.png" alt="Promotional Banner" width={800} height={400} className="w-full h-auto" />
             </div>
+
+            <RecipeCard />
             
             {homePageSections.map(section => (
                 <div key={section.title}>

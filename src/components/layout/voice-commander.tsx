@@ -941,7 +941,7 @@ const findProductAndVariant = useCallback(
       placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress,
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
       removeItem, addUnidentifiedItem, updateUnidentifiedItem, router, stores, productPrices,
-      showPriceCheck, hidePriceCheck, masterProducts, pathname
+      showPriceCheck, hidePriceCheck, masterProducts
   ]);
 
     // Effect to handle retrying a command
@@ -1338,5 +1338,3 @@ const findProductAndVariant = useCallback(
 
   return null;
 }
-
-    
