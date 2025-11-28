@@ -16,48 +16,34 @@ import { Alert, AlertTitle, AlertDescription } from '../ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useFirebase } from '@/firebase';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
-import { Ingredient } from '@/lib/types';
+import { Ingredient, InstructionStep } from '@/lib/types';
 
 function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking, onCopyIngredients, onCopyInstructions }: { result: GetIngredientsOutput, onAddToCart: () => void, onSpeak: () => void, isSpeaking: boolean, onCopyIngredients: () => void, onCopyInstructions: () => void }) {
     
-    // Helper function to parse instructions into a structured list
-    const renderInstructions = (instructions: string) => {
-        if (!instructions) return null;
+    const renderInstructions = (instructions: InstructionStep[]) => {
+        if (!instructions || instructions.length === 0) return <p className="text-muted-foreground">No instructions provided.</p>;
 
-        const lines = instructions.split('\n').filter(line => line.trim() !== '');
-        
         return (
-            <ol className="list-decimal list-inside space-y-4 text-sm text-muted-foreground">
-                {lines.map((line, index) => {
-                    if (line.match(/^\d+\.\s/)) {
-                        // Main step (e.g., "1. Marinate the Chicken")
-                        return (
-                            <li key={index} className="pl-2 font-semibold text-foreground/90">
-                                {line.replace(/^\d+\.\s/, '')}
-                            </li>
-                        );
-                    } else if (line.trim().startsWith('*') || line.trim().startsWith('-')) {
-                        // Unordered list item within a step
-                         return (
-                            <ul key={index} className="list-disc list-inside pl-6">
-                                <li>{line.replace(/^[\*\-]\s*/, '')}</li>
-                            </ul>
-                        );
-                    }
-                    else {
-                        // Regular text within a step
-                        return <p key={index} className="pl-8 -mt-2">{line}</p>;
-                    }
-                })}
-            </ol>
+            <div className="space-y-4">
+                {instructions.map((step, index) => (
+                    <div key={index} className="p-4 bg-gray-50 border-l-4 border-primary rounded-r-lg">
+                        <h4 className="font-bold text-base text-primary mb-2">{step.title}</h4>
+                        <ul className="list-disc pl-5 space-y-2 text-sm text-gray-700">
+                            {step.actions.map((action, actionIndex) => (
+                                <li key={actionIndex}>{action}</li>
+                            ))}
+                        </ul>
+                    </div>
+                ))}
+            </div>
         );
     };
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-6">
             <div>
                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold">Ingredients</h4>
+                    <h4 className="font-semibold text-lg">Ingredients</h4>
                     <Button variant="ghost" size="icon" onClick={onCopyIngredients}>
                         <Copy className="h-4 w-4" />
                         <span className="sr-only">Copy Ingredients</span>
@@ -65,13 +51,13 @@ function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking, onCopyIngredi
                 </div>
                 <div className="flex flex-wrap gap-2">
                     {result.ingredients.map((ing, index) => (
-                        <Badge key={index} variant="secondary">{ing.name} - {ing.quantity}</Badge>
+                        <Badge key={index} variant="secondary" className="text-sm py-1 px-3">{ing.name} - {ing.quantity}</Badge>
                     ))}
                 </div>
             </div>
              <div>
                 <div className="flex items-center justify-between mb-2">
-                     <h4 className="font-semibold">Instructions</h4>
+                     <h4 className="font-semibold text-lg">Instructions</h4>
                      <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon" onClick={onCopyInstructions}>
                            <Copy className="h-4 w-4" />
@@ -82,11 +68,9 @@ function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking, onCopyIngredi
                         </Button>
                      </div>
                 </div>
-                <div className="prose prose-sm max-w-none">
-                    {renderInstructions(result.instructions)}
-                </div>
+                {renderInstructions(result.instructions)}
             </div>
-            <Button onClick={onAddToCart} className="w-full mt-4">
+            <Button onClick={onAddToCart} className="w-full mt-4" size="lg">
                 <ShoppingCart className="mr-2 h-4 w-4" />
                 Add All Available Ingredients to Cart
             </Button>
@@ -135,7 +119,7 @@ export function RecipeCard() {
                     setResult(response);
                     await cacheRecipe(firestore, dishName, lang, response);
                 } else {
-                     setResult({ isSuccess: false, ingredients: [], instructions: '', title: '' });
+                     setResult({ isSuccess: false, ingredients: [], instructions: [], title: '' });
                      toast({
                         variant: 'destructive',
                         title: 'Recipe Not Found',
@@ -187,11 +171,13 @@ export function RecipeCard() {
     const handleSpeakInstructions = () => {
         if (!result?.instructions) return;
 
+        const textToSpeak = result.instructions.map(step => `${step.title}. ${step.actions.join('. ')}`).join('\n\n');
+
         startSpeaking(() => {
             try {
                 if ('speechSynthesis' in window) {
                     window.speechSynthesis.cancel(); // Stop any previous speech
-                    const utterance = new SpeechSynthesisUtterance(result.instructions);
+                    const utterance = new SpeechSynthesisUtterance(textToSpeak);
                     utterance.lang = currentLanguage === 'te' ? 'te-IN' : 'en-IN';
                     
                     utterance.onend = () => {
@@ -225,7 +211,8 @@ export function RecipeCard() {
 
     const handleCopyInstructions = () => {
         if (!result?.instructions) return;
-        handleCopy(result.instructions, 'Instructions');
+        const instructionsText = result.instructions.map(step => `${step.title}\n- ${step.actions.join('\n- ')}`).join('\n\n');
+        handleCopy(instructionsText, 'Instructions');
     };
 
     return (
@@ -260,7 +247,7 @@ export function RecipeCard() {
                         {result.isSuccess ? (
                             <Tabs defaultValue="en" value={currentLanguage} onValueChange={(value) => handleGetIngredients(value as 'en' | 'te')}>
                                 <div className="flex justify-between items-center mb-2">
-                                     <h3 className="font-bold text-lg">{result.title}</h3>
+                                     <h3 className="font-bold text-xl">{result.title}</h3>
                                      <TabsList>
                                         <TabsTrigger value="en">English</TabsTrigger>
                                         <TabsTrigger value="te">తెలుగు</TabsTrigger>

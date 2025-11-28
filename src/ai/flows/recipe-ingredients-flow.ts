@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI flow to get a list of ingredients for a recipe.
@@ -22,10 +23,16 @@ const IngredientSchema = z.object({
     quantity: z.string().describe('The quantity required for the ingredient (e.g., "1kg", "2 cups").'),
 });
 
+// NEW: Schema for a single instruction step
+const InstructionStepSchema = z.object({
+    title: z.string().describe("The numbered heading for this step (e.g., '1. Marinate the Chicken')."),
+    actions: z.array(z.string()).describe("A list of bullet-point actions for this step."),
+});
+
 const GetIngredientsOutputSchema = z.object({
     isSuccess: z.boolean().describe("Whether the ingredients were found successfully."),
     ingredients: z.array(IngredientSchema).describe('A list of ingredients with their quantities.'),
-    instructions: z.string().describe("The step-by-step cooking instructions for the dish."),
+    instructions: z.array(InstructionStepSchema).describe("An array of step-by-step cooking instructions."), // UPDATED
     title: z.string().describe("The official name of the dish in the requested language."),
 });
 export type GetIngredientsOutput = z.infer<typeof GetIngredientsOutputSchema>;
@@ -44,9 +51,9 @@ const prompt = ai.definePrompt({
 Dish: "{{dishName}}"
 
 Provide the following in the user's requested language of '{{language}}':
-1. A list of all main ingredients with their specific quantities (e.g., "1 kg", "2 cups", "500 grams").
-2. The complete, step-by-step cooking instructions.
-3. The official title of the dish.
+1.  **ingredients**: A list of all main ingredients with their specific quantities (e.g., "1 kg", "2 cups", "500 grams").
+2.  **instructions**: A structured array of the complete, step-by-step cooking instructions. Each object in the array should represent one main step and have a 'title' (e.g., "1. Prepare the Rice") and an array of 'actions' for that step.
+3.  **title**: The official title of the dish.
 
 If you do not know the recipe or it is not a food item, set isSuccess to false and return empty arrays and strings.`,
 });
@@ -62,7 +69,7 @@ const getIngredientsFlow = ai.defineFlow(
     const { output } = await prompt(input);
 
     if (!output) {
-        return { isSuccess: false, ingredients: [], instructions: '', title: '' };
+        return { isSuccess: false, ingredients: [], instructions: [], title: '' };
     }
     
     return output;

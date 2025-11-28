@@ -1,5 +1,4 @@
 
-
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -148,10 +147,16 @@ export interface Ingredient {
     quantity: string;
 }
 
+// NEW: Structured instruction step
+export interface InstructionStep {
+    title: string;
+    actions: string[];
+}
+
 export interface GetIngredientsOutput {
     isSuccess: boolean;
     ingredients: Ingredient[];
-    instructions: string;
+    instructions: InstructionStep[]; // UPDATED from string to structured array
     title: string;
 }
 
@@ -159,7 +164,7 @@ export type CachedRecipe = {
     id: string;
     dishName: string;
     ingredients: Ingredient[];
-    instructions: string;
+    instructions: InstructionStep[]; // UPDATED from string to structured array
     createdAt: any; // Allow serverTimestamp
 }
 
