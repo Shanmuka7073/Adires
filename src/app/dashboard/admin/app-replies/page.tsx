@@ -217,7 +217,6 @@ export default function AppRepliesPage() {
                 await batch.commit();
                 toast({ title: 'Success!', description: 'App replies have been updated in the database.' });
                 
-                // **THE FIX**: Force a re-fetch of all data from Firestore to overwrite the stale local cache.
                 await fetchInitialData(firestore);
                 toast({ title: 'Cache Updated!', description: 'Your local app data has been synchronized with the latest changes.' });
 

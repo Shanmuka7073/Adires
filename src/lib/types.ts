@@ -143,11 +143,23 @@ export type VoiceAliasGroup = {
     [key: string]: any; // To allow for language codes as keys (en, te, hi, etc.)
 };
 
+export interface Ingredient {
+    name: string;
+    quantity: string;
+}
+
+export interface GetIngredientsOutput {
+    isSuccess: boolean;
+    ingredients: Ingredient[];
+    instructions: string;
+    title: string;
+}
 
 export type CachedRecipe = {
     id: string;
     dishName: string;
-    ingredients: string[];
+    ingredients: Ingredient[];
+    instructions: string;
     createdAt: any; // Allow serverTimestamp
 }
 

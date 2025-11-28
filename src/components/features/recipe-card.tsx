@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition } from 'react';
@@ -15,6 +14,8 @@ import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { Badge } from '../ui/badge';
 import { Alert, AlertTitle, AlertDescription } from '../ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useFirebase } from '@/firebase';
+import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 
 export function RecipeCard() {
     const { toast } = useToast();
@@ -23,6 +24,7 @@ export function RecipeCard() {
     const [dishName, setDishName] = useState('');
     const [result, setResult] = useState<GetIngredientsOutput | null>(null);
     const [currentLanguage, setCurrentLanguage] = useState<'en' | 'te'>('en');
+    const { firestore } = useFirebase();
 
     const { masterProducts, productPrices } = useAppStore();
     const { addItem } = useCart();
@@ -37,6 +39,17 @@ export function RecipeCard() {
         setResult(null);
         startGeneration(async () => {
             try {
+                if (!firestore) throw new Error("Firestore not available");
+
+                // Step 1: Check cache first
+                const cached = await getCachedRecipe(firestore, dishName, lang);
+                if (cached) {
+                    setResult(cached);
+                    toast({ title: 'Recipe Loaded from Cache!', description: 'This recipe was instantly loaded from our database.' });
+                    return;
+                }
+
+                // Step 2: If not in cache, call AI
                 const response = await getIngredientsForDish({
                     dishName: dishName,
                     language: lang,
@@ -44,6 +57,10 @@ export function RecipeCard() {
 
                 if (response.isSuccess && response.ingredients.length > 0) {
                     setResult(response);
+                    
+                    // Step 3: Cache the new result in Firestore
+                    await cacheRecipe(firestore, dishName, lang, response);
+
                 } else {
                      setResult({ isSuccess: false, ingredients: [], instructions: '', title: '' });
                      toast({
@@ -143,7 +160,7 @@ export function RecipeCard() {
                  {result && (
                     <div className="border-t pt-4">
                         {result.isSuccess ? (
-                            <Tabs defaultValue="ingredients" onValueChange={(value) => handleGetIngredients(value as 'en' | 'te')}>
+                            <Tabs defaultValue="en" onValueChange={(value) => handleGetIngredients(value as 'en' | 'te')}>
                                 <div className="flex justify-between items-center mb-2">
                                      <h3 className="font-bold text-lg">{result.title}</h3>
                                      <TabsList>
@@ -151,10 +168,7 @@ export function RecipeCard() {
                                         <TabsTrigger value="te">తెలుగు</TabsTrigger>
                                     </TabsList>
                                 </div>
-                                <TabsContent value="en" className="space-y-4">
-                                   <RecipeContent result={result} onAddToCart={handleAddAllToCart} onSpeak={handleSpeakInstructions} isSpeaking={isSpeaking} />
-                                </TabsContent>
-                                 <TabsContent value="te" className="space-y-4">
+                                <TabsContent value={currentLanguage}>
                                    <RecipeContent result={result} onAddToCart={handleAddAllToCart} onSpeak={handleSpeakInstructions} isSpeaking={isSpeaking} />
                                 </TabsContent>
                             </Tabs>
@@ -177,7 +191,7 @@ export function RecipeCard() {
 
 function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking }: { result: GetIngredientsOutput, onAddToCart: () => void, onSpeak: () => void, isSpeaking: boolean }) {
     return (
-        <>
+        <div className="space-y-4">
             <div>
                 <h4 className="font-semibold mb-2">Ingredients</h4>
                 <div className="flex flex-wrap gap-2">
@@ -201,6 +215,6 @@ function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking }: { result: G
                 <ShoppingCart className="mr-2 h-4 w-4" />
                 Add All Available Ingredients to Cart
             </Button>
-        </>
+        </div>
     )
 }
