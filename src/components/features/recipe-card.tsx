@@ -30,7 +30,6 @@ function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking }: { result: G
             <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
                 {steps.map((step, index) => (
                     <li key={index} className="pl-2">
-                        {/* Remove the leading number and period from the original string */}
                         {step.replace(/^\d+\.\s*/, '')}
                     </li>
                 ))}
