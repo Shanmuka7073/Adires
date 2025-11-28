@@ -16,6 +16,38 @@ import { Alert, AlertTitle, AlertDescription } from '../ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useFirebase } from '@/firebase';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
+import { Ingredient } from '@/lib/types';
+
+function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking }: { result: GetIngredientsOutput, onAddToCart: () => void, onSpeak: () => void, isSpeaking: boolean }) {
+    return (
+        <div className="space-y-4">
+            <div>
+                <h4 className="font-semibold mb-2">Ingredients</h4>
+                <div className="flex flex-wrap gap-2">
+                    {result.ingredients.map((ing, index) => (
+                        <Badge key={index} variant="secondary">{ing.name} - {ing.quantity}</Badge>
+                    ))}
+                </div>
+            </div>
+             <div>
+                <div className="flex items-center justify-between mb-2">
+                     <h4 className="font-semibold">Instructions</h4>
+                     <Button variant="ghost" size="icon" onClick={onSpeak} disabled={isSpeaking}>
+                        {isSpeaking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Volume2 className="h-4 w-4" />}
+                     </Button>
+                </div>
+                <div className="prose prose-sm max-w-none text-sm text-muted-foreground whitespace-pre-wrap">
+                    {result.instructions}
+                </div>
+            </div>
+            <Button onClick={onAddToCart} className="w-full mt-4">
+                <ShoppingCart className="mr-2 h-4 w-4" />
+                Add All Available Ingredients to Cart
+            </Button>
+        </div>
+    )
+}
+
 
 export function RecipeCard() {
     const { toast } = useToast();
@@ -29,7 +61,7 @@ export function RecipeCard() {
     const { masterProducts, productPrices } = useAppStore();
     const { addItem } = useCart();
     
-    const handleGetIngredients = async (lang: 'en' | 'te' = 'en') => {
+    const handleGetIngredients = async (lang: 'en' | 'te' = currentLanguage) => {
         if (!dishName.trim()) {
             toast({ variant: 'destructive', title: 'Please enter a dish name.' });
             return;
@@ -41,7 +73,6 @@ export function RecipeCard() {
             try {
                 if (!firestore) throw new Error("Firestore not available");
 
-                // Step 1: Check cache first
                 const cached = await getCachedRecipe(firestore, dishName, lang);
                 if (cached) {
                     setResult(cached);
@@ -49,7 +80,6 @@ export function RecipeCard() {
                     return;
                 }
 
-                // Step 2: If not in cache, call AI
                 const response = await getIngredientsForDish({
                     dishName: dishName,
                     language: lang,
@@ -57,10 +87,7 @@ export function RecipeCard() {
 
                 if (response.isSuccess && response.ingredients.length > 0) {
                     setResult(response);
-                    
-                    // Step 3: Cache the new result in Firestore
                     await cacheRecipe(firestore, dishName, lang, response);
-
                 } else {
                      setResult({ isSuccess: false, ingredients: [], instructions: '', title: '' });
                      toast({
@@ -85,17 +112,17 @@ export function RecipeCard() {
 
         let itemsAdded = 0;
         
-        result.ingredients.forEach(ingredient => {
-            let bestMatch = { product: null, score: 0 };
+        result.ingredients.forEach((ingredient: Ingredient) => {
+            let bestMatch: { product: any, score: number } | null = null;
 
             masterProducts.forEach(product => {
                 const similarity = calculateSimilarity(ingredient.name.toLowerCase(), product.name.toLowerCase());
-                if (similarity > bestMatch.score) {
+                if (!bestMatch || similarity > bestMatch.score) {
                     bestMatch = { product, score: similarity };
                 }
             });
 
-            if (bestMatch.product && bestMatch.score > 0.7) {
+            if (bestMatch && bestMatch.score > 0.7) {
                 const priceData = productPrices[bestMatch.product.name.toLowerCase()];
                 if (priceData?.variants?.[0]) {
                     const smallestVariant = priceData.variants[0];
@@ -160,7 +187,7 @@ export function RecipeCard() {
                  {result && (
                     <div className="border-t pt-4">
                         {result.isSuccess ? (
-                            <Tabs defaultValue="en" onValueChange={(value) => handleGetIngredients(value as 'en' | 'te')}>
+                            <Tabs defaultValue="en" value={currentLanguage} onValueChange={(value) => handleGetIngredients(value as 'en' | 'te')}>
                                 <div className="flex justify-between items-center mb-2">
                                      <h3 className="font-bold text-lg">{result.title}</h3>
                                      <TabsList>
@@ -186,35 +213,4 @@ export function RecipeCard() {
             </CardContent>
         </Card>
     );
-}
-
-
-function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking }: { result: GetIngredientsOutput, onAddToCart: () => void, onSpeak: () => void, isSpeaking: boolean }) {
-    return (
-        <div className="space-y-4">
-            <div>
-                <h4 className="font-semibold mb-2">Ingredients</h4>
-                <div className="flex flex-wrap gap-2">
-                    {result.ingredients.map((ing, index) => (
-                        <Badge key={index} variant="secondary">{ing.name} - {ing.quantity}</Badge>
-                    ))}
-                </div>
-            </div>
-             <div>
-                <div className="flex items-center justify-between mb-2">
-                     <h4 className="font-semibold">Instructions</h4>
-                     <Button variant="ghost" size="icon" onClick={onSpeak} disabled={isSpeaking}>
-                        {isSpeaking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Volume2 className="h-4 w-4" />}
-                     </Button>
-                </div>
-                <div className="prose prose-sm max-w-none text-sm text-muted-foreground whitespace-pre-wrap">
-                    {result.instructions}
-                </div>
-            </div>
-            <Button onClick={onAddToCart} className="w-full mt-4">
-                <ShoppingCart className="mr-2 h-4 w-4" />
-                Add All Available Ingredients to Cart
-            </Button>
-        </div>
-    )
 }

@@ -227,13 +227,6 @@
         "deliveryPartnerId": {
             "type": "string",
             "description": "The ID of the user who is assigned to deliver this order."
-        },
-        "items": {
-          "type": "array",
-          "description": "A list of items included in the order.",
-          "items": {
-            "$ref": "#/entities/OrderItem"
-          }
         }
       },
       "required": [
@@ -243,8 +236,7 @@
         "orderDate",
         "totalAmount",
         "status",
-        "deliveryAddress",
-        "items"
+        "deliveryAddress"
       ]
     },
     "VoiceOrder": {
@@ -298,6 +290,14 @@
       "type": "object",
       "description": "Represents an item within an order, pointing to a specific product variant.",
       "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the OrderItem entity."
+        },
+        "orderId": {
+          "type": "string",
+          "description": "Reference to Order. (Relationship: Order 1:N OrderItem)"
+        },
         "productId": {
           "type": "string",
           "description": "Reference to the base Product."
@@ -324,8 +324,9 @@
         }
       },
       "required": [
+        "id",
+        "orderId",
         "productId",
-        "productName",
         "variantSku",
         "variantWeight",
         "quantity",
@@ -435,9 +436,13 @@
         "ingredients": {
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/entities/Ingredient"
           },
           "description": "The list of ingredients for the dish."
+        },
+        "instructions": {
+            "type": "string",
+            "description": "The cooking instructions for the dish."
         },
         "createdAt": {
           "type": "string",
@@ -445,7 +450,16 @@
           "description": "The timestamp when the recipe was cached."
         }
       },
-      "required": ["id", "dishName", "ingredients", "createdAt"]
+      "required": ["id", "dishName", "ingredients", "instructions", "createdAt"]
+    },
+    "Ingredient": {
+        "title": "Ingredient",
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "quantity": {"type": "string"}
+        },
+        "required": ["name", "quantity"]
     },
     "CachedAIResponse": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -728,6 +742,21 @@
         }
       },
       "required": ["userId", "voiceprint", "createdAt"]
+    },
+    "NluExtractedSentence": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "NLU Extracted Sentence",
+      "type": "object",
+      "description": "Represents a sentence extracted from a document for NLU rule generation.",
+      "properties": {
+        "id": { "type": "string" },
+        "rawText": { "type": "string" },
+        "extractedNumbers": { "type": "array" },
+        "confidence": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "rawText", "status", "createdAt"]
     }
   },
   "auth": {
@@ -837,6 +866,26 @@
             {
               "name": "voiceOrderId",
               "description": "The unique identifier of the voice order."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/orders/{orderId}/orderItems/{orderItemId}",
+        "definition": {
+          "entityName": "OrderItem",
+          "schema": {
+            "$ref": "#/backend/entities/OrderItem"
+          },
+          "description": "Stores order item information for each order. Includes denormalized 'orderId' for authorization independence.",
+          "params": [
+            {
+              "name": "orderId",
+              "description": "The unique identifier of the order."
+            },
+            {
+              "name": "orderItemId",
+              "description": "The unique identifier of the order item."
             }
           ]
         }
@@ -1024,7 +1073,17 @@
             }
           ]
         }
+      },
+      {
+        "path": "/nlu_extracted_sentences/{sentenceId}",
+        "definition": {
+          "entityName": "NluExtractedSentence",
+          "schema": { "$ref": "#/entities/NluExtractedSentence" },
+          "description": "Stores sentences extracted from documents for NLU rule training.",
+          "params": [{ "name": "sentenceId" }]
+        }
       }
     ]
   }
 }
+
