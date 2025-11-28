@@ -30,6 +30,7 @@ export interface AppState {
   commands: Record<string, CommandGroup>;
   loading: boolean;
   isInitialized: boolean;
+  appReady: boolean; // Flag to indicate if the app is ready to be shown
   error: Error | null;
   language: string;
   setLanguage: (lang: string) => void;
@@ -40,6 +41,7 @@ export interface AppState {
   setLocales: (newLocales: Locales) => void;
   setCommands: (newCommands: Record<string, CommandGroup>) => void;
   setActiveStoreId: (storeId: string | null) => void;
+  setAppReady: (isReady: boolean) => void; // Setter for the app ready flag
 }
 
 const getInitialLanguage = (): string => {
@@ -60,6 +62,7 @@ export const useAppStore = create<AppState>()(
       commands: {},
       loading: false,
       isInitialized: false,
+      appReady: false,
       error: null,
       language: getInitialLanguage(),
 
@@ -79,6 +82,8 @@ export const useAppStore = create<AppState>()(
             set({ activeStoreId });
           }
       },
+      
+      setAppReady: (isReady: boolean) => set({ appReady: isReady }),
 
       fetchInitialData: async (db: Firestore) => {
         if (get().loading || get().isInitialized) return; 
@@ -184,14 +189,22 @@ export const useAppStore = create<AppState>()(
 
 export const useInitializeApp = () => {
     const { firestore, user } = useFirebase();
-    const { fetchInitialData, isInitialized, loading } = useAppStore();
+    const { fetchInitialData, isInitialized, loading, setAppReady } = useAppStore();
 
     useEffect(() => {
         if (firestore && user && !isInitialized && !loading) {
-            fetchInitialData(firestore);
+            fetchInitialData(firestore).then(() => {
+                // Once all initial data is fetched, set the app as ready
+                setAppReady(true);
+            });
+        } else if (isInitialized) {
+            // If data is already initialized (e.g., from persisted state), set ready
+            setAppReady(true);
         }
-    }, [firestore, user, isInitialized, loading, fetchInitialData]);
+    }, [firestore, user, isInitialized, loading, fetchInitialData, setAppReady]);
 
+    // This hook now also implicitly controls the readiness state.
+    // The loading state can still be used for finer-grained spinners within the app.
     return { isLoading: !isInitialized && loading };
 };
 
