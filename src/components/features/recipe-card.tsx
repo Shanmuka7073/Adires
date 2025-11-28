@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { ChefHat, Loader2, Sparkles, ShoppingCart, AlertCircle, Search, Volume2 } from 'lucide-react';
+import { ChefHat, Loader2, Sparkles, ShoppingCart, AlertCircle, Search, Volume2, Copy } from 'lucide-react';
 import { getIngredientsForDish, GetIngredientsOutput } from '@/ai/flows/recipe-ingredients-flow';
 import { useAppStore } from '@/lib/store';
 import { useCart } from '@/lib/cart';
@@ -18,7 +18,7 @@ import { useFirebase } from '@/firebase';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { Ingredient } from '@/lib/types';
 
-function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking }: { result: GetIngredientsOutput, onAddToCart: () => void, onSpeak: () => void, isSpeaking: boolean }) {
+function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking, onCopyIngredients, onCopyInstructions }: { result: GetIngredientsOutput, onAddToCart: () => void, onSpeak: () => void, isSpeaking: boolean, onCopyIngredients: () => void, onCopyInstructions: () => void }) {
     
     // Helper function to parse instructions into list items
     const renderInstructions = (instructions: string) => {
@@ -30,7 +30,7 @@ function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking }: { result: G
             <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
                 {steps.map((step, index) => (
                     <li key={index} className="pl-2">
-                        {step.replace(/^\d+\.\s*/, '')}
+                        {step}
                     </li>
                 ))}
             </ol>
@@ -40,7 +40,13 @@ function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking }: { result: G
     return (
         <div className="space-y-4">
             <div>
-                <h4 className="font-semibold mb-2">Ingredients</h4>
+                 <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold">Ingredients</h4>
+                    <Button variant="ghost" size="icon" onClick={onCopyIngredients}>
+                        <Copy className="h-4 w-4" />
+                        <span className="sr-only">Copy Ingredients</span>
+                    </Button>
+                </div>
                 <div className="flex flex-wrap gap-2">
                     {result.ingredients.map((ing, index) => (
                         <Badge key={index} variant="secondary">{ing.name} - {ing.quantity}</Badge>
@@ -50,9 +56,15 @@ function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking }: { result: G
              <div>
                 <div className="flex items-center justify-between mb-2">
                      <h4 className="font-semibold">Instructions</h4>
-                     <Button variant="ghost" size="icon" onClick={onSpeak} disabled={isSpeaking}>
-                        {isSpeaking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Volume2 className="h-4 w-4" />}
-                     </Button>
+                     <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" onClick={onCopyInstructions}>
+                           <Copy className="h-4 w-4" />
+                           <span className="sr-only">Copy Instructions</span>
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={onSpeak} disabled={isSpeaking}>
+                            {isSpeaking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Volume2 className="h-4 w-4" />}
+                        </Button>
+                     </div>
                 </div>
                 <div className="prose prose-sm max-w-none">
                     {renderInstructions(result.instructions)}
@@ -180,6 +192,25 @@ export function RecipeCard() {
             }
         });
     };
+    
+    const handleCopy = (textToCopy: string, type: 'Ingredients' | 'Instructions') => {
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            toast({ title: `${type} Copied!`, description: `The ${type.toLowerCase()} have been copied to your clipboard.` });
+        }).catch(err => {
+            toast({ variant: 'destructive', title: 'Copy Failed', description: 'Could not copy text to clipboard.' });
+        });
+    };
+
+    const handleCopyIngredients = () => {
+        if (!result?.ingredients) return;
+        const ingredientsText = result.ingredients.map(ing => `${ing.name} - ${ing.quantity}`).join('\n');
+        handleCopy(ingredientsText, 'Ingredients');
+    };
+
+    const handleCopyInstructions = () => {
+        if (!result?.instructions) return;
+        handleCopy(result.instructions, 'Instructions');
+    };
 
     return (
         <Card className="bg-gradient-to-br from-green-50 to-blue-50">
@@ -220,7 +251,14 @@ export function RecipeCard() {
                                     </TabsList>
                                 </div>
                                 <TabsContent value={currentLanguage}>
-                                   <RecipeContent result={result} onAddToCart={handleAddAllToCart} onSpeak={handleSpeakInstructions} isSpeaking={isSpeaking} />
+                                   <RecipeContent 
+                                        result={result} 
+                                        onAddToCart={handleAddAllToCart} 
+                                        onSpeak={handleSpeakInstructions} 
+                                        isSpeaking={isSpeaking}
+                                        onCopyIngredients={handleCopyIngredients}
+                                        onCopyInstructions={handleCopyInstructions}
+                                    />
                                 </TabsContent>
                             </Tabs>
                         ) : (
