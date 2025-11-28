@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy, Upload, MessageSquare, Image as ImageIcon, Home, Lightbulb, Binary, TestTube, Cog, Share2, Monitor } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy, Upload, MessageSquare, ImageIcon, Home, Lightbulb, Binary, TestTube, Cog, Share2, Monitor } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -650,12 +650,6 @@ export default function AdminDashboardPage() {
                         description="Test how the new deterministic number engine parses sentences."
                         href="/dashboard/admin/number-engine-demo"
                         icon={Binary}
-                    />
-                    <AdminActionCard
-                        title="NLU Training Dashboard"
-                        description="Upload PDFs and approve or reject grammar rules to train the NLU engine."
-                        href="/dashboard/admin/nlu-dashboard"
-                        icon={Cog}
                     />
                     <AdminActionCard
                         title="Number Engine Tester"
