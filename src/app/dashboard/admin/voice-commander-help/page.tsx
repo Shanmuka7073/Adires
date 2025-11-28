@@ -91,7 +91,7 @@ export default function VoiceCommanderHelpPage() {
                                     <CardHeader>
                                         <CardTitle>Explanation of Changes</CardTitle>
                                     </CardHeader>
-                                    <CardContent className="prose prose-sm max-w-none dark:prose-invert">
+                                    <CardContent className="space-y-2 text-sm text-foreground">
                                         <p>{suggestion.explanation}</p>
                                     </CardContent>
                                  </Card>
