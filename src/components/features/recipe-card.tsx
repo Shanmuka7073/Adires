@@ -44,7 +44,7 @@ function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking, onCopyIngredi
     
     const findProductForIngredient = (ingredient: Ingredient): { product: Product, variant: ProductVariant }[] => {
         // Simple "first word" matching strategy as requested.
-        const firstWord = ingredient.name.split(/[\s,-(]/)[0].toLowerCase();
+        const firstWord = ingredient.name.split(/[\s,()]+/)[0].toLowerCase();
         
         const matches: { product: Product, score: number }[] = [];
 
@@ -123,7 +123,7 @@ function RecipeContent({ result, onAddToCart, onSpeak, isSpeaking, onCopyIngredi
 
     const renderInstructions = (instructions: InstructionStep[]) => {
         if (!instructions || instructions.length === 0) return <p className="text-muted-foreground">No instructions provided.</p>;
-        // ... (instruction rendering logic remains the same)
+        
         return (
             <ol className="space-y-4">
                 {instructions.map((step, index) => {
@@ -287,7 +287,7 @@ export function RecipeCard() {
         let itemsAdded = 0;
         
         selectedIngredients.forEach((ingredient) => {
-            const firstWord = ingredient.name.split(/[\s,-(]/)[0].toLowerCase();
+            const firstWord = ingredient.name.split(/[\s,()]+/)[0].toLowerCase();
             let bestMatch: { product: Product, score: number } | null = null;
             
             masterProducts.forEach(product => {
