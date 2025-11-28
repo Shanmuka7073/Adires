@@ -74,7 +74,7 @@ type Intent =
 
 const intentKeywords = {
   SMART_ORDER: ['order', 'buy', 'get', 'send'],
-  CHECK_PRICE: ['price of', 'cost of', 'how much for', 'rate for', 'ధర', 'రేటు'],
+  CHECK_PRICE: ['price of', 'cost of', 'how much for', 'rate for', 'ధర', 'రేటు', 'find'],
   ORDER_ITEM: ['order', 'add', 'buy', 'get', 'send', 'నాకు', 'కావాలి'],
   REMOVE_ITEM: ['remove', 'delete', 'take out', 'తీసివేయి', 'తొలగించు'],
   NAVIGATE: ['go to', 'open', 'show', 'వెళ్ళు', 'చూపించు'],
@@ -555,8 +555,7 @@ const findProductAndVariant = useCallback(
         };
         finalQty = 1;
     } else if (unit) {
-        const isVolume = ['ltr', 'ml'].includes(unit);
-        const baseVariant = isVolume
+        const baseVariant = isLiquidProduct
             ? priceData.variants.find(v => v.weight.includes('ltr')) || priceData.variants[0]
             : priceData.variants.find(v => v.weight.includes('kg')) || priceData.variants[0];
 
@@ -567,7 +566,7 @@ const findProductAndVariant = useCallback(
             let requestedSmallestUnit = 0;
             let finalUnitString = '';
 
-            if (isVolume) {
+            if (isLiquidProduct) {
                 const isBaseLtr = baseVariant.weight.includes('ltr');
                 pricePerSmallestUnit = baseVariant.price / (isBaseLtr ? baseUnitQty * 1000 : baseUnitQty);
                 requestedSmallestUnit = unit === 'ltr' ? finalQty * 1000 : finalQty;
@@ -591,7 +590,7 @@ const findProductAndVariant = useCallback(
         } else {
              return { product, variant: null, requestedQty: qty, remainingPhrase: productPhrase, matchedAlias, lang: detectedLang };
         }
-    } else { // Handle case with no unit, just a number or a piece
+    } else { // Handle case with no unit, just a number
         chosenVariant = priceData.variants.find(v => {
             const variantWeightMatch = v.weight.match(/(\d+\.?\d*)/);
             const variantWeight = variantWeightMatch ? parseFloat(variantWeightMatch[0]) : 0;
@@ -1143,11 +1142,11 @@ const findProductAndVariant = useCallback(
       const { product, lang: detectedLang } = await findProductAndVariant(phrase);
       const replyLang = detectedLang;
       const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
-      
+
       if (product) {
           const masterStoreId = stores.find(s => s.name === 'LocalBasket')?.id;
           if (masterStoreId) {
-            speak(`Okay, let's see about ${product.name}.`, langWithRegion, () => {
+            speak(`Okay, let's see about ${getProductName(product)}.`, langWithRegion, () => {
               router.push(`/stores/${masterStoreId}?category=${encodeURIComponent(product.category || '')}&highlight=${encodeURIComponent(product.name)}`);
             });
           } else {

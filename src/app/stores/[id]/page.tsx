@@ -1,17 +1,19 @@
 
 'use client';
 import { Store, Product, ProductPrice } from '@/lib/types';
-import { useParams, notFound } from 'next/navigation';
+import { useParams, notFound, useSearchParams } from 'next/navigation';
 import { useDoc, useMemoFirebase, useFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { CategoryClient } from './category-client';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAppStore } from '@/lib/store';
 
 export default function StoreDetailPage() {
   const { firestore } = useFirebase();
   const params = useParams();
+  const searchParams = useSearchParams();
+  const highlightProduct = searchParams.get('highlight');
   
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
 

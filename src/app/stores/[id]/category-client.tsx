@@ -138,6 +138,7 @@ export function CategoryClient({ store, allProducts, productPrices, isLoading }:
   const [selectedCategory, setSelectedCategory] = useState<string | null>(categoryFromUrl);
   const [searchTerm, setSearchTerm] = useState('');
   const { setActiveStoreId } = useCart();
+  const highlightedProductRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (store.id) {
@@ -156,6 +157,18 @@ export function CategoryClient({ store, allProducts, productPrices, isLoading }:
       setSelectedCategory(categories[0].name);
     }
   }, [categories, selectedCategory, categoryFromUrl]);
+  
+  // Effect to scroll to the highlighted product
+  useEffect(() => {
+    if (highlightProduct && highlightedProductRef.current) {
+        setTimeout(() => {
+            highlightedProductRef.current?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+            });
+        }, 300); // Small delay to ensure render is complete
+    }
+  }, [highlightProduct, filteredProducts]); // Rerun when highlightProduct or the list of products changes
 
   const handleSelectCategory = (categoryName: string) => {
     setSelectedCategory(categoryName);
@@ -215,7 +228,16 @@ export function CategoryClient({ store, allProducts, productPrices, isLoading }:
               ) : filteredProducts.length > 0 ? (
                 filteredProducts.map((product) => {
                   const priceData = productPrices[product.name.toLowerCase()];
-                  return <ProductCard key={product.id} product={product} priceData={priceData} />;
+                  const isHighlighted = product.name === highlightProduct;
+                  
+                  return (
+                    <div ref={isHighlighted ? highlightedProductRef : null} key={product.id}>
+                        <ProductCard 
+                            product={product} 
+                            priceData={priceData} 
+                        />
+                    </div>
+                  );
                 })
               ) : (
                 <p className="text-muted-foreground col-span-full">No products found matching your criteria.</p>
