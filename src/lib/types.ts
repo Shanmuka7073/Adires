@@ -164,7 +164,7 @@ export type CachedRecipe = {
     id: string;
     dishName: string;
     ingredients: Ingredient[];
-    instructions: InstructionStep[]; // UPDATED from string to structured array
+    instructions: InstructionStep[];
     createdAt: any; // Allow serverTimestamp
 }
 
