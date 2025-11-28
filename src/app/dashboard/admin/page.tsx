@@ -754,6 +754,12 @@ export default function AdminDashboardPage() {
                         icon={Home}
                     />
                     <AdminActionCard
+                        title="Global Loader Code"
+                        description="View the source code for the app's initial loading screen."
+                        href="/dashboard/admin/loader-help"
+                        icon={Loader2}
+                    />
+                    <AdminActionCard
                         title="Desktop Dashboard"
                         description="View a desktop-optimized product browsing dashboard."
                         href="/dashboard/desktop"
