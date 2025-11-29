@@ -765,12 +765,7 @@ export default function AdminDashboardPage() {
                         href="/shockwave"
                         icon={Drama}
                     />
-                    <AdminActionCard
-                        title="Virtual Market"
-                        description="A working 3D virtual supermarket demo."
-                        href="/virtual-market"
-                        icon={Drama}
-                    />
+                    
                 </div>
             </div>
         </div>
