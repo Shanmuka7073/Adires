@@ -154,9 +154,9 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     }
   }
 
-  // 6) CLEANUP - remove standalone units
+  // 6) CLEANUP - remove standalone units and the word "of"
   text = text.replace(
-    /\b(kg|kilo|g|gm|grams|liter|litre|ltr|liters|litres|ml|milliliter|millilitre|pack|packet|pc|piece|pieces)\b/gi,
+    /\b(of|kg|kilo|g|gm|grams|liter|litre|ltr|liters|litres|ml|milliliter|millilitre|pack|packet|pc|piece|pieces)\b/gi,
     ""
   );
 

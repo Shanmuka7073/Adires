@@ -34,6 +34,13 @@ const homePageSections = [
         ]
     },
     {
+        title: 'Meat & Fish',
+        categories: [
+            { name: 'Chicken', imageHint: 'raw chicken', count: 0, bgColor: 'bg-red-50'},
+            { name: 'Meat & Fish', imageHint: 'fresh fish', count: 0, bgColor: 'bg-blue-50'},
+        ]
+    },
+    {
         title: 'Groceries & Kitchen',
         categories: [
             { name: 'Vegetables', imageHint: 'fresh vegetables', count: 0, bgColor: 'bg-green-50'},
@@ -42,13 +49,6 @@ const homePageSections = [
             { name: 'Oils & Ghee', imageHint: 'cooking oil', count: 0, bgColor: 'bg-yellow-50'},
             { name: 'Spices & Masalas', imageHint: 'spices masala', count: 0, bgColor: 'bg-red-50'},
             { name: 'Kitchen Essentials', imageHint: 'kitchen essentials', count: 0, bgColor: 'bg-gray-50'},
-        ]
-    },
-    {
-        title: 'Meat & Fish',
-        categories: [
-            { name: 'Chicken', imageHint: 'raw chicken', count: 0, bgColor: 'bg-red-50'},
-            { name: 'Meat & Fish', imageHint: 'fresh fish', count: 0, bgColor: 'bg-blue-50'},
         ]
     },
     {
@@ -230,9 +230,9 @@ function VoiceInstructions() {
             </CardHeader>
             <CardContent className="space-y-3">
                 <ul className="text-sm text-gray-700 list-disc pl-5 space-y-2">
-                    <li><span className="font-semibold">"Order 1 kilo of onions"</span></li>
-                    <li><span className="font-semibold">"What's the price of rice?"</span></li>
-                    <li><span className="font-semibold">"Go to my cart"</span></li>
+                    <li><span className="font-semibold">"order one kilo of onions"</span></li>
+                    <li><span className="font-semibold">"cost of tomatoes"</span></li>
+                    <li><span className="font-semibold">"go to my cart"</span></li>
                 </ul>
                  <Button onClick={onToggleVoice} className="w-full mt-2">
                     <Mic className="mr-2 h-4 w-4" /> Try It Now
