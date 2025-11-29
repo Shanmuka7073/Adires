@@ -9,7 +9,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
-import { Search, Menu as MenuIcon, Mic, ShoppingBag, Heart, Star, Briefcase, Sparkles, Lamp, Home as HomeIcon, LayoutGrid, ChevronDown, MapPin, User as UserCircle, Globe, ChefHat } from 'lucide-react';
+import { Search, Menu as MenuIcon, Mic, ShoppingBag, Heart, Star, Briefcase, Sparkles, Lamp, Home as HomeIcon, LayoutGrid, ChevronDown, MapPin, User as UserCircle, Globe, ChefHat, Lightbulb } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import ProductCard from '@/components/product-card';
@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { CartIcon } from '@/components/cart/cart-icon';
 import { RecipeCard } from '@/components/features/recipe-card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 
 const homePageSections = [
@@ -214,6 +215,33 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
     );
 }
 
+function VoiceInstructions() {
+    const { onToggleVoice } = useVoiceCommanderContext();
+    return (
+        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2 font-headline text-blue-800">
+                    <Lightbulb className="h-6 w-6" />
+                    How to use Voice
+                </CardTitle>
+                <CardDescription className="text-blue-700">
+                    Tap the microphone icon in the header and try saying one of these commands.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+                <ul className="text-sm text-gray-700 list-disc pl-5 space-y-2">
+                    <li><span className="font-semibold">"Order 1 kilo of onions"</span></li>
+                    <li><span className="font-semibold">"What's the price of rice?"</span></li>
+                    <li><span className="font-semibold">"Go to my cart"</span></li>
+                </ul>
+                 <Button onClick={onToggleVoice} className="w-full mt-2">
+                    <Mic className="mr-2 h-4 w-4" /> Try It Now
+                </Button>
+            </CardContent>
+        </Card>
+    );
+}
+
 
 /* ---------------- MAIN PAGE ---------------- */
 export default function LocalBasketHomepage() {
@@ -289,6 +317,8 @@ export default function LocalBasketHomepage() {
             <div className="rounded-lg overflow-hidden">
                 <Image src="https://i.ibb.co/ZQC3c3h/file-00000000f15871fab9942ef91d9c2021.png" alt="Promotional Banner" width={800} height={400} className="w-full h-auto" />
             </div>
+            
+            <VoiceInstructions />
 
             <RecipeCard />
             
