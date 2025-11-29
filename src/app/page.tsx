@@ -9,7 +9,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
-import { Search, Menu as MenuIcon, Mic, ShoppingBag, Heart, Star, Briefcase, Sparkles, Lamp, Home as HomeIcon, LayoutGrid, ChevronDown, MapPin, User as UserCircle, Globe, ChefHat, Lightbulb } from 'lucide-react';
+import { Search, Menu as MenuIcon, Mic, ShoppingBag, Heart, Star, Briefcase, Sparkles, Lamp, Home as HomeIcon, LayoutGrid, ChevronDown, MapPin, User as UserCircle, Globe, ChefHat, Lightbulb, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import ProductCard from '@/components/product-card';
@@ -20,6 +20,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadio
 import { CartIcon } from '@/components/cart/cart-icon';
 import { RecipeCard } from '@/components/features/recipe-card';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 
 const homePageSections = [
@@ -216,30 +217,37 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
 }
 
 function VoiceInstructions() {
-    const { onToggleVoice } = useVoiceCommanderContext();
     return (
         <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2 font-headline text-blue-800">
-                    <Lightbulb className="h-6 w-6" />
-                    How to use Voice
+                    <Info className="h-6 w-6" />
+                    How Commands Work
                 </CardTitle>
                 <CardDescription className="text-blue-700">
-                    Tap the microphone icon in the header and try saying one of these commands.
+                    Tap the microphone icon and say a command. Place orders in seconds.
                 </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-                <ul className="text-sm text-gray-700 list-disc pl-5 space-y-2">
-                    <li><span className="font-semibold">"one kg onions"</span></li>
-                    <li><span className="font-semibold">"cost of tomatoes"</span></li>
-                </ul>
-                 <Button onClick={onToggleVoice} className="w-full mt-2">
-                    <Mic className="mr-2 h-4 w-4" /> Try It Now
-                </Button>
+            <CardContent className="space-y-4">
+                <div className="space-y-3 text-sm">
+                    <div>
+                        <p className="font-semibold">For Smart Orders:</p>
+                        <p>Say <Badge>"Order one kg chicken to home"</Badge> to create and checkout an order in seconds.</p>
+                    </div>
+                    <div>
+                        <p className="font-semibold">To Add Items:</p>
+                        <p>Say <Badge>"one kg onions"</Badge> to add it directly to your cart.</p>
+                    </div>
+                    <div>
+                        <p className="font-semibold">To Check Prices:</p>
+                        <p>Say <Badge>"cost of tomato"</Badge> to see all available options.</p>
+                    </div>
+                </div>
             </CardContent>
         </Card>
     );
 }
+
 
 
 /* ---------------- MAIN PAGE ---------------- */
