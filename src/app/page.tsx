@@ -230,9 +230,8 @@ function VoiceInstructions() {
             </CardHeader>
             <CardContent className="space-y-3">
                 <ul className="text-sm text-gray-700 list-disc pl-5 space-y-2">
-                    <li><span className="font-semibold">"add one kilo of onions"</span></li>
+                    <li><span className="font-semibold">"one kg onions"</span></li>
                     <li><span className="font-semibold">"cost of tomatoes"</span></li>
-                    <li><span className="font-semibold">"go to my cart"</span></li>
                 </ul>
                  <Button onClick={onToggleVoice} className="w-full mt-2">
                     <Mic className="mr-2 h-4 w-4" /> Try It Now
