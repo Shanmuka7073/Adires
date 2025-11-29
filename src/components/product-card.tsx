@@ -18,9 +18,11 @@ interface ProductCardProps {
 
 export default function ProductCard({ product, priceData }: ProductCardProps) {
   const { cartItems, addItem, updateQuantity } = useCart();
+  // Always select the first variant for simplicity on the product card
   const priceInfo = priceData?.variants?.[0] ?? null;
   const [isFavorite, setIsFavorite] = useState(false);
 
+  // Find this specific item in the cart
   const itemInCart = cartItems.find(item => item.variant.sku === priceInfo?.sku);
 
   const handleAddToCart = () => {
@@ -44,7 +46,7 @@ export default function ProductCard({ product, priceData }: ProductCardProps) {
   const englishName = t(product.name.toLowerCase().replace(/ /g, '-'), 'en');
 
   return (
-    <div className="bg-white rounded-2xl shadow-md p-3 transition-all hover:shadow-lg flex flex-col mb-3">
+    <div className="bg-white rounded-2xl shadow-md p-3 transition-all hover:shadow-lg flex flex-col">
       <div className="w-full h-24 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center relative group">
         {product.imageUrl ? (
           <Image src={product.imageUrl} alt={product.name} width={320} height={320} className="object-cover w-full h-full" />
