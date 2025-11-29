@@ -670,20 +670,21 @@ const findProductAndVariant = useCallback(
 
 
     const handleCommandFailure = useCallback(async (commandText: string, spokenLang: string, reason: string) => {
-        const tempId = addUnidentifiedItem(commandText);
-
-        if (!firestore || !user) {
-            updateUnidentifiedItem(tempId, 'failed');
-            speak(t('sorry-i-didnt-understand-that', spokenLang), `${spokenLang}-IN`);
-            return;
+        // Immediately speak the learning message
+        speak("Sorry, I'm still learning. It will be remembered for next time.", `${spokenLang}-IN`);
+        
+        // Log the failure in the background
+        if (firestore && user) {
+            addDoc(collection(firestore, 'failedCommands'), {
+                userId: user.uid,
+                commandText,
+                language: spokenLang,
+                reason,
+                timestamp: serverTimestamp()
+            }).catch(e => console.error("Failed to log command failure:", e));
         }
 
-        // For now, we are disabling the AI auto-correction feature.
-        // We will log all failed commands for manual review.
-        addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp() });
-        updateUnidentifiedItem(tempId, 'failed');
-
-    }, [addUnidentifiedItem, updateUnidentifiedItem, firestore, user, speak, t]);
+    }, [firestore, user, speak]);
 
 
   const handleCommand = useCallback(async (commandText: string) => {
@@ -912,7 +913,9 @@ const findProductAndVariant = useCallback(
         case 'ORDER_ITEM': {
             const { product, variant, requestedQty, remainingPhrase, matchedAlias, lang } = await findProductAndVariant(commandText);
 
-            if (product && variant) {
+            // If a quantity/weight was specified, add directly to cart.
+            const nluResult = runNLU(commandText, language);
+            if (product && variant && (nluResult.quantity || nluResult.unit || nluResult.firstNumber)) {
                 const productWithContext = { ...product, matchedAlias: matchedAlias || commandText, isAiAssisted: !!matchedAlias };
                 addItemToCart(productWithContext, variant, requestedQty);
                 onOpenCart();
@@ -920,7 +923,17 @@ const findProductAndVariant = useCallback(
                 if (reply) {
                     speak(reply, langWithRegion);
                 }
-            } else {
+            } 
+            // If only a product name was said, navigate to its page.
+            else if (product) {
+                const masterStoreId = stores.find(s => s.name === 'LocalBasket')?.id;
+                if (masterStoreId) {
+                    speak(`Okay, showing details for ${getProductName(product)}.`, langWithRegion, () => {
+                        router.push(`/stores/${masterStoreId}?category=${encodeURIComponent(product.category || '')}&highlight=${encodeURIComponent(product.name)}`);
+                    });
+                }
+            }
+            else {
                 handleCommandFailure(commandText, spokenLang, `ORDER_ITEM intent failed. Product not found or no variants. Phrase: "${remainingPhrase}"`);
             }
             break;
@@ -1019,7 +1032,7 @@ const findProductAndVariant = useCallback(
         try {
             const result = await getIngredientsForDish({ dishName, language: replyLang });
             if (result.isSuccess && result.ingredients.length > 0) {
-                const ingredientsText = result.ingredients.join(', ');
+                const ingredientsText = result.ingredients.map(ing => ing.name).join(', ');
                 speak(`The main ingredients for ${dishName} are: ${ingredientsText}`, langWithRegion);
             } else {
                 speak(`I'm sorry, I couldn't find the ingredients for ${dishName}.`, langWithRegion);
