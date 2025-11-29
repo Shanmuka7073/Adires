@@ -230,7 +230,7 @@ function VoiceInstructions() {
             </CardHeader>
             <CardContent className="space-y-3">
                 <ul className="text-sm text-gray-700 list-disc pl-5 space-y-2">
-                    <li><span className="font-semibold">"order one kilo of onions"</span></li>
+                    <li><span className="font-semibold">"add one kilo of onions"</span></li>
                     <li><span className="font-semibold">"cost of tomatoes"</span></li>
                     <li><span className="font-semibold">"go to my cart"</span></li>
                 </ul>

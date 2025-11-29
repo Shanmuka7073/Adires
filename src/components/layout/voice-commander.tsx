@@ -75,7 +75,7 @@ type Intent =
 const intentKeywords = {
   SMART_ORDER: ['order', 'buy', 'get', 'send'],
   CHECK_PRICE: ['price of', 'cost of', 'how much for', 'rate for', 'ధర', 'రేటు', 'find'],
-  ORDER_ITEM: ['order', 'add', 'buy', 'get', 'send', 'నాకు', 'కావాలి'],
+  ORDER_ITEM: ['add', 'నాకు', 'కావాలి'],
   REMOVE_ITEM: ['remove', 'delete', 'take out', 'తీసివేయి', 'తొలగించు'],
   NAVIGATE: ['go to', 'open', 'show', 'వెళ్ళు', 'చూపించు'],
   CONVERSATIONAL: ['help', 'what can', 'who are you', 'how does'],
@@ -579,12 +579,12 @@ const findProductAndVariant = useCallback(
             };
         }
         finalQty = 1;
-    } else {
+    } else { // Handle case with no unit, just a number (e.g., "add 2 potatoes")
         chosenVariant = priceData.variants.find(v => {
             const variantWeightMatch = v.weight.match(/(\d+\.?\d*)/);
             const variantWeight = variantWeightMatch ? parseFloat(variantWeightMatch[0]) : 0;
             return variantWeight === finalQty;
-        }) || priceData.variants[0];
+        }) || priceData.variants[0]; // Fallback to first variant
     }
     
     return { product, variant: chosenVariant, requestedQty: finalQty, remainingPhrase: productPhrase, matchedAlias, lang: detectedLang };
@@ -598,13 +598,11 @@ const findProductAndVariant = useCallback(
     if (nlu.hasMath) {
         return { type: 'MATH', originalText: text, lang: spokenLang };
     }
-
-    const fromKeywords = ['from', 'at', 'in'];
+    
     const toKeywords = ['to', 'at'];
-    const hasFrom = fromKeywords.some(kw => lowerText.includes(` ${kw} `));
     const hasTo = toKeywords.some(kw => lowerText.includes(` ${kw} `));
 
-    if (intentKeywords.SMART_ORDER.some(kw => lowerText.startsWith(kw)) && hasFrom && hasTo) {
+    if (intentKeywords.SMART_ORDER.some(kw => lowerText.startsWith(kw)) && hasTo) {
         return { type: 'SMART_ORDER', originalText: text, lang: spokenLang };
     }
 
@@ -663,7 +661,8 @@ const findProductAndVariant = useCallback(
       }
       return { type: 'CONVERSATIONAL', commandKey: bestCommandMatch.key, originalText: text, lang: spokenLang };
     }
-
+    
+    // Fallback to ORDER_ITEM if no other intent matches
     return { type: 'ORDER_ITEM', originalText: text, lang: spokenLang };
 
   }, [commands, getAllAliases, language]);
@@ -1218,21 +1217,10 @@ const findProductAndVariant = useCallback(
     handleSmartOrder: async (text: string, lang: string) => {
         const replyLang = lang;
         const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
-        clearCart(); // Start with a fresh cart for a smart order
+        clearCart();
 
-        const fromKeywords = ['from', 'at', 'in'];
         const toKeywords = ['to', 'at'];
-
-        let fromIndex = -1;
-        let fromKeyword = '';
-        for (const kw of fromKeywords) {
-            const index = text.toLowerCase().lastIndexOf(` ${kw} `);
-            if (index > fromIndex) {
-                fromIndex = index;
-                fromKeyword = kw;
-            }
-        }
-
+        
         let toIndex = -1;
         let toKeyword = '';
         for (const kw of toKeywords) {
@@ -1243,13 +1231,12 @@ const findProductAndVariant = useCallback(
             }
         }
 
-        if (fromIndex === -1 || toIndex === -1) {
-            speak(t('could-not-find-product-in-order-speech', replyLang), langWithRegion);
-            return;
+        if (toIndex === -1) {
+             handleCommandFailure(text, lang, `Smart order failed: no 'to' destination found.`);
+             return;
         }
 
-        const productPhrase = text.substring(0, fromIndex).replace(/^(order|buy|get|send)\s+/i, '').trim();
-        const storePhrase = text.substring(fromIndex + fromKeyword.length + 1, toIndex).trim();
+        const productPhrase = text.substring(0, toIndex).replace(/^(order|buy|get|send)\s+/i, '').trim();
         const addressPhrase = text.substring(toIndex + toKeyword.length + 1).trim();
 
         // 1. Process Product
@@ -1258,24 +1245,14 @@ const findProductAndVariant = useCallback(
             speak(t('could-not-find-item-speech', replyLang).replace('{itemName}', productPhrase), langWithRegion);
             return;
         }
-
-        // 2. Process Store
-        let bestStoreMatch: Store | null = null;
-        let bestSimilarity = 0;
-        for (const [alias, store] of storeAliasMap.entries()) {
-            const similarity = calculateSimilarity(storePhrase.toLowerCase(), alias);
-            if (similarity > bestSimilarity) {
-                bestSimilarity = similarity;
-                bestStoreMatch = store;
-            }
-        }
-
-        if (!bestStoreMatch || bestSimilarity < 0.6) {
-            speak(t('could-not-identify-store-speech', replyLang), langWithRegion);
+        
+        const masterStore = stores.find(s => s.name === 'LocalBasket');
+        if (!masterStore) {
+            speak("I can't place orders right now, the main store is not configured.", langWithRegion);
             return;
         }
 
-        // 3. Process Address
+        // 2. Process Address
         const homeKeywords = getAllAliases('homeAddress')[lang] || ['home'];
         const locationKeywords = getAllAliases('currentLocation')[lang] || ['current', 'location'];
         const homeSimilarity = Math.max(...homeKeywords.map(kw => calculateSimilarity(addressPhrase.toLowerCase(), kw)));
@@ -1294,25 +1271,24 @@ const findProductAndVariant = useCallback(
         } else if (locationSimilarity > 0.7) {
             useCurrentLocation = true;
         } else {
-            // If it's not clearly home or current, set it to the raw phrase and let the user fix it.
             deliveryAddress = addressPhrase;
         }
 
-        // 4. Execute Actions
+        // 3. Execute Actions
         const speech = t('preparing-order-speech', replyLang)
             .replace('{items}', `${requestedQty} ${variant.weight} of ${getProductName(product)}`)
-            .replace('{storeName}', bestStoreMatch.name);
+            .replace('{storeName}', masterStore.name);
 
         speak(speech, langWithRegion, () => {
-            setIsWaitingForQuickOrderConfirmation(true); // Prevents checkout page from prompting
+            setIsWaitingForQuickOrderConfirmation(true);
             addItemToCart(product, variant, requestedQty);
-            setActiveStoreId(bestStoreMatch!.id);
+            setActiveStoreId(masterStore.id);
             if(useCurrentLocation) {
                 setShouldUseCurrentLocation(true);
             } else {
                 setHomeAddress(deliveryAddress);
             }
-            useCheckoutStore.getState().setShouldPlaceOrderDirectly(true); // Signal the checkout page to auto-submit
+            useCheckoutStore.getState().setShouldPlaceOrderDirectly(true);
             router.push('/checkout');
         });
     },

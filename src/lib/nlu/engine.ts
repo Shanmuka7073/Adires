@@ -64,13 +64,12 @@ export function runNLU(text: string, lang: string = "en"): NLUResult {
  * EXTRACT QUANTITY + PRODUCT
  */
 export function extractQuantityAndProduct(nlu: NLUResult) {
-  let qty = 1;
+  let qty = 1; // Default to 1
   let unit: string | null = null;
   let money: number | null = null;
 
   let text = nlu.cleanedText.toLowerCase();
 
-  // STRICT full-word regexes
   const moneyRegex =
     /\b(?:₹|rs|rupees|rupay|rupaya|रूपये|రూపాయల)\b\.?\s*(\d+\.?\d*)|\b(\d+\.?\d*)\s*(?:₹|rs|rupees|rupay|रूपये|రూపాయల)\b/i;
   const weightRegex =
@@ -78,33 +77,18 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
   const volumeRegex =
     /\b(\d+\.?\d*)\s*\b(liter|litre|liters|litres|ltr|l|ml|milliliter|millilitre)\b/i;
   const pieceRegex = /\b(\d+)\s*\b(pack|packet|pc|piece|pieces)\b/i;
+  
+  // New: Regex for units without an explicit number (e.g., "kg", "liter")
+  const unitOnlyRegex = /\b(kg|kilo|kilogram|grams|gram|gm|g|gms|liter|litre|ltr|l|ml|pc|piece|pieces|pack|packet)\b/i;
 
   const fractionWords: Record<string, number> = {
-    "one and a half": 1.5,
-    "one and half": 1.5,
-    "half": 0.5,
-    "1/2": 0.5,
-    "one half": 0.5,
-    "quarter": 0.25,
-    "one quarter": 0.25,
-    "1/4": 0.25,
-    "three fourths": 0.75,
-    "three quarters": 0.75,
-    "3/4": 0.75,
-
-    "ఒకటిన్నర": 1.5,
-    "సగం": 0.5,
-    "అర": 0.5,
-    "పావు": 0.25,
-    "మూడొంతులు": 0.75,
-    
-    "डेढ़": 1.5,
-    "आधा": 0.5,
-    "पाव": 0.25,
-    "तीन चौथाई": 0.75,
+    "one and a half": 1.5, "one and half": 1.5, "half": 0.5, "1/2": 0.5, "one half": 0.5,
+    "quarter": 0.25, "1/4": 0.25, "one quarter": 0.25,
+    "three fourths": 0.75, "three quarters": 0.75, "3/4": 0.75,
+    "ఒకటిన్నర": 1.5, "సగం": 0.5, "అర": 0.5, "పావు": 0.25, "మూడొంతులు": 0.75,
+    "डेढ़": 1.5, "आधा": 0.5, "पाव": 0.25, "तीन चौथाई": 0.75,
   };
-  
-  // List of common liquid products
+
   const liquidKeywords = ['oil', 'milk', 'water', 'juice', 'ghee', 'sauce', 'vinegar'];
 
   let match;
@@ -134,33 +118,40 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     unit = "pc";
     text = text.replace(match[0], "").trim();
   }
-  // 5) FRACTIONS & COMPOUND NUMBERS (e.g., "one and half")
+  // 5) FRACTIONS & COMPOUND NUMBERS
   else {
     let fractionFound = false;
     for (const key in fractionWords) {
       if (text.includes(key)) {
         qty = fractionWords[key];
         text = text.replace(key, "").trim();
-
-        // **FIX**: Check for explicit or implicit unit
         if (/\b(liter|litre|ltr|liters|litres|ml)\b/.test(text) || liquidKeywords.some(lk => text.includes(lk))) {
           unit = 'ltr';
         } else {
-          unit = 'kg'; // Default to kg for everything else
+          unit = 'kg';
         }
         fractionFound = true;
         break;
       }
     }
+    
+    // 6) UNIT ONLY (e.g., "kg chicken") -> implies quantity of 1
+    if (!fractionFound && (match = text.match(unitOnlyRegex))) {
+        qty = 1;
+        const u = match[1].toLowerCase();
+        if (u.startsWith('k')) unit = 'kg';
+        else if (u.startsWith('g')) unit = 'gm';
+        else if (u.startsWith('l')) unit = 'ltr';
+        else if (u.startsWith('m')) unit = 'ml';
+        else unit = 'pc';
+        text = text.replace(match[0], '').trim();
+    }
   }
 
-  // 6) CLEANUP - remove standalone units and the word "of"
-  text = text.replace(
-    /\b(of|kg|kilo|g|gm|grams|liter|litre|ltr|liters|litres|ml|milliliter|millilitre|pack|packet|pc|piece|pieces)\b/gi,
-    ""
-  );
+  // 7) CLEANUP
+  text = text.replace(/\b(of)\b/gi, "").replace(/\s+/g, ' ').trim();
 
-  const productPhrase = text.trim();
+  const productPhrase = text;
 
   return { qty, unit, money, productPhrase };
 }
