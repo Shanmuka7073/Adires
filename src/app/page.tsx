@@ -44,6 +44,13 @@ const homePageSections = [
         ]
     },
     {
+        title: 'Meat & Fish',
+        categories: [
+            { name: 'Chicken', imageHint: 'raw chicken', count: 0, bgColor: 'bg-red-50'},
+            { name: 'Meat & Fish', imageHint: 'fresh fish', count: 0, bgColor: 'bg-blue-50'},
+        ]
+    },
+    {
         title: 'Snacks & Drinks',
         categories: [
             { name: 'Snacks & Breakfast', imageHint: 'cereal snacks', count: 0, bgColor: 'bg-purple-50'},
