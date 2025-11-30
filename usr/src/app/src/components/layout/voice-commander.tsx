@@ -8,14 +8,14 @@ import { useFirebase, errorEmitter, useDoc, useMemoFirebase } from '@/firebase';
 import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, SiteConfig, VoiceAliasGroup } from '@/lib/types';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
-import { useAppStore, ProfileFormValues } from '@/lib/store';
+import { useAppStore } from '@/lib/store';
 import { useMyStorePageStore } from '@/lib/store';
 import { t } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection, query, where, getDocs, writeBatch, arrayUnion, setDoc } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { useCheckoutStore } from '@/app/checkout/page';
-import { useProfileFormStore } from '@/lib/store';
+import { useProfileFormStore, ProfileFormValues } from '@/lib/store';
 import { getWikipediaSummary, getMealDbRecipe } from '@/app/actions';
 import { useVoiceCommanderContext } from './main-layout';
 import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
@@ -646,16 +646,20 @@ const findProductAndVariant = useCallback(
 
     const handleCommandFailure = useCallback(async (commandText: string, spokenLang: string, reason: string) => {
         const tempId = addUnidentifiedItem(commandText);
-
+        speak(t('sorry-i-didnt-understand-that', spokenLang), `${spokenLang}-IN`);
+        
         if (!firestore || !user) {
             updateUnidentifiedItem(tempId, 'failed');
-            speak(t('sorry-i-didnt-understand-that', spokenLang), `${spokenLang}-IN`);
             return;
         }
 
-        // For now, we are disabling the AI auto-correction feature.
-        // We will log all failed commands for manual review.
-        addDoc(collection(firestore, 'failedCommands'), { userId: user.uid, commandText, language: spokenLang, reason, timestamp: serverTimestamp() });
+        addDoc(collection(firestore, 'failedCommands'), {
+            userId: user.uid,
+            commandText,
+            language: spokenLang,
+            reason,
+            timestamp: serverTimestamp()
+        });
         updateUnidentifiedItem(tempId, 'failed');
 
     }, [addUnidentifiedItem, updateUnidentifiedItem, firestore, user, speak, t]);
@@ -994,7 +998,7 @@ const findProductAndVariant = useCallback(
         try {
             const result = await getIngredientsForDish({ dishName, language: replyLang });
             if (result.isSuccess && result.ingredients.length > 0) {
-                const ingredientsText = result.ingredients.join(', ');
+                const ingredientsText = result.ingredients.map(ing => ing.name).join(', ');
                 speak(`The main ingredients for ${dishName} are: ${ingredientsText}`, langWithRegion);
             } else {
                 speak(`I'm sorry, I couldn't find the ingredients for ${dishName}.`, langWithRegion);
@@ -1108,44 +1112,17 @@ const findProductAndVariant = useCallback(
       const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
 
       if (product) {
-        let priceData = productPrices[product.name.toLowerCase()];
-
-        if (priceData && priceData.variants && priceData.variants.length > 0) {
-
-          let recommendedProducts: Product[] = [];
-          if (aiConfig?.isRecipeApiEnabled) {
-              const recipeResult = await getIngredientsForDish({ dishName: product.name, language: 'en' });
-              if (recipeResult.isSuccess) {
-                  recommendedProducts = recipeResult.ingredients
-                    .map(ing => masterProducts.find(p => p?.name.toLowerCase() === ing.toLowerCase()))
-                    .filter((p): p is Product => Boolean(p) && p.id !== product.id);
-              }
+          const masterStoreId = stores.find(s => s.name === 'LocalBasket')?.id;
+          if (masterStoreId) {
+            speak(`Okay, let's see about ${getProductName(product)}.`, langWithRegion, () => {
+              router.push(`/stores/${masterStoreId}?category=${encodeURIComponent(product.category || '')}&highlight=${encodeURIComponent(product.name)}`);
+            });
+          } else {
+            speak("I can't navigate to the product page right now.", langWithRegion);
           }
-          if (recommendedProducts.length === 0) {
-               recommendedProducts = masterProducts
-                .filter(p => p?.category === product.category && p.id !== product.id)
-                .sort(() => 0.5 - Math.random())
-                .slice(0, 5);
-          }
-
-          showPriceCheck({ product, priceData, recommendedProducts });
-
-          const reply = t('price-check-reply-speech', replyLang)
-            .replace('{productName}', getProductName(product))
-
-          speak(`${reply} Please select an option or say 'cancel'.`, langWithRegion, () => {
-            // Set context for follow-up commands
-            itemForPriceCheck.current = { product, variants: priceData.variants };
-          });
           return;
-
-        } else {
-          speak(t('no-price-found-speech', replyLang).replace('{productName}', getProductName(product)), langWithRegion);
-          handleCommandFailure(originalText, detectedLang, `Price check: product "${product.name}" found but no price data available.`);
-          return;
-        }
       }
-
+      
       handleCommandFailure(originalText, lang, `Price check: product not found in phrase "${phrase}".`);
     },
     removeItemFromCart: async ({ phrase, lang }: { phrase?: string; lang: string }) => {
