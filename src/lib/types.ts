@@ -212,7 +212,6 @@ export type ChatMessage = {
 
 // --- Voice ID Types ---
 
-// Type for voice biometrics
 export type Voiceprint = {
   userId: string; // Document ID should be the user's UID
   enrollments: number[][]; // Array of raw feature vectors from each enrollment
