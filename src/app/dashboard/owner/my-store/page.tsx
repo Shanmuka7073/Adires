@@ -73,7 +73,7 @@ import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
-const standardWeights = ["100gm", "250gm", "500gm", "1kg", "2kg", "5kg", "1 pack", "1 pc"];
+const standardUnits = ["100gm", "250gm", "500gm", "1kg", "2kg", "5kg", "250ml", "500ml", "1 litre", "2 litres", "1 pack", "1 pc"];
 
 const storeSchema = z.object({
   name: z.string().min(3, 'Store name must be at least 3 characters'),
@@ -502,7 +502,7 @@ function EditProductDialog({ storeId, product, isOpen, onOpenChange }: { storeId
                                                                 </SelectTrigger>
                                                             </FormControl>
                                                             <SelectContent>
-                                                                {standardWeights.map(w => <SelectItem key={w} value={w}>{w}</SelectItem>)}
+                                                                {standardUnits.map(w => <SelectItem key={w} value={w}>{w}</SelectItem>)}
                                                             </SelectContent>
                                                         </Select>
                                                         <FormMessage />
@@ -1035,7 +1035,7 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                {standardWeights.map(w => <SelectItem key={w} value={w}>{w}</SelectItem>)}
+                                                {standardUnits.map(w => <SelectItem key={w} value={w}>{w}</SelectItem>)}
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />
@@ -2065,3 +2065,4 @@ export default function MyStorePage() {
     );
 }
 
+    
