@@ -50,8 +50,6 @@ export function MainLayout({
   
   const { user } = useFirebase();
   
-  // The useInitializeApp hook is no longer needed here as its logic is now in ClientRoot.
-
   const { setLanguage, isInitialized } = useAppStore();
   const [priceCheckInfo, setPriceCheckInfo] = useState<PriceCheckInfo | null>(null);
 
