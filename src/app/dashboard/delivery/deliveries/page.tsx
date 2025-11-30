@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { Order, Store, DeliveryPartner, Payout } from '@/lib/types';
@@ -28,7 +27,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const DELIVERY_FEE = 30;
 const DELIVERY_PROXIMITY_THRESHOLD_KM = 0.1; // 100 meters
-const ORDER_GROUPING_RADIUS_KM = 1.5;
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   if (!lat1 || !lon1 || !lat2 || !lon2) return Infinity;
@@ -415,15 +413,6 @@ function PayoutHistoryCard({ partnerId }: { partnerId: string }) {
     )
 }
 
-// Type for the grouped orders
-type OrderGroup = {
-    mainStore: Store;
-    orders: Order[];
-    totalValue: number;
-    totalJobs: number;
-};
-
-
 export default function DeliveriesPage() {
   const { firestore, user } = useFirebase();
   const [stores, setStores] = useState<Store[]>([]);
@@ -491,68 +480,20 @@ export default function DeliveriesPage() {
   const myActiveDeliveriesWithStores = useMemo(() => joinStoresToOrders(myActiveDeliveries), [myActiveDeliveries, stores]);
   const availableDeliveriesWithStores = useMemo(() => joinStoresToOrders(availableDeliveries), [availableDeliveries, stores]);
 
-  const deliveryGroups = useMemo(() => {
-    if (!availableDeliveriesWithStores.length) return [];
-
-    const groups: OrderGroup[] = [];
-    const assignedOrderIds = new Set<string>();
-
-    availableDeliveriesWithStores.forEach(order => {
-        if (assignedOrderIds.has(order.id) || !order.store) return;
-
-        const group: OrderGroup = {
-            mainStore: order.store,
-            orders: [order],
-            totalValue: order.totalAmount,
-            totalJobs: 1
-        };
-        assignedOrderIds.add(order.id);
-
-        availableDeliveriesWithStores.forEach(otherOrder => {
-            if (assignedOrderIds.has(otherOrder.id) || !otherOrder.store) return;
-
-            const distance = haversineDistance(
-                order.store!.latitude,
-                order.store!.longitude,
-                otherOrder.store.latitude,
-                otherOrder.store.longitude
-            );
-
-            if (distance <= ORDER_GROUPING_RADIUS_KM) {
-                group.orders.push(otherOrder);
-                group.totalValue += otherOrder.totalAmount;
-                group.totalJobs += 1;
-                assignedOrderIds.add(otherOrder.id);
-            }
-        });
-
-        groups.push(group);
-    });
-
-    return groups;
-  }, [availableDeliveriesWithStores]);
-
-
-  const handleConfirmPickup = (orderIds: string[]) => {
-    if (!firestore || !user?.uid || orderIds.length === 0) return;
+  const handleConfirmPickup = (orderId: string) => {
+    if (!firestore || !user?.uid) return;
      
      startUpdateTransition(async () => {
-        const batch = writeBatch(firestore);
-        orderIds.forEach(orderId => {
-            const orderRef = doc(firestore, 'orders', orderId);
-            batch.update(orderRef, { deliveryPartnerId: user.uid });
-        });
-
+        const orderRef = doc(firestore, 'orders', orderId);
         try {
-            await batch.commit();
+            await updateDoc(orderRef, { deliveryPartnerId: user.uid });
             toast({
-                title: `${orderIds.length} Job(s) Accepted!`,
-                description: `You are now assigned to deliver these orders.`
+                title: `Job Accepted!`,
+                description: `You are now assigned to deliver this order.`
             });
         } catch (error) {
              console.error("Failed to confirm pickup:", error);
-             toast({ variant: 'destructive', title: "Accept Failed", description: "Could not accept the selected jobs."})
-             // For simplicity, not emitting individual errors for batch
+             toast({ variant: 'destructive', title: "Accept Failed", description: "Could not accept the selected job."})
         }
      });
   };
@@ -842,81 +783,46 @@ export default function DeliveriesPage() {
 
 
       <div>
-        <h2 className="text-3xl font-bold mb-8 font-headline">Suggested Delivery Groups</h2>
+        <h2 className="text-3xl font-bold mb-8 font-headline">Available for Delivery</h2>
          <Card>
           <CardHeader>
             <CardTitle>Orders Ready for Pickup</CardTitle>
-             <CardDescription>We've grouped nearby orders to help you deliver more efficiently.</CardDescription>
+             <CardDescription>A list of individual orders ready for pickup near you.</CardDescription>
           </CardHeader>
           <CardContent>
             {availableDeliveriesLoading ? (
               <p>Finding available deliveries...</p>
-            ) : !deliveryGroups || deliveryGroups.length === 0 ? (
+            ) : !availableDeliveriesWithStores || availableDeliveriesWithStores.length === 0 ? (
               <Alert>
                 <Package className="h-4 w-4" />
                 <AlertTitle>All Clear!</AlertTitle>
                 <AlertDescription>No orders are currently ready for delivery. Check back soon.</AlertDescription>
               </Alert>
             ) : (
-                <Accordion type="multiple" className="w-full">
-                    {deliveryGroups.map((group, index) => (
-                         <AccordionItem value={`group-${index}`} key={index}>
-                            <AccordionTrigger>
-                                <div className="flex items-center gap-4 w-full">
-                                    <div className="p-3 bg-primary/10 rounded-full">
-                                        <Package className="h-6 w-6 text-primary" />
-                                    </div>
-                                    <div className="flex-1 text-left">
-                                        <p className="font-bold text-base">{group.totalJobs} {group.totalJobs > 1 ? 'Orders' : 'Order'} near {group.mainStore.name}</p>
-                                        <p className="text-sm text-muted-foreground">Total Value: ₹{group.totalValue.toFixed(2)}</p>
-                                    </div>
-                                    <Badge variant="outline">{group.mainStore.address}</Badge>
-                                </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                                <div className="p-2 bg-muted/50 rounded-lg">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Customer</TableHead>
-                                                <TableHead>Store</TableHead>
-                                                <TableHead>Items</TableHead>
-                                                <TableHead className="text-right">Value</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {group.orders.map(order => (
-                                                <TableRow key={order.id}>
-                                                    <TableCell>{order.customerName}</TableCell>
-                                                    <TableCell>{order.store?.name}</TableCell>
-                                                    <TableCell>{order.items.length}</TableCell>
-                                                    <TableCell className="text-right font-medium">₹{order.totalAmount.toFixed(2)}</TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                     <div className="flex justify-end gap-2 mt-4">
-                                        <Button 
-                                            variant="outline"
-                                            onClick={() => handleShowDetails(group.orders[0])}
-                                            id={`details-btn-${index}`}
-                                        >
-                                            <Info className="mr-2 h-4 w-4" />
-                                            Details
-                                        </Button>
-                                        <Button 
-                                            className="w-full" 
-                                            onClick={() => handleConfirmPickup(group.orders.map(o => o.id))}
-                                            disabled={isUpdating}
-                                        >
-                                            {isUpdating ? 'Accepting...' : `Accept Group (${group.totalJobs} Orders)`}
-                                        </Button>
-                                     </div>
-                                </div>
-                            </AccordionContent>
-                         </AccordionItem>
-                    ))}
-                </Accordion>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Customer</TableHead>
+                            <TableHead>Store</TableHead>
+                            <TableHead>Total Value</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                         {availableDeliveriesWithStores.map(order => (
+                            <TableRow key={order.id}>
+                                <TableCell>{order.customerName}</TableCell>
+                                <TableCell>{order.store?.name}</TableCell>
+                                <TableCell>₹{order.totalAmount.toFixed(2)}</TableCell>
+                                <TableCell className="text-right">
+                                    <Button size="sm" onClick={() => handleConfirmPickup(order.id)} disabled={isUpdating}>
+                                        {isUpdating ? 'Accepting...' : 'Accept Job'}
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
             )}
           </CardContent>
         </Card>
