@@ -4,7 +4,7 @@
 import { useState, useTransition, useMemo, useEffect } from 'react';
 import { useFirebase, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, addDoc, doc, deleteDoc, limit, setDoc } from 'firebase/firestore';
-import type { Store, MonthlyPackage, Product, ProductPrice, DayPlan } from '@/lib/types';
+import type { Store, MonthlyPackage, Product, ProductPrice, DayPlan, ProductVariant } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -210,6 +210,19 @@ function ExistingPacks({ storeId }: { storeId: string }) {
         });
     }
 
+    const parseWeightToGrams = (weight: string): number => {
+        const lowerWeight = weight.toLowerCase();
+        const value = parseFloat(lowerWeight.replace(/[^0-9.]/g, ''));
+        if (isNaN(value)) return 0;
+    
+        if (lowerWeight.includes('kg')) return value * 1000;
+        if (lowerWeight.includes('gm') || lowerWeight.includes('g')) return value;
+        if (lowerWeight.includes('litre') || lowerWeight.includes('l')) return value * 1000; // Treat 1 litre as 1000 for sorting
+        if (lowerWeight.includes('ml')) return value;
+        if (lowerWeight.includes('pc') || lowerWeight.includes('pack')) return value; // Treat pcs as low value for sorting
+        return value;
+    };
+
     const handleAddToCart = (pack: MonthlyPackage) => {
         if (!pack.items) return;
         let itemsAdded = 0;
@@ -226,11 +239,31 @@ function ExistingPacks({ storeId }: { storeId: string }) {
 
              if (bestMatch && bestMatch.score > 0.7) {
                 const priceData = productPrices[bestMatch.product.name.toLowerCase()];
-                // Add the smallest available variant
-                const smallestVariant = priceData?.variants?.[0];
-                if (smallestVariant) {
-                    addItem(bestMatch.product, smallestVariant, 1);
-                    itemsAdded++;
+                
+                if (priceData?.variants && priceData.variants.length > 0) {
+                    const requiredGrams = parseWeightToGrams(packItem.quantity);
+                    let chosenVariant: ProductVariant | null = null;
+                    let smallestDiff = Infinity;
+
+                    // Find the variant with the closest weight
+                    priceData.variants.forEach(v => {
+                        const variantGrams = parseWeightToGrams(v.weight);
+                        const diff = Math.abs(variantGrams - requiredGrams);
+                        if (diff < smallestDiff) {
+                            smallestDiff = diff;
+                            chosenVariant = v;
+                        }
+                    });
+
+                    // If no close match, default to the smallest variant available
+                    if (!chosenVariant) {
+                        chosenVariant = [...priceData.variants].sort((a,b) => parseWeightToGrams(a.weight) - parseWeightToGrams(b.weight))[0];
+                    }
+
+                    if (chosenVariant) {
+                        addItem(bestMatch.product, chosenVariant, 1);
+                        itemsAdded++;
+                    }
                 }
             }
         });
