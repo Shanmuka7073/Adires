@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, errorEmitter, useDoc, useMemoFirebase } from '@/firebase';
 import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, SiteConfig, VoiceAliasGroup } from '@/lib/types';
-import { calculateSimilarity, bagSimilarity } from '@/lib/calculate-similarity';
+import { wordByWordSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
 import { useAppStore, ProfileFormValues } from '@/lib/store';
 import { useMyStorePageStore } from '@/lib/store';
@@ -19,7 +19,7 @@ import { useProfileFormStore } from '@/lib/store';
 import { getWikipediaSummary, getMealDbRecipe } from '@/app/actions';
 import { useVoiceCommanderContext } from './main-layout';
 import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
-import { runNLU, extractQuantityAndProduct } from '@/lib/nlu/engine';
+import { runNLU, extractQuantityAndProduct } from '@/lib/nlu/voice-integration';
 
 
 export interface Command {
@@ -74,8 +74,8 @@ type Intent =
 
 const intentKeywords = {
   SMART_ORDER: ['order', 'buy', 'get', 'send'],
-  CHECK_PRICE: ['price of', 'cost of', 'how much for', 'rate for', 'ధర', 'రేటు', 'find'],
-  ORDER_ITEM: ['add', 'నాకు', 'కావాలి'],
+  CHECK_PRICE: ['price of', 'cost of', 'how much for', 'rate for', 'ధర', 'రేటు'],
+  ORDER_ITEM: ['order', 'add', 'buy', 'get', 'send', 'నాకు', 'కావాలి'],
   REMOVE_ITEM: ['remove', 'delete', 'take out', 'తీసివేయి', 'తొలగించు'],
   NAVIGATE: ['go to', 'open', 'show', 'వెళ్ళు', 'చూపించు'],
   CONVERSATIONAL: ['help', 'what can', 'who are you', 'how does'],
@@ -484,34 +484,22 @@ const findProductAndVariant = useCallback(
     const nluResult = runNLU(phrase, language);
     const { qty, unit, money, productPhrase } = extractQuantityAndProduct(nluResult);
     
-    let productMatch: { product: Product, alias: string, lang: string } | null = null;
+    let bestMatch: { product: Product, alias: string, score: number, lang: string } | null = null;
     
     if (productPhrase) {
-        const directMatch = universalProductAliasMap.get(productPhrase) || universalProductAliasMap.get(productPhrase.replace(/\s/g, ''));
-        if (directMatch) {
-            productMatch = { ...directMatch, alias: productPhrase };
-        } else {
-            let bestMatch: { product: Product, alias: string, similarity: number, lang: string } | null = null;
-            for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
-                const similarity = Math.max(
-                    calculateSimilarity(productPhrase, alias),
-                    bagSimilarity(productPhrase, alias) // Use the new bag similarity
-                );
-                if (similarity > 0.8 && (!bestMatch || similarity > bestMatch.similarity)) {
-                    bestMatch = { product, alias, similarity, lang };
-                }
-            }
-            if (bestMatch) {
-                productMatch = { product: bestMatch.product, alias: bestMatch.alias, lang: bestMatch.lang };
+        for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
+            const similarity = wordByWordSimilarity(productPhrase, alias);
+            if (similarity > (bestMatch?.score || 0.7)) { // Use a threshold
+                bestMatch = { product, alias, score: similarity, lang };
             }
         }
     }
 
-    if (!productMatch) {
+    if (!bestMatch) {
       return { product: null, variant: null, requestedQty: qty, remainingPhrase: productPhrase, matchedAlias: null, lang: 'en' };
     }
 
-    const { product, lang: detectedLang, alias: matchedAlias } = productMatch;
+    const { product, lang: detectedLang, alias: matchedAlias } = bestMatch;
     
     const priceData = productPrices[product.name.toLowerCase()];
 
@@ -640,7 +628,7 @@ const findProductAndVariant = useCallback(
       allAliasStrings.push(key, commands[key].display.toLowerCase());
 
       for (const alias of [...new Set(allAliasStrings)]) {
-        const similarity = calculateSimilarity(lowerText, alias.toLowerCase());
+        const similarity = wordByWordSimilarity(lowerText, alias.toLowerCase());
         if (!bestCommandMatch || similarity > bestCommandMatch.similarity) {
           if (similarity > 0.8) {
             bestCommandMatch = { key, similarity };
@@ -790,8 +778,8 @@ const findProductAndVariant = useCallback(
         const homeKeywords = getAllAliases('homeAddress')[spokenLang] || ['home'];
         const locationKeywords = getAllAliases('currentLocation')[spokenLang] || ['current', 'location'];
 
-        const homeSimilarity = Math.max(...homeKeywords.map(kw => calculateSimilarity(lowerCommand, kw.toLowerCase())));
-        const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(lowerCommand, kw.toLowerCase())));
+        const homeSimilarity = Math.max(...homeKeywords.map(kw => wordByWordSimilarity(lowerCommand, kw.toLowerCase())));
+        const locationSimilarity = Math.max(...locationKeywords.map(kw => wordByWordSimilarity(lowerCommand, kw.toLowerCase())));
 
         if (homeSimilarity > 0.6 && homeSimilarity > locationSimilarity) {
             isWaitingForAddressTypeRef.current = false;
@@ -825,7 +813,7 @@ const findProductAndVariant = useCallback(
         isWaitingForStoreNameRef.current = false; // Reset immediately
         let bestMatch: { store: Store, similarity: number } | null = null;
         for (const [alias, store] of storeAliasMap.entries()) {
-            const similarity = calculateSimilarity(commandText.toLowerCase(), alias);
+            const similarity = wordByWordSimilarity(commandText.toLowerCase(), alias);
             if (!bestMatch || similarity > bestMatch.similarity) {
                 bestMatch = { store, similarity: similarity };
             }
@@ -1172,7 +1160,7 @@ const findProductAndVariant = useCallback(
 
         let bestMatch: { item: CartItem, similarity: number } | null = null;
         for (const item of cartItemsProp) {
-            const similarity = calculateSimilarity(phrase.toLowerCase(), item.product.name.toLowerCase());
+            const similarity = wordByWordSimilarity(phrase.toLowerCase(), item.product.name.toLowerCase());
             if (!bestMatch || similarity > bestMatch.similarity) {
                 bestMatch = { item, similarity };
             }
@@ -1258,8 +1246,8 @@ const findProductAndVariant = useCallback(
         // 2. Process Address
         const homeKeywords = getAllAliases('homeAddress')[lang] || ['home'];
         const locationKeywords = getAllAliases('currentLocation')[lang] || ['current', 'location'];
-        const homeSimilarity = Math.max(...homeKeywords.map(kw => calculateSimilarity(addressPhrase.toLowerCase(), kw)));
-        const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(addressPhrase.toLowerCase(), kw)));
+        const homeSimilarity = Math.max(...homeKeywords.map(kw => wordByWordSimilarity(addressPhrase.toLowerCase(), kw)));
+        const locationSimilarity = Math.max(...locationKeywords.map(kw => wordByWordSimilarity(addressPhrase.toLowerCase(), kw)));
 
         let deliveryAddress = '';
         let useCurrentLocation = false;

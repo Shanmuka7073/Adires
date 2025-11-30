@@ -2,8 +2,9 @@
 'use client';
 // Simple Levenshtein distance implementation for fuzzy string matching
 export function calculateSimilarity(a: string, b: string): number {
-  if (a.length === 0) return b.length;
-  if (b.length === 0) return a.length;
+  if (!a || !b) return 0;
+  if (a.length === 0) return b.length > 0 ? 0 : 1;
+  if (b.length === 0) return a.length > 0 ? 0 : 1;
 
   const matrix = [];
 
@@ -40,44 +41,33 @@ export function calculateSimilarity(a: string, b: string): number {
   return 1 - distance / maxLength;
 }
 
-
-// --- NEW: Word-Bag Matching ---
-
 /**
- * Normalizes a string into a sorted array of words (a "word bag").
- * This makes comparisons order-independent.
- * @param str The input string.
- * @returns A sorted array of lowercase, alphanumeric words.
+ * Calculates similarity by comparing words individually, making it order-independent.
+ * @param userPhrase The phrase spoken by the user.
+ * @param productName The name of the product to compare against.
+ * @returns An average similarity score from 0 to 1.
  */
-function wordBag(str: string): string[] {
-  return str
-    .toLowerCase()
-    .replace(/[^a-z0-9 ]/g, '') // Keep only letters, numbers, and spaces
-    .split(/\s+/)
-    .filter(Boolean) // Remove empty strings
-    .sort();
-}
+export function wordByWordSimilarity(userPhrase: string, productName: string): number {
+  const userWords = userPhrase.toLowerCase().split(/\s+/).filter(Boolean);
+  const productWords = productName.toLowerCase().split(/\s+/).filter(Boolean);
 
-/**
- * Calculates similarity based on the intersection of two word bags.
- * This is order-independent and good for matching phrases with reordered words.
- * @param a The first string.
- * @param b The second string.
- * @returns A similarity score from 0 to 1.
- */
-export function bagSimilarity(a: string, b: string): number {
-  const bagA = wordBag(a);
-  const bagB = new Set(wordBag(b)); // Use a Set for efficient lookups
-
-  if (bagA.length === 0 && bagB.size === 0) return 1;
-  if (bagA.length === 0 || bagB.size === 0) return 0;
-  
-  let matches = 0;
-  for (const word of bagA) {
-    if (bagB.has(word)) {
-      matches++;
-    }
+  if (userWords.length === 0 || productWords.length === 0) {
+    return 0;
   }
 
-  return matches / Math.max(bagA.length, bagB.size);
+  let totalScore = 0;
+
+  for (let uWord of userWords) {
+    let bestScoreForWord = 0;
+    for (let pWord of productWords) {
+      const score = calculateSimilarity(uWord, pWord);
+      if (score > bestScoreForWord) {
+        bestScoreForWord = score;
+      }
+    }
+    totalScore += bestScoreForWord;
+  }
+
+  // Return the average score based on the length of the user's phrase
+  return totalScore / userWords.length;
 }
