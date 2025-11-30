@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
@@ -222,7 +223,7 @@ function ExistingPacks({ storeId }: { storeId: string }) {
                                     <div>
                                         <h4 className="font-bold">{pack.name}</h4>
                                         <p className="text-sm text-muted-foreground">{pack.items.length} items for {pack.memberCount} people</p>
-                                        <p className="font-bold text-primary">₹{pack.price.toFixed(2)}</p>
+                                        <p className="font-bold text-primary">₹{typeof pack.price === 'number' ? pack.price.toFixed(2) : '0.00'}</p>
                                     </div>
                                      <AlertDialog>
                                         <AlertDialogTrigger asChild>
