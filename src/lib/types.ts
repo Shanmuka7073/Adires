@@ -1,3 +1,4 @@
+
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -174,6 +175,12 @@ export type CachedAIResponse = {
     createdAt: any; // Allow serverTimestamp
 }
 
+export type DayPlan = {
+  day: number;
+  mainItem: string;
+  sideItem: string;
+};
+
 export type MonthlyPackage = {
     id: string;
     storeId: string;
@@ -184,6 +191,7 @@ export type MonthlyPackage = {
         name: string;
         quantity: string;
     }[];
+    schedule?: DayPlan[];
 };
 
 export type SiteConfig = {
@@ -268,11 +276,7 @@ export type NluExtractedSentence = {
 
 export type GenerateBreakfastPackOutput = {
   packName: string;
-  schedule: {
-    day: number;
-    mainItem: string;
-    sideItem: string;
-  }[];
+  schedule: DayPlan[];
   shoppingList: {
     itemName: string;
     quantity: string;

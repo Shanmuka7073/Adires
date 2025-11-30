@@ -4,7 +4,7 @@
 import { useState, useTransition, useMemo, useEffect } from 'react';
 import { useFirebase, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, addDoc, doc, deleteDoc, limit, setDoc } from 'firebase/firestore';
-import type { Store, MonthlyPackage, ProductPrice } from '@/lib/types';
+import type { Store, MonthlyPackage, ProductPrice, DayPlan } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -74,6 +74,7 @@ function AIPackGenerator({ storeId }: { storeId: string }) {
                 memberCount: familySize,
                 price: generatedPack.estimatedCost,
                 items: generatedPack.shoppingList.map(item => ({ name: item.itemName, quantity: item.quantity })),
+                schedule: generatedPack.schedule,
             };
 
             try {
@@ -245,13 +246,32 @@ function ExistingPacks({ storeId }: { storeId: string }) {
                                     </div>
                                 </AccordionTrigger>
                                 <AccordionContent>
-                                    <div className="p-4 bg-muted/50 rounded-lg">
-                                        <h5 className="font-semibold mb-2">Items in this pack:</h5>
-                                        <div className="flex flex-wrap gap-2">
-                                            {pack.items.map((item, index) => (
-                                                <Badge key={index} variant="secondary">{item.name} ({item.quantity})</Badge>
-                                            ))}
+                                    <div className="p-4 bg-muted/50 rounded-lg grid md:grid-cols-2 gap-6">
+                                        <div>
+                                            <h5 className="font-semibold mb-2">Shopping List:</h5>
+                                            <div className="flex flex-wrap gap-2">
+                                                {pack.items.map((item, index) => (
+                                                    <Badge key={index} variant="secondary">{item.name} ({item.quantity})</Badge>
+                                                ))}
+                                            </div>
                                         </div>
+                                        {pack.schedule && (
+                                            <div>
+                                                <h5 className="font-semibold mb-2">Meal Schedule:</h5>
+                                                <Table>
+                                                    <TableHeader><TableRow><TableHead>Day</TableHead><TableHead>Main</TableHead><TableHead>Side</TableHead></TableRow></TableHeader>
+                                                    <TableBody>
+                                                        {pack.schedule.map(day => (
+                                                            <TableRow key={day.day}>
+                                                                <TableCell>{day.day}</TableCell>
+                                                                <TableCell>{day.mainItem}</TableCell>
+                                                                <TableCell>{day.sideItem}</TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        )}
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
