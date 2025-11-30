@@ -58,7 +58,7 @@ function RecommendedItem({ product }: { product: Product }) {
             <p className="text-xs font-medium truncate">{product.name}</p>
             {smallestVariant && (
                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold text-primary">₹{(smallestVariant.price * 1.20).toFixed(2)}</p>
+                    <p className="text-xs font-bold text-primary">₹{smallestVariant.price.toFixed(2)}</p>
                     <Button size="icon" variant="outline" className="h-6 w-6" onClick={handleAdd}>
                         <Plus className="h-3 w-3" />
                     </Button>
@@ -186,7 +186,7 @@ export function PriceCheckDisplay({ info, onClose }: PriceCheckDisplayProps) {
                           )}
                           <p className="text-foreground font-medium">{v.weight}</p>
                         </div>
-                        <p className="text-primary font-bold text-lg">₹{(v.price * 1.20).toFixed(2)}</p>
+                        <p className="text-primary font-bold text-lg">₹{v.price.toFixed(2)}</p>
                       </div>
                     ))}
                 </div>
@@ -200,7 +200,7 @@ export function PriceCheckDisplay({ info, onClose }: PriceCheckDisplayProps) {
                     className="w-full h-12 text-lg font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-md disabled:bg-muted"
                 >
                 <ShoppingCart className="mr-2 h-5 w-5" />
-                {selectedVariant ? `Add to Cart - ₹${(selectedVariant.price * 1.20).toFixed(2)}` : "Please select a quantity"}
+                {selectedVariant ? `Add to Cart - ₹${selectedVariant.price.toFixed(2)}` : "Please select a quantity"}
                 </Button>
             </div>
 
