@@ -1,380 +1,615 @@
-
-export const fingerprintCodeText = [
-    {
-        path: 'src/app/api/auth/webauthn/[[...route]]/route.ts',
-        content: `
-import { NextRequest, NextResponse } from 'next/server';
-import {
-  generateRegistrationOptions,
-  verifyRegistrationResponse,
-  generateAuthenticationOptions,
-  verifyAuthenticationResponse,
-} from '@simplewebauthn/server';
-import type {
-  GenerateRegistrationOptionsOpts,
-  GenerateAuthenticationOptionsOpts,
-  VerifyRegistrationResponseOpts,
-  VerifyAuthenticationResponseOpts,
-  VerifiedRegistrationResponse,
-  VerifiedAuthenticationResponse,
-} from '@simplewebauthn/server';
-import { getAdminServices } from '@/firebase/admin-init';
-import type { User as AppUser, Authenticator } from '@/lib/types';
-import { isoBase64URL, isoUint8Array } from '@simplewebauthn/server/helpers';
-
-const rpID = process.env.NEXT_PUBLIC_RP_ID || 'localhost';
-const rpName = 'LocalBasket';
-const origin = process.env.NEXT_PUBLIC_ORIGIN || \`https://\${rpID}\`;
-
-
-async function getAuthenticators(userId: string): Promise<Authenticator[]> {
-  const { db } = await getAdminServices();
-  const userRef = db.collection('users').doc(userId);
-  const userDoc = await userRef.get();
-  if (!userDoc.exists) return [];
-  const userData = userDoc.data() as AppUser;
-  return userData.authenticators || [];
-}
-
-async function saveAuthenticator(userId: string, authenticator: Authenticator) {
-  const { db } = await getAdminServices();
-  const userRef = db.collection('users').doc(userId);
-  const existingAuthenticators = await getAuthenticators(userId);
-  await userRef.set(
-    { authenticators: [...existingAuthenticators, authenticator] },
-    { merge: true }
-  );
-}
-
-
-export async function POST(request: NextRequest, { params }: { params: { route: string[] } }) {
-  const { db, auth: adminAuth } = await getAdminServices();
-  const route = params.route;
-  const body = await request.json();
-
-  if (!route || route.length === 0) {
-    return NextResponse.json({ error: 'Invalid route' }, { status: 400 });
-  }
-
-  const action = route[0];
-  const userId = route.length > 1 ? route[1] : undefined;
-
-  switch (action) {
-    case 'generate-registration-options': {
-      if (!userId) return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
-
-      const userDoc = await db.collection('users').doc(userId).get();
-      if (!userDoc.exists) return NextResponse.json({ error: 'User not found' }, { status: 404 });
-      const user = userDoc.data() as AppUser;
-
-      const userAuthenticators = await getAuthenticators(userId);
-
-      const opts: GenerateRegistrationOptionsOpts = {
-        rpName,
-        rpID,
-        userID: user.id,
-        userName: user.email,
-        timeout: 60000,
-        attestationType: 'none',
-        excludeCredentials: userAuthenticators.map((auth) => ({
-          id: isoBase64URL.toBuffer(auth.credentialID),
-          type: 'public-key',
-          transports: auth.transports,
-        })),
-        authenticatorSelection: {
-          residentKey: 'discouraged',
-          userVerification: 'preferred',
-        },
-      };
-
-      const options = await generateRegistrationOptions(opts);
-      await db.collection('users').doc(userId).set({ currentChallenge: options.challenge }, { merge: true });
-
-      return NextResponse.json(options);
-    }
-
-    case 'verify-registration': {
-      if (!userId) return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
-
-      const userDoc = await db.collection('users').doc(userId).get();
-      if (!userDoc.exists) return NextResponse.json({ error: 'User not found' }, { status: 404 });
-      const user = userDoc.data() as AppUser;
-
-      const expectedChallenge = user.currentChallenge;
-      if (!expectedChallenge) return NextResponse.json({ error: 'No challenge found for user' }, { status: 400 });
-      
-      let verification: VerifiedRegistrationResponse;
-      try {
-        const opts: VerifyRegistrationResponseOpts = {
-          response: body,
-          expectedChallenge: \`\${expectedChallenge}\`,
-          expectedOrigin: origin,
-          expectedRPID: rpID,
-          requireUserVerification: true,
-        };
-        verification = await verifyRegistrationResponse(opts);
-      } catch (error: any) {
-        console.error(error);
-        return NextResponse.json({ error: error.message }, { status: 400 });
-      }
-
-      const { verified, registrationInfo } = verification;
-
-      if (verified && registrationInfo) {
-        const { credentialPublicKey, credentialID, counter } = registrationInfo;
-        const newAuthenticator: Authenticator = {
-          credentialID: isoBase64URL.fromBuffer(credentialID),
-          credentialPublicKey: isoBase64URL.fromBuffer(credentialPublicKey), // Convert to Base64 string
-          counter,
-          transports: body.response.transports || [],
-        };
-        await saveAuthenticator(userId, newAuthenticator);
-      }
-
-      await db.collection('users').doc(userId).set({ currentChallenge: null }, { merge: true });
-      return NextResponse.json({ verified });
-    }
-    
-    case 'generate-authentication-options': {
-      let user: AppUser | null = null;
-      if (body.email) {
-          const userSnapshot = await db.collection('users').where('email', '==', body.email).limit(1).get();
-          if (!userSnapshot.empty) {
-              const doc = userSnapshot.docs[0];
-              user = { id: doc.id, ...doc.data() } as AppUser;
-          }
-      }
-
-      if (!user) {
-          return NextResponse.json({ error: 'User not found or no authenticators registered' }, { status: 404 });
-      }
-
-      const userAuthenticators = await getAuthenticators(user.id);
-      if (userAuthenticators.length === 0) {
-        return NextResponse.json({ error: 'No authenticators registered for this user' }, { status: 400 });
-      }
-
-      const opts: GenerateAuthenticationOptionsOpts = {
-        timeout: 60000,
-        allowCredentials: userAuthenticators.map(auth => ({
-          id: isoBase64URL.toBuffer(auth.credentialID),
-          type: 'public-key',
-          transports: auth.transports,
-        })),
-        userVerification: 'preferred',
-        rpID,
-      };
-
-      const options = await generateAuthenticationOptions(opts);
-      await db.collection('users').doc(user.id).set({ currentChallenge: options.challenge }, { merge: true });
-
-      return NextResponse.json(options);
-    }
-    
-     case 'verify-authentication': {
-        const { email } = body;
-        if (!email) {
-            return NextResponse.json({ error: 'Email is required for authentication verification' }, { status: 400 });
-        }
-        const userSnapshot = await db.collection('users').where('email', '==', email).limit(1).get();
-        if (userSnapshot.empty) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
-        const userDoc = userSnapshot.docs[0];
-        const user = { id: userDoc.id, ...userDoc.data() } as AppUser;
-
-        const expectedChallenge = user.currentChallenge;
-        if (!expectedChallenge) return NextResponse.json({ error: 'No challenge found for user' }, { status: 400 });
-        
-        const userAuthenticators = await getAuthenticators(user.id);
-        const authenticator = userAuthenticators.find(auth => auth.credentialID === body.id);
-        
-        if (!authenticator) {
-            return NextResponse.json({ error: \`Could not find authenticator with ID \${body.id}\` }, { status: 404 });
-        }
-        
-        let verification: VerifiedAuthenticationResponse;
-        try {
-            const opts: VerifyAuthenticationResponseOpts = {
-                response: body,
-                expectedChallenge: \`\${expectedChallenge}\`,
-                expectedOrigin: origin,
-                expectedRPID: rpID,
-                authenticator: {
-                  ...authenticator,
-                  credentialID: isoBase64URL.toBuffer(authenticator.credentialID),
-                  credentialPublicKey: isoBase64URL.toBuffer(authenticator.credentialPublicKey),
-                },
-                requireUserVerification: true,
-            };
-            verification = await verifyAuthenticationResponse(opts);
-        } catch (error: any) {
-            console.error(error);
-            return NextResponse.json({ error: error.message }, { status: 400 });
-        }
-
-        const { verified, authenticationInfo } = verification;
-        
-        if (verified) {
-            const { newCounter } = authenticationInfo;
-            await db.collection('users').doc(user.id).set({ currentChallenge: null }, { merge: true });
-
-            const updatedAuthenticator = { ...authenticator, counter: newCounter };
-            const otherAuthenticators = userAuthenticators.filter(auth => auth.credentialID !== body.id);
-            await db.collection('users').doc(user.id).update({
-                authenticators: [...otherAuthenticators, updatedAuthenticator],
-            });
-            
-            const customToken = await adminAuth.createCustomToken(user.id);
-            
-            return NextResponse.json({ verified: true, customToken });
-        }
-        
-        return NextResponse.json({ verified: false }, { status: 401 });
-    }
-
-    default:
-      return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
-  }
-}
-
-// Handler for all routes, since this is a catch-all route.
-export async function GET(request: NextRequest, context: { params: { route: string[] } }) {
-    return POST(request, context);
-}
-`,
-    },
-    {
-        path: 'src/app/dashboard/customer/fingerprint/page.tsx',
-        content: `
 'use client';
 
-import { useState, useEffect, useTransition } from 'react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
-import { useFirebase } from '@/firebase';
-import { startRegistration } from '@simplewebauthn/browser';
-import { Fingerprint, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy, Upload, MessageSquare, ImageIcon, Home, Lightbulb, Binary, TestTube, Cog, Share2, Monitor, Drama } from 'lucide-react';
+import Link from 'next/link';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useMemo, useEffect, useState, useTransition, useRef } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { collection, query, where, doc, updateDoc, writeBatch } from 'firebase/firestore';
+import type { Order, Store as StoreType, Product, ProductPrice, ProductVariant, User } from '@/lib/types';
+import { Button } from '@/components/ui/button';
+import { t } from '@/lib/locales';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
+import { useAppStore } from '@/lib/store';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { bulkUploadRecipes, importProductsFromUrl } from '@/app/actions';
 
-export default function FingerprintRegistrationPage() {
-    const { user, isUserLoading } = useFirebase();
+
+function StatCard({ title, value, icon: Icon, loading }: { title: string, value: string | number, icon: React.ElementType, loading?: boolean }) {
+    return (
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{t(title)}</CardTitle>
+                <Icon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+                {loading ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{value}</div>}
+            </CardContent>
+        </Card>
+    )
+}
+
+function CreateMasterStoreCard() {
+    return (
+        <Alert variant="destructive" className="mb-8">
+            <AlertTitle>{t('action-required-create-master-store')}</AlertTitle>
+            <AlertDescription>
+                {t('the-master-store-for-setting-platform-wide')}
+                <Button asChild className="mt-4">
+                    <Link href="/dashboard/owner/my-store">
+                        {t('create-master-store')} <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                </Button>
+            </AlertDescription>
+        </Alert>
+    )
+}
+
+function ProductUrlImporterCard() {
     const { toast } = useToast();
-    const router = useRouter();
-    const [isRegistering, startRegistrationTransition] = useTransition();
+    const [isImporting, startImportTransition] = useTransition();
+    const [url, setUrl] = useState('');
+    const { fetchInitialData } = useAppStore();
+    const { firestore } = useFirebase();
 
-    useEffect(() => {
-        if (!isUserLoading && !user) {
-            router.push('/login?redirectTo=/dashboard/customer/fingerprint');
-        }
-    }, [isUserLoading, user, router]);
-
-    const handleRegister = async () => {
-        if (!user) {
-            toast({ variant: 'destructive', title: 'You must be logged in to register.' });
+    const handleImport = () => {
+        if (!url) {
+            toast({ variant: 'destructive', title: 'URL is required.' });
             return;
         }
 
-        startRegistrationTransition(async () => {
+        startImportTransition(async () => {
             try {
-                // 1. Get registration options from the server
-                const respOptions = await fetch(\`/api/auth/webauthn/generate-registration-options/\${user.uid}\`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({}),
-                });
-
-                const options = await respOptions.json();
-
-                if (!respOptions.ok) {
-                    throw new Error(options.error || 'Failed to get registration options.');
-                }
-
-                // 2. Pass options to the browser's WebAuthn API
-                const attestation = await startRegistration(options);
-
-                // 3. Send the response to the server for verification
-                const verificationResp = await fetch(\`/api/auth/webauthn/verify-registration/\${user.uid}\`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(attestation),
-                });
-                
-                const verificationJSON = await verificationResp.json();
-
-                if (!verificationResp.ok) {
-                    throw new Error(verificationJSON.error || 'Failed to verify registration.');
-                }
-
-                if (verificationJSON && verificationJSON.verified) {
+                const result = await importProductsFromUrl(url);
+                if (result.success) {
                     toast({
-                        title: 'Success!',
-                        description: 'Your fingerprint has been registered.',
+                        title: 'Import Complete!',
+                        description: `Successfully imported ${result.count} products.`,
                     });
+                    setUrl('');
+                    if (firestore) {
+                        await fetchInitialData(firestore);
+                    }
                 } else {
-                    throw new Error(verificationJSON.error || 'Failed to verify registration.');
+                    throw new Error(result.error || 'An unknown error occurred.');
                 }
             } catch (error: any) {
-                console.error(error);
-                toast({
-                    variant: 'destructive',
-                    title: 'Registration Failed',
-                    description: error.message || 'An unknown error occurred.',
-                });
+                console.error("URL Import failed:", error);
+                toast({ variant: 'destructive', title: 'Import Failed', description: error.message });
             }
         });
     };
 
-    if (isUserLoading) {
-        return <p>Loading...</p>
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Product URL Importer</CardTitle>
+                <CardDescription>
+                    Import products from a publicly accessible CSV file URL. The format should be: `name,category,description,imageUrl,weight,price`.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <Input
+                    type="url"
+                    placeholder="https://example.com/products.csv"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    disabled={isImporting}
+                />
+                 {isImporting ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Importing from URL... this may take some time.</span>
+                    </div>
+                ) : (
+                    <Button onClick={handleImport} className="w-full">
+                        <Download className="mr-2 h-4 w-4" />
+                        Fetch & Import Products
+                    </Button>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+function BulkRecipeUploadCard() {
+    const { toast } = useToast();
+    const [isUploading, startUploadTransition] = useTransition();
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        startUploadTransition(async () => {
+            try {
+                const text = await file.text();
+                const result = await bulkUploadRecipes(text);
+
+                if (result.success) {
+                    toast({
+                        title: 'Upload Complete!',
+                        description: `Successfully processed and added ${result.count} recipes.`,
+                    });
+                } else {
+                    throw new Error(result.error || 'An unknown error occurred during upload.');
+                }
+
+            } catch (error: any) {
+                console.error("CSV Upload failed:", error);
+                toast({ variant: 'destructive', title: 'Upload Failed', description: error.message });
+            } finally {
+                if(fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
+            }
+        });
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Bulk Recipe Upload</CardTitle>
+                <CardDescription>
+                    Upload a CSV file of recipes to pre-populate the AI cache. The format should be: `dish_name,ingredients` (with ingredients separated by "|").
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileChange}
+                    disabled={isUploading}
+                    className="mb-4"
+                />
+                 {isUploading ? (
+                    <div className="flex items-center gap-2 mt-4 text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Processing your file... this may take some time.</span>
+                    </div>
+                ) : (
+                    <Button onClick={() => fileInputRef.current?.click()} className="w-full">
+                        <Upload className="mr-2 h-4 w-4" />
+                        Choose CSV and Upload
+                    </Button>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+function ProductInventory() {
+    const { masterProducts, productPrices, fetchProductPrices, loading } = useAppStore();
+    const { firestore } = useFirebase();
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const fetchAllPrices = () => {
+         if (firestore && masterProducts.length > 0) {
+            const productNamesToFetch = masterProducts.map(p => p.name);
+            fetchProductPrices(firestore, productNamesToFetch);
+        }
+    }
+
+    useEffect(() => {
+        fetchAllPrices();
+    }, [firestore, masterProducts]);
+    
+    const handleDownloadCSV = () => {
+        const headers = ["Product Name", "Category", "Variant Weight", "Price", "Stock", "Status"];
+        const rows: string[][] = [];
+
+        filteredProducts.forEach(product => {
+            const priceData = productPrices[product.name.toLowerCase()];
+            if (priceData?.variants) {
+                priceData.variants.forEach(variant => {
+                    const status = variant.stock <= 10 ? "LOW STOCK" : "OK";
+                    rows.push([
+                        `"${product.name}"`,
+                        `"${product.category || 'N/A'}"`,
+                        variant.weight,
+                        String(variant.price),
+                        String(variant.stock),
+                        status
+                    ]);
+                });
+            }
+        });
+
+        const csvContent = "data:text/csv;charset=utf-8," 
+            + headers.join(",") + "\n" 
+            + rows.map(e => e.join(",")).join("\n");
+        
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "inventory_report.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const filteredProducts = useMemo(() => {
+        if (!searchTerm) return masterProducts;
+        return masterProducts.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    }, [masterProducts, searchTerm]);
+
+    return (
+        <Accordion type="single" collapsible className="w-full mb-8">
+            <AccordionItem value="inventory">
+                <AccordionTrigger>
+                     <div className="flex justify-between items-center w-full pr-4">
+                        <div>
+                            <h2 className="text-xl font-bold font-headline">Master Product Inventory</h2>
+                            <p className="text-sm text-muted-foreground text-left">A complete overview of stock levels for all products.</p>
+                        </div>
+                    </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                    <Card>
+                        <CardHeader>
+                            <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+                                <div className="flex items-center gap-2 w-full">
+                                    <div className="relative flex-grow">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <Input 
+                                            placeholder="Search products..." 
+                                            className="pl-9"
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                        />
+                                    </div>
+                                    <Button onClick={handleDownloadCSV} variant="outline" size="sm">
+                                        <Download className="mr-2 h-4 w-4" />
+                                        Download
+                                    </Button>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            {loading ? (
+                                <div className="space-y-2">
+                                    <Skeleton className="h-10 w-full" />
+                                    <Skeleton className="h-10 w-full" />
+                                    <Skeleton className="h-10 w-full" />
+                                </div>
+                            ) : (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Product</TableHead>
+                                            <TableHead>Category</TableHead>
+                                            <TableHead>Variants (Price & Stock)</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {filteredProducts.map(product => (
+                                            <ProductInventoryRow 
+                                                key={product.id}
+                                                product={product} 
+                                                priceData={productPrices[product.name.toLowerCase()]}
+                                                onUpdate={fetchAllPrices}
+                                            />
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            )}
+                        </CardContent>
+                    </Card>
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
+    );
+}
+
+function ProductInventoryRow({ product, priceData, onUpdate }: { product: Product, priceData: ProductPrice | null, onUpdate: () => void }) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [variants, setVariants] = useState(priceData?.variants || []);
+    const [isSaving, startSaveTransition] = useTransition();
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+
+    useEffect(() => {
+        setVariants(priceData?.variants || []);
+    }, [priceData]);
+
+    const handleVariantChange = (index: number, field: 'price' | 'stock', value: string) => {
+        const newVariants = [...variants];
+        const numValue = field === 'price' ? parseFloat(value) : parseInt(value, 10);
+        if (!isNaN(numValue)) {
+            newVariants[index] = { ...newVariants[index], [field]: numValue };
+            setVariants(newVariants);
+        }
+    };
+    
+    const handleSave = () => {
+        if (!firestore) return;
+        
+        startSaveTransition(async () => {
+            const priceDocRef = doc(firestore, 'productPrices', product.name.toLowerCase());
+            try {
+                await updateDoc(priceDocRef, { variants });
+                toast({ title: 'Success', description: `${product.name} has been updated.` });
+                setIsEditing(false);
+                onUpdate();
+            } catch (error) {
+                console.error("Failed to update product price:", error);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not save changes.' });
+            }
+        });
+    };
+
+    return (
+        <>
+            <TableRow onClick={() => setIsEditing(!isEditing)} className="cursor-pointer">
+                <TableCell className="font-medium">{product.name}</TableCell>
+                <TableCell>{product.category}</TableCell>
+                <TableCell>
+                    {priceData?.variants.map(v => (
+                        <div key={v.sku} className="flex items-center gap-2">
+                             <span className="font-semibold">{v.weight}:</span>
+                             <span>₹{v.price.toFixed(2)}</span>
+                             <span className={v.stock <= 10 ? 'text-destructive' : 'text-muted-foreground'}>
+                                (Stock: {v.stock})
+                             </span>
+                        </div>
+                    )) || 'No price data'}
+                </TableCell>
+            </TableRow>
+             {isEditing && (
+                 <TableRow>
+                    <TableCell colSpan={3} className="p-0">
+                        <div className="p-4 bg-muted/50 space-y-4">
+                             <p className="font-semibold text-sm">Editing: {product.name}</p>
+                             {variants.map((variant, index) => (
+                                <div key={variant.sku} className="grid grid-cols-3 gap-4 items-center">
+                                    <div className="font-mono text-sm">{variant.weight}</div>
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-sm">₹</span>
+                                        <Input
+                                            type="number"
+                                            value={variant.price}
+                                            onChange={e => handleVariantChange(index, 'price', e.target.value)}
+                                            className="h-8"
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                         <span className="text-sm">Stock:</span>
+                                        <Input
+                                            type="number"
+                                            value={variant.stock}
+                                            onChange={e => handleVariantChange(index, 'stock', e.target.value)}
+                                            className="h-8"
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                            <div className="flex gap-2 justify-end">
+                                <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>Cancel</Button>
+                                <Button size="sm" onClick={handleSave} disabled={isSaving}>
+                                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                    Save
+                                </Button>
+                            </div>
+                        </div>
+                    </TableCell>
+                 </TableRow>
+            )}
+        </>
+    );
+}
+
+function StoreOwnersList() {
+    const { firestore } = useFirebase();
+    const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
+    const storesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'stores') : null, [firestore]);
+
+    const { data: users, isLoading: usersLoading } = useCollection<User>(usersQuery);
+    const { data: stores, isLoading: storesLoading } = useCollection<StoreType>(storesQuery);
+    
+    const storeOwners = useMemo(() => {
+        if (!users || !stores) return [];
+        const storeOwnerIds = new Set(stores.map(s => s.ownerId));
+        return users.filter(u => storeOwnerIds.has(u.id));
+    }, [users, stores]);
+
+    const getStoreForOwner = (ownerId: string) => {
+        return stores?.find(s => s.ownerId === ownerId);
+    }
+
+    if (usersLoading || storesLoading) {
+        return <Skeleton className="h-24 w-full" />;
     }
 
     return (
-        <div className="container mx-auto py-12 px-4 md:px-6">
-            <Card className="max-w-2xl mx-auto">
+         <Accordion type="single" collapsible className="w-full mb-8">
+            <AccordionItem value="store-owners">
+                <AccordionTrigger>
+                     <div className="flex justify-between items-center w-full pr-4">
+                        <div>
+                            <h2 className="text-xl font-bold font-headline">Store Owners ({storeOwners.length})</h2>
+                            <p className="text-sm text-muted-foreground text-left">A list of all users who have created a store.</p>
+                        </div>
+                    </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                    <Card>
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Owner Name</TableHead>
+                                        <TableHead>Email</TableHead>
+                                        <TableHead>Store Name</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {storeOwners.map(owner => {
+                                        const store = getStoreForOwner(owner.id);
+                                        return (
+                                            <TableRow key={owner.id}>
+                                                <TableCell className="font-medium">{owner.firstName} {owner.lastName}</TableCell>
+                                                <TableCell>{owner.email}</TableCell>
+                                                <TableCell>{store?.name || 'N/A'}</TableCell>
+                                            </TableRow>
+                                        )
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
+    )
+}
+
+function AdminActionCard({ title, description, href, icon: Icon }: { title: string, description: string, href: string, icon: React.ElementType }) {
+    return (
+        <Link href={href} className="block hover:shadow-lg transition-shadow rounded-lg">
+            <Card>
                 <CardHeader>
-                    <CardTitle className="text-3xl font-headline flex items-center gap-2">
-                        <Fingerprint className="h-8 w-8 text-primary" />
-                        <span>Manage Fingerprint Login</span>
-                    </CardTitle>
-                    <CardDescription>
-                        Register your device to enable secure, passwordless login using your fingerprint or other biometrics.
-                    </CardDescription>
+                    <div className="flex items-center gap-4">
+                        <Icon className="h-8 w-8 text-primary" />
+                        <CardTitle>{t(title)}</CardTitle>
+                    </div>
                 </CardHeader>
-                <CardContent className="space-y-6">
-                    <Alert>
-                        <CheckCircle className="h-4 w-4" />
-                        <AlertTitle>How it works</AlertTitle>
-                        <AlertDescription>
-                            This uses the WebAuthn standard, which creates a secure key on your device. Your fingerprint never leaves your device; it only unlocks this key.
-                        </AlertDescription>
-                    </Alert>
-                    <Button
-                        onClick={handleRegister}
-                        disabled={isRegistering}
-                        className="w-full"
-                        size="lg"
-                    >
-                        {isRegistering ? (
-                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Registering...</>
-                        ) : (
-                            <><Fingerprint className="mr-2 h-4 w-4" /> Register This Device</>
-                        )}
-                    </Button>
-                    <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertTitle>Note</AlertTitle>
-                        <AlertDescription>
-                            You will need to register each new device or browser you wish to log in from. Registered authenticators cannot be removed from this UI yet.
-                        </AlertDescription>
-                    </Alert>
+                <CardContent>
+                    <CardDescription>{t(description)}</CardDescription>
                 </CardContent>
             </Card>
+        </Link>
+    );
+}
+
+export default function AdminDashboardPage() {
+    const { firestore } = useFirebase();
+    const router = useRouter();
+    const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
+
+    // Queries for stats
+    const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
+    const storesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'stores'), where('isClosed', '!=', true)) : null, [firestore]);
+    const deliveredOrdersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'orders'), where('status', '==', 'Delivered')) : null, [firestore]);
+    
+    const adminStoreQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return query(collection(firestore, 'stores'), where('name', '==', 'LocalBasket'));
+    }, [firestore]);
+
+
+    const { data: users, isLoading: usersLoading } = useCollection(usersQuery);
+    const { data: stores, isLoading: storesLoading } = useCollection(storesQuery);
+    const { data: deliveredOrders, isLoading: ordersLoading } = useCollection<Order>(deliveredOrdersQuery);
+    const { data: adminStores, isLoading: adminStoreLoading } = useCollection<StoreType>(adminStoreQuery);
+
+    const masterStoreExists = useMemo(() => adminStores && adminStores.length > 0, [adminStores]);
+
+    const stats = useMemo(() => ({
+        totalUsers: users?.length ?? 0,
+        totalStores: stores?.length ?? 0,
+        totalOrdersDelivered: deliveredOrders?.length ?? 0,
+    }), [users, stores, deliveredOrders]);
+
+    const statsLoading = isAdminLoading || usersLoading || storesLoading || ordersLoading;
+
+    useEffect(() => {
+        if (!isAdminLoading && !isAdmin) {
+            router.replace('/dashboard');
+        }
+    }, [isAdminLoading, isAdmin, router]);
+
+    if (isAdminLoading || adminStoreLoading || !isAdmin) {
+        return <p>Loading admin dashboard...</p>
+    }
+
+    const statItems = [
+        { title: 'total-users', value: stats.totalUsers, icon: Users },
+        { title: 'total-stores', value: stats.totalStores, icon: Store },
+        { title: 'orders-delivered', value: stats.totalOrdersDelivered, icon: ShoppingBag },
+    ];
+
+
+    return (
+        <div className="container mx-auto py-12 px-4 md:px-6">
+            <div className="text-center mb-12">
+                <h1 className="text-4xl font-bold font-headline">{t('admin-dashboard')}</h1>
+                <p className="text-lg text-muted-foreground mt-2">{t('a-high-level-overview-of-your-application')}</p>
+            </div>
+            
+            {!masterStoreExists && <CreateMasterStoreCard />}
+            
+            <ProductInventory />
+            
+            <StoreOwnersList />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                {statItems.map(item => (
+                    <StatCard 
+                        key={item.title} 
+                        title={item.title}
+                        value={item.value}
+                        icon={item.icon}
+                        loading={statsLoading}
+                    />
+                ))}
+            </div>
+
+            <div className="mt-16">
+                 <h2 className="text-2xl font-bold text-center mb-8 font-headline">{t('admin-tools')}</h2>
+                 <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
+                    <ProductUrlImporterCard />
+                    <BulkRecipeUploadCard />
+                     <AdminActionCard 
+                        title="manage-master-store-and-products"
+                        description="add-or-edit-products-in-the-master-catalog"
+                        href="/dashboard/owner/my-store"
+                        icon={Store}
+                    />
+                    <AdminActionCard 
+                        title="voice-commands-control"
+                        description="view-and-manage-the-voice-commands-users-can-say"
+                        href="/dashboard/voice-commands"
+                        icon={Mic}
+                    />
+                    <AdminActionCard
+                        title="Failed Command Center"
+                        description="Review failed voice commands and use AI to train the system."
+                        href="/dashboard/admin/failed-commands"
+                        icon={Bot}
+                    />
+                    <AdminActionCard
+                        title="AI Training Ground"
+                        description="Paste any text to teach the AI new product aliases and concepts."
+                        href="/dashboard/admin/training-ground"
+                        icon={Lightbulb}
+                    />
+                    <AdminActionCard
+                        title="recipe-tester"
+                        description="Manually test the AI recipe ingredient generation."
+                        href="/dashboard/admin/recipe-tester"
+                        icon={Beaker}
+                    />
+                    <AdminActionCard
+                        title="Security Rules"
+                        description="View and copy the current Firestore security rules for debugging."
+                        href="/dashboard/admin/security-rules"
+                        icon={Shield}
+                    />
+                    <AdminActionCard
+                        title="Image Management"
+                        description="Manage all placeholder and category images."
+                        href="/dashboard/admin/image-management"
+                        icon={ImageIcon}
+                    />
+                </div>
+            </div>
         </div>
     );
 }
-`,
-    }
-];

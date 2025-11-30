@@ -568,70 +568,16 @@ export default function AdminDashboardPage() {
                     <ProductUrlImporterCard />
                     <BulkRecipeUploadCard />
                      <AdminActionCard 
-                        title="System Status"
-                        description="Check the health of backend services and APIs."
-                        href="/dashboard/admin/system-status"
-                        icon={Server}
-                    />
-                     <AdminActionCard 
-                        title="View App Pitch"
-                        description="Review and share the official app pitch document."
-                        href="/dashboard/admin/pitch"
-                        icon={FileText}
-                    />
-                    <AdminActionCard 
-                        title="App Overview"
-                        description="Get a complete breakdown of the app's features and design."
-                        href="/dashboard/admin/app-overview"
-                        icon={FileSignature}
-                    />
-                     <AdminActionCard 
-                        title="AI-Powered Suggestions"
-                        description="View strategic recommendations for improving the app."
-                        href="/dashboard/admin/suggestions"
-                        icon={Bot}
-                    />
-                    <AdminActionCard
-                        title="Store Orders"
-                        description="View and manage incoming orders for all stores."
-                        href="/dashboard/owner/orders"
-                        icon={ShoppingBag}
-                    />
-                     <AdminActionCard
-                        title="Knowledge Chat"
-                        description="Ask questions and get factual summaries from Wikipedia."
-                        href="/dashboard/admin/knowledge-chat"
-                        icon={MessageSquare}
-                    />
-                     <AdminActionCard
-                        title="App Replies Editor"
-                        description="Manage the voice assistant's conversational replies."
-                        href="/dashboard/admin/app-replies"
-                        icon={MessageSquare}
-                    />
-                    <AdminActionCard 
                         title="manage-master-store-and-products"
                         description="add-or-edit-products-in-the-master-catalog"
                         href="/dashboard/owner/my-store"
                         icon={Store}
-                    />
-                     <AdminActionCard 
-                        title="View Product List"
-                        description="See a complete list of all products available on the platform."
-                        href="/dashboard/admin/product-list"
-                        icon={List}
                     />
                     <AdminActionCard 
                         title="voice-commands-control"
                         description="view-and-manage-the-voice-commands-users-can-say"
                         href="/dashboard/voice-commands"
                         icon={Mic}
-                    />
-                    <AdminActionCard
-                        title="Image Management"
-                        description="Manage all placeholder and category images."
-                        href="/dashboard/admin/image-management"
-                        icon={ImageIcon}
                     />
                     <AdminActionCard
                         title="Failed Command Center"
@@ -646,30 +592,6 @@ export default function AdminDashboardPage() {
                         icon={Lightbulb}
                     />
                     <AdminActionCard
-                        title="Number Engine Demo"
-                        description="Test how the new deterministic number engine parses sentences."
-                        href="/dashboard/admin/number-engine-demo"
-                        icon={Binary}
-                    />
-                    <AdminActionCard
-                        title="Number Engine Tester"
-                        description="View the source code for the number engine's automated test script."
-                        href="/dashboard/admin/number-engine-test-help"
-                        icon={TestTube}
-                    />
-                     <AdminActionCard
-                        title="Asha AI Agent"
-                        description="Use the conversational diagnostic assistant."
-                        href="/dashboard/admin/asha-agent"
-                        icon={BrainCircuit}
-                    />
-                    <AdminActionCard
-                        title="Cached Recipes"
-                        description="View and manage the AI-generated recipe ingredient cache."
-                        href="/dashboard/admin/cached-recipes"
-                        icon={BookOpen}
-                    />
-                    <AdminActionCard
                         title="recipe-tester"
                         description="Manually test the AI recipe ingredient generation."
                         href="/dashboard/admin/recipe-tester"
@@ -681,91 +603,12 @@ export default function AdminDashboardPage() {
                         href="/dashboard/admin/security-rules"
                         icon={Shield}
                     />
-                     <AdminActionCard
-                        title="PWA Manifest"
-                        description="View and copy the app's Progressive Web App manifest file."
-                        href="/dashboard/admin/manifest-help"
-                        icon={BookCopy}
-                    />
-                     <AdminActionCard
-                        title="PWA Settings"
-                        description="Manage screenshots and shortcuts for your installable web app."
-                        href="/dashboard/admin/pwa-settings"
-                        icon={BookCopy}
-                    />
                     <AdminActionCard
-                        title="Fingerprint Login Code"
-                        description="View the source code for the WebAuthn fingerprint login feature."
-                        href="/dashboard/admin/fingerprint-help"
-                        icon={Fingerprint}
+                        title="Image Management"
+                        description="Manage all placeholder and category images."
+                        href="/dashboard/admin/image-management"
+                        icon={ImageIcon}
                     />
-                     <AdminActionCard
-                        title="Voice ID Code"
-                        description="View the source code for the voiceprint verification system."
-                        href="/dashboard/admin/voice-id-help"
-                        icon={Voicemail}
-                    />
-                    <AdminActionCard
-                        title="WebAuthn API Code"
-                        description="View the source code for the WebAuthn (fingerprint) API route."
-                        href="/dashboard/admin/webauthn-api-help"
-                        icon={Fingerprint}
-                    />
-                     <AdminActionCard
-                        title="Server Actions Code"
-                        description="View the source code for the main server actions file."
-                        href="/dashboard/admin/actions-help"
-                        icon={Server}
-                    />
-                     <AdminActionCard
-                        title="Admin Init Code"
-                        description="View the source code for the Firebase Admin SDK initialization."
-                        href="/dashboard/admin/admin-init-help"
-                        icon={KeyRound}
-                    />
-                     <AdminActionCard
-                        title="Voice Commander Code"
-                        description="View the source code for the main voice command processing logic."
-                        href="/dashboard/admin/voice-commander-help"
-                        icon={Mic}
-                    />
-                    <AdminActionCard
-                        title="Voice Integration Help"
-                        description="View the source code for the NLU voice integration functions."
-                        href="/dashboard/admin/voice-integration-help"
-                        icon={Share2}
-                    />
-                     <AdminActionCard
-                        title="Checkout Loop Debug"
-                        description="Isolate the specific code related to the checkout page command loop."
-                        href="/dashboard/admin/checkout-loop-help"
-                        icon={Bug}
-                    />
-                    <AdminActionCard
-                        title="Homepage Code"
-                        description="View the source code for the main homepage UI."
-                        href="/dashboard/admin/homepage-help"
-                        icon={Home}
-                    />
-                    <AdminActionCard
-                        title="Global Loader Code"
-                        description="View the source code for the app's initial loading screen."
-                        href="/dashboard/admin/loader-help"
-                        icon={Loader2}
-                    />
-                    <AdminActionCard
-                        title="Desktop Dashboard"
-                        description="View a desktop-optimized product browsing dashboard."
-                        href="/dashboard/desktop"
-                        icon={Monitor}
-                    />
-                    <AdminActionCard
-                        title="Animation Demo"
-                        description="A simple 2D animation demo page."
-                        href="/shockwave"
-                        icon={Drama}
-                    />
-                    
                 </div>
             </div>
         </div>
