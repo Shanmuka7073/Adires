@@ -63,6 +63,7 @@ export type CartItem = {
   product: Product; // The base product
   variant: ProductVariant; // The specific variant chosen
   quantity: number;
+  isAiAssisted?: boolean; // Flag to show if AI added this item (e.g. from a recipe)
 };
 
 export type OrderItem = {

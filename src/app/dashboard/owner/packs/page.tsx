@@ -4,11 +4,11 @@
 import { useState, useTransition, useMemo, useEffect } from 'react';
 import { useFirebase, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, addDoc, doc, deleteDoc, limit, setDoc } from 'firebase/firestore';
-import type { Store, MonthlyPackage, ProductPrice, DayPlan } from '@/lib/types';
+import type { Store, MonthlyPackage, Product, ProductPrice, DayPlan } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Trash2, Sparkles, Loader2, Save, ChevronDown } from 'lucide-react';
+import { Trash2, Sparkles, Loader2, Save, ShoppingCart } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useAppStore } from '@/lib/store';
 import { Label } from '@/components/ui/label';
@@ -18,6 +18,8 @@ import { generateBreakfastPack, GenerateBreakfastPackOutput } from '@/ai/flows/g
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { useCart } from '@/lib/cart';
+import { calculateSimilarity } from '@/lib/calculate-similarity';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -185,6 +187,8 @@ function ExistingPacks({ storeId }: { storeId: string }) {
     const { firestore } = useFirebase();
     const [isDeleting, startDelete] = useTransition();
     const { toast } = useToast();
+    const { masterProducts, productPrices } = useAppStore();
+    const { addItem } = useCart();
 
     const packagesQuery = useMemoFirebase(() => {
         if (!firestore || !storeId) return null;
@@ -203,6 +207,37 @@ function ExistingPacks({ storeId }: { storeId: string }) {
                 console.error("Failed to delete pack:", error);
                 toast({ variant: 'destructive', title: "Deletion Failed", description: "Could not remove the pack." });
              }
+        });
+    }
+
+    const handleAddToCart = (pack: MonthlyPackage) => {
+        if (!pack.items) return;
+        let itemsAdded = 0;
+        
+        pack.items.forEach(packItem => {
+             let bestMatch: { product: Product, score: number } | null = null;
+
+            masterProducts.forEach(product => {
+                const similarity = calculateSimilarity(packItem.name.toLowerCase(), product.name.toLowerCase());
+                if (!bestMatch || similarity > bestMatch.score) {
+                    bestMatch = { product, score: similarity };
+                }
+            });
+
+             if (bestMatch && bestMatch.score > 0.7) {
+                const priceData = productPrices[bestMatch.product.name.toLowerCase()];
+                // Add the smallest available variant
+                const smallestVariant = priceData?.variants?.[0];
+                if (smallestVariant) {
+                    addItem(bestMatch.product, smallestVariant, 1);
+                    itemsAdded++;
+                }
+            }
+        });
+
+        toast({
+            title: 'Pack Added to Cart',
+            description: `Successfully matched and added ${itemsAdded} out of ${pack.items.length} items.`,
         });
     }
 
@@ -246,32 +281,37 @@ function ExistingPacks({ storeId }: { storeId: string }) {
                                     </div>
                                 </AccordionTrigger>
                                 <AccordionContent>
-                                    <div className="p-4 bg-muted/50 rounded-lg grid md:grid-cols-2 gap-6">
-                                        <div>
-                                            <h5 className="font-semibold mb-2">Shopping List:</h5>
-                                            <div className="flex flex-wrap gap-2">
-                                                {pack.items.map((item, index) => (
-                                                    <Badge key={index} variant="secondary">{item.name} ({item.quantity})</Badge>
-                                                ))}
-                                            </div>
-                                        </div>
-                                        {pack.schedule && (
+                                    <div className="p-4 bg-muted/50 rounded-lg space-y-4">
+                                        <div className="grid md:grid-cols-2 gap-6">
                                             <div>
-                                                <h5 className="font-semibold mb-2">Meal Schedule:</h5>
-                                                <Table>
-                                                    <TableHeader><TableRow><TableHead>Day</TableHead><TableHead>Main</TableHead><TableHead>Side</TableHead></TableRow></TableHeader>
-                                                    <TableBody>
-                                                        {pack.schedule.map(day => (
-                                                            <TableRow key={day.day}>
-                                                                <TableCell>{day.day}</TableCell>
-                                                                <TableCell>{day.mainItem}</TableCell>
-                                                                <TableCell>{day.sideItem}</TableCell>
-                                                            </TableRow>
-                                                        ))}
-                                                    </TableBody>
-                                                </Table>
+                                                <h5 className="font-semibold mb-2">Shopping List:</h5>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {pack.items.map((item, index) => (
+                                                        <Badge key={index} variant="secondary">{item.name} ({item.quantity})</Badge>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        )}
+                                            {pack.schedule && (
+                                                <div>
+                                                    <h5 className="font-semibold mb-2">Meal Schedule:</h5>
+                                                    <Table>
+                                                        <TableHeader><TableRow><TableHead>Day</TableHead><TableHead>Main</TableHead><TableHead>Side</TableHead></TableRow></TableHeader>
+                                                        <TableBody>
+                                                            {pack.schedule.map(day => (
+                                                                <TableRow key={day.day}>
+                                                                    <TableCell>{day.day}</TableCell>
+                                                                    <TableCell>{day.mainItem}</TableCell>
+                                                                    <TableCell>{day.sideItem}</TableCell>
+                                                                </TableRow>
+                                                            ))}
+                                                        </TableBody>
+                                                    </Table>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <Button className="w-full mt-4" onClick={() => handleAddToCart(pack)}>
+                                            <ShoppingCart className="mr-2 h-4 w-4" /> Add All Items to Cart
+                                        </Button>
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
