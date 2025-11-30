@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, errorEmitter, useDoc, useMemoFirebase } from '@/firebase';
 import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, SiteConfig, VoiceAliasGroup } from '@/lib/types';
-import { calculateSimilarity } from '@/lib/calculate-similarity';
+import { calculateSimilarity, bagSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
 import { useAppStore, ProfileFormValues } from '@/lib/store';
 import { useMyStorePageStore } from '@/lib/store';
@@ -493,7 +493,10 @@ const findProductAndVariant = useCallback(
         } else {
             let bestMatch: { product: Product, alias: string, similarity: number, lang: string } | null = null;
             for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
-                const similarity = calculateSimilarity(productPhrase, alias);
+                const similarity = Math.max(
+                    calculateSimilarity(productPhrase, alias),
+                    bagSimilarity(productPhrase, alias) // Use the new bag similarity
+                );
                 if (similarity > 0.8 && (!bestMatch || similarity > bestMatch.similarity)) {
                     bestMatch = { product, alias, similarity, lang };
                 }
