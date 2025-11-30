@@ -8,7 +8,7 @@ import type { Store, MonthlyPackage, ProductPrice } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Trash2, Sparkles, Loader2, Save } from 'lucide-react';
+import { Trash2, Sparkles, Loader2, Save, ChevronDown } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useAppStore } from '@/lib/store';
 import { Label } from '@/components/ui/label';
@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { generateBreakfastPack, GenerateBreakfastPackOutput } from '@/ai/flows/generate-breakfast-pack-flow';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -216,37 +217,46 @@ function ExistingPacks({ storeId }: { storeId: string }) {
             </CardHeader>
             <CardContent>
                 {packages && packages.length > 0 ? (
-                    <div className="space-y-4">
+                    <Accordion type="multiple" className="w-full">
                         {packages.map(pack => (
-                             <Card key={pack.id} className="p-4">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <h4 className="font-bold">{pack.name}</h4>
-                                        <p className="text-sm text-muted-foreground">{pack.items.length} items for {pack.memberCount} people</p>
-                                        <p className="font-bold text-primary">₹{typeof pack.price === 'number' ? pack.price.toFixed(2) : '0.00'}</p>
+                             <AccordionItem value={pack.id} key={pack.id}>
+                                <AccordionTrigger className="text-left hover:no-underline">
+                                    <div className="flex justify-between items-center w-full">
+                                        <div>
+                                            <h4 className="font-bold">{pack.name}</h4>
+                                            <p className="text-sm text-muted-foreground">{pack.items.length} items for {pack.memberCount} people</p>
+                                            <p className="font-bold text-primary">₹{typeof pack.price === 'number' ? pack.price.toFixed(2) : '0.00'}</p>
+                                        </div>
+                                         <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="mr-2" onClick={(e) => e.stopPropagation()} disabled={isDeleting}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                    <AlertDialogDescription>This will permanently delete the "{pack.name}". This action cannot be undone.</AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDelete(pack.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
                                     </div>
-                                     <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <Button variant="ghost" size="icon" disabled={isDeleting}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                                <AlertDialogDescription>This will permanently delete the "{pack.name}". This action cannot be undone.</AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleDelete(pack.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                </div>
-                                <div className="mt-2 text-xs text-muted-foreground">
-                                    {pack.items.map(i => i.name).slice(0, 5).join(', ')}{pack.items.length > 5 ? '...' : ''}
-                                </div>
-                            </Card>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                    <div className="p-4 bg-muted/50 rounded-lg">
+                                        <h5 className="font-semibold mb-2">Items in this pack:</h5>
+                                        <div className="flex flex-wrap gap-2">
+                                            {pack.items.map((item, index) => (
+                                                <Badge key={index} variant="secondary">{item.name} ({item.quantity})</Badge>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
                         ))}
-                    </div>
+                    </Accordion>
                 ) : (
                     <p className="text-center text-muted-foreground py-8">You haven't created any packs yet.</p>
                 )}
