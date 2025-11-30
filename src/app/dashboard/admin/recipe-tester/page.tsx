@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition } from 'react';
@@ -7,18 +8,19 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Beaker, Check, AlertTriangle, ShoppingCart } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
+import { getIngredientsForDish, GetIngredientsOutput } from '@/ai/flows/recipe-ingredients-flow';
 import { useAppStore } from '@/lib/store';
 import { useCart } from '@/lib/cart';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useRouter } from 'next/navigation';
+import { RecipeCard } from '@/components/features/recipe-card';
 
 export default function RecipeTesterPage() {
     const { toast } = useToast();
     const router = useRouter();
     const [isGenerating, startGeneration] = useTransition();
     const [dishName, setDishName] = useState('');
-    const [result, setResult] = useState<{ isSuccess: boolean; reason: string; ingredients: string[] } | null>(null);
+    const [result, setResult] = useState<GetIngredientsOutput | null>(null);
 
     const { masterProducts, productPrices } = useAppStore();
     const { addItem, clearCart } = useCart();
@@ -37,18 +39,14 @@ export default function RecipeTesterPage() {
                     language: 'en', // For testing, we can hardcode to English
                 });
 
-                if (response.isSuccess) {
-                    setResult({ 
-                        isSuccess: true, 
-                        reason: `AI successfully found ingredients for "${dishName}"`,
-                        ingredients: response.ingredients,
-                    });
+                if (response.isSuccess && response.ingredients.length > 0) {
+                    setResult(response);
                      toast({
                         title: 'Success!',
                         description: `Found ${response.ingredients.length} ingredients for "${dishName}".`,
                     });
                 } else {
-                     setResult({ isSuccess: false, reason: `The AI could not determine the ingredients for "${dishName}". It may not be a known dish.`, ingredients: [] });
+                     setResult({ isSuccess: false, ingredients: [], instructions: response.instructions, title: response.title });
                      toast({
                         title: 'AI Could Not Find Recipe',
                         description: `The model could not find ingredients for "${dishName}".`,
@@ -72,17 +70,17 @@ export default function RecipeTesterPage() {
         clearCart();
         let itemsAdded = 0;
         
-        result.ingredients.forEach(ingredientName => {
-            let bestMatch = { product: null, score: 0 };
+        result.ingredients.forEach(ingredient => {
+            let bestMatch: { product: any, score: number } | null = null;
 
             masterProducts.forEach(product => {
-                const similarity = calculateSimilarity(ingredientName.toLowerCase(), product.name.toLowerCase());
-                if (similarity > bestMatch.score) {
+                const similarity = calculateSimilarity(ingredient.name.toLowerCase(), product.name.toLowerCase());
+                if (!bestMatch || similarity > bestMatch.score) {
                     bestMatch = { product, score: similarity };
                 }
             });
 
-            if (bestMatch.product && bestMatch.score > 0.7) {
+            if (bestMatch && bestMatch.product && bestMatch.score > 0.7) {
                 const priceData = productPrices[bestMatch.product.name.toLowerCase()];
                 if (priceData && priceData.variants && priceData.variants.length > 0) {
                     // Find the smallest variant (e.g., '1 pc', '100gm', '250gm')
@@ -111,6 +109,9 @@ export default function RecipeTesterPage() {
 
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
+             <div className="mb-8">
+                <RecipeCard />
+            </div>
             <Card className="max-w-2xl mx-auto">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-2xl font-headline">
@@ -151,13 +152,12 @@ export default function RecipeTesterPage() {
                                         {result.isSuccess ? <Check className="h-5 w-5 text-green-600" /> : <AlertTriangle className="h-5 w-5 text-red-600" />}
                                         {result.isSuccess ? 'Success' : 'Failed'}
                                     </CardTitle>
-                                    <CardDescription>{result.reason}</CardDescription>
                                 </CardHeader>
                                 {result.isSuccess && result.ingredients.length > 0 && (
                                     <CardContent className="space-y-4">
                                         <div className="flex flex-wrap gap-2">
                                             {result.ingredients.map((ing, index) => (
-                                                <Badge key={index} variant="secondary">{ing}</Badge>
+                                                <Badge key={index} variant="secondary">{ing.name} ({ing.quantity})</Badge>
                                             ))}
                                         </div>
                                          <Button onClick={handleAddAllToCart} className="w-full mt-4">
