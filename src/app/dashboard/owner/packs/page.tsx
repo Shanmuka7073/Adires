@@ -217,9 +217,9 @@ function ExistingPacks({ storeId }: { storeId: string }) {
     
         if (lowerWeight.includes('kg')) return value * 1000;
         if (lowerWeight.includes('gm') || lowerWeight.includes('g')) return value;
-        if (lowerWeight.includes('litre') || lowerWeight.includes('l')) return value * 1000; // Treat 1 litre as 1000 for sorting
+        if (lowerWeight.includes('litre') || lowerWeight.includes('l')) return value * 1000;
         if (lowerWeight.includes('ml')) return value;
-        if (lowerWeight.includes('pc') || lowerWeight.includes('pack')) return value; // Treat pcs as low value for sorting
+        if (lowerWeight.includes('pc') || lowerWeight.includes('pack')) return value;
         return value;
     };
 
@@ -242,28 +242,23 @@ function ExistingPacks({ storeId }: { storeId: string }) {
                 
                 if (priceData?.variants && priceData.variants.length > 0) {
                     const requiredGrams = parseWeightToGrams(packItem.quantity);
-                    let chosenVariant: ProductVariant | null = null;
-                    let smallestDiff = Infinity;
+                    const isLiquid = packItem.quantity.includes('ml') || packItem.quantity.includes('litre');
+                    
+                    const baseVariant = priceData.variants.find(v => v.weight.includes(isLiquid ? 'ltr' : 'kg')) || priceData.variants[0];
+                    const baseWeightGrams = parseWeightToGrams(baseVariant.weight);
+                    const pricePerGram = baseVariant.price / baseWeightGrams;
 
-                    // Find the variant with the closest weight
-                    priceData.variants.forEach(v => {
-                        const variantGrams = parseWeightToGrams(v.weight);
-                        const diff = Math.abs(variantGrams - requiredGrams);
-                        if (diff < smallestDiff) {
-                            smallestDiff = diff;
-                            chosenVariant = v;
-                        }
-                    });
+                    const calculatedPrice = requiredGrams * pricePerGram;
+                    
+                    const customVariant: ProductVariant = {
+                        sku: `${baseVariant.sku}-custom-${requiredGrams}`,
+                        weight: packItem.quantity,
+                        price: calculatedPrice,
+                        stock: baseVariant.stock, // Assume stock is available
+                    };
 
-                    // If no close match, default to the smallest variant available
-                    if (!chosenVariant) {
-                        chosenVariant = [...priceData.variants].sort((a,b) => parseWeightToGrams(a.weight) - parseWeightToGrams(b.weight))[0];
-                    }
-
-                    if (chosenVariant) {
-                        addItem(bestMatch.product, chosenVariant, 1);
-                        itemsAdded++;
-                    }
+                    addItem(bestMatch.product, customVariant, 1);
+                    itemsAdded++;
                 }
             }
         });
