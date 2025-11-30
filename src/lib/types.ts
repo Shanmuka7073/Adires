@@ -1,4 +1,3 @@
-
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -156,7 +155,7 @@ export interface InstructionStep {
 export interface GetIngredientsOutput {
     isSuccess: boolean;
     ingredients: Ingredient[];
-    instructions: InstructionStep[]; // UPDATED from string to structured array
+    instructions: InstructionStep[];
     title: string;
 }
 
@@ -265,4 +264,18 @@ export type NluExtractedSentence = {
     confidence: number;
     status: 'pending' | 'approved' | 'rejected';
     createdAt: any;
+};
+
+export type GenerateBreakfastPackOutput = {
+  packName: string;
+  schedule: {
+    day: number;
+    mainItem: string;
+    sideItem: string;
+  }[];
+  shoppingList: {
+    itemName: string;
+    quantity: string;
+  }[];
+  estimatedCost: number;
 };

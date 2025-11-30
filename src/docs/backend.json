@@ -436,13 +436,9 @@
         "ingredients": {
           "type": "array",
           "items": {
-            "$ref": "#/entities/Ingredient"
+            "type": "string"
           },
           "description": "The list of ingredients for the dish."
-        },
-        "instructions": {
-            "type": "string",
-            "description": "The cooking instructions for the dish."
         },
         "createdAt": {
           "type": "string",
@@ -450,16 +446,7 @@
           "description": "The timestamp when the recipe was cached."
         }
       },
-      "required": ["id", "dishName", "ingredients", "instructions", "createdAt"]
-    },
-    "Ingredient": {
-        "title": "Ingredient",
-        "type": "object",
-        "properties": {
-            "name": {"type": "string"},
-            "quantity": {"type": "string"}
-        },
-        "required": ["name", "quantity"]
+      "required": ["id", "dishName", "ingredients", "createdAt"]
     },
     "CachedAIResponse": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -1086,4 +1073,3 @@
     ]
   }
 }
-
