@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect } from 'react';
@@ -8,6 +7,7 @@ import { MainLayout } from '@/components/layout/main-layout';
 import { Toaster } from '@/components/ui/toaster';
 import { useAppStore } from '@/lib/store';
 import GlobalLoader from './global-loader';
+import { InstallProvider } from '@/components/install-provider';
 
 // The initialization logic MUST live here, at the top level.
 function AppInitializer({ children }: { children: React.ReactNode }) {
@@ -45,12 +45,14 @@ export function ClientRoot({ children }: { children: React.ReactNode }) {
         {!isInitialized || !appReady ? (
           <GlobalLoader />
         ) : (
-          <CartProvider>
-            <MainLayout>
-              {children}
-            </MainLayout>
-            <Toaster />
-          </CartProvider>
+          <InstallProvider>
+            <CartProvider>
+              <MainLayout>
+                {children}
+              </MainLayout>
+              <Toaster />
+            </CartProvider>
+          </InstallProvider>
         )}
       </AppInitializer>
     </FirebaseClientProvider>

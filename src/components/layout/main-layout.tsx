@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, createContext, useContext, useCallback, useEffect } from 'react';
@@ -15,6 +14,7 @@ import { usePathname } from 'next/navigation';
 import { BottomNavBar } from './bottom-nav-bar';
 import { useFirebase } from '@/firebase';
 import { PriceCheckDisplay, PriceCheckInfo } from './price-check-display';
+import { useInstall } from '../install-provider';
 
 // Create a context to provide the trigger function
 const VoiceCommandContext = createContext<{ 
@@ -23,6 +23,7 @@ const VoiceCommandContext = createContext<{
     showPriceCheck: (info: PriceCheckInfo) => void;
     hidePriceCheck: () => void;
     voiceEnabled: boolean;
+    voiceStatus: string;
     onToggleVoice: () => void;
     isCartOpen: boolean;
     onCartOpenChange: (open: boolean) => void;
@@ -55,6 +56,8 @@ export function MainLayout({
 
   const [voiceTrigger, setVoiceTrigger] = useState(0);
   const [retryCommandText, setRetryCommandText] = useState<string | null>(null);
+  const { triggerInstall } = useInstall();
+
 
   // --- Location-based language detection ---
   useEffect(() => {
@@ -119,10 +122,9 @@ export function MainLayout({
 
 
   return (
-    <VoiceCommandContext.Provider value={{ triggerVoicePrompt, retryCommand, showPriceCheck, hidePriceCheck, voiceEnabled, onToggleVoice, isCartOpen, onCartOpenChange: setIsCartOpen }}>
+    <VoiceCommandContext.Provider value={{ triggerVoicePrompt, retryCommand, showPriceCheck, hidePriceCheck, voiceEnabled, voiceStatus, onToggleVoice, isCartOpen, onCartOpenChange: setIsCartOpen }}>
         <div className="relative flex min-h-dvh flex-col bg-background">
         <Header 
-            voiceStatus={voiceStatus}
             suggestedCommands={suggestedCommands}
         />
         {user && isInitialized && (
@@ -138,6 +140,7 @@ export function MainLayout({
                 triggerVoicePrompt={triggerVoicePrompt}
                 retryCommandText={retryCommandText}
                 onRetryHandled={() => setRetryCommandText(null)}
+                onInstallApp={triggerInstall}
             />
         )}
         <ProfileCompletionChecker />

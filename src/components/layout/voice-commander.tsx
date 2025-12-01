@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -48,6 +47,7 @@ interface VoiceCommanderProps {
   triggerVoicePrompt: () => void;
   retryCommandText: string | null;
   onRetryHandled: () => void;
+  onInstallApp: () => void;
 }
 
 let recognition: SpeechRecognition | null = null;
@@ -98,6 +98,7 @@ export function VoiceCommander({
   triggerVoicePrompt,
   retryCommandText,
   onRetryHandled,
+  onInstallApp,
 }: VoiceCommanderProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -487,12 +488,17 @@ const findProductAndVariant = useCallback(
     let bestMatch: { product: Product, alias: string, score: number, lang: string } | null = null;
     
     if (productPhrase) {
-        for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
-            const similarity = calculateSimilarity(productPhrase, alias);
-            if (!bestMatch || similarity > bestMatch.score) {
-                 if (similarity > 0.7) {
+        // First, try a direct match
+        const directMatch = universalProductAliasMap.get(productPhrase.toLowerCase()) || universalProductAliasMap.get(productPhrase.toLowerCase().replace(/\s/g, ''));
+        if (directMatch) {
+            bestMatch = { product: directMatch.product, alias: productPhrase, score: 1.0, lang: directMatch.lang };
+        } else {
+            // If no direct match, perform a fuzzy search
+            for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
+                const similarity = calculateSimilarity(productPhrase, alias);
+                if (similarity > 0.7 && (!bestMatch || similarity > bestMatch.score)) {
                     bestMatch = { product, alias, score: similarity, lang };
-                 }
+                }
             }
         }
     }
@@ -981,6 +987,7 @@ const findProductAndVariant = useCallback(
       myProfile: (params: {lang: string}) => router.push('/dashboard/customer/my-profile'),
       managePacks: (params: {lang: string}) => router.push('/dashboard/owner/packs'),
       'recipe-tester': (params: {lang: string}) => router.push('/dashboard/admin/recipe-tester'),
+      'installApp': (params: {lang: string}) => onInstallApp(),
 
       'get-recipe': async ({ dishName, lang }: { dishName: string, lang: string }) => {
         const replyLang = lang;
@@ -1305,7 +1312,7 @@ const findProductAndVariant = useCallback(
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
       removeItem, addUnidentifiedItem, updateUnidentifiedItem,
       getProductName, addItemToCart, locales, commands, getAllAliases, recognizeIntent, stores,
-      showPriceCheck, hidePriceCheck, findProductAndVariant
+      showPriceCheck, hidePriceCheck, findProductAndVariant, onInstallApp
   ]);
 
   return null;

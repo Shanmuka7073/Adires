@@ -1,8 +1,7 @@
-
 'use client';
 
 import Link from 'next/link';
-import { Package2, Menu, UserCircle, Store, ShoppingBag, Truck, LayoutDashboard, Mic, MicOff, Globe, Sparkles, Box, LogOut, Monitor } from 'lucide-react';
+import { Package2, Menu, UserCircle, Store, ShoppingBag, Truck, LayoutDashboard, Mic, MicOff, Globe, Sparkles, Box, LogOut, Monitor, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -34,6 +33,7 @@ import { useToast } from '@/hooks/use-toast';
 import { t } from '@/lib/locales';
 import { useAppStore } from '@/lib/store';
 import { useVoiceCommanderContext } from './main-layout';
+import { useInstall } from '../install-provider';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -76,6 +76,8 @@ function UserMenu() {
   const { user, isUserLoading } = useFirebase();
   const isAdmin = user && (user.email === ADMIN_EMAIL || user.email === 'admin2@gmail.com');
   const dashboardHref = isAdmin ? '/dashboard/admin' : '/dashboard';
+  const { canInstall, triggerInstall } = useInstall();
+
 
   const handleLogout = async () => {
     const auth = getAuth();
@@ -151,6 +153,12 @@ function UserMenu() {
             </>
         )}
         <DropdownMenuSeparator />
+        {canInstall && (
+          <DropdownMenuItem onClick={triggerInstall}>
+            <Download className="mr-2 h-4 w-4" />
+            <span>Install App</span>
+          </DropdownMenuItem>
+        )}
          <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
             <LogOut className="mr-2 h-4 w-4" />
             <span>{t('logout')}</span>
@@ -161,15 +169,14 @@ function UserMenu() {
 }
 
 interface HeaderProps {
-  voiceStatus: string;
   suggestedCommands: Command[];
 }
 
-export function Header({ voiceStatus, suggestedCommands }: HeaderProps) {
+export function Header({ suggestedCommands }: HeaderProps) {
   const pathname = usePathname();
   const { toast } = useToast();
   const [hasMounted, setHasMounted] = useState(false);
-  const { voiceEnabled, onToggleVoice, isCartOpen, onCartOpenChange } = useVoiceCommanderContext();
+  const { voiceEnabled, voiceStatus, onToggleVoice, isCartOpen, onCartOpenChange } = useVoiceCommanderContext();
 
 
   useEffect(() => {
