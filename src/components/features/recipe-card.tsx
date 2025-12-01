@@ -88,7 +88,7 @@ export function RecipeCard() {
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [dishName, setDishName] = useState('');
     const [result, setResult] = useState<GetIngredientsOutput | null>(null);
-    const [currentLanguage, setCurrentLanguage] = useState<'en' | 'te'>('en');
+    const [currentLanguage, setCurrentLanguage] = useState<'en' | 'te'>('te');
     const { firestore } = useFirebase();
 
     const handleGetIngredients = async (lang: 'en' | 'te' = currentLanguage) => {
@@ -205,12 +205,12 @@ export function RecipeCard() {
                             placeholder="e.g., Chicken Biryani"
                             value={dishName}
                             onChange={(e) => setDishName(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleGetIngredients('en')}
+                            onKeyDown={(e) => e.key === 'Enter' && handleGetIngredients('te')}
                             disabled={isGenerating}
                             className="pl-9"
                         />
                     </div>
-                    <Button onClick={() => handleGetIngredients('en')} disabled={isGenerating}>
+                    <Button onClick={() => handleGetIngredients('te')} disabled={isGenerating}>
                         {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                         Get Recipe
                     </Button>
@@ -218,7 +218,7 @@ export function RecipeCard() {
                  {result && (
                     <div className="border-t pt-4">
                         {result.isSuccess ? (
-                            <Tabs defaultValue="en" value={currentLanguage} onValueChange={(value) => handleGetIngredients(value as 'en' | 'te')}>
+                            <Tabs defaultValue="te" value={currentLanguage} onValueChange={(value) => handleGetIngredients(value as 'en' | 'te')}>
                                 <div className="flex justify-between items-center mb-2">
                                      <h3 className="font-bold text-xl">{result.title}</h3>
                                      <TabsList>

@@ -13,7 +13,8 @@ import type { CachedRecipe, GetIngredientsOutput } from './types';
  */
 export async function getCachedRecipe(db: Firestore, dishName: string, language: 'en' | 'te'): Promise<GetIngredientsOutput | null> {
     const normalizedDishName = dishName.toLowerCase().replace(/\s+/g, '-');
-    const docRef = doc(db, 'cachedRecipes', `${normalizedDishName}_${language}`);
+    const docId = `${normalizedDishName}_${language}`;
+    const docRef = doc(db, 'cachedRecipes', docId);
 
     try {
         const docSnap = await getDoc(docRef);
