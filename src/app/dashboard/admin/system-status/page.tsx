@@ -3,7 +3,6 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Server, BrainCircuit, Database, ShieldAlert, RefreshCw } from 'lucide-react';
-import { ServerStatusCard, ClientStatusCard } from './status-cards';
 import { getSystemStatus } from '@/app/actions';
 import { useState, useEffect, useTransition } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -19,28 +18,41 @@ export default function SystemStatusPage() {
   const [status, setStatus] = useState<ServerStatus>({ llmStatus: 'Unknown', serverDbStatus: 'Loading' });
   const [isFetching, startFetchingTransition] = useTransition();
 
-  const fetchStatus = async () => {
+  const fetchStatus = useCallback(async () => {
     startFetchingTransition(async () => {
-      const result = await getSystemStatus();
-      setStatus(result);
+      try {
+        const result = await getSystemStatus();
+        setStatus(result);
+      } catch (error) {
+        console.error("Failed to fetch system status", error);
+        setStatus({ 
+            llmStatus: 'Offline', 
+            serverDbStatus: 'Offline', 
+            errorMessage: (error as Error).message 
+        });
+      }
     });
-  };
+  }, []);
 
   useEffect(() => {
     fetchStatus();
-  }, []);
+  }, [fetchStatus]);
 
-  const getDbStatus = () => {
-      if (status.serverDbStatus === 'Loading' || isFetching) return { status: 'Unknown', message: 'Checking connection...' };
-      if (status.serverDbStatus === 'Online') return { status: 'Online', message: 'Server is successfully connected to the database.' };
-      return { status: 'Offline', message: status.errorMessage || 'Server failed to connect to the database.' };
+  const getStatusInfo = (currentStatus: 'Online' | 'Offline' | 'Degraded' | 'Unavailable' | 'Loading' | 'Unknown') => {
+      switch(currentStatus) {
+          case 'Online': return { color: 'text-green-500', message: 'Service is operational.' };
+          case 'Offline': return { color: 'text-red-500', message: 'Service is offline or unreachable.' };
+          case 'Degraded': return { color: 'text-yellow-500', message: 'Service is running with degraded performance.' };
+          case 'Unavailable': return { color: 'text-red-500', message: status.errorMessage || 'Server failed to connect.' };
+          case 'Loading':
+          case 'Unknown':
+          default: return { color: 'text-gray-500', message: 'Checking status...' };
+      }
   };
 
-  const getLlmStatus = () => {
-      if (status.llmStatus === 'Unknown' || isFetching) return { status: 'Unknown', message: 'Checking status...' };
-      if (status.llmStatus === 'Online') return { status: 'Online', message: 'LLM service is operational.' };
-      return { status: 'Offline', message: 'LLM service is currently unavailable.' };
-  };
+  const dbStatusInfo = getStatusInfo(status.serverDbStatus);
+  const llmStatusInfo = getStatusInfo(status.llmStatus);
+  const authStatusInfo = getStatusInfo('Online'); // Assuming auth is always online for this view
 
   return (
     <div className="p-8 space-y-8 bg-gray-50 min-h-screen">
@@ -59,29 +71,47 @@ export default function SystemStatusPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <ClientStatusCard />
-
-        <ServerStatusCard
-          title="Server-Side Database Connection"
-          status={getDbStatus()}
-          iconName="Database"
-          description="Status of the Next.js server's connection to Firestore."
-        />
-
-        <ServerStatusCard
-          title="AI Model (LLM) Status"
-          status={getLlmStatus()}
-          iconName="BrainCircuit"
-          description="Status of the core Generative AI service."
-        />
-
-        <ServerStatusCard
-          title="Authentication Service"
-          status={{status: 'Online', message: "Client and Admin Auth services are online."}} 
-          iconName="ShieldAlert"
-          description="Status of Firebase Authentication services."
-        />
+         <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Database className="h-5 w-5" />
+                    Server Database (Admin)
+                </CardTitle>
+                <CardDescription>Status of the Next.js server's connection to Firestore.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <p className={`font-bold text-lg ${dbStatusInfo.color}`}>{status.serverDbStatus}</p>
+                <p className="text-xs text-muted-foreground">{dbStatusInfo.message}</p>
+            </CardContent>
+        </Card>
+         <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <BrainCircuit className="h-5 w-5" />
+                    AI Model (LLM) Status
+                </CardTitle>
+                <CardDescription>Status of the core Generative AI service.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <p className={`font-bold text-lg ${llmStatusInfo.color}`}>{status.llmStatus}</p>
+                <p className="text-xs text-muted-foreground">{llmStatusInfo.message}</p>
+            </CardContent>
+        </Card>
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <ShieldAlert className="h-5 w-5" />
+                    Authentication Service
+                </CardTitle>
+                <CardDescription>Status of Firebase Authentication services.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <p className={`font-bold text-lg ${authStatusInfo.color}`}>Online</p>
+                <p className="text-xs text-muted-foreground">{authStatusInfo.message}</p>
+            </CardContent>
+        </Card>
       </div>
     </div>
   );
 }
+
