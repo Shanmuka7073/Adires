@@ -1,3 +1,4 @@
+
 'use client';
 import type { Store, Product, ProductPrice, SiteConfig } from './types';
 import {
@@ -11,9 +12,15 @@ import {
 } from 'firebase/firestore';
 
 async function getImages() {
-    // Dynamically import the JSON file to get the latest version.
-    const placeholderData = await import('./placeholder-images.json');
-    return placeholderData.default.placeholderImages;
+    try {
+        // Dynamically import the JSON file to get the latest version.
+        const placeholderData = await import('./placeholder-images.json');
+        return placeholderData.default.placeholderImages;
+    } catch (error) {
+        console.error("Error parsing placeholder-images.json:", error);
+        // Return a default empty array in case of a parsing error
+        return [];
+    }
 }
 
 const getImage = async (id: string) => {
@@ -32,8 +39,9 @@ const getImage = async (id: string) => {
 
 export async function getStores(db: Firestore): Promise<Store[]> {
   const storesCol = collection(db, 'stores');
-  const q = query(storesCol, where('name', '==', 'LocalBasket'));
-  const storeSnapshot = await getDocs(q);
+  // This function should return all stores, not just the master one.
+  // The UI can then filter or prioritize as needed.
+  const storeSnapshot = await getDocs(storesCol);
   const storeList = storeSnapshot.docs.map(
     (doc) =>
       ({

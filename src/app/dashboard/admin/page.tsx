@@ -573,6 +573,12 @@ export default function AdminDashboardPage() {
                         href="/dashboard/owner/my-store"
                         icon={Store}
                     />
+                     <AdminActionCard 
+                        title="View Product List"
+                        description="View, copy, and share the list of all products in the master catalog."
+                        href="/dashboard/admin/product-list"
+                        icon={List}
+                    />
                     <AdminActionCard 
                         title="voice-commands-control"
                         description="view-and-manage-the-voice-commands-users-can-say"
