@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { ChefHat, Loader2, Sparkles, ShoppingCart, AlertCircle, Search, Volume2, Copy } from 'lucide-react';
+import { ChefHat, Loader2, Sparkles, ShoppingCart, AlertCircle, Search, Volume2, Copy, StopCircle } from 'lucide-react';
 import { getIngredientsForDish, GetIngredientsOutput } from '@/ai/flows/recipe-ingredients-flow';
 import { useAppStore } from '@/lib/store';
 import { useCart } from '@/lib/cart';
@@ -18,7 +18,7 @@ import { useFirebase } from '@/firebase';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { Ingredient, InstructionStep, Product, ProductVariant } from '@/lib/types';
 
-function RecipeContent({ result, onSpeak, isSpeaking, onCopyIngredients, onCopyInstructions }: { result: GetIngredientsOutput, onSpeak: (text: string) => void, isSpeaking: boolean, onCopyIngredients: () => void, onCopyInstructions: () => void }) {
+function RecipeContent({ result, onSpeak, isSpeaking, onStop, onCopyIngredients, onCopyInstructions }: { result: GetIngredientsOutput, onSpeak: (text: string) => void, isSpeaking: boolean, onStop: () => void, onCopyIngredients: () => void, onCopyInstructions: () => void }) {
     
     const renderInstructions = (instructions: InstructionStep[]) => {
         if (!instructions || instructions.length === 0) return <p className="text-muted-foreground">No instructions provided.</p>;
@@ -31,9 +31,9 @@ function RecipeContent({ result, onSpeak, isSpeaking, onCopyIngredients, onCopyI
                         <li key={index} className="p-4 bg-gray-50 border-l-4 border-primary rounded-r-lg">
                             <div className="flex justify-between items-center mb-2">
                                 <h4 className="font-bold text-base text-primary">{step.title}</h4>
-                                <Button variant="ghost" size="icon" onClick={() => onSpeak(stepTextToSpeak)} disabled={isSpeaking}>
-                                    <Volume2 className="h-4 w-4" />
-                                    <span className="sr-only">Read step aloud</span>
+                                <Button variant="ghost" size="icon" onClick={() => isSpeaking ? onStop() : onSpeak(stepTextToSpeak)}>
+                                    {isSpeaking ? <StopCircle className="h-4 w-4 text-destructive" /> : <Volume2 className="h-4 w-4" />}
+                                    <span className="sr-only">{isSpeaking ? "Stop reading" : "Read step aloud"}</span>
                                 </Button>
                             </div>
                             <ul className="list-disc pl-5 space-y-2 text-sm text-gray-700">
@@ -85,7 +85,7 @@ function RecipeContent({ result, onSpeak, isSpeaking, onCopyIngredients, onCopyI
 export function RecipeCard() {
     const { toast } = useToast();
     const [isGenerating, startGeneration] = useTransition();
-    const [isSpeaking, startSpeaking] = useTransition();
+    const [isSpeaking, setIsSpeaking] = useState(false);
     const [dishName, setDishName] = useState('');
     const [result, setResult] = useState<GetIngredientsOutput | null>(null);
     const [currentLanguage, setCurrentLanguage] = useState<'en' | 'te'>('en');
@@ -123,7 +123,7 @@ export function RecipeCard() {
                      toast({
                         variant: 'destructive',
                         title: 'Recipe Not Found',
-                        description: `The AI could not find a recipe for "${dishName}".`,
+                        description: `The AI couldn't find a recipe for "${dishName}".`,
                     });
                 }
             } catch (error) {
@@ -138,27 +138,35 @@ export function RecipeCard() {
     };
     
     const handleSpeak = (textToSpeak: string) => {
-        if (!textToSpeak) return;
+        if (!textToSpeak || isSpeaking) return;
 
-        startSpeaking(() => {
-            try {
-                if ('speechSynthesis' in window) {
-                    window.speechSynthesis.cancel();
-                    const utterance = new SpeechSynthesisUtterance(textToSpeak);
-                    utterance.lang = currentLanguage === 'te' ? 'te-IN' : 'en-IN';
-                    
-                    utterance.onend = () => {};
+        try {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(textToSpeak);
+                utterance.lang = currentLanguage === 'te' ? 'te-IN' : 'en-IN';
+                
+                utterance.onstart = () => setIsSpeaking(true);
+                utterance.onend = () => setIsSpeaking(false);
+                utterance.onerror = () => setIsSpeaking(false);
 
-                    window.speechSynthesis.speak(utterance);
-                } else {
-                    throw new Error("Speech synthesis not supported by this browser.");
-                }
-            } catch (error) {
-                console.error("Text-to-speech failed:", error);
-                toast({ variant: 'destructive', title: 'Could not read aloud.', description: (error as Error).message });
+                window.speechSynthesis.speak(utterance);
+            } else {
+                throw new Error("Speech synthesis not supported by this browser.");
             }
-        });
+        } catch (error) {
+            console.error("Text-to-speech failed:", error);
+            toast({ variant: 'destructive', title: 'Could not read aloud.', description: (error as Error).message });
+            setIsSpeaking(false);
+        }
     };
+    
+    const handleStopSpeaking = () => {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            setIsSpeaking(false);
+        }
+    }
     
     const handleCopy = (textToCopy: string, type: 'Ingredients' | 'Instructions') => {
         navigator.clipboard.writeText(textToCopy).then(() => {
@@ -221,7 +229,8 @@ export function RecipeCard() {
                                 <TabsContent value={currentLanguage}>
                                    <RecipeContent 
                                         result={result} 
-                                        onSpeak={handleSpeak} 
+                                        onSpeak={handleSpeak}
+                                        onStop={handleStopSpeaking}
                                         isSpeaking={isSpeaking}
                                         onCopyIngredients={handleCopyIngredients}
                                         onCopyInstructions={handleCopyInstructions}
