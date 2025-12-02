@@ -56,6 +56,8 @@ export type User = {
     email: string;
     address: string;
     phoneNumber: string;
+    latitude?: number;
+    longitude?: number;
     authenticators?: Authenticator[];
     currentChallenge?: string | null; // Can be null
 }

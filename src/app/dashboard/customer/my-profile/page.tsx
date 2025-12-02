@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useFirebase, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
@@ -12,9 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { doc, setDoc } from 'firebase/firestore';
-import { useTransition, useEffect } from 'react';
+import { useTransition, useEffect, useState } from 'react';
 import type { User as AppUser } from '@/lib/types';
-import { Loader2, Fingerprint, Store, Truck, Voicemail, LogOut, LayoutDashboard } from 'lucide-react';
+import { Loader2, Fingerprint, Store, Truck, Voicemail, LogOut, LayoutDashboard, MapPin, LocateFixed } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useProfileFormStore, ProfileFormValues } from '@/lib/store';
 import Link from 'next/link';
@@ -28,6 +27,8 @@ const profileSchema = z.object({
   email: z.string().email(),
   phone: z.string().min(10, 'A valid phone number is required'),
   address: z.string().min(10, 'A valid address is required'),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
 });
 
 export default function MyProfilePage() {
@@ -36,6 +37,7 @@ export default function MyProfilePage() {
   const { toast } = useToast();
   const router = useRouter();
   const [isSaving, startSaveTransition] = useTransition();
+  const [isFetchingLocation, setIsFetchingLocation] = useState(false);
 
   const userDocRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -54,6 +56,8 @@ export default function MyProfilePage() {
       email: user?.email || '',
       phone: '',
       address: '',
+      latitude: undefined,
+      longitude: undefined,
     },
   });
   
@@ -71,6 +75,8 @@ export default function MyProfilePage() {
         email: user?.email || '',
         phone: userData.phoneNumber || '',
         address: userData.address || '',
+        latitude: userData.latitude,
+        longitude: userData.longitude,
       });
     } else if (user) {
         form.setValue('email', user.email || '');
@@ -82,6 +88,26 @@ export default function MyProfilePage() {
       router.push('/login?redirectTo=/dashboard/customer/my-profile');
     }
   }, [isUserLoading, user, router]);
+
+  const handleGetLocation = () => {
+    if (navigator.geolocation) {
+        setIsFetchingLocation(true);
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                form.setValue('latitude', position.coords.latitude, { shouldValidate: true });
+                form.setValue('longitude', position.coords.longitude, { shouldValidate: true });
+                toast({ title: "Location Captured!", description: "Your coordinates have been filled. Save changes to store them." });
+                setIsFetchingLocation(false);
+            },
+            () => {
+                toast({ variant: 'destructive', title: "Location Error", description: "Could not retrieve your location. Please check browser permissions." });
+                setIsFetchingLocation(false);
+            }
+        );
+    } else {
+        toast({ variant: 'destructive', title: "Not Supported", description: "Geolocation is not supported by this browser." });
+    }
+  }
   
   const onSubmit = (data: ProfileFormValues) => {
     if (!firestore || !user || !userDocRef) {
@@ -90,13 +116,15 @@ export default function MyProfilePage() {
     }
     
     startSaveTransition(() => {
-        const profileData: Omit<AppUser, 'authenticators' | 'currentChallenge'> = {
+        const profileData: Partial<AppUser> = {
             id: user.uid,
             firstName: data.firstName,
             lastName: data.lastName,
             email: data.email,
             phoneNumber: data.phone,
             address: data.address,
+            latitude: data.latitude,
+            longitude: data.longitude,
         };
 
         setDoc(userDocRef, profileData, { merge: true })
@@ -137,7 +165,7 @@ export default function MyProfilePage() {
             <Card>
                 <CardHeader>
                 <CardTitle className="text-3xl font-headline">{t('my-profile')}</CardTitle>
-                <CardDescription>Manage your personal information. Activate the voice assistant to fill the form by speaking.</CardDescription>
+                <CardDescription>Manage your personal information. You can use your voice to fill the form.</CardDescription>
                 </CardHeader>
                 <CardContent>
                 <Form {...form}>
@@ -209,6 +237,21 @@ export default function MyProfilePage() {
                             </FormItem>
                             )}
                         />
+
+                        <div className="p-4 border rounded-lg space-y-3">
+                            <h4 className="font-medium">Home Location (GPS)</h4>
+                             <Button type="button" variant="outline" className="w-full" onClick={handleGetLocation} disabled={isFetchingLocation}>
+                                {isFetchingLocation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LocateFixed className="mr-2 h-4 w-4" />}
+                                Get Current Location
+                            </Button>
+                            <div className="flex items-center gap-2 text-sm">
+                                <MapPin className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-mono">
+                                    Lat: {form.watch('latitude')?.toFixed(4) || 'Not set'}, Lng: {form.watch('longitude')?.toFixed(4) || 'Not set'}
+                                </span>
+                            </div>
+                        </div>
+
                     <Button type="submit" disabled={isSaving} className="w-full">
                         {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Changes'}
                     </Button>
