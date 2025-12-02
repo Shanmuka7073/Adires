@@ -1,10 +1,11 @@
+
 {
   "name": "LocalBasket",
   "short_name": "LocalBasket",
-  "description": "Your local grocery delivery app, powered by voice.",
+  "description": "Your local grocery delivery app.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
+  "background_color": "#F0FFF0",
   "theme_color": "#90EE90",
   "icons": [
     {
