@@ -2,10 +2,9 @@
 'use client';
 import { Store, Product, ProductPrice } from '@/lib/types';
 import { useParams, notFound, useSearchParams } from 'next/navigation';
-import { useDoc, useMemoFirebase, useFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useFirebase } from '@/firebase';
 import { CategoryClient } from './category-client';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAppStore } from '@/lib/store';
 
@@ -17,12 +16,27 @@ export default function StoreDetailPage() {
   
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
 
-  // Use the global store for master products and prices.
-  const { masterProducts, productPrices, fetchProductPrices, loading: appLoading, isInitialized } = useAppStore();
+  // Get all data from the central Zustand store
+  const { 
+    stores,
+    masterProducts, 
+    productPrices, 
+    fetchProductPrices, 
+    loading: appLoading, 
+    isInitialized,
+    fetchInitialData
+  } = useAppStore();
 
-  // Fetch the specific store being viewed.
-  const storeDocRef = useMemoFirebase(() => firestore ? doc(firestore, 'stores', id) : null, [firestore, id]);
-  const { data: store, isLoading: isStoreLoading, error: storeError } = useDoc<Store>(storeDocRef);
+  // Find the specific store being viewed from the already-loaded list.
+  const store = useMemo(() => stores.find(s => s.id === id), [stores, id]);
+  
+  // Fetch initial data if it's not already in the store
+  useEffect(() => {
+    if (firestore && !isInitialized) {
+      fetchInitialData(firestore);
+    }
+  }, [firestore, isInitialized, fetchInitialData]);
+
 
   // When master products are loaded, fetch their prices.
   useEffect(() => {
@@ -33,13 +47,9 @@ export default function StoreDetailPage() {
   }, [firestore, masterProducts, fetchProductPrices]);
 
   // Determine the final loading state.
-  const isLoading = appLoading || isStoreLoading || !isInitialized;
+  const isLoading = appLoading || !isInitialized;
 
-  if (storeError) {
-    notFound();
-  }
-  
-  if (isLoading || !store) {
+  if (isLoading) {
     return (
       <div className="flex h-full">
         <div className="hidden md:block w-24 p-4">
@@ -54,6 +64,12 @@ export default function StoreDetailPage() {
       </div>
     );
   }
+  
+  if (!store) {
+    // If the store is not found after loading, it's a 404.
+    notFound();
+  }
+
 
   // Once everything is loaded, render the main client component.
   return (
@@ -67,3 +83,4 @@ export default function StoreDetailPage() {
       </div>
   );
 }
+
