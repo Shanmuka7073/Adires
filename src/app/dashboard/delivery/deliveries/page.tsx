@@ -414,6 +414,37 @@ function PayoutHistoryCard({ partnerId }: { partnerId: string }) {
     )
 }
 
+function MyActiveDeliveriesCard({ order, handleMarkAsDelivered, isUpdating, onShowDetails }: { order: Order, handleMarkAsDelivered: (order: Order) => void, isUpdating: boolean, onShowDetails: (order: Order) => void }) {
+    
+    return (
+        <Card key={order.id} className="p-4 space-y-4">
+            <div className="flex justify-between items-start">
+                <div>
+                    <p className="font-semibold">{order.customerName}</p>
+                    <p className="text-sm text-muted-foreground">{order.deliveryAddress}</p>
+                </div>
+                <div className="flex flex-col gap-2">
+                     <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openInGoogleMaps(order.deliveryLat, order.deliveryLng, order.store?.latitude, order.store?.longitude)}
+                    >
+                        <MapPin className="mr-2 h-4 w-4" />
+                        Route
+                    </Button>
+                     <Button variant="secondary" size="sm" onClick={() => onShowDetails(order)}>Details</Button>
+                </div>
+            </div>
+            <SlideToConfirm 
+                onConfirm={() => handleMarkAsDelivered(order)} 
+                text="Slide to Mark as Delivered"
+                isConfirmationDisabled={isUpdating}
+            />
+        </Card>
+    )
+}
+
+
 export default function DeliveriesPage() {
   const { firestore, user } = useFirebase();
   const [stores, setStores] = useState<Store[]>([]);
@@ -735,27 +766,13 @@ export default function DeliveriesPage() {
             ) : (
               <div className="space-y-4">
                   {myActiveDeliveriesWithStores.map((order) => (
-                    <Card key={order.id} className="p-4 space-y-4">
-                        <div className="flex justify-between items-start">
-                            <div>
-                               <p className="font-semibold">{order.customerName}</p>
-                               <p className="text-sm text-muted-foreground">{order.deliveryAddress}</p>
-                            </div>
-                            <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => openInGoogleMaps(order.deliveryLat, order.deliveryLng, order.store?.latitude, order.store?.longitude)}
-                              >
-                                  <MapPin className="mr-2 h-4 w-4" />
-                                  Route
-                              </Button>
-                        </div>
-                        <SlideToConfirm 
-                            onConfirm={() => handleMarkAsDelivered(order)} 
-                            text="Slide to Mark as Delivered"
-                            isConfirmationDisabled={isUpdating}
-                        />
-                    </Card>
+                    <MyActiveDeliveriesCard 
+                        key={order.id}
+                        order={order}
+                        handleMarkAsDelivered={handleMarkAsDelivered}
+                        isUpdating={isUpdating}
+                        onShowDetails={handleShowDetails}
+                    />
                   ))}
               </div>
             )}
@@ -859,3 +876,4 @@ export default function DeliveriesPage() {
     </div>
   );
 }
+
