@@ -4,7 +4,7 @@
 import { getAdminServices } from '@/firebase/admin-init';
 import { getStorage } from 'firebase-admin/storage';
 import { Timestamp } from 'firebase-admin/firestore';
-import { updateDoc, doc, writeBatch, serverTimestamp, collection, getDocs, where, query } from 'firebase/firestore';
+import { collection, doc, writeBatch, serverTimestamp, getDocs, where, query, updateDoc } from 'firebase/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
 import type { Order, OrderItem, Product, ProductPrice, ProductVariant } from '@/lib/types';
@@ -99,10 +99,10 @@ export async function importProductsFromUrl(url: string): Promise<{ success: boo
         }
         const csvText = await response.text();
         const { db } = await getAdminServices();
-        const batch = writeBatch(db);
+        const batch = db.batch(); // Use the admin batch
         
-        const adminStoreQuery = query(collection(db, 'stores'), where('name', '==', 'LocalBasket'));
-        const adminStoreSnap = await getDocs(adminStoreQuery);
+        const adminStoreQuery = db.collection('stores').where('name', '==', 'LocalBasket');
+        const adminStoreSnap = await adminStoreQuery.get();
         if (adminStoreSnap.empty) {
             return { success: false, error: 'Master "LocalBasket" store not found. Please create it first.' };
         }
@@ -124,7 +124,7 @@ export async function importProductsFromUrl(url: string): Promise<{ success: boo
 
             const productNameLower = name.toLowerCase();
             const imageId = `prod-${createSlug(name)}`;
-            const productRef = doc(collection(db, 'stores', adminStoreId, 'products'));
+            const productRef = db.collection('stores').doc(adminStoreId).collection('products').doc();
             batch.set(productRef, {
                 name,
                 category,
@@ -135,7 +135,7 @@ export async function importProductsFromUrl(url: string): Promise<{ success: boo
                 imageHint: productNameLower,
             });
 
-            const priceRef = doc(db, 'productPrices', productNameLower);
+            const priceRef = db.collection('productPrices').doc(productNameLower);
             const newVariant = {
                 weight,
                 price,
@@ -301,8 +301,8 @@ export async function uploadStoreImage(storeId: string, dataUri: string): Promis
         const downloadURL = file.publicUrl();
 
         // Update the store document with the new image URL
-        const storeRef = doc(db, 'stores', storeId);
-        await updateDoc(storeRef, { imageUrl: downloadURL });
+        const storeRef = db.collection('stores').doc(storeId);
+        await storeRef.update({ imageUrl: downloadURL });
 
         return { success: true, url: downloadURL };
     } catch (error: any) {
@@ -369,7 +369,7 @@ export async function bulkUploadRecipes(csvText: string): Promise<{ success: boo
 
     try {
         const { db } = await getAdminServices();
-        const batch = writeBatch(db);
+        const batch = db.batch();
         const rows = csvText.split('\n').slice(1); // Skip header
         let processedCount = 0;
 
@@ -389,13 +389,13 @@ export async function bulkUploadRecipes(csvText: string): Promise<{ success: boo
             }
             
             const normalizedId = dishName.toLowerCase().replace(/\s+/g, '-');
-            const recipeRef = doc(db, 'cachedRecipes', normalizedId);
+            const recipeRef = db.collection('cachedRecipes').doc(normalizedId);
 
             const recipeData = {
                 id: normalizedId,
                 dishName: dishName.trim(),
                 ingredients,
-                createdAt: serverTimestamp()
+                createdAt: Timestamp.now()
             };
             batch.set(recipeRef, recipeData);
             processedCount++;
@@ -460,24 +460,22 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
   const startTimestamp = Timestamp.fromDate(startDate);
 
   try {
-    const masterStoreQuery = query(collection(db, 'stores'), where('name', '==', 'LocalBasket'));
-    const masterStoreSnap = await getDocs(masterStoreQuery);
+    const masterStoreQuery = db.collection('stores').where('name', '==', 'LocalBasket');
+    const masterStoreSnap = await masterStoreQuery.get();
     if (masterStoreSnap.empty) throw new Error("Master 'LocalBasket' store not found.");
     const masterStoreId = masterStoreSnap.docs[0].id;
     
-    const productsSnapshot = await getDocs(collection(db, 'stores', masterStoreId, 'products'));
+    const productsSnapshot = await db.collection('stores').doc(masterStoreId).collection('products').get();
     const productCategoryMap = new Map<string, string>();
     // Correctly map by product ID
     productsSnapshot.forEach(doc => {
       productCategoryMap.set(doc.id, doc.data().category?.toLowerCase() || 'grocery');
     });
 
-    const ordersQuery = query(
-      collection(db, 'orders'),
-      where('status', 'in', ['Delivered', 'delivered', 'Completed']),
-      where('orderDate', '>=', startTimestamp)
-    );
-    const orderSnapshot = await getDocs(ordersQuery);
+    const ordersQuery = db.collection('orders')
+      .where('status', 'in', ['Delivered', 'delivered', 'Completed'])
+      .where('orderDate', '>=', startTimestamp);
+    const orderSnapshot = await ordersQuery.get();
     const deliveredOrders = orderSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
 
     const report = {
@@ -490,9 +488,8 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
     const vegetableCategories = ['vegetables'];
     
     for (const order of deliveredOrders) {
-      // **FIX:** Query the 'orderItems' subcollection for each order.
-      const itemsQuery = collection(db, 'orders', order.id, 'orderItems');
-      const itemsSnapshot = await getDocs(itemsQuery);
+      const itemsQuery = db.collection('orders').doc(order.id).collection('orderItems');
+      const itemsSnapshot = await itemsQuery.get();
       
       if (itemsSnapshot.empty) continue; // Skip if order has no items.
 
@@ -551,20 +548,20 @@ export async function getSalesDataDump(): Promise<{ success: boolean; data?: any
   const { db } = await getAdminServices();
 
   try {
-    const masterStoreQuery = query(collection(db, 'stores'), where('name', '==', 'LocalBasket'));
-    const masterStoreSnap = await getDocs(masterStoreQuery);
+    const masterStoreQuery = db.collection('stores').where('name', '==', 'LocalBasket');
+    const masterStoreSnap = await masterStoreQuery.get();
     if (masterStoreSnap.empty) throw new Error("Master 'LocalBasket' store not found.");
     const masterStoreId = masterStoreSnap.docs[0].id;
 
-    const ordersQuery = query(collection(db, 'orders'), where('storeId', '==', masterStoreId));
-    const orderSnapshot = await getDocs(ordersQuery);
+    const ordersQuery = db.collection('orders').where('storeId', '==', masterStoreId);
+    const orderSnapshot = await ordersQuery.get();
     const orders = orderSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
     
     const salesData: any[] = [];
 
     for (const order of orders) {
-      const itemsQuery = collection(db, 'orders', order.id, 'orderItems');
-      const itemsSnapshot = await getDocs(itemsQuery);
+      const itemsQuery = db.collection('orders').doc(order.id).collection('orderItems');
+      const itemsSnapshot = await itemsQuery.get();
       const items = itemsSnapshot.docs.map(doc => doc.data() as OrderItem);
 
       for (const item of items) {
@@ -588,7 +585,7 @@ export async function getSalesDataDump(): Promise<{ success: boolean; data?: any
     return { success: true, data: salesData };
 
   } catch (error: any) {
-    console.error("Sales data dump failed:", error);
+    console.error("Sales data download failed:", error);
     return { success: false, error: error.message || 'An unknown server error occurred.' };
   }
 }
