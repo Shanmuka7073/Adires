@@ -24,9 +24,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { SlideToConfirm } from '@/components/ui/slide-to-confirm';
 
 const DELIVERY_FEE = 30;
-const DELIVERY_PROXIMITY_THRESHOLD_KM = 1; // 1000 meters
+const DELIVERY_PROXIMITY_THRESHOLD_KM = 1;
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   if (!lat1 || !lon1 || !lat2 || !lon2) return Infinity;
@@ -732,50 +733,31 @@ export default function DeliveriesPage() {
             ) : myActiveDeliveriesWithStores.length === 0 ? (
               <p className="text-muted-foreground">You have no active deliveries. Pick one from the available list below.</p>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Pickup Location (Store)</TableHead>
-                    <TableHead>Drop-off Location (Customer)</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <div className="space-y-4">
                   {myActiveDeliveriesWithStores.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell>
-                        <div className="font-medium">{order.store?.name}</div>
-                        <div className="text-sm text-muted-foreground">{order.store?.address}</div>
-                      </TableCell>
-                      <TableCell>
-                          <div className="font-medium">{order.customerName}</div>
-                          <div className="text-sm text-muted-foreground">{order.deliveryAddress}</div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                             <Button
-                                  variant="secondary"
+                    <Card key={order.id} className="p-4 space-y-4">
+                        <div className="flex justify-between items-start">
+                            <div>
+                               <p className="font-semibold">{order.customerName}</p>
+                               <p className="text-sm text-muted-foreground">{order.deliveryAddress}</p>
+                            </div>
+                            <Button
+                                  variant="outline"
                                   size="sm"
                                   onClick={() => openInGoogleMaps(order.deliveryLat, order.deliveryLng, order.store?.latitude, order.store?.longitude)}
                               >
                                   <MapPin className="mr-2 h-4 w-4" />
                                   Route
                               </Button>
-                              <Button
-                                  variant="default"
-                                  size="sm"
-                                  onClick={() => handleMarkAsDelivered(order)}
-                                  disabled={isUpdating}
-                              >
-                                  <Check className="mr-2 h-4 w-4" />
-                                  {isUpdating ? 'Updating...' : 'Mark as Delivered'}
-                              </Button>
-                          </div>
-                      </TableCell>
-                    </TableRow>
+                        </div>
+                        <SlideToConfirm 
+                            onConfirm={() => handleMarkAsDelivered(order)} 
+                            text="Slide to Mark as Delivered"
+                            isConfirmationDisabled={isUpdating}
+                        />
+                    </Card>
                   ))}
-                </TableBody>
-              </Table>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -877,5 +859,3 @@ export default function DeliveriesPage() {
     </div>
   );
 }
-
-    
