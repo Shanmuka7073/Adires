@@ -542,3 +542,53 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
     return { success: false, error: error.message || 'An unknown server error occurred.' };
   }
 }
+
+/**
+ * Fetches all sales data from the LocalBasket store for a CSV dump.
+ * @returns A promise that resolves with an array of all sale items or an error.
+ */
+export async function getSalesDataDump(): Promise<{ success: boolean; data?: any[]; error?: string }> {
+  const { db } = await getAdminServices();
+
+  try {
+    const masterStoreQuery = query(collection(db, 'stores'), where('name', '==', 'LocalBasket'));
+    const masterStoreSnap = await getDocs(masterStoreQuery);
+    if (masterStoreSnap.empty) throw new Error("Master 'LocalBasket' store not found.");
+    const masterStoreId = masterStoreSnap.docs[0].id;
+
+    const ordersQuery = query(collection(db, 'orders'), where('storeId', '==', masterStoreId));
+    const orderSnapshot = await getDocs(ordersQuery);
+    const orders = orderSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+    
+    const salesData: any[] = [];
+
+    for (const order of orders) {
+      const itemsQuery = collection(db, 'orders', order.id, 'orderItems');
+      const itemsSnapshot = await getDocs(itemsQuery);
+      const items = itemsSnapshot.docs.map(doc => doc.data() as OrderItem);
+
+      for (const item of items) {
+        salesData.push({
+          orderId: order.id,
+          orderDate: order.orderDate.toDate().toISOString(),
+          orderStatus: order.status,
+          customerName: order.customerName,
+          customerEmail: order.email,
+          deliveryAddress: order.deliveryAddress,
+          productName: item.productName,
+          productVariant: item.variantWeight,
+          productSku: item.variantSku,
+          quantity: item.quantity,
+          price: item.price,
+          itemTotal: item.price * item.quantity,
+        });
+      }
+    }
+    
+    return { success: true, data: salesData };
+
+  } catch (error: any) {
+    console.error("Sales data dump failed:", error);
+    return { success: false, error: error.message || 'An unknown server error occurred.' };
+  }
+}

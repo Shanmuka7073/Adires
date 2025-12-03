@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -18,7 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { bulkUploadRecipes, importProductsFromUrl } from '@/app/actions';
+import { bulkUploadRecipes, importProductsFromUrl, getSalesDataDump } from '@/app/actions';
 
 
 function StatCard({ title, value, icon: Icon, loading }: { title: string, value: string | number, icon: React.ElementType, loading?: boolean }) {
@@ -49,6 +50,69 @@ function CreateMasterStoreCard() {
             </AlertDescription>
         </Alert>
     )
+}
+
+function SalesDataDownloader() {
+    const { toast } = useToast();
+    const [isDownloading, startDownload] = useTransition();
+
+    const handleDownload = () => {
+        startDownload(async () => {
+            try {
+                const result = await getSalesDataDump();
+                if (result.success && result.data) {
+                    if (result.data.length === 0) {
+                        toast({ title: 'No Data', description: 'There is no sales data to download yet.' });
+                        return;
+                    }
+
+                    // Convert JSON to CSV
+                    const headers = Object.keys(result.data[0]);
+                    const csvRows = [
+                        headers.join(','),
+                        ...result.data.map(row => 
+                            headers.map(header => JSON.stringify(row[header], (_, value) => value === undefined ? '' : value)).join(',')
+                        )
+                    ];
+                    const csvString = csvRows.join('\n');
+
+                    // Trigger download
+                    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', 'sales-data.csv');
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    toast({ title: 'Download Started', description: 'Your sales data dump is being downloaded.' });
+                } else {
+                    throw new Error(result.error || 'An unknown error occurred.');
+                }
+            } catch (error: any) {
+                console.error("Sales data download failed:", error);
+                toast({ variant: 'destructive', title: 'Download Failed', description: error.message });
+            }
+        });
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Download Sales Data</CardTitle>
+                <CardDescription>
+                    Get a complete CSV dump of all orders and items from the LocalBasket store.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button onClick={handleDownload} disabled={isDownloading} className="w-full">
+                    {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                    Download Full Report (CSV)
+                </Button>
+            </CardContent>
+        </Card>
+    );
 }
 
 function ProductUrlImporterCard() {
@@ -368,7 +432,7 @@ function ProductInventoryRow({ product, priceData, onUpdate }: { product: Produc
                 </TableCell>
                  <TableCell className="text-right">
                     {canEdit && (
-                        <Button variant="ghost" size="icon" onClick={() => setIsEditing(prev => !prev)}>
+                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setIsEditing(prev => !prev);}}>
                             <Edit className="h-4 w-4" />
                             <span className="sr-only">Edit prices for {product.name}</span>
                         </Button>
@@ -581,6 +645,7 @@ export default function AdminDashboardPage() {
             <div className="mt-16">
                  <h2 className="text-2xl font-bold text-center mb-8 font-headline">{t('admin-tools')}</h2>
                  <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
+                    <SalesDataDownloader />
                     <ProductUrlImporterCard />
                     <BulkRecipeUploadCard />
                      <AdminActionCard 
