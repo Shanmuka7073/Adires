@@ -231,16 +231,16 @@ function VoiceInstructions() {
             <CardContent className="space-y-4">
                 <div className="space-y-3 text-sm">
                     <div>
-                        <p className="font-semibold">For Smart Orders:</p>
-                        <p>Say <Badge>"Order one kg chicken to home"</Badge> to create and checkout an order in seconds.</p>
+                        <div className="font-semibold">For Smart Orders:</div>
+                        <div>Say <Badge>"Order one kg chicken to home"</Badge> to create and checkout an order in seconds.</div>
                     </div>
                     <div>
-                        <p className="font-semibold">To Add Items:</p>
-                        <p>Say <Badge>"one kg onions"</Badge> to add it directly to your cart.</p>
+                        <div className="font-semibold">To Add Items:</div>
+                        <div>Say <Badge>"one kg onions"</Badge> to add it directly to your cart.</div>
                     </div>
                     <div>
-                        <p className="font-semibold">To Check Prices:</p>
-                        <p>Say <Badge>"cost of tomato"</Badge> to see all available options.</p>
+                        <div className="font-semibold">To Check Prices:</div>
+                        <div>Say <Badge>"cost of tomato"</Badge> to see all available options.</div>
                     </div>
                 </div>
             </CardContent>
