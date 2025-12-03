@@ -172,7 +172,7 @@ export async function getWikipediaSummary(topic: string): Promise<{ summary?: st
     // Step 1: Search for the topic to find the correct article title
     const searchResponse = await fetch(searchUrl, {
       headers: {
-        'User-Agent': 'GrozoApp/1.0 (https://grozo.com; admin@grozo.com)'
+        'User-Agent': 'LocalBasketApp/1.0 (https://localbasket.com; admin@localbasket.com)'
       }
     });
     
@@ -194,7 +194,7 @@ export async function getWikipediaSummary(topic: string): Promise<{ summary?: st
     const summaryResponse = await fetch(summaryUrl, {
       headers: {
         'Accept': 'application/json; charset=utf-8',
-        'User-Agent': 'GrozoApp/1.0 (https://grozo.com; admin@grozo.com)'
+        'User-Agent': 'LocalBasketApp/1.0 (https://localbasket.com; admin@localbasket.com)'
       }
     });
 
@@ -678,3 +678,4 @@ export async function processPdfAndExtractRules(formData: FormData): Promise<{ s
         return { success: false, error: error.message };
     }
 }
+
