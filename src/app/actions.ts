@@ -438,6 +438,11 @@ export async function updatePlaceholderImages(newData: { placeholderImages: any[
     }
 }
 
+/**
+ * Generates a sales report for a given period, categorized into grocery, meat, and vegetables.
+ * @param period Specifies whether to generate a 'daily' or 'monthly' report.
+ * @returns A promise that resolves with the sales report or an error.
+ */
 export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ success: boolean; report?: any; error?: string; }> {
   const { db } = await getAdminServices();
 
@@ -453,7 +458,8 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
   const startTimestamp = Timestamp.fromDate(startDate);
 
   try {
-    // 1. Fetch all products from the master 'LocalBasket' store to create a category map.
+    // Step 1: Fetch all products from the master 'LocalBasket' store to create a product-to-category map.
+    // This is crucial for correctly categorizing items from orders.
     const masterStoreQuery = query(collection(db, 'stores'), where('name', '==', 'LocalBasket'));
     const masterStoreSnap = await getDocs(masterStoreQuery);
     if (masterStoreSnap.empty) throw new Error("Master 'LocalBasket' store not found.");
@@ -465,7 +471,7 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
       productCategoryMap.set(doc.data().name, doc.data().category);
     });
 
-    // 2. Fetch all 'Delivered' orders within the specified date range.
+    // Step 2: Fetch all 'Delivered' orders within the specified date range.
     const ordersQuery = query(
       collection(db, 'orders'),
       where('status', '==', 'Delivered'),
@@ -475,33 +481,36 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
     const deliveredOrders = orderSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
 
 
-    // 3. Initialize the report structure.
+    // Step 3: Initialize the report structure.
     const report = {
       grocery: { totalSales: 0, itemCount: 0, topProducts: new Map<string, number>() },
       meat: { totalSales: 0, itemCount: 0, topProducts: new Map<string, number>() },
       vegetable: { totalSales: 0, itemCount: 0, topProducts: new Map<string, number>() },
     };
 
-    // Define which product categories map to our report categories.
+    // Define which product categories map to our specific report categories.
     const meatCategories = ['fresh cut', 'meat & fish'];
     const vegetableCategories = ['vegetables'];
     
-    // 4. Iterate through each delivered order.
+    // Step 4: Iterate through each delivered order.
     for (const order of deliveredOrders) {
-      // 4a. For each order, fetch all items from its 'orderItems' subcollection.
+      // Step 4a: For each order, fetch all items from its 'orderItems' subcollection. THIS IS THE FIX.
       const itemsQuery = collection(db, 'orders', order.id, 'orderItems');
       const itemsSnapshot = await getDocs(itemsQuery);
+      
+      if (itemsSnapshot.empty) continue; // Skip if order has no items.
+
       const items = itemsSnapshot.docs.map(doc => doc.data() as OrderItem);
 
-      // 4b. Process each item in the order.
+      // Step 4b: Process each item in the order.
       for (const item of items) {
         const itemTotal = item.price * item.quantity;
-        // Use the map to find the product's main category.
+        // Use the map to find the product's main category. Default to 'grocery' if not found.
         const category = productCategoryMap.get(item.productName)?.toLowerCase() || 'grocery';
         
         let reportCategory: 'grocery' | 'meat' | 'vegetable';
 
-        // 4c. Assign the item to the correct report category.
+        // Step 4c: Assign the item to the correct report category.
         if (meatCategories.includes(category)) {
           reportCategory = 'meat';
         } else if (vegetableCategories.includes(category)) {
@@ -510,7 +519,7 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
           reportCategory = 'grocery';
         }
 
-        // 4d. Aggregate the sales data.
+        // Step 4d: Aggregate the sales data.
         report[reportCategory].totalSales += itemTotal;
         report[reportCategory].itemCount += item.quantity;
         
@@ -519,15 +528,15 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
       }
     }
 
-    // 5. Format the top products list for the final report.
+    // Step 5: Format the top products list for the final report.
     const formatTopProducts = (topProducts: Map<string, number>) => {
         return Array.from(topProducts.entries())
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 5)
+          .sort((a, b) => b[1] - a[1]) // Sort by count descending
+          .slice(0, 5) // Get top 5
           .map(([name, count]) => ({ name, count }));
     };
 
-    // 6. Return the successfully generated report.
+    // Step 6: Return the successfully generated report.
     return {
         success: true,
         report: {
@@ -543,4 +552,5 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
   }
 }
 
+    
     
