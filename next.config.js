@@ -1,8 +1,10 @@
+
 const withPWA = require('next-pwa')({
   dest: 'public',
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === 'development',
+  manifest: false, // Tell next-pwa to not generate a manifest link
 });
 
 /** @type {import('next').NextConfig} */
