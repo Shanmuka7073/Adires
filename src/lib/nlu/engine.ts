@@ -45,7 +45,6 @@ export function runNLU(text: string, lang: string = "en"): NLUResult {
   }
 
   const cleanedText = text.trim().replace(/\u00A0/g, " ").replace(/\s+/g, " ");
-
   const numberResult = extractNumbers(cleanedText);
   const first = numberResult[0] || null;
 
@@ -54,9 +53,9 @@ export function runNLU(text: string, lang: string = "en"): NLUResult {
     cleanedText: cleanedText,
     language: lang,
     hasNumbers: numberResult.length > 0,
-    hasMath: false, // Math detection is not part of this engine version
+    hasMath: false, // Math is not part of this engine version yet
     firstNumber: first?.value ?? null,
-    quantity: first?.type === 'quantity' || first?.type === 'fraction' ? first?.value ?? null : (first?.type === "number" ? first.value : null),
+    quantity: first?.type === 'quantity' || first?.type === 'fraction' ? first.value : (first?.type === 'number' ? first.value : null),
     unit: first?.unit ?? null,
   };
 }
@@ -91,35 +90,52 @@ function cleanProductPhrase(raw: string, lang: string): string {
  * EXTRACT QUANTITY + PRODUCT PHRASE
  */
 export function extractQuantityAndProduct(nlu: NLUResult) {
-    let qty = 1;
-    let unit: string | null = null;
-    let money: number | null = null;
-    let text = nlu.cleanedText;
+  let qty = 1; // Default quantity
+  let unit: string | null = null;
+  let money: number | null = null;
+  let text = nlu.cleanedText;
 
-    if (nlu.numbers.length > 0) {
-        const firstNum = nlu.numbers[0];
-        qty = firstNum.value;
-        unit = firstNum.unit || null;
-        // Remove the number part from the text to isolate the product phrase
-        text = text.substring(0, firstNum.span[0]) + text.substring(firstNum.span[1]);
-    }
-    
-    const moneyRegex = /(?:rs|rupees|₹|rupay|rupayala|रूपये|రూపాయల)\.?\s*(\d+\.?\d*)|(\d+\.?\d*)\s*(?:rs|rupees|₹|rupay|rupayala|रूपये|రూపాయల)\.?/i;
-    let match;
-    if ((match = text.match(moneyRegex))) {
-        money = parseFloat(match[1] || match[2]);
-        text = text.replace(match[0], "").trim();
-    }
-    
-    // Final cleanup
-    let productPhrase = cleanProductPhrase(text, nlu.language);
+  // Use the parsed numbers from the NLU result
+  const parsedNumbers = nlu.numbers;
+  let phraseWithoutNumbers = text;
 
-    return {
-        qty,
-        unit,
-        money,
-        productPhrase,
-    };
+  if (parsedNumbers.length > 0) {
+    const firstNum = parsedNumbers[0];
+    qty = firstNum.value;
+    unit = firstNum.unit || null;
+    
+    // Create a phrase with the number part blanked out to avoid re-matching
+    phraseWithoutNumbers = text.substring(0, firstNum.span[0]) + ' '.repeat(firstNum.raw.length) + text.substring(firstNum.span[1]);
+  }
+  
+  // Regex for money detection (now including Telugu and Hindi words)
+  const moneyRegex = /(?:rs|rupees|₹|rupay|rupayala|रूपये|రూపాయలు)\.?\s*(\d+\.?\d*)|(\d+\.?\d*)\s*(?:rs|rupees|₹|rupay|rupayala|रूपये|రూపాయలు)\.?/i;
+  let match;
+
+  if ((match = text.match(moneyRegex))) {
+    // If a money term is found, it overrides the quantity.
+    money = parseFloat(match[1] || match[2]);
+    qty = 1; // Reset quantity if it's a monetary value
+    unit = null; // Money implies no unit like kg/gm
+    phraseWithoutNumbers = text.replace(match[0], "").trim();
+  }
+  
+  // Final cleanup of the remaining phrase
+  let productPhrase = cleanProductPhrase(phraseWithoutNumbers, nlu.language);
+
+  // If a unit was found but no quantity number, it implies a quantity of 1
+  const unitWords = ['kg', 'kilo', 'gram', 'gm', 'litre', 'pack', 'pc'];
+  const firstWord = productPhrase.split(' ')[0];
+  if(unitWords.includes(firstWord) && parsedNumbers.length === 0 && !money) {
+      productPhrase = productPhrase.replace(firstWord, '').trim();
+  }
+
+  return {
+    qty,
+    unit,
+    money,
+    productPhrase,
+  };
 }
 
 
@@ -226,6 +242,10 @@ export function recognizeIntent(text: string, lang: string): Intent {
     const nlu = runNLU(text, lang);
     if (nlu.hasNumbers) {
       return { type: 'ORDER_ITEM', originalText: text, lang };
+    }
+    const moneyRegex = /(?:rs|rupees|₹|rupay|rupayala|रूपये|రూపాయలు)/i;
+    if (moneyRegex.test(lower)) {
+        return { type: 'ORDER_ITEM', originalText: text, lang };
     }
   
     // 7) default
