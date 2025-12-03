@@ -26,7 +26,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const DELIVERY_FEE = 30;
-const DELIVERY_PROXIMITY_THRESHOLD_KM = 0.1; // 100 meters
+const DELIVERY_PROXIMITY_THRESHOLD_KM = 1; // 1000 meters
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   if (!lat1 || !lon1 || !lat2 || !lon2) return Infinity;
@@ -877,3 +877,5 @@ export default function DeliveriesPage() {
     </div>
   );
 }
+
+    
