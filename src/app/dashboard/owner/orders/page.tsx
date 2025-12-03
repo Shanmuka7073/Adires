@@ -3,22 +3,25 @@
 
 import { useFirebase, errorEmitter, FirestorePermissionError, useCollection, useMemoFirebase } from '@/firebase';
 import { Order, Store } from '@/lib/types';
-import { collection, query, where, orderBy, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { useState, useEffect, useTransition, useMemo, useRef } from 'react';
+import { collection, query, where, orderBy, doc, writeBatch, increment } from 'firebase/firestore';
+import { useState, useEffect, useMemo, useRef, useTransition } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { CheckCircle, Store as StoreIcon, AlertTriangle } from 'lucide-react';
+import { getStores } from '@/lib/data';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useRouter } from 'next/navigation';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
-import { Check, Hand, DollarSign, Package, PackageCheck } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
+
+const DELIVERY_FEE = 30;
 
 const playAlarm = () => {
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -38,267 +41,255 @@ const playAlarm = () => {
 };
 
 
-const formatDateSafe = (date: any) => {
-    if (!date) return 'N/A';
-    if (date.seconds) {
-        return format(new Date(date.seconds * 1000), 'PPP p');
-    }
-    if (typeof date === 'string') {
-        try {
-        return format(new Date(date as string), 'PPP p');
-        } catch {
-        return 'Invalid Date';
+function OrderRow({ order, onStatusChange, onShowDetails, isUpdating }: { order: Order; onStatusChange: (orderId: string, newStatus: Order['status']) => void; onShowDetails: () => void, isUpdating: boolean }) {
+    
+    const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+        switch (status) {
+            case 'Delivered': return 'default';
+            case 'Processing': return 'secondary';
+            case 'Out for Delivery': return 'outline';
+            case 'Pending': return 'secondary';
+            case 'Cancelled': return 'destructive';
+            default: return 'secondary';
         }
-    }
-    if (date instanceof Date) {
-        return format(date, 'PPP p');
-    }
-    return 'N/A';
-}
-
-function StatCard({ title, value, icon: Icon, loading, isCurrency = false }: { title: string, value: number, icon: React.ElementType, loading?: boolean, isCurrency?: boolean }) {
-    return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{title}</CardTitle>
-                <Icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-                {loading ? <Skeleton className="h-8 w-20" /> : (
-                    <div className="text-2xl font-bold">
-                        {isCurrency && '₹'}{isCurrency ? value.toFixed(2) : value}
-                    </div>
-                )}
-            </CardContent>
-        </Card>
-    )
-}
-
-function OrderDetailsDialog({ order, isOpen, onClose }: { order: Order | null; isOpen: boolean; onClose: () => void }) {
-    if (!order) return null;
+    };
+    
+    const formatDate = (date: any) => {
+        if (!date) return 'N/A';
+        if (date.seconds) {
+            return format(new Date(date.seconds * 1000), 'PPP p');
+        }
+        if (typeof date === 'string') {
+            try {
+                return format(parseISO(date), 'PPP p');
+            } catch (e) {
+                try {
+                    return format(new Date(date), 'PPP p');
+                } catch(e2) {
+                    return 'Invalid Date';
+                }
+            }
+        }
+        if (date instanceof Date) {
+            return format(date, 'PPP p');
+        }
+        return 'N/A';
+    };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>Order Details</DialogTitle>
-                    <DialogDescription>
-                        ID: {order.id} | Placed on: {formatDateSafe(order.orderDate)}
-                    </DialogDescription>
-                </DialogHeader>
-                <ScrollArea className="max-h-[60vh]">
-                <div className="grid gap-4 py-4 pr-6">
-                     {order.translatedList && (
-                        <Card>
-                            <CardHeader><CardTitle className="text-lg">Customer's List</CardTitle></CardHeader>
-                            <CardContent>
-                                 <p className="italic text-muted-foreground">"{order.translatedList}"</p>
-                            </CardContent>
-                        </Card>
-                    )}
-                    {order.items && order.items.length > 0 && (
-                       <Card>
-                            <CardHeader><CardTitle className="text-lg">Items</CardTitle></CardHeader>
-                            <CardContent>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Item</TableHead>
-                                            <TableHead>Qty</TableHead>
-                                            <TableHead className="text-right">Price</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {order.items.map((item, index) => (
-                                            <TableRow key={index}>
-                                                <TableCell>{item.productName}</TableCell>
-                                                <TableCell>{item.quantity}</TableCell>
-                                                <TableCell className="text-right">₹{item.price.toFixed(2)}</TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </CardContent>
-                        </Card>
-                    )}
-                     <Card>
-                        <CardHeader><CardTitle className="text-lg">Customer Details</CardTitle></CardHeader>
-                        <CardContent className="text-sm space-y-2">
-                             <p><strong>Name:</strong> {order.customerName}</p>
-                             <p><strong>Address:</strong> {order.deliveryAddress}</p>
-                             <p><strong>Email:</strong> {order.email}</p>
-                             <p><strong>Phone:</strong> {order.phone}</p>
-                        </CardContent>
-                    </Card>
-                </div>
-                </ScrollArea>
-                <DialogFooter>
-                    <Button onClick={onClose}>Close</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+        <TableRow>
+            <TableCell className="font-medium truncate max-w-[100px]">{order.id}</TableCell>
+            <TableCell>{order.customerName}</TableCell>
+            <TableCell>{formatDate(order.orderDate)}</TableCell>
+            <TableCell>
+                 <Select onValueChange={(newStatus) => onStatusChange(order.id, newStatus as Order['status'])} defaultValue={order.status} disabled={isUpdating || (order.status === 'Delivered' || order.status === 'Cancelled')}>
+                    <SelectTrigger className="w-full md:w-[180px]">
+                        <SelectValue placeholder="Update status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="Pending">Pending</SelectItem>
+                        <SelectItem value="Processing">Processing</SelectItem>
+                        <SelectItem value="Out for Delivery">Out for Delivery</SelectItem>
+                        <SelectItem value="Delivered">Delivered</SelectItem>
+                        <SelectItem value="Cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                </Select>
+            </TableCell>
+            <TableCell className="text-right">₹{order.totalAmount.toFixed(2)}</TableCell>
+            <TableCell className="text-right">
+                <Button variant="outline" size="sm" onClick={onShowDetails}>
+                    View Details
+                </Button>
+            </TableCell>
+        </TableRow>
     );
 }
 
-function StatusManager({ order, onStatusChange }: { order: Order; onStatusChange: (orderId: string, newStatus: Order['status']) => void; }) {
-    const [isUpdating, startTransition] = useTransition();
-
-    const handleStatusChange = (newStatus: Order['status']) => {
-        startTransition(() => {
-            onStatusChange(order.id, newStatus);
-        });
-    }
-
-    return (
-        <Select onValueChange={handleStatusChange} defaultValue={order.status} disabled={isUpdating || (order.status === 'Delivered' || order.status === 'Cancelled')}>
-            <SelectTrigger className="w-full md:w-[180px]">
-                <SelectValue placeholder="Update status" />
-            </SelectTrigger>
-            <SelectContent>
-                <SelectItem value="Pending">Pending</SelectItem>
-                <SelectItem value="Processing">Processing</SelectItem>
-                <SelectItem value="Out for Delivery">Out for Delivery</SelectItem>
-                <SelectItem value="Delivered">Delivered</SelectItem>
-                <SelectItem value="Cancelled">Cancelled</SelectItem>
-            </SelectContent>
-        </Select>
-    )
-}
-
-
-export default function OrdersDashboardPage() {
-  const { firestore, user, isUserLoading } = useFirebase();
+export default function MyOrdersPage() {
+  const { user, isUserLoading, firestore } = useFirebase();
+  const { toast } = useToast();
+  const [isUpdating, startUpdateTransition] = useTransition();
+  const [stores, setStores] = useState<Store[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [newOrderAlert, setNewOrderAlert] = useState<Order | null>(null);
-  const router = useRouter();
-  const { toast } = useToast();
-
-  useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.push('/login?redirectTo=/dashboard/owner/orders');
-    }
-  }, [isUserLoading, user, router]);
-
-  const storeQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(collection(firestore, 'stores'), where('ownerId', '==', user.uid));
-  }, [firestore, user]);
   
-  const { data: stores, isLoading: isStoreLoading } = useCollection<Store>(storeQuery);
-  const myStore = useMemo(() => stores?.[0], [stores]);
-
+  const ownerStoreQuery = useMemoFirebase(() => {
+    if (!firestore || !user?.uid) return null;
+    return query(
+        collection(firestore, 'stores'),
+        where('ownerId', '==', user.uid),
+    );
+  }, [firestore, user?.uid]);
+  const { data: myStores, isLoading: storesLoading } = useCollection<Store>(ownerStoreQuery);
+  const myStore = myStores?.[0];
+  
   const ordersQuery = useMemoFirebase(() => {
-      if (!firestore || !myStore) return null;
-      // Now fetching all orders for the store, regardless of type
-      return query(
-          collection(firestore, 'orders'),
-          where('storeId', '==', myStore.id),
-          orderBy('orderDate', 'desc')
-      );
-  }, [firestore, myStore]);
-  
-  const { data: allOrders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
+    if (!firestore || !myStore?.id) return null;
+    return query(
+        collection(firestore, 'orders'),
+        where('storeId', '==', myStore.id),
+        orderBy('orderDate', 'desc')
+    );
+  }, [firestore, myStore?.id]);
+
+  const { data: allOrders, isLoading: ordersLoading, error: ordersError } = useCollection<Order>(ordersQuery);
 
   const prevOrdersRef = useRef<Map<string, Order>>(new Map());
 
-  // Calculate stats from orders
-  const stats = useMemo(() => {
-    if (!allOrders) {
-        return { totalRevenue: 0, completedOrders: 0, activeOrders: 0 };
+  useEffect(() => {
+    if(firestore) {
+      getStores(firestore).then(setStores);
     }
-    return allOrders.reduce((acc, order) => {
-        if (order.status === 'Delivered') {
-            acc.totalRevenue += order.totalAmount;
-            acc.completedOrders += 1;
-        } else if (order.status === 'Pending' || order.status === 'Processing') {
-            acc.activeOrders += 1;
-        }
-        return acc;
-    }, { totalRevenue: 0, completedOrders: 0, activeOrders: 0 });
-  }, [allOrders]);
+  }, [firestore]);
+  
+  const ordersWithStores = useMemo(() => {
+    if (!allOrders || stores.length === 0) return [];
+    const storeMap = new Map(stores.map(s => [s.id, s.name]));
+    return allOrders.map(order => ({
+        ...order,
+        storeName: storeMap.get(order.storeId) || 'Unknown Store'
+    }));
+  }, [allOrders, stores]);
 
   useEffect(() => {
-    if (!allOrders) return;
-    const currentOrdersMap = new Map(allOrders.map(order => [order.id, order]));
-    
-    if (prevOrdersRef.current.size > 0) {
-        currentOrdersMap.forEach((currentOrder, orderId) => {
-            const prevOrder = prevOrdersRef.current.get(orderId);
-
-            if (!prevOrder && currentOrder.status === 'Pending' && !newOrderAlert) {
-                if (currentOrder.storeId === myStore?.id) {
-                    setNewOrderAlert(currentOrder);
-                    playAlarm();
-                }
-            }
-            else if (prevOrder && prevOrder.status !== currentOrder.status) {
-              const toastMessage = `Order #${currentOrder.id.substring(0, 7)} for ${currentOrder.customerName} is now "${currentOrder.status}".`;
-              toast({
-                title: "Order Status Updated",
-                description: toastMessage,
-              });
-
-              if (currentOrder.status === 'Out for Delivery' || currentOrder.status === 'Delivered') {
-                playAlarm();
-              }
-            }
+    if (ordersWithStores && ordersWithStores.length > 0) {
+      const currentOrdersMap = new Map(ordersWithStores.map(order => [order.id, order]));
+      
+      currentOrdersMap.forEach((currentOrder, orderId) => {
+        const prevOrder = prevOrdersRef.current.get(orderId);
+        
+        if (!prevOrder && currentOrder.status === 'Pending') {
+          if (currentOrder.storeId === myStore?.id) {
+            setNewOrderAlert(currentOrder);
+            playAlarm();
+          }
+        }
+        else if (prevOrder && prevOrder.status !== currentOrder.status) {
+          const toastMessage = `Your order #${currentOrder.id.substring(0, 7)} is now "${currentOrder.status}".`;
+          toast({
+            title: "Order Status Updated",
+            description: toastMessage,
+          });
+          
+          if (currentOrder.status === 'Out for Delivery' || currentOrder.status === 'Delivered') {
+            playAlarm();
+          }
+        }
       });
+
+      prevOrdersRef.current = currentOrdersMap;
     }
-
-    prevOrdersRef.current = currentOrdersMap;
-  }, [allOrders, toast, myStore?.id, newOrderAlert]);
-
+  }, [ordersWithStores, toast, myStore?.id]);
 
   const handleStatusChange = async (orderId: string, newStatus: Order['status']) => {
-    if (!firestore) return;
-    
-    const orderDocRef = doc(firestore, 'orders', orderId);
-    
-    const updatePayload: any = { status: newStatus };
-        
-    if (newStatus === 'Out for Delivery') {
-        updatePayload.deliveryPartnerId = null;
+    if (!firestore || !user?.uid) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not update status. Not authenticated.' });
+        return;
     }
 
-    try {
-        await updateDoc(orderDocRef, updatePayload);
-        toast({
-            title: "Status Updated",
-            description: `Order ${orderId.substring(0,7)} marked as ${newStatus}.`,
-        });
-        if (newOrderAlert?.id === orderId) {
-            setNewOrderAlert(null);
+    startUpdateTransition(async () => {
+        const orderRef = doc(firestore, 'orders', orderId);
+        try {
+            await writeBatch(firestore).update(orderRef, { status: newStatus }).commit();
+            toast({
+                title: "Status Updated",
+                description: `Order #${orderId.substring(0, 7)} marked as ${newStatus}.`
+            });
+            if (newOrderAlert?.id === orderId) {
+                setNewOrderAlert(null);
+            }
+        } catch (error) {
+            console.error("Failed to update status:", error);
+            const permissionError = new FirestorePermissionError({
+                path: orderRef.path,
+                operation: 'update',
+                requestResourceData: { status: newStatus },
+            });
+            errorEmitter.emit('permission-error', permissionError);
         }
-    } catch (serverError) {
-        const permissionError = new FirestorePermissionError({
-            path: orderDocRef.path,
-            operation: 'update',
-            requestResourceData: updatePayload,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-    }
+    });
   };
-  
+
   const handleAlertAction = (action: 'accept' | 'reject') => {
     if (!newOrderAlert) return;
-    
     const newStatus = action === 'accept' ? 'Processing' : 'Cancelled';
     handleStatusChange(newOrderAlert.id, newStatus);
   };
+  
+  const effectiveLoading = isUserLoading || storesLoading || ordersLoading;
 
-  const finalLoading = isUserLoading || isStoreLoading || ordersLoading;
-
-  const statItems = [
-      { title: 'Total Revenue', value: stats.totalRevenue, icon: DollarSign, isCurrency: true },
-      { title: 'Completed Orders', value: stats.completedOrders, icon: PackageCheck },
-      { title: 'Active Orders', value: stats.activeOrders, icon: Package },
-  ];
+  const renderContent = () => {
+    if (effectiveLoading) {
+      return <p>Loading your orders...</p>;
+    }
+    if (ordersError) {
+        return (
+             <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Could Not Load Orders</AlertTitle>
+                <AlertDescription>
+                    There was an error fetching your order history. This may be due to a temporary network issue or exceeded usage quotas. Please try again later.
+                </AlertDescription>
+            </Alert>
+        )
+    }
+    if (!user) {
+        return (
+             <div className="text-center py-12">
+                <p className="text-muted-foreground mb-4">Please log in to see your orders.</p>
+                <Button asChild>
+                    <Link href="/login">Login</Link>
+                </Button>
+            </div>
+        )
+    }
+     if (!myStore) {
+        return (
+            <div className="text-center py-12">
+                <p className="text-muted-foreground mb-4">You have not created a store yet.</p>
+                <Button asChild>
+                    <Link href="/dashboard/owner/my-store">Create Store</Link>
+                </Button>
+            </div>
+        )
+    }
+     if (ordersWithStores.length === 0) {
+        return (
+            <div className="text-center py-12">
+                <p className="text-muted-foreground mb-4">You haven't received any orders yet.</p>
+            </div>
+        )
+    }
+    return (
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>Order ID</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {ordersWithStores.map(order => (
+                    <OrderRow
+                        key={order.id}
+                        order={order}
+                        onStatusChange={handleStatusChange}
+                        onShowDetails={() => setSelectedOrder(order)}
+                        isUpdating={isUpdating}
+                    />
+                ))}
+            </TableBody>
+        </Table>
+    );
+  }
 
   return (
     <div className="container mx-auto py-12 px-4 md:px-6">
-       <OrderDetailsDialog order={selectedOrder} isOpen={!!selectedOrder} onClose={() => setSelectedOrder(null)} />
-       
-       <AlertDialog open={!!newOrderAlert} onOpenChange={() => {}}>
+       <AlertDialog open={!!newOrderAlert}>
           <AlertDialogContent>
               <AlertDialogHeader>
                   <AlertDialogTitle>You Have a New Order!</AlertDialogTitle>
@@ -307,52 +298,10 @@ export default function OrdersDashboardPage() {
                   </AlertDialogDescription>
               </AlertDialogHeader>
               <div className="p-1">
-                 <ScrollArea className="max-h-[50vh]">
-                    <div className="grid gap-4 py-4 pr-6">
-                         {newOrderAlert?.translatedList && (
-                            <Card>
-                                <CardHeader><CardTitle className="text-lg">Customer's List</CardTitle></CardHeader>
-                                <CardContent>
-                                     <p className="italic text-muted-foreground">"{newOrderAlert.translatedList}"</p>
-                                </CardContent>
-                            </Card>
-                        )}
-                        {newOrderAlert?.items && newOrderAlert.items.length > 0 && (
-                           <Card>
-                                <CardHeader><CardTitle className="text-lg">Items</CardTitle></CardHeader>
-                                <CardContent>
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Item</TableHead>
-                                                <TableHead>Qty</TableHead>
-                                                <TableHead className="text-right">Price</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {newOrderAlert.items.map((item, index) => (
-                                                <TableRow key={index}>
-                                                    <TableCell>{item.productName}</TableCell>
-                                                    <TableCell>{item.quantity}</TableCell>
-                                                    <TableCell className="text-right">₹{item.price.toFixed(2)}</TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </CardContent>
-                            </Card>
-                        )}
-                         <Card>
-                            <CardHeader><CardTitle className="text-lg">Customer Details</CardTitle></CardHeader>
-                            <CardContent className="text-sm space-y-2">
-                                 <p><strong>Name:</strong> {newOrderAlert?.customerName}</p>
-                                 <p><strong>Address:</strong> {newOrderAlert?.deliveryAddress}</p>
-                                 <p><strong>Email:</strong> {newOrderAlert?.email}</p>
-                                 <p><strong>Phone:</strong> {newOrderAlert?.phone}</p>
-                            </CardContent>
-                        </Card>
-                    </div>
-                </ScrollArea>
+                 {/* Simplified details for now */}
+                 <p><strong>Customer:</strong> {newOrderAlert?.customerName}</p>
+                 <p><strong>Total:</strong> ₹{newOrderAlert?.totalAmount.toFixed(2)}</p>
+                 <p><strong>Address:</strong> {newOrderAlert?.deliveryAddress}</p>
               </div>
               <AlertDialogFooter>
                   <AlertDialogAction asChild>
@@ -365,130 +314,68 @@ export default function OrdersDashboardPage() {
           </AlertDialogContent>
        </AlertDialog>
 
-      <h1 className="text-4xl font-bold font-headline mb-8">Order Management</h1>
+       <OrderDetailsDialog order={selectedOrder} isOpen={!!selectedOrder} onClose={() => setSelectedOrder(null)} />
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
-            {statItems.map(item => (
-                <StatCard 
-                    key={item.title} 
-                    title={item.title}
-                    value={item.value}
-                    icon={item.icon}
-                    loading={finalLoading}
-                    isCurrency={item.isCurrency}
-                />
-            ))}
-        </div>
-
+      <h1 className="text-4xl font-bold mb-8 font-headline">My Orders</h1>
       <Card>
         <CardHeader>
-          <CardTitle>{myStore ? `Incoming Orders for ${myStore.name}` : 'Your Orders'}</CardTitle>
-          <CardDescription>A combined view of all orders for your store.</CardDescription>
+          <CardTitle>Your Store's Order History</CardTitle>
         </CardHeader>
         <CardContent>
-          {finalLoading ? (
-            <p>Loading orders...</p>
-          ) : !user ? (
-             <div className="text-center py-12">
-              <p className="text-muted-foreground mb-4">Please log in to manage orders.</p>
-              <Button asChild>
-                <Link href="/login?redirectTo=/dashboard/owner/orders">Login</Link>
-              </Button>
-            </div>
-          ) : !myStore ? (
-             <div className="text-center py-12">
-              <p className="text-muted-foreground mb-4">You have not created a store yet. Please create one to see orders.</p>
-              <Button asChild>
-                <Link href="/dashboard/owner/my-store">Create Store</Link>
-              </Button>
-            </div>
-          ) : !allOrders || allOrders.length === 0 ? (
-            <p className="text-muted-foreground">No new orders found.</p>
-          ) : (
-            <>
-            {/* Mobile Card View */}
-            <div className="md:hidden space-y-4">
-                {allOrders.map(order => (
-                    <Card key={order.id}>
-                        <CardHeader>
-                             <div className="flex justify-between items-start">
-                                <div>
-                                    <CardTitle className="text-lg">{order.customerName}</CardTitle>
-                                    <p className="text-xs text-muted-foreground">ID: {order.id.substring(0,7)}...</p>
-                                </div>
-                                <Badge variant={order.translatedList ? 'outline' : 'secondary'}>
-                                    {order.translatedList ? 'Voice' : 'Cart'}
-                                </Badge>
-                             </div>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                             <div className="flex justify-between items-center text-sm">
-                                <span className="text-muted-foreground">Date</span>
-                                <span>{formatDateSafe(order.orderDate)}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-sm">
-                                <span className="text-muted-foreground">Total</span>
-                                <span className="font-bold">₹{order.totalAmount.toFixed(2)}</span>
-                            </div>
-                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-muted-foreground">Status</label>
-                                <StatusManager order={order} onStatusChange={handleStatusChange} />
-                            </div>
-                            <Button variant="outline" size="sm" onClick={() => setSelectedOrder(order)} className="w-full">
-                                View Details
-                            </Button>
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
-
-            {/* Desktop Table View */}
-            <div className="hidden md:block">
-                <Table>
-                <TableHeader>
-                    <TableRow>
-                    <TableHead>Order ID</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead className="text-center">Actions</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {allOrders.map((order) => (
-                    <TableRow key={order.id}>
-                        <TableCell className="font-medium truncate max-w-[100px]">{order.id}</TableCell>
-                        <TableCell>
-                        {order.translatedList ? (
-                            <Badge variant="outline">Voice</Badge>
-                        ) : (
-                            <Badge variant="secondary">Cart</Badge>
-                        )}
-                        </TableCell>
-                        <TableCell>{order.customerName}</TableCell>
-                        <TableCell>{formatDateSafe(order.orderDate)}</TableCell>
-                        <TableCell>
-                            <StatusManager order={order} onStatusChange={handleStatusChange} />
-                        </TableCell>
-                        <TableCell className="text-right">₹{order.totalAmount.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">
-                            <Button variant="outline" size="sm" onClick={() => setSelectedOrder(order)}>
-                                View Details
-                            </Button>
-                        </TableCell>
-                    </TableRow>
-                    ))}
-                </TableBody>
-                </Table>
-            </div>
-            </>
-          )}
+            {renderContent()}
         </CardContent>
       </Card>
     </div>
   );
 }
 
-    
+function OrderDetailsDialog({ order, isOpen, onClose }: { order: Order | null; isOpen: boolean; onClose: () => void; }) {
+    if (!order) return null;
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Order Details</DialogTitle>
+                    <DialogDescription>
+                        ID: {order.id} | Placed by: {order.customerName}
+                    </DialogDescription>
+                </DialogHeader>
+                <ScrollArea className="max-h-[60vh]">
+                    <div className="grid gap-4 py-4 pr-6">
+                        {order.items && order.items.length > 0 ? (
+                           <Card>
+                                <CardHeader><CardTitle className="text-lg">Order Items</CardTitle></CardHeader>
+                                <CardContent>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Item</TableHead>
+                                                <TableHead>Qty</TableHead>
+                                                <TableHead className="text-right">Price</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {order.items.map((item, index) => (
+                                                <TableRow key={index}>
+                                                    <TableCell>{item.productName}</TableCell>
+                                                    <TableCell>{item.quantity}</TableCell>
+                                                    <TableCell className="text-right">₹{item.price.toFixed(2)}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <p>No items listed for this order.</p>
+                        )}
+                    </div>
+                </ScrollArea>
+                <DialogFooter>
+                    <Button variant="outline" onClick={onClose}>Close</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
