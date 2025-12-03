@@ -6,10 +6,11 @@ import { getSalesReport } from '@/app/actions';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BarChart3, TrendingUp, ShoppingCart, Beef, Carrot, Grape } from 'lucide-react';
+import { BarChart3, TrendingUp, ShoppingCart, Beef, Carrot, Grape, Download } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
 
 type ReportCategory = {
   totalSales: number;
@@ -95,6 +96,7 @@ export default function SalesReportPage() {
     const [dailyReport, setDailyReport] = useState<ReportData | null>(null);
     const [monthlyReport, setMonthlyReport] = useState<ReportData | null>(null);
     const [isLoading, startLoading] = useTransition();
+    const [activeTab, setActiveTab] = useState<'daily' | 'monthly'>('daily');
 
     useEffect(() => {
         if (!isAdminLoading && !isAdmin) {
@@ -131,6 +133,36 @@ export default function SalesReportPage() {
     useEffect(() => {
         fetchReports();
     }, []);
+    
+    const handleDownload = () => {
+        const reportToDownload = activeTab === 'daily' ? dailyReport : monthlyReport;
+        if (!reportToDownload) return;
+
+        const headers = ["Category", "Total Sales (INR)", "Items Sold", "Top Product 1", "Top Product 1 Qty", "Top Product 2", "Top Product 2 Qty"];
+        let csvContent = headers.join(",") + "\\n";
+
+        Object.entries(reportToDownload).forEach(([categoryName, categoryData]) => {
+            const topProducts = categoryData.topProducts.slice(0, 2);
+            const row = [
+                `"${categoryName.charAt(0).toUpperCase() + categoryName.slice(1)}"`,
+                categoryData.totalSales.toFixed(2),
+                String(categoryData.itemCount),
+                `"${topProducts[0]?.name || ''}"`,
+                String(topProducts[0]?.count || 0),
+                `"${topProducts[1]?.name || ''}"`,
+                String(topProducts[1]?.count || 0),
+            ];
+            csvContent += row.join(",") + "\\n";
+        });
+        
+        const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `${activeTab}_sales_report.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     const reportCards = [
         { title: 'Meat', dataKey: 'meat', icon: Beef },
@@ -142,18 +174,24 @@ export default function SalesReportPage() {
         <div className="container mx-auto py-12 px-4 md:px-6">
             <Card>
                 <CardHeader>
-                    <div className="flex items-center gap-3">
-                        <BarChart3 className="h-8 w-8 text-primary" />
-                        <div>
-                            <CardTitle className="text-3xl font-headline">Sales Reports</CardTitle>
-                            <CardDescription>
-                                An overview of your daily and monthly sales performance.
-                            </CardDescription>
+                    <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+                        <div className="flex items-center gap-3">
+                            <BarChart3 className="h-8 w-8 text-primary" />
+                            <div>
+                                <CardTitle className="text-3xl font-headline">Sales Reports</CardTitle>
+                                <CardDescription>
+                                    An overview of your daily and monthly sales performance.
+                                </CardDescription>
+                            </div>
                         </div>
+                        <Button onClick={handleDownload} variant="outline">
+                            <Download className="mr-2 h-4 w-4" />
+                            Download {activeTab === 'daily' ? 'Daily' : 'Monthly'} Report
+                        </Button>
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <Tabs defaultValue="daily" className="w-full">
+                    <Tabs defaultValue="daily" value={activeTab} onValueChange={(value) => setActiveTab(value as 'daily' | 'monthly')} className="w-full">
                         <TabsList className="grid w-full grid-cols-2">
                             <TabsTrigger value="daily">Today's Report</TabsTrigger>
                             <TabsTrigger value="monthly">This Month's Report</TabsTrigger>

@@ -6,7 +6,7 @@ import { getStorage } from 'firebase-admin/storage';
 import { updateDoc, doc, writeBatch, serverTimestamp, collection, getDocs, where, query, Timestamp } from 'firebase/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { Order, OrderItem } from '@/lib/types';
+import type { Order, OrderItem, Product, ProductPrice, ProductVariant } from '@/lib/types';
 
 
 /**
@@ -438,7 +438,7 @@ export async function updatePlaceholderImages(newData: { placeholderImages: any[
     }
 }
 
-export async function getSalesReport(period: 'daily' | 'monthly') {
+export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ success: boolean; report?: any; error?: string; }> {
   const { db } = await getAdminServices();
 
   const now = new Date();
@@ -453,15 +453,16 @@ export async function getSalesReport(period: 'daily' | 'monthly') {
   const startTimestamp = Timestamp.fromDate(startDate);
 
   try {
+    // 1. Fetch all 'Delivered' orders within the specified date range.
     const ordersQuery = query(
       collection(db, 'orders'),
       where('status', '==', 'Delivered'),
       where('orderDate', '>=', startTimestamp)
     );
-
     const orderSnapshot = await getDocs(ordersQuery);
     const deliveredOrders = orderSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
 
+    // 2. Fetch all products from the master 'Grozo' store to create a category map.
     const masterStoreQuery = query(collection(db, 'stores'), where('name', '==', 'Grozo'));
     const masterStoreSnap = await getDocs(masterStoreQuery);
     if (masterStoreSnap.empty) throw new Error("Master 'Grozo' store not found.");
@@ -473,27 +474,33 @@ export async function getSalesReport(period: 'daily' | 'monthly') {
       productCategoryMap.set(doc.data().name, doc.data().category);
     });
 
+    // 3. Initialize the report structure.
     const report = {
       grocery: { totalSales: 0, itemCount: 0, topProducts: new Map<string, number>() },
       meat: { totalSales: 0, itemCount: 0, topProducts: new Map<string, number>() },
       vegetable: { totalSales: 0, itemCount: 0, topProducts: new Map<string, number>() },
     };
 
+    // Define which product categories map to our report categories.
     const meatCategories = ['fresh cut', 'meat & fish'];
     const vegetableCategories = ['vegetables'];
-
+    
+    // 4. Iterate through each delivered order.
     for (const order of deliveredOrders) {
-      // Fetch items from the subcollection
+      // 4a. For each order, fetch all items from its 'orderItems' subcollection.
       const itemsQuery = collection(db, 'orders', order.id, 'orderItems');
       const itemsSnapshot = await getDocs(itemsQuery);
       const items = itemsSnapshot.docs.map(doc => doc.data() as OrderItem);
 
+      // 4b. Process each item in the order.
       for (const item of items) {
         const itemTotal = item.price * item.quantity;
+        // Use the map to find the product's main category.
         const category = productCategoryMap.get(item.productName)?.toLowerCase() || 'grocery';
         
         let reportCategory: 'grocery' | 'meat' | 'vegetable';
 
+        // 4c. Assign the item to the correct report category.
         if (meatCategories.includes(category)) {
           reportCategory = 'meat';
         } else if (vegetableCategories.includes(category)) {
@@ -502,6 +509,7 @@ export async function getSalesReport(period: 'daily' | 'monthly') {
           reportCategory = 'grocery';
         }
 
+        // 4d. Aggregate the sales data.
         report[reportCategory].totalSales += itemTotal;
         report[reportCategory].itemCount += item.quantity;
         
@@ -510,6 +518,7 @@ export async function getSalesReport(period: 'daily' | 'monthly') {
       }
     }
 
+    // 5. Format the top products list for the final report.
     const formatTopProducts = (topProducts: Map<string, number>) => {
         return Array.from(topProducts.entries())
           .sort((a, b) => b[1] - a[1])
@@ -517,6 +526,7 @@ export async function getSalesReport(period: 'daily' | 'monthly') {
           .map(([name, count]) => ({ name, count }));
     };
 
+    // 6. Return the successfully generated report.
     return {
         success: true,
         report: {
