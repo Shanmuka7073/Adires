@@ -136,7 +136,10 @@ export function CategoryClient({ store, allProducts, productPrices, isLoading }:
     return Array.from(categorySet).map(name => ({ name }));
   }, [allProducts]);
   
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(categoryFromUrl);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(() => {
+    const decoded = categoryFromUrl ? decodeURIComponent(categoryFromUrl) : null;
+    return decoded;
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const { setActiveStoreId } = useCart();
   const highlightedProductRef = useRef<HTMLDivElement>(null);
@@ -151,19 +154,18 @@ export function CategoryClient({ store, allProducts, productPrices, isLoading }:
   }, [store.id, setActiveStoreId]);
 
   useEffect(() => {
-    // This effect now correctly handles setting the initial category from the URL,
-    // or defaulting to the first category if none is provided.
-    const initialCategory = categoryFromUrl && categories.some(c => c.name === categoryFromUrl) 
-      ? categoryFromUrl 
-      : categories.length > 0 ? categories[0].name : null;
-    
-    setSelectedCategory(initialCategory);
-
+    const decodedCategory = categoryFromUrl ? decodeURIComponent(categoryFromUrl) : null;
+    if (decodedCategory && categories.some(c => c.name === decodedCategory)) {
+      setSelectedCategory(decodedCategory);
+    } 
+    else if (!decodedCategory && categories.length > 0) {
+      setSelectedCategory(categories[0].name);
+    }
   }, [categories, categoryFromUrl]);
 
   const handleSelectCategory = (categoryName: string) => {
     setSelectedCategory(categoryName);
-    router.push(`/stores/${store.id}?category=${categoryName}`, { scroll: false });
+    router.push(`/stores/${store.id}?category=${encodeURIComponent(categoryName)}`, { scroll: false });
   };
 
   const filteredProducts = useMemo(() => {
@@ -250,5 +252,3 @@ export function CategoryClient({ store, allProducts, productPrices, isLoading }:
     </div>
   );
 }
-
-    
