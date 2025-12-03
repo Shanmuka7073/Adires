@@ -86,10 +86,7 @@ export const useAppStore = create<AppState>()(
       setAppReady: (isReady: boolean) => set({ appReady: isReady }),
 
       fetchInitialData: async (db: Firestore) => {
-        // This is the critical fix. If already initialized, do not fetch again.
-        if (get().isInitialized || get().loading) {
-          return;
-        }
+        if (get().loading) return; 
 
         set({ loading: true, error: null });
         

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect } from 'react';
@@ -15,15 +16,11 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
   const { fetchInitialData, isInitialized, loading, setAppReady } = useAppStore();
 
   useEffect(() => {
-    // This logic ensures data is fetched as soon as Firebase is ready,
-    // without waiting for a logged-in user.
-    if (firestore && !isInitialized && !loading) {
+    // This logic ensures data is fetched as soon as Firebase is ready.
+    if (firestore && !loading) {
       fetchInitialData(firestore).then(() => {
         setAppReady(true);
       });
-    } else if (isInitialized) {
-      // If data is already in the store (from localStorage), the app is ready.
-      setAppReady(true);
     } else if (!firestore && !loading) {
       // If there's a Firebase connection issue, we still unlock the app
       // to prevent getting stuck on the loader forever.
@@ -37,12 +34,12 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
 
 
 export function ClientRoot({ children }: { children: React.ReactNode }) {
-  const { appReady, isInitialized } = useAppStore();
+  const { appReady } = useAppStore();
 
   return (
     <FirebaseClientProvider>
       <AppInitializer>
-        {!isInitialized || !appReady ? (
+        {!appReady ? (
           <GlobalLoader />
         ) : (
           <InstallProvider>
