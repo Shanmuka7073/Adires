@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy, Upload, MessageSquare, ImageIcon, Home, Lightbulb, Binary, TestTube, Cog, Share2, Monitor, Drama } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy, Upload, MessageSquare, ImageIcon, Home, Lightbulb, Binary, TestTube, Cog, Share2, Monitor, Drama, Edit } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -313,8 +313,12 @@ function ProductInventoryRow({ product, priceData, onUpdate }: { product: Produc
     const [isEditing, setIsEditing] = useState(false);
     const [variants, setVariants] = useState(priceData?.variants || []);
     const [isSaving, startSaveTransition] = useTransition();
-    const { firestore } = useFirebase();
+    const { firestore, user } = useFirebase();
     const { toast } = useToast();
+    const { isAdmin } = useAdminAuth();
+    const isChickenAdmin = user?.email === 'chickenadmin@gmail.com';
+
+    const canEdit = isAdmin || (isChickenAdmin && product.name.toLowerCase().includes('chicken'));
 
     useEffect(() => {
         setVariants(priceData?.variants || []);
@@ -348,7 +352,7 @@ function ProductInventoryRow({ product, priceData, onUpdate }: { product: Produc
 
     return (
         <>
-            <TableRow onClick={() => setIsEditing(!isEditing)} className="cursor-pointer">
+            <TableRow onClick={() => canEdit && setIsEditing(!isEditing)} className={canEdit ? "cursor-pointer" : ""}>
                 <TableCell className="font-medium">{product.name}</TableCell>
                 <TableCell>{product.category}</TableCell>
                 <TableCell>
@@ -362,12 +366,20 @@ function ProductInventoryRow({ product, priceData, onUpdate }: { product: Produc
                         </div>
                     )) || 'No price data'}
                 </TableCell>
+                <TableCell className="text-right">
+                    {canEdit && (
+                        <Button variant="ghost" size="icon" onClick={() => setIsEditing(prev => !prev)}>
+                            <Edit className="h-4 w-4" />
+                            <span className="sr-only">Edit prices for {product.name}</span>
+                        </Button>
+                    )}
+                </TableCell>
             </TableRow>
-             {isEditing && (
+             {isEditing && canEdit && (
                  <TableRow>
-                    <TableCell colSpan={3} className="p-0">
+                    <TableCell colSpan={4} className="p-0">
                         <div className="p-4 bg-muted/50 space-y-4">
-                             <p className="font-semibold text-sm">Editing: {product.name}</p>
+                             <p className="font-semibold text-sm">Editing Prices: {product.name}</p>
                              {variants.map((variant, index) => (
                                 <div key={variant.sku} className="grid grid-cols-3 gap-4 items-center">
                                     <div className="font-mono text-sm">{variant.weight}</div>
@@ -572,12 +584,6 @@ export default function AdminDashboardPage() {
                         description="add-or-edit-products-in-the-master-catalog"
                         href="/dashboard/owner/my-store"
                         icon={Store}
-                    />
-                     <AdminActionCard 
-                        title="View Product List"
-                        description="View, copy, and share the list of all products in the master catalog."
-                        href="/dashboard/admin/product-list"
-                        icon={List}
                     />
                     <AdminActionCard 
                         title="voice-commands-control"
