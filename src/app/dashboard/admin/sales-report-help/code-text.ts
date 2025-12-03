@@ -31,32 +31,30 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
     startDate = new Date(now.getFullYear(), now.getMonth(), 1);
   }
 
+  // Use the Timestamp from the Admin SDK
   const startTimestamp = Timestamp.fromDate(startDate);
 
   try {
-    // Step 1: Fetch all products from the master 'LocalBasket' store to create a product-to-category map.
     const masterStoreQuery = query(collection(db, 'stores'), where('name', '==', 'LocalBasket'));
     const masterStoreSnap = await getDocs(masterStoreQuery);
     if (masterStoreSnap.empty) throw new Error("Master 'LocalBasket' store not found.");
     const masterStoreId = masterStoreSnap.docs[0].id;
     
     const productsSnapshot = await getDocs(collection(db, 'stores', masterStoreId, 'products'));
-    // CORRECTED: Use a case-insensitive map for categories.
     const productCategoryMap = new Map<string, string>();
+    // Correctly map by product ID
     productsSnapshot.forEach(doc => {
-      productCategoryMap.set(doc.data().name.toLowerCase(), doc.data().category);
+      productCategoryMap.set(doc.id, doc.data().category?.toLowerCase() || 'grocery');
     });
 
-    // Step 2: Fetch all 'Delivered' orders within the specified date range.
     const ordersQuery = query(
       collection(db, 'orders'),
-      where('status', '==', 'Delivered'),
+      where('status', 'in', ['Delivered', 'delivered', 'Completed']),
       where('orderDate', '>=', startTimestamp)
     );
     const orderSnapshot = await getDocs(ordersQuery);
     const deliveredOrders = orderSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
 
-    // Step 3: Initialize the report structure.
     const report = {
       grocery: { totalSales: 0, itemCount: 0, topProducts: new Map<string, number>() },
       meat: { totalSales: 0, itemCount: 0, topProducts: new Map<string, number>() },
@@ -66,9 +64,8 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
     const meatCategories = ['fresh cut', 'meat & fish'];
     const vegetableCategories = ['vegetables'];
     
-    // Step 4: Iterate through each delivered order.
     for (const order of deliveredOrders) {
-      // Step 4a: Correctly query the 'orderItems' subcollection for each order.
+      // **FIX:** Query the 'orderItems' subcollection for each order.
       const itemsQuery = collection(db, 'orders', order.id, 'orderItems');
       const itemsSnapshot = await getDocs(itemsQuery);
       
@@ -76,11 +73,10 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
 
       const items = itemsSnapshot.docs.map(doc => doc.data() as OrderItem);
 
-      // Step 4b: Process each item in the order.
       for (const item of items) {
         const itemTotal = item.price * item.quantity;
-        // CORRECTED: Use case-insensitive lookup for the category.
-        const category = productCategoryMap.get(item.productName.toLowerCase())?.toLowerCase() || 'grocery';
+        // Use productId for robust mapping
+        const category = productCategoryMap.get(item.productId) || 'grocery';
         
         let reportCategory: 'grocery' | 'meat' | 'vegetable';
 
@@ -92,7 +88,6 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
           reportCategory = 'grocery';
         }
 
-        // Step 4d: Aggregate the sales data.
         report[reportCategory].totalSales += itemTotal;
         report[reportCategory].itemCount += item.quantity;
         
@@ -297,6 +292,10 @@ export default function SalesReportPage() {
         { title: 'Grocery', dataKey: 'grocery', icon: Grape },
     ] as const;
 
+    if (isAdminLoading) {
+      return <p>Loading...</p>
+    }
+
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
             <Card>
@@ -368,3 +367,4 @@ export const salesReportCodeText = [
         content: pageContent
     }
 ];
+
