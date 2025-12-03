@@ -135,7 +135,7 @@ export function CategoryClient({ store, allProducts, productPrices, isLoading }:
     return Array.from(categorySet).map(name => ({ name }));
   }, [allProducts]);
   
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(categoryFromUrl);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(categoryFromUrl ? decodeURIComponent(categoryFromUrl) : null);
   const [searchTerm, setSearchTerm] = useState('');
   const { setActiveStoreId } = useCart();
   const highlightedProductRef = useRef<HTMLDivElement>(null);
@@ -150,8 +150,9 @@ export function CategoryClient({ store, allProducts, productPrices, isLoading }:
   }, [store.id, setActiveStoreId]);
 
   useEffect(() => {
-    if (categoryFromUrl && categories.some(c => c.name === categoryFromUrl)) {
-      setSelectedCategory(categoryFromUrl);
+    const decodedCategory = categoryFromUrl ? decodeURIComponent(categoryFromUrl) : null;
+    if (decodedCategory && categories.some(c => c.name === decodedCategory)) {
+      setSelectedCategory(decodedCategory);
     } 
     else if (!selectedCategory && categories.length > 0) {
       setSelectedCategory(categories[0].name);
@@ -160,7 +161,7 @@ export function CategoryClient({ store, allProducts, productPrices, isLoading }:
 
   const handleSelectCategory = (categoryName: string) => {
     setSelectedCategory(categoryName);
-    router.push(`/stores/${store.id}?category=${categoryName}`);
+    router.push(`/stores/${store.id}?category=${encodeURIComponent(categoryName)}`);
   };
 
   const filteredProducts = useMemo(() => {
