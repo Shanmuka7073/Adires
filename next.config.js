@@ -31,7 +31,6 @@ const nextConfig = {
     },
     esmExternals: 'loose',
   },
-  transpilePackages: ['firebase', '@firebase/auth', '@firebase/firestore'],
   typescript: {
     // This is now set to false to show all TypeScript errors during build.
     ignoreBuildErrors: false,
