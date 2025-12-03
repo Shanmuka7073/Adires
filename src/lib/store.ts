@@ -86,7 +86,7 @@ export const useAppStore = create<AppState>()(
       setAppReady: (isReady: boolean) => set({ appReady: isReady }),
 
       fetchInitialData: async (db: Firestore) => {
-        if (get().loading) return; 
+        if (get().loading || get().isInitialized) return; 
 
         set({ loading: true, error: null });
         
@@ -186,6 +186,24 @@ export const useAppStore = create<AppState>()(
   )
 );
 
+
+export const useInitializeApp = () => {
+    const { firestore } = useFirebase();
+    const { fetchInitialData, isInitialized, loading, setAppReady } = useAppStore();
+
+    useEffect(() => {
+        if (isInitialized) {
+            setAppReady(true);
+            return;
+        }
+        
+        if (firestore && !loading) {
+            fetchInitialData(firestore).then(() => {
+                setAppReady(true);
+            });
+        }
+    }, [firestore, isInitialized, loading, fetchInitialData, setAppReady]);
+};
 
 interface ProfileFormState {
   form: UseFormReturn<ProfileFormValues> | null;
