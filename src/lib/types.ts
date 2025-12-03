@@ -1,5 +1,4 @@
 
-
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -90,7 +89,7 @@ export type Order = {
   items: OrderItem[];
   totalAmount: number;
   status: 'Pending' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
-  orderDate: Timestamp | Date | string; // Allow string for serialized format
+  orderDate: Timestamp; // Using the specific Firestore Timestamp type
   phone: string;
   email: string;
   translatedList?: string; // Bilingual translated list
@@ -286,3 +285,5 @@ export type GenerateBreakfastPackOutput = {
   }[];
   estimatedCost: number;
 };
+
+    

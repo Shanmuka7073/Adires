@@ -459,16 +459,16 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
 
   try {
     // Step 1: Fetch all products from the master 'LocalBasket' store to create a product-to-category map.
-    // This is crucial for correctly categorizing items from orders.
     const masterStoreQuery = query(collection(db, 'stores'), where('name', '==', 'LocalBasket'));
     const masterStoreSnap = await getDocs(masterStoreQuery);
     if (masterStoreSnap.empty) throw new Error("Master 'LocalBasket' store not found.");
     const masterStoreId = masterStoreSnap.docs[0].id;
     
     const productsSnapshot = await getDocs(collection(db, 'stores', masterStoreId, 'products'));
+    // CORRECTED: Use a case-insensitive map for categories.
     const productCategoryMap = new Map<string, string>();
     productsSnapshot.forEach(doc => {
-      productCategoryMap.set(doc.data().name, doc.data().category);
+      productCategoryMap.set(doc.data().name.toLowerCase(), doc.data().category);
     });
 
     // Step 2: Fetch all 'Delivered' orders within the specified date range.
@@ -480,7 +480,6 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
     const orderSnapshot = await getDocs(ordersQuery);
     const deliveredOrders = orderSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
 
-
     // Step 3: Initialize the report structure.
     const report = {
       grocery: { totalSales: 0, itemCount: 0, topProducts: new Map<string, number>() },
@@ -488,13 +487,12 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
       vegetable: { totalSales: 0, itemCount: 0, topProducts: new Map<string, number>() },
     };
 
-    // Define which product categories map to our specific report categories.
     const meatCategories = ['fresh cut', 'meat & fish'];
     const vegetableCategories = ['vegetables'];
     
     // Step 4: Iterate through each delivered order.
     for (const order of deliveredOrders) {
-      // Step 4a: For each order, fetch all items from its 'orderItems' subcollection. THIS IS THE FIX.
+      // Step 4a: Correctly query the 'orderItems' subcollection for each order.
       const itemsQuery = collection(db, 'orders', order.id, 'orderItems');
       const itemsSnapshot = await getDocs(itemsQuery);
       
@@ -505,12 +503,11 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
       // Step 4b: Process each item in the order.
       for (const item of items) {
         const itemTotal = item.price * item.quantity;
-        // Use the map to find the product's main category. Default to 'grocery' if not found.
-        const category = productCategoryMap.get(item.productName)?.toLowerCase() || 'grocery';
+        // CORRECTED: Use case-insensitive lookup for the category.
+        const category = productCategoryMap.get(item.productName.toLowerCase())?.toLowerCase() || 'grocery';
         
         let reportCategory: 'grocery' | 'meat' | 'vegetable';
 
-        // Step 4c: Assign the item to the correct report category.
         if (meatCategories.includes(category)) {
           reportCategory = 'meat';
         } else if (vegetableCategories.includes(category)) {
@@ -536,7 +533,6 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
           .map(([name, count]) => ({ name, count }));
     };
 
-    // Step 6: Return the successfully generated report.
     return {
         success: true,
         report: {
@@ -552,5 +548,4 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
   }
 }
 
-    
     
