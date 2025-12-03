@@ -58,6 +58,7 @@ export type User = {
     phoneNumber: string;
     latitude?: number;
     longitude?: number;
+    fcmToken?: string;
     authenticators?: Authenticator[];
     currentChallenge?: string | null; // Can be null
 }
@@ -90,7 +91,7 @@ export type Order = {
   items: OrderItem[];
   totalAmount: number;
   status: 'Pending' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
-  orderDate: Timestamp; // Using the specific Firestore Timestamp type
+  orderDate: Timestamp; 
   phone: string;
   email: string;
   translatedList?: string; // Bilingual translated list
