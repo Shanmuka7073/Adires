@@ -7,7 +7,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { collection, doc, writeBatch, serverTimestamp, getDocs, where, query, updateDoc, setDoc, getDoc } from 'firebase/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { Order, OrderItem, Product, ProductPrice, ProductVariant } from '@/lib/types';
+import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig } from '@/lib/types';
 
 
 /**
@@ -172,7 +172,7 @@ export async function getWikipediaSummary(topic: string): Promise<{ summary?: st
     // Step 1: Search for the topic to find the correct article title
     const searchResponse = await fetch(searchUrl, {
       headers: {
-        'User-Agent': 'LocalBasketApp/1.0 (https://localbasket.com; admin@localbasket.com)'
+        'User-Agent': 'LocalBasket/1.0 (https://localbasket.com; admin@localbasket.com)'
       }
     });
     
@@ -194,7 +194,7 @@ export async function getWikipediaSummary(topic: string): Promise<{ summary?: st
     const summaryResponse = await fetch(summaryUrl, {
       headers: {
         'Accept': 'application/json; charset=utf-8',
-        'User-Agent': 'LocalBasketApp/1.0 (https://localbasket.com; admin@localbasket.com)'
+        'User-Agent': 'LocalBasket/1.0 (https://localbasket.com; admin@localbasket.com)'
       }
     });
 
@@ -285,8 +285,8 @@ export async function uploadStoreImage(storeId: string, dataUri: string): Promis
         const base64Data = match[2];
         const buffer = Buffer.from(base64Data, 'base64');
         
-        const fileName = `\${Date.now()}_\${Math.round(Math.random() * 1E9)}.jpg`;
-        const filePath = `store-images/\${storeId}/\${fileName}`;
+        const fileName = `${Date.now()}_${Math.round(Math.random() * 1E9)}.jpg`;
+        const filePath = `store-images/${storeId}/${fileName}`;
         const file = bucket.file(filePath);
 
         // Upload the file
@@ -312,7 +312,7 @@ export async function uploadStoreImage(storeId: string, dataUri: string): Promis
 }
 
 const getManifestPath = () => {
-  // \`process.cwd()\` returns the root of your Next.js project
+  // `process.cwd()` returns the root of your Next.js project
   return path.join(process.cwd(), 'public', 'manifest.json');
 };
 
@@ -378,13 +378,13 @@ export async function bulkUploadRecipes(csvText: string): Promise<{ success: boo
 
             const [dishName, ingredientsString] = row.split(',');
             if (!dishName || !ingredientsString) {
-                console.warn(`Skipping invalid row: \${row}`);
+                console.warn(`Skipping invalid row: ${row}`);
                 continue;
             }
 
             const ingredients = ingredientsString.split('|').map(ing => ing.trim()).filter(Boolean);
             if (ingredients.length === 0) {
-                console.warn(`Skipping row with no ingredients: \${dishName}`);
+                console.warn(`Skipping row with no ingredients: ${dishName}`);
                 continue;
             }
             
@@ -569,7 +569,7 @@ export async function getSalesDataDump(): Promise<{ success: boolean; data?: any
       for (const item of items) {
         salesData.push({
           orderId: order.id,
-          orderDate: (order.orderDate as Timestamp).toDate().toISOString(),
+          orderDate: order.orderDate instanceof Timestamp ? order.orderDate.toDate().toISOString() : order.orderDate,
           orderStatus: order.status,
           customerName: order.customerName,
           customerEmail: order.email,
@@ -679,3 +679,29 @@ export async function processPdfAndExtractRules(formData: FormData): Promise<{ s
     }
 }
 
+export async function getSiteConfig(configId: string): Promise<SiteConfig | null> {
+    try {
+        const { db } = await getAdminServices();
+        const docRef = doc(db, 'siteConfig', configId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            return docSnap.data() as SiteConfig;
+        }
+        return null;
+    } catch (error) {
+        console.error("Error fetching site config:", error);
+        return null;
+    }
+}
+
+export async function updateSiteConfig(configId: string, data: Partial<SiteConfig>): Promise<{ success: boolean; error?: string }> {
+    try {
+        const { db } = await getAdminServices();
+        const docRef = doc(db, 'siteConfig', configId);
+        await setDoc(docRef, data, { merge: true });
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error updating site config:", error);
+        return { success: false, error: error.message };
+    }
+}
