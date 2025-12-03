@@ -1,3 +1,4 @@
+
 // IMPORTANT: Pure logic file (NO use client)
 
 import { parseRefsFromText } from "./ref-parser";
@@ -34,12 +35,6 @@ export type Intent =
 export function runNLU(text: string, lang: string = "en"): NLUResult {
   if (!text || typeof text !== "string") {
     return {
-      original: "",
-      tokens: [],
-      numbers: [],
-      mathExpression: null,
-      mathResult: null,
-      intentHints: [],
       cleanedText: "",
       language: lang,
       hasNumbers: false,
@@ -47,24 +42,21 @@ export function runNLU(text: string, lang: string = "en"): NLUResult {
       firstNumber: null,
       quantity: null,
       unit: null,
+      numbers: [],
     };
   }
 
   const cleanedText = text.trim().replace(/\u00A0/g, " ").replace(/\s+/g, " ");
 
-  const numbers = extractNumbers(cleanedText);
-  const first = numbers[0] || null;
-
-  const refs = parseRefsFromText(cleanedText);
-  const resolved = resolveRefData(cleanedText, refs);
+  const numberResult = extractNumbers(cleanedText);
+  const first = numberResult.numbers[0] || null;
 
   return {
-    ...resolved,
-    numbers,
-    cleanedText,
+    numbers: numberResult.numbers,
+    cleanedText: numberResult.cleanedText,
     language: lang,
-    hasNumbers: numbers.length > 0,
-    hasMath: resolved.mathExpression !== null,
+    hasNumbers: numberResult.numbers.length > 0,
+    hasMath: numberResult.mathResult !== null,
     firstNumber: first?.value ?? null,
     quantity: first?.type === "quantity" || first?.type === 'fraction' ? first?.value ?? null : (first?.type === "number" ? first.value : null),
     unit: first?.unit ?? null,
@@ -110,7 +102,6 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
         const firstNum = nlu.numbers[0];
         qty = firstNum.value;
         unit = firstNum.unit || null;
-        text = text.substring(0, firstNum.span[0]) + text.substring(firstNum.span[1]);
     }
     
     const moneyRegex = /(?:rs|rupees|₹|rupay|rupayala|रूपये|రూపాయల)\.?\s*(\d+\.?\d*)|(\d+\.?\d*)\s*(?:rs|rupees|₹|rupay|rupayala|रूपये|రూపాయల)\.?/i;
@@ -121,7 +112,7 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     }
     
     // Final cleanup
-    let productPhrase = cleanProductPhrase(text, nlu.language);
+    let productPhrase = cleanProductPhrase(nlu.cleanedText, nlu.language);
 
     return {
         qty,
