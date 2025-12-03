@@ -75,16 +75,17 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
   const moneyRegex = /(?:rs|rupees|₹|rupay|rupayalu)\.?\s*(\d+\.?\d*)|(\d+\.?\d*)\s*(?:rs|rupees|₹|rupay|rupayalu)\.?/i;
   
   // This more specific regex prevents "g" from matching "kg" accidentally.
-  const weightRegex = /(\d+\.?\d*)\s*(kg|kilos?|kilogram|grams|gram|gms|gm|g|ml|milliliter|ltr|liter)/i;
+  const weightRegex = /(\d+\.?\d*)\s*(kg|kilos?|kilogram|grams?|gm|g|ml|milliliter|liters?|ltr|l)/i;
   
   const pieceRegex = /(\d+)\s*(pack|packet|pc|piece|pieces)/i;
   
   const fractionWords: Record<string, number> = {
+    "one and a half": 1.5, "one and half": 1.5,
     "half": 0.5, "1/2": 0.5, "one half": 0.5,
-    "quarter": 0.25, "1/4": 0.25,
+    "quarter": 0.25, "1/4": 0.25, "one quarter": 0.25,
     "three fourths": 0.75, "three quarters": 0.75, "3/4": 0.75,
-    "సగం": 0.5, "అర": 0.5, "పావు": 0.25, "మూడొంతులు": 0.75,
-    "आधा": 0.5, "पाव": 0.25, "तीन चौथाई": 0.75
+    "ఒకటిన్నర": 1.5, "సగం": 0.5, "అర": 0.5, "పావు": 0.25, "మూడొంతులు": 0.75,
+    "डेढ़": 1.5, "आधा": 0.5, "पाव": 0.25, "तीन चौथाई": 0.75
   };
 
   let match;
@@ -102,7 +103,9 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
         unit = 'kg';
     } else if (unitRaw.startsWith('g')) {
         unit = 'gm'; 
-    } else if (unitRaw.startsWith('m') || unitRaw.startsWith('l')) {
+    } else if (unitRaw.startsWith('l')) {
+        unit = 'ltr';
+    } else if (unitRaw.startsWith('m')) {
         unit = 'ml';
     }
     text = text.replace(match[0], '').trim();
@@ -121,9 +124,18 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
         }
     }
   }
+
+  // Handle numbers from the NLU result if no other pattern matched
+  if (nlu.firstNumber !== null && qty === 1 && unit === null && money === null) {
+      qty = nlu.firstNumber;
+      // Attempt to remove the number from the text
+      if (nlu.numbers[0]) {
+          text = text.replace(nlu.numbers[0].raw, '').trim();
+      }
+  }
   
   // The remaining text is assumed to be the product phrase
-  const remainder = text.trim();
+  const remainder = text.replace(/\b(of|from|to|at)\b/gi, "").replace(/\s+/g, ' ').trim();
 
   return {
     qty,
