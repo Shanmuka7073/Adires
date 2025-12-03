@@ -44,14 +44,14 @@ export function runNLU(text: string, lang: string = "en"): NLUResult {
     };
   }
 
-  const rawCleanedText = text.trim().replace(/\u00A0/g, " ").replace(/\s+/g, " ");
+  const cleanedText = text.trim().replace(/\u00A0/g, " ").replace(/\s+/g, " ");
 
-  const numberResult = extractNumbers(rawCleanedText);
+  const numberResult = extractNumbers(cleanedText);
   const first = numberResult[0] || null;
 
   return {
     numbers: numberResult,
-    cleanedText: rawCleanedText,
+    cleanedText: cleanedText,
     language: lang,
     hasNumbers: numberResult.length > 0,
     hasMath: false, 
@@ -62,17 +62,19 @@ export function runNLU(text: string, lang: string = "en"): NLUResult {
 }
 
 
-// Words we want to strip from the *front* of the phrase
+// Words we want to strip from the *front* or *back* of the phrase
 const ACTION_WORDS: Record<string, string[]> = {
   en: ['add', 'order', 'buy', 'get', 'send', 'cost', 'price', 'remove', 'go', 'open', 'help'],
   te: ['pettu', 'teeseyi', 'vellu', 'cheyi', 'dhara', 'entha', 'konu'],
-  hi: ['daal', 'nikal', 'hata', 'madad', 'jao', 'kholo', 'daam', 'kya', 'hai', 'kharidna', 'dal', 'do'],
+  hi: ['daal', 'nikal', 'hata', 'madad', 'jao', 'kholo', 'daam', 'kya', 'hai', 'kharidna'],
 };
 
-// Filler words that often appear before the actual product
+// Filler words that often appear anywhere in the phrase
 const FILLER_WORDS = [
-  'of', 'from', 'my', 'to', 'the', 'par', 'se', 'nundi', 'ka', 'ki', 'ko', 'lo', 'la', 'rupayala'
+  'of', 'from', 'my', 'to', 'the', 'par', 'se', 'nundi',
+  'ka', 'ki', 'ko', 'lo', 'la', 'open', 'cheyi', 'vellu', 'daal', 'do'
 ];
+
 
 function cleanProductPhrase(raw: string, lang: string): string {
   let lowerTokens = raw.trim().toLowerCase().split(/\s+/);
@@ -93,20 +95,13 @@ function cleanProductPhrase(raw: string, lang: string): string {
 }
 
 const units = {
-  kg: true,
-  kilo: true,
-  kilogram: true,
-  g: true,
-  gm: true,
-  gram: true,
-  grams: true,
-  gramula: true,
-  litre: true,
-  l: true,
-  ml: true,
-  piece: true,
-  pc: true,
-  packet: true,
+  kg: true, kilo: true, kilogram: true, kilograms: true,
+  g: true, gm: true, gram: true, grams: true, gramula: true,
+  l: true, litre: true, liter: true, litres: true, liters: true,
+  ml: true, milliliter: true, millilitre: true,
+  pc: true, piece: true, pieces: true,
+  pack: true, packet: true, packets: true,
+  dozen: true,
 };
 
 /**
@@ -147,6 +142,7 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     const unitRegex = new RegExp(`\\b(${Object.keys(units).join('|')})\\b`, 'gi');
     productPhrase = productPhrase.replace(unitRegex, '').trim();
     
+    // Final cleanup after all other stripping
     productPhrase = cleanProductPhrase(productPhrase, nlu.language);
     
     return { qty, unit, money, productPhrase };
@@ -180,8 +176,8 @@ export function recognizeIntent(text: string, lang: string): Intent {
     }
   
     const navPatterns: Record<string, string[]> = {
-        orders: ['go to my orders', 'na orderlaku vellu', 'mere orders par jao'],
-        cart: ['open cart', 'cart open cheyi'],
+        orders: ['my orders', 'na orderlaku', 'mere orders'],
+        cart: ['open cart', 'cart open'],
     };
     for(const dest in navPatterns) {
         if(navPatterns[dest].some(p => lower.includes(p))) {
