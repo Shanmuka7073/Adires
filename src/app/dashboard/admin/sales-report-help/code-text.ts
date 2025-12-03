@@ -178,7 +178,7 @@ function ReportCard({ title, data, icon: Icon, isLoading }: { title: string; dat
                     {title}
                 </CardTitle>
                 <CardDescription>
-                    Total sales and item counts for the {title.toLowerCase()} category.
+                    Total sales and item counts for the \${title.toLowerCase()} category.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -187,14 +187,14 @@ function ReportCard({ title, data, icon: Icon, isLoading }: { title: string; dat
                         <TrendingUp className="h-5 w-5 text-green-500" />
                         <span className="text-sm text-muted-foreground">Total Sales</span>
                     </div>
-                    <p className="text-2xl font-bold">₹{data.totalSales.toFixed(2)}</p>
+                    <p className="text-2xl font-bold">₹\${data.totalSales.toFixed(2)}</p>
                 </div>
                 <div className="flex justify-between items-baseline">
                      <div className="flex items-center gap-2">
                         <ShoppingCart className="h-5 w-5 text-blue-500" />
                         <span className="text-sm text-muted-foreground">Items Sold</span>
                     </div>
-                    <p className="text-2xl font-bold">{data.itemCount}</p>
+                    <p className="text-2xl font-bold">\${data.itemCount}</p>
                 </div>
                 <div>
                     <h4 className="font-semibold text-sm mb-2">Top Selling Products:</h4>
@@ -271,12 +271,12 @@ export default function SalesReportPage() {
         Object.entries(reportToDownload).forEach(([categoryName, categoryData]) => {
             const topProducts = categoryData.topProducts.slice(0, 2);
             const row = [
-                `"${categoryName.charAt(0).toUpperCase() + categoryName.slice(1)}"`,
+                '"' + categoryName.charAt(0).toUpperCase() + categoryName.slice(1) + '"',
                 categoryData.totalSales.toFixed(2),
                 String(categoryData.itemCount),
-                \`"${topProducts[0]?.name || ''}"\`,
+                '"' + (topProducts[0]?.name || '') + '"',
                 String(topProducts[0]?.count || 0),
-                \`"${topProducts[1]?.name || ''}"\`,
+                '"' + (topProducts[1]?.name || '') + '"',
                 String(topProducts[1]?.count || 0),
             ];
             csvContent += row.join(",") + "\\n";
@@ -313,7 +313,7 @@ export default function SalesReportPage() {
                         </div>
                         <Button onClick={handleDownload} variant="outline">
                             <Download className="mr-2 h-4 w-4" />
-                            Download {activeTab === 'daily' ? 'Daily' : 'Monthly'} Report
+                            Download \${activeTab === "daily" ? "Daily" : "Monthly"} Report
                         </Button>
                     </div>
                 </CardHeader>
@@ -368,4 +368,3 @@ export const salesReportCodeText = [
         content: pageContent
     }
 ];
-
