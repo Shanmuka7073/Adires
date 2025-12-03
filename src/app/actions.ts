@@ -456,6 +456,7 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
     startDate = new Date(now.getFullYear(), now.getMonth(), 1);
   }
 
+  // Use the Timestamp from the Admin SDK
   const startTimestamp = Timestamp.fromDate(startDate);
 
   try {
@@ -466,6 +467,7 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
     
     const productsSnapshot = await getDocs(collection(db, 'stores', masterStoreId, 'products'));
     const productCategoryMap = new Map<string, string>();
+    // Correctly map by product ID
     productsSnapshot.forEach(doc => {
       productCategoryMap.set(doc.id, doc.data().category?.toLowerCase() || 'grocery');
     });
@@ -488,9 +490,15 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
     const vegetableCategories = ['vegetables'];
     
     for (const order of deliveredOrders) {
-      if (!order.items || order.items.length === 0) continue;
+      // **FIX:** Query the 'orderItems' subcollection for each order.
+      const itemsQuery = collection(db, 'orders', order.id, 'orderItems');
+      const itemsSnapshot = await getDocs(itemsQuery);
+      
+      if (itemsSnapshot.empty) continue; // Skip if order has no items.
 
-      for (const item of order.items) {
+      const items = itemsSnapshot.docs.map(doc => doc.data() as OrderItem);
+
+      for (const item of items) {
         const itemTotal = item.price * item.quantity;
         // Use productId for robust mapping
         const category = productCategoryMap.get(item.productId) || 'grocery';

@@ -71,6 +71,7 @@ export type CartItem = {
 };
 
 export type OrderItem = {
+  id: string; // Added ID field for subcollection documents
   productId: string;
   productName: string;
   variantSku: string;
