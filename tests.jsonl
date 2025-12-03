@@ -1,6 +1,20 @@
-
-{"id":"t1","text":"30 rupees tomatoes","lang":"en","expect":{"intent":"ORDER_ITEM","money":30,"productPhrase":"tomatoes"}}
-{"id":"t2","text":"40 rupay potato","lang":"en","expect":{"money":40,"productPhrase":"potato"}}
-{"id":"t3","text":"half kg onions","lang":"en","expect":{"qty":0.5,"unit":"kg","productPhrase":"onions"}}
-{"id":"t4","text":"100 gm ginger","lang":"en","expect":{"qty":100,"unit":"gm","productPhrase":"ginger"}}
-{"id":"t5","text":"5 liters sunflower oil","lang":"en","expect":{"qty":5,"unit":"ltr","productPhrase":"sunflower oil"}}
+{"id": "tc001", "text": "add 1kg of onions", "lang": "en", "expect": {"intent": "ORDER_ITEM", "qty": 1, "unit": "kg", "productPhrase": "onions"}}
+{"id": "tc002", "text": "add two hundred fifty grams ginger", "lang": "en", "expect": {"intent": "ORDER_ITEM", "qty": 250, "unit": "gm", "productPhrase": "ginger"}}
+{"id": "tc003", "text": "add 30 rupees tomatoes", "lang": "en", "expect": {"intent": "ORDER_ITEM", "money": 30, "productPhrase": "tomatoes"}}
+{"id": "tc004", "text": "go to my orders", "lang": "en", "expect": {"intent": "NAVIGATE", "destination": "orders"}}
+{"id": "tc005", "text": "open cart", "lang": "en", "expect": {"intent": "NAVIGATE", "destination": "cart"}}
+{"id": "tc006", "text": "cost of chicken", "lang": "en", "expect": {"intent": "CHECK_PRICE", "productPhrase": "chicken"}}
+{"id": "tc007", "text": "remove onions from my cart", "lang": "en", "expect": {"intent": "REMOVE_ITEM", "productPhrase": "onions from my cart"}}
+{"id": "tc008", "text": "help me", "lang": "en", "expect": {"intent": "CONVERSATIONAL", "commandKey": "help"}}
+{"id": "tc009", "text": "order 1kg potatoes from FreshMart to home", "lang": "en", "expect": {"intent": "SMART_ORDER"}}
+{"id": "tc010", "text": "oka kilo ullipayalu pettu", "lang": "te", "expect": {"intent": "ORDER_ITEM", "qty": 1, "unit": "kg", "productPhrase": "ullipayalu pettu"}}
+{"id": "tc011", "text": "rendu vandala yabhai gramula allam", "lang": "te", "expect": {"intent": "ORDER_ITEM", "qty": 250, "unit": "gm", "productPhrase": "allam"}}
+{"id": "tc012", "text": "muppai rupayala tomato", "lang": "te", "expect": {"intent": "ORDER_ITEM", "money": 30, "productPhrase": "tomato"}}
+{"id": "tc013", "text": "na orderlaku vellu", "lang": "te", "expect": {"intent": "NAVIGATE", "destination": "orders"}}
+{"id": "tc014", "text": "cart open cheyi", "lang": "te", "expect": {"intent": "NAVIGATE", "destination": "cart"}}
+{"id": "tc015", "text": "chicken dhara entha", "lang": "te", "expect": {"intent": "CHECK_PRICE", "productPhrase": "chicken"}}
+{"id": "tc016", "text": "na cart nundi ullipayalu teeseyi", "lang": "te", "expect": {"intent": "REMOVE_ITEM", "productPhrase": "ullipayalu teeseyi"}}
+{"id": "tc017", "text": "sahayam cheyi", "lang": "te", "expect": {"intent": "CONVERSATIONAL", "commandKey": "help"}}
+{"id": "tc018", "text": "do kilo pyaaz daal do", "lang": "hi", "expect": {"intent": "ORDER_ITEM", "qty": 2, "unit": "kg", "productPhrase": "pyaaz daal do"}}
+{"id": "tc019", "text": "mere orders par jao", "lang": "hi", "expect": {"intent": "NAVIGATE", "destination": "orders"}}
+{"id": "tc020", "text": "tamatar ka daam kya hai", "lang": "hi", "expect": {"intent": "CHECK_PRICE", "productPhrase": "tamatar"}}
