@@ -90,7 +90,7 @@ function cleanProductPhrase(raw: string, lang: string): string {
  * EXTRACT QUANTITY + PRODUCT PHRASE
  */
 export function extractQuantityAndProduct(nlu: NLUResult) {
-  let qty = 1; // Default quantity
+  let qty = 1;
   let unit: string | null = null;
   let money: number | null = null;
   let text = nlu.cleanedText;
@@ -99,15 +99,6 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
   const parsedNumbers = nlu.numbers;
   let phraseWithoutNumbers = text;
 
-  if (parsedNumbers.length > 0) {
-    const firstNum = parsedNumbers[0];
-    qty = firstNum.value;
-    unit = firstNum.unit || null;
-    
-    // Create a phrase with the number part blanked out to avoid re-matching
-    phraseWithoutNumbers = text.substring(0, firstNum.span[0]) + ' '.repeat(firstNum.raw.length) + text.substring(firstNum.span[1]);
-  }
-  
   // Regex for money detection (now including Telugu and Hindi words)
   const moneyRegex = /(?:rs|rupees|₹|rupay|rupayala|रूपये|రూపాయలు)\.?\s*(\d+\.?\d*)|(\d+\.?\d*)\s*(?:rs|rupees|₹|rupay|rupayala|रूपये|రూపాయలు)\.?/i;
   let match;
@@ -118,17 +109,26 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     qty = 1; // Reset quantity if it's a monetary value
     unit = null; // Money implies no unit like kg/gm
     phraseWithoutNumbers = text.replace(match[0], "").trim();
+  } else if (parsedNumbers.length > 0) {
+    const firstNum = parsedNumbers[0];
+    qty = firstNum.value;
+    unit = firstNum.unit || null;
+    
+    // Create a phrase with the number part blanked out to avoid re-matching
+    phraseWithoutNumbers = text.substring(0, firstNum.span[0]) + ' '.repeat(firstNum.raw.length) + text.substring(firstNum.span[1]);
   }
   
   // Final cleanup of the remaining phrase
   let productPhrase = cleanProductPhrase(phraseWithoutNumbers, nlu.language);
 
   // If a unit was found but no quantity number, it implies a quantity of 1
-  const unitWords = ['kg', 'kilo', 'gram', 'gm', 'litre', 'pack', 'pc'];
-  const firstWord = productPhrase.split(' ')[0];
+  const unitWords = ['kg', 'kilo', 'gram', 'grams', 'gm', 'g', 'ml', 'milliliter', 'litre', 'ltr', 'liter', 'l', 'pack', 'packet', 'pc', 'piece', 'pieces'];
+  const firstWord = productPhrase.split(' ')[0].toLowerCase();
+  
   if(unitWords.includes(firstWord) && parsedNumbers.length === 0 && !money) {
-      productPhrase = productPhrase.replace(firstWord, '').trim();
+      productPhrase = productPhrase.substring(firstWord.length).trim();
   }
+
 
   return {
     qty,
