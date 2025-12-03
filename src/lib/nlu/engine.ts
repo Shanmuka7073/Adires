@@ -3,15 +3,6 @@
 
 import { extractNumbers, type ParsedNumber } from "./number-engine-v2";
 
-// Assuming extractNumbers returns an object like:
-// { numbers: ParsedNumber[], cleanedText: string, mathResult: null | MathResult }
-interface NumberEngineResult {
-    numbers: ParsedNumber[];
-    cleanedText: string;
-    mathResult: any | null;
-}
-// Note: Since we don't have the definition for extractNumbers, we must assume its return type.
-
 export interface NLUResult {
   cleanedText: string;
   language: string;
@@ -53,22 +44,17 @@ export function runNLU(text: string, lang: string = "en"): NLUResult {
     };
   }
 
-  const rawCleanedText = text.trim().replace(/\u00A0/g, " ").replace(/\s+/g, " ");
+  const cleanedText = text.trim().replace(/\u00A0/g, " ").replace(/\s+/g, " ");
 
-  // We cast the result to the assumed structure to fix the type errors.
-  const result: any = extractNumbers(rawCleanedText);
-  const numbers: ParsedNumber[] = result.numbers ?? (Array.isArray(result) ? result : []);
-  const finalCleanedText: string = result.cleanedText ?? rawCleanedText;
-  const mathResult: any | null = result.mathResult ?? null;
-
-  const first = numbers[0] || null;
+  const numberResult = extractNumbers(cleanedText);
+  const first = numberResult[0] || null;
 
   return {
-    numbers: numbers,
-    cleanedText: finalCleanedText,
+    numbers: numberResult,
+    cleanedText: cleanedText,
     language: lang,
-    hasNumbers: numbers.length > 0,
-    hasMath: mathResult !== null, 
+    hasNumbers: numberResult.length > 0,
+    hasMath: false, // Math detection removed for now to simplify
     firstNumber: first?.value ?? null,
     quantity: first?.type === "quantity" || first?.type === 'fraction' ? first?.value ?? null : (first?.type === "number" ? first.value : null),
     unit: first?.unit ?? null,
@@ -139,10 +125,11 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     // Clean up the product phrase by removing action/filler words
     let productPhrase = cleanProductPhrase(phraseForCleanup, nlu.language);
     
-    // Final cleanup of remaining quantity/unit words (e.g., 'kilo', 'grams' which were not part of the 'raw' number but are common)
-    productPhrase = productPhrase.replace(/\b(kilo|kilogram|grams|gram|gramula|pack|pc|piece)\b/gi, '').trim();
+    // Final, more aggressive cleanup of remaining quantity/unit/currency words
+    const finalCleanupRegex = /\b(kilo|kilogram|grams|gram|gramula|pack|pc|piece|pettu|daal|do|rupayala|rupees|rs)\b/gi;
+    productPhrase = productPhrase.replace(finalCleanupRegex, '').trim();
     
-    // Clean up specific action/filler words that might remain after number stripping
+    // Clean up any remaining action/filler words again after the more aggressive cleanup
     productPhrase = cleanProductPhrase(productPhrase, nlu.language);
     
     return { qty, unit, money, productPhrase };
@@ -174,7 +161,6 @@ export function recognizeIntent(text: string, lang: string): Intent {
 
     // 3) REMOVE FROM CART
     if (lower.startsWith('remove') || lower.includes('teeseyi') || lower.includes('nikal') || lower.includes('hata')) {
-        // Only replace leading 'remove', or inner non-leading removal words
         const cleaned = lower.replace(/^remove\s+/, '').replace(/teeseyi|nikal|hata/g, '').trim();
         return { type: 'REMOVE_ITEM', productPhrase: cleanProductPhrase(cleaned, lang), originalText: text, lang };
     }
