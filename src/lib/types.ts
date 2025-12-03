@@ -1,4 +1,5 @@
 
+
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -285,5 +286,3 @@ export type GenerateBreakfastPackOutput = {
   }[];
   estimatedCost: number;
 };
-
-    

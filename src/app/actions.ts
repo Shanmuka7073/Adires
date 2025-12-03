@@ -3,7 +3,8 @@
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { getStorage } from 'firebase-admin/storage';
-import { updateDoc, doc, writeBatch, serverTimestamp, collection, getDocs, where, query, Timestamp } from 'firebase/firestore';
+import { Timestamp } from 'firebase-admin/firestore';
+import { updateDoc, doc, writeBatch, serverTimestamp, collection, getDocs, where, query } from 'firebase/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
 import type { Order, OrderItem, Product, ProductPrice, ProductVariant } from '@/lib/types';
@@ -547,5 +548,3 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
     return { success: false, error: error.message || 'An unknown server error occurred.' };
   }
 }
-
-    
