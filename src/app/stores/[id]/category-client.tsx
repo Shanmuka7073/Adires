@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Product, ProductPrice, Store } from '@/lib/types';
@@ -136,10 +135,8 @@ export function CategoryClient({ store, allProducts, productPrices, isLoading }:
     return Array.from(categorySet).map(name => ({ name }));
   }, [allProducts]);
   
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(() => {
-    const decoded = categoryFromUrl ? decodeURIComponent(categoryFromUrl) : null;
-    return decoded;
-  });
+  const selectedCategory = categoryFromUrl || (categories[0]?.name || null);
+  
   const [searchTerm, setSearchTerm] = useState('');
   const { setActiveStoreId } = useCart();
   const highlightedProductRef = useRef<HTMLDivElement>(null);
@@ -152,19 +149,15 @@ export function CategoryClient({ store, allProducts, productPrices, isLoading }:
       setActiveStoreId(null);
     };
   }, [store.id, setActiveStoreId]);
-
+  
+  // If no category is in the URL, default to the first one
   useEffect(() => {
-    const decodedCategory = categoryFromUrl ? decodeURIComponent(categoryFromUrl) : null;
-    if (decodedCategory && categories.some(c => c.name === decodedCategory)) {
-      setSelectedCategory(decodedCategory);
-    } 
-    else if (!decodedCategory && categories.length > 0) {
-      setSelectedCategory(categories[0].name);
+    if (!categoryFromUrl && categories.length > 0) {
+      router.replace(`${pathname}?category=${encodeURIComponent(categories[0].name)}`, { scroll: false });
     }
-  }, [categories, categoryFromUrl]);
+  }, [categoryFromUrl, categories, pathname, router]);
 
   const handleSelectCategory = (categoryName: string) => {
-    setSelectedCategory(categoryName);
     router.push(`/stores/${store.id}?category=${encodeURIComponent(categoryName)}`, { scroll: false });
   };
 
