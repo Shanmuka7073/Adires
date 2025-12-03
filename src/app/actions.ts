@@ -100,10 +100,10 @@ export async function importProductsFromUrl(url: string): Promise<{ success: boo
         const { db } = await getAdminServices();
         const batch = writeBatch(db);
         
-        const adminStoreQuery = query(collection(db, 'stores'), where('name', '==', 'Grozo'));
+        const adminStoreQuery = query(collection(db, 'stores'), where('name', '==', 'LocalBasket'));
         const adminStoreSnap = await getDocs(adminStoreQuery);
         if (adminStoreSnap.empty) {
-            return { success: false, error: 'Master "Grozo" store not found. Please create it first.' };
+            return { success: false, error: 'Master "LocalBasket" store not found. Please create it first.' };
         }
         const adminStoreId = adminStoreSnap.docs[0].id;
 
@@ -453,7 +453,19 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
   const startTimestamp = Timestamp.fromDate(startDate);
 
   try {
-    // 1. Fetch all 'Delivered' orders within the specified date range.
+    // 1. Fetch all products from the master 'LocalBasket' store to create a category map.
+    const masterStoreQuery = query(collection(db, 'stores'), where('name', '==', 'LocalBasket'));
+    const masterStoreSnap = await getDocs(masterStoreQuery);
+    if (masterStoreSnap.empty) throw new Error("Master 'LocalBasket' store not found.");
+    const masterStoreId = masterStoreSnap.docs[0].id;
+    
+    const productsSnapshot = await getDocs(collection(db, 'stores', masterStoreId, 'products'));
+    const productCategoryMap = new Map<string, string>();
+    productsSnapshot.forEach(doc => {
+      productCategoryMap.set(doc.data().name, doc.data().category);
+    });
+
+    // 2. Fetch all 'Delivered' orders within the specified date range.
     const ordersQuery = query(
       collection(db, 'orders'),
       where('status', '==', 'Delivered'),
@@ -462,17 +474,6 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
     const orderSnapshot = await getDocs(ordersQuery);
     const deliveredOrders = orderSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
 
-    // 2. Fetch all products from the master 'Grozo' store to create a category map.
-    const masterStoreQuery = query(collection(db, 'stores'), where('name', '==', 'Grozo'));
-    const masterStoreSnap = await getDocs(masterStoreQuery);
-    if (masterStoreSnap.empty) throw new Error("Master 'Grozo' store not found.");
-    const masterStoreId = masterStoreSnap.docs[0].id;
-    
-    const productsSnapshot = await getDocs(collection(db, 'stores', masterStoreId, 'products'));
-    const productCategoryMap = new Map<string, string>();
-    productsSnapshot.forEach(doc => {
-      productCategoryMap.set(doc.data().name, doc.data().category);
-    });
 
     // 3. Initialize the report structure.
     const report = {

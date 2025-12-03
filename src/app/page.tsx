@@ -308,11 +308,12 @@ export default function LocalBasketHomepage() {
                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                     {filteredProducts.length > 0 ? (
                         filteredProducts.map(product => (
-                            <ProductCard 
-                                key={product.id}
-                                product={product}
-                                priceData={productPrices[product.name.toLowerCase()]}
-                            />
+                            <Link key={product.id} href={`/stores/${product.storeId}?category=${encodeURIComponent(product.category || '')}&highlight=${encodeURIComponent(product.name)}`}>
+                                <ProductCard 
+                                    product={product}
+                                    priceData={productPrices[product.name.toLowerCase()]}
+                                />
+                            </Link>
                         ))
                     ) : (
                         <p className="col-span-full text-center text-gray-500">No products found for "{searchTerm}"</p>
