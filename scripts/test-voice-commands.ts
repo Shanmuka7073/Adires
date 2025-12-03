@@ -17,9 +17,9 @@ import * as fs from 'fs';
 import * as readline from 'readline';
 import * as path from 'path';
 
-// --- Direct import from the new engine file ---
-import { runNLU, extractQuantityAndProduct } from '@/lib/nlu/engine';
-import type { NLUResult } from '@/lib/nlu/engine';
+// --- Corrected import path from the NLU voice integration file ---
+import { runNLU, extractQuantityAndProduct } from '@/lib/nlu/voice-integration';
+import type { NLUResult } from '@/lib/nlu/voice-integration';
 
 
 type TestCase = {
