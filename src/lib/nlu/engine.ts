@@ -47,14 +47,14 @@ export function runNLU(text: string, lang: string = "en"): NLUResult {
   const cleanedText = text.trim().replace(/\u00A0/g, " ").replace(/\s+/g, " ");
 
   const numberResult = extractNumbers(cleanedText);
-  const first = numberResult.numbers[0] || null;
+  const first = numberResult[0] || null;
 
   return {
-    numbers: numberResult.numbers,
-    cleanedText: numberResult.cleanedText,
+    numbers: numberResult,
+    cleanedText: cleanedText, // Use the initially cleaned text
     language: lang,
-    hasNumbers: numberResult.numbers.length > 0,
-    hasMath: numberResult.mathResult !== null,
+    hasNumbers: numberResult.length > 0,
+    hasMath: false, // Math detection is not part of this engine version
     firstNumber: first?.value ?? null,
     quantity: first?.type === 'quantity' || first?.type === 'fraction' ? first?.value ?? null : (first?.type === "number" ? first.value : null),
     unit: first?.unit ?? null,
