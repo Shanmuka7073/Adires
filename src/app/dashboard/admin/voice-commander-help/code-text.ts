@@ -22,597 +22,1328 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { bulkUploadRecipes, importProductsFromUrl } from '@/app/actions';
 
 
-function StatCard({ title, value, icon: Icon, loading }: { title: string, value: string | number, icon: React.ElementType, loading?: boolean }) {
-    return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t(title)}</CardTitle>
-                <Icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-                {loading ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{value}</div>}
-            </CardContent>
-        </Card>
-    )
+export const voiceCommanderCodeText = [
+    {
+        path: 'src/components/layout/voice-commander.tsx',
+        content: `
+'use client';
+
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
+import { useFirebase, errorEmitter, useDoc, useMemoFirebase } from '@/firebase';
+import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, SiteConfig, VoiceAliasGroup } from '@/lib/types';
+import { calculateSimilarity } from '@/lib/calculate-similarity';
+import { useCart } from '@/lib/cart';
+import { useAppStore } from '@/lib/store';
+import { useMyStorePageStore } from '@/lib/store';
+import { t } from '@/lib/locales';
+import { doc, getDoc, serverTimestamp, addDoc, collection, query, where, getDocs, writeBatch, arrayUnion, setDoc } from 'firebase/firestore';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
+import { useCheckoutStore } from '@/app/checkout/page';
+import { useProfileFormStore, ProfileFormValues } from '@/lib/store';
+import { getWikipediaSummary, getMealDbRecipe } from '@/app/actions';
+import { useVoiceCommanderContext } from './main-layout';
+import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
+import { runNLU, extractQuantityAndProduct } from '@/lib/nlu/voice-integration';
+
+
+export interface Command {
+  command: string;
+  action: (params?: any) => void;
+  display: string;
+  reply: {
+    en: string;
+    te?: string;
+    hi?: string;
+    en_audio?: string;
+    te_audio?: string;
+    hi_audio?: string;
+  };
 }
 
-function CreateMasterStoreCard() {
-    return (
-        <Alert variant="destructive" className="mb-8">
-            <AlertTitle>{t('action-required-create-master-store')}</AlertTitle>
-            <AlertDescription>
-                {t('the-master-store-for-setting-platform-wide')}
-                <Button asChild className="mt-4">
-                    <Link href="/dashboard/owner/my-store">
-                        {t('create-master-store')} <ArrowRight className="ml-2 h-4 w-4" />
-                    </Link>
-                </Button>
-            </AlertDescription>
-        </Alert>
-    )
+interface VoiceCommanderProps {
+  enabled: boolean;
+  onStatusUpdate: (status: string) => void;
+  onSuggestions: (suggestions: Command[]) => void;
+  onOpenCart: () => void;
+  onCloseCart: () => void;
+  isCartOpen: boolean;
+  cartItems: CartItem[];
+  voiceTrigger: number;
+  triggerVoicePrompt: () => void;
+  retryCommandText: string | null;
+  onRetryHandled: () => void;
+  onInstallApp: () => void;
 }
 
-function ProductUrlImporterCard() {
-    const { toast } = useToast();
-    const [isImporting, startImportTransition] = useTransition();
-    const [url, setUrl] = useState('');
-    const { fetchInitialData } = useAppStore();
-    const { firestore } = useFirebase();
+let recognition: SpeechRecognition | null = null;
+if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
+}
 
-    const handleImport = () => {
-        if (!url) {
-            toast({ variant: 'destructive', title: 'URL is required.' });
+type AliasToProductMap = Map<string, { product: Product; lang: string }>;
+
+// --- NEW: Intent Recognition System ---
+type Intent =
+  | { type: 'SMART_ORDER', originalText: string, lang: string }
+  | { type: 'CHECK_PRICE', productPhrase: string, originalText: string, lang: string }
+  | { type: 'ORDER_ITEM', originalText: string, lang: string }
+  | { type: 'REMOVE_ITEM', productPhrase: string, originalText: string, lang: string }
+  | { type: 'NAVIGATE', destination: string, originalText: string, lang: string }
+  | { type: 'CONVERSATIONAL', commandKey: string, originalText: string, lang: string }
+  | { type: 'GET_RECIPE', dishName: string, originalText: string, lang: string }
+  | { type: 'SHOW_DETAILS', target: string, originalText: string, lang: string }
+  | { type: 'GET_KNOWLEDGE', topic: string, originalText: string, lang: string }
+  | { type: 'MATH', originalText: string, lang: string }
+  | { type: 'UNKNOWN', originalText: string, lang: string };
+
+const intentKeywords = {
+  SMART_ORDER: ['order', 'buy', 'get', 'send'],
+  CHECK_PRICE: ['price of', 'cost of', 'how much for', 'rate for', 'ధర', 'రేటు'],
+  ORDER_ITEM: ['order', 'add', 'buy', 'get', 'send', 'నాకు', 'కావాలి'],
+  REMOVE_ITEM: ['remove', 'delete', 'take out', 'తీసివేయి', 'తొలగించు'],
+  NAVIGATE: ['go to', 'open', 'show', 'వెళ్ళు', 'చూపించు'],
+  CONVERSATIONAL: ['help', 'what can', 'who are you', 'how does'],
+  GET_RECIPE: ['recipe for', 'ingredients for', 'how to make', 'కోసం కావలసినవి', 'ఎలా చేయాలి'],
+  SHOW_DETAILS: ['details for', 'show details', 'view details', 'వివరాలు చూపించు'],
+  GET_KNOWLEDGE: ['what is', 'what are', 'tell me about', 'who is', 'explain'],
+  MATH: ['+', '-', '*', '/', 'plus', 'minus', 'times', 'divided by'],
+};
+
+
+export function VoiceCommander({
+  enabled,
+  onStatusUpdate,
+  onSuggestions,
+  onOpenCart,
+  onCloseCart,
+  isCartOpen,
+  cartItems: cartItemsProp,
+  voiceTrigger,
+  triggerVoicePrompt,
+  retryCommandText,
+  onRetryHandled,
+  onInstallApp,
+}: VoiceCommanderProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { toast } = useToast();
+  const { firestore, user } = useFirebase();
+  const { clearCart, addItem: addItemToCart, removeItem, updateQuantity, addUnidentifiedItem, updateUnidentifiedItem, addIdentifiedItem, activeStoreId, setActiveStoreId, cartTotal } = useCart();
+  const { retryCommand, showPriceCheck, hidePriceCheck } = useVoiceCommanderContext();
+
+  const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands, loading: isAppStoreLoading, fetchInitialData } = useAppStore();
+
+  const { form: profileForm } = useProfileFormStore();
+  const { saveInventoryBtnRef } = useMyStorePageStore();
+  const {
+    handleUseCurrentLocation,
+    handleUseHomeAddress,
+    placeOrderBtnRef,
+    setIsWaitingForQuickOrderConfirmation,
+    isWaitingForQuickOrderConfirmation,
+    setHomeAddress,
+    setShouldUseCurrentLocation
+  } = useCheckoutStore();
+
+
+  const isSpeakingRef = useRef(false);
+  const isEnabledRef = useRef(enabled);
+  const commandActionsRef = useRef<any>({});
+
+  const formFieldToFillRef = useRef<keyof ProfileFormValues | null>(null);
+  const isWaitingForStoreNameRef = useRef(false);
+  const isWaitingForAddressTypeRef = useRef(false);
+  const addressRetryCountRef = useRef(0);
+  const itemForPriceCheck = useRef<{product: Product, variants: ProductVariant[]} | null>(null);
+  const productForVariantSelection = useRef<Product | null>(null);
+  const lastTranscriptRef = useRef<string>('');
+
+  const userProfileRef = useRef<User | null>(null);
+
+  const [hasMounted, setHasMounted] = useState(false);
+
+  const [speechSynthesisVoices, setSpeechSynthesisVoices] = useState<SpeechSynthesisVoice[]>([]);
+
+  const [hasRunCheckoutPrompt, setHasRunCheckoutPrompt] = useState(false);
+
+    // --- Performance Optimization: Memoized Alias Maps ---
+  const universalProductAliasMap = useMemo<AliasToProductMap>(() => {
+    const map: AliasToProductMap = new Map();
+    if (isAppStoreLoading || !masterProducts) return map;
+
+    for (const p of masterProducts) {
+      if (!p?.name) continue;
+      const productSlug = p.name.toLowerCase().replace(/ /g, '-');
+      const productAliasesByLang = getAllAliases(productSlug);
+
+      const normalizedCanonicalName = p.name.toLowerCase();
+      map.set(normalizedCanonicalName, { product: p, lang: 'en' });
+      map.set(normalizedCanonicalName.replace(/\\s/g, ''), { product: p, lang: 'en' });
+
+      for (const lang in productAliasesByLang) {
+        for (const alias of productAliasesByLang[lang]) {
+          const normalizedAlias = alias.toLowerCase();
+          map.set(normalizedAlias, { product: p, lang: lang });
+          map.set(normalizedAlias.replace(/\\s/g, ''), { product: p, lang: lang });
+        }
+      }
+    }
+    return map;
+  }, [isAppStoreLoading, masterProducts, getAllAliases]);
+
+  const storeAliasMap = useMemo(() => {
+    const map = new Map<string, Store>();
+    if (isAppStoreLoading || !stores) return map;
+
+    for (const s of stores) {
+      const storeSlug = s.name.toLowerCase().replace(/ /g, '-');
+      const aliases = getAllAliases(storeSlug);
+      const allTerms = [
+        s.name.toLowerCase(),
+        ...(s.teluguName ? [s.teluguName.toLowerCase()] : []),
+        ...Object.values(aliases).flat().map(a => a.toLowerCase()),
+      ];
+      for (const term of [...new Set(allTerms)]) {
+         if (term) {
+            const normalizedTerm = term.toLowerCase();
+            map.set(normalizedTerm, s);
+            map.set(normalizedTerm.replace(/\\s/g, ''), { ...s });
+        }
+      }
+    }
+    return map;
+  }, [isAppStoreLoading, stores, getAllAliases]);
+
+  // Client-side AI config fetching
+  const configDocRef = useMemoFirebase(() => firestore ? doc(firestore, 'siteConfig', 'aiFeatures') : null, [firestore]);
+  const { data: aiConfig } = useDoc<SiteConfig>(configDocRef);
+
+
+  const resetAllContext = useCallback(() => {
+    itemForPriceCheck.current = null;
+    hidePriceCheck();
+    productForVariantSelection.current = null;
+    isWaitingForStoreNameRef.current = false;
+    isWaitingForAddressTypeRef.current = false;
+    addressRetryCountRef.current = 0;
+    onSuggestions([]);
+    setIsWaitingForQuickOrderConfirmation(false);
+    formFieldToFillRef.current = null;
+    useCheckoutStore.getState().setShouldPlaceOrderDirectly(false);
+    setHasRunCheckoutPrompt(false);
+  }, [onSuggestions, setIsWaitingForQuickOrderConfirmation, hidePriceCheck]);
+
+
+  const determinePhraseLanguage = useCallback((text: string): string => {
+    const lowerText = text.toLowerCase();
+
+    // If it contains Telugu script, it's Telugu
+    if (/[\\u0C00-\\u0C7F]/.test(lowerText)) {
+      return 'te';
+    }
+
+    const langKeywords = [
+        { lang: 'te', keywords: ['naku', 'naaku', 'kavali', 'dhara'] },
+        { lang: 'hi', keywords: ['mujhe', 'chahiye'] },
+        { lang: 'en', keywords: ['i want', 'i need', 'get me', 'add', 'get', 'buy', 'order', 'send', 'go', 'open', 'what is', 'how', 'price', 'cost'] }
+    ];
+     for (const langInfo of langKeywords) {
+        if (langInfo.keywords.some(keyword => lowerText.includes(keyword))) {
+            return langInfo.lang;
+        }
+    }
+
+    // Check all aliases
+     for (const key in locales) {
+        const langAliases = locales[key];
+        for (const lang in langAliases) {
+             if (lang === 'display' || lang === 'reply' || lang === 'type') continue;
+            const aliases = Array.isArray(langAliases[lang]) ? langAliases[lang] as string[] : [langAliases[lang] as string];
+            if (aliases.some(alias => lowerText.includes(alias.toLowerCase()))) {
+                if (lang !== 'en') return lang;
+            }
+        }
+    }
+
+    return 'en'; // Default to English if no specific language is detected
+  }, [locales]);
+
+
+  useEffect(() => {
+    if(pathname !== '/checkout') {
+      resetAllContext();
+    }
+  }, [pathname, resetAllContext]);
+
+
+  useEffect(() => {
+    setHasMounted(true);
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      const getVoices = () => {
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+          setSpeechSynthesisVoices(voices);
+        }
+      };
+      getVoices();
+      window.speechSynthesis.onvoiceschanged = getVoices;
+    }
+  }, []);
+
+  useEffect(() => {
+    isEnabledRef.current = enabled;
+    if (recognition) {
+        if (enabled) {
+            recognition.lang = 'en-IN'; // Always listen in English
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            try {
+                recognition.start();
+            } catch (e) {
+                 if (! (e instanceof DOMException && e.name === 'InvalidStateError')) {
+                    console.error("Could not start recognition:", e);
+                }
+            }
+        } else {
+            recognition.onend = null;
+            recognition.stop();
+        }
+    }
+}, [enabled]);
+
+ const speak = useCallback((textOrReply: Command['reply'] | string, lang: string, onEndCallback?: (() => void) | boolean) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      if (typeof onEndCallback === 'function') onEndCallback();
+      return;
+    }
+
+    if (recognition) {
+      recognition.stop();
+    }
+
+    isSpeakingRef.current = true;
+    window.speechSynthesis.cancel();
+
+    const targetLang = lang.split('-')[0] as 'en' | 'te' | 'hi';
+    let textToSpeak = '';
+    let audioUrl: string | undefined = undefined;
+
+    if (typeof textOrReply === 'object' && textOrReply !== null) {
+        audioUrl = textOrReply[targetLang + '_audio'];
+        textToSpeak = textOrReply[targetLang] || textOrReply['en'] || '';
+    } else if (typeof textOrReply === 'string') {
+        textToSpeak = textOrReply;
+    } else {
+        console.warn('No suitable reply found for language:', targetLang, 'from', textOrReply);
+        if (typeof onEndCallback === 'function') onEndCallback();
+        return;
+    }
+
+    const onEnd = () => {
+        isSpeakingRef.current = false;
+        if (typeof onEndCallback === 'function') onEndCallback();
+        if (isEnabledRef.current && recognition) {
+            try { recognition.start(); } catch(e) {}
+        }
+    };
+
+    // Prioritize playing the recorded audio
+    if (audioUrl) {
+        const audio = new Audio(audioUrl);
+        audio.onended = onEnd;
+        audio.onerror = (e) => {
+            console.error('Audio playback error', e);
+            onEnd();
+        };
+        audio.play().catch(onEnd);
+        return;
+    }
+
+    // Fallback to text-to-speech if no audio URL
+    const replies = textToSpeak.split(',').map(r => r.trim());
+    const text = replies[Math.floor(Math.random() * replies.length)];
+    const utterance = new SpeechSynthesisUtterance(text);
+
+    let voice = speechSynthesisVoices.find(v => v.lang.startsWith(targetLang) && v.name.includes('Google')) ||
+                speechSynthesisVoices.find(v => v.lang.startsWith(targetLang)) ||
+                speechSynthesisVoices.find(v => v.default);
+
+    if (voice) {
+      utterance.voice = voice;
+    } else {
+      console.warn(\`No voice found for language: \${lang}. Using default.\`);
+    }
+
+    utterance.onend = onEnd;
+    utterance.onerror = (e) => {
+      console.error('Speech synthesis error', e);
+      onEnd();
+    };
+
+    window.speechSynthesis.speak(utterance);
+  }, [speechSynthesisVoices]);
+
+  const handleProfileFormInteraction = useCallback(() => {
+    if (!profileForm?.getValues) {
+      speak("I can't seem to access the profile form right now.", 'en-IN');
+      return;
+    }
+    const fields: { name: keyof ProfileFormValues; label: string }[] = [
+      { name: 'firstName', label: 'first name' },
+      { name: 'lastName', label: 'last name' },
+      { name: 'phone', label: 'phone number' },
+      { name: 'address', label: 'full address' },
+    ];
+    const formValues = profileForm.getValues();
+    const firstEmptyField = fields.find(f => !formValues[f.name]);
+
+    if (firstEmptyField) {
+      formFieldToFillRef.current = firstEmptyField.name;
+      speak(\`What is your \${firstEmptyField.label}?\`, 'en-IN');
+    } else {
+      formFieldToFillRef.current = null;
+      speak("Your profile looks complete! You can say 'save changes' to submit.", 'en-IN');
+    }
+  }, [profileForm, speak]);
+
+  const promptTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const runCheckoutPrompt = useCallback(() => {
+      if (pathname !== '/checkout' || !hasMounted || !enabled || hasRunCheckoutPrompt || isSpeakingRef.current) {
+          return;
+      }
+
+      if (promptTimeoutRef.current) {
+        clearTimeout(promptTimeoutRef.current);
+      }
+
+      promptTimeoutRef.current = setTimeout(() => {
+        setHasRunCheckoutPrompt(true);
+
+        const detectedLang = language;
+        const langWithRegion = detectedLang === 'en' ? 'en-IN' : \`\${detectedLang}-IN\`;
+
+        const addressInput = typeof document !== 'undefined' ? (document.querySelector('input[name="deliveryAddress"]') as HTMLInputElement) : null;
+        const currentAddress = addressInput?.value || '';
+
+        const onPromptEnd = () => {
+            setHasRunCheckoutPrompt(false);
+             if (isEnabledRef.current && recognition && !isSpeakingRef.current) {
+                try { recognition.start(); } catch(e){}
+            }
+        };
+
+        if (cartItemsProp.length === 0 && !isWaitingForQuickOrderConfirmation) {
+            speak(t('your-cart-is-empty-speech', detectedLang), langWithRegion, onPromptEnd);
+        } else if (!currentAddress || currentAddress.length < 10) {
+            speak(t('should-i-deliver-to-home-or-current-speech', detectedLang), langWithRegion, () => {
+                isWaitingForAddressTypeRef.current = true;
+                addressRetryCountRef.current = 0; // Reset retry count when asking
+                onPromptEnd();
+            });
+        } else if (!activeStoreId) {
+            speak(t('which-store-should-fulfill-speech', detectedLang), langWithRegion, () => {
+                isWaitingForStoreNameRef.current = true;
+                onPromptEnd();
+            });
+        } else {
+            const total = cartTotal + 30;
+            const speech = t('finalConfirmPrompt', detectedLang).replace('{total}', \`₹\${total.toFixed(2)}\`);
+            speak(speech, langWithRegion, onPromptEnd);
+        }
+        promptTimeoutRef.current = null;
+      }, 500);
+  }, [
+      pathname, hasMounted, enabled, isWaitingForQuickOrderConfirmation, hasRunCheckoutPrompt,
+      cartItemsProp.length, language, speak, cartTotal, t, activeStoreId
+  ]);
+
+  useEffect(() => {
+      if (pathname === '/checkout' && hasMounted && enabled && voiceTrigger > 0) {
+        setHasRunCheckoutPrompt(false);
+        runCheckoutPrompt();
+      }
+  }, [voiceTrigger, pathname, hasMounted, enabled, runCheckoutPrompt]);
+
+  useEffect(() => {
+    if (pathname === '/checkout' && enabled && !isSpeakingRef.current && !hasRunCheckoutPrompt) {
+      runCheckoutPrompt();
+    }
+
+    return () => {
+      if (promptTimeoutRef.current) {
+        clearTimeout(promptTimeoutRef.current);
+        promptTimeoutRef.current = null;
+      }
+    };
+  }, [activeStoreId, runCheckoutPrompt, enabled, pathname, hasRunCheckoutPrompt]);
+
+
+  useEffect(() => {
+    if (pathname !== '/dashboard/customer/my-profile' || !hasMounted || !enabled) {
+      formFieldToFillRef.current = null;
+      return;
+    }
+    let speakTimeout: NodeJS.Timeout | null = null;
+    if (profileForm) {
+      speakTimeout = setTimeout(() => {
+        handleProfileFormInteraction();
+      }, 1500);
+    }
+    return () => {
+      if (speakTimeout) {
+        clearTimeout(speakTimeout);
+      }
+    };
+  }, [pathname, hasMounted, enabled, profileForm, handleProfileFormInteraction]);
+
+const findProductAndVariant = useCallback(
+  async (phrase: string): Promise<{
+    product: Product | null;
+    variant: ProductVariant | null;
+    requestedQty: number;
+    remainingPhrase: string;
+    matchedAlias: string | null;
+    lang: string;
+  }> => {
+    const nluResult = runNLU(phrase, language);
+    const { qty, unit, money, productPhrase } = extractQuantityAndProduct(nluResult);
+    
+    let bestMatch: { product: Product, alias: string, score: number, lang: string } | null = null;
+    
+    if (productPhrase) {
+        // First, try a direct match
+        const directMatch = universalProductAliasMap.get(productPhrase.toLowerCase()) || universalProductAliasMap.get(productPhrase.toLowerCase().replace(/\\s/g, ''));
+        if (directMatch) {
+            bestMatch = { product: directMatch.product, alias: productPhrase, score: 1.0, lang: directMatch.lang };
+        } else {
+            // If no direct match, perform a fuzzy search
+            for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
+                const similarity = calculateSimilarity(productPhrase, alias);
+                if (similarity > 0.7 && (!bestMatch || similarity > bestMatch.score)) {
+                    bestMatch = { product, alias, score: similarity, lang };
+                }
+            }
+        }
+    }
+
+    if (!bestMatch) {
+      return { product: null, variant: null, requestedQty: qty, remainingPhrase: productPhrase, matchedAlias: null, lang: 'en' };
+    }
+
+    const { product, lang: detectedLang, alias: matchedAlias } = bestMatch;
+    
+    const priceData = productPrices[product.name.toLowerCase()];
+
+    if (!priceData?.variants?.length) {
+        return { product, variant: null, requestedQty: qty, remainingPhrase: productPhrase, matchedAlias, lang: detectedLang };
+    }
+    
+    let chosenVariant: ProductVariant | null = null;
+    let finalQty = qty;
+
+    if (money && money > 0) {
+        const baseVariant = priceData.variants.find(v => v.weight.includes('kg')) || priceData.variants[0];
+        const baseWeightStr = baseVariant.weight.match(/(\\d+\\.?\\d*)/);
+        const baseWeight = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
+        const isBaseKg = baseVariant.weight.includes('kg');
+        const pricePerBaseUnit = baseVariant.price / (isBaseKg ? baseWeight * 1000 : baseWeight); // Price per gram
+
+        const requestedGrams = money / pricePerBaseUnit;
+
+        chosenVariant = {
+            price: money,
+            weight: \`\${Math.round(requestedGrams)}gm\`,
+            sku: \`\${baseVariant.sku}-custom-\${money}\`,
+            stock: baseVariant.stock,
+        };
+        finalQty = 1;
+    } else if (unit) { // Handle explicit units like 'kg' or 'gm'
+        const isKgRequested = unit === 'kg';
+        const requestedGrams = isKgRequested ? finalQty * 1000 : finalQty;
+
+        const baseVariant = priceData.variants.find(v => v.weight.includes('kg')) || priceData.variants[0];
+        const baseWeightStr = baseVariant.weight.match(/(\\d+\\.?\\d*)/);
+        const baseWeight = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
+        const isBaseKg = baseVariant.weight.includes('kg');
+        const pricePerGram = baseVariant.price / (isBaseKg ? baseWeight * 1000 : baseWeight);
+        
+        const newPrice = requestedGrams * pricePerGram;
+        
+        chosenVariant = {
+            price: newPrice,
+            weight: \`\${Math.round(requestedGrams)}gm\`,
+            sku: \`\${baseVariant.sku}-custom-\${requestedGrams}gm\`,
+            stock: baseVariant.stock,
+        };
+        finalQty = 1;
+    } else { // Handle case with no unit, just a number
+        chosenVariant = priceData.variants.find(v => {
+            const variantWeightMatch = v.weight.match(/(\\d+\\.?\\d*)/);
+            const variantWeight = variantWeightMatch ? parseFloat(variantWeightMatch[0]) : 0;
+            return variantWeight === finalQty;
+        }) || priceData.variants[0]; // Fallback to first variant
+    }
+    
+    return { product, variant: chosenVariant, requestedQty: finalQty, remainingPhrase: productPhrase, matchedAlias, lang: detectedLang };
+}, [firestore, productPrices, universalProductAliasMap, language]);
+
+
+  const recognizeIntent = useCallback((text: string, spokenLang: string): Intent => {
+    const lowerText = text.toLowerCase().trim();
+    const nlu = runNLU(text, spokenLang);
+
+    if (nlu.hasMath) {
+        return { type: 'MATH', originalText: text, lang: spokenLang };
+    }
+
+    const fromKeywords = ['from', 'at', 'in'];
+    const toKeywords = ['to', 'at'];
+    const hasFrom = fromKeywords.some(kw => lowerText.includes(\` \${kw} \`));
+    const hasTo = toKeywords.some(kw => lowerText.includes(\` \${kw} \`));
+
+    if (intentKeywords.SMART_ORDER.some(kw => lowerText.startsWith(kw)) && hasFrom && hasTo) {
+        return { type: 'SMART_ORDER', originalText: text, lang: spokenLang };
+    }
+
+    const priceKeyword = intentKeywords.CHECK_PRICE.find(kw => lowerText.includes(kw));
+    if (priceKeyword) {
+        const productPhrase = lowerText.replace(priceKeyword, '').trim();
+        return { type: 'CHECK_PRICE', productPhrase, originalText: text, lang: spokenLang };
+    }
+
+    const removeKeyword = intentKeywords.REMOVE_ITEM.find(kw => lowerText.includes(kw));
+    if (removeKeyword) {
+        const productPhrase = lowerText.replace(removeKeyword, '').trim();
+        return { type: 'REMOVE_ITEM', productPhrase, originalText: text, lang: spokenLang };
+    }
+
+    const detailsKeyword = intentKeywords.SHOW_DETAILS.find(kw => lowerText.includes(kw));
+    if (detailsKeyword) {
+        const target = lowerText.replace(detailsKeyword, '').trim();
+        return { type: 'SHOW_DETAILS', target, originalText: text, lang: spokenLang };
+    }
+
+    const knowledgeKeyword = intentKeywords.GET_KNOWLEDGE.find(kw => lowerText.startsWith(kw));
+    if (knowledgeKeyword) {
+        const topic = lowerText.substring(knowledgeKeyword.length).trim();
+        return { type: 'GET_KNOWLEDGE', topic, originalText: text, lang: spokenLang };
+    }
+
+    let bestCommandMatch: { key: string, similarity: number } | null = null;
+    for (const key in commands) {
+      const commandAliases = getAllAliases(key);
+      const allAliasStrings = Object.values(commandAliases).flat();
+      allAliasStrings.push(key, commands[key].display.toLowerCase());
+
+      for (const alias of [...new Set(allAliasStrings)]) {
+        const similarity = calculateSimilarity(lowerText, alias.toLowerCase());
+        if (!bestCommandMatch || similarity > bestCommandMatch.similarity) {
+          if (similarity > 0.8) {
+            bestCommandMatch = { key, similarity };
+          }
+        }
+      }
+    }
+
+    if (bestCommandMatch) {
+      if (bestCommandMatch.key === 'get-recipe') {
+          const recipeAliases = (getAllAliases('get-recipe')[spokenLang] || ['recipe for']);
+          const recipeKeywordUsed = recipeAliases.find(alias => lowerText.includes(alias));
+          if(recipeKeywordUsed) {
+            const dishName = lowerText.substring(lowerText.indexOf(recipeKeywordUsed) + recipeKeywordUsed.length).trim();
+            return { type: 'GET_RECIPE', dishName, originalText: text, lang: spokenLang };
+          }
+      }
+
+      if (intentKeywords.NAVIGATE.some(kw => lowerText.includes(kw))) {
+        return { type: 'NAVIGATE', destination: bestCommandMatch.key, originalText: text, lang: spokenLang };
+      }
+      return { type: 'CONVERSATIONAL', commandKey: bestCommandMatch.key, originalText: text, lang: spokenLang };
+    }
+
+    return { type: 'ORDER_ITEM', originalText: text, lang: spokenLang };
+
+  }, [commands, getAllAliases, language]);
+
+
+    const handleCommandFailure = useCallback(async (commandText: string, spokenLang: string, reason: string) => {
+        const tempId = addUnidentifiedItem(commandText);
+        speak(t('sorry-i-didnt-understand-that', spokenLang), \`\${spokenLang}-IN\`);
+        
+        if (!firestore || !user) {
+            updateUnidentifiedItem(tempId, 'failed');
             return;
         }
 
-        startImportTransition(async () => {
-            try {
-                const result = await importProductsFromUrl(url);
-                if (result.success) {
-                    toast({
-                        title: 'Import Complete!',
-                        description: `Successfully imported ${result.count} products.`,
-                    });
-                    setUrl('');
-                    if (firestore) {
-                        await fetchInitialData(firestore);
-                    }
-                } else {
-                    throw new Error(result.error || 'An unknown error occurred.');
-                }
-            } catch (error: any) {
-                console.error("URL Import failed:", error);
-                toast({ variant: 'destructive', title: 'Import Failed', description: error.message });
-            }
+        addDoc(collection(firestore, 'failedCommands'), {
+            userId: user.uid,
+            commandText,
+            language: spokenLang,
+            reason,
+            timestamp: serverTimestamp()
         });
-    };
+        updateUnidentifiedItem(tempId, 'failed');
 
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Product URL Importer</CardTitle>
-                <CardDescription>
-                    Import products from a publicly accessible CSV file URL. The format should be: `name,category,description,imageUrl,weight,price`.
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <Input
-                    type="url"
-                    placeholder="https://example.com/products.csv"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    disabled={isImporting}
-                />
-                 {isImporting ? (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Importing from URL... this may take some time.</span>
-                    </div>
-                ) : (
-                    <Button onClick={handleImport} className="w-full">
-                        <Download className="mr-2 h-4 w-4" />
-                        Fetch & Import Products
-                    </Button>
-                )}
-            </CardContent>
-        </Card>
-    );
-}
+    }, [addUnidentifiedItem, updateUnidentifiedItem, firestore, user, speak, t]);
 
-function BulkRecipeUploadCard() {
-    const { toast } = useToast();
-    const [isUploading, startUploadTransition] = useTransition();
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
+  const handleCommand = useCallback(async (commandText: string) => {
+    if (lastTranscriptRef.current === commandText) {
+      return;
+    }
+    lastTranscriptRef.current = commandText;
 
-        startUploadTransition(async () => {
-            try {
-                const text = await file.text();
-                const result = await bulkUploadRecipes(text);
-
-                if (result.success) {
-                    toast({
-                        title: 'Upload Complete!',
-                        description: `Successfully processed and added ${result.count} recipes.`,
-                    });
-                } else {
-                    throw new Error(result.error || 'An unknown error occurred during upload.');
-                }
-
-            } catch (error: any) {
-                console.error("CSV Upload failed:", error);
-                toast({ variant: 'destructive', title: 'Upload Failed', description: error.message });
-            } finally {
-                if(fileInputRef.current) {
-                    fileInputRef.current.value = '';
-                }
-            }
-        });
-    };
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Bulk Recipe Upload</CardTitle>
-                <CardDescription>
-                    Upload a CSV file of recipes to pre-populate the AI cache. The format should be: `dish_name,ingredients` (with ingredients separated by "|").
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".csv"
-                    onChange={handleFileChange}
-                    disabled={isUploading}
-                    className="mb-4"
-                />
-                 {isUploading ? (
-                    <div className="flex items-center gap-2 mt-4 text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Processing your file... this may take some time.</span>
-                    </div>
-                ) : (
-                    <Button onClick={() => fileInputRef.current?.click()} className="w-full">
-                        <Upload className="mr-2 h-4 w-4" />
-                        Choose CSV and Upload
-                    </Button>
-                )}
-            </CardContent>
-        </Card>
-    );
-}
-
-function ProductInventory() {
-    const { masterProducts, productPrices, fetchProductPrices, loading } = useAppStore();
-    const { firestore } = useFirebase();
-    const [searchTerm, setSearchTerm] = useState('');
-
-    const fetchAllPrices = () => {
-         if (firestore && masterProducts.length > 0) {
-            const productNamesToFetch = masterProducts.map(p => p.name);
-            fetchProductPrices(firestore, productNamesToFetch);
-        }
+    if (!firestore || !user) {
+        speak("I can't process commands without being connected. Please log in.", 'en-IN');
+        return;
     }
 
-    useEffect(() => {
-        fetchAllPrices();
-    }, [firestore, masterProducts]);
-    
-    const handleDownloadCSV = () => {
-        const headers = ["Product Name", "Category", "Variant Weight", "Price", "Stock", "Status"];
-        const rows: string[][] = [];
+    let spokenLang = determinePhraseLanguage(commandText);
+    const replyLang = spokenLang;
+    const langWithRegion = replyLang === 'en' ? 'en-IN' : \`\${replyLang}-IN\`;
 
-        filteredProducts.forEach(product => {
-            const priceData = productPrices[product.name.toLowerCase()];
-            if (priceData?.variants) {
-                priceData.variants.forEach(variant => {
-                    const status = variant.stock <= 10 ? "LOW STOCK" : "OK";
-                    rows.push([
-                        `"${product.name}"`,
-                        `"${product.category || 'N/A'}"`,
-                        variant.weight,
-                        String(variant.price),
-                        String(variant.stock),
-                        status
-                    ]);
-                });
+    // --- CONTEXTUAL RESPONSES ---
+    if (itemForPriceCheck.current) {
+      const context = itemForPriceCheck.current;
+      const lowerCommandText = commandText.toLowerCase();
+      let chosenVariant: ProductVariant | null = null;
+      let requestedQty = 1;
+
+      const yesKeywords = ['yes', 'add', 'buy', 'okay', 'yep', 'yeah', 'sare', 'sari', 'sareh', 'సరే', 'అవును'];
+      const noKeywords = ['no', 'cancel', 'stop', 'వద్దు', 'not now'];
+
+      const isYes = yesKeywords.some(kw => lowerCommandText.includes(kw));
+      const isNo = noKeywords.some(kw => lowerCommandText.includes(kw));
+
+      // --- Start of Variant Selection Logic ---
+
+      // Case 1: Direct match by spoken weight (e.g., "add 1kg" or "one kilo")
+      const { variant: foundVariantByWeight, requestedQty: foundQty } = await findProductAndVariant(commandText);
+      if (foundVariantByWeight && context.variants.some(v => v.sku === foundVariantByWeight.sku)) {
+          chosenVariant = foundVariantByWeight;
+          requestedQty = foundQty;
+      }
+
+      // Case 2: Match by spoken price (e.g., "the 50 rupee one")
+      if (!chosenVariant) {
+          const numbersInCommand = lowerCommandText.match(/\\d+/g)?.map(Number);
+          if (numbersInCommand) {
+              for (const price of numbersInCommand) {
+                  const matchedVariant = context.variants.find(v => Math.round(v.price * 1.20) === price);
+                  if (matchedVariant) {
+                      chosenVariant = matchedVariant;
+                      break;
+                  }
+              }
+          }
+      }
+
+      // Case 3: Match by position ("the first one", "second", "3")
+      if (!chosenVariant) {
+          const positionalWords: { [key: string]: number } = {
+              'first': 0, '1st': 0, 'one': 0, '1': 0, 'modati': 0, 'okati': 0, 'पहला': 0,
+              'second': 1, '2nd': 1, 'two': 1, '2': 1, 'rendava': 1, 'दूसरा': 1,
+              'third': 2, '3rd': 2, 'three': 2, '3': 2, 'moodava': 2, 'तीसरा': 2,
+              'fourth': 3, '4th': 3, 'four': 3, '4': 3, 'nalugava': 3, 'चौथा': 3,
+              'last': context.variants.length - 1
+          };
+          for (const word of lowerCommandText.split(' ')) {
+              if (positionalWords[word] !== undefined && context.variants[positionalWords[word]]) {
+                  chosenVariant = context.variants[positionalWords[word]];
+                  break;
+              }
+          }
+      }
+
+      // Case 4: Simple "yes" confirmation (defaults to first variant)
+      if (!chosenVariant && isYes) {
+          chosenVariant = context.variants[0];
+      }
+
+      // --- End of Variant Selection Logic ---
+
+      if (chosenVariant) {
+          const productWithContext = { ...context.product, isAiAssisted: true, matchedAlias: \`Price check\` };
+          addItemToCart(productWithContext, chosenVariant, requestedQty || 1);
+          onOpenCart();
+          const reply = commands['addItem']?.reply;
+          if (reply) {
+            speak(reply, langWithRegion);
+          }
+      } else if (isNo) {
+          speak("Okay, cancelled.", langWithRegion, false);
+      } else {
+          // If no variant was selected and it wasn't a "no", assume it's a new command
+          resetAllContext();
+          handleCommand(commandText);
+          return;
+      }
+      resetAllContext(); // Ensure context is cleared
+      return;
+    }
+
+
+    if (isWaitingForAddressTypeRef.current) {
+        const lowerCommand = commandText.toLowerCase();
+        const homeKeywords = getAllAliases('homeAddress')[spokenLang] || ['home'];
+        const locationKeywords = getAllAliases('currentLocation')[spokenLang] || ['current', 'location'];
+
+        const homeSimilarity = Math.max(...homeKeywords.map(kw => calculateSimilarity(lowerCommand, kw.toLowerCase())));
+        const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(lowerCommand, kw.toLowerCase())));
+
+        if (homeSimilarity > 0.6 && homeSimilarity > locationSimilarity) {
+            isWaitingForAddressTypeRef.current = false;
+            addressRetryCountRef.current = 0;
+
+            handleUseHomeAddress();
+            speak(commands['homeAddress'].reply, langWithRegion, triggerVoicePrompt);
+        } else if (locationSimilarity > 0.6) {
+            isWaitingForAddressTypeRef.current = false;
+            addressRetryCountRef.current = 0;
+
+            handleUseCurrentLocation();
+            speak(commands['currentLocation'].reply, langWithRegion, triggerVoicePrompt);
+        } else {
+            if (addressRetryCountRef.current < 2) {
+                addressRetryCountRef.current += 1;
+                speak(t('did-not-understand-please-repeat', replyLang), langWithRegion, triggerVoicePrompt);
+            } else {
+                isWaitingForAddressTypeRef.current = false;
+                addressRetryCountRef.current = 0;
+
+                speak(t('address-selection-cancelled-speech', replyLang), langWithRegion, false); // Pass false to stop listening
+                handleCommandFailure(commandText, spokenLang, \`Address type clarification failed. Max retries reached.\`);
             }
-        });
-
-        const csvContent = "data:text/csv;charset=utf-8," 
-            + headers.join(",") + "\n" 
-            + rows.map(e => e.join(",")).join("\n");
-        
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "inventory_report.csv");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
-    const filteredProducts = useMemo(() => {
-        if (!searchTerm) return masterProducts;
-        return masterProducts.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
-    }, [masterProducts, searchTerm]);
-
-    return (
-        <Accordion type="single" collapsible className="w-full mb-8">
-            <AccordionItem value="inventory">
-                <AccordionTrigger>
-                     <div className="flex justify-between items-center w-full pr-4">
-                        <div>
-                            <h2 className="text-xl font-bold font-headline">Master Product Inventory</h2>
-                            <p className="text-sm text-muted-foreground text-left">A complete overview of stock levels for all products.</p>
-                        </div>
-                    </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                    <Card>
-                        <CardHeader>
-                            <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-                                <div className="flex items-center gap-2 w-full">
-                                    <div className="relative flex-grow">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                        <Input 
-                                            placeholder="Search products..." 
-                                            className="pl-9"
-                                            value={searchTerm}
-                                            onChange={(e) => setSearchTerm(e.target.value)}
-                                        />
-                                    </div>
-                                    <Button onClick={handleDownloadCSV} variant="outline" size="sm">
-                                        <Download className="mr-2 h-4 w-4" />
-                                        Download
-                                    </Button>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            {loading ? (
-                                <div className="space-y-2">
-                                    <Skeleton className="h-10 w-full" />
-                                    <Skeleton className="h-10 w-full" />
-                                    <Skeleton className="h-10 w-full" />
-                                </div>
-                            ) : (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Product</TableHead>
-                                            <TableHead>Category</TableHead>
-                                            <TableHead>Variants (Price & Stock)</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {filteredProducts.map(product => (
-                                            <ProductInventoryRow 
-                                                key={product.id}
-                                                product={product} 
-                                                priceData={productPrices[product.name.toLowerCase()]}
-                                                onUpdate={fetchAllPrices}
-                                            />
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            )}
-                        </CardContent>
-                    </Card>
-                </AccordionContent>
-            </AccordionItem>
-        </Accordion>
-    );
-}
-
-function ProductInventoryRow({ product, priceData, onUpdate }: { product: Product, priceData: ProductPrice | null, onUpdate: () => void }) {
-    const [isEditing, setIsEditing] = useState(false);
-    const [variants, setVariants] = useState(priceData?.variants || []);
-    const [isSaving, startSaveTransition] = useTransition();
-    const { firestore } = useFirebase();
-    const { toast } = useToast();
-
-    useEffect(() => {
-        setVariants(priceData?.variants || []);
-    }, [priceData]);
-
-    const handleVariantChange = (index: number, field: 'price' | 'stock', value: string) => {
-        const newVariants = [...variants];
-        const numValue = field === 'price' ? parseFloat(value) : parseInt(value, 10);
-        if (!isNaN(numValue)) {
-            newVariants[index] = { ...newVariants[index], [field]: numValue };
-            setVariants(newVariants);
         }
+        return;
+    }
+
+
+    if (isWaitingForStoreNameRef.current) {
+        isWaitingForStoreNameRef.current = false; // Reset immediately
+        let bestMatch: { store: Store, similarity: number } | null = null;
+        for (const [alias, store] of storeAliasMap.entries()) {
+            const similarity = calculateSimilarity(commandText.toLowerCase(), alias);
+            if (!bestMatch || similarity > bestMatch.similarity) {
+                bestMatch = { store, similarity: similarity };
+            }
+        }
+
+       if (bestMatch && bestMatch.similarity > 0.6) {
+           const store = bestMatch.store;
+           setActiveStoreId(store.id);
+          speak(t('okay-ordering-from-speech', replyLang).replace('{storeName}', store.name), langWithRegion, triggerVoicePrompt);
+       } else {
+          speak(t('could-not-find-store-speech', replyLang).replace('{storeName}', commandText), langWithRegion, triggerVoicePrompt);
+           handleCommandFailure(commandText, spokenLang, \`Store clarification failed. Best match: \${bestMatch?.store.name} (\${bestMatch?.similarity.toFixed(2)})\`);
+       }
+       return;
+    }
+
+    if (formFieldToFillRef.current && profileForm) {
+        profileForm.setValue(formFieldToFillRef.current, commandText, { shouldValidate: true });
+        handleProfileFormInteraction();
+        return;
+    }
+
+    const multiItemSeparators = ['and', 'మరియు'];
+    const separatorUsed = multiItemSeparators.find(sep => \` \${commandText.toLowerCase()} \`.includes(\` \${sep} \`));
+
+    if (separatorUsed && recognizeIntent(commandText, spokenLang).type === 'ORDER_ITEM') {
+        await commandActionsRef.current.orderMultipleItems(commandText.split(new RegExp(\` \${separatorUsed} \`, 'i')), spokenLang, commandText);
+        return;
+    }
+
+    const intent = recognizeIntent(commandText, spokenLang);
+
+    switch (intent.type) {
+        case 'SMART_ORDER':
+            await commandActionsRef.current.handleSmartOrder(intent.originalText, intent.lang);
+            break;
+
+        case 'GET_KNOWLEDGE':
+            await commandActionsRef.current.getKnowledge({ topic: intent.topic, lang: intent.lang });
+            break;
+
+        case 'GET_RECIPE':
+            await commandActionsRef.current.getRecipe({ dishName: intent.dishName, lang: intent.lang });
+            break;
+
+        case 'CHECK_PRICE':
+            await commandActionsRef.current.checkPrice({ phrase: intent.productPhrase, lang: intent.lang, originalText: intent.originalText });
+            break;
+
+        case 'REMOVE_ITEM':
+            await commandActionsRef.current.removeItemFromCart({ phrase: intent.productPhrase, lang: intent.lang });
+            break;
+
+        case 'SHOW_DETAILS':
+            commandActionsRef.current.showDetails({ target: intent.target, lang: intent.lang });
+            break;
+
+        case 'MATH': {
+          const nlu = runNLU(commandText, spokenLang);
+          if (nlu.mathResult !== null) {
+            speak(\`The answer is \${nlu.mathResult}\`, langWithRegion);
+          } else {
+            speak("I couldn't solve that math problem.", langWithRegion);
+          }
+          break;
+        }
+
+        case 'NAVIGATE':
+        case 'CONVERSATIONAL': {
+            const commandKey = intent.type === 'NAVIGATE' ? intent.destination : intent.commandKey;
+            if (commandKey) {
+                const action = commandActionsRef.current[commandKey];
+                const reply = commands[commandKey]?.reply;
+                if (!reply) {
+                    console.warn(\`No reply found for command: \${commandKey}\`);
+                    return;
+                }
+
+                if (action) {
+                    speak(reply, langWithRegion, () => action({ lang: intent.lang }));
+                } else {
+                    speak(reply, langWithRegion, false);
+                }
+            }
+            break;
+        }
+        case 'ORDER_ITEM': {
+            const { product, variant, requestedQty, remainingPhrase, matchedAlias, lang } = await findProductAndVariant(commandText);
+
+            if (product && variant) {
+                const productWithContext = { ...product, matchedAlias: matchedAlias || commandText, isAiAssisted: !!matchedAlias };
+                addItemToCart(productWithContext, variant, requestedQty);
+                onOpenCart();
+                const reply = commands['addItem']?.reply;
+                if (reply) {
+                    speak(reply, langWithRegion);
+                }
+            } else {
+                handleCommandFailure(commandText, spokenLang, \`ORDER_ITEM intent failed. Product not found or no variants. Phrase: "\${remainingPhrase}"\`);
+            }
+            break;
+        }
+
+        case 'UNKNOWN':
+        default:
+            handleCommandFailure(commandText, spokenLang, 'UNKNOWN intent');
+            break;
+    }
+  }, [
+      firestore, user, language, determinePhraseLanguage, speak, resetAllContext,
+      isWaitingForQuickOrderConfirmation,
+      findProductAndVariant, addItemToCart, onOpenCart, t, getProductName,
+      locales, commands, getAllAliases, recognizeIntent, aiConfig,
+      handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setActiveStoreId,
+      storeAliasMap, profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData,
+      placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress,
+      setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
+      removeItem, addUnidentifiedItem, updateUnidentifiedItem, router, stores, productPrices,
+      showPriceCheck, hidePriceCheck, masterProducts
+  ]);
+
+    // Effect to handle retrying a command
+    useEffect(() => {
+        if (retryCommandText) {
+            handleCommand(retryCommandText);
+            onRetryHandled(); // Signal that the retry has been processed
+        }
+    }, [retryCommandText, handleCommand, onRetryHandled]);
+
+  useEffect(() => {
+    if (!recognition) {
+      onStatusUpdate("Speech recognition not supported by this browser.");
+      return;
+    }
+
+    recognition.onstart = () => {
+        onStatusUpdate(\`Listening... (en-IN)\`);
     };
-    
-    const handleSave = () => {
+
+    recognition.onresult = (event) => {
+        if (isSpeakingRef.current) return;
+      const transcript = event.results[event.results.length - 1][0].transcript.trim();
+      onStatusUpdate(\`Processing: "\${transcript}"\`);
+      handleCommand(transcript);
+    };
+
+    recognition.onerror = (event) => {
+      if (event.error !== 'aborted' && event.error !== 'no-speech' && event.error !== 'not-allowed') {
+        console.error('Speech recognition error', event.error);
+        onStatusUpdate(\`⚠️ Error: \${event.error}\`);
+      }
+    };
+
+    recognition.onend = () => {
+      if (isEnabledRef.current && !isSpeakingRef.current) {
+        setTimeout(() => {
+          try {
+            if (isEnabledRef.current && !isSpeakingRef.current && recognition) {
+              recognition.start();
+            }
+          } catch (e) {
+            if (!(e instanceof DOMException && e.name === 'InvalidStateError')) {
+              console.error("Could not restart recognition:", e);
+            }
+          }
+        }, 300);
+      }
+    };
+
+    commandActionsRef.current = {
+      home: (params: {lang: string}) => router.push('/'),
+      stores: (params: {lang: string}) => router.push('/stores'),
+      dashboard: (params: {lang: string}) => {
+          if (user?.email === 'admin@gmail.com' || user?.email === 'admin2@gmail.com') {
+              router.push('/dashboard/admin');
+          } else {
+              router.push('/dashboard');
+          }
+      },
+      cart: (params: {lang: string}) => router.push('/cart'),
+      orders: (params: {lang: string}) => router.push('/dashboard/customer/my-orders'),
+      deliveries: (params: {lang: string}) => router.push('/dashboard/delivery/deliveries'),
+      myStore: (params: {lang: string}) => router.push('/dashboard/owner/my-store'),
+      myProfile: (params: {lang: string}) => router.push('/dashboard/customer/my-profile'),
+      managePacks: (params: {lang: string}) => router.push('/dashboard/owner/packs'),
+      'recipe-tester': (params: {lang: string}) => router.push('/dashboard/admin/recipe-tester'),
+
+      'get-recipe': async ({ dishName, lang }: { dishName: string, lang: string }) => {
+        const replyLang = lang;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : \`\${replyLang}-IN\`;
         if (!firestore) return;
-        
-        startSaveTransition(async () => {
-            const priceDocRef = doc(firestore, 'productPrices', product.name.toLowerCase());
-            try {
-                await updateDoc(priceDocRef, { variants });
-                toast({ title: 'Success', description: `${product.name} has been updated.` });
-                setIsEditing(false);
-                onUpdate();
-            } catch (error) {
-                console.error("Failed to update product price:", error);
-                toast({ variant: 'destructive', title: 'Error', description: 'Could not save changes.' });
+
+        speak(\`Let me check the ingredients for \${dishName}...\`, langWithRegion, false);
+        try {
+            const result = await getIngredientsForDish({ dishName, language: replyLang });
+            if (result.isSuccess && result.ingredients.length > 0) {
+                const ingredientsText = result.ingredients.map(ing => ing.name).join(', ');
+                speak(\`The main ingredients for \${dishName} are: \${ingredientsText}\`, langWithRegion);
+            } else {
+                speak(\`I'm sorry, I couldn't find the ingredients for \${dishName}.\`, langWithRegion);
             }
-        });
-    };
-
-    return (
-        <>
-            <TableRow onClick={() => setIsEditing(!isEditing)} className="cursor-pointer">
-                <TableCell className="font-medium">{product.name}</TableCell>
-                <TableCell>{product.category}</TableCell>
-                <TableCell>
-                    {priceData?.variants.map(v => (
-                        <div key={v.sku} className="flex items-center gap-2">
-                             <span className="font-semibold">{v.weight}:</span>
-                             <span>₹{v.price.toFixed(2)}</span>
-                             <span className={v.stock <= 10 ? 'text-destructive' : 'text-muted-foreground'}>
-                                (Stock: {v.stock})
-                             </span>
-                        </div>
-                    )) || 'No price data'}
-                </TableCell>
-            </TableRow>
-             {isEditing && (
-                 <TableRow>
-                    <TableCell colSpan={3} className="p-0">
-                        <div className="p-4 bg-muted/50 space-y-4">
-                             <p className="font-semibold text-sm">Editing: {product.name}</p>
-                             {variants.map((variant, index) => (
-                                <div key={variant.sku} className="grid grid-cols-3 gap-4 items-center">
-                                    <div className="font-mono text-sm">{variant.weight}</div>
-                                    <div className="flex items-center gap-1">
-                                        <span className="text-sm">₹</span>
-                                        <Input
-                                            type="number"
-                                            value={variant.price}
-                                            onChange={e => handleVariantChange(index, 'price', e.target.value)}
-                                            className="h-8"
-                                        />
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                         <span className="text-sm">Stock:</span>
-                                        <Input
-                                            type="number"
-                                            value={variant.stock}
-                                            onChange={e => handleVariantChange(index, 'stock', e.target.value)}
-                                            className="h-8"
-                                        />
-                                    </div>
-                                </div>
-                            ))}
-                            <div className="flex gap-2 justify-end">
-                                <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>Cancel</Button>
-                                <Button size="sm" onClick={handleSave} disabled={isSaving}>
-                                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                    Save
-                                </Button>
-                            </div>
-                        </div>
-                    </TableCell>
-                 </TableRow>
-            )}
-        </>
-    );
-}
-
-function StoreOwnersList() {
-    const { firestore } = useFirebase();
-    const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
-    const storesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'stores') : null, [firestore]);
-
-    const { data: users, isLoading: usersLoading } = useCollection<User>(usersQuery);
-    const { data: stores, isLoading: storesLoading } = useCollection<StoreType>(storesQuery);
-    
-    const storeOwners = useMemo(() => {
-        if (!users || !stores) return [];
-        const storeOwnerIds = new Set(stores.map(s => s.ownerId));
-        return users.filter(u => storeOwnerIds.has(u.id));
-    }, [users, stores]);
-
-    const getStoreForOwner = (ownerId: string) => {
-        return stores?.find(s => s.ownerId === ownerId);
-    }
-
-    if (usersLoading || storesLoading) {
-        return <Skeleton className="h-24 w-full" />;
-    }
-
-    return (
-         <Accordion type="single" collapsible className="w-full mb-8">
-            <AccordionItem value="store-owners">
-                <AccordionTrigger>
-                     <div className="flex justify-between items-center w-full pr-4">
-                        <div>
-                            <h2 className="text-xl font-bold font-headline">Store Owners ({storeOwners.length})</h2>
-                            <p className="text-sm text-muted-foreground text-left">A list of all users who have created a store.</p>
-                        </div>
-                    </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                    <Card>
-                        <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Owner Name</TableHead>
-                                        <TableHead>Email</TableHead>
-                                        <TableHead>Store Name</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {storeOwners.map(owner => {
-                                        const store = getStoreForOwner(owner.id);
-                                        return (
-                                            <TableRow key={owner.id}>
-                                                <TableCell className="font-medium">{owner.firstName} {owner.lastName}</TableCell>
-                                                <TableCell>{owner.email}</TableCell>
-                                                <TableCell>{store?.name || 'N/A'}</TableCell>
-                                            </TableRow>
-                                        )
-                                    })}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
-                </AccordionContent>
-            </AccordionItem>
-        </Accordion>
-    )
-}
-
-function AdminActionCard({ title, description, href, icon: Icon }: { title: string, description: string, href: string, icon: React.ElementType }) {
-    return (
-        <Link href={href} className="block hover:shadow-lg transition-shadow rounded-lg">
-            <Card>
-                <CardHeader>
-                    <div className="flex items-center gap-4">
-                        <Icon className="h-8 w-8 text-primary" />
-                        <CardTitle>{t(title)}</CardTitle>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <CardDescription>{t(description)}</CardDescription>
-                </CardContent>
-            </Card>
-        </Link>
-    );
-}
-
-export default function AdminDashboardPage() {
-    const { firestore } = useFirebase();
-    const router = useRouter();
-    const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
-
-    // Queries for stats
-    const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
-    const storesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'stores'), where('isClosed', '!=', true)) : null, [firestore]);
-    const deliveredOrdersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'orders'), where('status', '==', 'Delivered')) : null, [firestore]);
-    
-    const adminStoreQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
-        return query(collection(firestore, 'stores'), where('name', '==', 'LocalBasket'));
-    }, [firestore]);
-
-
-    const { data: users, isLoading: usersLoading } = useCollection(usersQuery);
-    const { data: stores, isLoading: storesLoading } = useCollection(storesQuery);
-    const { data: deliveredOrders, isLoading: ordersLoading } = useCollection<Order>(deliveredOrdersQuery);
-    const { data: adminStores, isLoading: adminStoreLoading } = useCollection<StoreType>(adminStoreQuery);
-
-    const masterStoreExists = useMemo(() => adminStores && adminStores.length > 0, [adminStores]);
-
-    const stats = useMemo(() => ({
-        totalUsers: users?.length ?? 0,
-        totalStores: stores?.length ?? 0,
-        totalOrdersDelivered: deliveredOrders?.length ?? 0,
-    }), [users, stores, deliveredOrders]);
-
-    const statsLoading = isAdminLoading || usersLoading || storesLoading || ordersLoading;
-
-    useEffect(() => {
-        if (!isAdminLoading && !isAdmin) {
-            router.replace('/dashboard');
+        } catch (error) {
+            console.error("AI recipe flow failed:", error);
+            speak(\`I'm having trouble connecting to my knowledge base right now. Please try again later.\`, langWithRegion);
         }
-    }, [isAdminLoading, isAdmin, router]);
+      },
+      checkout: (params: { lang: string }) => {
+        const lang = params.lang || language;
+        const replyLang = lang;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : \`\${replyLang}-IN\`;
+        onCloseCart();
+        if (cartTotal > 0) {
+            const total = cartTotal + 30; // Delivery fee
+            const reply = t('proceeding-to-checkout-speech', replyLang).replace('{total}', \`₹\${total.toFixed(2)}\`);
+            speak(reply, langWithRegion, () => {
+                router.push('/checkout');
+                triggerVoicePrompt();
+            });
+        } else {
+            speak(t('your-cart-is-empty-speech', replyLang), langWithRegion);
+        }
+      },
+      homeAddress: ({lang}: {lang: string}) => {
+        if(pathname === '/checkout') {
+          handleUseHomeAddress();
+        }
+      },
+      currentLocation: ({lang}: {lang: string}) => {
+        if(pathname === '/checkout') {
+          handleUseCurrentLocation();
+        }
+      },
+      placeOrder: (params: {lang: string}) => {
+        const lang = params?.lang || language;
+        const replyLang = lang;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : \`\${replyLang}-IN\`;
+        if (pathname === '/checkout' && placeOrderBtnRef?.current) {
+          speak(t('placing-your-order-now-speech', replyLang), langWithRegion, () => {
+              placeOrderBtnRef?.current?.click();
+          });
+        } else if (cartItemsProp.length > 0) {
+          commandActionsRef.current.checkout({ lang });
+        } else {
+          speak(t('your-cart-is-empty-speech', replyLang), langWithRegion);
+        }
+      },
+      saveChanges: (params: {lang: string}) => {
+        const lang = params?.lang || language;
+        const replyLang = lang;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : \`\${replyLang}-IN\`;
+        if (pathname === '/dashboard/owner/my-store' && saveInventoryBtnRef?.current) {
+          saveInventoryBtnRef.current.click();
+          speak(t('saving-changes', replyLang), langWithRegion);
+        } else if (pathname === '/dashboard/customer/my-profile' && profileForm) {
+            if (typeof document !== 'undefined') {
+                const formElement = document.querySelector('form');
+                if (formElement) formElement.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+                speak(t('saving-changes', replyLang), langWithRegion);
+            }
+        } else {
+          speak(t('no-changes-to-save-speech', replyLang), langWithRegion);
+        }
+      },
+      acceptDeliveryJob: ({ lang }: {lang: string}) => {
+          const replyLang = lang;
+          const langWithRegion = replyLang === 'en' ? 'en-IN' : \`\${replyLang}-IN\`;
+          if (pathname === '/dashboard/delivery/deliveries' && typeof document !== 'undefined') {
+              const acceptButton = document.querySelector('.accordion-content button') as HTMLButtonElement | null;
+              if (acceptButton) {
+                  speak("Okay, accepting the first available job group.", langWithRegion);
+                  acceptButton.click();
+              } else {
+                  speak("There are no available jobs to accept right now.", langWithRegion);
+              }
+          } else {
+              speak("You can only accept jobs from the deliveries page.", langWithRegion);
+          }
+      },
+      showDetails: ({ target, lang }: {target: string, lang: string}) => {
+        const replyLang = lang;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : \`\${replyLang}-IN\`;
+        if (pathname === '/dashboard/delivery/deliveries') {
+            const detailsButton = document.querySelector('[id^="details-btn-"]') as HTMLButtonElement | null;
+            if (detailsButton) {
+                speak("Showing details for the first group.", langWithRegion);
+                detailsButton.click();
+            } else {
+                speak("I couldn't find any details to show.", langWithRegion);
+            }
+        } else {
+            speak("You can only view delivery details on the deliveries page.", langWithRegion);
+        }
+      },
+      refresh: (params: {lang: string}) => {
+         window.location.reload();
+      },
+      goToStore: ({ store, lang }: {store: Store, lang: string}) => {
+        const replyLang = lang;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : \`\${replyLang}-IN\`;
+        speak(\`Okay, opening \${store.name}.\`, langWithRegion, false);
+        router.push(\`/stores/\${store.id}\`);
+      },
+    checkPrice: async ({ phrase, lang, originalText }: { phrase?: string; lang: string, originalText: string }) => {
+      if (!phrase) return;
 
-    if (isAdminLoading || adminStoreLoading || !isAdmin) {
-        return <p>Loading admin dashboard...</p>
+      const { product, lang: detectedLang } = await findProductAndVariant(phrase);
+      const replyLang = detectedLang;
+      const langWithRegion = replyLang === 'en' ? 'en-IN' : \`\${replyLang}-IN\`;
+
+      if (product) {
+          const masterStoreId = stores.find(s => s.name === 'LocalBasket')?.id;
+          if (masterStoreId) {
+            speak(\`Okay, let's see about \${getProductName(product)}.\`, langWithRegion, () => {
+              router.push(\`/stores/\${masterStoreId}?category=\${encodeURIComponent(product.category || '')}&highlight=\${encodeURIComponent(product.name)}\`);
+            });
+          } else {
+            speak("I can't navigate to the product page right now.", langWithRegion);
+          }
+          return;
+      }
+      
+      handleCommandFailure(originalText, lang, \`Price check: product not found in phrase "\${phrase}".\`);
+    },
+    removeItemFromCart: async ({ phrase, lang }: { phrase?: string; lang: string }) => {
+        const replyLang = lang;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : \`\${replyLang}-IN\`;
+        if (!phrase) return;
+        if (cartItemsProp.length === 0) {
+            speak("Your cart is already empty.", langWithRegion);
+            return;
+        }
+
+        let bestMatch: { item: CartItem, similarity: number } | null = null;
+        for (const item of cartItemsProp) {
+            const similarity = calculateSimilarity(phrase.toLowerCase(), item.product.name.toLowerCase());
+            if (!bestMatch || similarity > bestMatch.similarity) {
+                bestMatch = { item, similarity };
+            }
+        }
+
+        if (bestMatch && bestMatch.similarity > 0.6) {
+            const { item } = bestMatch;
+            removeItem(item.variant.sku);
+            speak(\`Okay, I've removed \${getProductName(item.product)} from your cart.\`, langWithRegion);
+        } else {
+            speak(\`I couldn't find "\${phrase}" in your cart.\`, langWithRegion);
+        }
+    },
+    orderMultipleItems: async (phrases: string[], lang: string, originalText: string) => {
+        let addedItems: string[] = [];
+        let failedItems: string[] = [];
+        const multiplePhrases = phrases.flatMap(p => p.split(new RegExp(\` మరియు \`, 'i')));
+
+        for (const phrase of multiplePhrases) {
+            const { product, variant, requestedQty } = await findProductAndVariant(phrase);
+            if (product && variant) {
+                addItemToCart(product, variant, requestedQty);
+                addedItems.push(getProductName(product));
+            } else {
+                failedItems.push(phrase.trim());
+            }
+        }
+
+        const replyLang = lang;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : \`\${replyLang}-IN\`;
+
+        if (addedItems.length > 0) {
+            onOpenCart();
+            let speech;
+            if (failedItems.length > 0) {
+                speech = \`\${t('ive-added-to-your-cart', replyLang).replace('{items}', addedItems.join(', '))} \${t('but-i-couldnt-find', replyLang).replace('{items}', failedItems.join(', '))}\`;
+            } else {
+                speech = t('ive-added-to-your-cart', replyLang).replace('{items}', addedItems.join(', '));
+            }
+            speak(speech, langWithRegion);
+        } else {
+            handleCommandFailure(originalText, lang, \`Multi-order: No products found. Failed items: \${failedItems.join(', ')}\`);
+        }
+    },
+    handleSmartOrder: async (text: string, lang: string) => {
+        const replyLang = lang;
+        const langWithRegion = replyLang === 'en' ? 'en-IN' : \`\${replyLang}-IN\`;
+        clearCart(); // Start with a fresh cart for a smart order
+
+        const fromKeywords = ['from', 'at', 'in'];
+        const toKeywords = ['to', 'at'];
+
+        let fromIndex = -1;
+        let fromKeyword = '';
+        for (const kw of fromKeywords) {
+            const index = text.toLowerCase().lastIndexOf(\` \${kw} \`);
+            if (index > fromIndex) {
+                fromIndex = index;
+                fromKeyword = kw;
+            }
+        }
+
+        let toIndex = -1;
+        let toKeyword = '';
+        for (const kw of toKeywords) {
+            const index = text.toLowerCase().lastIndexOf(\` \${kw} \`);
+            if (index > toIndex) {
+                toIndex = index;
+                toKeyword = kw;
+            }
+        }
+
+        if (fromIndex === -1 || toIndex === -1) {
+            speak(t('could-not-find-product-in-order-speech', replyLang), langWithRegion);
+            return;
+        }
+
+        const productPhrase = text.substring(0, fromIndex).replace(/^(order|buy|get|send)\\s+/i, '').trim();
+        const storePhrase = text.substring(fromIndex + fromKeyword.length + 1, toIndex).trim();
+        const addressPhrase = text.substring(toIndex + toKeyword.length + 1).trim();
+
+        // 1. Process Product
+        const { product, variant, requestedQty } = await findProductAndVariant(productPhrase);
+        if (!product || !variant) {
+            speak(t('could-not-find-item-speech', replyLang).replace('{itemName}', productPhrase), langWithRegion);
+            return;
+        }
+
+        // 2. Process Store
+        let bestStoreMatch: Store | null = null;
+        let bestSimilarity = 0;
+        for (const [alias, store] of storeAliasMap.entries()) {
+            const similarity = calculateSimilarity(storePhrase.toLowerCase(), alias);
+            if (similarity > bestSimilarity) {
+                bestSimilarity = similarity;
+                bestStoreMatch = store;
+            }
+        }
+
+        if (!bestStoreMatch || bestSimilarity < 0.6) {
+            speak(t('could-not-identify-store-speech', replyLang), langWithRegion);
+            return;
+        }
+
+        // 3. Process Address
+        const homeKeywords = getAllAliases('homeAddress')[lang] || ['home'];
+        const locationKeywords = getAllAliases('currentLocation')[lang] || ['current', 'location'];
+        const homeSimilarity = Math.max(...homeKeywords.map(kw => calculateSimilarity(addressPhrase.toLowerCase(), kw)));
+        const locationSimilarity = Math.max(...locationKeywords.map(kw => calculateSimilarity(addressPhrase.toLowerCase(), kw)));
+
+        let deliveryAddress = '';
+        let useCurrentLocation = false;
+        if (homeSimilarity > 0.7 && homeSimilarity > locationSimilarity) {
+            if (userProfileRef.current?.address) {
+                deliveryAddress = userProfileRef.current.address;
+            } else {
+                speak(t('cannot-deliver-home-no-address-speech', replyLang), langWithRegion, false);
+                router.push('/dashboard/customer/my-profile');
+                return;
+            }
+        } else if (locationSimilarity > 0.7) {
+            useCurrentLocation = true;
+        } else {
+            // If it's not clearly home or current, set it to the raw phrase and let the user fix it.
+            deliveryAddress = addressPhrase;
+        }
+
+        // 4. Execute Actions
+        const speech = t('preparing-order-speech', replyLang)
+            .replace('{items}', \`\${requestedQty} \${variant.weight} of \${getProductName(product)}\`)
+            .replace('{storeName}', bestStoreMatch.name);
+
+        speak(speech, langWithRegion, () => {
+            setIsWaitingForQuickOrderConfirmation(true); // Prevents checkout page from prompting
+            addItemToCart(product, variant, requestedQty);
+            setActiveStoreId(bestStoreMatch!.id);
+            if(useCurrentLocation) {
+                setShouldUseCurrentLocation(true);
+            } else {
+                setHomeAddress(deliveryAddress);
+            }
+            useCheckoutStore.getState().setShouldPlaceOrderDirectly(true); // Signal the checkout page to auto-submit
+            router.push('/checkout');
+        });
+    },
+  };
+
+
+    if (firestore && user) {
+        const userDocRef = doc(firestore, 'users', user.uid);
+        getDoc(userDocRef).then(docSnap => {
+            if (docSnap.exists()) {
+                const data = docSnap.data() as User;
+                userProfileRef.current = data;
+            };
+        });
     }
 
-    const statItems = [
-        { title: 'total-users', value: stats.totalUsers, icon: Users },
-        { title: 'total-stores', value: stats.totalStores, icon: Store },
-        { title: 'orders-delivered', value: stats.totalOrdersDelivered, icon: ShoppingBag },
-    ];
 
+    return () => {
+      if (recognition) {
+        recognition.onend = null;
+        recognition.stop();
+      }
+    };
+  }, [
+      handleCommand, cartTotal, cartItemsProp, pathname, masterProducts, t, aiConfig, isAppStoreLoading,
+      productPrices, fetchProductPrices, firestore, user, router, language, setLanguage, speak,
+      determinePhraseLanguage, resetAllContext, storeAliasMap,
+      handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setActiveStoreId,
+      profileForm, handleProfileFormInteraction, handleCommandFailure, fetchInitialData,
+      placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress,
+      setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
+      removeItem, addUnidentifiedItem, updateUnidentifiedItem,
+      getProductName, addItemToCart, locales, commands, getAllAliases, recognizeIntent, stores,
+      showPriceCheck, hidePriceCheck, findProductAndVariant, onInstallApp
+  ]);
 
-    return (
-        <div className="container mx-auto py-12 px-4 md:px-6">
-            <div className="text-center mb-12">
-                <h1 className="text-4xl font-bold font-headline">{t('admin-dashboard')}</h1>
-                <p className="text-lg text-muted-foreground mt-2">{t('a-high-level-overview-of-your-application')}</p>
-            </div>
-            
-            {!masterStoreExists && <CreateMasterStoreCard />}
-            
-            <ProductInventory />
-            
-            <StoreOwnersList />
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                {statItems.map(item => (
-                    <StatCard 
-                        key={item.title} 
-                        title={item.title}
-                        value={item.value}
-                        icon={item.icon}
-                        loading={statsLoading}
-                    />
-                ))}
-            </div>
-
-            <div className="mt-16">
-                 <h2 className="text-2xl font-bold text-center mb-8 font-headline">{t('admin-tools')}</h2>
-                 <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
-                    <ProductUrlImporterCard />
-                    <BulkRecipeUploadCard />
-                     <AdminActionCard 
-                        title="manage-master-store-and-products"
-                        description="add-or-edit-products-in-the-master-catalog"
-                        href="/dashboard/owner/my-store"
-                        icon={Store}
-                    />
-                    <AdminActionCard 
-                        title="voice-commands-control"
-                        description="view-and-manage-the-voice-commands-users-can-say"
-                        href="/dashboard/voice-commands"
-                        icon={Mic}
-                    />
-                    <AdminActionCard
-                        title="Failed Command Center"
-                        description="Review failed voice commands and use AI to train the system."
-                        href="/dashboard/admin/failed-commands"
-                        icon={Bot}
-                    />
-                    <AdminActionCard
-                        title="AI Training Ground"
-                        description="Paste any text to teach the AI new product aliases and concepts."
-                        href="/dashboard/admin/training-ground"
-                        icon={Lightbulb}
-                    />
-                    <AdminActionCard
-                        title="recipe-tester"
-                        description="Manually test the AI recipe ingredient generation."
-                        href="/dashboard/admin/recipe-tester"
-                        icon={Beaker}
-                    />
-                    <AdminActionCard
-                        title="Security Rules"
-                        description="View and copy the current Firestore security rules for debugging."
-                        href="/dashboard/admin/security-rules"
-                        icon={Shield}
-                    />
-                    <AdminActionCard
-                        title="Image Management"
-                        description="Manage all placeholder and category images."
-                        href="/dashboard/admin/image-management"
-                        icon={ImageIcon}
-                    />
-                </div>
-            </div>
-        </div>
-    );
+  return null;
 }
-
-    
+`,
+    },
+];
