@@ -41,7 +41,22 @@ function ReportCard({ title, data, icon: Icon, isLoading }: { title: string; dat
         )
     }
 
-    if (!data) return null;
+    if (!data) {
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Icon className="h-6 w-6 text-muted-foreground" />
+                        {title}
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-sm text-muted-foreground">No sales data available for this period.</p>
+                </CardContent>
+            </Card>
+        );
+    }
+
 
     return (
         <Card>
@@ -107,21 +122,29 @@ export default function SalesReportPage() {
     const fetchReports = async () => {
         startLoading(async () => {
             try {
+                console.log("Fetching sales reports...");
                 const [dailyResult, monthlyResult] = await Promise.all([
                     getSalesReport('daily'),
                     getSalesReport('monthly')
                 ]);
+                
+                console.log("Daily Result from server:", dailyResult);
+                console.log("Monthly Result from server:", monthlyResult);
 
-                if (dailyResult.success) {
+                if (dailyResult.success && dailyResult.report) {
+                    console.log("Daily report keys:", Object.keys(dailyResult.report));
                     setDailyReport(dailyResult.report as ReportData);
                 } else {
-                    console.error("Failed to fetch daily report:", dailyResult.error);
+                    console.error("Failed to fetch or process daily report:", dailyResult.error);
+                    setDailyReport(null); // Explicitly set to null on failure
                 }
 
-                if (monthlyResult.success) {
+                if (monthlyResult.success && monthlyResult.report) {
+                     console.log("Monthly report keys:", Object.keys(monthlyResult.report));
                     setMonthlyReport(monthlyResult.report as ReportData);
                 } else {
-                     console.error("Failed to fetch monthly report:", monthlyResult.error);
+                     console.error("Failed to fetch or process monthly report:", monthlyResult.error);
+                     setMonthlyReport(null);
                 }
 
             } catch (error) {
@@ -131,15 +154,17 @@ export default function SalesReportPage() {
     };
 
     useEffect(() => {
-        fetchReports();
-    }, []);
+        if (isAdmin) {
+          fetchReports();
+        }
+    }, [isAdmin]);
     
     const handleDownload = () => {
         const reportToDownload = activeTab === 'daily' ? dailyReport : monthlyReport;
         if (!reportToDownload) return;
 
         const headers = ["Category", "Total Sales (INR)", "Items Sold", "Top Product 1", "Top Product 1 Qty", "Top Product 2", "Top Product 2 Qty"];
-        let csvContent = headers.join(",") + "\\n";
+        let csvContent = headers.join(",") + "\n";
 
         Object.entries(reportToDownload).forEach(([categoryName, categoryData]) => {
             const topProducts = categoryData.topProducts.slice(0, 2);
@@ -152,7 +177,7 @@ export default function SalesReportPage() {
                 `"${topProducts[1]?.name || ''}"`,
                 String(topProducts[1]?.count || 0),
             ];
-            csvContent += row.join(",") + "\\n";
+            csvContent += row.join(",") + "\n";
         });
         
         const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csvContent);
@@ -170,6 +195,10 @@ export default function SalesReportPage() {
         { title: 'Grocery', dataKey: 'grocery', icon: Grape },
     ] as const;
 
+    if (isAdminLoading) {
+      return <p>Loading...</p>
+    }
+
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
             <Card>
@@ -184,7 +213,7 @@ export default function SalesReportPage() {
                                 </CardDescription>
                             </div>
                         </div>
-                        <Button onClick={handleDownload} variant="outline">
+                        <Button onClick={handleDownload} variant="outline" disabled={isLoading}>
                             <Download className="mr-2 h-4 w-4" />
                             Download {activeTab === 'daily' ? 'Daily' : 'Monthly'} Report
                         </Button>
@@ -202,7 +231,7 @@ export default function SalesReportPage() {
                                     <ReportCard 
                                         key={card.dataKey}
                                         title={card.title}
-                                        data={dailyReport ? dailyReport[card.dataKey] : null}
+                                        data={dailyReport?.[card.dataKey] ?? { totalSales: 0, itemCount: 0, topProducts: [] }}
                                         icon={card.icon}
                                         isLoading={isLoading}
                                     />
@@ -215,7 +244,7 @@ export default function SalesReportPage() {
                                     <ReportCard 
                                         key={card.dataKey}
                                         title={card.title}
-                                        data={monthlyReport ? monthlyReport[card.dataKey] : null}
+                                        data={monthlyReport?.[card.dataKey] ?? { totalSales: 0, itemCount: 0, topProducts: [] }}
                                         icon={card.icon}
                                         isLoading={isLoading}
                                     />
