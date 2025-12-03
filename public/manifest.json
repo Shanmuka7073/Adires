@@ -10,12 +10,46 @@
     {
       "src": "/icon-192x192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icon-512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://picsum.photos/seed/1/192/192",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Open Cart",
+      "short_name": "Cart",
+      "description": "View items in your shopping cart",
+      "url": "/cart",
+      "icons": [
+        {
+          "src": "https://picsum.photos/seed/2/96/96",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "My Orders",
+      "short_name": "Orders",
+      "description": "View your past and current orders",
+      "url": "/dashboard/customer/my-orders",
+      "icons": [
+        {
+          "src": "https://picsum.photos/seed/3/96/96",
+          "sizes": "96x96"
+        }
+      ]
     }
   ]
 }
