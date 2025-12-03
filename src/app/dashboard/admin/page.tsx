@@ -22,7 +22,14 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { bulkUploadRecipes, importProductsFromUrl, getSalesDataDump } from '@/app/actions';
 
 
-function StatCard({ title, value, icon: Icon, loading }: { title: string, value: string | number, icon: React.ElementType, loading?: boolean }) {
+interface StatCardProps {
+    title: string;
+    value: string | number;
+    icon: React.ElementType;
+    loading?: boolean;
+}
+
+function StatCard({ title, value, icon: Icon, loading }: StatCardProps) {
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
