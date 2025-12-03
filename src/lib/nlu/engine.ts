@@ -44,14 +44,14 @@ export function runNLU(text: string, lang: string = "en"): NLUResult {
     };
   }
 
-  const cleanedText = text.trim().replace(/\u00A0/g, " ").replace(/\s+/g, " ");
+  const rawCleanedText = text.trim().replace(/\u00A0/g, " ").replace(/\s+/g, " ");
 
-  const numberResult = extractNumbers(cleanedText);
+  const numberResult = extractNumbers(rawCleanedText);
   const first = numberResult[0] || null;
 
   return {
     numbers: numberResult,
-    cleanedText: cleanedText,
+    cleanedText: rawCleanedText,
     language: lang,
     hasNumbers: numberResult.length > 0,
     hasMath: false, 
@@ -60,7 +60,6 @@ export function runNLU(text: string, lang: string = "en"): NLUResult {
     unit: first?.unit ?? null,
   };
 }
-
 
 // Words we want to strip from the *front* of the phrase
 const ACTION_WORDS: Record<string, string[]> = {
@@ -71,17 +70,22 @@ const ACTION_WORDS: Record<string, string[]> = {
 
 // Filler words that often appear before the actual product
 const FILLER_WORDS = [
-  'of', 'from', 'my', 'to', 'the', 'par', 'se', 'nundi', 'ka', 'ki', 'ko', 'lo', 'la'
+  'of', 'from', 'my', 'to', 'the', 'par', 'se', 'nundi', 'ka', 'ki', 'ko', 'lo', 'la', 'rupayala', 'rupees'
 ];
 
 function cleanProductPhrase(raw: string, lang: string): string {
-  const lowerTokens = raw.trim().toLowerCase().split(/\s+/);
+  let lowerTokens = raw.trim().toLowerCase().split(/\s+/);
   const actionSet = new Set(ACTION_WORDS[lang] ?? []);
   const fillerSet = new Set(FILLER_WORDS);
 
-  // strip leading action / filler words
+  // Strip leading action/filler words
   while (lowerTokens.length && (actionSet.has(lowerTokens[0]) || fillerSet.has(lowerTokens[0]))) {
     lowerTokens.shift();
+  }
+  
+  // Strip trailing action/filler words
+  while (lowerTokens.length && (actionSet.has(lowerTokens[lowerTokens.length - 1]) || fillerSet.has(lowerTokens[lowerTokens.length - 1]))) {
+      lowerTokens.pop();
   }
 
   return lowerTokens.join(' ').trim();
@@ -114,22 +118,20 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     let phraseForCleanup = text;
     
     if (moneyMatch) {
-      phraseForCleanup = phraseForCleanup.replace(moneyRegex, '').trim();
+      phraseForCleanup = phraseForCleanup.toLowerCase().replace(moneyRegex, '').trim();
     }
 
     if (numberData) {
-        // Replace the raw number text
         phraseForCleanup = phraseForCleanup.replace(new RegExp(`\\b${numberData.raw}\\b`, 'i'), '').trim();
     }
     
-    // Clean up the product phrase by removing action/filler words
     let productPhrase = cleanProductPhrase(phraseForCleanup, nlu.language);
     
-    // Final, more aggressive cleanup of remaining quantity/unit/currency words
-    const finalCleanupRegex = /\b(kilo|kilogram|grams|gram|gramula|pack|pc|piece|pettu|daal|do|rupayala|rupees|rs|kilo|grams)\b/gi;
-    productPhrase = productPhrase.replace(finalCleanupRegex, '').trim();
+    // Final cleanup of remaining unit words
+    const unitRegex = new RegExp(`\\b(${Object.keys(units).join('|')})\\b`, 'gi');
+    productPhrase = productPhrase.replace(unitRegex, '').trim();
     
-    // Clean up any remaining action/filler words again after the more aggressive cleanup
+    // Clean up one last time after aggressive unit removal
     productPhrase = cleanProductPhrase(productPhrase, nlu.language);
     
     return { qty, unit, money, productPhrase };
@@ -167,8 +169,8 @@ export function recognizeIntent(text: string, lang: string): Intent {
   
     // 4) NAVIGATE
     const navPatterns: Record<string, string[]> = {
-        orders: ['my orders', 'na orderlaku', 'mere orders'],
-        cart: ['open cart', 'cart open'],
+        orders: ['go to my orders', 'na orderlaku vellu', 'mere orders par jao'],
+        cart: ['open cart', 'cart open cheyi'],
     };
     for(const dest in navPatterns) {
         if(navPatterns[dest].some(p => lower.includes(p))) {
