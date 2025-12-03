@@ -61,6 +61,7 @@ export function runNLU(text: string, lang: string = "en"): NLUResult {
   };
 }
 
+
 // Words we want to strip from the *front* of the phrase
 const ACTION_WORDS: Record<string, string[]> = {
   en: ['add', 'order', 'buy', 'get', 'send', 'cost', 'price', 'remove', 'go', 'open', 'help'],
@@ -70,7 +71,7 @@ const ACTION_WORDS: Record<string, string[]> = {
 
 // Filler words that often appear before the actual product
 const FILLER_WORDS = [
-  'of', 'from', 'my', 'to', 'the', 'par', 'se', 'nundi', 'ka', 'ki', 'ko', 'lo', 'la', 'rupayala', 'rupees'
+  'of', 'from', 'my', 'to', 'the', 'par', 'se', 'nundi', 'ka', 'ki', 'ko', 'lo', 'la', 'rupayala'
 ];
 
 function cleanProductPhrase(raw: string, lang: string): string {
@@ -91,6 +92,22 @@ function cleanProductPhrase(raw: string, lang: string): string {
   return lowerTokens.join(' ').trim();
 }
 
+const units = {
+  kg: true,
+  kilo: true,
+  kilogram: true,
+  g: true,
+  gm: true,
+  gram: true,
+  grams: true,
+  gramula: true,
+  litre: true,
+  l: true,
+  ml: true,
+  piece: true,
+  pc: true,
+  packet: true,
+};
 
 /**
  * EXTRACT QUANTITY + PRODUCT PHRASE
@@ -127,11 +144,9 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     
     let productPhrase = cleanProductPhrase(phraseForCleanup, nlu.language);
     
-    // Final cleanup of remaining unit words
     const unitRegex = new RegExp(`\\b(${Object.keys(units).join('|')})\\b`, 'gi');
     productPhrase = productPhrase.replace(unitRegex, '').trim();
     
-    // Clean up one last time after aggressive unit removal
     productPhrase = cleanProductPhrase(productPhrase, nlu.language);
     
     return { qty, unit, money, productPhrase };
@@ -144,12 +159,10 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
 export function recognizeIntent(text: string, lang: string): Intent {
     const lower = text.toLowerCase().trim();
   
-    // 1) SMART ORDER: "order X from Y to Z"
     if ((lower.startsWith('order') || lower.startsWith('send')) && lower.includes('from') && lower.includes('to')) {
         return { type: 'SMART_ORDER', originalText: text, lang };
     }
   
-    // 2) CHECK PRICE
     if (
         lower.includes('price of') ||
         lower.includes('cost of') ||
@@ -161,13 +174,11 @@ export function recognizeIntent(text: string, lang: string): Intent {
         return { type: 'CHECK_PRICE', productPhrase: cleanProductPhrase(cleaned, lang), originalText: text, lang };
     }
 
-    // 3) REMOVE FROM CART
     if (lower.startsWith('remove') || lower.includes('teeseyi') || lower.includes('nikal') || lower.includes('hata')) {
         const cleaned = lower.replace(/^remove\s+/, '').replace(/teeseyi|nikal|hata/g, '').trim();
         return { type: 'REMOVE_ITEM', productPhrase: cleanProductPhrase(cleaned, lang), originalText: text, lang };
     }
   
-    // 4) NAVIGATE
     const navPatterns: Record<string, string[]> = {
         orders: ['go to my orders', 'na orderlaku vellu', 'mere orders par jao'],
         cart: ['open cart', 'cart open cheyi'],
@@ -178,12 +189,10 @@ export function recognizeIntent(text: string, lang: string): Intent {
         }
     }
 
-    // 5) CONVERSATIONAL
     if (lower.startsWith('help') || lower.includes('sahayam') || lower.includes('madad')) {
         return { type: 'CONVERSATIONAL', commandKey: 'help', originalText: text, lang };
     }
   
-    // 6) ORDER ITEM (fallback)
     const nlu = runNLU(text, lang);
     if (nlu.hasNumbers || text.match(/(?:rs|rupees|₹|rupay|rupayala|रूपये|రూపాయలు)/i)) {
       return { type: 'ORDER_ITEM', originalText: text, lang };
