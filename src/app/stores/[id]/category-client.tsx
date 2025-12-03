@@ -151,13 +151,15 @@ export function CategoryClient({ store, allProducts, productPrices, isLoading }:
   }, [store.id, setActiveStoreId]);
 
   useEffect(() => {
-    if (categoryFromUrl && categories.some(c => c.name === categoryFromUrl)) {
-      setSelectedCategory(categoryFromUrl);
-    } 
-    else if (!selectedCategory && categories.length > 0) {
-      setSelectedCategory(categories[0].name);
-    }
-  }, [categories, selectedCategory, categoryFromUrl]);
+    // This effect now correctly handles setting the initial category from the URL,
+    // or defaulting to the first category if none is provided.
+    const initialCategory = categoryFromUrl && categories.some(c => c.name === categoryFromUrl) 
+      ? categoryFromUrl 
+      : categories.length > 0 ? categories[0].name : null;
+    
+    setSelectedCategory(initialCategory);
+
+  }, [categories, categoryFromUrl]);
 
   const handleSelectCategory = (categoryName: string) => {
     setSelectedCategory(categoryName);
@@ -248,3 +250,5 @@ export function CategoryClient({ store, allProducts, productPrices, isLoading }:
     </div>
   );
 }
+
+    

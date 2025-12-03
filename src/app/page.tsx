@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -80,6 +81,8 @@ function GroceryCategoryCard({ categoryName, imageHint, count, bgColor }: { cate
     const [image, setImage] = useState({ imageUrl: 'https://picsum.photos/seed/placeholder/200/200', imageHint: 'placeholder' });
     const [isLoading, setIsLoading] = useState(true);
     const firstStoreId = useAppStore(state => state.stores.find(s => s.name === 'LocalBasket')?.id);
+    
+    // Correctly construct the href
     const href = firstStoreId ? `/stores/${firstStoreId}?category=${categoryName}` : '/';
 
     useEffect(() => {
@@ -307,7 +310,7 @@ export default function LocalBasketHomepage() {
                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                     {filteredProducts.length > 0 ? (
                         filteredProducts.map(product => (
-                            <Link key={product.id} href={`/stores/${product.storeId}?category=${encodeURIComponent(product.category || '')}&highlight=${encodeURIComponent(product.name)}`}>
+                            <Link key={product.id} href={`/stores/${product.storeId}?category=${product.category || ''}&highlight=${product.name}`}>
                                 <ProductCard 
                                     product={product}
                                     priceData={productPrices[product.name.toLowerCase()]}
@@ -351,3 +354,5 @@ export default function LocalBasketHomepage() {
     </div>
   );
 }
+
+    
