@@ -63,6 +63,32 @@ export function runNLU(text: string, lang: string = 'en'): NLUResult {
   };
 }
 
+// Words we want to strip from the *front* of the phrase
+const ACTION_WORDS: Record<string, string[]> = {
+  en: ['add', 'order', 'buy', 'get', 'send', 'cost', 'price', 'remove', 'go', 'open', 'help'],
+  te: ['pettu', 'teeseyi', 'vellu', 'cheyi', 'dhara', 'entha'],
+  hi: ['daal', 'nikal', 'hata', 'madad', 'jao', 'kholo', 'daam', 'kya', 'hai'],
+};
+
+// Filler words that often appear before the actual product
+const FILLER_WORDS = [
+  'of', 'from', 'my', 'to', 'the', 'par', 'se', 'nundi', 'ka', 'ki', 'ko', 'lo', 'la'
+];
+
+function cleanProductPhrase(raw: string, lang: string): string {
+  const lowerTokens = raw.trim().toLowerCase().split(/\s+/);
+  const actionSet = new Set(ACTION_WORDS[lang] ?? []);
+  const fillerSet = new Set(FILLER_WORDS);
+
+  // strip leading action / filler words
+  while (lowerTokens.length && (actionSet.has(lowerTokens[0]) || fillerSet.has(lowerTokens[0]))) {
+    lowerTokens.shift();
+  }
+
+  return lowerTokens.join(' ').trim();
+}
+
+
 /**
  * EXTRACT QUANTITY + PRODUCT PHRASE
  */
@@ -103,9 +129,7 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
         unit = 'kg';
     } else if (unitRaw.startsWith('g')) {
         unit = 'gm'; 
-    } else if (unitRaw.startsWith('l')) {
-        unit = 'ltr';
-    } else if (unitRaw.startsWith('m')) {
+    } else if (unitRaw.startsWith('m') || unitRaw.startsWith('l')) {
         unit = 'ml';
     }
     text = text.replace(match[0], '').trim();
@@ -135,12 +159,128 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
   }
   
   // The remaining text is assumed to be the product phrase
-  const remainder = text.replace(/\b(of|from|to|at)\b/gi, "").replace(/\s+/g, ' ').trim();
+  let productPhrase = text.replace(/\b(of|from|to|at)\b/gi, "").replace(/\s+/g, ' ').trim();
+
+  // 🔥 NEW: final cleanup of product phrase
+  productPhrase = cleanProductPhrase(productPhrase, nlu.language);
 
   return {
     qty,
     unit,
     money,
-    productPhrase: remainder
+    productPhrase: productPhrase
   };
+}
+
+// Stub for Intent type - will be defined in voice-commander
+type Intent = any;
+
+export function recognizeIntent(text: string, lang: string): Intent {
+  const lower = text.toLowerCase().trim();
+
+  // 1) SMART ORDER: "order X from Y to Z"
+  if (
+    /^order\s/.test(lower) &&
+    /\sfrom\s.+\sto\s.+/.test(lower)
+  ) {
+    return { type: 'SMART_ORDER', originalText: text, lang };
+  }
+
+  // 2) CHECK PRICE
+  if (
+    lower.includes('price of') ||
+    lower.includes('cost of') ||
+    lower.includes('cost ') ||
+    lower.includes('dhara entha') ||          // te
+    lower.includes('daam kya hai')            // hi
+  ) {
+    const cleaned = lower
+      .replace('price of', '')
+      .replace('cost of', '')
+      .replace('cost', '')
+      .replace('dhara entha', '')
+      .replace('daam kya hai', '')
+      .trim();
+
+    return {
+      type: 'CHECK_PRICE',
+      productPhrase: cleanProductPhrase(cleaned, lang),
+      originalText: text,
+      lang,
+    };
+  }
+
+  // 3) REMOVE FROM CART
+  if (
+    /^remove\s/.test(lower) ||
+    lower.startsWith('na cart nundi') ||   // te
+    lower.includes('teeseyi') ||          // te
+    lower.includes('nikal') ||            // hi
+    lower.includes('hata')                // hi
+  ) {
+    const cleaned = lower
+      .replace(/^remove\s+/, '')
+      .replace(/^na cart nundi\s+/, '')
+      .trim();
+
+    return {
+      type: 'REMOVE_ITEM',
+      productPhrase: cleanProductPhrase(cleaned, lang),
+      originalText: text,
+      lang,
+    };
+  }
+
+  // 4) NAVIGATE – orders / cart
+  if (
+    lower.includes('go to my orders') ||
+    lower.includes('na orderlaku vellu') ||
+    lower.includes('mere orders par jao')
+  ) {
+    return {
+      type: 'NAVIGATE',
+      destination: 'orders',
+      originalText: text,
+      lang,
+    };
+  }
+
+  if (
+    lower.includes('open cart') ||
+    lower.includes('cart open cheyi')
+  ) {
+    return {
+      type: 'NAVIGATE',
+      destination: 'cart',
+      originalText: text,
+      lang,
+    };
+  }
+
+  // 5) CONVERSATIONAL "help"
+  if (
+    lower.startsWith('help') ||
+    lower.includes('sahayam cheyi') ||
+    lower.includes('madad') // if you add such Hindi phrases later
+  ) {
+    return {
+      type: 'CONVERSATIONAL',
+      commandKey: 'help',
+      originalText: text,
+      lang,
+    };
+  }
+
+  // 6) ORDER ITEM (fallback if we see quantity/product)
+  if (
+    lower.startsWith('add ') ||
+    lower.startsWith('order ') ||
+    lower.startsWith('oka kilo') ||   // te
+    lower.startsWith('do kilo')       // hi
+  ) {
+    return { type: 'ORDER_ITEM', originalText: text, lang };
+  }
+
+  // 7) default
+  return { type: 'UNKNOWN', originalText: text, lang };
 }
