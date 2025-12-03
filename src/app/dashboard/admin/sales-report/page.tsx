@@ -1,8 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
-import { getSalesReport } from '@/app/actions';
+import { useEffect, useState, useTransition, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,6 +10,10 @@ import { Badge } from '@/components/ui/badge';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, Timestamp, getDocs } from 'firebase/firestore';
+import type { Order, OrderItem, Product } from '@/lib/types';
+import { useAppStore } from '@/lib/store';
 
 type ReportCategory = {
   totalSales: number;
@@ -41,7 +44,7 @@ function ReportCard({ title, data, icon: Icon, isLoading }: { title: string; dat
         )
     }
 
-    if (!data) {
+    if (!data || data.itemCount === 0) {
         return (
             <Card>
                 <CardHeader>
@@ -104,10 +107,88 @@ function ReportCard({ title, data, icon: Icon, isLoading }: { title: string; dat
     );
 }
 
+const generateReport = async (db, period: 'daily' | 'monthly'): Promise<ReportData | null> => {
+    const now = new Date();
+    let startDate: Date;
+
+    if (period === 'daily') {
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    } else { // monthly
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+    const startTimestamp = Timestamp.fromDate(startDate);
+    
+    try {
+        const { masterProducts } = useAppStore.getState();
+        const productCategoryMap = new Map<string, string>();
+        masterProducts.forEach(p => productCategoryMap.set(p.id, p.category?.toLowerCase() || 'grocery'));
+
+        const ordersQuery = query(
+            collection(db, 'orders'),
+            where('status', 'in', ['Delivered', 'delivered', 'Completed']),
+            where('orderDate', '>=', startTimestamp)
+        );
+        const orderSnapshot = await getDocs(ordersQuery);
+        const deliveredOrders = orderSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+
+        const report: ReportData = {
+            grocery: { totalSales: 0, itemCount: 0, topProducts: new Map() },
+            meat: { totalSales: 0, itemCount: 0, topProducts: new Map() },
+            vegetable: { totalSales: 0, itemCount: 0, topProducts: new Map() },
+        };
+        const meatCategories = ['fresh cut', 'meat & fish'];
+        const vegetableCategories = ['vegetables'];
+
+        for (const order of deliveredOrders) {
+            const itemsQuery = collection(db, 'orders', order.id, 'orderItems');
+            const itemsSnapshot = await getDocs(itemsQuery);
+            const items = itemsSnapshot.docs.map(doc => doc.data() as OrderItem);
+
+            for (const item of items) {
+                const itemTotal = item.price * item.quantity;
+                const category = productCategoryMap.get(item.productId) || 'grocery';
+                
+                let reportCategory: 'grocery' | 'meat' | 'vegetable';
+                if (meatCategories.includes(category)) {
+                    reportCategory = 'meat';
+                } else if (vegetableCategories.includes(category)) {
+                    reportCategory = 'vegetable';
+                } else {
+                    reportCategory = 'grocery';
+                }
+                
+                report[reportCategory].totalSales += itemTotal;
+                report[reportCategory].itemCount += item.quantity;
+                
+                const currentQty = report[reportCategory].topProducts.get(item.productName) || 0;
+                report[reportCategory].topProducts.set(item.productName, currentQty + item.quantity);
+            }
+        }
+        
+        const formatTopProducts = (topProductsMap: Map<string, number>) => {
+            return Array.from(topProductsMap.entries())
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5)
+                .map(([name, count]) => ({ name, count }));
+        };
+
+        return {
+            grocery: { ...report.grocery, topProducts: formatTopProducts(report.grocery.topProducts) },
+            meat: { ...report.meat, topProducts: formatTopProducts(report.meat.topProducts) },
+            vegetable: { ...report.vegetable, topProducts: formatTopProducts(report.vegetable.topProducts) },
+        };
+
+    } catch (error) {
+        console.error("Client-side sales report generation failed:", error);
+        return null;
+    }
+}
+
 
 export default function SalesReportPage() {
     const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
     const router = useRouter();
+    const { firestore } = useFirebase();
     const [dailyReport, setDailyReport] = useState<ReportData | null>(null);
     const [monthlyReport, setMonthlyReport] = useState<ReportData | null>(null);
     const [isLoading, startLoading] = useTransition();
@@ -120,44 +201,22 @@ export default function SalesReportPage() {
     }, [isAdmin, isAdminLoading, router]);
 
     const fetchReports = async () => {
+        if (!firestore) return;
         startLoading(async () => {
-            try {
-                console.log("Fetching sales reports...");
-                const [dailyResult, monthlyResult] = await Promise.all([
-                    getSalesReport('daily'),
-                    getSalesReport('monthly')
-                ]);
-                
-                console.log("Daily Result from server:", dailyResult);
-                console.log("Monthly Result from server:", monthlyResult);
-
-                if (dailyResult.success && dailyResult.report) {
-                    console.log("Daily report keys:", Object.keys(dailyResult.report));
-                    setDailyReport(dailyResult.report as ReportData);
-                } else {
-                    console.error("Failed to fetch or process daily report:", dailyResult.error);
-                    setDailyReport(null); // Explicitly set to null on failure
-                }
-
-                if (monthlyResult.success && monthlyResult.report) {
-                     console.log("Monthly report keys:", Object.keys(monthlyResult.report));
-                    setMonthlyReport(monthlyResult.report as ReportData);
-                } else {
-                     console.error("Failed to fetch or process monthly report:", monthlyResult.error);
-                     setMonthlyReport(null);
-                }
-
-            } catch (error) {
-                console.error("Error fetching sales reports:", error);
-            }
+            const [dailyData, monthlyData] = await Promise.all([
+                generateReport(firestore, 'daily'),
+                generateReport(firestore, 'monthly')
+            ]);
+            setDailyReport(dailyData);
+            setMonthlyReport(monthlyData);
         });
     };
 
     useEffect(() => {
-        if (isAdmin) {
+        if (isAdmin && firestore) {
           fetchReports();
         }
-    }, [isAdmin]);
+    }, [isAdmin, firestore]);
     
     const handleDownload = () => {
         const reportToDownload = activeTab === 'daily' ? dailyReport : monthlyReport;
@@ -231,7 +290,7 @@ export default function SalesReportPage() {
                                     <ReportCard 
                                         key={card.dataKey}
                                         title={card.title}
-                                        data={dailyReport?.[card.dataKey] ?? { totalSales: 0, itemCount: 0, topProducts: [] }}
+                                        data={dailyReport?.[card.dataKey] ?? null}
                                         icon={card.icon}
                                         isLoading={isLoading}
                                     />
@@ -244,7 +303,7 @@ export default function SalesReportPage() {
                                     <ReportCard 
                                         key={card.dataKey}
                                         title={card.title}
-                                        data={monthlyReport?.[card.dataKey] ?? { totalSales: 0, itemCount: 0, topProducts: [] }}
+                                        data={monthlyReport?.[card.dataKey] ?? null}
                                         icon={card.icon}
                                         isLoading={isLoading}
                                     />
