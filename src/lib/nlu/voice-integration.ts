@@ -189,7 +189,7 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     qty,
     unit,
     money,
-    productPhrase: productPhrase,
+    productPhrase,
   };
 }
 
