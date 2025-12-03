@@ -4,7 +4,7 @@
 import { getAdminServices } from '@/firebase/admin-init';
 import { getStorage } from 'firebase-admin/storage';
 import { Timestamp } from 'firebase-admin/firestore';
-import { collection, doc, writeBatch, serverTimestamp, getDocs, where, query, updateDoc } from 'firebase/firestore';
+import { collection, doc, writeBatch, serverTimestamp, getDocs, where, query, updateDoc, setDoc, getDoc } from 'firebase/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
 import type { Order, OrderItem, Product, ProductPrice, ProductVariant } from '@/lib/types';
@@ -590,4 +590,91 @@ export async function getSalesDataDump(): Promise<{ success: boolean; data?: any
     console.error("Sales data download failed:", error);
     return { success: false, error: error.message || 'An unknown server error occurred.' };
   }
+}
+
+export async function approveRule(sentenceId: string, rawText: string): Promise<{ success: boolean, error?: string }> {
+    // This is a placeholder. In a real application, you would:
+    // 1. Mark the sentence as 'approved' in Firestore.
+    // 2. Append the new rule to a `learned-rules.json` file in your source.
+    console.log(`Approving rule for sentence ID: ${sentenceId}`);
+    try {
+        const { db } = await getAdminServices();
+        const sentenceRef = doc(db, 'nlu_extracted_sentences', sentenceId);
+        await updateDoc(sentenceRef, { status: 'approved' });
+        
+        // In a real app, you'd append to a file, but for this demo, we'll just log it.
+        console.log(`ACTION: Append the following to learned-rules.json:`);
+        console.log(JSON.stringify({ rawText: rawText, note: 'Learned from NLU dashboard' }));
+        
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function rejectRule(sentenceId: string): Promise<{ success: boolean, error?: string }> {
+    try {
+        const { db } = await getAdminServices();
+        const sentenceRef = doc(db, 'nlu_extracted_sentences', sentenceId);
+        await updateDoc(sentenceRef, { status: 'rejected' });
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+
+export async function processPdfAndExtractRules(formData: FormData): Promise<{ success: boolean; sentenceCount?: number; error?: string }> {
+    const file = formData.get('pdf') as File;
+    if (!file) {
+        return { success: false, error: 'No PDF file provided.' };
+    }
+
+    // In a real app, this is where you would send the PDF to a backend service
+    // that uses a library like 'pdf-parse' to extract text, then runs your NLU engine
+    // on sentences, and saves the results to Firestore.
+    
+    // For this demo, we will simulate this process.
+    console.log(`Simulating processing for PDF: ${file.name}`);
+    
+    try {
+        const { db } = await getAdminServices();
+        const batch = db.batch();
+        const sentencesRef = collection(db, 'nlu_extracted_sentences');
+
+        // SIMULATED EXTRACTED SENTENCES
+        const demoSentences = [
+            "add 1kg of potatoes",
+            "I need one and a half litres of milk",
+            "get 250gm ginger",
+            "buy 5 packs of biscuits",
+            "order 2 dozen eggs",
+            "three kilos of onions please",
+        ];
+
+        let sentenceCount = 0;
+        for (const text of demoSentences) {
+            const newDocRef = doc(sentencesRef);
+            // In a real implementation, you'd run your NLU engine here
+            // const nluResult = runNLU(text); 
+            
+            batch.set(newDocRef, {
+                id: newDocRef.id,
+                rawText: text,
+                extractedNumbers: [], // Placeholder for actual NLU result
+                confidence: Math.random(), // Simulated confidence
+                status: 'pending',
+                createdAt: serverTimestamp(),
+            });
+            sentenceCount++;
+        }
+
+        await batch.commit();
+
+        return { success: true, sentenceCount };
+
+    } catch (error: any) {
+        console.error("PDF processing simulation failed:", error);
+        return { success: false, error: error.message };
+    }
 }
