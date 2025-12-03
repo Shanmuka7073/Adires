@@ -51,7 +51,7 @@ export function runNLU(text: string, lang: string = "en"): NLUResult {
 
   return {
     numbers: numberResult,
-    cleanedText: cleanedText, // Use the initially cleaned text
+    cleanedText: cleanedText,
     language: lang,
     hasNumbers: numberResult.length > 0,
     hasMath: false, // Math detection is not part of this engine version
