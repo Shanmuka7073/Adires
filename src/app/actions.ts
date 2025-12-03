@@ -6,7 +6,7 @@ import { getStorage } from 'firebase-admin/storage';
 import { updateDoc, doc, writeBatch, serverTimestamp, collection, getDocs, where, query, Timestamp } from 'firebase/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { Order } from '@/lib/types';
+import type { Order, OrderItem } from '@/lib/types';
 
 
 /**
@@ -460,9 +460,8 @@ export async function getSalesReport(period: 'daily' | 'monthly') {
     );
 
     const orderSnapshot = await getDocs(ordersQuery);
-    const deliveredOrders = orderSnapshot.docs.map(doc => doc.data() as Order);
+    const deliveredOrders = orderSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
 
-    // Fetch all products to map them to main categories
     const masterStoreQuery = query(collection(db, 'stores'), where('name', '==', 'Grozo'));
     const masterStoreSnap = await getDocs(masterStoreQuery);
     if (masterStoreSnap.empty) throw new Error("Master 'Grozo' store not found.");
@@ -484,7 +483,12 @@ export async function getSalesReport(period: 'daily' | 'monthly') {
     const vegetableCategories = ['vegetables'];
 
     for (const order of deliveredOrders) {
-      for (const item of order.items) {
+      // Fetch items from the subcollection
+      const itemsQuery = collection(db, 'orders', order.id, 'orderItems');
+      const itemsSnapshot = await getDocs(itemsQuery);
+      const items = itemsSnapshot.docs.map(doc => doc.data() as OrderItem);
+
+      for (const item of items) {
         const itemTotal = item.price * item.quantity;
         const category = productCategoryMap.get(item.productName)?.toLowerCase() || 'grocery';
         
@@ -506,7 +510,6 @@ export async function getSalesReport(period: 'daily' | 'monthly') {
       }
     }
 
-    // Convert Maps to sorted arrays of top 5 products
     const formatTopProducts = (topProducts: Map<string, number>) => {
         return Array.from(topProducts.entries())
           .sort((a, b) => b[1] - a[1])
