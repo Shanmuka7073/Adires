@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { Order, Store, DeliveryPartner, Payout } from '@/lib/types';
@@ -438,7 +439,7 @@ function MyActiveDeliveriesCard({ order, handleMarkAsDelivered, isUpdating, onSh
             <SlideToConfirm 
                 onConfirm={() => handleMarkAsDelivered(order)} 
                 text="Slide to Mark as Delivered"
-                isConfirmationDisabled={isUpdating}
+                isConfirmationDisabled={isUpdating || !order.deliveryLat || !order.deliveryLng}
             />
         </Card>
     )
@@ -876,4 +877,3 @@ export default function DeliveriesPage() {
     </div>
   );
 }
-
