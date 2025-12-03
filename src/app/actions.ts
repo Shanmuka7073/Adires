@@ -1,12 +1,13 @@
 
-
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { getStorage } from 'firebase-admin/storage';
-import { updateDoc, doc, writeBatch, serverTimestamp, collection, getDocs, where, query } from 'firebase/firestore';
+import { updateDoc, doc, writeBatch, serverTimestamp, collection, getDocs, where, query, Timestamp } from 'firebase/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
+import type { Order } from '@/lib/types';
+
 
 /**
  * Safely fetch documents count from Firestore collections.
@@ -99,10 +100,10 @@ export async function importProductsFromUrl(url: string): Promise<{ success: boo
         const { db } = await getAdminServices();
         const batch = writeBatch(db);
         
-        const adminStoreQuery = query(collection(db, 'stores'), where('name', '==', 'LocalBasket'));
+        const adminStoreQuery = query(collection(db, 'stores'), where('name', '==', 'Grozo'));
         const adminStoreSnap = await getDocs(adminStoreQuery);
         if (adminStoreSnap.empty) {
-            return { success: false, error: 'Master "LocalBasket" store not found. Please create it first.' };
+            return { success: false, error: 'Master "Grozo" store not found. Please create it first.' };
         }
         const adminStoreId = adminStoreSnap.docs[0].id;
 
@@ -170,7 +171,7 @@ export async function getWikipediaSummary(topic: string): Promise<{ summary?: st
     // Step 1: Search for the topic to find the correct article title
     const searchResponse = await fetch(searchUrl, {
       headers: {
-        'User-Agent': 'LocalBasketApp/1.0 (https://localbasket.com; admin@localbasket.com)'
+        'User-Agent': 'GrozoApp/1.0 (https://grozo.com; admin@grozo.com)'
       }
     });
     
@@ -192,7 +193,7 @@ export async function getWikipediaSummary(topic: string): Promise<{ summary?: st
     const summaryResponse = await fetch(summaryUrl, {
       headers: {
         'Accept': 'application/json; charset=utf-8',
-        'User-Agent': 'LocalBasketApp/1.0 (https://localbasket.com; admin@localbasket.com)'
+        'User-Agent': 'GrozoApp/1.0 (https://grozo.com; admin@grozo.com)'
       }
     });
 
@@ -435,4 +436,95 @@ export async function updatePlaceholderImages(newData: { placeholderImages: any[
         console.error('Failed to update placeholder-images.json file:', error);
         return { success: false, error: error.message || 'An unknown error occurred.' };
     }
+}
+
+export async function getSalesReport(period: 'daily' | 'monthly') {
+  const { db } = await getAdminServices();
+
+  const now = new Date();
+  let startDate: Date;
+
+  if (period === 'daily') {
+    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  } else { // monthly
+    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+  }
+
+  const startTimestamp = Timestamp.fromDate(startDate);
+
+  try {
+    const ordersQuery = query(
+      collection(db, 'orders'),
+      where('status', '==', 'Delivered'),
+      where('orderDate', '>=', startTimestamp)
+    );
+
+    const orderSnapshot = await getDocs(ordersQuery);
+    const deliveredOrders = orderSnapshot.docs.map(doc => doc.data() as Order);
+
+    // Fetch all products to map them to main categories
+    const masterStoreQuery = query(collection(db, 'stores'), where('name', '==', 'Grozo'));
+    const masterStoreSnap = await getDocs(masterStoreQuery);
+    if (masterStoreSnap.empty) throw new Error("Master 'Grozo' store not found.");
+    const masterStoreId = masterStoreSnap.docs[0].id;
+    
+    const productsSnapshot = await getDocs(collection(db, 'stores', masterStoreId, 'products'));
+    const productCategoryMap = new Map<string, string>();
+    productsSnapshot.forEach(doc => {
+      productCategoryMap.set(doc.data().name, doc.data().category);
+    });
+
+    const report = {
+      grocery: { totalSales: 0, itemCount: 0, topProducts: new Map<string, number>() },
+      meat: { totalSales: 0, itemCount: 0, topProducts: new Map<string, number>() },
+      vegetable: { totalSales: 0, itemCount: 0, topProducts: new Map<string, number>() },
+    };
+
+    const meatCategories = ['fresh cut', 'meat & fish'];
+    const vegetableCategories = ['vegetables'];
+
+    for (const order of deliveredOrders) {
+      for (const item of order.items) {
+        const itemTotal = item.price * item.quantity;
+        const category = productCategoryMap.get(item.productName)?.toLowerCase() || 'grocery';
+        
+        let reportCategory: 'grocery' | 'meat' | 'vegetable';
+
+        if (meatCategories.includes(category)) {
+          reportCategory = 'meat';
+        } else if (vegetableCategories.includes(category)) {
+          reportCategory = 'vegetable';
+        } else {
+          reportCategory = 'grocery';
+        }
+
+        report[reportCategory].totalSales += itemTotal;
+        report[reportCategory].itemCount += item.quantity;
+        
+        const currentQty = report[reportCategory].topProducts.get(item.productName) || 0;
+        report[reportCategory].topProducts.set(item.productName, currentQty + item.quantity);
+      }
+    }
+
+    // Convert Maps to sorted arrays of top 5 products
+    const formatTopProducts = (topProducts: Map<string, number>) => {
+        return Array.from(topProducts.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([name, count]) => ({ name, count }));
+    };
+
+    return {
+        success: true,
+        report: {
+            grocery: { ...report.grocery, topProducts: formatTopProducts(report.grocery.topProducts) },
+            meat: { ...report.meat, topProducts: formatTopProducts(report.meat.topProducts) },
+            vegetable: { ...report.vegetable, topProducts: formatTopProducts(report.vegetable.topProducts) },
+        }
+    };
+
+  } catch (error: any) {
+    console.error("Sales report generation failed:", error);
+    return { success: false, error: error.message || 'An unknown server error occurred.' };
+  }
 }

@@ -1,0 +1,192 @@
+
+'use client';
+
+import { useEffect, useState, useTransition } from 'react';
+import { getSalesReport } from '@/app/actions';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
+import { BarChart3, TrendingUp, ShoppingCart, Beef, Carrot, Grape } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
+import { useRouter } from 'next/navigation';
+
+type ReportCategory = {
+  totalSales: number;
+  itemCount: number;
+  topProducts: { name: string; count: number }[];
+};
+
+type ReportData = {
+  grocery: ReportCategory;
+  meat: ReportCategory;
+  vegetable: ReportCategory;
+};
+
+function ReportCard({ title, data, icon: Icon, isLoading }: { title: string; data: ReportCategory | null; icon: React.ElementType; isLoading: boolean }) {
+    if (isLoading) {
+        return (
+             <Card>
+                <CardHeader>
+                    <Skeleton className="h-6 w-32" />
+                    <Skeleton className="h-4 w-48" />
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <Skeleton className="h-8 w-24" />
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-20 w-full" />
+                </CardContent>
+            </Card>
+        )
+    }
+
+    if (!data) return null;
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Icon className="h-6 w-6 text-primary" />
+                    {title}
+                </CardTitle>
+                <CardDescription>
+                    Total sales and item counts for the {title.toLowerCase()} category.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="flex justify-between items-baseline">
+                    <div className="flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-green-500" />
+                        <span className="text-sm text-muted-foreground">Total Sales</span>
+                    </div>
+                    <p className="text-2xl font-bold">₹{data.totalSales.toFixed(2)}</p>
+                </div>
+                <div className="flex justify-between items-baseline">
+                     <div className="flex items-center gap-2">
+                        <ShoppingCart className="h-5 w-5 text-blue-500" />
+                        <span className="text-sm text-muted-foreground">Items Sold</span>
+                    </div>
+                    <p className="text-2xl font-bold">{data.itemCount}</p>
+                </div>
+                <div>
+                    <h4 className="font-semibold text-sm mb-2">Top Selling Products:</h4>
+                    {data.topProducts.length > 0 ? (
+                         <div className="flex flex-col gap-2">
+                            {data.topProducts.map(p => (
+                                <div key={p.name} className="flex justify-between items-center text-xs">
+                                    <span className="font-medium truncate">{p.name}</span>
+                                    <Badge variant="secondary">{p.count} units</Badge>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-xs text-muted-foreground">No products sold in this category yet.</p>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+
+export default function SalesReportPage() {
+    const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
+    const router = useRouter();
+    const [dailyReport, setDailyReport] = useState<ReportData | null>(null);
+    const [monthlyReport, setMonthlyReport] = useState<ReportData | null>(null);
+    const [isLoading, startLoading] = useTransition();
+
+    useEffect(() => {
+        if (!isAdminLoading && !isAdmin) {
+            router.replace('/dashboard');
+        }
+    }, [isAdmin, isAdminLoading, router]);
+
+    const fetchReports = async () => {
+        startLoading(async () => {
+            try {
+                const [dailyResult, monthlyResult] = await Promise.all([
+                    getSalesReport('daily'),
+                    getSalesReport('monthly')
+                ]);
+
+                if (dailyResult.success) {
+                    setDailyReport(dailyResult.report as ReportData);
+                } else {
+                    console.error("Failed to fetch daily report:", dailyResult.error);
+                }
+
+                if (monthlyResult.success) {
+                    setMonthlyReport(monthlyResult.report as ReportData);
+                } else {
+                     console.error("Failed to fetch monthly report:", monthlyResult.error);
+                }
+
+            } catch (error) {
+                console.error("Error fetching sales reports:", error);
+            }
+        });
+    };
+
+    useEffect(() => {
+        fetchReports();
+    }, []);
+
+    const reportCards = [
+        { title: 'Meat', dataKey: 'meat', icon: Beef },
+        { title: 'Vegetable', dataKey: 'vegetable', icon: Carrot },
+        { title: 'Grocery', dataKey: 'grocery', icon: Grape },
+    ] as const;
+
+    return (
+        <div className="container mx-auto py-12 px-4 md:px-6">
+            <Card>
+                <CardHeader>
+                    <div className="flex items-center gap-3">
+                        <BarChart3 className="h-8 w-8 text-primary" />
+                        <div>
+                            <CardTitle className="text-3xl font-headline">Sales Reports</CardTitle>
+                            <CardDescription>
+                                An overview of your daily and monthly sales performance.
+                            </CardDescription>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <Tabs defaultValue="daily" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="daily">Today's Report</TabsTrigger>
+                            <TabsTrigger value="monthly">This Month's Report</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="daily" className="mt-6">
+                             <div className="grid md:grid-cols-3 gap-6">
+                                {reportCards.map(card => (
+                                    <ReportCard 
+                                        key={card.dataKey}
+                                        title={card.title}
+                                        data={dailyReport ? dailyReport[card.dataKey] : null}
+                                        icon={card.icon}
+                                        isLoading={isLoading}
+                                    />
+                                ))}
+                            </div>
+                        </TabsContent>
+                        <TabsContent value="monthly" className="mt-6">
+                           <div className="grid md:grid-cols-3 gap-6">
+                                {reportCards.map(card => (
+                                    <ReportCard 
+                                        key={card.dataKey}
+                                        title={card.title}
+                                        data={monthlyReport ? monthlyReport[card.dataKey] : null}
+                                        icon={card.icon}
+                                        isLoading={isLoading}
+                                    />
+                                ))}
+                            </div>
+                        </TabsContent>
+                    </Tabs>
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
