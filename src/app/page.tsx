@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -80,15 +79,15 @@ const homePageSections = [
 function GroceryCategoryCard({ categoryName, imageHint, count, bgColor }: { categoryName: string, imageHint: string, count?: number, bgColor?: string }) {
     const [image, setImage] = useState({ imageUrl: 'https://picsum.photos/seed/placeholder/200/200', imageHint: 'placeholder' });
     const [isLoading, setIsLoading] = useState(true);
-    const slug = categoryName.toLowerCase().replace(/ & /g, '-&-').replace(/ /g, '-');
     const firstStoreId = useAppStore(state => state.stores.find(s => s.name === 'LocalBasket')?.id);
-    const href = firstStoreId ? `/stores/${firstStoreId}?category=${encodeURIComponent(categoryName)}` : '/';
+    const href = firstStoreId ? `/stores/${firstStoreId}?category=${categoryName}` : '/';
 
     useEffect(() => {
         let mounted = true;
         const fetchImage = async () => {
             setIsLoading(true);
             try {
+                const slug = categoryName.toLowerCase().replace(/ & /g, '-&-').replace(/ /g, '-');
                 const imageId = `cat-${slug}`;
                 const fetchedImage = await getProductImage(imageId);
                 if (mounted) setImage(fetchedImage);
@@ -101,7 +100,7 @@ function GroceryCategoryCard({ categoryName, imageHint, count, bgColor }: { cate
         };
         fetchImage();
         return () => { mounted = false; };
-    }, [categoryName, slug]);
+    }, [categoryName]);
 
     if (isLoading) {
         return (
