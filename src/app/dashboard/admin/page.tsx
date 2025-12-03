@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -315,10 +314,10 @@ function ProductInventoryRow({ product, priceData, onUpdate }: { product: Produc
     const [isSaving, startSaveTransition] = useTransition();
     const { firestore, user } = useFirebase();
     const { toast } = useToast();
-    const { isAdmin } = useAdminAuth();
-    const isChickenAdmin = user?.email === 'chickenadmin@gmail.com';
+    const { isAdmin, isChickenAdmin } = useAdminAuth();
 
     const canEdit = isAdmin || (isChickenAdmin && product.name.toLowerCase().includes('chicken'));
+
 
     useEffect(() => {
         setVariants(priceData?.variants || []);
@@ -366,7 +365,7 @@ function ProductInventoryRow({ product, priceData, onUpdate }: { product: Produc
                         </div>
                     )) || 'No price data'}
                 </TableCell>
-                <TableCell className="text-right">
+                 <TableCell className="text-right">
                     {canEdit && (
                         <Button variant="ghost" size="icon" onClick={() => setIsEditing(prev => !prev)}>
                             <Edit className="h-4 w-4" />
@@ -504,7 +503,7 @@ function AdminActionCard({ title, description, href, icon: Icon }: { title: stri
 export default function AdminDashboardPage() {
     const { firestore } = useFirebase();
     const router = useRouter();
-    const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
+    const { isAdmin, isChickenAdmin, isLoading: isAdminLoading } = useAdminAuth();
 
     // Queries for stats
     const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
@@ -513,7 +512,7 @@ export default function AdminDashboardPage() {
     
     const adminStoreQuery = useMemoFirebase(() => {
         if (!firestore) return null;
-        return query(collection(firestore, 'stores'), where('name', '==', 'LocalBasket'));
+        return query(collection(firestore, 'stores'), where('name', '==', 'Grozo'));
     }, [firestore]);
 
 
@@ -533,10 +532,14 @@ export default function AdminDashboardPage() {
     const statsLoading = isAdminLoading || usersLoading || storesLoading || ordersLoading;
 
     useEffect(() => {
-        if (!isAdminLoading && !isAdmin) {
+        if (!isAdminLoading && !isAdmin && !isChickenAdmin) {
             router.replace('/dashboard');
         }
-    }, [isAdminLoading, isAdmin, router]);
+         // Redirect chicken admin to their specific page
+        if (!isAdminLoading && isChickenAdmin) {
+            router.replace('/dashboard/chicken-admin');
+        }
+    }, [isAdminLoading, isAdmin, isChickenAdmin, router]);
 
     if (isAdminLoading || adminStoreLoading || !isAdmin) {
         return <p>Loading admin dashboard...</p>

@@ -1,4 +1,3 @@
-
 'use client';
 import {
   Card,
@@ -28,6 +27,8 @@ import { Fingerprint, Loader2 } from 'lucide-react';
 import { startAuthentication } from '@simplewebauthn/browser';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
+const CHICKEN_ADMIN_EMAIL = 'chickenadmin@gmail.com';
+
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -49,10 +50,11 @@ export default function LoginPage() {
   const redirectTo = searchParams.get('redirectTo') || '/dashboard';
 
   useEffect(() => {
-    // If user is already logged in, redirect them away from the login page.
     if (!isUserLoading && user) {
        if (user.email === ADMIN_EMAIL) {
         router.push('/dashboard/admin');
+      } else if (user.email === CHICKEN_ADMIN_EMAIL) {
+        router.push('/dashboard/chicken-admin');
       } else {
         router.push(redirectTo);
       }
