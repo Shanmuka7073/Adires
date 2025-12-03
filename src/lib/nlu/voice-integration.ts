@@ -63,6 +63,7 @@ export function runNLU(text: string, lang: string = 'en'): NLUResult {
   };
 }
 
+
 // Words we want to strip from the *front* of the phrase
 const ACTION_WORDS: Record<string, string[]> = {
   en: ['add', 'order', 'buy', 'get', 'send', 'cost', 'price', 'remove', 'go', 'open', 'help'],
@@ -98,77 +99,97 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
   let money: number | null = null;
   let text = nlu.cleanedText.toLowerCase();
 
-  const moneyRegex = /(?:rs|rupees|₹|rupay|rupayalu)\.?\s*(\d+\.?\d*)|(\d+\.?\d*)\s*(?:rs|rupees|₹|rupay|rupayalu)\.?/i;
+  const moneyRegex =
+    /\b(?:₹|rs|rupees|rupay|rupaya|रूपये|రూపాయల)\b\.?\s*(\d+\.?\d*)|\b(\d+\.?\d*)\s*(?:₹|rs|rupees|rupay|रूपये|రూపాయల)\b/i;
+  const weightRegex =
+    /\b(\d+\.?\d*)\s*\b(kg|kilo|kilogram|grams|gram|gm|g|gms)\b/i;
+  const volumeRegex =
+    /\b(\d+\.?\d*)\s*\b(liter|litre|liters|litres|ltr|l|ml|milliliter|millilitre)\b/i;
+  const pieceRegex = /\b(\d+)\s*\b(pack|packet|pc|piece|pieces)\b/i;
   
-  // This more specific regex prevents "g" from matching "kg" accidentally.
-  const weightRegex = /(\d+\.?\d*)\s*(kg|kilos?|kilogram|grams?|gm|g|ml|milliliter|liters?|ltr|l)/i;
-  
-  const pieceRegex = /(\d+)\s*(pack|packet|pc|piece|pieces)/i;
-  
+  // New: Regex for units without an explicit number (e.g., "kg", "liter")
+  const unitOnlyRegex = /\b(kg|kilo|kilogram|grams|gram|gm|g|gms|liter|litre|ltr|l|ml|pc|piece|pieces|pack|packet)\b/i;
+
   const fractionWords: Record<string, number> = {
-    "one and a half": 1.5, "one and half": 1.5,
-    "half": 0.5, "1/2": 0.5, "one half": 0.5,
+    "one and a half": 1.5, "one and half": 1.5, "half": 0.5, "1/2": 0.5, "one half": 0.5,
     "quarter": 0.25, "1/4": 0.25, "one quarter": 0.25,
     "three fourths": 0.75, "three quarters": 0.75, "3/4": 0.75,
     "ఒకటిన్నర": 1.5, "సగం": 0.5, "అర": 0.5, "పావు": 0.25, "మూడొంతులు": 0.75,
-    "डेढ़": 1.5, "आधा": 0.5, "पाव": 0.25, "तीन चौथाई": 0.75
+    "डेढ़": 1.5, "आधा": 0.5, "पाव": 0.25, "तीन चौथाई": 0.75,
   };
+
+  const liquidKeywords = ['oil', 'milk', 'water', 'juice', 'ghee', 'sauce', 'vinegar'];
 
   let match;
 
-  // Check for money, weight, or pieces
+  // 1) MONEY
   if ((match = text.match(moneyRegex))) {
-    money = parseFloat(match[1] || match[2]);
-    text = text.replace(match[0], '').trim();
-  } else if ((match = text.match(weightRegex))) {
+    const val = match[1] || match[2];
+    if (val) money = parseFloat(val);
+    text = text.replace(match[0], "").trim();
+  }
+  // 2) WEIGHT
+  else if ((match = text.match(weightRegex))) {
     qty = parseFloat(match[1]);
-    const unitRaw = match[2].toLowerCase();
-    
-    // Normalize unit
-    if (unitRaw.startsWith('k')) {
-        unit = 'kg';
-    } else if (unitRaw.startsWith('g')) {
-        unit = 'gm'; 
-    } else if (unitRaw.startsWith('m') || unitRaw.startsWith('l')) {
-        unit = 'ml';
-    }
-    text = text.replace(match[0], '').trim();
-  } else if ((match = text.match(pieceRegex))) {
+    unit = match[2].toLowerCase().startsWith("k") ? "kg" : "gm";
+    text = text.replace(match[0], "").trim();
+  }
+  // 3) VOLUME
+  else if ((match = text.match(volumeRegex))) {
+    qty = parseFloat(match[1]);
+    const u = match[2].toLowerCase();
+    unit = u.startsWith("l") ? "ltr" : "ml";
+    text = text.replace(match[0], "").trim();
+  }
+  // 4) PIECES
+  else if ((match = text.match(pieceRegex))) {
     qty = parseInt(match[1], 10);
-    unit = 'pc';
-    text = text.replace(match[0], '').trim();
-  } else {
-    // Check for fraction words if no other pattern matched
-    for (const word in fractionWords) {
-        if (text.includes(word)) {
-            qty = fractionWords[word];
-            unit = 'kg'; // Assume fractions of a kilo by default
-            text = text.replace(word, '').trim();
-            break;
+    unit = "pc";
+    text = text.replace(match[0], "").trim();
+  }
+  // 5) FRACTIONS & COMPOUND NUMBERS
+  else {
+    let fractionFound = false;
+    for (const key in fractionWords) {
+      if (text.includes(key)) {
+        qty = fractionWords[key];
+        text = text.replace(key, "").trim();
+        if (/\b(liter|litre|ltr|liters|litres|ml)\b/.test(text) || liquidKeywords.some(lk => text.includes(lk))) {
+          unit = 'ltr';
+        } else {
+          unit = 'kg';
         }
+        fractionFound = true;
+        break;
+      }
+    }
+    
+    // 6) UNIT ONLY (e.g., "kg chicken") -> implies quantity of 1
+    if (!fractionFound && (match = text.match(unitOnlyRegex))) {
+        qty = 1;
+        const u = match[1].toLowerCase();
+        if (u.startsWith('k')) unit = 'kg';
+        else if (u.startsWith('g')) unit = 'gm';
+        else if (u.startsWith('l')) unit = 'ltr';
+        else if (u.startsWith('m')) unit = 'ml';
+        else unit = 'pc';
+        text = text.replace(match[0], '').trim();
     }
   }
 
-  // Handle numbers from the NLU result if no other pattern matched
-  if (nlu.firstNumber !== null && qty === 1 && unit === null && money === null) {
-      qty = nlu.firstNumber;
-      // Attempt to remove the number from the text
-      if (nlu.numbers[0]) {
-          text = text.replace(nlu.numbers[0].raw, '').trim();
-      }
-  }
-  
-  // The remaining text is assumed to be the product phrase
-  let productPhrase = text.replace(/\b(of|from|to|at)\b/gi, "").replace(/\s+/g, ' ').trim();
+  // 7) CLEANUP
+  text = text.replace(/\b(of)\b/gi, "").replace(/\s+/g, ' ').trim();
 
-  // 🔥 NEW: final cleanup of product phrase
+  let productPhrase = text;
+  
+  // 🔥 FINAL cleanup of product phrase
   productPhrase = cleanProductPhrase(productPhrase, nlu.language);
 
   return {
     qty,
     unit,
     money,
-    productPhrase: productPhrase
+    productPhrase: productPhrase,
   };
 }
 
