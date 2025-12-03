@@ -1,27 +1,6 @@
 
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy, Upload, MessageSquare, ImageIcon, Home, Lightbulb, Binary, TestTube, Cog, Share2, Monitor, Drama } from 'lucide-react';
-import Link from 'next/link';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { useRouter } from 'next/navigation';
-import { useMemo, useEffect, useState, useTransition, useRef } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { collection, query, where, doc, updateDoc, writeBatch } from 'firebase/firestore';
-import type { Order, Store as StoreType, Product, ProductPrice, ProductVariant, User } from '@/lib/types';
-import { Button } from '@/components/ui/button';
-import { t } from '@/lib/locales';
-import { useAdminAuth } from '@/hooks/use-admin-auth';
-import { useAppStore } from '@/lib/store';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { bulkUploadRecipes, importProductsFromUrl } from '@/app/actions';
-
-
 export const numberEngineTestCode = [
     {
         path: 'scripts/run-number-tests.ts',

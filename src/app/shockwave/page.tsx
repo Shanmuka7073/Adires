@@ -1,16 +1,14 @@
 
 'use client';
 
-import dynamic from 'next/dynamic';
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
-// Dynamically import the VirtualSupermarket to ensure it's client-side only
-const VirtualSupermarket = dynamic(() => import('@/components/VirtualSupermarket'), { ssr: false });
-
-export default function AnimationDemoPage() {
-
-  return (
-    <div className="w-full h-screen bg-gray-100">
-        <VirtualSupermarket />
-    </div>
-  );
+export default function ShockwavePage() {
+    const router = useRouter();
+    useEffect(() => {
+        router.replace('/');
+    }, [router]);
+    
+    return null;
 }

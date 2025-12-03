@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -20,8 +21,14 @@ import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { bulkUploadRecipes, importProductsFromUrl } from '@/app/actions';
 
+interface StatCardProps {
+    title: string;
+    value: string | number;
+    icon: React.ElementType;
+    loading?: boolean;
+}
 
-function StatCard({ title, value, icon: Icon, loading }: { title: string, value: string | number, icon: React.ElementType, loading?: boolean }) {
+function StatCard({ title, value, icon: Icon, loading }: StatCardProps) {
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
