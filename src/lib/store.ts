@@ -6,8 +6,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { Firestore, collection, getDocs, query, where } from 'firebase/firestore';
 import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
 import { getStores, getMasterProducts, getProductPrice } from './data';
-import { useFirebase } from '@/firebase';
-import { useEffect, RefObject } from 'react';
+import { RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { t as translate, initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups } from '@/lib/locales';
 import { generalCommands as defaultGeneralCommands, CommandGroup } from '@/lib/locales/commands';
@@ -33,14 +32,15 @@ export interface AppState {
   appReady: boolean; // Flag to indicate if the app is ready to be shown
   error: Error | null;
   language: string;
+  activeStoreId: string | null;
   setLanguage: (lang: string) => void;
+  setActiveStoreId: (storeId: string | null) => void;
   fetchInitialData: (db: Firestore) => Promise<void>;
   fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
   getProductName: (product: Product) => string;
   getAllAliases: (key: string) => Record<string, string[]>;
   setLocales: (newLocales: Locales) => void;
   setCommands: (newCommands: Record<string, CommandGroup>) => void;
-  setActiveStoreId: (storeId: string | null) => void;
   setAppReady: (isReady: boolean) => void; // Setter for the app ready flag
 }
 
@@ -65,6 +65,7 @@ export const useAppStore = create<AppState>()(
       appReady: false,
       error: null,
       language: getInitialLanguage(),
+      activeStoreId: null,
 
       setLanguage: (lang: string) => {
         if (typeof window !== 'undefined') {
@@ -72,15 +73,12 @@ export const useAppStore = create<AppState>()(
         }
         set({ language: lang });
       },
-
+      
       setLocales: (newLocales: Locales) => set({ locales: newLocales }),
       setCommands: (newCommands: Record<string, CommandGroup>) => set({ commands: newCommands }),
       
       setActiveStoreId: (storeId: string | null) => {
-          const { activeStoreId } = get();
-          if (activeStoreId !== storeId) {
-            set({ activeStoreId });
-          }
+        set({ activeStoreId: storeId });
       },
       
       setAppReady: (isReady: boolean) => set({ appReady: isReady }),
@@ -117,6 +115,7 @@ export const useAppStore = create<AppState>()(
             commands: enrichedCommands,
             isInitialized: true,
             loading: false,
+            appReady: true, // Set app as ready once data is fetched
           });
 
           if (masterProducts.length > 0) {
@@ -125,7 +124,7 @@ export const useAppStore = create<AppState>()(
           
         } catch (error) {
           console.error("Failed to fetch initial app data:", error);
-          set({ error: error as Error, loading: false });
+          set({ error: error as Error, loading: false, appReady: true }); // Still unlock the app on error
         }
       },
       
@@ -181,29 +180,11 @@ export const useAppStore = create<AppState>()(
           commands: state.commands,
           language: state.language,
           isInitialized: state.isInitialized,
+          activeStoreId: state.activeStoreId,
       }),
     }
   )
 );
-
-
-export const useInitializeApp = () => {
-    const { firestore } = useFirebase();
-    const { fetchInitialData, isInitialized, loading, setAppReady } = useAppStore();
-
-    useEffect(() => {
-        if (isInitialized) {
-            setAppReady(true);
-            return;
-        }
-        
-        if (firestore && !loading) {
-            fetchInitialData(firestore).then(() => {
-                setAppReady(true);
-            });
-        }
-    }, [firestore, isInitialized, loading, fetchInitialData, setAppReady]);
-};
 
 interface ProfileFormState {
   form: UseFormReturn<ProfileFormValues> | null;

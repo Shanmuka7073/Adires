@@ -6,12 +6,38 @@ import { FirebaseClientProvider, useFirebase } from '@/firebase';
 import { CartProvider } from '@/lib/cart';
 import { MainLayout } from '@/components/layout/main-layout';
 import { Toaster } from '@/components/ui/toaster';
-import { useAppStore, useInitializeApp } from '@/lib/store';
+import { useAppStore } from '@/lib/store';
 import GlobalLoader from './global-loader';
 import { InstallProvider } from '@/components/install-provider';
 
+
+function useInitializeApp() {
+    const { firestore } = useFirebase();
+    const { fetchInitialData, isInitialized, loading, setAppReady } = useAppStore();
+
+    useEffect(() => {
+        // If the app is already initialized from persisted state, we can mark it as ready.
+        if (isInitialized) {
+            setAppReady(true);
+            // Optionally, re-fetch in the background to get latest data
+            if (firestore) {
+                fetchInitialData(firestore);
+            }
+            return;
+        }
+        
+        // If not initialized and not currently loading, start the fetch.
+        if (firestore && !loading) {
+            fetchInitialData(firestore); // This will set appReady to true internally upon completion.
+        } else if (!firestore && !loading) {
+            // If firestore isn't available for some reason, we should still unlock the app.
+            setAppReady(true);
+        }
+    }, [firestore, isInitialized, loading, fetchInitialData, setAppReady]);
+};
+
+
 function AppContent({ children }: { children: React.ReactNode }) {
-    // This new hook handles the entire initialization flow.
     useInitializeApp(); 
     const { appReady } = useAppStore();
 
