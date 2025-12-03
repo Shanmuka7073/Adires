@@ -15,8 +15,10 @@ const numberWords: { [key: string]: number } = {
 
 const multipliers: { [key: string]: number } = {
   hundred: 100, thousand: 1000, million: 1000000,
+  lakh: 100000, crore: 10000000,
   vandala: 100, // te
-  lakh: 100000, // hi
+  sau: 100, // hi
+  hazaar: 1000, // hi
 };
 
 const teluguNumberWords: Record<string, number> = {
@@ -25,7 +27,7 @@ const teluguNumberWords: Record<string, number> = {
     "ఇరవై": 20, "ముప్పై": 30, "నలభై": 40, "యాభై": 50, "అరవై": 60, "డెబ్బై": 70, "ఎనభై": 80, "తొంభై": 90,
     "వంద": 100, "వెయ్యి": 1000,
     // Transliterations
-    "oka": 1, "okati": 1, "rendu": 2, "moodu": 3, "nalugu": 4, "aidu": 5, "aaru": 6, "yedu": 7, "enimidi": 8, "thommidi": 9, "padi": 10,
+    "oka": 1, "okati": 1, "rendu": 2, "moodu": 3, "nalugu": 4, "ayidu": 5, "aaru": 6, "yedu": 7, "enimidi": 8, "thommidi": 9, "padi": 10,
     "iravai": 20, "muppai": 30, "nalabhai": 40, "yabhai": 50
 };
 
@@ -33,7 +35,9 @@ const hindiNumberWords: Record<string, number> = {
     "शून्य": 0, "एक": 1, "दो": 2, "तीन": 3, "चार": 4, "पाँच": 5, "छह": 6, "सात": 7, "आठ": 8, "नौ": 9, "दस": 10,
     "ग्यारह": 11, "बारह": 12, "तेरह": 13, "चौदह": 14, "पंद्रह": 15, "सोलह": 16, "सत्रह": 17, "अठारह": 18, "उन्नीस": 19,
     "बीस": 20, "तीस": 30, "चालीस": 40, "पचास": 50, "साठ": 60, "सत्तर": 70, "अस्सी": 80, "नब्बे": 90,
-    "सौ": 100, "हज़ार": 1000
+    "सौ": 100, "हज़ार": 1000,
+    // Transliterations
+    "ek": 1, "do": 2, "teen": 3, "char": 4, "chaar": 4, "panch": 5, "paanch": 5
 };
 
 const allNumberWords = { ...numberWords, ...teluguNumberWords, ...hindiNumberWords, ...multipliers };
@@ -59,20 +63,19 @@ const units: Record<string, string> = {
 
 const combinedNumberAndUnitRegex = new RegExp(`(\\d*\\.?\\d+)\\s*(${Object.keys(units).join('|')})`, 'gi');
 
-function textToNumber(text: string): number {
-    const words = text.toLowerCase().split(/[\s-]+/);
+function textToNumber(words: string[]): number {
     let current = 0;
     let result = 0;
+
     for (const word of words) {
-        if (allNumberWords[word] !== undefined) {
-            const val = allNumberWords[word];
-            if (val === 100) {
-                current = current === 0 ? 100 : current * 100;
-            } else if (val >= 1000) {
-                result += current * val;
+        const value = allNumberWords[word];
+        if (value !== undefined) {
+            if (value >= 100) { // It's a multiplier
+                current = current === 0 ? 1 : current;
+                result += current * value;
                 current = 0;
             } else {
-                current += val;
+                current += value;
             }
         }
     }
@@ -80,67 +83,65 @@ function textToNumber(text: string): number {
     return result;
 }
 
+
 export function extractNumbers(text: string): ParsedNumber[] {
   const results: ParsedNumber[] = [];
-  let processedText = text;
+  let remainingText = text;
 
   // 1. Find combined number-unit tokens like "1kg" first
   let match;
-  while ((match = combinedNumberAndUnitRegex.exec(processedText)) !== null) {
+  while ((match = combinedNumberAndUnitRegex.exec(remainingText)) !== null) {
     const raw = match[0];
     const value = parseFloat(match[1]);
     const unit = units[match[2].toLowerCase()];
     const span: [number, number] = [match.index, match.index + raw.length];
     results.push({ raw, value, type: 'quantity', unit, span });
-  }
-  // Blank out matched parts to avoid re-parsing
-  results.forEach(r => {
-    processedText = processedText.substring(0, r.span[0]) + ' '.repeat(r.raw.length) + processedText.substring(r.span[1]);
-  });
-
-  // 2. Find fractions and remaining numbers
-  const tokens = processedText.toLowerCase().split(/\s+/);
-  for (let i = 0; i < tokens.length; i++) {
-    let currentPhrase = tokens.slice(i).join(' ');
-    
-    // Check for fraction words
-    for (const fracWord in fractionWords) {
-        if (currentPhrase.startsWith(fracWord)) {
-            const start = text.toLowerCase().indexOf(fracWord, i > 0 ? text.toLowerCase().indexOf(tokens[i-1]) + tokens[i-1].length : 0);
-            results.push({ raw: fracWord, value: fractionWords[fracWord], type: 'fraction', unit: 'kg', span: [start, start + fracWord.length]});
-            i += fracWord.split(' ').length -1;
-            continue;
-        }
-    }
-
-    // Check for text-based numbers
-    let numberWordSequence = "";
-    let temp_i = i;
-    while(temp_i < tokens.length && allNumberWords[tokens[temp_i]] !== undefined) {
-        numberWordSequence += (numberWordSequence ? " " : "") + tokens[temp_i];
-        temp_i++;
-    }
-
-    if (numberWordSequence) {
-        const value = textToNumber(numberWordSequence);
-        const start = text.toLowerCase().indexOf(numberWordSequence);
-        let unit: string | null = null;
-        if(temp_i < tokens.length && units[tokens[temp_i]]) {
-             unit = units[tokens[temp_i]];
-             i = temp_i;
-        } else {
-            i = temp_i - 1;
-        }
-        results.push({ raw: numberWordSequence, value, type: 'number', unit, span: [start, start + numberWordSequence.length]});
-    }
+    // Replace found part with placeholders to avoid re-matching
+    remainingText = remainingText.substring(0, span[0]) + ' '.repeat(raw.length) + remainingText.substring(span[1]);
   }
 
-  // 3. Find digit-based numbers
-  const digitRegex = /(\d+\.?\d*)/g;
-  while ((match = digitRegex.exec(processedText)) !== null) {
-      results.push({ raw: match[0], value: parseFloat(match[0]), type: 'number', unit: null, span: [match.index, match.index + match[0].length] });
+  // Regex for fractions, standalone numbers, and text numbers
+  const allWords = Object.keys(allNumberWords).join('|');
+  const allFractions = Object.keys(fractionWords).join('|').replace(/\//g, '\\/');
+  const numberRegex = new RegExp(
+      `\\b(${allFractions}|${allWords}|\\d+\\.?\\d*)\\b`
+      + `(?:\\s+(?:and\\s+a\\s+)?(?:${allFractions}|${allWords}))*` // handles "one and a half" or "two hundred fifty"
+      + `(?:\\s+(${Object.keys(units).join('|')}))?`, 'gi'
+  );
+
+  while ((match = numberRegex.exec(remainingText)) !== null) {
+      const raw = match[0].trim();
+      const unitWord = match[match.length - 1]; // last captured group is the unit
+      let numberPart = raw;
+
+      if (unitWord && raw.endsWith(unitWord)) {
+          numberPart = raw.substring(0, raw.length - unitWord.length).trim();
+      }
+      
+      const span: [number, number] = [match.index, match.index + raw.length];
+
+      // Avoid re-processing if this span is already covered by a combined match
+      if (results.some(r => span[0] >= r.span[0] && span[1] <= r.span[1])) {
+          continue;
+      }
+
+      let value: number;
+      let type: "number" | "quantity" | "fraction" = 'number';
+
+      if (fractionWords[numberPart] !== undefined) {
+          value = fractionWords[numberPart];
+          type = 'fraction';
+      } else if (!isNaN(parseFloat(numberPart))) {
+          value = parseFloat(numberPart);
+      } else {
+          value = textToNumber(numberPart.split(/\s+/));
+      }
+
+      const unit = unitWord ? units[unitWord.toLowerCase()] : null;
+      if (unit) type = 'quantity';
+
+      results.push({ raw: numberPart, value, type, unit, span });
   }
 
-  // Final sort by position
   return results.sort((a, b) => a.span[0] - b.span[0]);
 }

@@ -54,7 +54,7 @@ export function runNLU(text: string, lang: string = "en"): NLUResult {
     cleanedText: cleanedText,
     language: lang,
     hasNumbers: numberResult.length > 0,
-    hasMath: false, // Math detection removed for now to simplify
+    hasMath: false, 
     firstNumber: first?.value ?? null,
     quantity: first?.type === "quantity" || first?.type === 'fraction' ? first?.value ?? null : (first?.type === "number" ? first.value : null),
     unit: first?.unit ?? null,
@@ -66,7 +66,7 @@ export function runNLU(text: string, lang: string = "en"): NLUResult {
 const ACTION_WORDS: Record<string, string[]> = {
   en: ['add', 'order', 'buy', 'get', 'send', 'cost', 'price', 'remove', 'go', 'open', 'help'],
   te: ['pettu', 'teeseyi', 'vellu', 'cheyi', 'dhara', 'entha', 'konu'],
-  hi: ['daal', 'nikal', 'hata', 'madad', 'jao', 'kholo', 'daam', 'kya', 'hai', 'kharidna'],
+  hi: ['daal', 'nikal', 'hata', 'madad', 'jao', 'kholo', 'daam', 'kya', 'hai', 'kharidna', 'dal', 'do'],
 };
 
 // Filler words that often appear before the actual product
@@ -126,7 +126,7 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     let productPhrase = cleanProductPhrase(phraseForCleanup, nlu.language);
     
     // Final, more aggressive cleanup of remaining quantity/unit/currency words
-    const finalCleanupRegex = /\b(kilo|kilogram|grams|gram|gramula|pack|pc|piece|pettu|daal|do|rupayala|rupees|rs)\b/gi;
+    const finalCleanupRegex = /\b(kilo|kilogram|grams|gram|gramula|pack|pc|piece|pettu|daal|do|rupayala|rupees|rs|kilo|grams)\b/gi;
     productPhrase = productPhrase.replace(finalCleanupRegex, '').trim();
     
     // Clean up any remaining action/filler words again after the more aggressive cleanup
@@ -167,8 +167,8 @@ export function recognizeIntent(text: string, lang: string): Intent {
   
     // 4) NAVIGATE
     const navPatterns: Record<string, string[]> = {
-        orders: ['go to my orders', 'na orderlaku vellu', 'mere orders par jao'],
-        cart: ['open cart', 'cart open cheyi'],
+        orders: ['my orders', 'na orderlaku', 'mere orders'],
+        cart: ['open cart', 'cart open'],
     };
     for(const dest in navPatterns) {
         if(navPatterns[dest].some(p => lower.includes(p))) {
