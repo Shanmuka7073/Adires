@@ -5,7 +5,7 @@
  * Usage:
  * 1) Install dev deps: npm i -D ts-node @types/node tsconfig-paths
  * 2) Run:
- *    npx ts-node -r tsconfig-paths/register scripts/test-voice-commands.ts tests.jsonl report.jsonl
+ *    npx ts-node -r tsconfig-paths/register scripts/test-voice-commands.ts <tests.jsonl> <output-report.jsonl>
  *
  * tests.jsonl format: each line is a JSON object:
  * { "id": "tc1", "text": "30 rupees tomatoes", "lang": "en", "expect": { "intent": "ORDER_ITEM", "money": 30, "productPhrase": "tomatoes" } }
@@ -17,10 +17,8 @@ import * as fs from 'fs';
 import * as readline from 'readline';
 import * as path from 'path';
 
-// --- Corrected import path from the NLU voice integration file ---
-import { runNLU, extractQuantityAndProduct } from '@/lib/nlu/voice-integration';
-import type { NLUResult } from '@/lib/nlu/voice-integration';
-
+// --- Corrected import path from the NLU engine file ---
+import { runNLU, extractQuantityAndProduct, recognizeIntent, NLUResult } from '@/lib/nlu/engine';
 
 type TestCase = {
   id?: string;
@@ -155,20 +153,23 @@ async function main() {
 
     try {
       const nlu = runNLU(tc.text, lang);
+      const intent = recognizeIntent(tc.text, lang);
       const extracted = extractQuantityAndProduct(nlu);
 
       result.nlu = nlu;
       result.extracted = extracted;
 
       if (tc.expect) {
-        // build a combined actual object (best-effort) for easy field checks
         const actual: any = {
-          intent: (nlu as any).intent || (nlu.hasNumbers ? 'ORDER_ITEM' : 'UNKNOWN'),
-          money: (extracted as any).money ?? null,
-          qty: (extracted as any).qty ?? nlu.firstNumber ?? null,
-          unit: (extracted as any).unit ?? nlu.unit ?? null,
-          productPhrase: (extracted as any).productPhrase ?? nlu.cleanedText ?? null,
+          intent: intent.type,
+          destination: (intent as any).destination,
+          commandKey: (intent as any).commandKey,
+          money: extracted.money ?? null,
+          qty: extracted.qty ?? null,
+          unit: extracted.unit ?? null,
+          productPhrase: extracted.productPhrase ?? null,
         };
+        
         const mismatches = compareFields(tc.expect, actual);
         if (Object.keys(mismatches).length > 0) {
           result.match = false;
@@ -177,13 +178,12 @@ async function main() {
           result.match = true;
         }
       } else if (mode === 'match') {
-        // run simple match with catalog if available
-        const product = simpleProductMatch((extracted as any).productPhrase || nlu.cleanedText);
+        const product = simpleProductMatch(extracted.productPhrase || nlu.cleanedText);
         result.match = Boolean(product);
         if (!result.match) {
           result.mismatches = { productFound: { expected: 'any product', actual: null } };
         } else {
-          result.extracted.matchedProduct = product?.name || null;
+          (result.extracted as any).matchedProduct = product?.name || null;
         }
       }
 
@@ -198,10 +198,8 @@ async function main() {
   }
 
   for await (const line of rl) {
-    // throttle concurrency
     while (queue.length >= concurrency) {
       await Promise.race(queue);
-      // purge resolved
       for (let i = queue.length - 1; i >= 0; i--) {
         if ((queue[i] as any).resolved) queue.splice(i, 1);
       }
@@ -211,7 +209,6 @@ async function main() {
     queue.push(p);
   }
 
-  // wait for all remaining
   await Promise.all(queue);
   outStream.end();
 

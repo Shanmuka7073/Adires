@@ -1,9 +1,8 @@
-
 // IMPORTANT: Pure logic file (NO use client)
 
 import { parseRefsFromText } from "./ref-parser";
 import { resolveRefData, type RefResolverResult } from "./ref-resolver";
-import { parseNumbers } from "./number-engine-v2";
+import { extractNumbers, type ParsedNumber } from "./number-engine-v2";
 
 export interface NLUResult extends RefResolverResult {
   cleanedText: string;
@@ -13,6 +12,7 @@ export interface NLUResult extends RefResolverResult {
   firstNumber: number | null;
   quantity: number | null;
   unit: string | null;
+  numbers: ParsedNumber[];
 }
 
 /**
@@ -39,119 +39,85 @@ export function runNLU(text: string, lang: string = "en"): NLUResult {
 
   const cleanedText = text.trim().replace(/\u00A0/g, " ").replace(/\s+/g, " ");
 
+  // The new number engine is more robust, so we use it directly.
+  const numbers = extractNumbers(cleanedText);
+  const first = numbers[0] || null;
+
+  // The old ref parser is still useful for positional things like "first", "last"
   const refs = parseRefsFromText(cleanedText);
   const resolved = resolveRefData(cleanedText, refs);
 
-  const numParsed = parseNumbers(cleanedText);
-  const allNumbers = [...resolved.numbers, ...numParsed];
-
-  const first = allNumbers[0] || null;
-
   return {
     ...resolved,
-    numbers: allNumbers,
+    numbers,
     cleanedText,
     language: lang,
-    hasNumbers: allNumbers.length > 0,
+    hasNumbers: numbers.length > 0,
     hasMath: resolved.mathExpression !== null,
     firstNumber: first?.value ?? null,
-    quantity: first?.type === "quantity" ? first?.value ?? null : null,
+    quantity: first?.type === "quantity" ? first?.value ?? null : (first?.type === "number" || first?.type === "fraction" ? first.value : null),
     unit: first?.unit ?? null,
   };
 }
 
+const ACTION_WORDS: Record<string, string[]> = {
+  en: ['add', 'order', 'buy', 'get', 'send', 'cost', 'price', 'remove', 'go', 'open', 'help'],
+  te: ['pettu', 'teeseyi', 'vellu', 'cheyi', 'dhara', 'entha'],
+  hi: ['daal', 'nikal', 'hata', 'madad', 'jao', 'kholo', 'daam', 'kya', 'hai'],
+};
+
+const FILLER_WORDS = [
+  'of', 'from', 'my', 'to', 'the', 'par', 'se', 'nundi', 'ka', 'ki', 'ko', 'lo', 'la'
+];
+
+function cleanProductPhrase(raw: string, lang: string): string {
+  const lowerTokens = raw.trim().toLowerCase().split(/\s+/);
+  const actionSet = new Set(ACTION_WORDS[lang] ?? []);
+  const fillerSet = new Set(FILLER_WORDS);
+
+  // strip leading action / filler words
+  while (lowerTokens.length && (actionSet.has(lowerTokens[0]) || fillerSet.has(lowerTokens[0]))) {
+    lowerTokens.shift();
+  }
+
+  return lowerTokens.join(' ').trim();
+}
+
+
 /**
- * EXTRACT QUANTITY + PRODUCT
+ * EXTRACT QUANTITY + PRODUCT PHRASE
  */
 export function extractQuantityAndProduct(nlu: NLUResult) {
-  let qty = 1; // Default to 1
-  let unit: string | null = null;
-  let money: number | null = null;
+    let qty = 1;
+    let unit: string | null = null;
+    let money: number | null = null;
+    let text = nlu.cleanedText.toLowerCase();
 
-  let text = nlu.cleanedText.toLowerCase();
+    // Use the more powerful number engine's output
+    if (nlu.numbers.length > 0) {
+        const firstNum = nlu.numbers[0];
+        qty = firstNum.value;
+        unit = firstNum.unit || null;
 
-  const moneyRegex =
-    /\b(?:₹|rs|rupees|rupay|rupaya|रूपये|రూపాయల)\b\.?\s*(\d+\.?\d*)|\b(\d+\.?\d*)\s*(?:₹|rs|rupees|rupay|रूपये|రూపాయల)\b/i;
-  const weightRegex =
-    /\b(\d+\.?\d*)\s*\b(kg|kilo|kilogram|grams|gram|gm|g|gms)\b/i;
-  const volumeRegex =
-    /\b(\d+\.?\d*)\s*\b(liter|litre|liters|litres|ltr|l|ml|milliliter|millilitre)\b/i;
-  const pieceRegex = /\b(\d+)\s*\b(pack|packet|pc|piece|pieces)\b/i;
-  
-  // New: Regex for units without an explicit number (e.g., "kg", "liter")
-  const unitOnlyRegex = /\b(kg|kilo|kilogram|grams|gram|gm|g|gms|liter|litre|ltr|l|ml|pc|piece|pieces|pack|packet)\b/i;
-
-  const fractionWords: Record<string, number> = {
-    "one and a half": 1.5, "one and half": 1.5, "half": 0.5, "1/2": 0.5, "one half": 0.5,
-    "quarter": 0.25, "1/4": 0.25, "one quarter": 0.25,
-    "three fourths": 0.75, "three quarters": 0.75, "3/4": 0.75,
-    "ఒకటిన్నర": 1.5, "సగం": 0.5, "అర": 0.5, "పావు": 0.25, "మూడొంతులు": 0.75,
-    "डेढ़": 1.5, "आधा": 0.5, "पाव": 0.25, "तीन चौथाई": 0.75,
-  };
-
-  const liquidKeywords = ['oil', 'milk', 'water', 'juice', 'ghee', 'sauce', 'vinegar'];
-
-  let match;
-
-  // 1) MONEY
-  if ((match = text.match(moneyRegex))) {
-    const val = match[1] || match[2];
-    if (val) money = parseFloat(val);
-    text = text.replace(match[0], "").trim();
-  }
-  // 2) WEIGHT
-  else if ((match = text.match(weightRegex))) {
-    qty = parseFloat(match[1]);
-    unit = match[2].toLowerCase().startsWith("k") ? "kg" : "gm";
-    text = text.replace(match[0], "").trim();
-  }
-  // 3) VOLUME
-  else if ((match = text.match(volumeRegex))) {
-    qty = parseFloat(match[1]);
-    const u = match[2].toLowerCase();
-    unit = u.startsWith("l") ? "ltr" : "ml";
-    text = text.replace(match[0], "").trim();
-  }
-  // 4) PIECES
-  else if ((match = text.match(pieceRegex))) {
-    qty = parseInt(match[1], 10);
-    unit = "pc";
-    text = text.replace(match[0], "").trim();
-  }
-  // 5) FRACTIONS & COMPOUND NUMBERS
-  else {
-    let fractionFound = false;
-    for (const key in fractionWords) {
-      if (text.includes(key)) {
-        qty = fractionWords[key];
-        text = text.replace(key, "").trim();
-        if (/\b(liter|litre|ltr|liters|litres|ml)\b/.test(text) || liquidKeywords.some(lk => text.includes(lk))) {
-          unit = 'ltr';
-        } else {
-          unit = 'kg';
-        }
-        fractionFound = true;
-        break;
-      }
+        // Remove the parsed number phrase from the text to isolate the product phrase
+        text = text.substring(0, firstNum.span[0]) + text.substring(firstNum.span[1]);
     }
     
-    // 6) UNIT ONLY (e.g., "kg chicken") -> implies quantity of 1
-    if (!fractionFound && (match = text.match(unitOnlyRegex))) {
-        qty = 1;
-        const u = match[1].toLowerCase();
-        if (u.startsWith('k')) unit = 'kg';
-        else if (u.startsWith('g')) unit = 'gm';
-        else if (u.startsWith('l')) unit = 'ltr';
-        else if (u.startsWith('m')) unit = 'ml';
-        else unit = 'pc';
-        text = text.replace(match[0], '').trim();
+    // Check for money separately as it's a special case
+    const moneyRegex = /(?:rs|rupees|₹|rupay|rupayala|रूपये|రూపాయల)\.?\s*(\d+\.?\d*)|(\d+\.?\d*)\s*(?:rs|rupees|₹|rupay|rupayala|रूपये|రూపాయల)\.?/i;
+    let match;
+    if ((match = text.match(moneyRegex))) {
+        money = parseFloat(match[1] || match[2]);
+        text = text.replace(match[0], "").trim();
     }
-  }
 
-  // 7) CLEANUP
-  text = text.replace(/\b(of)\b/gi, "").replace(/\s+/g, ' ').trim();
 
-  const productPhrase = text;
+    const productPhrase = cleanProductPhrase(text, nlu.language);
 
-  return { qty, unit, money, productPhrase };
+    return {
+        qty,
+        unit,
+        money,
+        productPhrase,
+    };
 }
