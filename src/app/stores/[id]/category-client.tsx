@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import ProductCard from '@/components/product-card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
 import { Button } from '@/components/ui/button';
@@ -120,6 +120,7 @@ function MobileCategoryScroller({ categories, selectedCategory, onSelectCategory
 
 export function CategoryClient({ store, allProducts, productPrices, isLoading }: CategoryClientProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const categoryFromUrl = searchParams.get('category');
   const highlightProduct = searchParams.get('highlight');
@@ -161,7 +162,7 @@ export function CategoryClient({ store, allProducts, productPrices, isLoading }:
 
   const handleSelectCategory = (categoryName: string) => {
     setSelectedCategory(categoryName);
-    router.push(`/stores/${store.id}?category=${encodeURIComponent(categoryName)}`);
+    router.push(`/stores/${store.id}?category=${encodeURIComponent(categoryName)}`, { scroll: false });
   };
 
   const filteredProducts = useMemo(() => {
