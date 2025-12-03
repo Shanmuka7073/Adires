@@ -1,11 +1,10 @@
-
 // IMPORTANT: Pure logic file (NO use client)
 
 import { parseRefsFromText } from "./ref-parser";
 import { resolveRefData, type RefResolverResult } from "./ref-resolver";
 import { extractNumbers, type ParsedNumber } from "./number-engine-v2";
 
-export interface NLUResult extends RefResolverResult {
+export interface NLUResult {
   cleanedText: string;
   language: string;
   hasNumbers: boolean;
@@ -67,7 +66,7 @@ export function runNLU(text: string, lang: string = "en"): NLUResult {
     hasNumbers: numbers.length > 0,
     hasMath: resolved.mathExpression !== null,
     firstNumber: first?.value ?? null,
-    quantity: first?.type === "quantity" ? first?.value ?? null : (first?.type === "number" || first?.type === "fraction" ? first.value : null),
+    quantity: first?.type === "quantity" || first?.type === 'fraction' ? first?.value ?? null : (first?.type === "number" ? first.value : null),
     unit: first?.unit ?? null,
   };
 }
@@ -97,6 +96,7 @@ function cleanProductPhrase(raw: string, lang: string): string {
   return lowerTokens.join(' ').trim();
 }
 
+
 /**
  * EXTRACT QUANTITY + PRODUCT PHRASE
  */
@@ -104,7 +104,7 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     let qty = 1;
     let unit: string | null = null;
     let money: number | null = null;
-    let text = nlu.cleanedText.toLowerCase();
+    let text = nlu.cleanedText;
 
     if (nlu.numbers.length > 0) {
         const firstNum = nlu.numbers[0];
@@ -119,7 +119,8 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
         money = parseFloat(match[1] || match[2]);
         text = text.replace(match[0], "").trim();
     }
-
+    
+    // Final cleanup
     let productPhrase = cleanProductPhrase(text, nlu.language);
 
     return {
@@ -231,12 +232,8 @@ export function recognizeIntent(text: string, lang: string): Intent {
     }
   
     // 6) ORDER ITEM (fallback if we see quantity/product)
-    if (
-      lower.startsWith('add ') ||
-      lower.startsWith('order ') ||
-      lower.startsWith('oka kilo') ||   // te
-      lower.startsWith('do kilo')       // hi
-    ) {
+    const nlu = runNLU(text, lang);
+    if (nlu.hasNumbers) {
       return { type: 'ORDER_ITEM', originalText: text, lang };
     }
   
