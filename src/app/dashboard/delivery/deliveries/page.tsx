@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { MapPin, Check, Banknote, History, Landmark, Receipt, CreditCard, ChevronDown, ChevronUp, Route, Package, Bot, Info } from 'lucide-react';
+import { MapPin, Check, Banknote, History, Landmark, Receipt, CreditCard, ChevronDown, ChevronUp, Route, Package, Bot, Info, Loader2 } from 'lucide-react';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, doc, updateDoc, Timestamp, increment, writeBatch, orderBy, setDoc } from 'firebase/firestore';
 import { useEffect, useState, useMemo, useTransition } from 'react';
@@ -25,7 +25,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { SlideToConfirm } from '@/components/ui/slide-to-confirm';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 
 const DELIVERY_FEE = 30;
 const DELIVERY_PROXIMITY_THRESHOLD_KM = 1;
@@ -436,11 +436,30 @@ function MyActiveDeliveriesCard({ order, handleMarkAsDelivered, isUpdating, onSh
                      <Button variant="secondary" size="sm" onClick={() => onShowDetails(order)}>Details</Button>
                 </div>
             </div>
-            <SlideToConfirm 
-                onConfirm={() => handleMarkAsDelivered(order)} 
-                text="Slide to Mark as Delivered"
-                isConfirmationDisabled={isUpdating || !order.deliveryLat || !order.deliveryLng}
-            />
+
+            <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <Button 
+                        className="w-full"
+                        disabled={isUpdating || !order.deliveryLat || !order.deliveryLng}
+                    >
+                        {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                        Mark as Delivered
+                    </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Confirm Delivery</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to mark this order as delivered? This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleMarkAsDelivered(order)}>Confirm</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </Card>
     )
 }
