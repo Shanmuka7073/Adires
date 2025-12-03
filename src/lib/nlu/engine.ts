@@ -1,6 +1,16 @@
+
 // IMPORTANT: Pure logic file (NO use client)
 
 import { extractNumbers, type ParsedNumber } from "./number-engine-v2";
+
+// Assuming extractNumbers returns an object like:
+// { numbers: ParsedNumber[], cleanedText: string, mathResult: null | MathResult }
+interface NumberEngineResult {
+    numbers: ParsedNumber[];
+    cleanedText: string;
+    mathResult: any | null;
+}
+// Note: Since we don't have the definition for extractNumbers, we must assume its return type.
 
 export interface NLUResult {
   cleanedText: string;
@@ -43,29 +53,37 @@ export function runNLU(text: string, lang: string = "en"): NLUResult {
     };
   }
 
-  const cleanedText = text.trim().replace(/\u00A0/g, " ").replace(/\s+/g, " ");
+  const rawCleanedText = text.trim().replace(/\u00A0/g, " ").replace(/\s+/g, " ");
 
-  const numberResult = extractNumbers(cleanedText);
-  const first = numberResult.numbers[0] || null;
+  // We cast the result to the assumed structure to fix the type errors.
+  const result: any = extractNumbers(rawCleanedText);
+  const numbers: ParsedNumber[] = result.numbers ?? (Array.isArray(result) ? result : []);
+  const finalCleanedText: string = result.cleanedText ?? rawCleanedText;
+  const mathResult: any | null = result.mathResult ?? null;
+
+  const first = numbers[0] || null;
 
   return {
-    numbers: numberResult.numbers,
-    cleanedText: numberResult.cleanedText,
+    numbers: numbers,
+    cleanedText: finalCleanedText,
     language: lang,
-    hasNumbers: numberResult.numbers.length > 0,
-    hasMath: numberResult.mathResult !== null,
+    hasNumbers: numbers.length > 0,
+    hasMath: mathResult !== null, 
     firstNumber: first?.value ?? null,
     quantity: first?.type === "quantity" || first?.type === 'fraction' ? first?.value ?? null : (first?.type === "number" ? first.value : null),
     unit: first?.unit ?? null,
   };
 }
 
+
+// Words we want to strip from the *front* of the phrase
 const ACTION_WORDS: Record<string, string[]> = {
   en: ['add', 'order', 'buy', 'get', 'send', 'cost', 'price', 'remove', 'go', 'open', 'help'],
-  te: ['pettu', 'teeseyi', 'vellu', 'cheyi', 'dhara', 'entha'],
-  hi: ['daal', 'nikal', 'hata', 'madad', 'jao', 'kholo', 'daam', 'kya', 'hai'],
+  te: ['pettu', 'teeseyi', 'vellu', 'cheyi', 'dhara', 'entha', 'konu'],
+  hi: ['daal', 'nikal', 'hata', 'madad', 'jao', 'kholo', 'daam', 'kya', 'hai', 'kharidna'],
 };
 
+// Filler words that often appear before the actual product
 const FILLER_WORDS = [
   'of', 'from', 'my', 'to', 'the', 'par', 'se', 'nundi', 'ka', 'ki', 'ko', 'lo', 'la'
 ];
@@ -83,6 +101,7 @@ function cleanProductPhrase(raw: string, lang: string): string {
   return lowerTokens.join(' ').trim();
 }
 
+
 /**
  * EXTRACT QUANTITY + PRODUCT PHRASE
  */
@@ -94,35 +113,37 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     
     const numberData = nlu.numbers.length > 0 ? nlu.numbers[0] : null;
 
-    // 1. Check for MONEY context
     const moneyRegex = /(?:rs|rupees|₹|rupay|rupayala|रूपये|రూపాయలు)\.?/i;
-    if (text.match(moneyRegex) && numberData) {
+    const moneyMatch = text.match(moneyRegex);
+
+    if (moneyMatch && numberData) {
         money = numberData.value;
         qty = 1; 
         unit = null;
     } else if (numberData) {
-        // 2. Handle QUANTITY context
         qty = numberData.value;
         unit = numberData.unit || null;
     }
     
-    // 3. Remove number/unit/money phrases from text
     let phraseForCleanup = text;
     
-    // Remove money keywords
-    phraseForCleanup = phraseForCleanup.toLowerCase().replace(moneyRegex, '').trim();
+    if (moneyMatch) {
+      phraseForCleanup = phraseForCleanup.replace(moneyRegex, '').trim();
+    }
 
-    // Remove raw number/unit/quantity phrases
     if (numberData) {
-        // Strip the raw number text (e.g., '1kg', 'two hundred fifty', '30')
+        // Replace the raw number text
         phraseForCleanup = phraseForCleanup.replace(new RegExp(`\\b${numberData.raw}\\b`, 'i'), '').trim();
     }
     
-    // 4. Final cleanup for action/filler words
+    // Clean up the product phrase by removing action/filler words
     let productPhrase = cleanProductPhrase(phraseForCleanup, nlu.language);
-
-    // Final check for common quantity/unit words that cleanProductPhrase missed
-    productPhrase = productPhrase.replace(/\b(kilo|gram(s|ula)?|pettu|daal|do)\b/g, '').trim();
+    
+    // Final cleanup of remaining quantity/unit words (e.g., 'kilo', 'grams' which were not part of the 'raw' number but are common)
+    productPhrase = productPhrase.replace(/\b(kilo|kilogram|grams|gram|gramula|pack|pc|piece)\b/gi, '').trim();
+    
+    // Clean up specific action/filler words that might remain after number stripping
+    productPhrase = cleanProductPhrase(productPhrase, nlu.language);
     
     return { qty, unit, money, productPhrase };
 }
@@ -135,7 +156,7 @@ export function recognizeIntent(text: string, lang: string): Intent {
     const lower = text.toLowerCase().trim();
   
     // 1) SMART ORDER: "order X from Y to Z"
-    if ((lower.includes('order') || lower.includes('send')) && lower.includes('from') && lower.includes('to')) {
+    if ((lower.startsWith('order') || lower.startsWith('send')) && lower.includes('from') && lower.includes('to')) {
         return { type: 'SMART_ORDER', originalText: text, lang };
     }
   
@@ -144,86 +165,41 @@ export function recognizeIntent(text: string, lang: string): Intent {
         lower.includes('price of') ||
         lower.includes('cost of') ||
         lower.includes('cost ') ||
-        lower.includes('dhara entha') ||          // te
-        lower.includes('daam kya hai')            // hi
+        lower.includes('dhara entha') ||
+        lower.includes('daam kya hai')
     ) {
-        const cleaned = lower
-            .replace('price of', '')
-            .replace('cost of', '')
-            .replace('cost', '')
-            .replace('dhara entha', '')
-            .replace('daam kya hai', '')
-            .trim();
-
-        return {
-            type: 'CHECK_PRICE',
-            productPhrase: cleanProductPhrase(cleaned, lang),
-            originalText: text,
-            lang,
-        };
+        const cleaned = lower.replace('price of', '').replace('cost of', '').replace('cost', '').replace('dhara entha', '').replace('daam kya hai', '').trim();
+        return { type: 'CHECK_PRICE', productPhrase: cleanProductPhrase(cleaned, lang), originalText: text, lang };
     }
 
     // 3) REMOVE FROM CART
     if (lower.startsWith('remove') || lower.includes('teeseyi') || lower.includes('nikal') || lower.includes('hata')) {
-        const cleaned = lower
-            .replace(/^remove\s+/, '')
-            .replace(/teeseyi|nikal|hata/g, '') // strip common words if they appear elsewhere
-            .trim();
+        // Only replace leading 'remove', or inner non-leading removal words
+        const cleaned = lower.replace(/^remove\s+/, '').replace(/teeseyi|nikal|hata/g, '').trim();
+        return { type: 'REMOVE_ITEM', productPhrase: cleanProductPhrase(cleaned, lang), originalText: text, lang };
+    }
+  
+    // 4) NAVIGATE
+    const navPatterns: Record<string, string[]> = {
+        orders: ['go to my orders', 'na orderlaku vellu', 'mere orders par jao'],
+        cart: ['open cart', 'cart open cheyi'],
+    };
+    for(const dest in navPatterns) {
+        if(navPatterns[dest].some(p => lower.includes(p))) {
+            return { type: 'NAVIGATE', destination: dest, originalText: text, lang };
+        }
+    }
 
-        return {
-            type: 'REMOVE_ITEM',
-            productPhrase: cleanProductPhrase(cleaned, lang),
-            originalText: text,
-            lang,
-        };
+    // 5) CONVERSATIONAL
+    if (lower.startsWith('help') || lower.includes('sahayam') || lower.includes('madad')) {
+        return { type: 'CONVERSATIONAL', commandKey: 'help', originalText: text, lang };
     }
   
-    // 4) NAVIGATE – orders / cart
-    if (
-        lower.includes('go to my orders') ||
-        lower.includes('na orderlaku vellu') ||
-        lower.includes('mere orders par jao')
-    ) {
-        return {
-            type: 'NAVIGATE',
-            destination: 'orders',
-            originalText: text,
-            lang,
-        };
-    }
-  
-    if (
-        lower.includes('open cart') ||
-        lower.includes('cart open cheyi')
-    ) {
-        return {
-            type: 'NAVIGATE',
-            destination: 'cart',
-            originalText: text,
-            lang,
-        };
-    }
-  
-    // 5) CONVERSATIONAL "help"
-    if (
-        lower.startsWith('help') ||
-        lower.includes('sahayam cheyi') ||
-        lower.includes('madad')
-    ) {
-        return {
-            type: 'CONVERSATIONAL',
-            commandKey: 'help',
-            originalText: text,
-            lang,
-        };
-    }
-  
-    // 6) ORDER ITEM (fallback if we see quantity/product)
+    // 6) ORDER ITEM (fallback)
     const nlu = runNLU(text, lang);
     if (nlu.hasNumbers || text.match(/(?:rs|rupees|₹|rupay|rupayala|रूपये|రూపాయలు)/i)) {
       return { type: 'ORDER_ITEM', originalText: text, lang };
     }
   
-    // 7) default
     return { type: 'UNKNOWN', originalText: text, lang };
 }
