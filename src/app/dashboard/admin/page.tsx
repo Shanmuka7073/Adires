@@ -1,8 +1,7 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy, Upload, MessageSquare, ImageIcon, Home, Lightbulb, Binary, TestTube, Cog, Share2, Monitor, Drama, Edit, BarChart3 } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy, Upload, MessageSquare, ImageIcon, Home, Lightbulb, Binary, TestTube, Cog, Share2, Monitor, Drama, Edit, BarChart3, FileCode } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -287,6 +286,7 @@ function ProductInventory() {
                                             <TableHead>Product</TableHead>
                                             <TableHead>Category</TableHead>
                                             <TableHead>Variants (Price & Stock)</TableHead>
+                                            <TableHead className="text-right">Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -600,6 +600,12 @@ export default function AdminDashboardPage() {
                         description="View daily and monthly sales reports categorized by product type."
                         href="/dashboard/admin/sales-report"
                         icon={BarChart3}
+                    />
+                     <AdminActionCard 
+                        title="Sales Report Code"
+                        description="View the source code for the sales report feature."
+                        href="/dashboard/admin/sales-report-help"
+                        icon={FileCode}
                     />
                     <AdminActionCard
                         title="Failed Command Center"
