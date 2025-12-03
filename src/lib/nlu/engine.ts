@@ -1,8 +1,6 @@
 
 // IMPORTANT: Pure logic file (NO use client)
 
-import { parseRefsFromText } from "./ref-parser";
-import { resolveRefData, type RefResolverResult } from "./ref-resolver";
 import { extractNumbers, type ParsedNumber } from "./number-engine-v2";
 
 export interface NLUResult {
@@ -58,7 +56,7 @@ export function runNLU(text: string, lang: string = "en"): NLUResult {
     hasNumbers: numberResult.numbers.length > 0,
     hasMath: numberResult.mathResult !== null,
     firstNumber: first?.value ?? null,
-    quantity: first?.type === "quantity" || first?.type === 'fraction' ? first?.value ?? null : (first?.type === "number" ? first.value : null),
+    quantity: first?.type === 'quantity' || first?.type === 'fraction' ? first?.value ?? null : (first?.type === "number" ? first.value : null),
     unit: first?.unit ?? null,
   };
 }
@@ -102,6 +100,8 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
         const firstNum = nlu.numbers[0];
         qty = firstNum.value;
         unit = firstNum.unit || null;
+        // Remove the number part from the text to isolate the product phrase
+        text = text.substring(0, firstNum.span[0]) + text.substring(firstNum.span[1]);
     }
     
     const moneyRegex = /(?:rs|rupees|₹|rupay|rupayala|रूपये|రూపాయల)\.?\s*(\d+\.?\d*)|(\d+\.?\d*)\s*(?:rs|rupees|₹|rupay|rupayala|रूपये|రూపాయల)\.?/i;
@@ -112,7 +112,7 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     }
     
     // Final cleanup
-    let productPhrase = cleanProductPhrase(nlu.cleanedText, nlu.language);
+    let productPhrase = cleanProductPhrase(text, nlu.language);
 
     return {
         qty,
