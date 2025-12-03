@@ -1,21 +1,64 @@
 {
   "name": "LocalBasket",
   "short_name": "LocalBasket",
-  "description": "Your local grocery delivery app.",
+  "description": "Your local grocery delivery app, with voice commands.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#90EE90",
+  "background_color": "#f3f4f6",
+  "theme_color": "#4ade80",
+  "orientation": "portrait-primary",
+  "lang": "en-US",
+  "categories": [
+    "shopping",
+    "food"
+  ],
   "icons": [
     {
-      "src": "/icon-192x192.png",
+      "src": "https://picsum.photos/seed/icon192/192/192",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "/icon-512x512.png",
+      "src": "https://picsum.photos/seed/icon512/512/512",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
-  ]
+  ],
+  "shortcuts": [
+    {
+      "name": "View Cart",
+      "short_name": "Cart",
+      "description": "View items in your shopping cart",
+      "url": "/cart",
+      "icons": [
+        {
+          "src": "https://picsum.photos/seed/cart96/96/96",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "My Orders",
+      "short_name": "Orders",
+      "description": "View your past and current orders",
+      "url": "/dashboard/customer/my-orders",
+      "icons": [
+        {
+          "src": "https://picsum.photos/seed/orders96/96/96",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "share_target": {
+    "action": "/cart",
+    "method": "GET",
+    "params": {
+      "title": "name",
+      "text": "description",
+      "url": "url"
+    }
+  }
 }
