@@ -131,7 +131,7 @@ const generateReport = async (db, period: 'daily' | 'monthly'): Promise<ReportDa
         const orderSnapshot = await getDocs(ordersQuery);
         const deliveredOrders = orderSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
 
-        const report: ReportData = {
+        const report = {
             grocery: { totalSales: 0, itemCount: 0, topProducts: new Map() },
             meat: { totalSales: 0, itemCount: 0, topProducts: new Map() },
             vegetable: { totalSales: 0, itemCount: 0, topProducts: new Map() },
@@ -207,6 +207,8 @@ export default function SalesReportPage() {
                 generateReport(firestore, 'daily'),
                 generateReport(firestore, 'monthly')
             ]);
+            console.log("Daily Result:", dailyData);
+            console.log("Monthly Result:", monthlyData);
             setDailyReport(dailyData);
             setMonthlyReport(monthlyData);
         });
@@ -290,7 +292,7 @@ export default function SalesReportPage() {
                                     <ReportCard 
                                         key={card.dataKey}
                                         title={card.title}
-                                        data={dailyReport?.[card.dataKey] ?? null}
+                                        data={dailyReport?.[card.dataKey] ?? { totalSales: 0, itemCount: 0, topProducts: [] }}
                                         icon={card.icon}
                                         isLoading={isLoading}
                                     />
@@ -303,7 +305,7 @@ export default function SalesReportPage() {
                                     <ReportCard 
                                         key={card.dataKey}
                                         title={card.title}
-                                        data={monthlyReport?.[card.dataKey] ?? null}
+                                        data={monthlyReport?.[card.dataKey] ?? { totalSales: 0, itemCount: 0, topProducts: [] }}
                                         icon={card.icon}
                                         isLoading={isLoading}
                                     />
