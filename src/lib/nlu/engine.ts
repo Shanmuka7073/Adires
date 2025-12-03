@@ -1,4 +1,3 @@
-
 // IMPORTANT: Pure logic file (NO use client)
 
 import { extractNumbers, type ParsedNumber } from "./number-engine-v2";
@@ -53,21 +52,19 @@ export function runNLU(text: string, lang: string = "en"): NLUResult {
     cleanedText: cleanedText,
     language: lang,
     hasNumbers: numberResult.length > 0,
-    hasMath: false, // Math is not part of this engine version yet
+    hasMath: false, 
     firstNumber: first?.value ?? null,
-    quantity: first?.type === 'quantity' || first?.type === 'fraction' ? first.value : (first?.type === 'number' ? first.value : null),
+    quantity: first?.value ?? null,
     unit: first?.unit ?? null,
   };
 }
 
-// Words we want to strip from the *front* of the phrase
 const ACTION_WORDS: Record<string, string[]> = {
   en: ['add', 'order', 'buy', 'get', 'send', 'cost', 'price', 'remove', 'go', 'open', 'help'],
   te: ['pettu', 'teeseyi', 'vellu', 'cheyi', 'dhara', 'entha'],
   hi: ['daal', 'nikal', 'hata', 'madad', 'jao', 'kholo', 'daam', 'kya', 'hai'],
 };
 
-// Filler words that often appear before the actual product
 const FILLER_WORDS = [
   'of', 'from', 'my', 'to', 'the', 'par', 'se', 'nundi', 'ka', 'ki', 'ko', 'lo', 'la'
 ];
@@ -77,7 +74,6 @@ function cleanProductPhrase(raw: string, lang: string): string {
   const actionSet = new Set(ACTION_WORDS[lang] ?? []);
   const fillerSet = new Set(FILLER_WORDS);
 
-  // strip leading action / filler words
   while (lowerTokens.length && (actionSet.has(lowerTokens[0]) || fillerSet.has(lowerTokens[0]))) {
     lowerTokens.shift();
   }
@@ -85,57 +81,43 @@ function cleanProductPhrase(raw: string, lang: string): string {
   return lowerTokens.join(' ').trim();
 }
 
-
 /**
  * EXTRACT QUANTITY + PRODUCT PHRASE
  */
 export function extractQuantityAndProduct(nlu: NLUResult) {
+  let text = nlu.cleanedText;
   let qty = 1;
   let unit: string | null = null;
   let money: number | null = null;
-  let text = nlu.cleanedText;
+  let productPhrase = text;
 
-  // Use the parsed numbers from the NLU result
-  const parsedNumbers = nlu.numbers;
-  let phraseWithoutNumbers = text;
+  const numberData = nlu.numbers.length > 0 ? nlu.numbers[0] : null;
 
-  // Regex for money detection (now including Telugu and Hindi words)
-  const moneyRegex = /(?:rs|rupees|₹|rupay|rupayala|रूपये|రూపాయలు)\.?\s*(\d+\.?\d*)|(\d+\.?\d*)\s*(?:rs|rupees|₹|rupay|rupayala|रूपये|రూపాయలు)\.?/i;
-  let match;
+  const moneyRegex = /(?:rs|rupees|₹|rupay|rupayala|रूपये|రూపాయలు)\.?/i;
+  const moneyMatch = text.match(moneyRegex);
 
-  if ((match = text.match(moneyRegex))) {
-    // If a money term is found, it overrides the quantity.
-    money = parseFloat(match[1] || match[2]);
-    qty = 1; // Reset quantity if it's a monetary value
-    unit = null; // Money implies no unit like kg/gm
-    phraseWithoutNumbers = text.replace(match[0], "").trim();
-  } else if (parsedNumbers.length > 0) {
-    const firstNum = parsedNumbers[0];
-    qty = firstNum.value;
-    unit = firstNum.unit || null;
+  if (moneyMatch && numberData) {
+    money = numberData.value;
+    productPhrase = text.substring(0, moneyMatch.index!).trim() + text.substring(moneyMatch.index! + moneyMatch[0].length).trim();
+    productPhrase = productPhrase.replace(numberData.raw, '').trim();
+    qty = 1;
+    unit = null;
+  } else if (numberData) {
+    qty = numberData.value;
+    unit = numberData.unit || null;
+    productPhrase = (text.substring(0, numberData.span[0]) + text.substring(numberData.span[1])).trim();
     
-    // Create a phrase with the number part blanked out to avoid re-matching
-    phraseWithoutNumbers = text.substring(0, firstNum.span[0]) + ' '.repeat(firstNum.raw.length) + text.substring(firstNum.span[1]);
-  }
-  
-  // Final cleanup of the remaining phrase
-  let productPhrase = cleanProductPhrase(phraseWithoutNumbers, nlu.language);
-
-  // If a unit was found but no quantity number, it implies a quantity of 1
-  const unitWords = ['kg', 'kilo', 'gram', 'grams', 'gm', 'g', 'ml', 'milliliter', 'litre', 'ltr', 'liter', 'l', 'pack', 'packet', 'pc', 'piece', 'pieces'];
-  const firstWord = productPhrase.split(' ')[0].toLowerCase();
-  
-  if(unitWords.includes(firstWord) && parsedNumbers.length === 0 && !money) {
-      productPhrase = productPhrase.substring(firstWord.length).trim();
+    // Also remove the unit if it was a separate word
+    if (unit) {
+        const unitRegex = new RegExp(`\\s+${Object.keys(nlu.numbers[0].unit!).find(u => u.toLowerCase() === unit)}s?\\b`, 'i');
+        productPhrase = productPhrase.replace(unitRegex, '').trim();
+    }
   }
 
+  // Final cleanup for action words
+  productPhrase = cleanProductPhrase(productPhrase, nlu.language);
 
-  return {
-    qty,
-    unit,
-    money,
-    productPhrase,
-  };
+  return { qty, unit, money, productPhrase };
 }
 
 
@@ -145,109 +127,36 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
 export function recognizeIntent(text: string, lang: string): Intent {
     const lower = text.toLowerCase().trim();
   
-    // 1) SMART ORDER: "order X from Y to Z"
-    if (
-      /^order\s/.test(lower) &&
-      /\sfrom\s.+\sto\s.+/.test(lower)
-    ) {
-      return { type: 'SMART_ORDER', originalText: text, lang };
+    if (lower.includes('order') && lower.includes('from') && lower.includes('to')) {
+        return { type: 'SMART_ORDER', originalText: text, lang };
     }
   
-    // 2) CHECK PRICE
-    if (
-      lower.includes('price of') ||
-      lower.includes('cost of') ||
-      lower.includes('cost ') ||
-      lower.includes('dhara entha') ||          // te
-      lower.includes('daam kya hai')            // hi
-    ) {
-      const cleaned = lower
-        .replace('price of', '')
-        .replace('cost of', '')
-        .replace('cost', '')
-        .replace('dhara entha', '')
-        .replace('daam kya hai', '')
-        .trim();
-  
-      return {
-        type: 'CHECK_PRICE',
-        productPhrase: cleanProductPhrase(cleaned, lang),
-        originalText: text,
-        lang,
-      };
+    if (lower.includes('price of') || lower.includes('cost of') || lower.includes('dhara entha') || lower.includes('daam kya hai')) {
+        const productPhrase = lower.replace(/price of|cost of|dhara entha|daam kya hai/g, '').trim();
+        return { type: 'CHECK_PRICE', productPhrase: cleanProductPhrase(productPhrase, lang), originalText: text, lang };
     }
   
-    // 3) REMOVE FROM CART
-    if (
-      /^remove\s/.test(lower) ||
-      lower.startsWith('na cart nundi') ||   // te
-      lower.includes('teeseyi') ||          // te
-      lower.includes('nikal') ||            // hi
-      lower.includes('hata')                // hi
-    ) {
-      const cleaned = lower
-        .replace(/^remove\s+/, '')
-        .replace(/^na cart nundi\s+/, '')
-        .trim();
-  
-      return {
-        type: 'REMOVE_ITEM',
-        productPhrase: cleanProductPhrase(cleaned, lang),
-        originalText: text,
-        lang,
-      };
+    if (lower.startsWith('remove') || lower.includes('teeseyi') || lower.includes('nikal')) {
+        const productPhrase = lower.replace(/remove/g, '').trim();
+        return { type: 'REMOVE_ITEM', productPhrase: cleanProductPhrase(productPhrase, lang), originalText: text, lang };
     }
   
-    // 4) NAVIGATE – orders / cart
-    if (
-      lower.includes('go to my orders') ||
-      lower.includes('na orderlaku vellu') ||
-      lower.includes('mere orders par jao')
-    ) {
-      return {
-        type: 'NAVIGATE',
-        destination: 'orders',
-        originalText: text,
-        lang,
-      };
+    if (lower.includes('go to my orders') || lower.includes('na orderlaku vellu') || lower.includes('mere orders par jao')) {
+        return { type: 'NAVIGATE', destination: 'orders', originalText: text, lang };
     }
   
-    if (
-      lower.includes('open cart') ||
-      lower.includes('cart open cheyi')
-    ) {
-      return {
-        type: 'NAVIGATE',
-        destination: 'cart',
-        originalText: text,
-        lang,
-      };
+    if (lower.includes('open cart') || lower.includes('cart open cheyi')) {
+        return { type: 'NAVIGATE', destination: 'cart', originalText: text, lang };
     }
   
-    // 5) CONVERSATIONAL "help"
-    if (
-      lower.startsWith('help') ||
-      lower.includes('sahayam cheyi') ||
-      lower.includes('madad') // if you add such Hindi phrases later
-    ) {
-      return {
-        type: 'CONVERSATIONAL',
-        commandKey: 'help',
-        originalText: text,
-        lang,
-      };
+    if (lower.startsWith('help') || lower.includes('sahayam cheyi') || lower.includes('madad')) {
+        return { type: 'CONVERSATIONAL', commandKey: 'help', originalText: text, lang };
     }
   
-    // 6) ORDER ITEM (fallback if we see quantity/product)
     const nlu = runNLU(text, lang);
-    if (nlu.hasNumbers) {
+    if (nlu.hasNumbers || text.match(/(?:rs|rupees|₹|rupay|rupayala|रूपये|రూపాయలు)/i)) {
       return { type: 'ORDER_ITEM', originalText: text, lang };
     }
-    const moneyRegex = /(?:rs|rupees|₹|rupay|rupayala|रूपये|రూపాయలు)/i;
-    if (moneyRegex.test(lower)) {
-        return { type: 'ORDER_ITEM', originalText: text, lang };
-    }
   
-    // 7) default
     return { type: 'UNKNOWN', originalText: text, lang };
 }
