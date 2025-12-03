@@ -513,7 +513,7 @@ export default function AdminDashboardPage() {
     
     const adminStoreQuery = useMemoFirebase(() => {
         if (!firestore) return null;
-        return query(collection(firestore, 'stores'), where('name', '==', 'Grozo'));
+        return query(collection(firestore, 'stores'), where('name', '==', 'LocalBasket'));
     }, [firestore]);
 
 
