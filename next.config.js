@@ -33,14 +33,12 @@ const nextConfig = {
   },
   transpilePackages: ['firebase', '@firebase/auth', '@firebase/firestore'],
   typescript: {
-    // !! WARN !!
-    // Dangerously allow production builds to successfully complete even if
-    // your project has type errors.
-    // !! WARN !!
-    ignoreBuildErrors: true,
+    // This is now set to false to show all TypeScript errors during build.
+    ignoreBuildErrors: false,
   },
   eslint: {
-    ignoreDuringBuilds: true,
+    // This is now set to false to show all ESLint errors during build.
+    ignoreDuringBuilds: false,
   },
 };
 
