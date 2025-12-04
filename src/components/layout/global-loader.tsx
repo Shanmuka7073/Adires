@@ -1,3 +1,4 @@
+
 "use client";
 
 import Image from 'next/image';
@@ -9,7 +10,7 @@ export default function GlobalLoader() {
             <div className="absolute inset-0 border-4 border-primary/20 rounded-full"></div>
             <div className="absolute inset-0 border-t-4 border-primary rounded-full animate-spin"></div>
             <Image 
-                src="https://i.ibb.co/7CXZVv4/local-basket-logo.png" 
+                src="https://i.ibb.co/WpfhKqjW/android-launchericon-512-512.png" 
                 alt="Local Basket Logo"
                 width={64}
                 height={64}

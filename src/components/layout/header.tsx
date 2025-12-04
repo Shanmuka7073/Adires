@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -200,7 +201,7 @@ export function Header({ suggestedCommands }: HeaderProps) {
           href="/"
           className="flex items-center gap-2 text-lg font-semibold md:text-base"
         >
-          <Image src="https://i.ibb.co/7CXZVv4/local-basket-logo.png" alt="Local Basket Logo" width={32} height={32} />
+          <Image src="https://i.ibb.co/WpfhKqjW/android-launchericon-512-512.png" alt="Local Basket Logo" width={32} height={32} />
           <span className="font-headline">LocalBasket</span>
         </Link>
         {navLinks.map(({ href, label }) => (
@@ -230,7 +231,7 @@ export function Header({ suggestedCommands }: HeaderProps) {
                     href="/"
                     className="flex items-center gap-2 text-lg font-semibold"
                     >
-                    <Image src="https://i.ibb.co/7CXZVv4/local-basket-logo.png" alt="Local Basket Logo" width={32} height={32} />
+                    <Image src="https://i.ibb.co/WpfhKqjW/android-launchericon-512-512.png" alt="Local Basket Logo" width={32} height={32} />
                     <span className="font-headline">LocalBasket</span>
                 </Link>
             </SheetTitle>
