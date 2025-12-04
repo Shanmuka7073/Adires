@@ -706,7 +706,7 @@ export async function updateSiteConfig(configId: string, data: Partial<SiteConfi
     }
 }
 
-export async function uploadPwaIcon(formData: FormData): Promise<{ success: boolean; error?: string }> {
+export async function uploadPwaIcon(formData: FormData): Promise<{ success: boolean; icon192Url?: string; icon512Url?: string; error?: string; }> {
     const file = formData.get('file') as File;
     if (!file) {
         return { success: false, error: 'No file provided.' };
@@ -718,23 +718,31 @@ export async function uploadPwaIcon(formData: FormData): Promise<{ success: bool
 
         const buffer = Buffer.from(await file.arrayBuffer());
         
-        // For simplicity, we save the same icon for both sizes.
-        // In a real app, you would resize the image.
-        await fs.writeFile(path.join(pwaDir, 'icon-192x192.png'), buffer);
-        await fs.writeFile(path.join(pwaDir, 'icon-512x512.png'), buffer);
+        // Save the icons
+        const icon192Path = path.join(pwaDir, 'icon-192x192.png');
+        const icon512Path = path.join(pwaDir, 'icon-512x512.png');
+        
+        // For this demo, we'll just write the same buffer to both files.
+        // A real implementation would use a library like 'sharp' to resize.
+        await fs.writeFile(icon192Path, buffer);
+        await fs.writeFile(icon512Path, buffer);
 
-        // Now, update the manifest file
+        // Define the public URLs
+        const icon192Url = '/pwa/icon-192x192.png';
+        const icon512Url = '/pwa/icon-512x512.png';
+
+        // Update the manifest file
         const manifestPath = path.join(process.cwd(), 'public', 'manifest.json');
         const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf-8'));
         
         manifest.icons = [
             {
-                "src": "/pwa/icon-192x192.png",
+                "src": icon192Url,
                 "sizes": "192x192",
                 "type": "image/png"
             },
             {
-                "src": "/pwa/icon-512x512.png",
+                "src": icon512Url,
                 "sizes": "512x512",
                 "type": "image/png"
             }
@@ -742,7 +750,7 @@ export async function uploadPwaIcon(formData: FormData): Promise<{ success: bool
 
         await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2));
 
-        return { success: true };
+        return { success: true, icon192Url, icon512Url };
 
     } catch (error: any) {
         console.error("PWA Icon upload failed:", error);

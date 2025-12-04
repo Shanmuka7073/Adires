@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Trash2, ImageIcon, Search, Link2, Sparkles, Save, Upload as UploadIcon } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, ImageIcon, Search, Link2, Sparkles, Save, Upload as UploadIcon, Copy } from 'lucide-react';
 import { getPlaceholderImages, updatePlaceholderImages, uploadPwaIcon } from '@/app/actions';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
@@ -298,6 +298,8 @@ function PwaIconManager() {
     const [preview, setPreview] = useState<string | null>(null);
     const [file, setFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [uploadedUrls, setUploadedUrls] = useState<{ icon192Url?: string; icon512Url?: string; } | null>(null);
+
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = event.target.files?.[0];
@@ -307,6 +309,7 @@ function PwaIconManager() {
                 return;
             }
             setFile(selectedFile);
+            setUploadedUrls(null); // Clear previous URLs
             const reader = new FileReader();
             reader.onload = (e) => setPreview(e.target?.result as string);
             reader.readAsDataURL(selectedFile);
@@ -327,9 +330,7 @@ function PwaIconManager() {
                 const result = await uploadPwaIcon(formData);
                 if (result.success) {
                     toast({ title: 'PWA Icons Updated!', description: 'The manifest and icon files have been saved.' });
-                    setFile(null);
-                    setPreview(null);
-                    if (fileInputRef.current) fileInputRef.current.value = '';
+                    setUploadedUrls({ icon192Url: result.icon192Url, icon512Url: result.icon512Url });
                 } else {
                     throw new Error(result.error);
                 }
@@ -338,6 +339,14 @@ function PwaIconManager() {
             }
         });
     };
+    
+    const copyToClipboard = (text: string, type: string) => {
+        navigator.clipboard.writeText(text).then(() => {
+            toast({ title: `${type} URL Copied!`, description: 'The URL has been copied to your clipboard.'});
+        }).catch(() => {
+            toast({ variant: 'destructive', title: 'Copy Failed' });
+        });
+    }
 
     return (
         <Card className="max-w-md mx-auto">
@@ -364,6 +373,23 @@ function PwaIconManager() {
                     {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadIcon className="mr-2 h-4 w-4" />}
                     Upload & Set as PWA Icon
                 </Button>
+                 {uploadedUrls && (
+                    <div className="pt-4 border-t space-y-4">
+                        <h4 className="font-semibold text-center">Upload Successful!</h4>
+                        <div className="space-y-2">
+                             <Label>Icon URLs (Saved in `public/pwa`)</Label>
+                            <div className="flex items-center gap-2">
+                                <Input readOnly value={uploadedUrls.icon192Url} />
+                                <Button size="icon" variant="outline" onClick={() => copyToClipboard(uploadedUrls.icon192Url || '', '192x192')}><Copy className="h-4 w-4" /></Button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Input readOnly value={uploadedUrls.icon512Url} />
+                                <Button size="icon" variant="outline" onClick={() => copyToClipboard(uploadedUrls.icon512Url || '', '512x512')}><Copy className="h-4 w-4" /></Button>
+                            </div>
+                            <p className="text-xs text-muted-foreground">These URLs have been automatically added to your `manifest.json`.</p>
+                        </div>
+                    </div>
+                )}
             </CardContent>
         </Card>
     );
