@@ -13,6 +13,7 @@ const ptSans = PT_Sans({
 export const metadata: Metadata = {
   title: "LocalBasket",
   description: "Your local grocery delivery app.",
+  manifest: "/manifest.json",
   icons: {
     apple: "/apple-touch-icon.png",
   },
@@ -31,7 +32,6 @@ export default function RootLayout({
     <html lang="en" className={`${ptSans.variable}`}>
        <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="manifest" href="/manifest.json" />
       </head>
       <body>
         <ClientRoot>{children}</ClientRoot>
