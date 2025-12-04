@@ -9,18 +9,19 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
-import { Search, Menu as MenuIcon, Mic, ShoppingBag, Heart, Star, Briefcase, Sparkles, Lamp, Home as HomeIcon, LayoutGrid, ChevronDown, MapPin, User as UserCircle, Globe, ChefHat, Lightbulb, Info } from 'lucide-react';
+import { Search, Menu as MenuIcon, Mic, ShoppingBag, Heart, Star, Briefcase, Sparkles, Lamp, Home as HomeIcon, LayoutGrid, ChevronDown, MapPin, User as UserCircle, Globe, ChefHat, Lightbulb, Info, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import ProductCard from '@/components/product-card';
 import { doc } from 'firebase/firestore';
 import { useVoiceCommanderContext } from '@/components/layout/main-layout';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { CartIcon } from '@/components/cart/cart-icon';
 import { RecipeCard } from '@/components/features/recipe-card';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { useInstall } from '@/components/install-provider';
 
 
 const homePageSections = [
@@ -167,6 +168,8 @@ function LanguageSwitcher() {
 function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: (term: string) => void, user: User | null, onMicClick: () => void }) {
     const [deliveryTime, setDeliveryTime] = useState<number | null>(null);
     const { onCartOpenChange, isCartOpen, voiceEnabled } = useVoiceCommanderContext();
+    const { canInstall, triggerInstall } = useInstall();
+
 
     useEffect(() => {
         // Generate random delivery time only on the client-side to avoid hydration errors
@@ -198,11 +201,41 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
                         {voiceEnabled && <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>}
                     </Button>
                     <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />
-                     <Link href="/dashboard/customer/my-profile">
-                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                            <UserCircle className="h-5 w-5 text-gray-600"/>
-                        </div>
-                    </Link>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                             <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center cursor-pointer">
+                                <UserCircle className="h-5 w-5 text-gray-600"/>
+                            </div>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                            {user ? (
+                                <>
+                                <DropdownMenuItem disabled>{user.email}</DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <Link href="/dashboard/customer/my-profile" passHref>
+                                    <DropdownMenuItem>Profile</DropdownMenuItem>
+                                </Link>
+                                <Link href="/dashboard" passHref>
+                                    <DropdownMenuItem>Dashboard</DropdownMenuItem>
+                                </Link>
+                                </>
+                            ) : (
+                                <Link href="/login" passHref>
+                                    <DropdownMenuItem>Login</DropdownMenuItem>
+                                </Link>
+                            )}
+                             {canInstall && (
+                                <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={triggerInstall}>
+                                    <Download className="mr-2 h-4 w-4" />
+                                    <span>Install App</span>
+                                </DropdownMenuItem>
+                                </>
+                            )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </div>
             <div className="flex items-center gap-3 bg-[#F1F3F5] p-2.5 rounded-xl border border-gray-200">
@@ -354,3 +387,4 @@ export default function LocalBasketHomepage() {
     </div>
   );
 }
+
