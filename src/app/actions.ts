@@ -705,3 +705,42 @@ export async function updateSiteConfig(configId: string, data: Partial<SiteConfi
         return { success: false, error: error.message };
     }
 }
+
+export async function uploadPwaIcon(file: File): Promise<{ success: boolean; error?: string }> {
+    try {
+        const pwaDir = path.join(process.cwd(), 'public', 'pwa');
+        await fs.mkdir(pwaDir, { recursive: true });
+
+        const buffer = Buffer.from(await file.arrayBuffer());
+        
+        // For simplicity, we save the same icon for both sizes.
+        // In a real app, you would resize the image.
+        await fs.writeFile(path.join(pwaDir, 'icon-192x192.png'), buffer);
+        await fs.writeFile(path.join(pwaDir, 'icon-512x512.png'), buffer);
+
+        // Now, update the manifest file
+        const manifestPath = path.join(process.cwd(), 'public', 'manifest.json');
+        const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf-8'));
+        
+        manifest.icons = [
+            {
+                "src": "/pwa/icon-192x192.png",
+                "sizes": "192x192",
+                "type": "image/png"
+            },
+            {
+                "src": "/pwa/icon-512x512.png",
+                "sizes": "512x512",
+                "type": "image/png"
+            }
+        ];
+
+        await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2));
+
+        return { success: true };
+
+    } catch (error: any) {
+        console.error("PWA Icon upload failed:", error);
+        return { success: false, error: error.message || 'An unknown server error occurred.' };
+    }
+}

@@ -10,8 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Trash2, ImageIcon, Search, Link2, Sparkles, Save } from 'lucide-react';
-import { getPlaceholderImages, updatePlaceholderImages } from '@/app/actions';
+import { Loader2, PlusCircle, Trash2, ImageIcon, Search, Link2, Sparkles, Save, Upload as UploadIcon } from 'lucide-react';
+import { getPlaceholderImages, updatePlaceholderImages, uploadPwaIcon } from '@/app/actions';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -291,6 +291,82 @@ function ProductImageManager() {
     )
 }
 
+// --- NEW: PWA Icon Management ---
+function PwaIconManager() {
+    const { toast } = useToast();
+    const [isUploading, startUploadTransition] = useTransition();
+    const [preview, setPreview] = useState<string | null>(null);
+    const [file, setFile] = useState<File | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const selectedFile = event.target.files?.[0];
+        if (selectedFile) {
+            if (selectedFile.type !== 'image/png') {
+                toast({ variant: 'destructive', title: 'Invalid File Type', description: 'Please upload a PNG file for the PWA icon.' });
+                return;
+            }
+            setFile(selectedFile);
+            const reader = new FileReader();
+            reader.onload = (e) => setPreview(e.target?.result as string);
+            reader.readAsDataURL(selectedFile);
+        }
+    };
+
+    const handleUpload = async () => {
+        if (!file) {
+            toast({ variant: 'destructive', title: 'No file selected.' });
+            return;
+        }
+
+        startUploadTransition(async () => {
+            try {
+                const result = await uploadPwaIcon(file);
+                if (result.success) {
+                    toast({ title: 'PWA Icons Updated!', description: 'The manifest and icon files have been saved.' });
+                    setFile(null);
+                    setPreview(null);
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error: any) {
+                toast({ variant: 'destructive', title: 'Upload Failed', description: error.message });
+            }
+        });
+    };
+
+    return (
+        <Card className="max-w-md mx-auto">
+            <CardHeader>
+                <CardTitle>Upload PWA Icon</CardTitle>
+                <CardDescription>Upload a single PNG file. It will be automatically resized and saved as your PWA home screen icon.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="w-32 h-32 mx-auto rounded-xl border-2 border-dashed flex items-center justify-center bg-muted">
+                    {preview ? (
+                        <Image src={preview} alt="Icon preview" width={128} height={128} className="rounded-lg object-cover" />
+                    ) : (
+                        <ImageIcon className="h-12 w-12 text-muted-foreground" />
+                    )}
+                </div>
+                <Input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png"
+                    onChange={handleFileChange}
+                    disabled={isUploading}
+                />
+                <Button className="w-full" onClick={handleUpload} disabled={isUploading || !file}>
+                    {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadIcon className="mr-2 h-4 w-4" />}
+                    Upload & Set as PWA Icon
+                </Button>
+            </CardContent>
+        </Card>
+    );
+}
+
+
 // --- Main Page Component ---
 
 export default function ImageManagementPage() {
@@ -321,9 +397,10 @@ export default function ImageManagementPage() {
                 </CardHeader>
                 <CardContent>
                     <Tabs defaultValue="placeholders">
-                        <TabsList className="grid w-full grid-cols-2">
+                        <TabsList className="grid w-full grid-cols-3">
                             <TabsTrigger value="placeholders">Category & Placeholder Images</TabsTrigger>
                             <TabsTrigger value="products">Product Images</TabsTrigger>
+                             <TabsTrigger value="pwa">PWA & App Icons</TabsTrigger>
                         </TabsList>
                         <TabsContent value="placeholders" className="mt-6">
                             <PlaceholderImageManager />
@@ -331,9 +408,13 @@ export default function ImageManagementPage() {
                         <TabsContent value="products" className="mt-6">
                             <ProductImageManager />
                         </TabsContent>
+                         <TabsContent value="pwa" className="mt-6">
+                            <PwaIconManager />
+                        </TabsContent>
                     </Tabs>
                 </CardContent>
             </Card>
         </div>
     );
 }
+
