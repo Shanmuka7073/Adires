@@ -706,7 +706,12 @@ export async function updateSiteConfig(configId: string, data: Partial<SiteConfi
     }
 }
 
-export async function uploadPwaIcon(file: File): Promise<{ success: boolean; error?: string }> {
+export async function uploadPwaIcon(formData: FormData): Promise<{ success: boolean; error?: string }> {
+    const file = formData.get('file') as File;
+    if (!file) {
+        return { success: false, error: 'No file provided.' };
+    }
+
     try {
         const pwaDir = path.join(process.cwd(), 'public', 'pwa');
         await fs.mkdir(pwaDir, { recursive: true });

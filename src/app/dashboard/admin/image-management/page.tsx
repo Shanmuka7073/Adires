@@ -321,7 +321,10 @@ function PwaIconManager() {
 
         startUploadTransition(async () => {
             try {
-                const result = await uploadPwaIcon(file);
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const result = await uploadPwaIcon(formData);
                 if (result.success) {
                     toast({ title: 'PWA Icons Updated!', description: 'The manifest and icon files have been saved.' });
                     setFile(null);
