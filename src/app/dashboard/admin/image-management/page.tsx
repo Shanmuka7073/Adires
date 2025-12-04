@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, PlusCircle, Trash2, ImageIcon, Search, Link2, Sparkles, Save, Upload as UploadIcon, Copy, ExternalLink } from 'lucide-react';
-import { getPlaceholderImages, updatePlaceholderImages, uploadPwaIcon } from '@/app/actions';
+import { getPlaceholderImages, updatePlaceholderImages, uploadPwaIcon, getManifest } from '@/app/actions';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -295,10 +295,33 @@ function ProductImageManager() {
 function PwaIconManager() {
     const { toast } = useToast();
     const [isUploading, startUploadTransition] = useTransition();
+    const [isLoadingManifest, setIsLoadingManifest] = useState(true);
     const [preview, setPreview] = useState<string | null>(null);
     const [file, setFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploadedUrls, setUploadedUrls] = useState<{ icon192Url?: string; icon512Url?: string; } | null>(null);
+    
+    useEffect(() => {
+        const fetchCurrentIcons = async () => {
+            setIsLoadingManifest(true);
+            try {
+                const manifest = await getManifest();
+                if (manifest && manifest.icons) {
+                    const icon192 = manifest.icons.find(icon => icon.sizes === '192x192');
+                    const icon512 = manifest.icons.find(icon => icon.sizes === '512x512');
+                    setUploadedUrls({
+                        icon192Url: icon192?.src,
+                        icon512Url: icon512?.src
+                    });
+                }
+            } catch (error) {
+                 toast({ variant: 'destructive', title: 'Could not load manifest', description: (error as Error).message });
+            } finally {
+                setIsLoadingManifest(false);
+            }
+        };
+        fetchCurrentIcons();
+    }, [toast]);
 
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -366,24 +389,35 @@ function PwaIconManager() {
                     {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadIcon className="mr-2 h-4 w-4" />}
                     Upload & Set as PWA Icon
                 </Button>
-                 {uploadedUrls && (
+                 {(uploadedUrls?.icon192Url || isLoadingManifest) && (
                     <div className="pt-4 border-t space-y-4">
-                        <h4 className="font-semibold text-center">Upload Successful!</h4>
-                        <div className="flex items-center justify-around">
-                            <div className="text-center">
-                                <a href={uploadedUrls.icon192Url} target="_blank" rel="noopener noreferrer">
-                                    <Image src={uploadedUrls.icon192Url!} alt="192x192 icon" width={96} height={96} className="rounded-lg border-2 border-primary mx-auto" />
-                                </a>
-                                <p className="text-xs mt-2 text-muted-foreground">192x192</p>
+                        <h4 className="font-semibold text-center">Current PWA Icons</h4>
+                        {isLoadingManifest ? (
+                             <div className="flex items-center justify-around">
+                                <Skeleton className="h-24 w-24 rounded-lg" />
+                                <Skeleton className="h-24 w-24 rounded-lg" />
                             </div>
-                            <div className="text-center">
-                                 <a href={uploadedUrls.icon512Url} target="_blank" rel="noopener noreferrer">
-                                    <Image src={uploadedUrls.icon512Url!} alt="512x512 icon" width={96} height={96} className="rounded-lg border-2 border-primary mx-auto" />
-                                </a>
-                                <p className="text-xs mt-2 text-muted-foreground">512x512</p>
+                        ) : (
+                             <div className="flex items-center justify-around">
+                                {uploadedUrls.icon192Url && (
+                                    <div className="text-center">
+                                        <a href={uploadedUrls.icon192Url} target="_blank" rel="noopener noreferrer" className="block border-2 border-primary rounded-lg p-1 hover:border-accent transition-colors">
+                                            <Image src={uploadedUrls.icon192Url} alt="192x192 icon" width={96} height={96} className="rounded-md" />
+                                        </a>
+                                        <p className="text-xs mt-2 text-muted-foreground">192x192</p>
+                                    </div>
+                                )}
+                                 {uploadedUrls.icon512Url && (
+                                    <div className="text-center">
+                                        <a href={uploadedUrls.icon512Url} target="_blank" rel="noopener noreferrer" className="block border-2 border-primary rounded-lg p-1 hover:border-accent transition-colors">
+                                            <Image src={uploadedUrls.icon512Url} alt="512x512 icon" width={96} height={96} className="rounded-md" />
+                                        </a>
+                                        <p className="text-xs mt-2 text-muted-foreground">512x512</p>
+                                    </div>
+                                )}
                             </div>
-                        </div>
-                        <p className="text-xs text-muted-foreground text-center">These URLs have been automatically added to your app manifest.</p>
+                        )}
+                        <p className="text-xs text-muted-foreground text-center">These are the icons currently saved in your app manifest.</p>
                     </div>
                 )}
             </CardContent>
