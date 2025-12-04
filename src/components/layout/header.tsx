@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Package2, Menu, UserCircle, Store, ShoppingBag, Truck, LayoutDashboard, Mic, MicOff, Globe, Sparkles, Box, LogOut, Monitor, Download } from 'lucide-react';
+import { Menu, UserCircle, Store, ShoppingBag, Truck, LayoutDashboard, Mic, MicOff, Globe, Sparkles, Box, LogOut, Monitor, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -34,6 +34,7 @@ import { t } from '@/lib/locales';
 import { useAppStore } from '@/lib/store';
 import { useVoiceCommanderContext } from './main-layout';
 import { useInstall } from '../install-provider';
+import Image from 'next/image';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -199,7 +200,7 @@ export function Header({ suggestedCommands }: HeaderProps) {
           href="/"
           className="flex items-center gap-2 text-lg font-semibold md:text-base"
         >
-          <Package2 className="h-6 w-6 text-primary" />
+          <Image src="https://i.ibb.co/7CXZVv4/local-basket-logo.png" alt="Local Basket Logo" width={32} height={32} />
           <span className="font-headline">LocalBasket</span>
         </Link>
         {navLinks.map(({ href, label }) => (
@@ -229,7 +230,7 @@ export function Header({ suggestedCommands }: HeaderProps) {
                     href="/"
                     className="flex items-center gap-2 text-lg font-semibold"
                     >
-                    <Package2 className="h-6 w-6 text-primary" />
+                    <Image src="https://i.ibb.co/7CXZVv4/local-basket-logo.png" alt="Local Basket Logo" width={32} height={32} />
                     <span className="font-headline">LocalBasket</span>
                 </Link>
             </SheetTitle>
