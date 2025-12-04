@@ -75,8 +75,7 @@
     "tailwindcss": "^3.4.1",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5",
-    "workbox-webpack-plugin": "^7.1.0"
+    "typescript": "^5"
   },
   "description": "This is a NextJS starter in Firebase Studio.",
   "main": "index.js",
