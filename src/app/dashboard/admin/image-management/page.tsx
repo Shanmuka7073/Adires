@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Trash2, ImageIcon, Search, Link2, Sparkles, Save, Upload as UploadIcon, Copy } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, ImageIcon, Search, Link2, Sparkles, Save, Upload as UploadIcon, Copy, ExternalLink } from 'lucide-react';
 import { getPlaceholderImages, updatePlaceholderImages, uploadPwaIcon } from '@/app/actions';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
@@ -340,14 +340,6 @@ function PwaIconManager() {
         });
     };
     
-    const copyToClipboard = (text: string, type: string) => {
-        navigator.clipboard.writeText(text).then(() => {
-            toast({ title: `${type} URL Copied!`, description: 'The URL has been copied to your clipboard.'});
-        }).catch(() => {
-            toast({ variant: 'destructive', title: 'Copy Failed' });
-        });
-    }
-
     return (
         <Card className="max-w-md mx-auto">
             <CardHeader>
@@ -368,6 +360,7 @@ function PwaIconManager() {
                     accept="image/png"
                     onChange={handleFileChange}
                     disabled={isUploading}
+                    className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
                 />
                 <Button className="w-full" onClick={handleUpload} disabled={isUploading || !file}>
                     {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadIcon className="mr-2 h-4 w-4" />}
@@ -376,18 +369,21 @@ function PwaIconManager() {
                  {uploadedUrls && (
                     <div className="pt-4 border-t space-y-4">
                         <h4 className="font-semibold text-center">Upload Successful!</h4>
-                        <div className="space-y-2">
-                             <Label>Icon URLs (Saved in `public/pwa`)</Label>
-                            <div className="flex items-center gap-2">
-                                <Input readOnly value={uploadedUrls.icon192Url} />
-                                <Button size="icon" variant="outline" onClick={() => copyToClipboard(uploadedUrls.icon192Url || '', '192x192')}><Copy className="h-4 w-4" /></Button>
+                        <div className="flex items-center justify-around">
+                            <div className="text-center">
+                                <a href={uploadedUrls.icon192Url} target="_blank" rel="noopener noreferrer">
+                                    <Image src={uploadedUrls.icon192Url!} alt="192x192 icon" width={96} height={96} className="rounded-lg border-2 border-primary mx-auto" />
+                                </a>
+                                <p className="text-xs mt-2 text-muted-foreground">192x192</p>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <Input readOnly value={uploadedUrls.icon512Url} />
-                                <Button size="icon" variant="outline" onClick={() => copyToClipboard(uploadedUrls.icon512Url || '', '512x512')}><Copy className="h-4 w-4" /></Button>
+                            <div className="text-center">
+                                 <a href={uploadedUrls.icon512Url} target="_blank" rel="noopener noreferrer">
+                                    <Image src={uploadedUrls.icon512Url!} alt="512x512 icon" width={96} height={96} className="rounded-lg border-2 border-primary mx-auto" />
+                                </a>
+                                <p className="text-xs mt-2 text-muted-foreground">512x512</p>
                             </div>
-                            <p className="text-xs text-muted-foreground">These URLs have been automatically added to your `manifest.json`.</p>
                         </div>
+                        <p className="text-xs text-muted-foreground text-center">These URLs have been automatically added to your app manifest.</p>
                     </div>
                 )}
             </CardContent>
