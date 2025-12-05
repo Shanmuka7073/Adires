@@ -10,44 +10,34 @@ const withPWA = require('next-pwa')({
 const nextConfig = {
   images: {
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'placehold.co',
-      },
-      {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'picsum.photos',
-      },
-      {
-        protocol: 'https',
-        hostname: 'i.ibb.co',
-      },
-      {
-        protocol: 'https',
-        hostname: 'storage.googleapis.com',
-      }
+      { protocol: 'https', hostname: 'placehold.co' },
+      { protocol: 'https', hostname: 'images.unsplash.com' },
+      { protocol: 'https', hostname: 'picsum.photos' },
+      { protocol: 'https', hostname: 'i.ibb.co' },
+      { protocol: 'https', hostname: 'storage.googleapis.com' },
     ],
   },
+
   experimental: {
     serverActions: {
       bodySizeLimit: '4.5mb',
     },
-    esmExternals: 'loose',
+    esmExternals: false, // safer for Firebase
   },
-  transpilePackages: ['firebase', '@firebase/auth', '@firebase/firestore'],
+
+  transpilePackages: [
+    'firebase',
+    '@firebase/app',
+    '@firebase/auth',
+    '@firebase/firestore',
+  ],
+
   typescript: {
-    // !! WARN !!
-    // Dangerously allow production builds to successfully complete even if
-    // your project has type errors.
-    // !! WARN !!
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: true, // temporary only
   },
+
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: true, // temporary only
   },
 };
 
