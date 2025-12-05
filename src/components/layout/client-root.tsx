@@ -28,6 +28,17 @@ function useInitializeApp() {
             fetchInitialData(firestore);
         }
     }, [firestore, isInitialized, loading, fetchInitialData]);
+    
+    // Unregister old service workers to force updates.
+    useEffect(() => {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          for (const registration of registrations) {
+            registration.unregister();
+          }
+        });
+      }
+    }, []);
 }
 
 
