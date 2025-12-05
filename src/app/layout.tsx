@@ -15,6 +15,7 @@ export const metadata: Metadata = {
   description: "Your local grocery delivery app.",
   manifest: "/manifest.json",
   icons: {
+    icon: "/favicon.ico",
     apple: "/apple-touch-icon.png",
   },
 };
@@ -30,9 +31,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${ptSans.variable}`}>
-       <head>
-        <link rel="icon" href="/favicon.ico" sizes="any" />
-      </head>
       <body>
         <ClientRoot>{children}</ClientRoot>
       </body>
