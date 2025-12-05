@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   description: "Your local grocery delivery app.",
   manifest: "/manifest.json",
   icons: {
-    icon: "https://i.ibb.co/WpfhKqjW/android-launchericon-512-512.png",
+    icon:  "/icons/icon-192x192.png",
     apple: "/apple-touch-icon.png",
   },
 };
