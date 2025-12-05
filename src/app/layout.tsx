@@ -3,7 +3,6 @@ import type { Metadata, Viewport } from "next";
 import { PT_Sans } from "next/font/google";
 import "./globals.css";
 import { ClientRoot } from "@/components/layout/client-root";
-import Script from 'next/script';
 
 const ptSans = PT_Sans({
   subsets: ["latin"],
@@ -36,19 +35,6 @@ export default function RootLayout({
       </head>
       <body>
         <ClientRoot>{children}</ClientRoot>
-        <Script id="service-worker-installer">
-          {`
-            if ('serviceWorker' in navigator) {
-              window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js').then(registration => {
-                  console.log('SW registered: ', registration);
-                }).catch(registrationError => {
-                  console.log('SW registration failed: ', registrationError);
-                });
-              });
-            }
-          `}
-        </Script>
       </body>
     </html>
   );
