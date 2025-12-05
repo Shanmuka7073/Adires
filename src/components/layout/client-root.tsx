@@ -10,40 +10,30 @@ import { useAppStore } from '@/lib/store';
 import GlobalLoader from './global-loader';
 import { InstallProvider } from '@/components/install-provider';
 
-
+/**
+ * This hook is responsible for making sure the application's essential
+ * data is loaded in the background. It no longer blocks rendering.
+ */
 function useInitializeApp() {
     const { firestore } = useFirebase();
-    const { fetchInitialData, isInitialized, loading, setAppReady } = useAppStore();
+    const {
+        fetchInitialData,
+        isInitialized,
+        loading,
+    } = useAppStore();
 
     useEffect(() => {
-        // If the app is already initialized from persisted state, we can mark it as ready.
-        if (isInitialized) {
-            setAppReady(true);
-            // Optionally, re-fetch in the background to get latest data
-            if (firestore) {
-                fetchInitialData(firestore);
-            }
-            return;
+        // If not initialized and not already loading, start the data fetch.
+        if (firestore && !isInitialized && !loading) {
+            fetchInitialData(firestore);
         }
-        
-        // If not initialized and not currently loading, start the fetch.
-        if (firestore && !loading) {
-            fetchInitialData(firestore); // This will set appReady to true internally upon completion.
-        } else if (!firestore && !loading) {
-            // If firestore isn't available for some reason, we should still unlock the app.
-            setAppReady(true);
-        }
-    }, [firestore, isInitialized, loading, fetchInitialData, setAppReady]);
-};
+    }, [firestore, isInitialized, loading, fetchInitialData]);
+}
 
 
 function AppContent({ children }: { children: React.ReactNode }) {
-    useInitializeApp(); 
-    const { appReady } = useAppStore();
-
-    if (!appReady) {
-        return <GlobalLoader />;
-    }
+    // Initialize data in the background. This no longer blocks rendering.
+    useInitializeApp();
 
     return (
         <InstallProvider>

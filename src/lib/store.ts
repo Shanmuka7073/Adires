@@ -29,7 +29,7 @@ export interface AppState {
   commands: Record<string, CommandGroup>;
   loading: boolean;
   isInitialized: boolean;
-  appReady: boolean; // Flag to indicate if the app is ready to be shown
+  appReady: boolean; // This flag is no longer used to block rendering but can be used for other UI cues.
   error: Error | null;
   language: string;
   activeStoreId: string | null;
@@ -41,7 +41,7 @@ export interface AppState {
   getAllAliases: (key: string) => Record<string, string[]>;
   setLocales: (newLocales: Locales) => void;
   setCommands: (newCommands: Record<string, CommandGroup>) => void;
-  setAppReady: (isReady: boolean) => void; // Setter for the app ready flag
+  setAppReady: (isReady: boolean) => void;
 }
 
 const getInitialLanguage = (): string => {
@@ -62,7 +62,7 @@ export const useAppStore = create<AppState>()(
       commands: {},
       loading: false,
       isInitialized: false,
-      appReady: false,
+      appReady: true, // Default to true so the app renders immediately.
       error: null,
       language: getInitialLanguage(),
       activeStoreId: null,
@@ -84,7 +84,8 @@ export const useAppStore = create<AppState>()(
       setAppReady: (isReady: boolean) => set({ appReady: isReady }),
 
       fetchInitialData: async (db: Firestore) => {
-        if (get().loading || get().isInitialized) return; 
+        // Prevent re-fetching if already loading or initialized
+        if (get().loading || get().isInitialized) return;
 
         set({ loading: true, error: null });
         
@@ -115,7 +116,6 @@ export const useAppStore = create<AppState>()(
             commands: enrichedCommands,
             isInitialized: true,
             loading: false,
-            appReady: true, // Set app as ready once data is fetched
           });
 
           if (masterProducts.length > 0) {
@@ -124,7 +124,7 @@ export const useAppStore = create<AppState>()(
           
         } catch (error) {
           console.error("Failed to fetch initial app data:", error);
-          set({ error: error as Error, loading: false, appReady: true }); // Still unlock the app on error
+          set({ error: error as Error, loading: false });
         }
       },
       
@@ -173,6 +173,7 @@ export const useAppStore = create<AppState>()(
     {
       name: 'localbasket-app-storage', // The key for localStorage
       storage: createJSONStorage(() => localStorage),
+      // IMPORTANT: `appReady` is a transient state and should NOT be persisted.
       partialize: (state) => ({ 
           stores: state.stores,
           masterProducts: state.masterProducts,
@@ -185,6 +186,7 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
+
 
 interface ProfileFormState {
   form: UseFormReturn<ProfileFormValues> | null;
