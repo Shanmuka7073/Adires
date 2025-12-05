@@ -679,6 +679,12 @@ export default function AdminDashboardPage() {
                         href="/dashboard/admin/sales-report-help"
                         icon={FileCode}
                     />
+                     <AdminActionCard 
+                        title="PWA Manifest Editor"
+                        description="View and edit your Progressive Web App's manifest.json file."
+                        href="/dashboard/admin/manifest-help"
+                        icon={FileCode}
+                    />
                     <AdminActionCard
                         title="Failed Command Center"
                         description="Review failed voice commands and use AI to train the system."
