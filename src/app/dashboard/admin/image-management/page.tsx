@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Trash2, ImageIcon, Search, Link2, Sparkles, Save, Upload as UploadIcon, Copy, ExternalLink } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, ImageIcon, Search, Link2, Sparkles, Save, Upload as UploadIcon, Copy, ExternalLink, FileJson } from 'lucide-react';
 import { getPlaceholderImages, updatePlaceholderImages, uploadPwaIcon, getManifest } from '@/app/actions';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
@@ -392,7 +392,13 @@ function PwaIconManager() {
                 </Button>
                  {(uploadedUrls?.icon192Url || isLoadingManifest) && (
                     <div className="pt-4 border-t space-y-4">
-                        <h4 className="font-semibold text-center">Current PWA Icons</h4>
+                        <div className="flex justify-between items-center">
+                            <h4 className="font-semibold">Current PWA Icons</h4>
+                             <a href="/manifest.json" target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
+                                <FileJson className="h-3 w-3" />
+                                View Manifest
+                            </a>
+                        </div>
                         {isLoadingManifest ? (
                              <div className="flex items-center justify-around">
                                 <Skeleton className="h-24 w-24 rounded-lg" />
@@ -418,7 +424,7 @@ function PwaIconManager() {
                                 )}
                             </div>
                         )}
-                        <p className="text-xs text-muted-foreground text-center">These are the icons currently saved in your app manifest.</p>
+                        <p className="text-xs text-muted-foreground text-center">These are the icons currently saved in your app's public manifest file.</p>
                     </div>
                 )}
             </CardContent>
