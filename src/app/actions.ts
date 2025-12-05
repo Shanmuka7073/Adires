@@ -718,31 +718,28 @@ export async function uploadPwaIcon(formData: FormData): Promise<{ success: bool
 
         const buffer = Buffer.from(await file.arrayBuffer());
         
-        // Save the icons
         const icon192Path = path.join(pwaDir, 'icon-192x192.png');
         const icon512Path = path.join(pwaDir, 'icon-512x512.png');
         
-        // For this demo, we'll just write the same buffer to both files.
-        // A real implementation would use a library like 'sharp' to resize.
         await fs.writeFile(icon192Path, buffer);
         await fs.writeFile(icon512Path, buffer);
 
-        // Define the public URLs
-        const icon192Url = '/pwa/icon-192x192.png';
-        const icon512Url = '/pwa/icon-512x512.png';
+        // Add a version query parameter to force cache busting
+        const timestamp = Date.now();
+        const icon192Url = `/pwa/icon-192x192.png?v=${timestamp}`;
+        const icon512Url = `/pwa/icon-512x512.png?v=${timestamp}`;
 
-        // Update the manifest file
         const manifestPath = path.join(process.cwd(), 'public', 'manifest.json');
         const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf-8'));
         
         manifest.icons = [
             {
-                "src": icon192Url,
+                "src": "/pwa/icon-192x192.png",
                 "sizes": "192x192",
                 "type": "image/png"
             },
             {
-                "src": icon512Url,
+                "src": "/pwa/icon-512x512.png",
                 "sizes": "512x512",
                 "type": "image/png"
             }

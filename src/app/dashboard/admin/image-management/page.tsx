@@ -301,27 +301,28 @@ function PwaIconManager() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploadedUrls, setUploadedUrls] = useState<{ icon192Url?: string; icon512Url?: string; } | null>(null);
     
-    useEffect(() => {
-        const fetchCurrentIcons = async () => {
-            setIsLoadingManifest(true);
-            try {
-                const manifest = await getManifest();
-                if (manifest && manifest.icons) {
-                    const icon192 = manifest.icons.find(icon => icon.sizes === '192x192');
-                    const icon512 = manifest.icons.find(icon => icon.sizes === '512x512');
-                    setUploadedUrls({
-                        icon192Url: icon192?.src,
-                        icon512Url: icon512?.src
-                    });
-                }
-            } catch (error) {
-                 toast({ variant: 'destructive', title: 'Could not load manifest', description: (error as Error).message });
-            } finally {
-                setIsLoadingManifest(false);
+    const fetchCurrentIcons = useCallback(async () => {
+        setIsLoadingManifest(true);
+        try {
+            const manifest = await getManifest();
+            if (manifest && manifest.icons) {
+                const icon192 = manifest.icons.find((icon: any) => icon.sizes === '192x192');
+                const icon512 = manifest.icons.find((icon: any) => icon.sizes === '512x512');
+                setUploadedUrls({
+                    icon192Url: icon192?.src,
+                    icon512Url: icon512?.src
+                });
             }
-        };
-        fetchCurrentIcons();
+        } catch (error) {
+             toast({ variant: 'destructive', title: 'Could not load manifest', description: (error as Error).message });
+        } finally {
+            setIsLoadingManifest(false);
+        }
     }, [toast]);
+
+    useEffect(() => {
+        fetchCurrentIcons();
+    }, [fetchCurrentIcons]);
 
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
