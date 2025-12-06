@@ -355,6 +355,7 @@ function PwaIconManager() {
                 if (result.success) {
                     toast({ title: 'PWA Icons Updated!', description: 'The manifest and icon files have been saved.' });
                     setUploadedUrls({ icon192Url: result.icon192Url, icon512Url: result.icon512Url });
+                    await fetchCurrentIcons(); // Re-fetch to confirm
                 } else {
                     throw new Error(result.error);
                 }

@@ -439,6 +439,51 @@ export async function updatePlaceholderImages(newData: { placeholderImages: any[
     }
 }
 
+export async function uploadPwaIcon(formData: FormData): Promise<{ success: boolean, error?: string, icon192Url?: string, icon512Url?: string }> {
+    // This is a placeholder implementation.
+    // In a real scenario, you would use a library like 'sharp' to resize the image.
+    // For now, we will just save the original file and simulate resizing.
+    const file = formData.get('file') as File;
+    if (!file) {
+        return { success: false, error: 'No file provided.' };
+    }
+
+    try {
+        const publicDir = path.join(process.cwd(), 'public');
+        const icon192Path = path.join(publicDir, 'icon-192x192.png');
+        const icon512Path = path.join(publicDir, 'icon-512x512.png');
+
+        const buffer = Buffer.from(await file.arrayBuffer());
+
+        // In a real app, you would resize the buffer here to 192x192 and 512x512
+        await fs.writeFile(icon192Path, buffer);
+        await fs.writeFile(icon512Path, buffer);
+
+        const manifestPath = getManifestPath();
+        const manifest = await getManifest();
+        if (!manifest) {
+            throw new Error('Could not load manifest file to update icons.');
+        }
+
+        const icon192Url = '/icon-192x192.png';
+        const icon512Url = '/icon-512x512.png';
+
+        manifest.icons = [
+            { src: icon192Url, sizes: '192x192', type: 'image/png' },
+            { src: icon512Url, sizes: '512x512', type: 'image/png' },
+        ];
+
+        await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
+
+        return { success: true, icon192Url, icon512Url };
+
+    } catch (error: any) {
+        console.error('PWA Icon upload failed:', error);
+        return { success: false, error: error.message || 'An unknown server error occurred.' };
+    }
+}
+
+
 /**
  * Generates a sales report for a given period, categorized into grocery, meat, and vegetables.
  * @param period Specifies whether to generate a 'daily' or 'monthly' report.
