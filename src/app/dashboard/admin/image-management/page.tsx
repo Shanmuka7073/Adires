@@ -362,6 +362,16 @@ function PwaIconManager() {
         });
     };
     
+    const handleCopy = (url: string | undefined) => {
+        if (!url) return;
+        const fullUrl = `${window.location.origin}${url}`;
+        navigator.clipboard.writeText(fullUrl).then(() => {
+            toast({ title: 'Link Copied!', description: 'The icon URL has been copied to your clipboard.' });
+        }).catch(() => {
+            toast({ variant: 'destructive', title: 'Copy Failed' });
+        });
+    }
+
     return (
         <Card className="max-w-md mx-auto">
             <CardHeader>
@@ -403,21 +413,31 @@ function PwaIconManager() {
                                 <Skeleton className="h-24 w-24 rounded-lg" />
                             </div>
                         ) : (
-                             <div className="flex items-center justify-around">
+                             <div className="space-y-4">
                                 {uploadedUrls.icon192Url && (
-                                    <div className="text-center">
-                                        <a href={uploadedUrls.icon192Url} target="_blank" rel="noopener noreferrer" className="block border-2 border-primary rounded-lg p-1 hover:border-accent transition-colors">
-                                            <Image src={uploadedUrls.icon192Url} alt="192x192 icon" width={96} height={96} className="rounded-md" />
-                                        </a>
-                                        <p className="text-xs mt-2 text-muted-foreground">192x192</p>
+                                    <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
+                                        <div className="flex items-center gap-3">
+                                            <a href={uploadedUrls.icon192Url} target="_blank" rel="noopener noreferrer" className="block border-2 border-primary rounded-lg p-1 hover:border-accent transition-colors">
+                                                <Image src={uploadedUrls.icon192Url} alt="192x192 icon" width={48} height={48} className="rounded-md" />
+                                            </a>
+                                            <p className="text-sm font-mono text-muted-foreground">192x192.png</p>
+                                        </div>
+                                        <Button size="sm" variant="outline" onClick={() => handleCopy(uploadedUrls.icon192Url)}>
+                                            <Copy className="mr-2 h-4 w-4" /> Copy Link
+                                        </Button>
                                     </div>
                                 )}
                                  {uploadedUrls.icon512Url && (
-                                    <div className="text-center">
-                                        <a href={uploadedUrls.icon512Url} target="_blank" rel="noopener noreferrer" className="block border-2 border-primary rounded-lg p-1 hover:border-accent transition-colors">
-                                            <Image src={uploadedUrls.icon512Url} alt="512x512 icon" width={96} height={96} className="rounded-md" />
-                                        </a>
-                                        <p className="text-xs mt-2 text-muted-foreground">512x512</p>
+                                     <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
+                                        <div className="flex items-center gap-3">
+                                            <a href={uploadedUrls.icon512Url} target="_blank" rel="noopener noreferrer" className="block border-2 border-primary rounded-lg p-1 hover:border-accent transition-colors">
+                                                <Image src={uploadedUrls.icon512Url} alt="512x512 icon" width={48} height={48} className="rounded-md" />
+                                            </a>
+                                            <p className="text-sm font-mono text-muted-foreground">512x512.png</p>
+                                        </div>
+                                        <Button size="sm" variant="outline" onClick={() => handleCopy(uploadedUrls.icon512Url)}>
+                                            <Copy className="mr-2 h-4 w-4" /> Copy Link
+                                        </Button>
                                     </div>
                                 )}
                             </div>
@@ -481,4 +501,3 @@ export default function ImageManagementPage() {
         </div>
     );
 }
-
