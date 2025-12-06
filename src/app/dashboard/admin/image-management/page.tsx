@@ -362,15 +362,42 @@ function PwaIconManager() {
         });
     };
     
+    const fallbackCopy = (text: string) => {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed"; // Avoid scrolling to bottom
+        textArea.style.top = "0";
+        textArea.style.left = "0";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                toast({ title: 'Link Copied!', description: 'The icon URL has been copied to your clipboard.' });
+            } else {
+                throw new Error('Fallback copy failed');
+            }
+        } catch (err) {
+            toast({ variant: 'destructive', title: 'Copy Failed' });
+        }
+        document.body.removeChild(textArea);
+    };
+
     const handleCopy = (url: string | undefined) => {
         if (!url) return;
         const fullUrl = `${window.location.origin}${url}`;
-        navigator.clipboard.writeText(fullUrl).then(() => {
-            toast({ title: 'Link Copied!', description: 'The icon URL has been copied to your clipboard.' });
-        }).catch(() => {
-            toast({ variant: 'destructive', title: 'Copy Failed' });
-        });
-    }
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(fullUrl).then(() => {
+                toast({ title: 'Link Copied!', description: 'The icon URL has been copied to your clipboard.' });
+            }).catch(() => {
+                // Fallback for when clipboard API fails (e.g. in non-secure contexts)
+                fallbackCopy(fullUrl);
+            });
+        } else {
+            fallbackCopy(fullUrl);
+        }
+    };
 
     return (
         <Card className="max-w-md mx-auto">
