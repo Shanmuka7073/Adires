@@ -328,10 +328,6 @@ function PwaIconManager() {
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = event.target.files?.[0];
         if (selectedFile) {
-            if (selectedFile.type !== 'image/png') {
-                toast({ variant: 'destructive', title: 'Invalid File Type', description: 'Please upload a PNG file for the PWA icon.' });
-                return;
-            }
             setFile(selectedFile);
             setUploadedUrls(null); // Clear previous URLs
             const reader = new FileReader();
@@ -355,6 +351,7 @@ function PwaIconManager() {
                 if (result.success) {
                     toast({ title: 'PWA Icons Updated!', description: 'The manifest and icon files have been saved.' });
                     setUploadedUrls({ icon192Url: result.icon192Url, icon512Url: result.icon512Url });
+                    setPreview(result.icon192Url || null); // Show the new icon as preview
                     await fetchCurrentIcons(); // Re-fetch to confirm
                 } else {
                     throw new Error(result.error);
@@ -369,7 +366,7 @@ function PwaIconManager() {
         <Card className="max-w-md mx-auto">
             <CardHeader>
                 <CardTitle>Upload PWA Icon</CardTitle>
-                <CardDescription>Upload a single PNG file. It will be automatically resized and saved as your PWA home screen icon.</CardDescription>
+                <CardDescription>Upload a single icon file (PNG preferred). It will be resized and set as your app icon.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="w-32 h-32 mx-auto rounded-xl border-2 border-dashed flex items-center justify-center bg-muted">
@@ -382,7 +379,7 @@ function PwaIconManager() {
                 <Input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/png"
+                    accept="image/*"
                     onChange={handleFileChange}
                     disabled={isUploading}
                     className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
@@ -484,3 +481,4 @@ export default function ImageManagementPage() {
         </div>
     );
 }
+
