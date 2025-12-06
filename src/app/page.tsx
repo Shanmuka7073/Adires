@@ -225,15 +225,12 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
                                     <DropdownMenuItem>Login</DropdownMenuItem>
                                 </Link>
                             )}
-                             {canInstall && (
-                                <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={triggerInstall}>
+                             <Link href="/install" passHref>
+                                <DropdownMenuItem>
                                     <Download className="mr-2 h-4 w-4" />
                                     <span>Install App</span>
                                 </DropdownMenuItem>
-                                </>
-                            )}
+                            </Link>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
@@ -387,4 +384,3 @@ export default function LocalBasketHomepage() {
     </div>
   );
 }
-
