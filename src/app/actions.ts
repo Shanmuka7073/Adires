@@ -323,6 +323,14 @@ export async function getManifest() {
         return JSON.parse(manifestFile);
     } catch (error) {
         console.error('Failed to read manifest file:', error);
+        // If the file doesn't exist, return a default structure
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+            return {
+              name: "LocalBasket",
+              short_name: "LocalBasket",
+              icons: [],
+            };
+        }
         return null;
     }
 }
@@ -440,9 +448,6 @@ export async function updatePlaceholderImages(newData: { placeholderImages: any[
 }
 
 export async function uploadPwaIcon(formData: FormData): Promise<{ success: boolean, error?: string, icon192Url?: string, icon512Url?: string }> {
-    // This is a placeholder implementation.
-    // In a real app, you would use a library like 'sharp' to resize the image.
-    // For now, we will just save the original file and simulate resizing.
     const file = formData.get('file') as File;
     if (!file) {
         return { success: false, error: 'No file provided.' };
@@ -455,7 +460,8 @@ export async function uploadPwaIcon(formData: FormData): Promise<{ success: bool
 
         const buffer = Buffer.from(await file.arrayBuffer());
 
-        // In a real app, you would use a library like 'sharp' to resize the buffer here to 192x192 and 512x512
+        // In a real app, you would use a library like 'sharp' to resize the buffer here.
+        // For this demo, we'll just save the file as is.
         await fs.writeFile(icon192Path, buffer);
         await fs.writeFile(icon512Path, buffer);
 
@@ -465,12 +471,14 @@ export async function uploadPwaIcon(formData: FormData): Promise<{ success: bool
             throw new Error('Could not load manifest file to update icons.');
         }
 
+        // Use relative paths for the icons in the manifest
         const icon192Url = '/icon-192x192.png';
         const icon512Url = '/icon-512x512.png';
 
         manifest.icons = [
-            { src: icon192Url, sizes: '192x192', type: 'image/png' },
-            { src: icon512Url, sizes: '512x512', type: 'image/png' },
+            { src: icon192Url, sizes: '192x192', type: 'image/png', purpose: 'any' },
+            { src: icon512Url, sizes: '512x512', type: 'image/png', purpose: 'any' },
+            { src: icon512Url, sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ];
 
         await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
