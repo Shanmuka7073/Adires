@@ -109,16 +109,8 @@ export function MainLayout({
   }, []);
   
   const onToggleVoice = useCallback(() => {
-     if (!user) {
-      toast({
-        variant: 'destructive',
-        title: 'Login Required',
-        description: 'You must be logged in to use voice commands.',
-      });
-      return;
-    }
     setVoiceEnabled(prev => !prev);
-  }, [user, toast]);
+  }, []);
 
 
   return (
@@ -127,7 +119,7 @@ export function MainLayout({
         <Header 
             suggestedCommands={suggestedCommands}
         />
-        {user && isInitialized && (
+        {isInitialized && (
             <VoiceCommander 
                 enabled={voiceEnabled} 
                 onStatusUpdate={setVoiceStatus}

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -670,10 +671,17 @@ const findProductAndVariant = useCallback(
     }
     lastTranscriptRef.current = commandText;
 
-    if (!firestore || !user) {
-        speak("I can't process commands without being connected. Please log in.", 'en-IN');
+    if (!firestore) {
+        speak("I can't process commands without a database connection.", 'en-IN');
         return;
     }
+    
+    // Allow navigation commands even if user is not logged in
+    const isNavigationCommand = (text: string) => {
+        const navKeywords = ['go to', 'open', 'show', 'home', 'stores'];
+        return navKeywords.some(kw => text.toLowerCase().includes(kw));
+    };
+
 
     let spokenLang = determinePhraseLanguage(commandText);
     const replyLang = spokenLang;
@@ -830,8 +838,16 @@ const findProductAndVariant = useCallback(
         await commandActionsRef.current.orderMultipleItems(commandText.split(new RegExp(` ${separatorUsed} `, 'i')), spokenLang, commandText);
         return;
     }
-
+    
+    // Re-check for user on commands that absolutely require it
     const intent = recognizeIntent(commandText, spokenLang);
+    const requiresUser = ['SMART_ORDER', 'ORDER_ITEM', 'REMOVE_ITEM', 'CHECK_PRICE', 'GET_RECIPE', 'SHOW_DETAILS', 'placeOrder', 'saveChanges'].includes(intent.type) || (intent.type === 'CONVERSATIONAL' && ['dashboard', 'orders', 'myStore', 'myProfile'].includes(intent.commandKey));
+
+    if (requiresUser && !user) {
+        speak("You need to be logged in to do that. Please log in to continue.", 'en-IN');
+        router.push('/login');
+        return;
+    }
 
     switch (intent.type) {
         case 'SMART_ORDER':
@@ -974,7 +990,8 @@ const findProductAndVariant = useCallback(
       home: (params: {lang: string}) => router.push('/'),
       stores: (params: {lang: string}) => router.push('/stores'),
       dashboard: (params: {lang: string}) => {
-          if (user?.email === 'admin@gmail.com' || user?.email === 'admin2@gmail.com') {
+          if (!user) { router.push('/login'); return; }
+          if (user.email === 'admin@gmail.com' || user.email === 'admin2@gmail.com') {
               router.push('/dashboard/admin');
           } else {
               router.push('/dashboard');
@@ -987,7 +1004,7 @@ const findProductAndVariant = useCallback(
       myProfile: (params: {lang: string}) => router.push('/dashboard/customer/my-profile'),
       managePacks: (params: {lang: string}) => router.push('/dashboard/owner/packs'),
       'recipe-tester': (params: {lang: string}) => router.push('/dashboard/admin/recipe-tester'),
-      'installApp': (params: {lang: string}) => onInstallApp(),
+      installApp: (params: {lang: string}) => onInstallApp(),
 
       'get-recipe': async ({ dishName, lang }: { dishName: string, lang: string }) => {
         const replyLang = lang;
