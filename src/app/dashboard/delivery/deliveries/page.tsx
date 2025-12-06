@@ -482,18 +482,16 @@ export default function DeliveriesPage() {
         where('deliveryPartnerId', '==', user.uid)
     );
   }, [firestore, user?.uid]);
-
-  // Query 2: Get orders that are ready for pickup.
-  // This now uses an inequality filter to find documents that have a deliveryPartnerId field.
-  // We will then filter these results on the client side.
-  const allOutForDeliveryQuery = useMemoFirebase(() => {
+  
+  // Query 2: Get orders that are ready for pickup (Pending status, no partner yet).
+  const availableDeliveriesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(
         collection(firestore, 'orders'),
-        where('status', '==', 'Out for Delivery'),
-        orderBy('deliveryPartnerId') // Firestore requires an orderBy when using an inequality.
+        where('status', '==', 'Pending')
     );
   }, [firestore]);
+
 
   // Query 3: Get completed orders for the earnings history.
   const completedDeliveriesQuery = useMemoFirebase(() => {
@@ -507,14 +505,9 @@ export default function DeliveriesPage() {
 
   // Hooks for each query
   const { data: myActiveDeliveries, isLoading: activeDeliveriesLoading } = useCollection<Order>(myActiveDeliveriesQuery);
-  const { data: allOutForDeliveryOrders, isLoading: availableDeliveriesLoading } = useCollection<Order>(allOutForDeliveryQuery);
+  const { data: availableDeliveries, isLoading: availableDeliveriesLoading } = useCollection<Order>(availableDeliveriesQuery);
   const { data: completedDeliveries, isLoading: completedDeliveriesLoading } = useCollection<Order>(completedDeliveriesQuery);
-
-  // Client-side filtering to get only the unassigned orders.
-  const availableDeliveries = useMemo(() => {
-    return allOutForDeliveryOrders?.filter(order => !order.deliveryPartnerId) || [];
-  }, [allOutForDeliveryOrders]);
-
+  
   const partnerDocRef = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
     return doc(firestore, 'deliveryPartners', user.uid);
@@ -545,7 +538,11 @@ export default function DeliveriesPage() {
      startUpdateTransition(async () => {
         const orderRef = doc(firestore, 'orders', orderId);
         try {
-            await updateDoc(orderRef, { deliveryPartnerId: user.uid });
+            // Set the delivery partner ID AND update the status in one go.
+            await updateDoc(orderRef, { 
+                deliveryPartnerId: user.uid,
+                status: 'Out for Delivery' 
+            });
             toast({
                 title: `Job Accepted!`,
                 description: `You are now assigned to deliver this order.`
