@@ -196,6 +196,12 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
                 </div>
                  <div className="flex items-center gap-1">
                     <LanguageSwitcher />
+                    {canInstall && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={triggerInstall}>
+                            <Download className="h-5 w-5 text-gray-600" />
+                            <span className="sr-only">Install App</span>
+                        </Button>
+                    )}
                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full relative" onClick={onMicClick}>
                         <Mic className="h-5 w-5 text-gray-600" />
                         {voiceEnabled && <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>}
@@ -225,12 +231,6 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
                                     <DropdownMenuItem>Login</DropdownMenuItem>
                                 </Link>
                             )}
-                             <Link href="/install" passHref>
-                                <DropdownMenuItem>
-                                    <Download className="mr-2 h-4 w-4" />
-                                    <span>Install App</span>
-                                </DropdownMenuItem>
-                            </Link>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
