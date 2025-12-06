@@ -2,9 +2,12 @@
   "name": "LocalBasket",
   "short_name": "LocalBasket",
   "description": "Your local grocery delivery app.",
+  "lang": "en",
+  "dir": "ltr",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#F0FFF0",
+  "background_color": "#ffffff",
   "theme_color": "#90EE90",
   "icons": [
     {
