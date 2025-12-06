@@ -13,9 +13,8 @@ const ptSans = PT_Sans({
 export const metadata: Metadata = {
   title: "LocalBasket",
   description: "Your local grocery delivery app.",
-  manifest: "/manifest.json",
   icons: {
-    icon:  "/icons/icon-192x192.png",
+    icon: "https://i.ibb.co/WpfhKqjW/android-launchericon-512-512.png",
     apple: "/apple-touch-icon.png",
   },
 };
