@@ -483,15 +483,17 @@ export default function DeliveriesPage() {
     );
   }, [firestore, user?.uid]);
 
-  // Query 2: Get orders that are ready for pickup and have no partner assigned.
-  const availableDeliveriesQuery = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) return null;
+  // Query 2: Get orders that are ready for pickup.
+  // This now uses an inequality filter to find documents that have a deliveryPartnerId field.
+  // We will then filter these results on the client side.
+  const allOutForDeliveryQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
     return query(
         collection(firestore, 'orders'),
         where('status', '==', 'Out for Delivery'),
-        where('deliveryPartnerId', '==', null)
+        orderBy('deliveryPartnerId') // Firestore requires an orderBy when using an inequality.
     );
-  }, [firestore, user?.uid]);
+  }, [firestore]);
 
   // Query 3: Get completed orders for the earnings history.
   const completedDeliveriesQuery = useMemoFirebase(() => {
@@ -505,8 +507,13 @@ export default function DeliveriesPage() {
 
   // Hooks for each query
   const { data: myActiveDeliveries, isLoading: activeDeliveriesLoading } = useCollection<Order>(myActiveDeliveriesQuery);
-  const { data: availableDeliveries, isLoading: availableDeliveriesLoading } = useCollection<Order>(availableDeliveriesQuery);
+  const { data: allOutForDeliveryOrders, isLoading: availableDeliveriesLoading } = useCollection<Order>(allOutForDeliveryQuery);
   const { data: completedDeliveries, isLoading: completedDeliveriesLoading } = useCollection<Order>(completedDeliveriesQuery);
+
+  // Client-side filtering to get only the unassigned orders.
+  const availableDeliveries = useMemo(() => {
+    return allOutForDeliveryOrders?.filter(order => !order.deliveryPartnerId) || [];
+  }, [allOutForDeliveryOrders]);
 
   const partnerDocRef = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
