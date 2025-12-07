@@ -20,6 +20,7 @@ import { getWikipediaSummary, getMealDbRecipe } from '@/app/actions';
 import { useVoiceCommanderContext } from './main-layout';
 import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
 import { runNLU, extractQuantityAndProduct } from '@/lib/nlu/voice-integration';
+import { useInstall } from '../install-provider';
 
 
 export interface Command {
@@ -484,17 +485,15 @@ const findProductAndVariant = useCallback(
     lang: string;
   }> => {
     const nluResult = runNLU(phrase, language);
-    const { qty, unit, money, productPhrase } = extractQuantityAndProduct(nluResult);
+    let { qty, unit, money, productPhrase } = extractQuantityAndProduct(nluResult);
     
     let bestMatch: { product: Product, alias: string, score: number, lang: string } | null = null;
     
     if (productPhrase) {
-        // First, try a direct match
         const directMatch = universalProductAliasMap.get(productPhrase.toLowerCase()) || universalProductAliasMap.get(productPhrase.toLowerCase().replace(/\s/g, ''));
         if (directMatch) {
             bestMatch = { product: directMatch.product, alias: productPhrase, score: 1.0, lang: directMatch.lang };
         } else {
-            // If no direct match, perform a fuzzy search
             for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
                 const similarity = calculateSimilarity(productPhrase, alias);
                 if (similarity > 0.7 && (!bestMatch || similarity > bestMatch.score)) {
@@ -517,52 +516,55 @@ const findProductAndVariant = useCallback(
     }
     
     let chosenVariant: ProductVariant | null = null;
-    let finalQty = qty;
 
     if (money && money > 0) {
-        const baseVariant = priceData.variants.find(v => v.weight.includes('kg')) || priceData.variants[0];
+        const isLiquid = product.category?.toLowerCase().includes('oil') || product.category?.toLowerCase().includes('beverage');
+        const baseUnit = isLiquid ? 'l' : 'kg';
+        const baseVariant = priceData.variants.find(v => v.weight.includes(baseUnit)) || priceData.variants[0];
+
         const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
         const baseWeight = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
-        const isBaseKg = baseVariant.weight.includes('kg');
-        const pricePerBaseUnit = baseVariant.price / (isBaseKg ? baseWeight * 1000 : baseWeight); // Price per gram
+        const pricePerBaseUnit = baseVariant.price / (isLiquid ? baseWeight * 1000 : baseWeight); // price per ml or gram
 
-        const requestedGrams = money / pricePerBaseUnit;
+        const requestedAmount = money / pricePerBaseUnit;
 
         chosenVariant = {
             price: money,
-            weight: `${Math.round(requestedGrams)}gm`,
+            weight: `${Math.round(requestedAmount)}${isLiquid ? 'ml' : 'gm'}`,
             sku: `${baseVariant.sku}-custom-${money}`,
             stock: baseVariant.stock,
         };
-        finalQty = 1;
-    } else if (unit) { // Handle explicit units like 'kg' or 'gm'
-        const isKgRequested = unit === 'kg';
-        const requestedGrams = isKgRequested ? finalQty * 1000 : finalQty;
+        qty = 1;
 
-        const baseVariant = priceData.variants.find(v => v.weight.includes('kg')) || priceData.variants[0];
+    } else if (unit) {
+        const isLiquidUnit = ['ml'].includes(unit);
+        const requestedAmount = qty; // qty is already in base units (gm or ml) from NLU
+
+        const baseUnit = isLiquidUnit ? 'l' : 'kg';
+        const baseVariant = priceData.variants.find(v => v.weight.includes(baseUnit)) || priceData.variants[0];
+        
         const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
         const baseWeight = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
-        const isBaseKg = baseVariant.weight.includes('kg');
-        const pricePerGram = baseVariant.price / (isBaseKg ? baseWeight * 1000 : baseWeight);
+        const pricePerBaseUnit = baseVariant.price / (baseWeight * 1000); // price per ml or gram
         
-        const newPrice = requestedGrams * pricePerGram;
+        const newPrice = requestedAmount * pricePerBaseUnit;
         
         chosenVariant = {
             price: newPrice,
-            weight: `${Math.round(requestedGrams)}gm`,
-            sku: `${baseVariant.sku}-custom-${requestedGrams}gm`,
+            weight: `${Math.round(requestedAmount)}${unit}`,
+            sku: `${baseVariant.sku}-custom-${requestedAmount}${unit}`,
             stock: baseVariant.stock,
         };
-        finalQty = 1;
-    } else { // Handle case with no unit, just a number
+        qty = 1;
+    } else { 
         chosenVariant = priceData.variants.find(v => {
             const variantWeightMatch = v.weight.match(/(\d+\.?\d*)/);
             const variantWeight = variantWeightMatch ? parseFloat(variantWeightMatch[0]) : 0;
-            return variantWeight === finalQty;
-        }) || priceData.variants[0]; // Fallback to first variant
+            return variantWeight === qty;
+        }) || priceData.variants[0];
     }
     
-    return { product, variant: chosenVariant, requestedQty: finalQty, remainingPhrase: productPhrase, matchedAlias, lang: detectedLang };
+    return { product, variant: chosenVariant, requestedQty: qty, remainingPhrase: productPhrase, matchedAlias, lang: detectedLang };
 }, [firestore, productPrices, universalProductAliasMap, language]);
 
 
@@ -671,17 +673,25 @@ const findProductAndVariant = useCallback(
     }
     lastTranscriptRef.current = commandText;
 
-    if (!firestore) {
-        speak("I can't process commands without a database connection.", 'en-IN');
-        return;
-    }
-    
     // Allow navigation commands even if user is not logged in
     const isNavigationCommand = (text: string) => {
         const navKeywords = ['go to', 'open', 'show', 'home', 'stores'];
         return navKeywords.some(kw => text.toLowerCase().includes(kw));
     };
 
+    if (!firestore) {
+        speak("I can't process commands without a database connection.", 'en-IN');
+        return;
+    }
+    
+    const intent = recognizeIntent(commandText, "en");
+    const requiresUser = ['SMART_ORDER', 'ORDER_ITEM', 'REMOVE_ITEM', 'CHECK_PRICE', 'GET_RECIPE', 'SHOW_DETAILS', 'placeOrder', 'saveChanges'].includes(intent.type) || (intent.type === 'CONVERSATIONAL' && ['dashboard', 'orders', 'myStore', 'myProfile'].includes(intent.commandKey));
+
+    if (requiresUser && !user) {
+        speak("You need to be logged in to do that. Please log in to continue.", 'en-IN');
+        router.push('/login');
+        return;
+    }
 
     let spokenLang = determinePhraseLanguage(commandText);
     const replyLang = spokenLang;
@@ -714,7 +724,7 @@ const findProductAndVariant = useCallback(
           const numbersInCommand = lowerCommandText.match(/\d+/g)?.map(Number);
           if (numbersInCommand) {
               for (const price of numbersInCommand) {
-                  const matchedVariant = context.variants.find(v => Math.round(v.price * 1.20) === price);
+                  const matchedVariant = context.variants.find(v => Math.round(v.price) === price);
                   if (matchedVariant) {
                       chosenVariant = matchedVariant;
                       break;
@@ -839,16 +849,6 @@ const findProductAndVariant = useCallback(
         return;
     }
     
-    // Re-check for user on commands that absolutely require it
-    const intent = recognizeIntent(commandText, spokenLang);
-    const requiresUser = ['SMART_ORDER', 'ORDER_ITEM', 'REMOVE_ITEM', 'CHECK_PRICE', 'GET_RECIPE', 'SHOW_DETAILS', 'placeOrder', 'saveChanges'].includes(intent.type) || (intent.type === 'CONVERSATIONAL' && ['dashboard', 'orders', 'myStore', 'myProfile'].includes(intent.commandKey));
-
-    if (requiresUser && !user) {
-        speak("You need to be logged in to do that. Please log in to continue.", 'en-IN');
-        router.push('/login');
-        return;
-    }
-
     switch (intent.type) {
         case 'SMART_ORDER':
             await commandActionsRef.current.handleSmartOrder(intent.originalText, intent.lang);
