@@ -313,7 +313,7 @@ export async function uploadStoreImage(storeId: string, dataUri: string): Promis
 
 const getManifestPath = () => {
   // `process.cwd()` returns the root of your Next.js project
-  return path.join(process.cwd(), 'public', 'manifest.json');
+  return path.join(process.cwd(), 'public', 'manifest.webmanifest');
 };
 
 export async function getManifest() {
@@ -706,5 +706,62 @@ export async function updateSiteConfig(configId: string, data: Partial<SiteConfi
     } catch (error: any) {
         console.error("Error updating site config:", error);
         return { success: false, error: error.message };
+    }
+}
+
+export async function getSalesDataDump(): Promise<{ success: boolean; data?: any[]; error?: string; }> {
+    try {
+        const { db } = await getAdminServices();
+
+        const masterStoreQuery = query(collection(db, 'stores'), where('name', '==', 'LocalBasket'));
+        const masterStoreSnap = await getDocs(masterStoreQuery);
+        if (masterStoreSnap.empty) throw new Error("Master 'LocalBasket' store not found.");
+
+        const ordersQuery = query(
+            collection(db, 'orders'),
+            where('status', 'in', ['Delivered', 'delivered', 'Completed'])
+        );
+        const orderSnapshot = await getDocs(ordersQuery);
+        
+        const dataDump = [];
+
+        for (const orderDoc of orderSnapshot.docs) {
+            const order = orderDoc.data() as Order;
+            const itemsQuery = collection(db, 'orders', order.id, 'orderItems');
+            const itemsSnapshot = await getDocs(itemsQuery);
+            
+            if (itemsSnapshot.empty) {
+                 dataDump.push({
+                    orderId: order.id,
+                    orderDate: order.orderDate,
+                    customerName: order.customerName,
+                    totalAmount: order.totalAmount,
+                    status: order.status,
+                    productName: 'N/A',
+                    quantity: 0,
+                    price: 0,
+                });
+            } else {
+                itemsSnapshot.forEach(itemDoc => {
+                    const item = itemDoc.data() as OrderItem;
+                    dataDump.push({
+                        orderId: order.id,
+                        orderDate: order.orderDate,
+                        customerName: order.customerName,
+                        totalAmount: order.totalAmount,
+                        status: order.status,
+                        productName: item.productName,
+                        quantity: item.quantity,
+                        price: item.price,
+                    });
+                });
+            }
+        }
+        
+        return { success: true, data: dataDump };
+
+    } catch (error: any) {
+        console.error("Sales data dump failed:", error);
+        return { success: false, error: error.message || 'An unknown server error occurred.' };
     }
 }
