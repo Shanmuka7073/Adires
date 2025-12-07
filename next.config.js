@@ -30,6 +30,15 @@ const nextConfig = {
     },
     esmExternals: 'loose',
   },
+  webpack: (
+    config,
+    { buildId, dev, isServer, defaultLoaders, nextRuntime, webpack }
+  ) => {
+    if (isServer) {
+        config.externals.push('@genkit-ai/google-genai', 'genkit', '@opentelemetry/api');
+    }
+    return config
+  },
   transpilePackages: ['firebase', '@firebase/auth', '@firebase/firestore'],
   typescript: {
     // !! WARN !!
