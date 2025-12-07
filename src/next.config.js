@@ -1,28 +1,12 @@
-
 const withPWA = require('next-pwa')({
   dest: 'public',
   register: true,
   skipWaiting: true,
-  disable: false, // Temporarily enable for development testing
-  manifest: false, // Tell next-pwa to not generate a manifest link
+  disable: process.env.NODE_ENV === 'development',
 });
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  async headers() {
-    return [
-      {
-        source: '/:path*',
-        headers: [
-          {
-            key: 'Permissions-Policy',
-            value:
-              'publickey-credentials-create=(self), publickey-credentials-get=(self)',
-          },
-        ],
-      },
-    ];
-  },
   images: {
     remotePatterns: [
       {
