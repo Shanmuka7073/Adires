@@ -705,17 +705,22 @@ export async function getSalesDataDump(): Promise<{ success: boolean; data?: any
         const dataDump = [];
 
         for (const orderDoc of orderSnapshot.docs) {
-            const order = orderDoc.data() as Order;
-            const itemsQuery = db.collection('orders').doc(order.id).collection('orderItems');
+            const orderData = orderDoc.data() as Order;
+            const orderId = orderDoc.id;
+
+            const itemsQuery = db.collection('orders')
+                .doc(orderId)
+                .collection('orderItems');
+
             const itemsSnapshot = await itemsQuery.get();
             
             if (itemsSnapshot.empty) {
                  dataDump.push({
-                    orderId: order.id,
-                    orderDate: order.orderDate,
-                    customerName: order.customerName,
-                    totalAmount: order.totalAmount,
-                    status: order.status,
+                    orderId: orderId,
+                    orderDate: orderData.orderDate,
+                    customerName: orderData.customerName,
+                    totalAmount: orderData.totalAmount,
+                    status: orderData.status,
                     productName: 'N/A',
                     quantity: 0,
                     price: 0,
@@ -724,11 +729,11 @@ export async function getSalesDataDump(): Promise<{ success: boolean; data?: any
                 itemsSnapshot.forEach(itemDoc => {
                     const item = itemDoc.data() as OrderItem;
                     dataDump.push({
-                        orderId: order.id,
-                        orderDate: order.orderDate,
-                        customerName: order.customerName,
-                        totalAmount: order.totalAmount,
-                        status: order.status,
+                        orderId: orderId,
+                        orderDate: orderData.orderDate,
+                        customerName: orderData.customerName,
+                        totalAmount: orderData.totalAmount,
+                        status: orderData.status,
                         productName: item.productName,
                         quantity: item.quantity,
                         price: item.price,
