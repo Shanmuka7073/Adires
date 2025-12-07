@@ -708,16 +708,18 @@ export async function getSalesDataDump(): Promise<{ success: boolean; data?: any
             const orderData = orderDoc.data() as Order;
             const orderId = orderDoc.id;
 
-            const itemsQuery = db.collection('orders')
-                .doc(orderId)
-                .collection('orderItems');
+            // This is the fix. The 'orderDate' is a Timestamp object which is not serializable.
+            const serializableOrderDate = orderData.orderDate instanceof Timestamp
+                ? orderData.orderDate.toDate().toISOString()
+                : orderData.orderDate;
 
+            const itemsQuery = db.collection('orders').doc(orderId).collection('orderItems');
             const itemsSnapshot = await itemsQuery.get();
             
             if (itemsSnapshot.empty) {
                  dataDump.push({
                     orderId: orderId,
-                    orderDate: orderData.orderDate,
+                    orderDate: serializableOrderDate,
                     customerName: orderData.customerName,
                     totalAmount: orderData.totalAmount,
                     status: orderData.status,
@@ -730,7 +732,7 @@ export async function getSalesDataDump(): Promise<{ success: boolean; data?: any
                     const item = itemDoc.data() as OrderItem;
                     dataDump.push({
                         orderId: orderId,
-                        orderDate: orderData.orderDate,
+                        orderDate: serializableOrderDate,
                         customerName: orderData.customerName,
                         totalAmount: orderData.totalAmount,
                         status: orderData.status,
@@ -749,3 +751,5 @@ export async function getSalesDataDump(): Promise<{ success: boolean; data?: any
         return { success: false, error: error.message || 'An unknown server error occurred.' };
     }
 }
+
+    
