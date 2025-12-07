@@ -168,6 +168,7 @@ export interface GetIngredientsOutput {
 export type CachedRecipe = {
     id: string;
     dishName: string;
+    title: string;
     ingredients: Ingredient[];
     instructions: InstructionStep[];
     createdAt: any; // Allow serverTimestamp
