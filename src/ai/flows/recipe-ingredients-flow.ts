@@ -78,6 +78,39 @@ Instructions:
 `,
 });
 
+const TranslatePrompt = ai.definePrompt({
+    name: 'recipeTranslationPrompt',
+    input: {
+      schema: z.object({
+        existingRecipe: GetIngredientsOutputSchema,
+        targetLanguage: z.enum(['en', 'te']),
+      }),
+    },
+    output: { schema: GetIngredientsOutputSchema },
+    model: googleAI.model('gemini-2.5-flash'),
+    prompt: `You are an expert culinary translator. Translate the following recipe for "{{existingRecipe.title}}" into {{targetLanguage}}.
+
+**Source Ingredients:**
+{{#each existingRecipe.ingredients}}
+- {{name}} ({{quantity}})
+{{/each}}
+
+**Source Instructions:**
+{{#each existingRecipe.instructions}}
+### {{title}}
+{{#each actions}}
+- {{this}}
+{{/each}}
+{{/each}}
+
+**Your Task:**
+1.  Translate the dish title.
+2.  Translate each ingredient name. Keep the quantity the same.
+3.  Translate each instruction step title.
+4.  Translate each instruction action.
+5.  Return the fully translated recipe in the specified JSON format. Ensure 'isSuccess' is true.`,
+  });
+  
 
 const getIngredientsFlow = ai.defineFlow(
   {
@@ -85,8 +118,20 @@ const getIngredientsFlow = ai.defineFlow(
     inputSchema: GetIngredientsInputSchema,
     outputSchema: GetIngredientsOutputSchema,
   },
-  async ({ dishName, language }) => {
+  async ({ dishName, language, existingRecipe }) => {
     
+    // If an existing recipe in another language is provided, translate it.
+    if (existingRecipe) {
+        console.log(`Translating recipe for "${dishName}" to ${language}.`);
+        const { output: translatedOutput } = await TranslatePrompt({
+            existingRecipe,
+            targetLanguage: language || 'en',
+        });
+        if (translatedOutput) {
+            return translatedOutput;
+        }
+    }
+
     // First, try to get the recipe from the external API.
     const mealDbResult = await getMealDbRecipe(dishName);
 
@@ -98,6 +143,14 @@ const getIngredientsFlow = ai.defineFlow(
           rawInstructions: mealDbResult.instructions,
       });
       if (output) {
+        // If the requested language is not English, translate the parsed result.
+        if (language && language !== 'en') {
+            const { output: translatedOutput } = await TranslatePrompt({
+                existingRecipe: output,
+                targetLanguage: language,
+            });
+            if (translatedOutput) return translatedOutput;
+        }
         return output;
       }
     }

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useTransition, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useFirebase } from '@/firebase';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { Ingredient, InstructionStep, Product, ProductVariant } from '@/lib/types';
+import { t as translate } from '@/lib/locales';
+
 
 function RecipeContent({ result, onSpeak, isSpeaking, onStop, onCopyIngredients, onCopyInstructions }: { result: GetIngredientsOutput, onSpeak: (text: string) => void, isSpeaking: boolean, onStop: () => void, onCopyIngredients: () => void, onCopyInstructions: () => void }) {
     
@@ -87,39 +89,46 @@ export function RecipeCard() {
     const [isGenerating, startGeneration] = useTransition();
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [dishName, setDishName] = useState('');
-    const [result, setResult] = useState<GetIngredientsOutput | null>(null);
-    const [currentLanguage, setCurrentLanguage] = useState<'en' | 'te'>('te');
+    const [recipeData, setRecipeData] = useState<Record<string, GetIngredientsOutput>>({});
+    const [currentLanguage, setCurrentLanguage] = useState<'en' | 'te'>('en');
     const { firestore } = useFirebase();
 
-    const handleGetIngredients = async (lang: 'en' | 'te' = currentLanguage) => {
+    const result = useMemo(() => recipeData[currentLanguage] || null, [recipeData, currentLanguage]);
+
+    const handleGetIngredients = async (lang: 'en' | 'te', forceRefetch = false) => {
         if (!dishName.trim()) {
             toast({ variant: 'destructive', title: 'Please enter a dish name.' });
             return;
         }
-        
+
         setCurrentLanguage(lang);
-        setResult(null);
+        if (recipeData[lang] && !forceRefetch) {
+            return;
+        }
+        
         startGeneration(async () => {
             try {
                 if (!firestore) throw new Error("Firestore not available");
 
                 const cached = await getCachedRecipe(firestore, dishName, lang);
                 if (cached) {
-                    setResult(cached);
-                    toast({ title: 'Recipe Loaded from Cache!', description: 'This recipe was instantly loaded from our database.' });
-                    return;
+                    setRecipeData(prev => ({...prev, [lang]: cached}));
+                    if(Object.keys(cached).length > 0) {
+                         toast({ title: 'Recipe Loaded from Cache!' });
+                         return;
+                    }
                 }
 
                 const response = await getIngredientsForDish({
                     dishName: dishName,
                     language: lang,
+                    existingRecipe: lang === 'en' ? recipeData['te'] : recipeData['en'],
                 });
 
-                if (response.isSuccess && response.ingredients.length > 0) {
-                    setResult(response);
+                if (response.isSuccess) {
+                    setRecipeData(prev => ({...prev, [lang]: response}));
                     await cacheRecipe(firestore, dishName, lang, response);
                 } else {
-                     setResult({ isSuccess: false, ingredients: [], instructions: [], title: '' });
                      toast({
                         variant: 'destructive',
                         title: 'Recipe Not Found',
@@ -193,32 +202,32 @@ export function RecipeCard() {
             <CardHeader>
                 <CardTitle className="flex items-center gap-2 font-headline">
                     <ChefHat className="h-6 w-6 text-green-600" />
-                    AI Recipe Finder
+                    {translate('ai-recipe-finder')}
                 </CardTitle>
-                <CardDescription>What are you planning to cook today? Get a full recipe instantly.</CardDescription>
+                <CardDescription>{translate('what-are-you-planning-to-cook')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="flex gap-2">
                     <div className="relative flex-grow">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
-                            placeholder="e.g., Chicken Biryani"
+                            placeholder={translate('eg-chicken-biryani')}
                             value={dishName}
                             onChange={(e) => setDishName(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleGetIngredients('te')}
+                            onKeyDown={(e) => e.key === 'Enter' && handleGetIngredients(currentLanguage, true)}
                             disabled={isGenerating}
                             className="pl-9"
                         />
                     </div>
-                    <Button onClick={() => handleGetIngredients('te')} disabled={isGenerating}>
+                    <Button onClick={() => handleGetIngredients(currentLanguage, true)} disabled={isGenerating}>
                         {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                        Get Recipe
+                        {translate('get-recipe')}
                     </Button>
                 </div>
                  {result && (
                     <div className="border-t pt-4">
                         {result.isSuccess ? (
-                            <Tabs defaultValue="te" value={currentLanguage} onValueChange={(value) => handleGetIngredients(value as 'en' | 'te')}>
+                            <Tabs defaultValue={currentLanguage} value={currentLanguage} onValueChange={(value) => handleGetIngredients(value as 'en' | 'te')}>
                                 <div className="flex justify-between items-center mb-2">
                                      <h3 className="font-bold text-xl">{result.title}</h3>
                                      <TabsList>

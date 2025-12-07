@@ -7,13 +7,6 @@
 
 import { z } from 'zod';
 
-// Define Zod schemas for structured input and output
-export const GetIngredientsInputSchema = z.object({
-  dishName: z.string().describe('The name of the dish to get ingredients for (e.g., "Chicken Biryani").'),
-  language: z.enum(['en', 'te']).optional().describe("The desired language for the recipe (e.g., 'en' for English, 'te' for Telugu). Defaults to 'en'."),
-});
-export type GetIngredientsInput = z.infer<typeof GetIngredientsInputSchema>;
-
 const IngredientSchema = z.object({
     name: z.string().describe('The name of the ingredient.'),
     quantity: z.string().describe('The quantity and unit (e.g., "1 cup", "200g").'),
@@ -31,3 +24,12 @@ export const GetIngredientsOutputSchema = z.object({
     instructions: z.array(InstructionStepSchema).describe('An array of step-by-step instructions.'),
 });
 export type GetIngredientsOutput = z.infer<typeof GetIngredientsOutputSchema>;
+
+// Define Zod schemas for structured input and output
+export const GetIngredientsInputSchema = z.object({
+  dishName: z.string().describe('The name of the dish to get ingredients for (e.g., "Chicken Biryani").'),
+  language: z.enum(['en', 'te']).optional().describe("The desired language for the recipe (e.g., 'en' for English, 'te' for Telugu). Defaults to 'en'."),
+  existingRecipe: GetIngredientsOutputSchema.optional().describe("An optional existing recipe in another language to be translated."),
+});
+export type GetIngredientsInput = z.infer<typeof GetIngredientsInputSchema>;
+

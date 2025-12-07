@@ -6,6 +6,7 @@ import type { CachedRecipe, GetIngredientsOutput } from './types';
 
 /**
  * Retrieves a cached recipe from Firestore.
+ * It will also try to fetch the english version if the target language is not found.
  * @param db Firestore instance.
  * @param dishName The original name of the dish.
  * @param language The language of the recipe to retrieve.
@@ -13,14 +14,13 @@ import type { CachedRecipe, GetIngredientsOutput } from './types';
  */
 export async function getCachedRecipe(db: Firestore, dishName: string, language: 'en' | 'te'): Promise<GetIngredientsOutput | null> {
     const normalizedDishName = dishName.toLowerCase().replace(/\s+/g, '-');
-    const docId = `${normalizedDishName}_${language}`;
-    const docRef = doc(db, 'cachedRecipes', docId);
-
+    const targetDocId = `${normalizedDishName}_${language}`;
+    const targetDocRef = doc(db, 'cachedRecipes', targetDocId);
+    
     try {
-        const docSnap = await getDoc(docRef);
+        const docSnap = await getDoc(targetDocRef);
         if (docSnap.exists()) {
             const data = docSnap.data() as CachedRecipe;
-            // Reconstruct the GetIngredientsOutput format from the cached data.
             return {
                 isSuccess: true,
                 title: data.dishName,
@@ -28,6 +28,23 @@ export async function getCachedRecipe(db: Firestore, dishName: string, language:
                 instructions: data.instructions,
             };
         }
+        
+        // If target language not found, try fetching the English version as a base for translation
+        if (language !== 'en') {
+            const englishDocId = `${normalizedDishName}_en`;
+            const englishDocRef = doc(db, 'cachedRecipes', englishDocId);
+            const englishDocSnap = await getDoc(englishDocRef);
+            if (englishDocSnap.exists()) {
+                 const data = englishDocSnap.data() as CachedRecipe;
+                 return {
+                    isSuccess: true,
+                    title: data.dishName,
+                    ingredients: data.ingredients,
+                    instructions: data.instructions,
+                };
+            }
+        }
+
         return null;
     } catch (error) {
         console.error("Error fetching cached recipe:", error);
