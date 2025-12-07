@@ -516,6 +516,7 @@ const findProductAndVariant = useCallback(
     }
     
     let chosenVariant: ProductVariant | null = null;
+    let finalQty = qty;
 
     if (money && money > 0) {
         const isLiquid = product.category?.toLowerCase().includes('oil') || product.category?.toLowerCase().includes('beverage');
@@ -534,11 +535,18 @@ const findProductAndVariant = useCallback(
             sku: `${baseVariant.sku}-custom-${money}`,
             stock: baseVariant.stock,
         };
-        qty = 1;
+        finalQty = 1;
 
     } else if (unit) {
-        const isLiquidUnit = ['ml'].includes(unit);
-        const requestedAmount = qty; // qty is already in base units (gm or ml) from NLU
+        const isLiquidUnit = unit === 'ml';
+        let requestedAmount = qty;
+        
+        // This is the fix: convert litres/kg to base units
+        if (unit === 'l') {
+            requestedAmount = qty * 1000;
+        } else if (unit === 'kg') {
+            requestedAmount = qty * 1000;
+        }
 
         const baseUnit = isLiquidUnit ? 'l' : 'kg';
         const baseVariant = priceData.variants.find(v => v.weight.includes(baseUnit)) || priceData.variants[0];
@@ -551,20 +559,20 @@ const findProductAndVariant = useCallback(
         
         chosenVariant = {
             price: newPrice,
-            weight: `${Math.round(requestedAmount)}${unit}`,
-            sku: `${baseVariant.sku}-custom-${requestedAmount}${unit}`,
+            weight: `${Math.round(requestedAmount)}${isLiquidUnit ? 'ml' : 'gm'}`,
+            sku: `${baseVariant.sku}-custom-${requestedAmount}${isLiquidUnit ? 'ml' : 'gm'}`,
             stock: baseVariant.stock,
         };
-        qty = 1;
+        finalQty = 1;
     } else { 
         chosenVariant = priceData.variants.find(v => {
             const variantWeightMatch = v.weight.match(/(\d+\.?\d*)/);
             const variantWeight = variantWeightMatch ? parseFloat(variantWeightMatch[0]) : 0;
-            return variantWeight === qty;
+            return variantWeight === finalQty;
         }) || priceData.variants[0];
     }
     
-    return { product, variant: chosenVariant, requestedQty: qty, remainingPhrase: productPhrase, matchedAlias, lang: detectedLang };
+    return { product, variant: chosenVariant, requestedQty: finalQty, remainingPhrase: productPhrase, matchedAlias, lang: detectedLang };
 }, [firestore, productPrices, universalProductAliasMap, language]);
 
 
@@ -672,17 +680,6 @@ const findProductAndVariant = useCallback(
       return;
     }
     lastTranscriptRef.current = commandText;
-
-    // Allow navigation commands even if user is not logged in
-    const isNavigationCommand = (text: string) => {
-        const navKeywords = ['go to', 'open', 'show', 'home', 'stores'];
-        return navKeywords.some(kw => text.toLowerCase().includes(kw));
-    };
-
-    if (!firestore) {
-        speak("I can't process commands without a database connection.", 'en-IN');
-        return;
-    }
     
     const intent = recognizeIntent(commandText, "en");
     const requiresUser = ['SMART_ORDER', 'ORDER_ITEM', 'REMOVE_ITEM', 'CHECK_PRICE', 'GET_RECIPE', 'SHOW_DETAILS', 'placeOrder', 'saveChanges'].includes(intent.type) || (intent.type === 'CONVERSATIONAL' && ['dashboard', 'orders', 'myStore', 'myProfile'].includes(intent.commandKey));
