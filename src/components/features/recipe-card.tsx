@@ -1,13 +1,14 @@
 
 'use client';
 
-import { useState, useTransition, useEffect, useMemo } from 'react';
+import { useState, useTransition, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { ChefHat, Loader2, Sparkles, ShoppingCart, AlertCircle, Search, Volume2, Copy, StopCircle } from 'lucide-react';
 import { getIngredientsForDish, GetIngredientsOutput } from '@/ai/flows/recipe-ingredients-flow';
+import { generateVoiceReply } from '@/ai/flows/generate-voice-reply-flow';
 import { useAppStore } from '@/lib/store';
 import { useCart } from '@/lib/cart';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
@@ -92,6 +93,7 @@ export function RecipeCard() {
     const [recipeData, setRecipeData] = useState<Record<string, GetIngredientsOutput>>({});
     const [currentLanguage, setCurrentLanguage] = useState<'en' | 'te'>('en');
     const { firestore } = useFirebase();
+    const audioRef = useRef<HTMLAudioElement | null>(null);
 
     const result = useMemo(() => recipeData[currentLanguage] || null, [recipeData, currentLanguage]);
 
@@ -146,36 +148,55 @@ export function RecipeCard() {
         });
     };
     
-    const handleSpeak = (textToSpeak: string) => {
+    const handleSpeak = async (textToSpeak: string) => {
         if (!textToSpeak || isSpeaking) return;
 
+        setIsSpeaking(true);
         try {
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel();
-                const utterance = new SpeechSynthesisUtterance(textToSpeak);
-                utterance.lang = currentLanguage === 'te' ? 'te-IN' : 'en-IN';
-                
-                utterance.onstart = () => setIsSpeaking(true);
-                utterance.onend = () => setIsSpeaking(false);
-                utterance.onerror = () => setIsSpeaking(false);
-
-                window.speechSynthesis.speak(utterance);
+            const result = await generateVoiceReply({ text: textToSpeak, language: currentLanguage });
+            if (result.audioDataUri) {
+                if (audioRef.current) {
+                    audioRef.current.src = result.audioDataUri;
+                    audioRef.current.play();
+                }
             } else {
-                throw new Error("Speech synthesis not supported by this browser.");
+                throw new Error("AI did not return audio data.");
             }
         } catch (error) {
-            console.error("Text-to-speech failed:", error);
-            toast({ variant: 'destructive', title: 'Could not read aloud.', description: (error as Error).message });
+            console.error("AI voice generation failed:", error);
+            toast({ variant: 'destructive', title: 'Voice Generation Failed', description: (error as Error).message });
             setIsSpeaking(false);
         }
     };
     
     const handleStopSpeaking = () => {
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+        }
+        setIsSpeaking(false);
+    }
+    
+    // Effect to manage the audio element
+    useEffect(() => {
+        const audio = new Audio();
+        audioRef.current = audio;
+        
+        const onEnded = () => setIsSpeaking(false);
+        const onError = () => {
+            toast({ variant: 'destructive', title: 'Audio Playback Error' });
             setIsSpeaking(false);
         }
-    }
+
+        audio.addEventListener('ended', onEnded);
+        audio.addEventListener('error', onError);
+
+        return () => {
+            audio.removeEventListener('ended', onEnded);
+            audio.removeEventListener('error', onError);
+            audio.pause();
+        };
+    }, [toast]);
     
     const handleCopy = (textToCopy: string, type: 'Ingredients' | 'Instructions') => {
         navigator.clipboard.writeText(textToCopy).then(() => {
