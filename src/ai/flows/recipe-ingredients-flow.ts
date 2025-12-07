@@ -2,7 +2,8 @@
 'use server';
 /**
  * @fileOverview An AI flow to get ingredients for a given dish.
- * This flow now first fetches from TheMealDB and then uses AI to parse.
+ * This flow now first tries TheMealDB, and if that fails, it uses an
+ * AI generation prompt as a fallback.
  *
  * - getIngredientsForDish - A function that returns a structured recipe.
  */
@@ -61,6 +62,22 @@ Raw Instructions:
 `,
 });
 
+// New prompt to generate the recipe from scratch if TheMealDB fails.
+const GenerationPrompt = ai.definePrompt({
+    name: 'recipeGenerationPrompt',
+    input: { schema: GetIngredientsInputSchema },
+    output: { schema: GetIngredientsOutputSchema },
+    model: googleAI.model('gemini-2.5-flash'),
+    prompt: `You are an expert chef specializing in {{language}} cuisine.
+Your task is to generate a complete, structured recipe for the dish: "{{dishName}}".
+
+Instructions:
+1.  **Generate Ingredients**: Create a realistic list of ingredients with quantities (e.g., "1 kg chicken", "2 medium onions").
+2.  **Generate Instructions**: Write clear, step-by-step cooking instructions. Group them into logical steps, each with a short, imperative title (e.g., "Prepare the marinade", "Cook the onions").
+3.  **Format Output**: Return the entire recipe in the specified JSON format. Ensure \`isSuccess\` is true.
+`,
+});
+
 
 const getIngredientsFlow = ai.defineFlow(
   {
@@ -70,28 +87,30 @@ const getIngredientsFlow = ai.defineFlow(
   },
   async ({ dishName, language }) => {
     
+    // First, try to get the recipe from the external API.
     const mealDbResult = await getMealDbRecipe(dishName);
 
-    if (mealDbResult.error || !mealDbResult.ingredients || !mealDbResult.instructions) {
-      return {
-        isSuccess: false,
-        title: dishName,
-        ingredients: [],
-        instructions: [],
-      };
+    if (!mealDbResult.error && mealDbResult.ingredients && mealDbResult.instructions) {
+      // If successful, use the AI to parse the result.
+      const { output } = await ParsingPrompt({
+          dishName: dishName,
+          rawIngredients: mealDbResult.ingredients,
+          rawInstructions: mealDbResult.instructions,
+      });
+      if (output) {
+        return output;
+      }
     }
 
-    const { output } = await ParsingPrompt({
-        dishName: dishName,
-        rawIngredients: mealDbResult.ingredients,
-        rawInstructions: mealDbResult.instructions,
-    });
+    // If TheMealDB fails, use the AI to generate the recipe from scratch.
+    console.log(`TheMealDB failed for "${dishName}". Falling back to generative AI.`);
+    const { output: generatedOutput } = await GenerationPrompt({ dishName, language });
     
-    if (!output) {
+    if (!generatedOutput) {
       return { isSuccess: false, title: dishName, ingredients: [], instructions: [] };
     }
 
-    return output;
+    return generatedOutput;
   }
 );
 
