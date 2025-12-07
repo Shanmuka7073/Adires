@@ -4,7 +4,6 @@
 import { getAdminServices } from '@/firebase/admin-init';
 import { getStorage } from 'firebase-admin/storage';
 import { Timestamp } from 'firebase-admin/firestore';
-import { collection, doc, writeBatch, serverTimestamp, getDocs, where, query, updateDoc, setDoc, getDoc } from 'firebase/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
 import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig } from '@/lib/types';
@@ -18,10 +17,10 @@ async function getFirestoreCounts() {
         const { db } = await getAdminServices();
 
         const [users, stores, partners, commands] = await Promise.all([
-            getDocs(collection(db, 'users')),
-            getDocs(collection(db, 'stores')),
-            getDocs(collection(db, 'deliveryPartners')),
-            getDocs(collection(db, 'voiceCommands')),
+            db.collection('users').get(),
+            db.collection('stores').get(),
+            db.collection('deliveryPartners').get(),
+            db.collection('voiceCommands').get(),
         ]);
 
         return {
@@ -99,10 +98,10 @@ export async function importProductsFromUrl(url: string): Promise<{ success: boo
         }
         const csvText = await response.text();
         const { db } = await getAdminServices();
-        const batch = db.batch(); // Use the admin batch
+        const batch = db.batch(); 
         
-        const adminStoreQuery = query(collection(db, 'stores'), where('name', '==', 'LocalBasket'));
-        const adminStoreSnap = await getDocs(adminStoreQuery);
+        const adminStoreQuery = db.collection('stores').where('name', '==', 'LocalBasket');
+        const adminStoreSnap = await adminStoreQuery.get();
         if (adminStoreSnap.empty) {
             return { success: false, error: 'Master "LocalBasket" store not found. Please create it first.' };
         }
@@ -124,7 +123,7 @@ export async function importProductsFromUrl(url: string): Promise<{ success: boo
 
             const productNameLower = name.toLowerCase();
             const imageId = `prod-${createSlug(name)}`;
-            const productRef = doc(collection(db, 'stores', adminStoreId, 'products'));
+            const productRef = db.collection('stores').doc(adminStoreId).collection('products').doc();
             batch.set(productRef, {
                 name,
                 category,
@@ -135,7 +134,7 @@ export async function importProductsFromUrl(url: string): Promise<{ success: boo
                 imageHint: productNameLower,
             });
 
-            const priceRef = doc(db, 'productPrices', productNameLower);
+            const priceRef = db.collection('productPrices').doc(productNameLower);
             const newVariant = {
                 weight,
                 price,
@@ -301,8 +300,8 @@ export async function uploadStoreImage(storeId: string, dataUri: string): Promis
         const downloadURL = file.publicUrl();
 
         // Update the store document with the new image URL
-        const storeRef = doc(db, 'stores', storeId);
-        await updateDoc(storeRef, { imageUrl: downloadURL });
+        const storeRef = db.collection('stores').doc(storeId);
+        await storeRef.update({ imageUrl: downloadURL });
 
         return { success: true, url: downloadURL };
     } catch (error: any) {
@@ -397,7 +396,7 @@ export async function bulkUploadRecipes(csvText: string): Promise<{ success: boo
             }
             
             const normalizedId = dishName.toLowerCase().replace(/\s+/g, '-');
-            const recipeRef = doc(db, 'cachedRecipes', normalizedId);
+            const recipeRef = db.collection('cachedRecipes').doc(normalizedId);
 
             const recipeData = {
                 id: normalizedId,
@@ -513,24 +512,22 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
     // Use the Timestamp from the Admin SDK
     const startTimestamp = Timestamp.fromDate(startDate);
 
-    const masterStoreQuery = query(collection(db, 'stores'), where('name', '==', 'LocalBasket'));
-    const masterStoreSnap = await getDocs(masterStoreQuery);
+    const masterStoreQuery = db.collection('stores').where('name', '==', 'LocalBasket');
+    const masterStoreSnap = await masterStoreQuery.get();
     if (masterStoreSnap.empty) throw new Error("Master 'LocalBasket' store not found.");
     const masterStoreId = masterStoreSnap.docs[0].id;
     
-    const productsSnapshot = await getDocs(collection(db, 'stores', masterStoreId, 'products'));
+    const productsSnapshot = await db.collection('stores').doc(masterStoreId).collection('products').get();
     const productCategoryMap = new Map<string, string>();
     // Correctly map by product ID
     productsSnapshot.forEach(doc => {
       productCategoryMap.set(doc.id, doc.data().category?.toLowerCase() || 'grocery');
     });
 
-    const ordersQuery = query(
-        collection(db, 'orders'),
-        where('status', 'in', ['Delivered', 'delivered', 'Completed']),
-        where('orderDate', '>=', startTimestamp)
-    );
-    const orderSnapshot = await getDocs(ordersQuery);
+    const ordersQuery = db.collection('orders')
+        .where('status', 'in', ['Delivered', 'delivered', 'Completed'])
+        .where('orderDate', '>=', startTimestamp);
+    const orderSnapshot = await ordersQuery.get();
     const deliveredOrders = orderSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
 
     const report = {
@@ -543,8 +540,8 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
     const vegetableCategories = ['vegetables'];
     
     for (const order of deliveredOrders) {
-      const itemsQuery = collection(db, 'orders', order.id, 'orderItems');
-      const itemsSnapshot = await getDocs(itemsQuery);
+      const itemsQuery = db.collection('orders').doc(order.id).collection('orderItems');
+      const itemsSnapshot = await itemsQuery.get();
       
       if (itemsSnapshot.empty) continue; // Skip if order has no items.
 
@@ -596,16 +593,10 @@ export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ suc
 }
 
 export async function approveRule(sentenceId: string, rawText: string): Promise<{ success: boolean, error?: string }> {
-    // This is a placeholder. In a real application, you would:
-    // 1. Mark the sentence as 'approved' in Firestore.
-    // 2. Append the new rule to a `learned-rules.json` file in your source.
-    console.log(`Approving rule for sentence ID: ${sentenceId}`);
+    const { db } = await getAdminServices();
+    const sentenceRef = db.collection('nlu_extracted_sentences').doc(sentenceId);
     try {
-        const { db } = await getAdminServices();
-        const sentenceRef = doc(db, 'nlu_extracted_sentences', sentenceId);
-        await updateDoc(sentenceRef, { status: 'approved' });
-        
-        // In a real app, you'd append to a file, but for this demo, we'll just log it.
+        await sentenceRef.update({ status: 'approved' });
         console.log(`ACTION: Append the following to learned-rules.json:`);
         console.log(JSON.stringify({ rawText: rawText, note: 'Learned from NLU dashboard' }));
         
@@ -618,8 +609,8 @@ export async function approveRule(sentenceId: string, rawText: string): Promise<
 export async function rejectRule(sentenceId: string): Promise<{ success: boolean, error?: string }> {
     try {
         const { db } = await getAdminServices();
-        const sentenceRef = doc(db, 'nlu_extracted_sentences', sentenceId);
-        await updateDoc(sentenceRef, { status: 'rejected' });
+        const sentenceRef = db.collection('nlu_extracted_sentences').doc(sentenceId);
+        await sentenceRef.update({ status: 'rejected' });
         return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message };
@@ -632,20 +623,14 @@ export async function processPdfAndExtractRules(formData: FormData): Promise<{ s
     if (!file) {
         return { success: false, error: 'No PDF file provided.' };
     }
-
-    // In a real app, this is where you would send the PDF to a backend service
-    // that uses a library like 'pdf-parse' to extract text, then runs your NLU engine
-    // on sentences, and saves the results to Firestore.
     
-    // For this demo, we will simulate this process.
     console.log(`Simulating processing for PDF: ${file.name}`);
     
     try {
         const { db } = await getAdminServices();
         const batch = db.batch();
-        const sentencesRef = collection(db, 'nlu_extracted_sentences');
+        const sentencesRef = db.collection('nlu_extracted_sentences');
 
-        // SIMULATED EXTRACTED SENTENCES
         const demoSentences = [
             "add 1kg of potatoes",
             "I need one and a half litres of milk",
@@ -657,17 +642,14 @@ export async function processPdfAndExtractRules(formData: FormData): Promise<{ s
 
         let sentenceCount = 0;
         for (const text of demoSentences) {
-            const newDocRef = doc(sentencesRef);
-            // In a real implementation, you'd run your NLU engine here
-            // const nluResult = runNLU(text); 
-            
+            const newDocRef = sentencesRef.doc();
             batch.set(newDocRef, {
                 id: newDocRef.id,
                 rawText: text,
-                extractedNumbers: [], // Placeholder for actual NLU result
-                confidence: Math.random(), // Simulated confidence
+                extractedNumbers: [], 
+                confidence: Math.random(), 
                 status: 'pending',
-                createdAt: serverTimestamp(),
+                createdAt: Timestamp.now(),
             });
             sentenceCount++;
         }
@@ -685,9 +667,9 @@ export async function processPdfAndExtractRules(formData: FormData): Promise<{ s
 export async function getSiteConfig(configId: string): Promise<SiteConfig | null> {
     try {
         const { db } = await getAdminServices();
-        const docRef = doc(db, 'siteConfig', configId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
+        const docRef = db.collection('siteConfig').doc(configId);
+        const docSnap = await docRef.get();
+        if (docSnap.exists) {
             return docSnap.data() as SiteConfig;
         }
         return null;
@@ -700,8 +682,8 @@ export async function getSiteConfig(configId: string): Promise<SiteConfig | null
 export async function updateSiteConfig(configId: string, data: Partial<SiteConfig>): Promise<{ success: boolean; error?: string }> {
     try {
         const { db } = await getAdminServices();
-        const docRef = doc(db, 'siteConfig', configId);
-        await setDoc(docRef, data, { merge: true });
+        const docRef = db.collection('siteConfig').doc(configId);
+        await docRef.set(data, { merge: true });
         return { success: true };
     } catch (error: any) {
         console.error("Error updating site config:", error);
@@ -713,22 +695,19 @@ export async function getSalesDataDump(): Promise<{ success: boolean; data?: any
     try {
         const { db } = await getAdminServices();
 
-        const masterStoreQuery = query(collection(db, 'stores'), where('name', '==', 'LocalBasket'));
-        const masterStoreSnap = await getDocs(masterStoreQuery);
+        const masterStoreQuery = db.collection('stores').where('name', '==', 'LocalBasket');
+        const masterStoreSnap = await masterStoreQuery.get();
         if (masterStoreSnap.empty) throw new Error("Master 'LocalBasket' store not found.");
 
-        const ordersQuery = query(
-            collection(db, 'orders'),
-            where('status', 'in', ['Delivered', 'delivered', 'Completed'])
-        );
-        const orderSnapshot = await getDocs(ordersQuery);
+        const ordersQuery = db.collection('orders').where('status', 'in', ['Delivered', 'delivered', 'Completed']);
+        const orderSnapshot = await ordersQuery.get();
         
         const dataDump = [];
 
         for (const orderDoc of orderSnapshot.docs) {
             const order = orderDoc.data() as Order;
-            const itemsQuery = collection(db, 'orders', order.id, 'orderItems');
-            const itemsSnapshot = await getDocs(itemsQuery);
+            const itemsQuery = db.collection('orders').doc(order.id).collection('orderItems');
+            const itemsSnapshot = await itemsQuery.get();
             
             if (itemsSnapshot.empty) {
                  dataDump.push({
@@ -761,7 +740,7 @@ export async function getSalesDataDump(): Promise<{ success: boolean; data?: any
         return { success: true, data: dataDump };
 
     } catch (error: any) {
-        console.error("Sales data dump failed:", error);
+        console.error("Sales data download failed:", error);
         return { success: false, error: error.message || 'An unknown server error occurred.' };
     }
 }
