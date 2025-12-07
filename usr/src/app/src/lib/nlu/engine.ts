@@ -54,7 +54,7 @@ export function runNLU(text: string, lang: string = "en"): NLUResult {
     cleanedText: cleanedText,
     language: lang,
     hasNumbers: numberResult.length > 0,
-    hasMath: false, // Math detection removed for now to simplify
+    hasMath: false, 
     firstNumber: first?.value ?? null,
     quantity: first?.type === "quantity" || first?.type === 'fraction' ? first?.value ?? null : (first?.type === "number" ? first.value : null),
     unit: first?.unit ?? null,
@@ -62,31 +62,47 @@ export function runNLU(text: string, lang: string = "en"): NLUResult {
 }
 
 
-// Words we want to strip from the *front* of the phrase
+// Words we want to strip from the *front* or *back* of the phrase
 const ACTION_WORDS: Record<string, string[]> = {
   en: ['add', 'order', 'buy', 'get', 'send', 'cost', 'price', 'remove', 'go', 'open', 'help'],
   te: ['pettu', 'teeseyi', 'vellu', 'cheyi', 'dhara', 'entha', 'konu'],
   hi: ['daal', 'nikal', 'hata', 'madad', 'jao', 'kholo', 'daam', 'kya', 'hai', 'kharidna'],
 };
 
-// Filler words that often appear before the actual product
+// Filler words that often appear anywhere in the phrase
 const FILLER_WORDS = [
-  'of', 'from', 'my', 'to', 'the', 'par', 'se', 'nundi', 'ka', 'ki', 'ko', 'lo', 'la'
+  'of', 'from', 'my', 'to', 'the', 'par', 'se', 'nundi',
+  'ka', 'ki', 'ko', 'lo', 'la', 'open', 'cheyi', 'vellu', 'daal', 'do'
 ];
 
+
 function cleanProductPhrase(raw: string, lang: string): string {
-  const lowerTokens = raw.trim().toLowerCase().split(/\s+/);
+  let lowerTokens = raw.trim().toLowerCase().split(/\s+/);
   const actionSet = new Set(ACTION_WORDS[lang] ?? []);
   const fillerSet = new Set(FILLER_WORDS);
 
-  // strip leading action / filler words
+  // Strip leading action/filler words
   while (lowerTokens.length && (actionSet.has(lowerTokens[0]) || fillerSet.has(lowerTokens[0]))) {
     lowerTokens.shift();
+  }
+  
+  // Strip trailing action/filler words
+  while (lowerTokens.length && (actionSet.has(lowerTokens[lowerTokens.length - 1]) || fillerSet.has(lowerTokens[lowerTokens.length - 1]))) {
+      lowerTokens.pop();
   }
 
   return lowerTokens.join(' ').trim();
 }
 
+const units = {
+  kg: true, kilo: true, kilogram: true, kilograms: true,
+  g: true, gm: true, gram: true, grams: true, gramula: true,
+  l: true, litre: true, liter: true, litres: true, liters: true,
+  ml: true, milliliter: true, millilitre: true,
+  pc: true, piece: true, pieces: true,
+  pack: true, packet: true, packets: true,
+  dozen: true,
+};
 
 /**
  * EXTRACT QUANTITY + PRODUCT PHRASE
@@ -108,13 +124,37 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
         unit = null;
     } else if (numberData) {
         qty = numberData.value;
-        unit = numberData.unit || null;
+        // Normalize units
+        const rawUnit = numberData.unit?.toLowerCase();
+        if (rawUnit) {
+            if (['kg', 'kilo', 'kilogram', 'kilograms'].includes(rawUnit)) {
+                unit = 'kg';
+                // Convert quantity to grams for consistency if it was a kilo
+                qty *= 1000;
+            } else if (['g', 'gm', 'gram', 'grams', 'gramula'].includes(rawUnit)) {
+                unit = 'gm';
+            } else if (['l', 'litre', 'liter', 'litres', 'liters'].includes(rawUnit)) {
+                unit = 'ml';
+                qty *= 1000;
+            } else if (['ml', 'milliliter', 'millilitre'].includes(rawUnit)) {
+                unit = 'ml';
+            } else if (['pc', 'piece', 'pieces'].includes(rawUnit)) {
+                unit = 'pc';
+            } else if (['pack', 'packet', 'packets'].includes(rawUnit)) {
+                unit = 'pack';
+            } else if (rawUnit === 'dozen') {
+                unit = 'pc';
+                qty *= 12;
+            } else {
+                unit = rawUnit;
+            }
+        }
     }
     
     let phraseForCleanup = text;
     
     if (moneyMatch) {
-      phraseForCleanup = phraseForCleanup.replace(moneyRegex, '').trim();
+      phraseForCleanup = phraseForCleanup.toLowerCase().replace(moneyRegex, '').trim();
     }
 
     if (numberData) {
@@ -122,7 +162,16 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     }
     
     let productPhrase = cleanProductPhrase(phraseForCleanup, nlu.language);
-    productPhrase = productPhrase.replace(/\b(kilo|kilogram|grams|gram|gramula|pettu|daal|do|pack|pc|piece)\b/gi, '').trim();
+    
+    const unitRegex = new RegExp(`\\b(${Object.keys(units).join('|')})\\b`, 'gi');
+    productPhrase = productPhrase.replace(unitRegex, '').trim();
+    
+    // Final cleanup after all other stripping
+    productPhrase = cleanProductPhrase(productPhrase, nlu.language);
+
+    // If unit was detected, final quantity is in base units (gm or ml)
+    if (unit === 'kg') unit = 'gm';
+    if (unit === 'l') unit = 'ml';
     
     return { qty, unit, money, productPhrase };
 }
@@ -134,12 +183,10 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
 export function recognizeIntent(text: string, lang: string): Intent {
     const lower = text.toLowerCase().trim();
   
-    // 1) SMART ORDER: "order X from Y to Z"
     if ((lower.startsWith('order') || lower.startsWith('send')) && lower.includes('from') && lower.includes('to')) {
         return { type: 'SMART_ORDER', originalText: text, lang };
     }
   
-    // 2) CHECK PRICE
     if (
         lower.includes('price of') ||
         lower.includes('cost of') ||
@@ -151,13 +198,11 @@ export function recognizeIntent(text: string, lang: string): Intent {
         return { type: 'CHECK_PRICE', productPhrase: cleanProductPhrase(cleaned, lang), originalText: text, lang };
     }
 
-    // 3) REMOVE FROM CART
     if (lower.startsWith('remove') || lower.includes('teeseyi') || lower.includes('nikal') || lower.includes('hata')) {
         const cleaned = lower.replace(/^remove\s+/, '').replace(/teeseyi|nikal|hata/g, '').trim();
         return { type: 'REMOVE_ITEM', productPhrase: cleanProductPhrase(cleaned, lang), originalText: text, lang };
     }
   
-    // 4) NAVIGATE
     const navPatterns: Record<string, string[]> = {
         orders: ['my orders', 'na orderlaku', 'mere orders'],
         cart: ['open cart', 'cart open'],
@@ -168,12 +213,10 @@ export function recognizeIntent(text: string, lang: string): Intent {
         }
     }
 
-    // 5) CONVERSATIONAL
     if (lower.startsWith('help') || lower.includes('sahayam') || lower.includes('madad')) {
         return { type: 'CONVERSATIONAL', commandKey: 'help', originalText: text, lang };
     }
   
-    // 6) ORDER ITEM (fallback)
     const nlu = runNLU(text, lang);
     if (nlu.hasNumbers || text.match(/(?:rs|rupees|₹|rupay|rupayala|रूपये|రూపాయలు)/i)) {
       return { type: 'ORDER_ITEM', originalText: text, lang };
