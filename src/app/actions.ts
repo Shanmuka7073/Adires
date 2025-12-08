@@ -383,17 +383,21 @@ export async function bulkUploadRecipes(csvText: string): Promise<{ success: boo
         for (const row of rows) {
             if (!row.trim()) continue;
 
-            const [dishName, ingredientsString] = row.split(',');
+            const [dishName, ingredientsString, instructionsString] = row.split(',');
             if (!dishName || !ingredientsString) {
                 console.warn(`Skipping invalid row: ${row}`);
                 continue;
             }
+            
+            const ingredients = ingredientsString.split('|').map(ing => {
+                const parts = ing.trim().split(';');
+                return { name: parts[1] || '', quantity: parts[0] || '' };
+            }).filter(ing => ing.name && ing.quantity);
 
-            const ingredients = ingredientsString.split('|').map(ing => ing.trim()).filter(Boolean);
-            if (ingredients.length === 0) {
-                console.warn(`Skipping row with no ingredients: ${dishName}`);
-                continue;
-            }
+            const instructions = instructionsString ? instructionsString.split('|').map(step => {
+                 const [title, ...actions] = step.split(';');
+                 return { title: title.trim(), actions: actions.map(a => a.trim()) };
+            }) : [];
             
             const normalizedId = dishName.toLowerCase().replace(/\s+/g, '-');
             const recipeRef = db.collection('cachedRecipes').doc(normalizedId);
@@ -402,6 +406,7 @@ export async function bulkUploadRecipes(csvText: string): Promise<{ success: boo
                 id: normalizedId,
                 dishName: dishName.trim(),
                 ingredients,
+                instructions,
                 createdAt: Timestamp.now()
             };
             batch.set(recipeRef, recipeData);
@@ -708,7 +713,6 @@ export async function getSalesDataDump(): Promise<{ success: boolean; data?: any
             const orderData = orderDoc.data() as Order;
             const orderId = orderDoc.id;
 
-            // This is the fix. The 'orderDate' is a Timestamp object which is not serializable.
             const serializableOrderDate = orderData.orderDate instanceof Timestamp
                 ? orderData.orderDate.toDate().toISOString()
                 : orderData.orderDate;
@@ -728,7 +732,7 @@ export async function getSalesDataDump(): Promise<{ success: boolean; data?: any
                     price: 0,
                 });
             } else {
-                itemsSnapshot.forEach(itemDoc => {
+                for (const itemDoc of itemsSnapshot.docs) {
                     const item = itemDoc.data() as OrderItem;
                     dataDump.push({
                         orderId: orderId,
@@ -740,7 +744,7 @@ export async function getSalesDataDump(): Promise<{ success: boolean; data?: any
                         quantity: item.quantity,
                         price: item.price,
                     });
-                });
+                };
             }
         }
         
