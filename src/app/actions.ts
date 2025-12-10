@@ -310,35 +310,6 @@ export async function uploadStoreImage(storeId: string, dataUri: string): Promis
     }
 }
 
-export async function uploadLiveOrderVideo(formData: FormData): Promise<{ success: boolean; url?: string; error?: string; }> {
-    const file = formData.get('video') as File;
-    if (!file) {
-        return { success: false, error: 'No video file provided.' };
-    }
-
-    try {
-        const storage = getStorage();
-        const bucket = storage.bucket();
-        const fileName = `live-order-videos/${Date.now()}-${file.name}`;
-        const buffer = Buffer.from(await file.arrayBuffer());
-
-        const fileUpload = bucket.file(fileName);
-        await fileUpload.save(buffer, {
-            metadata: {
-                contentType: file.type,
-            },
-            public: true,
-        });
-
-        const publicUrl = fileUpload.publicUrl();
-        return { success: true, url: publicUrl };
-
-    } catch (error: any) {
-        console.error('Live order video upload failed:', error);
-        return { success: false, error: error.message || 'Could not upload video.' };
-    }
-}
-
 
 const getManifestPath = () => {
   // `process.cwd()` returns the root of your Next.js project

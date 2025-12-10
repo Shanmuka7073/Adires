@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useTransition, useEffect } from 'react';
-import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
+import { useFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,8 +13,10 @@ import { Loader2, Link, Save, Upload, Video } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 import type { SiteConfig } from '@/lib/types';
-import { getSiteConfig, updateSiteConfig, uploadLiveOrderVideo } from '@/app/actions';
+import { getSiteConfig, updateSiteConfig } from '@/app/actions';
 import { Progress } from '@/components/ui/progress';
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+
 
 export default function SiteConfigPage() {
   const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
@@ -51,35 +53,36 @@ export default function SiteConfigPage() {
     }
   };
 
-  const handleUpload = async () => {
+  const handleUpload = () => {
     if (!videoFile) {
         toast({ variant: 'destructive', title: 'No file selected.' });
         return;
     }
+    
+    startUploadTransition(() => {
+        const storage = getStorage();
+        const fileName = `live-order-videos/${Date.now()}-${videoFile.name}`;
+        const storageRef = ref(storage, fileName);
+        const uploadTask = uploadBytesResumable(storageRef, videoFile);
 
-    startUploadTransition(async () => {
-        try {
-            const formData = new FormData();
-            formData.append('video', videoFile);
-            
-            // This would typically involve a progress-tracked upload
-            // For now, we'll simulate it.
-            setUploadProgress(30);
-            const result = await uploadLiveOrderVideo(formData);
-            setUploadProgress(100);
-
-            if (result.success && result.url) {
-                setConfig(prev => ({...prev, liveVideoUrl: result.url}));
-                toast({ title: 'Upload Successful!', description: 'URL has been updated. Click save to apply.'});
-            } else {
-                 throw new Error(result.error || 'An unknown error occurred.');
+        uploadTask.on('state_changed',
+            (snapshot) => {
+                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                setUploadProgress(progress);
+            },
+            (error) => {
+                console.error("Video upload failed:", error);
+                toast({ variant: 'destructive', title: 'Upload Failed', description: error.message });
+                setUploadProgress(0);
+            },
+            () => {
+                getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+                    setConfig(prev => ({...prev, liveVideoUrl: downloadURL}));
+                    toast({ title: 'Upload Successful!', description: 'URL has been updated. Click save to apply.'});
+                    setVideoFile(null);
+                });
             }
-        } catch (error) {
-            console.error("Video upload failed:", error);
-            toast({ variant: 'destructive', title: 'Upload Failed', description: (error as Error).message });
-        } finally {
-            setVideoFile(null);
-        }
+        );
     });
   }
 
@@ -158,7 +161,7 @@ export default function SiteConfigPage() {
                     {isUploading && <Progress value={uploadProgress} />}
                     <Button onClick={handleUpload} disabled={isUploading || !videoFile} className="w-full">
                         {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4" />}
-                        {isUploading ? `Uploading... ${uploadProgress}%` : 'Upload Video'}
+                        {isUploading ? `Uploading... ${Math.round(uploadProgress)}%` : 'Upload Video'}
                     </Button>
                 </CardContent>
             </Card>
