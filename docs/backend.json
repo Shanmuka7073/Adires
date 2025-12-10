@@ -1,5 +1,4 @@
 
-
 {
   "entities": {
     "Store": {
@@ -704,8 +703,13 @@
         "$schema": "http://json-schema.org/draft-07/schema#",
         "title": "SiteConfig",
         "type": "object",
-        "description": "Stores global site configuration, like feature flags for AI.",
+        "description": "Stores global site configuration, like feature flags for AI and live video URLs.",
         "properties": {
+            "liveVideoUrl": {
+                "type": "string",
+                "format": "uri",
+                "description": "The URL for the live order video stream."
+            },
             "isPackGeneratorEnabled": {
                 "type": "boolean",
                 "description": "Controls the AI Grocery Pack Generator feature."
@@ -1037,7 +1041,7 @@
           "schema": {
             "$ref": "#/backend/entities/VoiceCommand"
           },
-          "description": "Stores the core information for general voice commands.",
+          "description": "Stores the core information for a general voice command.",
           "params": [
             {
               "name": "commandKey",
@@ -1090,4 +1094,3 @@
     ]
   }
 }
-

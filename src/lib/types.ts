@@ -200,7 +200,7 @@ export type MonthlyPackage = {
 };
 
 export type SiteConfig = {
-    liveVideoUrl?: string; // URL for the live order video stream
+    liveVideoUrl?: string;
     isPackGeneratorEnabled?: boolean;
     isRecipeApiEnabled?: boolean;
     isGeneralQuestionApiEnabled?: boolean;
