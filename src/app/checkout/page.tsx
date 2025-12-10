@@ -305,7 +305,7 @@ export default function CheckoutPage() {
             clearCart();
             setDeliveryCoords(null);
             form.reset();
-            router.push('/order-confirmation');
+            router.push(`/order-confirmation?orderId=${orderDocRef.id}`);
 
         } catch (e) {
             console.error('Error placing order:', e);

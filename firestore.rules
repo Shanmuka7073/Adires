@@ -173,5 +173,10 @@ service firebase.storage {
         && exists(/databases/$(database)/documents/stores/$(storeId))
         && get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == request.auth.uid;
     }
+    
+    match /live-order-videos/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }

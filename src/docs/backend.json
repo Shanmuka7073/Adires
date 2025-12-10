@@ -1,5 +1,4 @@
 
-
 {
   "entities": {
     "Store": {
@@ -423,11 +422,11 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "CachedRecipe",
       "type": "object",
-      "description": "Represents a cached list of ingredients for a specific recipe to reduce AI calls.",
+      "description": "Represents a cached list of ingredients and instructions for a specific recipe to reduce AI calls.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier, typically the normalized dish name."
+          "description": "Unique identifier, typically the normalized dish name plus language code (e.g., 'chicken-biryani_en')."
         },
         "dishName": {
           "type": "string",
@@ -436,9 +435,26 @@
         "ingredients": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "quantity": { "type": "string" }
+            },
+            "required": ["name", "quantity"]
           },
           "description": "The list of ingredients for the dish."
+        },
+        "instructions": {
+           "type": "array",
+           "items": {
+              "type": "object",
+              "properties": {
+                 "title": { "type": "string" },
+                 "actions": { "type": "array", "items": { "type": "string" } }
+              },
+              "required": ["title", "actions"]
+           },
+           "description": "The step-by-step cooking instructions."
         },
         "createdAt": {
           "type": "string",
@@ -446,7 +462,7 @@
           "description": "The timestamp when the recipe was cached."
         }
       },
-      "required": ["id", "dishName", "ingredients", "createdAt"]
+      "required": ["id", "dishName", "ingredients", "instructions", "createdAt"]
     },
     "CachedAIResponse": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -687,8 +703,13 @@
         "$schema": "http://json-schema.org/draft-07/schema#",
         "title": "SiteConfig",
         "type": "object",
-        "description": "Stores global site configuration, like feature flags for AI.",
+        "description": "Stores global site configuration, like feature flags for AI and live video URLs.",
         "properties": {
+            "liveVideoUrl": {
+                "type": "string",
+                "format": "uri",
+                "description": "The URL for the live order video stream."
+            },
             "isPackGeneratorEnabled": {
                 "type": "boolean",
                 "description": "Controls the AI Grocery Pack Generator feature."

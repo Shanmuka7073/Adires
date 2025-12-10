@@ -1,13 +1,15 @@
+
 'use client'
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Link from 'next/link';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, Video } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 
 export default function OrderConfirmationPage() {
-  // In a real app, you'd fetch order details using an ID from the URL.
-  // For now, we'll just show a generic success message.
+  const searchParams = useSearchParams();
+  const orderId = searchParams.get('orderId');
   
   useEffect(() => {
     // Function to play a confirmation sound
@@ -53,19 +55,26 @@ export default function OrderConfirmationPage() {
             <CheckCircle className="h-12 w-12 text-primary" />
           </div>
           <CardTitle className="text-3xl font-headline">Thank You For Your Order!</CardTitle>
-          <p className="text-muted-foreground">Your order has been placed successfully.</p>
+          <CardDescription>Your order has been placed successfully.</CardDescription>
         </CardHeader>
         <CardContent className="text-center space-y-6">
           <p>
-            You will receive an email confirmation shortly with your order details.
-            You can view your order status in the dashboard.
+            You can track the status of your order in your dashboard. You can also watch your order being prepared live!
           </p>
+          {orderId && (
+            <Button asChild size="lg" className="w-full sm:w-auto">
+                <Link href={`/live-order/${orderId}`}>
+                    <Video className="mr-2 h-4 w-4" />
+                    Watch Live Preparation
+                </Link>
+            </Button>
+          )}
           <div className="flex gap-4 justify-center">
-            <Button asChild>
+            <Button asChild variant="outline">
               <Link href="/stores">Continue Shopping</Link>
             </Button>
             <Button asChild variant="outline">
-              <Link href="/dashboard/customer/my-orders">View Orders</Link>
+              <Link href="/dashboard/customer/my-orders">View My Orders</Link>
             </Button>
           </div>
         </CardContent>
