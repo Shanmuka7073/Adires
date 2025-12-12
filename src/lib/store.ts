@@ -1,9 +1,11 @@
+
+
 'use client';
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Firestore, collection, getDocs, query, where } from 'firebase/firestore';
-import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
+import { Store, Product, ProductPrice, VoiceAliasGroup, Menu } from './types';
 import { getStores, getMasterProducts, getProductPrice } from './data';
 import { RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
@@ -23,12 +25,13 @@ export interface ProfileFormValues {
 export interface AppState {
   stores: Store[];
   masterProducts: Product[];
+  allMenus: Menu[]; // NEW: To hold all restaurant menus
   productPrices: Record<string, ProductPrice | null>;
   locales: Locales;
   commands: Record<string, CommandGroup>;
   loading: boolean;
   isInitialized: boolean;
-  appReady: boolean; // This flag is no longer used to block rendering but can be used for other UI cues.
+  appReady: boolean; // Flag to indicate if the app is ready to be shown
   error: Error | null;
   language: string;
   activeStoreId: string | null;
@@ -40,7 +43,7 @@ export interface AppState {
   getAllAliases: (key: string) => Record<string, string[]>;
   setLocales: (newLocales: Locales) => void;
   setCommands: (newCommands: Record<string, CommandGroup>) => void;
-  setAppReady: (isReady: boolean) => void;
+  setAppReady: (isReady: boolean) => void; // Setter for the app ready flag
 }
 
 const getInitialLanguage = (): string => {
@@ -56,12 +59,13 @@ export const useAppStore = create<AppState>()(
     (set, get) => ({
       stores: [],
       masterProducts: [],
+      allMenus: [], // NEW
       productPrices: {},
       locales: {},
       commands: {},
       loading: false,
       isInitialized: false,
-      appReady: true, // Default to true so the app renders immediately.
+      appReady: true, // Default to true, app renders immediately and loads in background
       error: null,
       language: getInitialLanguage(),
       activeStoreId: null,
@@ -96,6 +100,12 @@ export const useAppStore = create<AppState>()(
             getDocs(collection(db, 'voiceCommands'))
           ]);
 
+          // NEW: Fetch all menus from all stores
+          const menuPromises = stores.map(store => getDocs(collection(db, `stores/${store.id}/menus`)));
+          const menuSnapshots = await Promise.all(menuPromises);
+          const allMenus = menuSnapshots.flatMap(snapshot => snapshot.docs.map(doc => doc.data() as Menu));
+          // END NEW
+
           const voiceAliasGroups = aliasDocs.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
           const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
           
@@ -111,10 +121,12 @@ export const useAppStore = create<AppState>()(
           set({
             stores,
             masterProducts,
+            allMenus, // NEW
             locales,
             commands: enrichedCommands,
             isInitialized: true,
             loading: false,
+            appReady: true,
           });
 
           if (masterProducts.length > 0) {
@@ -123,7 +135,7 @@ export const useAppStore = create<AppState>()(
           
         } catch (error) {
           console.error("Failed to fetch initial app data:", error);
-          set({ error: error as Error, loading: false });
+          set({ error: error as Error, loading: false, appReady: true });
         }
       },
       
@@ -176,6 +188,7 @@ export const useAppStore = create<AppState>()(
       partialize: (state) => ({ 
           stores: state.stores,
           masterProducts: state.masterProducts,
+          allMenus: state.allMenus, // NEW
           locales: state.locales,
           commands: state.commands,
           language: state.language,
@@ -206,3 +219,4 @@ export const useMyStorePageStore = create<MyStorePageState>((set) => ({
   saveInventoryBtnRef: null,
   setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
 }));
+

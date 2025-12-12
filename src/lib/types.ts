@@ -24,6 +24,8 @@ export type Product = {
   imageHint?: string;
   matchedAlias?: string; // The alias the user spoke
   isAiAssisted?: boolean; // Flag to show if AI identified this item
+  isMenuItem?: boolean; // NEW: Flag to identify a restaurant menu item
+  price?: number; // NEW: Price for single-item menu products
 };
 
 export type Store = {
@@ -303,5 +305,3 @@ export type Menu = {
     storeId: string;
     items: MenuItem[];
 };
-
-    

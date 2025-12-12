@@ -1,11 +1,12 @@
 
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, errorEmitter, useDoc, useMemoFirebase } from '@/firebase';
-import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, SiteConfig, VoiceAliasGroup } from '@/lib/types';
+import { useFirebase, errorEmitter, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, SiteConfig, VoiceAliasGroup, Menu, MenuItem } from '@/lib/types';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
 import { useAppStore } from '@/lib/store';
@@ -143,6 +144,19 @@ export function VoiceCommander({
   const [speechSynthesisVoices, setSpeechSynthesisVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   const [hasRunCheckoutPrompt, setHasRunCheckoutPrompt] = useState(false);
+
+  // --- NEW: Context-aware menu data ---
+  const isMenuPage = pathname.startsWith('/menu/');
+  const menuStoreId = isMenuPage ? pathname.split('/')[2] : null;
+
+  const menuQuery = useMemoFirebase(() => {
+    if (!firestore || !menuStoreId) return null;
+    return query(collection(firestore, `stores/${menuStoreId}/menus`), limit(1));
+  }, [firestore, menuStoreId]);
+
+  const { data: currentMenuData } = useCollection<Menu>(menuQuery);
+  const currentMenu = useMemo(() => currentMenuData?.[0], [currentMenuData]);
+  // ------------------------------------
 
     // --- Performance Optimization: Memoized Alias Maps ---
   const universalProductAliasMap = useMemo<AliasToProductMap>(() => {
@@ -485,8 +499,44 @@ const findProductAndVariant = useCallback(
     lang: string;
   }> => {
     const nluResult = runNLU(phrase, language);
-    let { qty, unit, money, productPhrase } = extractQuantityAndProduct(nluResult);
+    const { qty, unit, money, productPhrase } = extractQuantityAndProduct(nluResult);
     
+    // --- CONTEXT-AWARE SEARCH LOGIC ---
+    if (isMenuPage && currentMenu) {
+        let bestMatch: { menuItem: MenuItem, score: number } | null = null;
+        for (const item of currentMenu.items) {
+            const similarity = calculateSimilarity(productPhrase, item.name.toLowerCase());
+            if (!bestMatch || similarity > bestMatch.score) {
+                if(similarity > 0.8) {
+                    bestMatch = { menuItem: item, score: similarity };
+                }
+            }
+        }
+        
+        if (bestMatch) {
+            const menuItem = bestMatch.menuItem;
+            // Create a "virtual" product and variant from the menu item
+            const virtualProduct: Product = {
+                id: `${menuStoreId}-${menuItem.name}`,
+                name: menuItem.name,
+                description: menuItem.description || '',
+                storeId: menuStoreId!,
+                category: menuItem.category,
+                imageId: 'cat-restaurant', // Generic fallback
+                isMenuItem: true,
+                price: menuItem.price
+            };
+            const virtualVariant: ProductVariant = {
+                sku: `${menuStoreId}-${menuItem.name}-default`,
+                weight: '1 pc', // Menu items are usually per piece
+                price: menuItem.price,
+                stock: 99, // Assume available
+            };
+            return { product: virtualProduct, variant: virtualVariant, requestedQty: qty || 1, remainingPhrase: '', matchedAlias: menuItem.name, lang: language };
+        }
+    }
+
+    // --- FALLBACK TO GROCERY SEARCH ---
     let bestMatch: { product: Product, alias: string, score: number, lang: string } | null = null;
     
     if (productPhrase) {
@@ -573,7 +623,7 @@ const findProductAndVariant = useCallback(
     }
     
     return { product, variant: chosenVariant, requestedQty: finalQty, remainingPhrase: productPhrase, matchedAlias, lang: detectedLang };
-}, [firestore, productPrices, universalProductAliasMap, language]);
+}, [firestore, productPrices, universalProductAliasMap, language, isMenuPage, currentMenu, menuStoreId]);
 
 
   const recognizeIntent = useCallback((text: string, spokenLang: string): Intent => {
@@ -721,7 +771,7 @@ const findProductAndVariant = useCallback(
           const numbersInCommand = lowerCommandText.match(/\d+/g)?.map(Number);
           if (numbersInCommand) {
               for (const price of numbersInCommand) {
-                  const matchedVariant = context.variants.find(v => Math.round(v.price) === price);
+                  const matchedVariant = context.variants.find(v => Math.round(v.price * 1.20) === price);
                   if (matchedVariant) {
                       chosenVariant = matchedVariant;
                       break;
@@ -1326,7 +1376,7 @@ const findProductAndVariant = useCallback(
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
       removeItem, addUnidentifiedItem, updateUnidentifiedItem,
       getProductName, addItemToCart, locales, commands, getAllAliases, recognizeIntent, stores,
-      showPriceCheck, hidePriceCheck, findProductAndVariant, onInstallApp
+      showPriceCheck, hidePriceCheck, findProductAndVariant, onInstallApp, isMenuPage, currentMenu, menuStoreId
   ]);
 
   return null;

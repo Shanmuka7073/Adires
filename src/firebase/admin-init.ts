@@ -1,3 +1,4 @@
+
 'use server';
 
 import { initializeApp, getApps, App } from 'firebase-admin/app';
@@ -18,8 +19,6 @@ export async function getAdminServices(): Promise<AdminServices> {
     return adminServices;
   }
 
-  // In a managed environment like App Hosting, initializeApp() with no arguments
-  // automatically discovers credentials.
   const app =
     getApps().length > 0
       ? getApps()[0]
