@@ -1,13 +1,14 @@
+
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, setDoc } from 'firebase/firestore';
+import { collection, query, where, doc, setDoc, limit } from 'firebase/firestore';
 import type { Store, Menu, MenuItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Upload, Sparkles, QrCode, Printer } from 'lucide-react';
+import { Loader2, Upload, Sparkles, QrCode, Printer, Save } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import Image from 'next/image';
 import { extractMenuItems } from '@/ai/flows/extract-menu-items-flow';
