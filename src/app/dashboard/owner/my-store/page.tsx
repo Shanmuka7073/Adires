@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useEffect, useMemo, useRef, RefObject } from 'react';
@@ -62,7 +61,7 @@ import {
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
-import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Camera, CameraOff, Sparkles, PlusCircle, Edit, Link2 } from 'lucide-react';
+import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Camera, CameraOff, Sparkles, PlusCircle, Edit, Link2, QrCode } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import Link from 'next/link';
@@ -845,6 +844,13 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
     control: form.control,
     name: 'variants'
   });
+
+  const handleTemplateSelect = (value: string) => {
+    if (!value) return;
+    const [itemName, categoryName] = value.split('::');
+    form.setValue('name', itemName);
+    form.setValue('category', categoryName);
+  };
 
   const handleGenerateImage = () => {
     const productName = form.getValues('name');
@@ -1665,6 +1671,20 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
              </div>
              <div className="grid md:grid-cols-2 gap-8">
                 <PromoteStore store={store} />
+                 <Link href="/dashboard/owner/menu-manager" passHref>
+                    <Card className="h-full hover:shadow-lg transition-shadow">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <QrCode className="h-6 w-6 text-primary" />
+                                QR Code Menu Manager
+                            </CardTitle>
+                            <CardDescription>Create a digital menu for customers by scanning a QR code.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Button className="w-full">Manage Menu</Button>
+                        </CardContent>
+                    </Card>
+                </Link>
              </div>
             </>
         )}
@@ -2064,5 +2084,3 @@ export default function MyStorePage() {
         </div>
     );
 }
-
-    
