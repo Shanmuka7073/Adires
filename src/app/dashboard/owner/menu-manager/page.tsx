@@ -8,7 +8,7 @@ import type { Store, Menu, MenuItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Upload, Sparkles, QrCode, Printer, Save } from 'lucide-react';
+import { Loader2, Upload, Sparkles, QrCode, Printer, Save, Copy } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import Image from 'next/image';
 import { extractMenuItems } from '@/ai/flows/extract-menu-items-flow';
@@ -141,6 +141,7 @@ function MenuReviewer({ storeId, items, onSaveSuccess }: { storeId: string, item
 }
 
 function QrCodeDisplay({ storeId }: { storeId: string }) {
+    const { toast } = useToast();
     const menuUrl = `${window.location.origin}/menu/${storeId}`;
 
     const handlePrint = () => {
@@ -158,6 +159,32 @@ function QrCodeDisplay({ storeId }: { storeId: string }) {
             printWindow?.print();
         }
     };
+    
+    const handleCopyLink = () => {
+        navigator.clipboard.writeText(menuUrl).then(() => {
+            toast({ title: "Link Copied!", description: "The menu URL has been copied to your clipboard." });
+        }).catch(err => {
+            toast({ variant: "destructive", title: "Copy Failed", description: "Could not copy the link." });
+        });
+    };
+    
+    const handleCopyQRCode = () => {
+        const canvas = document.querySelector('#qr-code-to-print canvas') as HTMLCanvasElement;
+        if (canvas) {
+            canvas.toBlob((blob) => {
+                if(blob) {
+                    navigator.clipboard.write([
+                        new ClipboardItem({ 'image/png': blob })
+                    ]).then(() => {
+                        toast({ title: "QR Code Copied!", description: "The QR code image has been copied to your clipboard." });
+                    }).catch(err => {
+                        toast({ variant: "destructive", title: "Copy Failed", description: "Could not copy the QR code image." });
+                    });
+                }
+            });
+        }
+    };
+
 
     return (
         <Card>
@@ -170,7 +197,11 @@ function QrCodeDisplay({ storeId }: { storeId: string }) {
                     <QRCode value={menuUrl} size={256} />
                 </div>
                 <p className="text-xs text-muted-foreground break-all">{menuUrl}</p>
-                <Button onClick={handlePrint} variant="outline">
+                <div className="grid grid-cols-2 gap-2 w-full">
+                    <Button onClick={handleCopyLink} variant="outline"><Copy className="mr-2 h-4 w-4" /> Copy Link</Button>
+                    <Button onClick={handleCopyQRCode} variant="outline"><Copy className="mr-2 h-4 w-4" /> Copy QR</Button>
+                </div>
+                <Button onClick={handlePrint} className="w-full">
                     <Printer className="mr-2 h-4 w-4" /> Print QR Code
                 </Button>
             </CardContent>
