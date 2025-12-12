@@ -19,12 +19,10 @@ function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (items: MenuItem[]
     const { toast } = useToast();
     const [isProcessing, startProcessing] = useTransition();
     const [menuImage, setMenuImage] = useState<string | null>(null);
-    const [file, setFile] = useState<File | null>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files?.[0]) {
             const file = e.target.files[0];
-            setFile(file);
             const reader = new FileReader();
             reader.onload = (event) => {
                 setMenuImage(event.target?.result as string);
@@ -58,7 +56,7 @@ function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (items: MenuItem[]
     return (
         <Card>
             <CardHeader>
-                <CardTitle>1. Upload Your Menu</CardTitle>
+                <CardTitle>1. Create Your Menu</CardTitle>
                 <CardDescription>Upload a clear picture of your restaurant menu. The AI will read it and extract the items.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -79,68 +77,7 @@ function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (items: MenuItem[]
     );
 }
 
-function MenuReviewer({ storeId, items, onSaveSuccess }: { storeId: string, items: MenuItem[], onSaveSuccess: (menuId: string) => void }) {
-    const { firestore } = useFirebase();
-    const { toast } = useToast();
-    const [isSaving, startSave] = useTransition();
-
-    const handleSaveMenu = () => {
-        if (!firestore || !storeId) return;
-
-        startSave(async () => {
-            const newMenuRef = doc(collection(firestore, `stores/${storeId}/menus`));
-            const menuData: Menu = {
-                id: newMenuRef.id,
-                storeId,
-                items,
-            };
-
-            try {
-                await setDoc(newMenuRef, menuData);
-                toast({ title: 'Menu Saved!', description: 'Your new digital menu is now live.' });
-                onSaveSuccess(newMenuRef.id);
-            } catch (error) {
-                console.error("Failed to save menu:", error);
-                toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the menu to the database.' });
-            }
-        });
-    };
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>2. Review & Save Your Menu</CardTitle>
-                <CardDescription>Review the items extracted by the AI. You can edit them later if needed.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Category</TableHead>
-                            <TableHead>Item Name</TableHead>
-                            <TableHead className="text-right">Price</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {items.map((item, index) => (
-                            <TableRow key={index}>
-                                <TableCell className="font-medium">{item.category}</TableCell>
-                                <TableCell>{item.name}</TableCell>
-                                <TableCell className="text-right">₹{item.price.toFixed(2)}</TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-                <Button onClick={handleSaveMenu} disabled={isSaving || items.length === 0} className="w-full">
-                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                    Save Menu
-                </Button>
-            </CardContent>
-        </Card>
-    );
-}
-
-function QrCodeDisplay({ storeId }: { storeId: string }) {
+function MenuDisplay({ storeId, menu, onReplace }: { storeId: string, menu: Menu, onReplace: () => void }) {
     const { toast } = useToast();
     const menuUrl = `${window.location.origin}/menu/${storeId}`;
 
@@ -149,7 +86,7 @@ function QrCodeDisplay({ storeId }: { storeId: string }) {
         if (qrCodeElement) {
             const printWindow = window.open('', '', 'height=600,width=800');
             printWindow?.document.write('<html><head><title>Print QR Code</title>');
-            printWindow?.document.write('<style>body { text-align: center; margin-top: 50px; } h1 { font-family: sans-serif; } </style>');
+            printWindow?.document.write('<style>body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; } h1 { font-family: sans-serif; } </style>');
             printWindow?.document.write('</head><body>');
             printWindow?.document.write('<h1>Scan to view our menu!</h1>');
             printWindow?.document.write(qrCodeElement.innerHTML);
@@ -163,7 +100,7 @@ function QrCodeDisplay({ storeId }: { storeId: string }) {
     const handleCopyLink = () => {
         navigator.clipboard.writeText(menuUrl).then(() => {
             toast({ title: "Link Copied!", description: "The menu URL has been copied to your clipboard." });
-        }).catch(err => {
+        }).catch(() => {
             toast({ variant: "destructive", title: "Copy Failed", description: "Could not copy the link." });
         });
     };
@@ -173,46 +110,72 @@ function QrCodeDisplay({ storeId }: { storeId: string }) {
         if (canvas) {
             canvas.toBlob((blob) => {
                 if(blob) {
-                    navigator.clipboard.write([
-                        new ClipboardItem({ 'image/png': blob })
-                    ]).then(() => {
-                        toast({ title: "QR Code Copied!", description: "The QR code image has been copied to your clipboard." });
-                    }).catch(err => {
-                        toast({ variant: "destructive", title: "Copy Failed", description: "Could not copy the QR code image." });
-                    });
+                    navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+                        .then(() => toast({ title: "QR Code Copied!", description: "The QR code image has been copied." }))
+                        .catch(() => toast({ variant: "destructive", title: "Copy Failed", description: "Could not copy the QR code." }));
                 }
             });
         }
     };
 
-
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>3. Your QR Code</CardTitle>
-                <CardDescription>Your menu is ready! Print this QR code and place it on your tables.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center gap-4">
-                <div id="qr-code-to-print" className="p-4 bg-white rounded-lg border">
-                    <QRCode value={menuUrl} size={256} />
-                </div>
-                <p className="text-xs text-muted-foreground break-all">{menuUrl}</p>
-                <div className="grid grid-cols-2 gap-2 w-full">
-                    <Button onClick={handleCopyLink} variant="outline"><Copy className="mr-2 h-4 w-4" /> Copy Link</Button>
-                    <Button onClick={handleCopyQRCode} variant="outline"><Copy className="mr-2 h-4 w-4" /> Copy QR</Button>
-                </div>
-                <Button onClick={handlePrint} className="w-full">
-                    <Printer className="mr-2 h-4 w-4" /> Print QR Code
-                </Button>
-            </CardContent>
-        </Card>
+        <div className="grid md:grid-cols-2 gap-8">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Your Digital Menu</CardTitle>
+                    <CardDescription>This is your currently active menu. You can replace it by uploading a new one.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                     <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Category</TableHead>
+                                <TableHead>Item Name</TableHead>
+                                <TableHead className="text-right">Price</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {menu.items.map((item, index) => (
+                                <TableRow key={index}>
+                                    <TableCell className="font-medium">{item.category}</TableCell>
+                                    <TableCell>{item.name}</TableCell>
+                                    <TableCell className="text-right">₹{item.price.toFixed(2)}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                     <Button onClick={onReplace} variant="outline" className="w-full">Upload New Menu to Replace</Button>
+                </CardContent>
+            </Card>
+             <Card>
+                <CardHeader>
+                    <CardTitle>Your Menu QR Code</CardTitle>
+                    <CardDescription>Print this code and place it on your tables for customers to scan.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center gap-4">
+                    <div id="qr-code-to-print" className="p-4 bg-white rounded-lg border">
+                        <QRCode value={menuUrl} size={256} />
+                    </div>
+                    <p className="text-xs text-muted-foreground break-all">{menuUrl}</p>
+                    <div className="grid grid-cols-2 gap-2 w-full">
+                        <Button onClick={handleCopyLink} variant="outline"><Copy className="mr-2 h-4 w-4" /> Copy Link</Button>
+                        <Button onClick={handleCopyQRCode} variant="outline"><Copy className="mr-2 h-4 w-4" /> Copy QR</Button>
+                    </div>
+                    <Button onClick={handlePrint} className="w-full">
+                        <Printer className="mr-2 h-4 w-4" /> Print QR Code
+                    </Button>
+                </CardContent>
+            </Card>
+        </div>
     );
 }
+
 
 export default function MenuManagerPage() {
     const { user, firestore } = useFirebase();
     const [extractedItems, setExtractedItems] = useState<MenuItem[]>([]);
-    const [savedMenuId, setSavedMenuId] = useState<string | null>(null);
+    const { toast } = useToast();
+    const [isSaving, startSave] = useTransition();
 
     const storeQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
@@ -222,32 +185,95 @@ export default function MenuManagerPage() {
     const { data: stores, isLoading: storeLoading } = useCollection<Store>(storeQuery);
     const store = stores?.[0];
 
-    if (storeLoading) {
+    const menuQuery = useMemoFirebase(() => {
+        if (!firestore || !store) return null;
+        return query(collection(firestore, `stores/${store.id}/menus`));
+    }, [firestore, store]);
+
+    const { data: menus, isLoading: menuLoading } = useCollection<Menu>(menuQuery);
+    const existingMenu = menus?.[0];
+    
+    const handleSaveMenu = () => {
+        if (!firestore || !store || extractedItems.length === 0) return;
+
+        startSave(async () => {
+            // If a menu already exists, we replace it (doc ID is known). Otherwise, create new.
+            const menuRef = existingMenu ? doc(firestore, `stores/${store.id}/menus`, existingMenu.id) : doc(collection(firestore, `stores/${store.id}/menus`));
+            
+            const menuData: Menu = {
+                id: menuRef.id,
+                storeId: store.id,
+                items: extractedItems,
+            };
+
+            try {
+                await setDoc(menuRef, menuData, { merge: true });
+                toast({ title: 'Menu Saved!', description: 'Your digital menu is now live.' });
+                setExtractedItems([]); // Clear the form after saving
+            } catch (error) {
+                console.error("Failed to save menu:", error);
+                toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the menu to the database.' });
+            }
+        });
+    };
+
+    if (storeLoading || menuLoading) {
         return <div className="container mx-auto py-12">Loading your store details...</div>;
     }
 
     if (!store) {
         return <div className="container mx-auto py-12">Please create a store first to manage a menu.</div>;
     }
-
+    
+    // Main Render Logic
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
             <div className="text-center mb-12">
                 <h1 className="text-4xl font-bold font-headline">QR Code Menu Generator</h1>
-                <p className="text-lg text-muted-foreground mt-2">Create a digital menu for your restaurant in 3 simple steps.</p>
+                <p className="text-lg text-muted-foreground mt-2">Manage the digital menu for your restaurant: {store.name}</p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <MenuUploader onMenuExtracted={setExtractedItems} />
-                
-                {extractedItems.length > 0 && (
-                    <MenuReviewer storeId={store.id} items={extractedItems} onSaveSuccess={setSavedMenuId} />
-                )}
-
-                {savedMenuId && (
-                    <QrCodeDisplay storeId={store.id} />
-                )}
-            </div>
+            {existingMenu && extractedItems.length === 0 ? (
+                // If a menu exists and we are NOT in the middle of uploading a new one, show it.
+                <MenuDisplay storeId={store.id} menu={existingMenu} onReplace={() => setExtractedItems([])} />
+            ) : (
+                // Show the upload/review flow if no menu exists OR if we have just extracted new items
+                 <div className="grid md:grid-cols-2 gap-8">
+                     <MenuUploader onMenuExtracted={setExtractedItems} />
+                     {extractedItems.length > 0 && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>2. Review & Save Your Menu</CardTitle>
+                                <CardDescription>Review the items extracted by the AI. This will replace any existing menu.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Category</TableHead>
+                                            <TableHead>Item Name</TableHead>
+                                            <TableHead className="text-right">Price</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {extractedItems.map((item, index) => (
+                                            <TableRow key={index}>
+                                                <TableCell className="font-medium">{item.category}</TableCell>
+                                                <TableCell>{item.name}</TableCell>
+                                                <TableCell className="text-right">₹{item.price.toFixed(2)}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                                <Button onClick={handleSaveMenu} disabled={isSaving || extractedItems.length === 0} className="w-full">
+                                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                    {existingMenu ? 'Save & Replace Menu' : 'Save Menu'}
+                                </Button>
+                            </CardContent>
+                        </Card>
+                     )}
+                 </div>
+            )}
         </div>
     );
 }
