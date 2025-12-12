@@ -332,6 +332,30 @@
         "price"
       ]
     },
+    "Menu": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "Menu",
+        "type": "object",
+        "description": "Represents a restaurant menu, with items extracted by AI.",
+        "properties": {
+            "id": { "type": "string" },
+            "storeId": { "type": "string" },
+            "items": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": { "type": "string" },
+                        "description": { "type": "string" },
+                        "price": { "type": "number" },
+                        "category": { "type": "string" }
+                    },
+                    "required": ["name", "price", "category"]
+                }
+            }
+        },
+        "required": ["id", "storeId", "items"]
+    },
     "ProductRecommendation": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "ProductRecommendation",
@@ -826,6 +850,26 @@
           ]
         }
       },
+       {
+        "path": "/stores/{storeId}/menus/{menuId}",
+        "definition": {
+          "entityName": "Menu",
+          "schema": {
+            "$ref": "#/backend/entities/Menu"
+          },
+          "description": "Stores menu information for a restaurant.",
+          "params": [
+            {
+              "name": "storeId",
+              "description": "The unique identifier of the store (restaurant)."
+            },
+            {
+              "name": "menuId",
+              "description": "The unique identifier of the menu."
+            }
+          ]
+        }
+      },
       {
         "path": "/stores/{storeId}/packages/{packageId}",
         "definition": {
@@ -1041,7 +1085,7 @@
           "schema": {
             "$ref": "#/backend/entities/VoiceCommand"
           },
-          "description": "Stores the core information for general voice commands.",
+          "description": "Stores the core information for a general voice command.",
           "params": [
             {
               "name": "commandKey",
@@ -1094,3 +1138,5 @@
     ]
   }
 }
+
+    

@@ -1,4 +1,5 @@
 
+
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -288,3 +289,19 @@ export type GenerateBreakfastPackOutput = {
   }[];
   estimatedCost: number;
 };
+
+// QR Code Menu Types
+export type MenuItem = {
+    name: string;
+    description?: string;
+    price: number;
+    category: string;
+};
+
+export type Menu = {
+    id: string;
+    storeId: string;
+    items: MenuItem[];
+};
+
+    
