@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -34,7 +35,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -70,13 +71,14 @@ function MenuItemDialog({
       setIsGenerating(true);
       getIngredientsForDish({ dishName: item.name, language: 'en' })
         .then(setDetails)
-        .catch(() =>
+        .catch((e) => {
+          console.error("Failed to get dish details:", e);
           toast({
             variant: 'destructive',
             title: 'Details Unavailable',
-            description: "We couldn’t load details right now. You can still order.",
-          }),
-        )
+            description: "We couldn’t load ingredient details right now, but you can still order the item.",
+          });
+        })
         .finally(() => setIsGenerating(false));
     }
   }, [isOpen, details, item.name, toast]);
@@ -135,6 +137,7 @@ function MenuItemDialog({
         <div className="p-6 space-y-4">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">{item.name}</DialogTitle>
+            <DialogDescription>Details for the selected menu item. You can adjust the quantity before adding to your cart.</DialogDescription>
           </DialogHeader>
 
           <div className="flex justify-between items-center">
@@ -142,7 +145,7 @@ function MenuItemDialog({
               <Button size="icon" variant="outline" onClick={() => setQuantity(q => Math.max(1, q - 1))}>
                 <Minus className="h-4 w-4" />
               </Button>
-              <Input value={quantity} className="w-16 h-10 text-center font-bold text-lg" />
+              <Input type="number" value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 1)} className="w-16 h-10 text-center font-bold text-lg" readOnly />
               <Button size="icon" variant="outline" onClick={() => setQuantity(q => q + 1)}>
                 <Plus className="h-4 w-4" />
               </Button>
@@ -179,7 +182,7 @@ function MenuItemDialog({
                   ))}
                   {hasShellfish && <Badge variant="destructive" className="bg-red-100 text-red-800">🦐 Contains Shellfish</Badge>}
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">
+                <p className="text-xs text-muted-foreground mt-2" aria-label="Ingredients and nutrition values are approximate per serving.">
                   Ingredients & nutrition values are approximate per serving.
                 </p>
               </div>
@@ -212,7 +215,6 @@ function MenuItemDialog({
 }
 
 function QuickLinks({ categories, onLinkClick, activeFilter }: { categories: string[], onLinkClick: (category: string) => void, activeFilter: string | null }) {
-    const iconMap: { [key: string]: React.ElementType } = { 'Seafood': Fish, 'Biryani': Soup, 'Naan': Wheat, 'Starters': DrumstickIcon, 'Default': Utensils };
     const scrollRef = useRef<HTMLDivElement>(null);
 
     return (
@@ -220,7 +222,7 @@ function QuickLinks({ categories, onLinkClick, activeFilter }: { categories: str
              <ScrollArea className="w-full whitespace-nowrap">
                 <div className="flex gap-3 px-4" ref={scrollRef}>
                     {categories.map(category => {
-                        const Icon = iconMap[category] || iconMap['Default'];
+                        const Icon = Utensils; // Fallback Icon
                         const isActive = activeFilter === category;
                         return (
                              <Button 
@@ -487,3 +489,5 @@ export default function PublicMenuPage() {
     </>
   );
 }
+
+    
