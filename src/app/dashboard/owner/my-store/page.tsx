@@ -34,7 +34,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import type { Store, Product, ProductPrice, User as AppUser } from '@/lib/types';
+import type { Store, Product, ProductPrice, User as AppUser, ProductVariant } from '@/lib/types';
 import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { uploadStoreImage } from '@/app/actions';
@@ -71,6 +71,9 @@ import { useAppStore, useMyStorePageStore } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
 import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import StoreCard from '@/components/store-card';
+
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -1614,6 +1617,49 @@ function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Prod
     );
 }
 
+function ProductList({ products }: { products: Product[] }) {
+    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+    const handleEdit = (product: Product) => {
+        setEditingProduct(product);
+    }
+    
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Products</CardTitle>
+                <CardDescription>Items you sell in your store.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {products.map(p => (
+                    <Card key={p.id} className="hover:shadow-md transition-shadow">
+                        <CardContent className="flex gap-4 p-4 items-center">
+                            <Image src={p.imageUrl || 'https://placehold.co/60x60/E2E8F0/64748B?text=?'} width={60} height={60} alt={p.name} className="rounded-md object-cover" />
+                            <div className="space-y-2">
+                                <p className="font-semibold leading-tight">{p.name}</p>
+                                <p className="text-sm text-muted-foreground">{p.category}</p>
+                                <Button size="sm" variant="outline" onClick={() => handleEdit(p)}>
+                                    <Edit className="mr-2 h-3 w-3" />
+                                    Edit
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))}
+            </CardContent>
+            {editingProduct && (
+                 <EditProductDialog
+                    storeId={editingProduct.storeId}
+                    product={editingProduct}
+                    isOpen={!!editingProduct}
+                    onOpenChange={(open) => !open && setEditingProduct(null)}
+                />
+            )}
+        </Card>
+    );
+}
+
+
 function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdmin: boolean, adminStoreId?: string; }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
@@ -1635,6 +1681,7 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
     
     const filteredProducts = useMemo(() => {
         if (!products) return [];
+        // FIX: Ensure products are unique by ID before filtering
         const uniqueProducts = Array.from(new Map(products.map(p => [p.id, p])).values());
         if (selectedCategory === 'all') return uniqueProducts;
         return uniqueProducts.filter(p => p.category === selectedCategory);
@@ -1709,140 +1756,42 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
 
 
     return (
-      <div className="space-y-8">
-        {editingProduct && (
-            <EditProductDialog
-                storeId={store.id}
-                product={editingProduct}
-                isOpen={!!editingProduct}
-                onOpenChange={(open) => !open && setEditingProduct(null)}
-            />
-        )}
-        {needsLocationUpdate && <UpdateLocationForm store={store} onUpdate={() => {}} />}
-        
-        <StoreDetails store={store} onUpdate={() => {}} />
-
-        {isAdmin ? (
-             <div className="grid md:grid-cols-2 gap-8">
-                <BulkUploadCard storeId={store.id} />
-                <AddProductForm storeId={store.id} isAdmin={true} />
-            </div>
-        ) : (
-            <>
-              <div className="grid md:grid-cols-2 gap-8">
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="products">Products</TabsTrigger>
+          <TabsTrigger value="orders">Orders</TabsTrigger>
+        </TabsList>
+        <TabsContent value="overview" className="mt-6 space-y-6">
+            <StoreDetails store={store} onUpdate={() => {}} />
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                 <StoreImageUploader store={store} />
-                {adminStoreId ? (
-                    <ProductChecklist storeId={store.id} adminStoreId={adminStoreId} />
-                ) : (
-                    <Card>
-                        <CardHeader><CardTitle>{t('manage-inventory')}</CardTitle></CardHeader>
-                        <CardContent>
-                            <Alert>
-                                <AlertCircle className="h-4 w-4" />
-                                <AlertTitle>{t('master-store-not-found')}</AlertTitle>
-                                <AlertDescription>{t('the-admin-has-not-configured-the-master-product-store')}</AlertDescription>
-                            </Alert>
-                        </CardContent>
-                    </Card>
-                )}
-             </div>
-             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                 <PromoteStore store={store} />
                 <TableManager store={store} />
-                 <Link href="/dashboard/owner/menu-manager" passHref>
-                    <Card className="h-full hover:shadow-lg transition-shadow">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <QrCode className="h-6 w-6 text-primary" />
-                                QR Code Menu Manager
-                            </CardTitle>
-                            <CardDescription>Create a digital menu for customers by scanning a QR code.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <Button className="w-full">Manage Menu</Button>
-                        </CardContent>
-                    </Card>
-                </Link>
-             </div>
-            </>
-        )}
-
-        <Card>
-            <CardHeader>
-                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                    <div>
-                        <CardTitle>{t('your-products')}</CardTitle>
-                        <CardDescription>
-                            {isAdmin ? t('this-is-the-master-list-of-products') : t('this-is-your-current-store-inventory')}
-                        </CardDescription>
-                    </div>
-                    {isAdmin && (
-                        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                            <SelectTrigger className="w-full sm:w-[200px]">
-                                <SelectValue placeholder="Filter by category..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Categories</SelectItem>
-                                {masterProducts.map(p => p.category).filter((v, i, a) => a.indexOf(v) === i && v).map(cat => (
-                                    <SelectItem key={cat} value={cat!}>
-                                        {t(cat!.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    )}
-                </div>
-            </CardHeader>
-            <CardContent>
-                {isLoading ? (
-                    <p>{t('loading-products')}...</p>
-                ) : filteredProducts && filteredProducts.length > 0 ? (
-                    <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>{t('product')}</TableHead>
-                            <TableHead>{t('category')}</TableHead>
-                            {isAdmin && <TableHead>{t('variants')}</TableHead>}
-                            {isAdmin && <TableHead className="text-right">{t('actions')}</TableHead>}
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {filteredProducts.map(product => 
-                            isAdmin ? (
-                                <AdminProductRow 
-                                    key={product.id}
-                                    product={product}
-                                    storeId={store.id}
-                                    onEdit={() => setEditingProduct(product)}
-                                    onDelete={() => handleDeleteProduct(product.id, product.name)}
-                                />
-                            ) : (
-                                <TableRow key={product.id}>
-                                     <TableCell>
-                                        <div className="flex items-center gap-4">
-                                            <Image
-                                                src={product.imageUrl || 'https://placehold.co/40x40/E2E8F0/64748B?text=?'}
-                                                alt={product.name}
-                                                width={40}
-                                                height={40}
-                                                className="rounded-sm object-cover"
-                                            />
-                                            <span>{t(product.name.toLowerCase().replace(/ /g, '-'), language)}</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>{t(product.category?.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</TableCell>
-                                </TableRow>
-                            )
-                        )}
-                    </TableBody>
-                    </Table>
-                ) : (
-                <p className="text-muted-foreground">{t('you-havent-added-any-products-yet')}</p>
-                )}
-            </CardContent>
-        </Card>
-        <DangerZone store={store} />
-      </div>
+            </div>
+            {needsLocationUpdate && <UpdateLocationForm store={store} onUpdate={() => {}} />}
+            <DangerZone store={store} />
+        </TabsContent>
+        <TabsContent value="products" className="mt-6 space-y-6">
+            {isAdmin ? (
+                <>
+                    <ProductList products={filteredProducts} />
+                    <AddProductForm storeId={store.id} isAdmin={true} />
+                </>
+            ) : (
+                <ProductChecklist storeId={store.id} adminStoreId={adminStoreId || ''} />
+            )}
+        </TabsContent>
+        <TabsContent value="orders" className="mt-6">
+            {/* Placeholder for future OrdersPanel component */}
+            <Card>
+                <CardHeader><CardTitle>Incoming Orders</CardTitle></CardHeader>
+                <CardContent>
+                    <p className="text-muted-foreground">Order management UI will be here.</p>
+                </CardContent>
+            </Card>
+        </TabsContent>
+    </Tabs>
     )
 }
 
@@ -1968,7 +1917,6 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
             <CardContent>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                        {/* Form Fields... */}
                          <FormField
                             control={form.control}
                             name="name"
@@ -2127,7 +2075,6 @@ export default function MyStorePage() {
             return <ManageStoreView store={myStore} isAdmin={false} adminStoreId={adminStore?.id} />;
         }
         
-        // New user without a store
         if (!userProfile) {
             return (
                  <Card className="max-w-3xl mx-auto">
@@ -2163,5 +2110,3 @@ export default function MyStorePage() {
         </div>
     );
 }
-
-    
