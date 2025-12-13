@@ -1,5 +1,10 @@
 
+'use client';
 
+export const dashboardCodeText = [
+    {
+        path: 'src/app/dashboard/admin/page.tsx',
+        content: `
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -79,7 +84,7 @@ function ProductUrlImporterCard() {
                 if (result.success) {
                     toast({
                         title: 'Import Complete!',
-                        description: `Successfully imported ${result.count} products.`,
+                        description: \`Successfully imported \${result.count} products.\`,
                     });
                     setUrl('');
                     if (firestore) {
@@ -100,7 +105,7 @@ function ProductUrlImporterCard() {
             <CardHeader>
                 <CardTitle>Product URL Importer</CardTitle>
                 <CardDescription>
-                    Import products from a publicly accessible CSV file URL. The format should be: `name,category,description,imageUrl,weight,price`.
+                    Import products from a publicly accessible CSV file URL. The format should be: \`name,category,description,imageUrl,weight,price\`.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -144,7 +149,7 @@ function BulkRecipeUploadCard() {
                 if (result.success) {
                     toast({
                         title: 'Upload Complete!',
-                        description: `Successfully processed and added ${result.count} recipes.`,
+                        description: \`Successfully processed and added \${result.count} recipes.\`,
                     });
                 } else {
                     throw new Error(result.error || 'An unknown error occurred during upload.');
@@ -166,7 +171,7 @@ function BulkRecipeUploadCard() {
             <CardHeader>
                 <CardTitle>Bulk Recipe Upload</CardTitle>
                 <CardDescription>
-                    Upload a CSV file of recipes to pre-populate the AI cache. The format should be: `dish_name,ingredients` (with ingredients separated by "|").
+                    Upload a CSV file of recipes to pre-populate the AI cache. The format should be: \`dish_name,ingredients\` (with ingredients separated by "|").
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -220,8 +225,8 @@ function ProductInventory() {
                 priceData.variants.forEach(variant => {
                     const status = variant.stock <= 10 ? "LOW STOCK" : "OK";
                     rows.push([
-                        `"${product.name}"`,
-                        `"${product.category || 'N/A'}"`,
+                        \`"\${product.name}"\`,
+                        \`"\${product.category || 'N/A'}"\`,
                         variant.weight,
                         String(variant.price),
                         String(variant.stock),
@@ -232,8 +237,8 @@ function ProductInventory() {
         });
 
         const csvContent = "data:text/csv;charset=utf-8," 
-            + headers.join(",") + "\n" 
-            + rows.map(e => e.join(",")).join("\n");
+            + headers.join(",") + "\\n" 
+            + rows.map(e => e.join(",")).join("\\n");
         
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
@@ -349,7 +354,7 @@ function ProductInventoryRow({ product, priceData, onUpdate }: { product: Produc
             const priceDocRef = doc(firestore, 'productPrices', product.name.toLowerCase());
             try {
                 await updateDoc(priceDocRef, { variants });
-                toast({ title: 'Success', description: `${product.name} has been updated.` });
+                toast({ title: 'Success', description: \`\${product.name} has been updated.\` });
                 setIsEditing(false);
                 onUpdate();
             } catch (error) {
@@ -658,14 +663,12 @@ export default function AdminDashboardPage() {
                         href="/dashboard/admin/menu-help"
                         icon={FileCode}
                     />
-                     <AdminActionCard
-                        title="Admin Dashboard UI/UX Code"
-                        description="View the source code for this admin dashboard page itself."
-                        href="/dashboard/admin/dashboard-help"
-                        icon={FileCode}
-                    />
                 </div>
             </div>
         </div>
     );
 }
+`
+        }
+    ]
+    )
