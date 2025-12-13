@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -28,7 +29,7 @@ import {
   Wheat,
   DrumstickIcon
 } from 'lucide-react';
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -271,7 +272,7 @@ function QuickLinks({ categories, onLinkClick, activeFilter }: { categories: str
     };
 
     return (
-        <div className="sticky top-0 z-10 bg-gray-50/80 backdrop-blur-sm py-2">
+        <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm py-2">
              <ScrollArea className="w-full whitespace-nowrap">
                 <div className="flex gap-3 px-4">
                     {categories.map(category => {
@@ -281,7 +282,7 @@ function QuickLinks({ categories, onLinkClick, activeFilter }: { categories: str
                              <Button 
                                 key={category} 
                                 variant={isActive ? "default" : "outline"} 
-                                className={cn("rounded-full shadow-sm", isActive ? "" : "bg-white")}
+                                className={cn("rounded-full shadow-sm", isActive ? "" : "bg-card")}
                                 onClick={() => onLinkClick(category)}
                             >
                                 <Icon className="mr-2 h-4 w-4" />
@@ -382,9 +383,9 @@ export default function PublicMenuPage() {
         />
       )}
 
-      <div className="min-h-screen bg-gray-50">
-          <div className="max-w-2xl mx-auto space-y-8 py-6 px-4">
-              <h1 className="text-3xl font-bold text-center">{store.name}</h1>
+      <div className="min-h-screen bg-background px-4 py-6">
+          <div className="max-w-2xl mx-auto space-y-8">
+              <h1 className="text-3xl font-bold text-center text-foreground">{store.name}</h1>
           </div>
           
           <QuickLinks categories={quickLinkKeywords} onLinkClick={handleFilterClick} activeFilter={activeFilter} />
@@ -393,7 +394,7 @@ export default function PublicMenuPage() {
              {filteredItems ? (
                 // VIEW 1: Show filtered results if a filter is active
                 <section>
-                     <h2 className="flex items-center gap-2 text-lg font-semibold mb-3">
+                     <h2 className="flex items-center gap-2 text-lg font-semibold mb-3 text-foreground">
                         Results for "{activeFilter}"
                     </h2>
                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -401,9 +402,9 @@ export default function PublicMenuPage() {
                             <button
                                 key={item.name}
                                 onClick={() => setSelectedItem(item)}
-                                className="bg-white p-3 rounded-xl shadow-sm hover:shadow-md transition flex gap-3 items-center"
+                                className="bg-card text-card-foreground p-3 rounded-xl shadow-sm hover:shadow-md transition flex gap-3 items-center"
                             >
-                                <div className="h-16 w-16 bg-gray-100 rounded-lg relative overflow-hidden">
+                                <div className="h-16 w-16 bg-muted rounded-lg relative overflow-hidden">
                                 <Image
                                     src={`https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=150&h=150&fit=crop&q=80&seed=${encodeURIComponent(item.name)}`}
                                     alt={item.name}
@@ -428,7 +429,7 @@ export default function PublicMenuPage() {
                 // VIEW 2: Show all items grouped by category if no filter is active
                 Object.entries(menuByCategory).map(([category, items]) => (
                     <section key={category}>
-                        <h2 className="flex items-center gap-2 text-lg font-semibold mb-3">
+                        <h2 className="flex items-center gap-2 text-lg font-semibold mb-3 text-foreground">
                             <Utensils className="h-4 w-4 text-muted-foreground" />
                             {category}
                         </h2>
@@ -438,9 +439,9 @@ export default function PublicMenuPage() {
                             <button
                                 key={item.name}
                                 onClick={() => setSelectedItem(item)}
-                                className="bg-white p-3 rounded-xl shadow-sm hover:shadow-md transition flex gap-3 items-center"
+                                className="bg-card text-card-foreground p-3 rounded-xl shadow-sm hover:shadow-md transition flex gap-3 items-center"
                             >
-                                <div className="h-16 w-16 bg-gray-100 rounded-lg relative overflow-hidden">
+                                <div className="h-16 w-16 bg-muted rounded-lg relative overflow-hidden">
                                 <Image
                                     src={`https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=150&h=150&fit=crop&q=80&seed=${encodeURIComponent(item.name)}`}
                                     alt={item.name}
@@ -466,3 +467,4 @@ export default function PublicMenuPage() {
     </>
   );
 }
+
