@@ -12,7 +12,7 @@ import type {
   ProductVariant,
   Ingredient,
 } from '@/lib/types';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import {
   Utensils,
   Zap,
@@ -48,17 +48,20 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { getStoreImage } from '@/lib/data';
 import { motion } from "framer-motion";
+import { Label } from '@/components/ui/label';
 
 function MenuItemDialog({
   item,
   storeId,
   isOpen,
   onClose,
+  tableNumber,
 }: {
   item: MenuItem;
   storeId: string;
   isOpen: boolean;
   onClose: () => void;
+  tableNumber: string | null;
 }) {
   const { addItem } = useCart();
   const { toast } = useToast();
@@ -102,7 +105,7 @@ function MenuItemDialog({
       stock: 99,
     };
 
-    addItem(product, variant, quantity);
+    addItem(product, variant, quantity, tableNumber || undefined);
     toast({ title: 'Added to Cart', description: `${quantity} × ${item.name}` });
     onClose();
   };
@@ -145,7 +148,7 @@ function MenuItemDialog({
               <Button size="icon" variant="outline" onClick={() => setQuantity(q => Math.max(1, q - 1))}>
                 <Minus className="h-4 w-4" />
               </Button>
-              <Input type="number" value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 1)} className="w-16 h-10 text-center font-bold text-lg" readOnly />
+              <Input type="number" value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 1)} className="w-16 h-10 text-center font-bold text-lg" />
               <Button size="icon" variant="outline" onClick={() => setQuantity(q => q + 1)}>
                 <Plus className="h-4 w-4" />
               </Button>
@@ -243,7 +246,7 @@ function QuickLinks({ categories, onLinkClick, activeFilter }: { categories: str
     );
 }
 
-function MenuHeader({ store }: { store: Store }) {
+function MenuHeader({ store, tableNumber }: { store: Store, tableNumber: string | null }) {
     const [image, setImage] = useState({ imageUrl: '', imageHint: 'loading' });
     const [isLoading, setIsLoading] = useState(true);
 
@@ -283,6 +286,9 @@ function MenuHeader({ store }: { store: Store }) {
                         <span className="truncate">{store.address}</span>
                     </div>
                 </div>
+                 {tableNumber && (
+                    <Badge className="mt-2 text-base">Table: {tableNumber}</Badge>
+                )}
             </div>
         </div>
     )
@@ -302,6 +308,9 @@ const MenuItemSkeleton = () => (
 
 export default function PublicMenuPage() {
   const { storeId } = useParams<{ storeId: string }>();
+  const searchParams = useSearchParams();
+  const tableNumber = searchParams.get('table');
+
   const { firestore } = useFirebase();
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
@@ -400,11 +409,12 @@ export default function PublicMenuPage() {
           storeId={storeId}
           isOpen
           onClose={() => setSelectedItem(null)}
+          tableNumber={tableNumber}
         />
       )}
 
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-          <MenuHeader store={store} />
+          <MenuHeader store={store} tableNumber={tableNumber} />
           <QuickLinks categories={quickLinkKeywords} onLinkClick={handleFilterClick} activeFilter={activeFilter} />
 
           <div className="max-w-3xl mx-auto space-y-8 px-4 py-6">

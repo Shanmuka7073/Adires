@@ -41,7 +41,7 @@ export type Store = {
   longitude: number;
   distance?: number;
   isClosed?: boolean;
-  tables?: string[]; // NEW: For restaurant table management
+  tables?: string[]; // For restaurant table management
 };
 
 // WebAuthn types

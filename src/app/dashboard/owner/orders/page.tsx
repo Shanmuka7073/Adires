@@ -2,8 +2,7 @@
 
 'use client';
 
-import { useFirebase, errorEmitter, FirestorePermissionError, useCollection, useMemoFirebase } from '@/firebase';
-import { Order, Store } from '@/lib/types';
+import { Order, Store, DeliveryPartner, Payout } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +12,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { collection, query, where, orderBy, doc, writeBatch, increment } from 'firebase/firestore';
 import { useState, useEffect, useMemo, useRef, useTransition } from 'react';
+import { useFirebase, errorEmitter, FirestorePermissionError, useCollection, useMemoFirebase } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, Store as StoreIcon, AlertTriangle } from 'lucide-react';
 import { getStores } from '@/lib/data';
@@ -41,6 +41,57 @@ const playAlarm = () => {
     oscillator.stop(audioContext.currentTime + 1); // Play for 1 second
 };
 
+function OrderDetailsDialog({ order, isOpen, onClose }: { order: Order | null; isOpen: boolean; onClose: () => void; }) {
+    if (!order) return null;
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Order Details</DialogTitle>
+                    <DialogDescription>
+                        ID: {order.id} | Placed by: {order.customerName}
+                         {order.tableNumber && ` | Table: ${order.tableNumber}`}
+                    </DialogDescription>
+                </DialogHeader>
+                <ScrollArea className="max-h-[60vh]">
+                    <div className="grid gap-4 py-4 pr-6">
+                        {order.items && order.items.length > 0 ? (
+                           <Card>
+                                <CardHeader><CardTitle className="text-lg">Order Items</CardTitle></CardHeader>
+                                <CardContent>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Item</TableHead>
+                                                <TableHead>Qty</TableHead>
+                                                <TableHead className="text-right">Price</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {order.items.map((item, index) => (
+                                                <TableRow key={index}>
+                                                    <TableCell>{item.productName}</TableCell>
+                                                    <TableCell>{item.quantity}</TableCell>
+                                                    <TableCell className="text-right">₹{item.price.toFixed(2)}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <p>No items listed for this order.</p>
+                        )}
+                    </div>
+                </ScrollArea>
+                <DialogFooter>
+                    <Button variant="outline" onClick={onClose}>Close</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 function OrderRow({ order, onStatusChange, onShowDetails, isUpdating }: { order: Order; onStatusChange: (orderId: string, newStatus: Order['status']) => void; onShowDetails: () => void, isUpdating: boolean }) {
     
@@ -80,7 +131,7 @@ function OrderRow({ order, onStatusChange, onShowDetails, isUpdating }: { order:
     return (
         <TableRow>
             <TableCell className="font-medium truncate max-w-[100px]">{order.id}</TableCell>
-            <TableCell>{order.customerName}</TableCell>
+            <TableCell>{order.customerName}{order.tableNumber && ` (Table: ${order.tableNumber})`}</TableCell>
             <TableCell>{formatDate(order.orderDate)}</TableCell>
             <TableCell>
                  <Select onValueChange={(newStatus) => onStatusChange(order.id, newStatus as Order['status'])} defaultValue={order.status} disabled={isUpdating || (order.status === 'Delivered' || order.status === 'Cancelled')}>
@@ -330,56 +381,3 @@ export default function MyOrdersPage() {
     </div>
   );
 }
-
-function OrderDetailsDialog({ order, isOpen, onClose }: { order: Order | null; isOpen: boolean; onClose: () => void; }) {
-    if (!order) return null;
-
-    return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>Order Details</DialogTitle>
-                    <DialogDescription>
-                        ID: {order.id} | Placed by: {order.customerName}
-                         {order.tableNumber && ` | Table: ${order.tableNumber}`}
-                    </DialogDescription>
-                </DialogHeader>
-                <ScrollArea className="max-h-[60vh]">
-                    <div className="grid gap-4 py-4 pr-6">
-                        {order.items && order.items.length > 0 ? (
-                           <Card>
-                                <CardHeader><CardTitle className="text-lg">Order Items</CardTitle></CardHeader>
-                                <CardContent>
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Item</TableHead>
-                                                <TableHead>Qty</TableHead>
-                                                <TableHead className="text-right">Price</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {order.items.map((item, index) => (
-                                                <TableRow key={index}>
-                                                    <TableCell>{item.productName}</TableCell>
-                                                    <TableCell>{item.quantity}</TableCell>
-                                                    <TableCell className="text-right">₹{item.price.toFixed(2)}</TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </CardContent>
-                            </Card>
-                        ) : (
-                            <p>No items listed for this order.</p>
-                        )}
-                    </div>
-                </ScrollArea>
-                <DialogFooter>
-                    <Button variant="outline" onClick={onClose}>Close</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
