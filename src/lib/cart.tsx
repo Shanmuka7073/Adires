@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
@@ -90,8 +91,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addItem = useCallback((product: Product, variant: ProductVariant, quantity = 1, tableNumber?: string) => {
     setCartItems((prevItems) => {
-        if (prevItems.length > 0 && activeStoreId && product.storeId !== activeStoreId) {
-            if (window.confirm("You have items from another store. Do you want to clear your current cart and start a new one with this item?")) {
+        // If a table number is provided with this item, ensure all items in the cart have the same table number.
+        // This prevents mixing orders from different tables.
+        const existingTableNumber = prevItems.length > 0 ? prevItems[0].tableNumber : undefined;
+
+        if (prevItems.length > 0 && activeStoreId && (product.storeId !== activeStoreId || (tableNumber && existingTableNumber && tableNumber !== existingTableNumber))) {
+            const message = product.storeId !== activeStoreId 
+                ? "You have items from another store. Clear your cart to start a new one?"
+                : "You are adding an item for a different table. Clear your cart to start a new order for this table?";
+
+            if (window.confirm(message)) {
                 setActiveStoreId(product.storeId);
                 toast({
                     title: 'New cart started!',

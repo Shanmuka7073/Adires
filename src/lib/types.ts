@@ -41,6 +41,7 @@ export type Store = {
   longitude: number;
   distance?: number;
   isClosed?: boolean;
+  tables?: string[]; // NEW: For restaurant table management
 };
 
 // WebAuthn types
@@ -69,7 +70,7 @@ export type CartItem = {
   product: Product; // The base product
   variant: ProductVariant; // The specific variant chosen
   quantity: number;
-  tableNumber?: string; // NEW: For restaurant orders
+  tableNumber?: string; // For restaurant orders
 };
 
 export type OrderItem = {
@@ -96,7 +97,7 @@ export type Order = {
   orderDate: Timestamp; 
   phone: string;
   email: string;
-  tableNumber?: string; // NEW: For restaurant orders
+  tableNumber?: string; // For restaurant orders
   translatedList?: string; // Bilingual translated list
   store?: Store; // Optional: Denormalized or joined store data
   deliveryPartnerId?: string | null; // ID of the user who is delivering
