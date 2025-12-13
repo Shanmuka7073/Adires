@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { ChefHat, Loader2, Sparkles, ShoppingCart, AlertCircle, Search, Volume2, Copy, StopCircle } from 'lucide-react';
+import { ChefHat, Loader2, Sparkles, ShoppingCart, AlertCircle, Search, Volume2, Copy, StopCircle, Salad, Info } from 'lucide-react';
 import { getIngredientsForDish, GetIngredientsOutput } from '@/ai/flows/recipe-ingredients-flow';
 import { generateVoiceReply } from '@/ai/flows/generate-voice-reply-flow';
 import { useAppStore } from '@/lib/store';
@@ -55,7 +55,7 @@ function RecipeContent({ result, onSpeak, isSpeaking, onStop, onCopyIngredients,
         <div className="space-y-6">
             <div>
                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-lg">Ingredients</h4>
+                    <h4 className="font-semibold text-lg flex items-center gap-2"><Salad className="h-5 w-5 text-green-600"/> Ingredients</h4>
                     <Button variant="ghost" size="icon" onClick={onCopyIngredients}>
                         <Copy className="h-4 w-4" />
                         <span className="sr-only">Copy Ingredients</span>
@@ -68,6 +68,7 @@ function RecipeContent({ result, onSpeak, isSpeaking, onStop, onCopyIngredients,
                         </Badge>
                     ))}
                 </div>
+                <p className="text-xs text-gray-500 mt-2">Ingredients & nutrition values are approximate per serving.</p>
             </div>
              <div>
                 <div className="flex items-center justify-between mb-2">

@@ -6,7 +6,7 @@ import { collection, query, where } from 'firebase/firestore';
 import type { Store, Menu, MenuItem, GetIngredientsOutput, Product, ProductVariant, Ingredient } from '@/lib/types';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Utensils, Zap, Flame, Info, Plus, Minus, ShoppingCart, Loader2 } from 'lucide-react';
+import { Utensils, Zap, Flame, Info, Plus, Minus, ShoppingCart, Loader2, Salad, Mic, Eye } from 'lucide-react';
 import { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -17,6 +17,7 @@ import { useCart } from '@/lib/cart';
 import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
 
 function MenuItemDialog({ item, storeId, isOpen, onClose }: { item: MenuItem; storeId: string; isOpen: boolean; onClose: () => void; }) {
     const { addItem } = useCart();
@@ -138,12 +139,16 @@ function MenuItemDialog({ item, storeId, isOpen, onClose }: { item: MenuItem; st
                                 </div>
                             </div>
                             <div>
-                                <h4 className="font-semibold mb-2">Main Ingredients (for {quantity} serving{quantity > 1 ? 's':''}):</h4>
+                                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                   <Salad className="h-5 w-5 text-green-600"/>
+                                   Main Ingredients (per serving)
+                                </h4>
                                 <div className="flex flex-wrap gap-2">
                                     {details.ingredients.slice(0, 5).map(ing => (
                                         <Badge key={ing.name} variant="secondary">{ing.name} ({formatScaledQuantity(ing)})</Badge>
                                     ))}
                                 </div>
+                                <p className="text-xs text-gray-500 mt-2">Ingredients & nutrition values are approximate per serving.</p>
                             </div>
                         </div>
                     ) : (
@@ -157,6 +162,17 @@ function MenuItemDialog({ item, storeId, isOpen, onClose }: { item: MenuItem; st
                         <ShoppingCart className="mr-2 h-5 w-5" />
                         Add to Cart
                     </Button>
+                    <div className="flex items-center justify-center gap-4">
+                        <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
+                            <Link href="/live-order/placeholder">
+                                <Eye className="mr-2 h-4 w-4" />
+                                See preparation
+                            </Link>
+                        </Button>
+                    </div>
+                     <p className="text-xs text-center text-muted-foreground italic flex items-center justify-center gap-2">
+                         <Mic className="h-4 w-4" /> Say "add {item.name.toLowerCase()}" to order
+                    </p>
                 </div>
             </DialogContent>
         </Dialog>
