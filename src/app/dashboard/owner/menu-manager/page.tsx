@@ -92,11 +92,11 @@ function QRCodeDialog({ table, storeId }: { table: string, storeId: string }) {
     }, [storeId, table]);
     
     const handlePrint = () => {
-        const qrCodeElement = document.getElementById(`qr-code-${table}`);
+        const qrCodeElement = document.getElementById(`qr-code-container-${table}`);
         if (qrCodeElement) {
             const printWindow = window.open('', '', 'height=600,width=800');
             printWindow?.document.write('<html><head><title>Print QR Code for ' + table + '</title>');
-            printWindow?.document.write('<style>body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; } h1 { font-family: sans-serif; } </style>');
+            printWindow?.document.write('<style>body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; } h1 { font-family: sans-serif; } .qr-container { position: relative; display: inline-block; } .qr-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 4px 8px; border-radius: 4px; font-size: 24px; font-weight: bold; font-family: sans-serif; border: 2px solid black; } </style>');
             printWindow?.document.write('</head><body>');
             printWindow?.document.write(`<h1>Scan for ${table}</h1>`);
             printWindow?.document.write(qrCodeElement.innerHTML);
@@ -121,8 +121,15 @@ function QRCodeDialog({ table, storeId }: { table: string, storeId: string }) {
                 <DialogTitle>QR Code for {table}</DialogTitle>
             </DialogHeader>
             <div className="flex flex-col items-center gap-4">
-                 <div id={`qr-code-${table}`} className="p-4 bg-white rounded-lg border">
-                    {menuUrl ? <QRCode value={menuUrl} size={256} /> : <div className="w-[256px] h-[256px] bg-gray-200 animate-pulse" />}
+                 <div id={`qr-code-container-${table}`} className="p-4 bg-white rounded-lg border relative">
+                    {menuUrl ? (
+                        <>
+                            <QRCode value={menuUrl} size={256} />
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-3 py-1 rounded border-2 border-black">
+                                <span className="text-3xl font-extrabold text-black">{table}</span>
+                            </div>
+                        </>
+                    ) : <div className="w-[256px] h-[256px] bg-gray-200 animate-pulse" />}
                 </div>
                 <p className="text-xs text-muted-foreground break-all">{menuUrl || 'Generating URL...'}</p>
                 <div className="grid grid-cols-2 gap-2 w-full">
