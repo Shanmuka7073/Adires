@@ -12,9 +12,6 @@ import { Order, Store } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { format, parseISO } from 'date-fns';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { collection, query, where, orderBy, doc, writeBatch, increment } from 'firebase/firestore';
 import { useState, useEffect, useMemo, useRef, useTransition } from 'react';
@@ -23,6 +20,10 @@ import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, Store as StoreIcon, AlertTriangle, CookingPot, Truck } from 'lucide-react';
 import { getStores } from '@/lib/data';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import Link from 'next/link';
+import { format, parseISO } from 'date-fns';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+
 
 const DELIVERY_FEE = 30;
 
@@ -94,7 +95,7 @@ export default function MyOrdersPage() {
         const prevOrder = prevOrdersRef.current.get(orderId);
         
         if (prevOrder && prevOrder.status !== currentOrder.status) {
-          const toastMessage = \`Your order #${'${currentOrder.id.substring(0, 7)}'} is now "\${currentOrder.status}".\`;
+          const toastMessage = \`Your order #\${currentOrder.id.substring(0, 7)} is now "\${currentOrder.status}".\`;
           toast({
             title: "Order Status Updated",
             description: toastMessage,
@@ -226,7 +227,7 @@ export default function MyOrdersPage() {
                         <AccordionTrigger className="rounded-lg border px-4 py-3 hover:bg-muted/50 hover:no-underline [&[data-state=open]]:rounded-b-none">
                             <div className="flex justify-between items-center w-full">
                                 <div className="text-left space-y-1">
-                                    <p className="font-semibold">Order #${order.id.substring(0, 6)}</p>
+                                    <p className="font-semibold">Order #\${order.id.substring(0, 6)}</p>
                                     <p className="text-sm text-muted-foreground flex gap-1 items-center">
                                         <StoreIcon className="h-4 w-4" /> {order.storeName}
                                     </p>
