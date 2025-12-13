@@ -27,7 +27,10 @@ import {
   Soup,
   Fish,
   Wheat,
-  DrumstickIcon
+  DrumstickIcon,
+  Star,
+  Clock,
+  MapPin,
 } from 'lucide-react';
 import { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
@@ -42,6 +45,7 @@ import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { getStoreImage } from '@/lib/data';
 
 /* =========================
    MENU ITEM DIALOG (UNCHANGED)
@@ -297,6 +301,52 @@ function QuickLinks({ categories, onLinkClick, activeFilter }: { categories: str
     );
 }
 
+function MenuHeader({ store }: { store: Store }) {
+    const [image, setImage] = useState({ imageUrl: '', imageHint: 'loading' });
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchImg = async () => {
+            setIsLoading(true);
+            const img = await getStoreImage(store);
+            setImage(img);
+            setIsLoading(false);
+        };
+        fetchImg();
+    }, [store]);
+    
+    // Fake rating and time for visual similarity
+    const rating = useMemo(() => (4 + Math.random()).toFixed(1), [store.id]);
+    const deliveryTime = useMemo(() => Math.floor(Math.random() * 20) + 15, [store.id]);
+
+    return (
+        <div className="relative h-40 w-full">
+            {isLoading ? <Skeleton className="w-full h-full" /> : (
+                 <Image src={image.imageUrl} alt={store.name} layout="fill" className="object-cover" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent" />
+            <div className="absolute bottom-0 left-0 p-4 text-white">
+                <h1 className="text-3xl font-bold">{store.name}</h1>
+                <p className="text-sm text-gray-200">{store.description}</p>
+                <div className="flex items-center text-xs mt-2 gap-4">
+                    <div className="flex items-center gap-1">
+                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                        <span className="font-bold">{rating}</span>
+                    </div>
+                     <div className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        <span>{deliveryTime}-{deliveryTime+5} mins</span>
+                    </div>
+                     <div className="flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
+                        <span className="truncate">{store.address}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 export default function PublicMenuPage() {
   const { storeId } = useParams<{ storeId: string }>();
   const { firestore } = useFirebase();
@@ -351,7 +401,6 @@ export default function PublicMenuPage() {
   }, [menu, menuByCategory]);
 
   const handleFilterClick = (filter: string) => {
-    // If the same filter is clicked again, clear it.
     if (activeFilter === filter) {
         setActiveFilter(null);
     } else {
@@ -361,7 +410,7 @@ export default function PublicMenuPage() {
 
   const filteredItems = useMemo(() => {
     if (!menu?.items) return [];
-    if (!activeFilter) return null; // Return null when no filter is active to show the category view
+    if (!activeFilter) return null; 
 
     return menu.items.filter(item => 
         item.name.toLowerCase().includes(activeFilter.toLowerCase()) ||
@@ -378,23 +427,20 @@ export default function PublicMenuPage() {
         <MenuItemDialog
           item={selectedItem}
           storeId={storeId}
-          isOpen={!!selectedItem}
+          isOpen
           onClose={() => setSelectedItem(null)}
         />
       )}
 
-      <div className="min-h-screen bg-background px-4 py-6">
-          <div className="max-w-2xl mx-auto space-y-8">
-              <h1 className="text-3xl font-bold text-center text-foreground">{store.name}</h1>
-          </div>
-          
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+          <MenuHeader store={store} />
           <QuickLinks categories={quickLinkKeywords} onLinkClick={handleFilterClick} activeFilter={activeFilter} />
 
-          <div className="max-w-2xl mx-auto space-y-8 px-4 py-6">
+          <div className="max-w-3xl mx-auto space-y-8 px-4 py-6">
              {filteredItems ? (
-                // VIEW 1: Show filtered results if a filter is active
+                // VIEW 1: Show filtered results
                 <section>
-                     <h2 className="flex items-center gap-2 text-lg font-semibold mb-3 text-foreground">
+                     <h2 className="flex items-center gap-2 text-lg font-semibold mb-3 text-gray-800 dark:text-gray-200">
                         Results for "{activeFilter}"
                     </h2>
                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -426,10 +472,10 @@ export default function PublicMenuPage() {
                     </div>
                 </section>
              ) : (
-                // VIEW 2: Show all items grouped by category if no filter is active
+                // VIEW 2: Show all items grouped by category
                 Object.entries(menuByCategory).map(([category, items]) => (
                     <section key={category}>
-                        <h2 className="flex items-center gap-2 text-lg font-semibold mb-3 text-foreground">
+                        <h2 className="flex items-center gap-2 text-lg font-semibold mb-3 text-gray-800 dark:text-gray-200">
                             <Utensils className="h-4 w-4 text-muted-foreground" />
                             {category}
                         </h2>
@@ -467,4 +513,3 @@ export default function PublicMenuPage() {
     </>
   );
 }
-
