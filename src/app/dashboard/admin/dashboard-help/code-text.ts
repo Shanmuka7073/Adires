@@ -663,12 +663,19 @@ export default function AdminDashboardPage() {
                         href="/dashboard/admin/menu-help"
                         icon={FileCode}
                     />
+                     <AdminActionCard
+                        title="Admin Dashboard UI/UX Code"
+                        description="View the source code for this admin dashboard page itself."
+                        href="/dashboard/admin/dashboard-help"
+                        icon={FileCode}
+                    />
                 </div>
             </div>
         </div>
     );
 }
-`
-        }
-    ]
-    )
+`,
+    },
+];
+
+    
