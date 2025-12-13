@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -427,48 +426,34 @@ export async function bulkUploadRecipes(csvText: string): Promise<{ success: boo
     }
 }
 
-export async function placeRestaurantOrder(cartItems: CartItem[], cartTotal: number, guestInfo?: {name: string, phone: string}): Promise<{ success: boolean; orderId?: string; error?: string; }> {
+export async function placeRestaurantOrder(cartItems: CartItem[], cartTotal: number, guestInfo: {name: string, phone: string}): Promise<{ success: boolean; orderId?: string; error?: string; }> {
     try {
         const { db, auth: adminAuth } = await getAdminServices();
         const headersList = headers();
-        // Check for 'Authorization' header first for logged-in users.
+        
         const authHeader = headersList.get('Authorization');
         const idToken = authHeader?.startsWith('Bearer ') ? authHeader.split('Bearer ')[1] : null;
+
+        if (!idToken) {
+            return { success: false, error: 'Authentication token is required.' };
+        }
         
-        let userId: string;
-        let customerName: string;
-        let customerPhone: string;
+        const decodedToken = await adminAuth.verifyIdToken(idToken);
+        const userId = decodedToken.uid;
+        
+        let customerName = guestInfo.name;
+        let customerPhone = guestInfo.phone;
         let customerEmail: string | undefined;
         let userDocData: any = {};
-
-        if (idToken) {
-            // Logged-in user flow
-            const decodedToken = await adminAuth.verifyIdToken(idToken);
-            userId = decodedToken.uid;
-            
+        
+        if (!decodedToken.isAnonymous) {
             const userDoc = await db.collection('users').doc(userId).get();
             if (userDoc.exists) {
                 userDocData = userDoc.data();
                 customerName = `${userDocData?.firstName} ${userDocData?.lastName}`;
                 customerPhone = userDocData?.phoneNumber || 'N/A';
                 customerEmail = userDocData?.email;
-            } else {
-                 // This case can happen if user exists in Auth but not Firestore
-                 customerName = decodedToken.name || 'N/A';
-                 customerPhone = decodedToken.phone_number || 'N/A';
-                 customerEmail = decodedToken.email;
             }
-
-        } else if (guestInfo && guestInfo.name && guestInfo.phone) {
-            // Guest user flow: Create an anonymous user on the backend
-            const anonymousUser = await adminAuth.createUser({});
-            userId = anonymousUser.uid;
-            customerName = guestInfo.name;
-            customerPhone = guestInfo.phone;
-            customerEmail = undefined; // No email for guest
-            
-        } else {
-             return { success: false, error: 'Authentication token or guest information is required.' };
         }
         
         if (cartItems.length === 0) {
@@ -487,7 +472,7 @@ export async function placeRestaurantOrder(cartItems: CartItem[], cartTotal: num
             userId,
             storeId: storeId, 
             customerName,
-            deliveryAddress: userDocData?.address || 'In-store pickup', // Default for restaurant
+            deliveryAddress: userDocData?.address || 'In-store pickup',
             phone: customerPhone,
             email: customerEmail,
             orderDate: Timestamp.now(),

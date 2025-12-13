@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useCart } from '@/lib/cart';
@@ -19,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '../ui/label';
+import { signInAnonymously } from 'firebase/auth';
 
 function GuestOrderDialog({ isOpen, onOpenChange, onPlaceOrder }: { isOpen: boolean, onOpenChange: (open: boolean) => void, onPlaceOrder: (name: string, phone: string) => void }) {
     const [name, setName] = useState('');
@@ -116,7 +116,7 @@ function CartSheetItem({ item, image }: { item: any, image: any }) {
 export function CartSheetContent() {
   const { cartItems, cartTotal, cartCount, clearCart } = useCart();
   const [images, setImages] = useState({});
-  const { user } = useFirebase();
+  const { user, auth } = useFirebase();
   const { toast } = useToast();
   const router = useRouter();
   const [isPlacingOrder, startOrderTransition] = useTransition();
@@ -145,26 +145,37 @@ export function CartSheetContent() {
   }, [cartItems]);
   
   const handlePlaceOrder = (guestInfo?: { name: string, phone: string }) => {
-    if (!user && !guestInfo) {
-        setIsGuestDialogOpen(true);
-        return;
-    }
-
     startOrderTransition(async () => {
-        const result = await placeRestaurantOrder(cartItems, cartTotal, guestInfo);
-        if (result.success && result.orderId) {
-            toast({
-                title: 'Order Placed!',
-                description: 'Your order has been sent to the kitchen.',
-            });
-            clearCart();
-            setIsGuestDialogOpen(false); // Close dialog on success
-            router.push(`/order-confirmation?orderId=${result.orderId}`);
-        } else {
-            toast({
+        try {
+            let currentUser = user;
+            if (!currentUser) {
+                if (!auth) throw new Error("Authentication service is not available.");
+                const userCredential = await signInAnonymously(auth);
+                currentUser = userCredential.user;
+            }
+
+            if (!guestInfo) {
+                setIsGuestDialogOpen(true);
+                return;
+            }
+
+            const result = await placeRestaurantOrder(cartItems, cartTotal, guestInfo);
+            if (result.success && result.orderId) {
+                toast({
+                    title: 'Order Placed!',
+                    description: 'Your order has been sent to the kitchen.',
+                });
+                clearCart();
+                setIsGuestDialogOpen(false);
+                router.push(`/order-confirmation?orderId=${result.orderId}`);
+            } else {
+                throw new Error(result.error || 'Could not place your order. Please try again.');
+            }
+        } catch (error: any) {
+             toast({
                 variant: 'destructive',
                 title: 'Order Failed',
-                description: result.error || 'Could not place your order. Please try again.',
+                description: error.message,
             });
         }
     });
