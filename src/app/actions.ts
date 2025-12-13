@@ -426,14 +426,15 @@ export async function bulkUploadRecipes(csvText: string): Promise<{ success: boo
     }
 }
 
-export async function placeRestaurantOrder(cartItems: CartItem[], cartTotal: number, guestInfo: {name: string, phone: string}): Promise<{ success: boolean; orderId?: string; error?: string; }> {
+export async function placeRestaurantOrder(
+    cartItems: CartItem[], 
+    cartTotal: number, 
+    guestInfo: {name: string, phone: string},
+    idToken: string | null
+): Promise<{ success: boolean; orderId?: string; error?: string; }> {
     try {
         const { db, auth: adminAuth } = await getAdminServices();
-        const headersList = headers();
         
-        const authHeader = headersList.get('Authorization');
-        const idToken = authHeader?.startsWith('Bearer ') ? authHeader.split('Bearer ')[1] : null;
-
         if (!idToken) {
             return { success: false, error: 'Authentication token is required.' };
         }

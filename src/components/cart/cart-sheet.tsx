@@ -147,19 +147,35 @@ export function CartSheetContent() {
   const handlePlaceOrder = (guestInfo?: { name: string, phone: string }) => {
     startOrderTransition(async () => {
         try {
+            if (!auth) throw new Error("Authentication service is not available.");
+
             let currentUser = user;
             if (!currentUser) {
-                if (!auth) throw new Error("Authentication service is not available.");
+                // If user is not logged in and we don't have guest info, open the dialog.
+                if (!guestInfo) {
+                    setIsGuestDialogOpen(true);
+                    return;
+                }
+                // If we have guest info, sign in anonymously.
                 const userCredential = await signInAnonymously(auth);
                 currentUser = userCredential.user;
             }
 
+            // At this point, we must have guestInfo if the user was anonymous.
             if (!guestInfo) {
-                setIsGuestDialogOpen(true);
-                return;
+                // This case handles registered users placing a restaurant order.
+                // We'll create a temporary guestInfo object from their profile if available.
+                 const userDoc = auth.currentUser ? (await getDoc(doc(firestore, 'users', auth.currentUser.uid))).data() : null;
+                 guestInfo = {
+                    name: userDoc?.firstName ? `${userDoc.firstName} ${userDoc.lastName}` : "Registered User",
+                    phone: userDoc?.phoneNumber || "N/A"
+                 }
             }
+            
+            const idToken = await currentUser.getIdToken();
 
-            const result = await placeRestaurantOrder(cartItems, cartTotal, guestInfo);
+            const result = await placeRestaurantOrder(cartItems, cartTotal, guestInfo, idToken);
+
             if (result.success && result.orderId) {
                 toast({
                     title: 'Order Placed!',
