@@ -1,9 +1,10 @@
 
+
 'use client';
 
 import { useFirebase, errorEmitter, FirestorePermissionError, useCollection, useMemoFirebase } from '@/firebase';
 import { Order, Store } from '@/lib/types';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
@@ -17,7 +18,7 @@ import { CheckCircle, Store as StoreIcon, AlertTriangle } from 'lucide-react';
 import { getStores } from '@/lib/data';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from "@/components/ui/alert-dialog"
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -302,6 +303,7 @@ export default function MyOrdersPage() {
                  <p><strong>Customer:</strong> {newOrderAlert?.customerName}</p>
                  <p><strong>Total:</strong> ₹{newOrderAlert?.totalAmount.toFixed(2)}</p>
                  <p><strong>Address:</strong> {newOrderAlert?.deliveryAddress}</p>
+                 {newOrderAlert?.tableNumber && <p><strong>Table Number:</strong> {newOrderAlert.tableNumber}</p>}
               </div>
               <AlertDialogFooter>
                   <AlertDialogAction asChild>
@@ -339,6 +341,7 @@ function OrderDetailsDialog({ order, isOpen, onClose }: { order: Order | null; i
                     <DialogTitle>Order Details</DialogTitle>
                     <DialogDescription>
                         ID: {order.id} | Placed by: {order.customerName}
+                         {order.tableNumber && ` | Table: ${order.tableNumber}`}
                     </DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="max-h-[60vh]">
@@ -379,3 +382,4 @@ function OrderDetailsDialog({ order, isOpen, onClose }: { order: Order | null; i
         </Dialog>
     );
 }
+

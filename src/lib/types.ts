@@ -95,6 +95,7 @@ export type Order = {
   orderDate: Timestamp; 
   phone: string;
   email: string;
+  tableNumber?: string; // NEW: For restaurant orders
   translatedList?: string; // Bilingual translated list
   store?: Store; // Optional: Denormalized or joined store data
   deliveryPartnerId?: string | null; // ID of the user who is delivering
@@ -298,4 +299,19 @@ export type GenerateBreakfastPackOutput = {
     quantity: string;
   }[];
   estimatedCost: number;
+};
+
+
+// Restaurant Menu Types
+export type MenuItem = {
+    name: string;
+    description?: string;
+    price: number;
+    category: string;
+};
+
+export type Menu = {
+    id: string;
+    storeId: string;
+    items: MenuItem[];
 };

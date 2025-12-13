@@ -455,7 +455,7 @@ export async function bulkUploadRecipes(csvText: string): Promise<{ success: boo
 export async function placeRestaurantOrder(
     cartItems: CartItem[],
     cartTotal: number,
-    guestInfo: { name: string; phone: string },
+    guestInfo: { name: string; phone: string; tableNumber: string },
     idToken: string | null
 ): Promise<{ success: boolean; orderId?: string; error?: string; }> {
     try {
@@ -501,9 +501,10 @@ export async function placeRestaurantOrder(
             userId,
             storeId: storeId,
             customerName,
-            deliveryAddress: userDocData?.address || 'In-store pickup',
+            deliveryAddress: 'In-store pickup', // Restaurant orders are pickups
             phone: customerPhone,
-            email: customerEmail || '', // FIX: Default to empty string if undefined
+            email: customerEmail || '',
+            tableNumber: guestInfo.tableNumber, // Save the table number
             orderDate: Timestamp.now(),
             status: 'Pending',
             totalAmount: cartTotal,
