@@ -80,7 +80,8 @@ function MenuItemDialog({ item, storeId, isOpen, onClose }: { item: MenuItem; st
     const formatScaledQuantity = (ingredient: Ingredient) => {
         if (ingredient.baseQuantity && ingredient.unit) {
             const scaledQuantity = ingredient.baseQuantity * quantity;
-            return `${scaledQuantity.toFixed(0)}${ingredient.unit}`;
+            const unit = ingredient.unit === 'pc' && scaledQuantity > 1 ? 'pcs' : ingredient.unit;
+            return `${scaledQuantity.toFixed(0)}${unit}`;
         }
         return ingredient.quantity; // Fallback to the original string
     };
@@ -93,12 +94,14 @@ function MenuItemDialog({ item, storeId, isOpen, onClose }: { item: MenuItem; st
         };
     }, [details, quantity]);
 
+    const hasShellfish = item.name.toLowerCase().includes('prawn');
+
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="max-w-md p-0">
                 <div className="relative h-48 w-full">
                     <Image 
-                        src={`https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop&q=80&seed=${item.name}`}
+                        src={`https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop&q=80&seed=${encodeURIComponent(item.name)}`}
                         alt={item.name}
                         layout="fill"
                         objectFit="cover"
@@ -117,7 +120,7 @@ function MenuItemDialog({ item, storeId, isOpen, onClose }: { item: MenuItem; st
                             <Input type="number" value={quantity} onChange={e => setQuantity(parseInt(e.target.value) || 1)} className="w-16 h-10 text-center text-lg font-bold" />
                             <Button variant="outline" size="icon" onClick={() => setQuantity(q => q + 1)}><Plus className="h-4 w-4" /></Button>
                         </div>
-                        <p className="text-2xl font-bold text-primary">₹{(item.price * quantity).toFixed(2)}</p>
+                        <p className="text-3xl font-extrabold text-primary">₹{(item.price * quantity).toFixed(2)}</p>
                     </div>
 
                     {isGenerating ? (
@@ -129,11 +132,11 @@ function MenuItemDialog({ item, storeId, isOpen, onClose }: { item: MenuItem; st
                     ) : details && details.isSuccess ? (
                         <div className="space-y-3">
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1 font-medium">
                                     <Flame className="h-4 w-4 text-orange-500" />
                                     <span>{scaledNutrition.calories} kcal</span>
                                 </div>
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1 font-medium">
                                     <Zap className="h-4 w-4 text-yellow-500" />
                                     <span>{scaledNutrition.protein}g Protein</span>
                                 </div>
@@ -147,6 +150,7 @@ function MenuItemDialog({ item, storeId, isOpen, onClose }: { item: MenuItem; st
                                     {details.ingredients.slice(0, 5).map(ing => (
                                         <Badge key={ing.name} variant="secondary">{ing.name} ({formatScaledQuantity(ing)})</Badge>
                                     ))}
+                                    {hasShellfish && <Badge variant="destructive" className="bg-red-100 text-red-800">🦐 Contains Shellfish</Badge>}
                                 </div>
                                 <p className="text-xs text-gray-500 mt-2">Ingredients & nutrition values are approximate per serving.</p>
                             </div>
@@ -271,3 +275,4 @@ export default function PublicMenuPage() {
         </>
     );
 }
+
