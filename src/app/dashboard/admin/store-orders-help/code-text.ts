@@ -1,3 +1,4 @@
+
 'use client';
 
 export const storeOrdersCodeText = [
@@ -43,8 +44,8 @@ const STATUS_META: Record<string, any> = {
   Pending: { icon: AlertTriangle, variant: 'secondary' },
   Processing: { icon: CookingPot, variant: 'secondary' },
   'Out for Delivery': { icon: Truck, variant: 'outline' },
-  Delivered: { icon: 'default', icon: CheckCircle },
-  Cancelled: { icon: 'destructive', icon: AlertTriangle },
+  Delivered: { icon: CheckCircle, variant: 'default' },
+  Cancelled: { icon: AlertTriangle, variant: 'destructive' },
 };
 
 /* ---------------- ORDER DETAILS DIALOG ---------------- */
@@ -56,22 +57,25 @@ function OrderDetailsDialog({ order, onClose }: { order: Order | null; onClose: 
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Order #\\${order.id.slice(0, 6)}</DialogTitle>
+          <DialogTitle>Order #\${order.id.slice(0, 6)}</DialogTitle>
         </DialogHeader>
 
         <ScrollArea className="max-h-[60vh]">
           <div className="space-y-4">
             {order.items?.map((item, i) => (
               <div key={i} className="flex justify-between text-sm">
-                <span>\\${item.productName} × \\${item.quantity}</span>
-                <span>₹\\${item.price.toFixed(2)}</span>
+                <span>\${item.productName} × \${item.quantity}</span>
+                <span>₹\${item.price.toFixed(2)}</span>
               </div>
             ))}
             <div className="border-t pt-2 font-bold text-right">
-              Total: ₹\\${order.totalAmount.toFixed(2)}
+              Total: ₹\${order.totalAmount.toFixed(2)}
             </div>
-            <div className="text-sm text-muted-foreground">
-              \\${order.deliveryAddress}
+             <div className="text-sm text-muted-foreground pt-4">
+                <p className="font-semibold">Deliver to:</p>
+                <p>{order.customerName}</p>
+                <p>{order.deliveryAddress}</p>
+                 {order.tableNumber && <p className="font-bold">Table: {order.tableNumber}</p>}
             </div>
           </div>
         </ScrollArea>
@@ -100,20 +104,23 @@ function OrderCard({
       <CardContent className="p-4 space-y-3">
         <div className="flex justify-between items-start">
           <div>
-            <p className="font-semibold">Order #\\${order.id.slice(0, 6)}</p>
+            <p className="font-semibold">Order #\${order.id.slice(0, 6)}</p>
             <p className="text-sm text-muted-foreground flex gap-1 items-center">
-              <StoreIcon className="h-4 w-4" /> \\${order.storeName}
+              <StoreIcon className="h-4 w-4" /> \${order.storeName}
             </p>
             <p className="text-xs text-muted-foreground">
-              \\${format(order.orderDate.seconds * 1000, 'PPP p')}
+              \${format(order.orderDate.seconds * 1000, 'PPP p')}
             </p>
+             {order.tableNumber && (
+                <Badge variant="outline" className="mt-2">Table: {order.tableNumber}</Badge>
+            )}
           </div>
 
           <div className="text-right space-y-1">
             <Badge variant={meta.variant} className="flex gap-1 items-center">
-              <Icon className="h-3 w-3" /> \\${order.status}
+              <Icon className="h-3 w-3" /> \${order.status}
             </Badge>
-            <p className="font-bold">₹\\${order.totalAmount.toFixed(2)}</p>
+            <p className="font-bold">₹\${order.totalAmount.toFixed(2)}</p>
           </div>
         </div>
 
