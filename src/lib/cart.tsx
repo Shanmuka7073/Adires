@@ -31,9 +31,9 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [cartItems, setCartItemsState] = useState<CartItem[]>([]);
   const [unidentifiedItems, setUnidentifiedItems] = useState<UnidentifiedCartItem[]>([]);
-  const [activeStoreId, setActiveStoreId] = useState<string | null>(null);
+  const [activeStoreId, setActiveStoreIdState] = useState<string | null>(null);
 
   const { toast } = useToast();
 
@@ -42,29 +42,41 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const storedCart = localStorage.getItem('localbasket-cart');
       const storedStoreId = localStorage.getItem('localbasket-active-store');
       if (storedCart) {
-        const parsedCart = JSON.parse(storedCart);
-        setCartItems(parsedCart);
+        setCartItemsState(JSON.parse(storedCart));
       }
       if (storedStoreId) {
-        setActiveStoreId(JSON.parse(storedStoreId));
+        setActiveStoreIdState(JSON.parse(storedStoreId));
       }
     } catch (error) {
       console.error("Failed to parse cart from localStorage", error);
     }
   }, []);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('localbasket-cart', JSON.stringify(cartItems));
-      if (activeStoreId) {
-        localStorage.setItem('localbasket-active-store', JSON.stringify(activeStoreId));
-      } else {
-        localStorage.removeItem('localbasket-active-store');
+  const setCartItems = (items: CartItem[] | ((prev: CartItem[]) => CartItem[])) => {
+    setCartItemsState(prevItems => {
+        const newItems = typeof items === 'function' ? items(prevItems) : items;
+        try {
+            localStorage.setItem('localbasket-cart', JSON.stringify(newItems));
+        } catch (error) {
+            console.error("Failed to save cart to localStorage", error);
+        }
+        return newItems;
+    });
+  };
+
+  const setActiveStoreId = (storeId: string | null) => {
+      setActiveStoreIdState(storeId);
+      try {
+          if (storeId) {
+              localStorage.setItem('localbasket-active-store', JSON.stringify(storeId));
+          } else {
+              localStorage.removeItem('localbasket-active-store');
+          }
+      } catch (error) {
+           console.error("Failed to save active storeId to localStorage", error);
       }
-    } catch (error) {
-      console.error("Failed to save cart to localStorage", error);
-    }
-  }, [cartItems, activeStoreId]);
+  }
+
 
   const removeUnidentifiedItem = useCallback((id: string) => {
       setUnidentifiedItems(prev => {
@@ -78,7 +90,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
 
   const addItem = useCallback((product: Product, variant: ProductVariant, quantity = 1) => {
-    // This logic now correctly uses the functional form of setState to avoid stale state issues.
     setCartItems((prevItems) => {
         if (prevItems.length > 0 && activeStoreId && product.storeId !== activeStoreId) {
             if (window.confirm("You have items from another store. Do you want to clear your current cart and start a new one with this item?")) {
@@ -89,7 +100,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 });
                 return [{ product, variant, quantity }];
             }
-            return prevItems; // If user cancels, do not change the cart
+            return prevItems;
         }
 
         if (prevItems.length === 0) {
