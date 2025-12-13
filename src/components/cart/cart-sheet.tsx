@@ -157,7 +157,7 @@ export function CartSheetContent() {
                 description: 'Your order has been sent to the kitchen.',
             });
             clearCart();
-            setIsGuestDialogOpen(false);
+            setIsGuestDialogOpen(false); // Close dialog on success
             router.push(`/order-confirmation?orderId=${result.orderId}`);
         } else {
             toast({

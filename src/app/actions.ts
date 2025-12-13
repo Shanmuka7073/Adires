@@ -431,7 +431,9 @@ export async function placeRestaurantOrder(cartItems: CartItem[], cartTotal: num
     try {
         const { db, auth: adminAuth } = await getAdminServices();
         const headersList = headers();
-        const idToken = headersList.get('X-Firebase-AppCheck-Token');
+        // Check for 'Authorization' header first for logged-in users.
+        const authHeader = headersList.get('Authorization');
+        const idToken = authHeader?.startsWith('Bearer ') ? authHeader.split('Bearer ')[1] : null;
         
         let userId: string;
         let customerName: string;
@@ -445,16 +447,20 @@ export async function placeRestaurantOrder(cartItems: CartItem[], cartTotal: num
             userId = decodedToken.uid;
             
             const userDoc = await db.collection('users').doc(userId).get();
-            if (!userDoc.exists) {
-                return { success: false, error: 'User profile not found.' };
+            if (userDoc.exists) {
+                userDocData = userDoc.data();
+                customerName = `${userDocData?.firstName} ${userDocData?.lastName}`;
+                customerPhone = userDocData?.phoneNumber || 'N/A';
+                customerEmail = userDocData?.email;
+            } else {
+                 // This case can happen if user exists in Auth but not Firestore
+                 customerName = decodedToken.name || 'N/A';
+                 customerPhone = decodedToken.phone_number || 'N/A';
+                 customerEmail = decodedToken.email;
             }
-            userDocData = userDoc.data();
-            customerName = `${userDocData?.firstName} ${userDocData?.lastName}`;
-            customerPhone = userDocData?.phoneNumber || 'N/A';
-            customerEmail = userDocData?.email;
 
-        } else if (guestInfo) {
-            // Guest user flow
+        } else if (guestInfo && guestInfo.name && guestInfo.phone) {
+            // Guest user flow: Create an anonymous user on the backend
             const anonymousUser = await adminAuth.createUser({});
             userId = anonymousUser.uid;
             customerName = guestInfo.name;
@@ -470,12 +476,16 @@ export async function placeRestaurantOrder(cartItems: CartItem[], cartTotal: num
         }
         
         const firstItem = cartItems[0];
+        const storeId = firstItem.product.storeId;
+        if (!storeId) {
+             return { success: false, error: 'Store ID is missing from cart items.' };
+        }
 
         const orderRef = db.collection('orders').doc();
-        const orderData = {
+        const orderData: Order = {
             id: orderRef.id,
             userId,
-            storeId: firstItem.product.storeId, 
+            storeId: storeId, 
             customerName,
             deliveryAddress: userDocData?.address || 'In-store pickup', // Default for restaurant
             phone: customerPhone,
