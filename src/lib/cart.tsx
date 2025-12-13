@@ -1,4 +1,3 @@
-
 'use client';
 
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
@@ -10,7 +9,6 @@ export interface UnidentifiedCartItem {
   term: string;
   status: 'pending' | 'failed';
 }
-
 
 interface CartContextType {
   cartItems: CartItem[];
@@ -32,159 +30,122 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [cartItems, setCartItemsState] = useState<CartItem[]>([]);
-  const [unidentifiedItems, setUnidentifiedItems] = useState<UnidentifiedCartItem[]>([]);
-  const [activeStoreId, setActiveStoreIdState] = useState<string | null>(null);
-
   const { toast } = useToast();
 
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [unidentifiedItems, setUnidentifiedItems] = useState<UnidentifiedCartItem[]>([]);
+  const [activeStoreId, setActiveStoreId] = useState<string | null>(null);
+
+  /* ------------------ Load from storage ------------------ */
   useEffect(() => {
     try {
-      const storedCart = localStorage.getItem('localbasket-cart');
-      const storedStoreId = localStorage.getItem('localbasket-active-store');
-      if (storedCart) {
-        setCartItemsState(JSON.parse(storedCart));
-      }
-      if (storedStoreId) {
-        setActiveStoreIdState(JSON.parse(storedStoreId));
-      }
-    } catch (error) {
-      console.error("Failed to parse cart from localStorage", error);
-    }
+      const cart = localStorage.getItem('localbasket-cart');
+      const store = localStorage.getItem('localbasket-active-store');
+      if (cart) setCartItems(JSON.parse(cart));
+      if (store) setActiveStoreId(JSON.parse(store));
+    } catch {}
   }, []);
 
-  const setCartItems = (items: CartItem[] | ((prev: CartItem[]) => CartItem[])) => {
-    const newItems = typeof items === 'function' ? items(cartItems) : items;
-    setCartItemsState(newItems);
-    try {
-        localStorage.setItem('localbasket-cart', JSON.stringify(newItems));
-    } catch (error) {
-        console.error("Failed to save cart to localStorage", error);
+  /* ------------------ Persist storage ------------------ */
+  useEffect(() => {
+    localStorage.setItem('localbasket-cart', JSON.stringify(cartItems));
+  }, [cartItems]);
+
+  useEffect(() => {
+    if (activeStoreId) {
+      localStorage.setItem('localbasket-active-store', JSON.stringify(activeStoreId));
+    } else {
+      localStorage.removeItem('localbasket-active-store');
     }
-  };
+  }, [activeStoreId]);
 
-  const setActiveStoreId = (storeId: string | null) => {
-      setActiveStoreIdState(storeId);
-      try {
-          if (storeId) {
-              localStorage.setItem('localbasket-active-store', JSON.stringify(storeId));
-          } else {
-              localStorage.removeItem('localbasket-active-store');
-          }
-      } catch (error) {
-           console.error("Failed to save active storeId to localStorage", error);
-      }
-  }
+  /* ------------------ Cart actions ------------------ */
 
-
-  const removeUnidentifiedItem = useCallback((id: string) => {
-      setUnidentifiedItems(prev => {
-        const newItems = prev.filter(item => item.id !== id);
-        if (newItems.length === 0 && cartItems.length === 0) {
-            setActiveStoreId(null);
-        }
-        return newItems;
-      });
-  }, [cartItems.length]);
-
-
-  const addItem = useCallback((product: Product, variant: ProductVariant, quantity = 1, tableNumber?: string) => {
-    setCartItems((prevItems) => {
-      const currentActiveStoreId = prevItems.length > 0 ? prevItems[0].product.storeId : null;
-
-      // Case 1: Cart is empty, adding the first item.
-      if (!currentActiveStoreId) {
-        setActiveStoreId(product.storeId);
-        toast({
-            title: 'Item added to cart',
-            description: `${product.name} (${variant.weight}) has been added.`,
-        });
-        return [{ product, variant, quantity, tableNumber }];
-      }
-
-      // Case 2: Item is from a different store.
-      if (product.storeId !== currentActiveStoreId) {
-        if (window.confirm("You have items from another store. Clear your cart to start a new one?")) {
-          setActiveStoreId(product.storeId);
+  const addItem = useCallback(
+    (product: Product, variant: ProductVariant, quantity = 1, tableNumber?: string) => {
+      setCartItems(prev => {
+        // 🔒 store lock
+        if (activeStoreId && product.storeId !== activeStoreId) {
           toast({
-              title: 'New cart started!',
-              description: `${product.name} (${variant.weight}) has been added.`,
+            title: 'Different store detected',
+            description: 'Please clear cart before ordering from another store.',
+            variant: 'destructive',
           });
-          return [{ product, variant, quantity, tableNumber }];
+          return prev;
         }
-        return prevItems; // User cancelled, so do nothing.
-      }
 
-      // Case 3: Item is from the same store.
-      const existingItem = prevItems.find(item => item.variant.sku === variant.sku);
-      let newItems;
-      if (existingItem) {
-        // Increment quantity of existing item.
-        newItems = prevItems.map(item =>
-          item.variant.sku === variant.sku
-            ? { ...item, quantity: item.quantity + quantity }
-            : item
-        );
-      } else {
-        // Add new item to the cart.
-        newItems = [...prevItems, { product, variant, quantity, tableNumber }];
-      }
-      
-      toast({
-          title: 'Item added to cart',
-          description: `${product.name} (${variant.weight}) has been added.`,
+        // First item
+        if (!activeStoreId) {
+          setActiveStoreId(product.storeId);
+        }
+
+        const existing = prev.find(i => i.variant.sku === variant.sku);
+
+        if (existing) {
+          return prev.map(i =>
+            i.variant.sku === variant.sku
+              ? { ...i, quantity: i.quantity + quantity }
+              : i
+          );
+        }
+
+        return [...prev, { product, variant, quantity, tableNumber }];
       });
 
-      return newItems;
-    });
-  }, [toast]);
+      toast({
+        title: 'Added to cart',
+        description: `${product.name} (${variant.weight})`,
+      });
+    },
+    [activeStoreId, toast]
+  );
 
   const removeItem = useCallback((variantSku: string) => {
-    setCartItems((prevItems) => {
-        const newItems = prevItems.filter((item) => item.variant.sku !== variantSku);
-        if (newItems.length === 0 && unidentifiedItems.length === 0) {
-            setActiveStoreId(null);
-        }
-        return newItems;
+    setCartItems(prev => {
+      const next = prev.filter(i => i.variant.sku !== variantSku);
+      if (next.length === 0 && unidentifiedItems.length === 0) {
+        setActiveStoreId(null);
+      }
+      return next;
     });
-    toast({
-      title: 'Item removed from cart',
-      variant: 'destructive'
-    });
-  }, [toast, unidentifiedItems.length]);
+  }, [unidentifiedItems.length]);
 
-
-
-  const addIdentifiedItem = useCallback((product: Product, variant: ProductVariant, quantity: number, originalTermId: string) => {
-    removeUnidentifiedItem(originalTermId);
-    addItem(product, variant, quantity);
-  }, [addItem, removeUnidentifiedItem]);
-
-  const updateQuantity = useCallback((variantSku: string, quantity: number) => {
-    if (quantity <= 0) {
-      removeItem(variantSku);
-      return;
-    }
-    setCartItems((prevItems) =>
-      prevItems.map((item) =>
-        item.variant.sku === variantSku ? { ...item, quantity } : item
-      )
-    );
-  }, [removeItem]);
+  const updateQuantity = useCallback(
+    (variantSku: string, quantity: number) => {
+      if (quantity <= 0) {
+        removeItem(variantSku);
+        return;
+      }
+      setCartItems(prev =>
+        prev.map(i => (i.variant.sku === variantSku ? { ...i, quantity } : i))
+      );
+    },
+    [removeItem]
+  );
 
   const addUnidentifiedItem = useCallback((term: string) => {
-    const newItem: UnidentifiedCartItem = {
-        id: `unidentified-${Date.now()}-${Math.random()}`,
-        term,
-        status: 'pending',
-    };
-    setUnidentifiedItems(prev => [...prev, newItem]);
-    return newItem.id;
+    const id = crypto.randomUUID();
+    setUnidentifiedItems(prev => [...prev, { id, term, status: 'pending' }]);
+    return id;
   }, []);
 
   const updateUnidentifiedItem = useCallback((id: string, status: 'failed') => {
-      setUnidentifiedItems(prev => prev.map(item => item.id === id ? { ...item, status } : item));
+    setUnidentifiedItems(prev =>
+      prev.map(i => (i.id === id ? { ...i, status } : i))
+    );
   }, []);
+
+  const removeUnidentifiedItem = useCallback((id: string) => {
+    setUnidentifiedItems(prev => prev.filter(i => i.id !== id));
+  }, []);
+
+  const addIdentifiedItem = useCallback(
+    (product: Product, variant: ProductVariant, quantity: number, originalTermId: string) => {
+      removeUnidentifiedItem(originalTermId);
+      addItem(product, variant, quantity);
+    },
+    [addItem, removeUnidentifiedItem]
+  );
 
   const clearCart = useCallback(() => {
     setCartItems([]);
@@ -192,12 +153,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setActiveStoreId(null);
   }, []);
 
-  const cartCount = cartItems.reduce((count, item) => count + item.quantity, 0);
-
-  const cartTotal = cartItems.reduce(
-    (total, item) => total + item.variant.price * item.quantity,
-    0
-  );
+  const cartCount = cartItems.reduce((n, i) => n + i.quantity, 0);
+  const cartTotal = cartItems.reduce((t, i) => t + i.quantity * i.variant.price, 0);
 
   return (
     <CartContext.Provider
@@ -224,9 +181,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 }
 
 export function useCart() {
-  const context = useContext(CartContext);
-  if (context === undefined) {
-    throw new Error('useCart must be used within a CartProvider');
-  }
-  return context;
+  const ctx = useContext(CartContext);
+  if (!ctx) throw new Error('useCart must be used inside CartProvider');
+  return ctx;
 }
