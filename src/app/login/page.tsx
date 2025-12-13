@@ -1,3 +1,4 @@
+
 'use client';
 import {
   Card,
@@ -50,7 +51,8 @@ export default function LoginPage() {
   const redirectTo = searchParams.get('redirectTo') || '/dashboard';
 
   useEffect(() => {
-    if (!isUserLoading && user) {
+    // Do not redirect anonymous users away from their current page
+    if (!isUserLoading && user && !user.isAnonymous) {
        if (user.email === ADMIN_EMAIL) {
         router.push('/dashboard/admin');
       } else if (user.email === CHICKEN_ADMIN_EMAIL) {

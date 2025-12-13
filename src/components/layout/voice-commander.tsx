@@ -110,7 +110,7 @@ export function VoiceCommander({
   const { clearCart, addItem: addItemToCart, removeItem, updateQuantity, addUnidentifiedItem, updateUnidentifiedItem, addIdentifiedItem, activeStoreId, setActiveStoreId, cartTotal } = useCart();
   const { retryCommand, showPriceCheck, hidePriceCheck } = useVoiceCommanderContext();
 
-  const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands, loading: isAppStoreLoading, fetchInitialData } = useAppStore();
+  const { stores, masterProducts, allMenus, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands, loading: isAppStoreLoading, fetchInitialData } = useAppStore();
 
   const { form: profileForm } = useProfileFormStore();
   const { saveInventoryBtnRef } = useMyStorePageStore();
@@ -148,14 +148,7 @@ export function VoiceCommander({
   // --- NEW: Context-aware menu data ---
   const isMenuPage = pathname.startsWith('/menu/');
   const menuStoreId = isMenuPage ? pathname.split('/')[2] : null;
-
-  const menuQuery = useMemoFirebase(() => {
-    if (!firestore || !menuStoreId) return null;
-    return query(collection(firestore, `stores/${menuStoreId}/menus`), limit(1));
-  }, [firestore, menuStoreId]);
-
-  const { data: currentMenuData } = useCollection<Menu>(menuQuery);
-  const currentMenu = useMemo(() => currentMenuData?.[0], [currentMenuData]);
+  const currentMenu = useMemo(() => allMenus.find(m => m.storeId === menuStoreId), [allMenus, menuStoreId]);
   // ------------------------------------
 
     // --- Performance Optimization: Memoized Alias Maps ---
@@ -500,12 +493,12 @@ const findProductAndVariant = useCallback(
   }> => {
     const nluResult = runNLU(phrase, language);
     const { qty, unit, money, productPhrase } = extractQuantityAndProduct(nluResult);
-    
+
     // --- CONTEXT-AWARE SEARCH LOGIC ---
     if (isMenuPage && currentMenu) {
         let bestMatch: { menuItem: MenuItem, score: number } | null = null;
         for (const item of currentMenu.items) {
-            const similarity = calculateSimilarity(productPhrase, item.name.toLowerCase());
+            const similarity = calculateSimilarity(productPhrase.toLowerCase(), item.name.toLowerCase());
             if (!bestMatch || similarity > bestMatch.score) {
                 if(similarity > 0.8) {
                     bestMatch = { menuItem: item, score: similarity };
@@ -517,7 +510,7 @@ const findProductAndVariant = useCallback(
             const menuItem = bestMatch.menuItem;
             // Create a "virtual" product and variant from the menu item
             const virtualProduct: Product = {
-                id: `${menuStoreId}-${menuItem.name}`,
+                id: `${menuStoreId}-${menuItem.name.replace(/\s/g, '-')}`,
                 name: menuItem.name,
                 description: menuItem.description || '',
                 storeId: menuStoreId!,
@@ -527,7 +520,7 @@ const findProductAndVariant = useCallback(
                 price: menuItem.price
             };
             const virtualVariant: ProductVariant = {
-                sku: `${menuStoreId}-${menuItem.name}-default`,
+                sku: `${menuStoreId}-${menuItem.name.replace(/\s/g, '-')}-default`,
                 weight: '1 pc', // Menu items are usually per piece
                 price: menuItem.price,
                 stock: 99, // Assume available
@@ -575,7 +568,7 @@ const findProductAndVariant = useCallback(
 
         const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
         const baseWeight = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
-        const pricePerBaseUnit = baseVariant.price / (isLiquid ? baseWeight * 1000 : baseWeight); // price per ml or gram
+        const pricePerBaseUnit = baseVariant.price / (baseWeight * 1000); // price per ml or gram
 
         const requestedAmount = money / pricePerBaseUnit;
 
@@ -734,7 +727,7 @@ const findProductAndVariant = useCallback(
     const intent = recognizeIntent(commandText, "en");
     const requiresUser = ['SMART_ORDER', 'ORDER_ITEM', 'REMOVE_ITEM', 'CHECK_PRICE', 'GET_RECIPE', 'SHOW_DETAILS', 'placeOrder', 'saveChanges'].includes(intent.type) || (intent.type === 'CONVERSATIONAL' && ['dashboard', 'orders', 'myStore', 'myProfile'].includes(intent.commandKey));
 
-    if (requiresUser && !user) {
+    if (requiresUser && !user && !isMenuPage) {
         speak("You need to be logged in to do that. Please log in to continue.", 'en-IN');
         router.push('/login');
         return;
@@ -982,7 +975,7 @@ const findProductAndVariant = useCallback(
       placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress,
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
       removeItem, addUnidentifiedItem, updateUnidentifiedItem, router, stores, productPrices,
-      showPriceCheck, hidePriceCheck, masterProducts
+      showPriceCheck, hidePriceCheck, masterProducts, isMenuPage, currentMenu, menuStoreId
   ]);
 
     // Effect to handle retrying a command
