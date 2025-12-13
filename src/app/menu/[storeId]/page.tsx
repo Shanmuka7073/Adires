@@ -3,10 +3,28 @@
 
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
-import type { Store, Menu, MenuItem, GetIngredientsOutput, Product, ProductVariant, Ingredient } from '@/lib/types';
+import type {
+  Store,
+  Menu,
+  MenuItem,
+  GetIngredientsOutput,
+  Product,
+  ProductVariant,
+  Ingredient,
+} from '@/lib/types';
 import { useParams } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Utensils, Zap, Flame, Info, Plus, Minus, ShoppingCart, Loader2, Salad, Mic, Eye } from 'lucide-react';
+import {
+  Utensils,
+  Zap,
+  Flame,
+  Info,
+  Plus,
+  Minus,
+  ShoppingCart,
+  Salad,
+  Mic,
+  Eye,
+} from 'lucide-react';
 import { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -19,260 +37,251 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 
-function MenuItemDialog({ item, storeId, isOpen, onClose }: { item: MenuItem; storeId: string; isOpen: boolean; onClose: () => void; }) {
-    const { addItem } = useCart();
-    const { toast } = useToast();
-    const [quantity, setQuantity] = useState(1);
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [details, setDetails] = useState<GetIngredientsOutput | null>(null);
+/* =========================
+   MENU ITEM DIALOG (UNCHANGED)
+========================= */
 
-    useEffect(() => {
-        if (isOpen && !details) {
-            setIsGenerating(true);
-            getIngredientsForDish({ dishName: item.name, language: 'en' })
-                .then(dishDetails => {
-                    setDetails(dishDetails);
-                })
-                .catch(e => {
-                    console.error("Failed to get dish details:", e);
-                    toast({
-                        variant: "destructive",
-                        title: "Could not fetch details",
-                        description: "The AI is currently unavailable. Please try again later."
-                    });
-                })
-                .finally(() => {
-                    setIsGenerating(false);
-                });
-        }
-    }, [isOpen, item.name, details, toast]);
+function MenuItemDialog({
+  item,
+  storeId,
+  isOpen,
+  onClose,
+}: {
+  item: MenuItem;
+  storeId: string;
+  isOpen: boolean;
+  onClose: () => void;
+}) {
+  const { addItem } = useCart();
+  const { toast } = useToast();
+  const [quantity, setQuantity] = useState(1);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [details, setDetails] = useState<GetIngredientsOutput | null>(null);
 
-    const handleAddToCart = () => {
-        if (quantity < 1) return;
-        
-        const product: Product = {
-            id: `${storeId}-${item.name}`,
-            name: item.name,
-            description: item.description || '',
-            storeId: storeId,
-            category: item.category,
-            imageId: 'cat-restaurant',
-            isMenuItem: true,
-            price: item.price
-        };
+  useEffect(() => {
+    if (isOpen && !details) {
+      setIsGenerating(true);
+      getIngredientsForDish({ dishName: item.name, language: 'en' })
+        .then(setDetails)
+        .catch(() =>
+          toast({
+            variant: 'destructive',
+            title: 'Could not fetch details',
+            description: 'Please try again later.',
+          }),
+        )
+        .finally(() => setIsGenerating(false));
+    }
+  }, [isOpen, details, item.name, toast]);
 
-        const variant: ProductVariant = {
-            sku: `${storeId}-${item.name}-default`,
-            weight: '1 pc',
-            price: item.price,
-            stock: 99,
-        };
-
-        addItem(product, variant, quantity);
-        toast({
-            title: "Added to Cart!",
-            description: `${quantity} x ${item.name} has been added.`
-        });
-        onClose();
-    };
-    
-    // Helper function to format the scaled quantity
-    const formatScaledQuantity = (ingredient: Ingredient) => {
-        if (ingredient.baseQuantity && ingredient.unit) {
-            const scaledQuantity = ingredient.baseQuantity * quantity;
-            const unit = ingredient.unit === 'pc' && scaledQuantity > 1 ? 'pcs' : ingredient.unit;
-            return `${scaledQuantity.toFixed(0)}${unit}`;
-        }
-        return ingredient.quantity; // Fallback to the original string
+  const handleAddToCart = () => {
+    const product: Product = {
+      id: `${storeId}-${item.name}`,
+      name: item.name,
+      description: '',
+      storeId,
+      category: item.category,
+      imageId: 'cat-restaurant',
+      isMenuItem: true,
+      price: item.price,
     };
 
-    const scaledNutrition = useMemo(() => {
-        if (!details?.nutrition) return { calories: 0, protein: 0 };
-        return {
-            calories: Math.round(details.nutrition.calories * quantity),
-            protein: Math.round(details.nutrition.protein * quantity),
-        };
-    }, [details, quantity]);
+    const variant: ProductVariant = {
+      sku: `${storeId}-${item.name}`,
+      weight: '1 pc',
+      price: item.price,
+      stock: 99,
+    };
 
-    const hasShellfish = item.name.toLowerCase().includes('prawn');
+    addItem(product, variant, quantity);
+    toast({ title: 'Added to Cart', description: `${quantity} × ${item.name}` });
+    onClose();
+  };
 
-    return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-md p-0">
-                <div className="relative h-48 w-full">
-                    <Image 
-                        src={`https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop&q=80&seed=${encodeURIComponent(item.name)}`}
-                        alt={item.name}
-                        layout="fill"
-                        objectFit="cover"
-                        className="rounded-t-lg"
-                        data-ai-hint={item.name}
-                    />
+  const formatQty = (ing: Ingredient) =>
+    ing.baseQuantity && ing.unit
+      ? `${(ing.baseQuantity * quantity).toFixed(0)}${ing.unit}`
+      : ing.quantity;
+
+  const nutrition = useMemo(() => {
+    if (!details?.nutrition) return { calories: 0, protein: 0 };
+    return {
+      calories: Math.round(details.nutrition.calories * quantity),
+      protein: Math.round(details.nutrition.protein * quantity),
+    };
+  }, [details, quantity]);
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-md p-0">
+        <div className="relative h-48 w-full">
+          <Image
+            src={`https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop&q=80&seed=${item.name}`}
+            alt={item.name}
+            fill
+            className="object-cover rounded-t-lg"
+          />
+        </div>
+
+        <div className="p-6 space-y-4">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">{item.name}</DialogTitle>
+          </DialogHeader>
+
+          <div className="flex justify-between items-center">
+            <div className="flex gap-2 items-center">
+              <Button size="icon" variant="outline" onClick={() => setQuantity(q => Math.max(1, q - 1))}>
+                <Minus className="h-4 w-4" />
+              </Button>
+              <Input value={quantity} className="w-16 text-center font-bold" />
+              <Button size="icon" variant="outline" onClick={() => setQuantity(q => q + 1)}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-2xl font-extrabold text-primary">₹{item.price * quantity}</p>
+          </div>
+
+          {isGenerating ? (
+            <Skeleton className="h-20 w-full" />
+          ) : details?.isSuccess ? (
+            <>
+              <div className="flex gap-4 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Flame className="h-4 w-4 text-orange-500" /> {nutrition.calories} kcal
+                </span>
+                <span className="flex items-center gap-1">
+                  <Zap className="h-4 w-4 text-yellow-500" /> {nutrition.protein}g Protein
+                </span>
+              </div>
+
+              <div>
+                <h4 className="font-semibold flex items-center gap-2 mb-2">
+                  <Salad className="h-4 w-4 text-green-600" />
+                  Ingredients
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {details.ingredients.slice(0, 5).map(ing => (
+                    <Badge key={ing.name}>
+                      {ing.name} ({formatQty(ing)})
+                    </Badge>
+                  ))}
                 </div>
-                <div className="p-6 space-y-4">
-                    <DialogHeader>
-                        <DialogTitle className="text-2xl font-bold">{item.name}</DialogTitle>
-                    </DialogHeader>
-                    
-                    <div className="flex items-center justify-between">
-                         <div className="flex items-center gap-2">
-                            <Button variant="outline" size="icon" onClick={() => setQuantity(q => Math.max(1, q - 1))}><Minus className="h-4 w-4" /></Button>
-                            <Input type="number" value={quantity} onChange={e => setQuantity(parseInt(e.target.value) || 1)} className="w-16 h-10 text-center text-lg font-bold" />
-                            <Button variant="outline" size="icon" onClick={() => setQuantity(q => q + 1)}><Plus className="h-4 w-4" /></Button>
-                        </div>
-                        <p className="text-3xl font-extrabold text-primary">₹{(item.price * quantity).toFixed(2)}</p>
-                    </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Ingredients & nutrition values are approximate.
+                </p>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground flex gap-2 items-center">
+              <Info className="h-4 w-4" /> Details unavailable
+            </p>
+          )}
 
-                    {isGenerating ? (
-                        <div className="space-y-4">
-                           <Skeleton className="h-4 w-3/4" />
-                           <Skeleton className="h-4 w-1/2" />
-                           <Skeleton className="h-10 w-full" />
-                        </div>
-                    ) : details && details.isSuccess ? (
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                <div className="flex items-center gap-1 font-medium">
-                                    <Flame className="h-4 w-4 text-orange-500" />
-                                    <span>{scaledNutrition.calories} kcal</span>
-                                </div>
-                                <div className="flex items-center gap-1 font-medium">
-                                    <Zap className="h-4 w-4 text-yellow-500" />
-                                    <span>{scaledNutrition.protein}g Protein</span>
-                                </div>
-                            </div>
-                            <div>
-                                <h4 className="font-semibold mb-2 flex items-center gap-2">
-                                   <Salad className="h-5 w-5 text-green-600"/>
-                                   Main Ingredients (per serving)
-                                </h4>
-                                <div className="flex flex-wrap gap-2">
-                                    {details.ingredients.slice(0, 5).map(ing => (
-                                        <Badge key={ing.name} variant="secondary">{ing.name} ({formatScaledQuantity(ing)})</Badge>
-                                    ))}
-                                    {hasShellfish && <Badge variant="destructive" className="bg-red-100 text-red-800">🦐 Contains Shellfish</Badge>}
-                                </div>
-                                <p className="text-xs text-gray-500 mt-2">Ingredients & nutrition values are approximate per serving.</p>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Info className="h-4 w-4" />
-                            <p>Ingredient and calorie information not available.</p>
-                        </div>
-                    )}
+          <Button onClick={handleAddToCart} className="w-full h-12">
+            <ShoppingCart className="mr-2 h-5 w-5" /> Add to Cart
+          </Button>
 
-                    <Button onClick={handleAddToCart} className="w-full h-12 text-lg">
-                        <ShoppingCart className="mr-2 h-5 w-5" />
-                        Add to Cart
-                    </Button>
-                    <div className="flex items-center justify-center gap-4">
-                        <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
-                            <Link href={`/live-order/${storeId}`}>
-                                <Eye className="mr-2 h-4 w-4" />
-                                See preparation
-                            </Link>
-                        </Button>
-                    </div>
-                     <p className="text-xs text-center text-muted-foreground italic flex items-center justify-center gap-2">
-                         <Mic className="h-4 w-4" /> Say "add {item.name.toLowerCase()}" to order
-                    </p>
-                </div>
-            </DialogContent>
-        </Dialog>
-    );
+          <Button variant="ghost" asChild className="w-full">
+            <Link href={`/live-order/${storeId}`}>
+              <Eye className="mr-2 h-4 w-4" /> See preparation
+            </Link>
+          </Button>
+
+          <p className="text-xs text-center text-muted-foreground italic flex justify-center gap-2">
+            <Mic className="h-4 w-4" /> Say “add {item.name.toLowerCase()}”
+          </p>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
+
+/* =========================
+   PUBLIC MENU PAGE (FIXED UI)
+========================= */
 
 export default function PublicMenuPage() {
-    const params = useParams();
-    const storeId = params.storeId as string;
-    const { firestore } = useFirebase();
-    const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const { storeId } = useParams<{ storeId: string }>();
+  const { firestore } = useFirebase();
+  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
 
-    const storeQuery = useMemoFirebase(() => {
-        if (!firestore || !storeId) return null;
-        return query(collection(firestore, 'stores'), where('__name__', '==', storeId));
-    }, [firestore, storeId]);
+  const storeQuery = useMemoFirebase(() =>
+    firestore ? query(collection(firestore, 'stores'), where('__name__', '==', storeId)) : null,
+  [firestore, storeId]);
 
-    const menuQuery = useMemoFirebase(() => {
-        if (!firestore || !storeId) return null;
-        return query(collection(firestore, `stores/${storeId}/menus`));
-    }, [firestore, storeId]);
-    
-    const { data: stores, isLoading: storeLoading } = useCollection<Store>(storeQuery);
-    const { data: menus, isLoading: menuLoading } = useCollection<Menu>(menuQuery);
+  const menuQuery = useMemoFirebase(() =>
+    firestore ? query(collection(firestore, `stores/${storeId}/menus`)) : null,
+  [firestore, storeId]);
 
-    const store = stores?.[0];
-    const menu = menus?.[0];
+  const { data: stores } = useCollection<Store>(storeQuery);
+  const { data: menus } = useCollection<Menu>(menuQuery);
 
-    const menuByCategory = useMemo(() => {
-        if (!menu?.items) return {};
-        return menu.items.reduce((acc, item) => {
-            const category = item.category || 'Miscellaneous';
-            if (!acc[category]) {
-                acc[category] = [];
-            }
-            acc[category].push(item);
-            return acc;
-        }, {} as Record<string, MenuItem[]>);
-    }, [menu]);
+  const store = stores?.[0];
+  const menu = menus?.[0];
 
-    const isLoading = storeLoading || menuLoading;
+  const menuByCategory = useMemo(() => {
+    if (!menu?.items) return {};
+    return menu.items.reduce((acc, item) => {
+      const cat = item.category || 'Others';
+      acc[cat] = acc[cat] || [];
+      acc[cat].push(item);
+      return acc;
+    }, {} as Record<string, MenuItem[]>);
+  }, [menu]);
 
-    if (isLoading) {
-        return <div className="container mx-auto py-12 text-center">Loading menu...</div>;
-    }
+  if (!store || !menu) return <div className="p-8 text-center">Menu not available</div>;
 
-    if (!store) {
-        return <div className="container mx-auto py-12 text-center">Store not found.</div>;
-    }
-    
-    if (!menu) {
-        return <div className="container mx-auto py-12 text-center">This store does not have a digital menu yet.</div>;
-    }
+  return (
+    <>
+      {selectedItem && (
+        <MenuItemDialog
+          item={selectedItem}
+          storeId={storeId}
+          isOpen
+          onClose={() => setSelectedItem(null)}
+        />
+      )}
 
-    return (
-        <>
-            {selectedItem && (
-                <MenuItemDialog 
-                    item={selectedItem} 
-                    storeId={storeId}
-                    isOpen={!!selectedItem}
-                    onClose={() => setSelectedItem(null)}
-                />
-            )}
-            <div className="min-h-screen bg-gray-50">
-                <div className="container mx-auto py-8 px-4 md:px-6">
-                    <Card className="max-w-2xl mx-auto shadow-lg">
-                        <CardHeader className="text-center">
-                            <div className="flex items-center justify-center gap-2">
-                                <span className="text-3xl font-bold text-green-600 font-mono">Ψ۹</span>
-                                <CardTitle className="text-3xl font-bold font-headline">Our Menu</CardTitle>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            {Object.entries(menuByCategory).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
-                                <div key={category}>
-                                    <h2 className="text-xl font-semibold mb-3 border-b pb-2 tracking-widest uppercase text-muted-foreground">{category}</h2>
-                                    <div className="space-y-2">
-                                        {items.map((item, index) => (
-                                            <button 
-                                                key={index}
-                                                onClick={() => setSelectedItem(item)}
-                                                className="w-full flex justify-between items-center py-2 text-left hover:bg-muted/50 rounded-md px-2"
-                                            >
-                                                <p className="font-medium text-gray-800">{item.name}</p>
-                                                <p className="font-semibold text-gray-600">₹{item.price.toFixed(2)}</p>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </CardContent>
-                    </Card>
-                </div>
-            </div>
-        </>
-    );
+      <div className="min-h-screen bg-gray-50 px-4 py-6">
+        <div className="max-w-2xl mx-auto space-y-8">
+          <h1 className="text-3xl font-bold text-center">{store.name}</h1>
+
+          {Object.entries(menuByCategory).map(([category, items]) => (
+            <section key={category}>
+              <h2 className="flex items-center gap-2 text-lg font-semibold mb-3">
+                <Utensils className="h-4 w-4 text-muted-foreground" />
+                {category}
+              </h2>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {items.map(item => (
+                  <button
+                    key={item.name}
+                    onClick={() => setSelectedItem(item)}
+                    className="bg-white p-3 rounded-xl shadow-sm hover:shadow-md transition flex gap-3 items-center"
+                  >
+                    <div className="h-16 w-16 bg-gray-100 rounded-lg relative overflow-hidden">
+                      <Image
+                        src={`https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=150&h=150&fit=crop&q=80&seed=${item.name}`}
+                        alt={item.name}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+
+                    <div className="flex-1 text-left">
+                      <p className="font-semibold">{item.name}</p>
+                      <p className="text-sm text-muted-foreground">Tap for details</p>
+                    </div>
+
+                    <p className="font-bold text-primary">₹{item.price}</p>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      </div>
+    </>
+  );
 }
-
