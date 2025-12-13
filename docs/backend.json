@@ -438,7 +438,9 @@
             "type": "object",
             "properties": {
               "name": { "type": "string" },
-              "quantity": { "type": "string" }
+              "quantity": { "type": "string" },
+              "baseQuantity": { "type": "number" },
+              "unit": { "type": "string" }
             },
             "required": ["name", "quantity"]
           },
@@ -455,6 +457,14 @@
               "required": ["title", "actions"]
            },
            "description": "The step-by-step cooking instructions."
+        },
+        "nutrition": {
+            "type": "object",
+            "properties": {
+                "calories": { "type": "number" },
+                "protein": { "type": "number" }
+            },
+            "required": ["calories", "protein"]
         },
         "createdAt": {
           "type": "string",
@@ -1019,7 +1029,7 @@
         }
       },
       {
-        "path": "/voiceAliases/{aliasId}",
+        "path": "/voiceAliasGroups/{aliasId}",
         "definition": {
           "entityName": "VoiceAlias",
           "schema": {
