@@ -55,8 +55,8 @@ function OrderDetailsDialog({ order, isOpen, onClose }: { order: Order | null; i
                 <DialogHeader>
                     <DialogTitle>Order Details</DialogTitle>
                     <DialogDescription>
-                        ID: \${order.id} | Placed by: \${order.customerName}
-                         \${order.tableNumber && \` | Table: \${order.tableNumber}\`}
+                        ID: ${order.id} | Placed by: ${order.customerName}
+                         ${order.tableNumber && ` | Table: ${order.tableNumber}`}
                     </DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="max-h-[60vh]">
@@ -76,9 +76,9 @@ function OrderDetailsDialog({ order, isOpen, onClose }: { order: Order | null; i
                                         <TableBody>
                                             {order.items.map((item, index) => (
                                                 <TableRow key={index}>
-                                                    <TableCell>\${item.productName}</TableCell>
-                                                    <TableCell>\${item.quantity}</TableCell>
-                                                    <TableCell className="text-right">₹\${item.price.toFixed(2)}</TableCell>
+                                                    <TableCell>${item.productName}</TableCell>
+                                                    <TableCell>${item.quantity}</TableCell>
+                                                    <TableCell className="text-right">₹${item.price.toFixed(2)}</TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -135,9 +135,9 @@ function OrderRow({ order, onStatusChange, onShowDetails, isUpdating }: { order:
 
     return (
         <TableRow>
-            <TableCell className="font-medium truncate max-w-[100px]">\${order.id}</TableCell>
-            <TableCell>\${order.customerName}\${order.tableNumber && \` (Table: \${order.tableNumber})\`}</TableCell>
-            <TableCell>\${formatDate(order.orderDate)}</TableCell>
+            <TableCell className="font-medium truncate max-w-[100px]">${order.id}</TableCell>
+            <TableCell>${order.customerName}${order.tableNumber && ` (Table: ${order.tableNumber})`}</TableCell>
+            <TableCell>${formatDate(order.orderDate)}</TableCell>
             <TableCell>
                  <Select onValueChange={(newStatus) => onStatusChange(order.id, newStatus as Order['status'])} defaultValue={order.status} disabled={isUpdating || (order.status === 'Delivered' || order.status === 'Cancelled')}>
                     <SelectTrigger className="w-full md:w-[180px]">
@@ -152,7 +152,7 @@ function OrderRow({ order, onStatusChange, onShowDetails, isUpdating }: { order:
                     </SelectContent>
                 </Select>
             </TableCell>
-            <TableCell className="text-right">₹\${order.totalAmount.toFixed(2)}</TableCell>
+            <TableCell className="text-right">₹${order.totalAmount.toFixed(2)}</TableCell>
             <TableCell className="text-right">
                 <Button variant="outline" size="sm" onClick={onShowDetails}>
                     View Details
@@ -222,7 +222,7 @@ export default function MyOrdersPage() {
           }
         }
         else if (prevOrder && prevOrder.status !== currentOrder.status) {
-          const toastMessage = \`Your order #\${currentOrder.id.substring(0, 7)} is now "\${currentOrder.status}".\`;
+          const toastMessage = `Your order #${currentOrder.id.substring(0, 7)} is now "${currentOrder.status}".`;
           toast({
             title: "Order Status Updated",
             description: toastMessage,
@@ -250,7 +250,7 @@ export default function MyOrdersPage() {
             await writeBatch(firestore).update(orderRef, { status: newStatus }).commit();
             toast({
                 title: "Status Updated",
-                description: \`Order #\${orderId.substring(0, 7)} marked as \${newStatus}.\`
+                description: `Order #${orderId.substring(0, 7)} marked as ${newStatus}.`
             });
             if (newOrderAlert?.id === orderId) {
                 setNewOrderAlert(null);
@@ -351,15 +351,15 @@ export default function MyOrdersPage() {
               <AlertDialogHeader>
                   <AlertDialogTitle>You Have a New Order!</AlertDialogTitle>
                   <AlertDialogDescription>
-                      A new order has been placed by \${newOrderAlert?.customerName}. Please review the details and accept or reject it.
+                      A new order has been placed by ${newOrderAlert?.customerName}. Please review the details and accept or reject it.
                   </AlertDialogDescription>
               </AlertDialogHeader>
               <div className="p-1">
                  {/* Simplified details for now */}
-                 <p><strong>Customer:</strong> \${newOrderAlert?.customerName}</p>
-                 <p><strong>Total:</strong> ₹\${newOrderAlert?.totalAmount.toFixed(2)}</p>
-                 <p><strong>Address:</strong> \${newOrderAlert?.deliveryAddress}</p>
-                 \${newOrderAlert?.tableNumber && <p><strong>Table Number:</strong> \${newOrderAlert.tableNumber}</p>}
+                 <p><strong>Customer:</strong> ${newOrderAlert?.customerName}</p>
+                 <p><strong>Total:</strong> ₹${newOrderAlert?.totalAmount.toFixed(2)}</p>
+                 <p><strong>Address:</strong> ${newOrderAlert?.deliveryAddress}</p>
+                 ${newOrderAlert?.tableNumber && <p><strong>Table Number:</strong> ${newOrderAlert.tableNumber}</p>}
               </div>
               <AlertDialogFooter>
                   <AlertDialogAction asChild>
@@ -389,3 +389,5 @@ export default function MyOrdersPage() {
 `,
     },
 ];
+
+    
