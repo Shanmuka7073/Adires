@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useCart } from '@/lib/cart';
@@ -19,6 +20,7 @@ import { useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '../ui/label';
 import { signInAnonymously } from 'firebase/auth';
+import { getDoc, doc } from 'firebase/firestore';
 
 function GuestOrderDialog({ isOpen, onOpenChange, onPlaceOrder }: { isOpen: boolean, onOpenChange: (open: boolean) => void, onPlaceOrder: (name: string, phone: string) => void }) {
     const [name, setName] = useState('');
@@ -116,7 +118,7 @@ function CartSheetItem({ item, image }: { item: any, image: any }) {
 export function CartSheetContent() {
   const { cartItems, cartTotal, cartCount, clearCart } = useCart();
   const [images, setImages] = useState({});
-  const { user, auth } = useFirebase();
+  const { user, auth, firestore } = useFirebase();
   const { toast } = useToast();
   const router = useRouter();
   const [isPlacingOrder, startOrderTransition] = useTransition();
@@ -147,29 +149,26 @@ export function CartSheetContent() {
   const handlePlaceOrder = (guestInfo?: { name: string, phone: string }) => {
     startOrderTransition(async () => {
         try {
-            if (!auth) throw new Error("Authentication service is not available.");
+            if (!auth || !firestore) throw new Error("Firebase services not available.");
 
             let currentUser = user;
             if (!currentUser) {
-                // If user is not logged in and we don't have guest info, open the dialog.
                 if (!guestInfo) {
                     setIsGuestDialogOpen(true);
                     return;
                 }
-                // If we have guest info, sign in anonymously.
                 const userCredential = await signInAnonymously(auth);
                 currentUser = userCredential.user;
             }
 
-            // At this point, we must have guestInfo if the user was anonymous.
-            if (!guestInfo) {
-                // This case handles registered users placing a restaurant order.
-                // We'll create a temporary guestInfo object from their profile if available.
-                 const userDoc = auth.currentUser ? (await getDoc(doc(firestore, 'users', auth.currentUser.uid))).data() : null;
+            if (!guestInfo && auth.currentUser) {
+                 const userDoc = (await getDoc(doc(firestore, 'users', auth.currentUser.uid))).data();
                  guestInfo = {
                     name: userDoc?.firstName ? `${userDoc.firstName} ${userDoc.lastName}` : "Registered User",
                     phone: userDoc?.phoneNumber || "N/A"
                  }
+            } else if (!guestInfo) {
+                throw new Error("Guest information is required for anonymous users.");
             }
             
             const idToken = await currentUser.getIdToken();
