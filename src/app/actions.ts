@@ -6,11 +6,8 @@ import { getStorage } from 'firebase-admin/storage';
 import { Timestamp } from 'firebase-admin/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig } from '@/lib/types';
-import { getAuth } from 'firebase/auth'; // Not admin auth
+import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, CartItem } from '@/lib/types';
 import { headers } from 'next/headers';
-import { getApp, getApps, initializeApp } from 'firebase/app';
-import { firebaseConfig } from '@/firebase/config';
 
 
 /**
@@ -430,47 +427,70 @@ export async function bulkUploadRecipes(csvText: string): Promise<{ success: boo
     }
 }
 
-export async function placeRestaurantOrder(): Promise<{ success: boolean; orderId?: string; error?: string; }> {
+export async function placeRestaurantOrder(cartItems: CartItem[], cartTotal: number, guestInfo?: {name: string, phone: string}): Promise<{ success: boolean; orderId?: string; error?: string; }> {
     try {
         const { db, auth: adminAuth } = await getAdminServices();
         const headersList = headers();
         const idToken = headersList.get('X-Firebase-AppCheck-Token');
-
-        if (!idToken) {
-            return { success: false, error: 'Authentication token not found.' };
-        }
-
-        const decodedToken = await adminAuth.verifyIdToken(idToken);
-        const userId = decodedToken.uid;
         
-        // This is a simplified action. A real app would get cart from a secure source.
-        // For this demo, we'll assume we get the cart details. Let's create a placeholder order.
-        const userDoc = await db.collection('users').doc(userId).get();
-        if (!userDoc.exists) {
-            return { success: false, error: 'User profile not found.' };
+        let userId: string;
+        let customerName: string;
+        let customerPhone: string;
+        let customerEmail: string | undefined;
+        let userDocData: any = {};
+
+        if (idToken) {
+            // Logged-in user flow
+            const decodedToken = await adminAuth.verifyIdToken(idToken);
+            userId = decodedToken.uid;
+            
+            const userDoc = await db.collection('users').doc(userId).get();
+            if (!userDoc.exists) {
+                return { success: false, error: 'User profile not found.' };
+            }
+            userDocData = userDoc.data();
+            customerName = `${userDocData?.firstName} ${userDocData?.lastName}`;
+            customerPhone = userDocData?.phoneNumber || 'N/A';
+            customerEmail = userDocData?.email;
+
+        } else if (guestInfo) {
+            // Guest user flow
+            const anonymousUser = await adminAuth.createUser({});
+            userId = anonymousUser.uid;
+            customerName = guestInfo.name;
+            customerPhone = guestInfo.phone;
+            customerEmail = undefined; // No email for guest
+            
+        } else {
+             return { success: false, error: 'Authentication token or guest information is required.' };
         }
-        const userData = userDoc.data();
+        
+        if (cartItems.length === 0) {
+            return { success: false, error: 'Cart is empty.' };
+        }
+        
+        const firstItem = cartItems[0];
 
         const orderRef = db.collection('orders').doc();
         const orderData = {
             id: orderRef.id,
             userId,
-            storeId: 'B0LrSbQB8myBnBKQjqAUn', // Hardcoded for demo
-            customerName: `${userData?.firstName} ${userData?.lastName}`,
-            deliveryAddress: userData?.address || 'N/A',
-            phone: userData?.phoneNumber || 'N/A',
-            email: userData?.email,
+            storeId: firstItem.product.storeId, 
+            customerName,
+            deliveryAddress: userDocData?.address || 'In-store pickup', // Default for restaurant
+            phone: customerPhone,
+            email: customerEmail,
             orderDate: Timestamp.now(),
             status: 'Pending',
-            totalAmount: 100.00, // Placeholder
-            items: [{
-                productId: 'omelet-placeholder',
-                productName: 'Omelet',
-                variantSku: 'omelet-1pc',
-                variantWeight: '1 pc',
-                quantity: 1,
-                price: 100.00
-            }]
+            totalAmount: cartTotal,
+            items: cartItems.map(item => ({
+                productId: item.product.id,
+                productName: item.product.name,
+                variantSku: item.variant.sku,
+                variantWeight: item.variant.weight,
+                quantity: item.quantity,
+                price: item.variant.price
+            }))
         };
 
         await orderRef.set(orderData);

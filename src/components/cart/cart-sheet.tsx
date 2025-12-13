@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useCart } from '@/lib/cart';
@@ -17,8 +16,52 @@ import { placeRestaurantOrder } from '@/app/actions';
 import { useFirebase } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '../ui/label';
 
-function CartSheetItem({ item, image }) {
+function GuestOrderDialog({ isOpen, onOpenChange, onPlaceOrder }: { isOpen: boolean, onOpenChange: (open: boolean) => void, onPlaceOrder: (name: string, phone: string) => void }) {
+    const [name, setName] = useState('');
+    const [phone, setPhone] = useState('');
+    const [isPending, startTransition] = useTransition();
+    
+    const handleSubmit = () => {
+        startTransition(() => {
+            onPlaceOrder(name, phone);
+        });
+    }
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Place Guest Order</DialogTitle>
+                    <DialogDescription>
+                        Please provide your name and phone number to place your order.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="guest-name">Name</Label>
+                        <Input id="guest-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your Name" />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="guest-phone">Phone Number</Label>
+                        <Input id="guest-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Mobile Number" />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>Cancel</Button>
+                    <Button onClick={handleSubmit} disabled={!name || !phone || isPending}>
+                         {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                         Place Order
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+function CartSheetItem({ item, image }: { item: any, image: any }) {
     const { removeItem, updateQuantity } = useCart();
     const { product, variant, quantity } = item;
     
@@ -76,6 +119,7 @@ export function CartSheetContent() {
   const { toast } = useToast();
   const router = useRouter();
   const [isPlacingOrder, startOrderTransition] = useTransition();
+  const [isGuestDialogOpen, setIsGuestDialogOpen] = useState(false);
 
   const isRestaurantOrder = cartItems.length > 0 && cartItems.every(item => item.product.isMenuItem);
 
@@ -99,21 +143,21 @@ export function CartSheetContent() {
     fetchImages();
   }, [cartItems]);
   
-  const handlePlaceOrder = () => {
-    if (!user) {
-        toast({ variant: 'destructive', title: 'You must be logged in to place an order.' });
-        router.push('/login');
+  const handlePlaceOrder = (guestInfo?: { name: string, phone: string }) => {
+    if (!user && !guestInfo) {
+        setIsGuestDialogOpen(true);
         return;
     }
 
     startOrderTransition(async () => {
-        const result = await placeRestaurantOrder();
+        const result = await placeRestaurantOrder(cartItems, cartTotal, guestInfo);
         if (result.success && result.orderId) {
             toast({
                 title: 'Order Placed!',
                 description: 'Your order has been sent to the kitchen.',
             });
             clearCart();
+            setIsGuestDialogOpen(false);
             router.push(`/order-confirmation?orderId=${result.orderId}`);
         } else {
             toast({
@@ -127,6 +171,11 @@ export function CartSheetContent() {
 
   return (
     <>
+      <GuestOrderDialog 
+        isOpen={isGuestDialogOpen} 
+        onOpenChange={setIsGuestDialogOpen}
+        onPlaceOrder={(name, phone) => handlePlaceOrder({ name, phone })}
+      />
       <SheetHeader>
         <SheetTitle>{t('shopping-cart')} ({cartCount})</SheetTitle>
         <SheetDescription className="sr-only">
@@ -151,7 +200,7 @@ export function CartSheetContent() {
                 <span>₹{cartTotal.toFixed(2)}</span>
               </div>
               {isRestaurantOrder ? (
-                 <Button onClick={handlePlaceOrder} disabled={isPlacingOrder} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
+                 <Button onClick={() => handlePlaceOrder()} disabled={isPlacingOrder} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
                     {isPlacingOrder ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
                     {isPlacingOrder ? 'Placing Order...' : 'Place Order Now'}
                  </Button>
