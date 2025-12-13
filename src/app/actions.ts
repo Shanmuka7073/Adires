@@ -453,26 +453,26 @@ export async function bulkUploadRecipes(csvText: string): Promise<{ success: boo
 }
 
 export async function placeRestaurantOrder(
-    cartItems: CartItem[], 
-    cartTotal: number, 
-    guestInfo: {name: string, phone: string},
+    cartItems: CartItem[],
+    cartTotal: number,
+    guestInfo: { name: string; phone: string },
     idToken: string | null
 ): Promise<{ success: boolean; orderId?: string; error?: string; }> {
     try {
         const { db, auth: adminAuth } = await getAdminServices();
-        
+
         if (!idToken) {
             return { success: false, error: 'Authentication token is required.' };
         }
-        
+
         const decodedToken = await adminAuth.verifyIdToken(idToken);
         const userId = decodedToken.uid;
-        
+
         let customerName = guestInfo.name;
         let customerPhone = guestInfo.phone;
         let customerEmail: string | undefined;
         let userDocData: any = {};
-        
+
         // This logic correctly handles both anonymous and registered users.
         // If the user is not anonymous, we try to fetch their profile details.
         if (!decodedToken.isAnonymous) {
@@ -484,26 +484,26 @@ export async function placeRestaurantOrder(
                 customerEmail = userDocData?.email;
             }
         }
-        
+
         if (cartItems.length === 0) {
             return { success: false, error: 'Cart is empty.' };
         }
-        
+
         const firstItem = cartItems[0];
         const storeId = firstItem.product.storeId;
         if (!storeId) {
-             return { success: false, error: 'Store ID is missing from cart items.' };
+            return { success: false, error: 'Store ID is missing from cart items.' };
         }
 
         const orderRef = db.collection('orders').doc();
         const orderData: Order = {
             id: orderRef.id,
             userId,
-            storeId: storeId, 
+            storeId: storeId,
             customerName,
             deliveryAddress: userDocData?.address || 'In-store pickup',
             phone: customerPhone,
-            email: customerEmail,
+            email: customerEmail || '', // FIX: Default to empty string if undefined
             orderDate: Timestamp.now(),
             status: 'Pending',
             totalAmount: cartTotal,
@@ -518,7 +518,7 @@ export async function placeRestaurantOrder(
         };
 
         await orderRef.set(orderData);
-        
+
         return { success: true, orderId: orderRef.id };
 
     } catch (error: any) {
