@@ -1,4 +1,5 @@
 
+
 {
   "entities": {
     "Store": {
@@ -108,6 +109,30 @@
         "name",
         "imageId"
       ]
+    },
+    "Menu": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "Menu",
+        "type": "object",
+        "description": "Represents a restaurant menu, with items extracted by AI.",
+        "properties": {
+            "id": { "type": "string" },
+            "storeId": { "type": "string" },
+            "items": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": { "type": "string" },
+                        "description": { "type": "string" },
+                        "price": { "type": "number" },
+                        "category": { "type": "string" }
+                    },
+                    "required": ["name", "price", "category"]
+                }
+            }
+        },
+        "required": ["id", "storeId", "items"]
     },
     "User": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -332,30 +357,6 @@
         "price"
       ]
     },
-    "Menu": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "title": "Menu",
-        "type": "object",
-        "description": "Represents a restaurant menu, with items extracted by AI.",
-        "properties": {
-            "id": { "type": "string" },
-            "storeId": { "type": "string" },
-            "items": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "name": { "type": "string" },
-                        "description": { "type": "string" },
-                        "price": { "type": "number" },
-                        "category": { "type": "string" }
-                    },
-                    "required": ["name", "price", "category"]
-                }
-            }
-        },
-        "required": ["id", "storeId", "items"]
-    },
     "ProductRecommendation": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "ProductRecommendation",
@@ -462,7 +463,9 @@
             "type": "object",
             "properties": {
               "name": { "type": "string" },
-              "quantity": { "type": "string" }
+              "quantity": { "type": "string" },
+              "baseQuantity": { "type": "number" },
+              "unit": { "type": "string" }
             },
             "required": ["name", "quantity"]
           },
@@ -479,6 +482,14 @@
               "required": ["title", "actions"]
            },
            "description": "The step-by-step cooking instructions."
+        },
+        "nutrition": {
+            "type": "object",
+            "properties": {
+                "calories": { "type": "number" },
+                "protein": { "type": "number" }
+            },
+            "required": ["calories", "protein"]
         },
         "createdAt": {
           "type": "string",
@@ -855,7 +866,7 @@
         "definition": {
           "entityName": "Menu",
           "schema": {
-            "$ref": "#/backend/entities/Menu"
+            "$ref": "#/entities/Menu"
           },
           "description": "Stores menu information for a restaurant.",
           "params": [
@@ -1063,7 +1074,7 @@
         }
       },
       {
-        "path": "/voiceAliases/{aliasId}",
+        "path": "/voiceAliasGroups/{aliasId}",
         "definition": {
           "entityName": "VoiceAlias",
           "schema": {
@@ -1138,5 +1149,3 @@
     ]
   }
 }
-
-    

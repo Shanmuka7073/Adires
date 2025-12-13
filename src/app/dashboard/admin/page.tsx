@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy, Upload, MessageSquare, ImageIcon, Home, Lightbulb, Binary, TestTube, Cog, Share2, Monitor, Drama, Edit, BarChart3, FileCode, Video } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy, Upload, MessageSquare, ImageIcon, Home, Lightbulb, Binary, TestTube, Cog, Share2, Monitor, Drama, Edit, BarChart3, FileCode, Video, QrCode } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -19,7 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { bulkUploadRecipes, importProductsFromUrl, getSalesDataDump } from '@/app/actions';
+import { bulkUploadRecipes, importProductsFromUrl } from '@/app/actions';
 
 
 interface StatCardProps {
@@ -57,69 +57,6 @@ function CreateMasterStoreCard() {
             </AlertDescription>
         </Alert>
     )
-}
-
-function SalesDataDownloader() {
-    const { toast } = useToast();
-    const [isDownloading, startDownload] = useTransition();
-
-    const handleDownload = () => {
-        startDownload(async () => {
-            try {
-                const result = await getSalesDataDump();
-                if (result.success && result.data) {
-                    if (result.data.length === 0) {
-                        toast({ title: 'No Data', description: 'There is no sales data to download yet.' });
-                        return;
-                    }
-
-                    // Convert JSON to CSV
-                    const headers = Object.keys(result.data[0]);
-                    const csvRows = [
-                        headers.join(','),
-                        ...result.data.map(row => 
-                            headers.map(header => JSON.stringify(row[header], (_, value) => value === undefined ? '' : value)).join(',')
-                        )
-                    ];
-                    const csvString = csvRows.join('\n');
-
-                    // Trigger download
-                    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.setAttribute('href', url);
-                    link.setAttribute('download', 'sales-data.csv');
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    
-                    toast({ title: 'Download Started', description: 'Your sales data dump is being downloaded.' });
-                } else {
-                    throw new Error(result.error || 'An unknown error occurred.');
-                }
-            } catch (error: any) {
-                console.error("Sales data download failed:", error);
-                toast({ variant: 'destructive', title: 'Download Failed', description: error.message });
-            }
-        });
-    }
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Download Sales Data</CardTitle>
-                <CardDescription>
-                    Get a complete CSV dump of all orders and items from the LocalBasket store.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Button onClick={handleDownload} disabled={isDownloading} className="w-full">
-                    {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                    Download Full Report (CSV)
-                </Button>
-            </CardContent>
-        </Card>
-    );
 }
 
 function ProductUrlImporterCard() {
@@ -652,7 +589,6 @@ export default function AdminDashboardPage() {
             <div className="mt-16">
                  <h2 className="text-2xl font-bold text-center mb-8 font-headline">{t('admin-tools')}</h2>
                  <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
-                    <SalesDataDownloader />
                     <ProductUrlImporterCard />
                     <BulkRecipeUploadCard />
                      <AdminActionCard 
@@ -672,24 +608,6 @@ export default function AdminDashboardPage() {
                         description="Set the live video URL shown to customers after they order."
                         href="/dashboard/admin/site-config"
                         icon={Video}
-                    />
-                     <AdminActionCard 
-                        title="Sales Reports"
-                        description="View daily and monthly sales reports categorized by product type."
-                        href="/dashboard/admin/sales-report"
-                        icon={BarChart3}
-                    />
-                     <AdminActionCard 
-                        title="Sales Report Code"
-                        description="View the source code for the sales report feature."
-                        href="/dashboard/admin/sales-report-help"
-                        icon={FileCode}
-                    />
-                     <AdminActionCard 
-                        title="PWA Manifest Editor"
-                        description="View and edit your Progressive Web App's manifest.json file."
-                        href="/dashboard/admin/manifest-help"
-                        icon={FileCode}
                     />
                     <AdminActionCard
                         title="Failed Command Center"
@@ -720,6 +638,18 @@ export default function AdminDashboardPage() {
                         description="Manage all placeholder and category images."
                         href="/dashboard/admin/image-management"
                         icon={ImageIcon}
+                    />
+                     <AdminActionCard 
+                        title="PWA Manifest Editor"
+                        description="View and edit your Progressive Web App's manifest.json file."
+                        href="/dashboard/admin/manifest-help"
+                        icon={FileCode}
+                    />
+                    <AdminActionCard
+                        title="QR Code Menu Manager"
+                        description="Create and manage digital menus for restaurants."
+                        href="/dashboard/owner/menu-manager"
+                        icon={QrCode}
                     />
                 </div>
             </div>

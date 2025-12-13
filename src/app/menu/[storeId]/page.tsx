@@ -168,7 +168,7 @@ function MenuItemDialog({ item, storeId, isOpen, onClose }: { item: MenuItem; st
                     </Button>
                     <div className="flex items-center justify-center gap-4">
                         <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
-                            <Link href="/live-order/placeholder">
+                            <Link href={`/live-order/${storeId}`}>
                                 <Eye className="mr-2 h-4 w-4" />
                                 See preparation
                             </Link>
