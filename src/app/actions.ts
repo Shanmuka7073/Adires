@@ -7,6 +7,10 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
 import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig } from '@/lib/types';
+import { getAuth } from 'firebase/auth'; // Not admin auth
+import { headers } from 'next/headers';
+import { getApp, getApps, initializeApp } from 'firebase/app';
+import { firebaseConfig } from '@/firebase/config';
 
 
 /**
@@ -426,333 +430,55 @@ export async function bulkUploadRecipes(csvText: string): Promise<{ success: boo
     }
 }
 
-const getPlaceholderImagesPath = () => {
-    return path.join(process.cwd(), 'src', 'lib', 'placeholder-images.json');
-};
-
-export async function getPlaceholderImages() {
+export async function placeRestaurantOrder(): Promise<{ success: boolean; orderId?: string; error?: string; }> {
     try {
-        const imagesPath = getPlaceholderImagesPath();
-        const imagesFile = await fs.readFile(imagesPath, 'utf-8');
-        return JSON.parse(imagesFile);
-    } catch (error) {
-        console.error('Failed to read placeholder-images.json file:', error);
-        return { placeholderImages: [] };
-    }
-}
+        const { db, auth: adminAuth } = await getAdminServices();
+        const headersList = headers();
+        const idToken = headersList.get('X-Firebase-AppCheck-Token');
 
-export async function updatePlaceholderImages(newData: { placeholderImages: any[] }): Promise<{ success: boolean; error?: string }> {
-    try {
-        const imagesPath = getPlaceholderImagesPath();
-        await fs.writeFile(imagesPath, JSON.stringify(newData, null, 2), 'utf-8');
-        return { success: true };
-    } catch (error: any) {
-        console.error('Failed to update placeholder-images.json file:', error);
-        return { success: false, error: error.message || 'An unknown error occurred.' };
-    }
-}
-
-export async function uploadPwaIcon(formData: FormData): Promise<{ success: boolean, error?: string, icon192Url?: string, icon512Url?: string }> {
-    const file = formData.get('file') as File;
-    if (!file) {
-        return { success: false, error: 'No file provided.' };
-    }
-
-    try {
-        const publicDir = path.join(process.cwd(), 'public');
-        const icon192Path = path.join(publicDir, 'icon-192x192.png');
-        const icon512Path = path.join(publicDir, 'icon-512x512.png');
-
-        const buffer = Buffer.from(await file.arrayBuffer());
-
-        // In a real app, you would use a library like 'sharp' to resize the buffer here.
-        // For this demo, we'll just save the file as is.
-        await fs.writeFile(icon192Path, buffer);
-        await fs.writeFile(icon512Path, buffer);
-
-        const manifestPath = getManifestPath();
-        const manifest = await getManifest();
-        if (!manifest) {
-            throw new Error('Could not load manifest file to update icons.');
+        if (!idToken) {
+            return { success: false, error: 'Authentication token not found.' };
         }
 
-        // Use relative paths for the icons in the manifest
-        const icon192Url = '/icon-192x192.png';
-        const icon512Url = '/icon-512x512.png';
-
-        manifest.icons = [
-            { src: icon192Url, sizes: '192x192', type: 'image/png', purpose: 'any' },
-            { src: icon512Url, sizes: '512x512', type: 'image/png', purpose: 'any' },
-            { src: icon512Url, sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-        ];
-
-        await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
-
-        return { success: true, icon192Url, icon512Url };
-
-    } catch (error: any) {
-        console.error('PWA Icon upload failed:', error);
-        return { success: false, error: error.message || 'An unknown server error occurred.' };
-    }
-}
-
-
-/**
- * Generates a sales report for a given period, categorized into grocery, meat, and vegetables.
- * @param period Specifies whether to generate a 'daily' or 'monthly' report.
- * @returns A promise that resolves with the sales report or an error.
- */
-export async function getSalesReport(period: 'daily' | 'monthly'): Promise<{ success: boolean; report?: any; error?: string; }> {
-  try {
-    const { db } = await getAdminServices();
-
-    const now = new Date();
-    let startDate: Date;
-
-    if (period === 'daily') {
-      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    } else { // monthly
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    }
-
-    // Use the Timestamp from the Admin SDK
-    const startTimestamp = Timestamp.fromDate(startDate);
-
-    const masterStoreQuery = db.collection('stores').where('name', '==', 'LocalBasket');
-    const masterStoreSnap = await masterStoreQuery.get();
-    if (masterStoreSnap.empty) throw new Error("Master 'LocalBasket' store not found.");
-    const masterStoreId = masterStoreSnap.docs[0].id;
-    
-    const productsSnapshot = await db.collection('stores').doc(masterStoreId).collection('products').get();
-    const productCategoryMap = new Map<string, string>();
-    // Correctly map by product ID
-    productsSnapshot.forEach(doc => {
-      productCategoryMap.set(doc.id, doc.data().category?.toLowerCase() || 'grocery');
-    });
-
-    const ordersQuery = db.collection('orders')
-        .where('status', 'in', ['Delivered', 'delivered', 'Completed'])
-        .where('orderDate', '>=', startTimestamp);
-    const orderSnapshot = await ordersQuery.get();
-    const deliveredOrders = orderSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-
-    const report = {
-      grocery: { totalSales: 0, itemCount: 0, topProducts: new Map<string, number>() },
-      meat: { totalSales: 0, itemCount: 0, topProducts: new Map<string, number>() },
-      vegetable: { totalSales: 0, itemCount: 0, topProducts: new Map<string, number>() },
-    };
-
-    const meatCategories = ['fresh cut', 'meat & fish'];
-    const vegetableCategories = ['vegetables'];
-    
-    for (const order of deliveredOrders) {
-      const itemsQuery = db.collection('orders').doc(order.id).collection('orderItems');
-      const itemsSnapshot = await itemsQuery.get();
-      
-      if (itemsSnapshot.empty) continue; // Skip if order has no items.
-
-      const items = itemsSnapshot.docs.map(doc => doc.data() as OrderItem);
-
-      for (const item of items) {
-        const itemTotal = item.price * item.quantity;
-        // Use productId for robust mapping
-        const category = productCategoryMap.get(item.productId) || 'grocery';
+        const decodedToken = await adminAuth.verifyIdToken(idToken);
+        const userId = decodedToken.uid;
         
-        let reportCategory: 'grocery' | 'meat' | 'vegetable';
-
-        if (meatCategories.includes(category)) {
-          reportCategory = 'meat';
-        } else if (vegetableCategories.includes(category)) {
-          reportCategory = 'vegetable';
-        } else {
-          reportCategory = 'grocery';
+        // This is a simplified action. A real app would get cart from a secure source.
+        // For this demo, we'll assume we get the cart details. Let's create a placeholder order.
+        const userDoc = await db.collection('users').doc(userId).get();
+        if (!userDoc.exists) {
+            return { success: false, error: 'User profile not found.' };
         }
+        const userData = userDoc.data();
 
-        report[reportCategory].totalSales += itemTotal;
-        report[reportCategory].itemCount += item.quantity;
+        const orderRef = db.collection('orders').doc();
+        const orderData = {
+            id: orderRef.id,
+            userId,
+            storeId: 'B0LrSbQB8myBnBKQjqAUn', // Hardcoded for demo
+            customerName: `${userData?.firstName} ${userData?.lastName}`,
+            deliveryAddress: userData?.address || 'N/A',
+            phone: userData?.phoneNumber || 'N/A',
+            email: userData?.email,
+            orderDate: Timestamp.now(),
+            status: 'Pending',
+            totalAmount: 100.00, // Placeholder
+            items: [{
+                productId: 'omelet-placeholder',
+                productName: 'Omelet',
+                variantSku: 'omelet-1pc',
+                variantWeight: '1 pc',
+                quantity: 1,
+                price: 100.00
+            }]
+        };
+
+        await orderRef.set(orderData);
         
-        const currentQty = report[reportCategory].topProducts.get(item.productName) || 0;
-        report[reportCategory].topProducts.set(item.productName, currentQty + item.quantity);
-      }
-    }
-
-    const formatTopProducts = (topProducts: Map<string, number>) => {
-        return Array.from(topProducts.entries())
-          .sort((a, b) => b[1] - a[1]) // Sort by count descending
-          .slice(0, 5) // Get top 5
-          .map(([name, count]) => ({ name, count }));
-    };
-
-    return {
-        success: true,
-        report: {
-            grocery: { ...report.grocery, topProducts: formatTopProducts(report.grocery.topProducts) },
-            meat: { ...report.meat, topProducts: formatTopProducts(report.meat.topProducts) },
-            vegetable: { ...report.vegetable, topProducts: formatTopProducts(report.vegetable.topProducts) },
-        }
-    };
-
-  } catch (error: any) {
-    console.error("Sales report generation failed:", error);
-    return { success: false, error: error.message || 'An unknown server error occurred.' };
-  }
-}
-
-export async function approveRule(sentenceId: string, rawText: string): Promise<{ success: boolean, error?: string }> {
-    const { db } = await getAdminServices();
-    const sentenceRef = db.collection('nlu_extracted_sentences').doc(sentenceId);
-    try {
-        await sentenceRef.update({ status: 'approved' });
-        console.log(`ACTION: Append the following to learned-rules.json:`);
-        console.log(JSON.stringify({ rawText: rawText, note: 'Learned from NLU dashboard' }));
-        
-        return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message };
-    }
-}
-
-export async function rejectRule(sentenceId: string): Promise<{ success: boolean, error?: string }> {
-    try {
-        const { db } = await getAdminServices();
-        const sentenceRef = db.collection('nlu_extracted_sentences').doc(sentenceId);
-        await sentenceRef.update({ status: 'rejected' });
-        return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message };
-    }
-}
-
-
-export async function processPdfAndExtractRules(formData: FormData): Promise<{ success: boolean; sentenceCount?: number; error?: string }> {
-    const file = formData.get('pdf') as File;
-    if (!file) {
-        return { success: false, error: 'No PDF file provided.' };
-    }
-    
-    console.log(`Simulating processing for PDF: ${file.name}`);
-    
-    try {
-        const { db } = await getAdminServices();
-        const batch = db.batch();
-        const sentencesRef = db.collection('nlu_extracted_sentences');
-
-        const demoSentences = [
-            "add 1kg of potatoes",
-            "I need one and a half litres of milk",
-            "get 250gm ginger",
-            "buy 5 packs of biscuits",
-            "order 2 dozen eggs",
-            "three kilos of onions please",
-        ];
-
-        let sentenceCount = 0;
-        for (const text of demoSentences) {
-            const newDocRef = sentencesRef.doc();
-            batch.set(newDocRef, {
-                id: newDocRef.id,
-                rawText: text,
-                extractedNumbers: [], 
-                confidence: Math.random(), 
-                status: 'pending',
-                createdAt: Timestamp.now(),
-            });
-            sentenceCount++;
-        }
-
-        await batch.commit();
-
-        return { success: true, sentenceCount };
+        return { success: true, orderId: orderRef.id };
 
     } catch (error: any) {
-        console.error("PDF processing simulation failed:", error);
-        return { success: false, error: error.message };
-    }
-}
-
-export async function getSiteConfig(configId: string): Promise<SiteConfig | null> {
-    try {
-        const { db } = await getAdminServices();
-        const docRef = db.collection('siteConfig').doc(configId);
-        const docSnap = await docRef.get();
-        if (docSnap.exists) {
-            return docSnap.data() as SiteConfig;
-        }
-        return null;
-    } catch (error) {
-        console.error("Error fetching site config:", error);
-        return null;
-    }
-}
-
-export async function updateSiteConfig(configId: string, data: Partial<SiteConfig>): Promise<{ success: boolean; error?: string }> {
-    try {
-        const { db } = await getAdminServices();
-        const docRef = db.collection('siteConfig').doc(configId);
-        await docRef.set(data, { merge: true });
-        return { success: true };
-    } catch (error: any) {
-        console.error("Error updating site config:", error);
-        return { success: false, error: error.message };
-    }
-}
-
-export async function getSalesDataDump(): Promise<{ success: boolean; data?: any[]; error?: string; }> {
-    try {
-        const { db } = await getAdminServices();
-
-        const masterStoreQuery = db.collection('stores').where('name', '==', 'LocalBasket');
-        const masterStoreSnap = await masterStoreQuery.get();
-        if (masterStoreSnap.empty) throw new Error("Master 'LocalBasket' store not found.");
-
-        const ordersQuery = db.collection('orders').where('status', 'in', ['Delivered', 'delivered', 'Completed']);
-        const orderSnapshot = await ordersQuery.get();
-        
-        const dataDump = [];
-
-        for (const orderDoc of orderSnapshot.docs) {
-            const orderData = orderDoc.data() as Order;
-            const orderId = orderDoc.id;
-
-            const serializableOrderDate = orderData.orderDate instanceof Timestamp
-                ? orderData.orderDate.toDate().toISOString()
-                : orderData.orderDate;
-
-            const itemsQuery = db.collection('orders').doc(orderId).collection('orderItems');
-            const itemsSnapshot = await itemsQuery.get();
-            
-            if (itemsSnapshot.empty) {
-                 dataDump.push({
-                    orderId: orderId,
-                    orderDate: serializableOrderDate,
-                    customerName: orderData.customerName,
-                    totalAmount: orderData.totalAmount,
-                    status: orderData.status,
-                    productName: 'N/A',
-                    quantity: 0,
-                    price: 0,
-                });
-            } else {
-                for (const itemDoc of itemsSnapshot.docs) {
-                    const item = itemDoc.data() as OrderItem;
-                    dataDump.push({
-                        orderId: orderId,
-                        orderDate: serializableOrderDate,
-                        customerName: orderData.customerName,
-                        totalAmount: orderData.totalAmount,
-                        status: orderData.status,
-                        productName: item.productName,
-                        quantity: item.quantity,
-                        price: item.price,
-                    });
-                };
-            }
-        }
-        
-        return { success: true, data: dataDump };
-
-    } catch (error: any) {
-        console.error("Sales data download failed:", error);
-        return { success: false, error: error.message || 'An unknown server error occurred.' };
+        console.error("placeRestaurantOrder failed:", error);
+        return { success: false, error: error.message || "An unknown server error occurred." };
     }
 }

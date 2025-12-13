@@ -5,14 +5,18 @@ import { useCart } from '@/lib/cart';
 import { Button } from '@/components/ui/button';
 import { SheetHeader, SheetTitle, SheetFooter, SheetClose, SheetDescription } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Trash2, Plus, Minus } from 'lucide-react';
+import { Trash2, Plus, Minus, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Input } from '../ui/input';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
 import { useAppStore } from '@/lib/store';
 import { t } from '@/lib/locales';
+import { placeRestaurantOrder } from '@/app/actions';
+import { useFirebase } from '@/firebase';
+import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 function CartSheetItem({ item, image }) {
     const { removeItem, updateQuantity } = useCart();
@@ -66,9 +70,14 @@ function CartSheetItem({ item, image }) {
 }
 
 export function CartSheetContent() {
-  const { cartItems, cartTotal, cartCount } = useCart();
-  
+  const { cartItems, cartTotal, cartCount, clearCart } = useCart();
   const [images, setImages] = useState({});
+  const { user } = useFirebase();
+  const { toast } = useToast();
+  const router = useRouter();
+  const [isPlacingOrder, startOrderTransition] = useTransition();
+
+  const isRestaurantOrder = cartItems.length > 0 && cartItems.every(item => item.product.isMenuItem);
 
   useEffect(() => {
     const fetchImages = async () => {
@@ -89,6 +98,32 @@ export function CartSheetContent() {
 
     fetchImages();
   }, [cartItems]);
+  
+  const handlePlaceOrder = () => {
+    if (!user) {
+        toast({ variant: 'destructive', title: 'You must be logged in to place an order.' });
+        router.push('/login');
+        return;
+    }
+
+    startOrderTransition(async () => {
+        const result = await placeRestaurantOrder();
+        if (result.success && result.orderId) {
+            toast({
+                title: 'Order Placed!',
+                description: 'Your order has been sent to the kitchen.',
+            });
+            clearCart();
+            router.push(`/order-confirmation?orderId=${result.orderId}`);
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Order Failed',
+                description: result.error || 'Could not place your order. Please try again.',
+            });
+        }
+    });
+  };
 
   return (
     <>
@@ -115,11 +150,18 @@ export function CartSheetContent() {
                 <span>{t('total')}</span>
                 <span>₹{cartTotal.toFixed(2)}</span>
               </div>
-              <SheetClose asChild>
-                  <Button asChild className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-                      <Link href="/cart">{t('proceed-to-checkout')}</Link>
-                  </Button>
-              </SheetClose>
+              {isRestaurantOrder ? (
+                 <Button onClick={handlePlaceOrder} disabled={isPlacingOrder} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
+                    {isPlacingOrder ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                    {isPlacingOrder ? 'Placing Order...' : 'Place Order Now'}
+                 </Button>
+              ) : (
+                <SheetClose asChild>
+                    <Button asChild className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
+                        <Link href="/cart">{t('proceed-to-checkout')}</Link>
+                    </Button>
+                </SheetClose>
+              )}
             </div>
           </SheetFooter>
         </div>
