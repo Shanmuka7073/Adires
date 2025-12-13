@@ -72,7 +72,6 @@ export type CartItem = {
 };
 
 export type OrderItem = {
-  id: string; // Added ID field for subcollection documents
   productId: string;
   productName: string;
   variantSku: string;
@@ -299,18 +298,4 @@ export type GenerateBreakfastPackOutput = {
     quantity: string;
   }[];
   estimatedCost: number;
-};
-
-// QR Code Menu Types
-export type MenuItem = {
-    name: string;
-    description?: string;
-    price: number;
-    category: string;
-};
-
-export type Menu = {
-    id: string;
-    storeId: string;
-    items: MenuItem[];
 };
