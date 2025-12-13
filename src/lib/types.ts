@@ -1,4 +1,5 @@
 
+
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -21,8 +22,6 @@ export type Product = {
   imageHint?: string;
   matchedAlias?: string; // The alias the user spoke
   isAiAssisted?: boolean; // Flag to show if AI identified this item
-  isMenuItem?: boolean;
-  price?: number;
 };
 
 export type Store = {
@@ -38,7 +37,6 @@ export type Store = {
   longitude: number;
   distance?: number;
   isClosed?: boolean;
-  tables?: string[]; // For restaurant table management
 };
 
 // WebAuthn types
@@ -67,7 +65,6 @@ export type CartItem = {
   product: Product; // The base product
   variant: ProductVariant; // The specific variant chosen
   quantity: number;
-  tableNumber?: string; // For restaurant orders
 };
 
 export type OrderItem = {
@@ -94,7 +91,6 @@ export type Order = {
   orderDate: Timestamp; 
   phone: string;
   email: string;
-  tableNumber?: string; // For restaurant orders
   translatedList?: string; // Bilingual translated list
   store?: Store; // Optional: Denormalized or joined store data
   deliveryPartnerId?: string | null; // ID of the user who is delivering
@@ -298,19 +294,4 @@ export type GenerateBreakfastPackOutput = {
     quantity: string;
   }[];
   estimatedCost: number;
-};
-
-
-// Restaurant Menu Types
-export type MenuItem = {
-    name: string;
-    description?: string;
-    price: number;
-    category: string;
-};
-
-export type Menu = {
-    id: string;
-    storeId: string;
-    items: MenuItem[];
 };

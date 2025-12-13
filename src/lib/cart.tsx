@@ -16,7 +16,7 @@ export interface UnidentifiedCartItem {
 interface CartContextType {
   cartItems: CartItem[];
   unidentifiedItems: UnidentifiedCartItem[];
-  addItem: (product: Product, variant: ProductVariant, quantity?: number, tableNumber?: string) => void;
+  addItem: (product: Product, variant: ProductVariant, quantity?: number) => void;
   addIdentifiedItem: (product: Product, variant: ProductVariant, quantity: number, originalTermId: string) => void;
   removeItem: (variantSku: string) => void;
   updateQuantity: (variantSku: string, quantity: number) => void;
@@ -89,24 +89,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [cartItems.length]);
 
 
-  const addItem = useCallback((product: Product, variant: ProductVariant, quantity = 1, tableNumber?: string) => {
+  const addItem = useCallback((product: Product, variant: ProductVariant, quantity = 1) => {
     setCartItems((prevItems) => {
-        // If a table number is provided with this item, ensure all items in the cart have the same table number.
-        // This prevents mixing orders from different tables.
-        const existingTableNumber = prevItems.length > 0 ? prevItems[0].tableNumber : undefined;
-
-        if (prevItems.length > 0 && activeStoreId && (product.storeId !== activeStoreId || (tableNumber && existingTableNumber && tableNumber !== existingTableNumber))) {
-            const message = product.storeId !== activeStoreId 
-                ? "You have items from another store. Clear your cart to start a new one?"
-                : "You are adding an item for a different table. Clear your cart to start a new order for this table?";
-
-            if (window.confirm(message)) {
+        if (prevItems.length > 0 && activeStoreId && product.storeId !== activeStoreId) {
+            if (window.confirm("You have items from another store. Clear your cart to start a new one?")) {
                 setActiveStoreId(product.storeId);
                 toast({
                     title: 'New cart started!',
                     description: `${product.name} (${variant.weight}) has been added.`,
                 });
-                return [{ product, variant, quantity, tableNumber }];
+                return [{ product, variant, quantity }];
             }
             return prevItems;
         }
@@ -124,7 +116,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
                     : item
             );
         } else {
-            newItems = [...prevItems, { product, variant, quantity, tableNumber }];
+            newItems = [...prevItems, { product, variant, quantity }];
         }
 
         toast({
@@ -134,7 +126,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
         return newItems;
     });
-  }, [toast, activeStoreId]);
+}, [toast, activeStoreId]);
 
   const removeItem = useCallback((variantSku: string) => {
     setCartItems((prevItems) => {
