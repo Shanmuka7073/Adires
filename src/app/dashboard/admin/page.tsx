@@ -15,6 +15,14 @@ import {
   Video,
   QrCode,
   AlertTriangle,
+  Server,
+  FileText,
+  FileSignature,
+  Fingerprint,
+  Voicemail,
+  KeyRound,
+  Bug,
+  Package,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -195,9 +203,9 @@ export default function AdminDashboardPage() {
         </div>
       </section>
 
-      {/* ================= SYSTEM ================= */}
+      {/* ================= SYSTEM & DEBUGGING ================= */}
       <section className="space-y-6">
-        <h2 className="text-2xl font-bold">System & Security</h2>
+        <h2 className="text-2xl font-bold">System & Debugging</h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           <ActionCard
             title="Live Order Video"
@@ -222,6 +230,24 @@ export default function AdminDashboardPage() {
             description="Edit Progressive Web App settings"
             href="/dashboard/admin/manifest-help"
             icon={FileCode}
+          />
+          <ActionCard
+            title="Admin Dashboard Code"
+            description="View the source code for this dashboard."
+            href="/dashboard/admin/dashboard-help"
+            icon={FileCode}
+          />
+           <ActionCard
+            title="'My Orders' Page Code"
+            description="View the source for the customer's order history page."
+            href="/dashboard/admin/my-orders-help"
+            icon={Package}
+          />
+           <ActionCard
+            title="'Store Orders' Page Code"
+            description="View the source for the owner's order management page."
+            href="/dashboard/admin/store-orders-help"
+            icon={Store}
           />
         </div>
       </section>
