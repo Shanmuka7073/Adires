@@ -69,6 +69,7 @@ export type CartItem = {
   product: Product; // The base product
   variant: ProductVariant; // The specific variant chosen
   quantity: number;
+  tableNumber?: string; // NEW: For restaurant orders
 };
 
 export type OrderItem = {

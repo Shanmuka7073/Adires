@@ -22,14 +22,15 @@ import { Label } from '../ui/label';
 import { signInAnonymously } from 'firebase/auth';
 import { getDoc, doc } from 'firebase/firestore';
 
-function GuestOrderDialog({ isOpen, onOpenChange, onPlaceOrder }: { isOpen: boolean, onOpenChange: (open: boolean) => void, onPlaceOrder: (name: string, phone: string) => void }) {
+function GuestOrderDialog({ isOpen, onOpenChange, onPlaceOrder }: { isOpen: boolean, onOpenChange: (open: boolean) => void, onPlaceOrder: (name: string, phone: string, tableNumber: string) => void }) {
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
+    const [tableNumber, setTableNumber] = useState('');
     const [isPending, startTransition] = useTransition();
     
     const handleSubmit = () => {
         startTransition(() => {
-            onPlaceOrder(name, phone);
+            onPlaceOrder(name, phone, tableNumber);
         });
     }
 
@@ -39,7 +40,7 @@ function GuestOrderDialog({ isOpen, onOpenChange, onPlaceOrder }: { isOpen: bool
                 <DialogHeader>
                     <DialogTitle>Place Guest Order</DialogTitle>
                     <DialogDescription>
-                        Please provide your name and phone number to place your order.
+                        Please provide your details to place your order.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
@@ -51,10 +52,14 @@ function GuestOrderDialog({ isOpen, onOpenChange, onPlaceOrder }: { isOpen: bool
                         <Label htmlFor="guest-phone">Phone Number</Label>
                         <Input id="guest-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Mobile Number" />
                     </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="guest-table">Table Number</Label>
+                        <Input id="guest-table" value={tableNumber} onChange={(e) => setTableNumber(e.target.value)} placeholder="Your Table Number" />
+                    </div>
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>Cancel</Button>
-                    <Button onClick={handleSubmit} disabled={!name || !phone || isPending}>
+                    <Button onClick={handleSubmit} disabled={!name || !phone || !tableNumber || isPending}>
                          {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                          Place Order
                     </Button>
@@ -125,6 +130,8 @@ export function CartSheetContent() {
   const [isGuestDialogOpen, setIsGuestDialogOpen] = useState(false);
 
   const isRestaurantOrder = cartItems.length > 0 && cartItems.every(item => item.product.isMenuItem);
+  
+  const tableNumberFromCart = cartItems.find(item => item.tableNumber)?.tableNumber;
 
   useEffect(() => {
     const fetchImages = async () => {
@@ -146,14 +153,14 @@ export function CartSheetContent() {
     fetchImages();
   }, [cartItems]);
   
-  const handlePlaceOrder = (guestInfo?: { name: string, phone: string }) => {
+  const handlePlaceOrder = (guestInfo?: { name: string, phone: string, tableNumber: string }) => {
     startOrderTransition(async () => {
         try {
             if (!auth || !firestore) throw new Error("Firebase services not available.");
 
             let currentUser = user;
             if (!currentUser) {
-                if (!guestInfo) {
+                 if (!guestInfo) {
                     setIsGuestDialogOpen(true);
                     return;
                 }
@@ -161,19 +168,23 @@ export function CartSheetContent() {
                 currentUser = userCredential.user;
             }
 
-            if (!guestInfo && auth.currentUser) {
-                 const userDoc = (await getDoc(doc(firestore, 'users', auth.currentUser.uid))).data();
-                 guestInfo = {
-                    name: userDoc?.firstName ? `${userDoc.firstName} ${userDoc.lastName}` : "Registered User",
-                    phone: userDoc?.phoneNumber || "N/A"
-                 }
-            } else if (!guestInfo) {
+            let finalGuestInfo = guestInfo;
+
+            if (!finalGuestInfo && auth.currentUser) {
+                const userDocSnap = await getDoc(doc(firestore, 'users', auth.currentUser.uid));
+                const userDoc = userDocSnap.data();
+                finalGuestInfo = {
+                   name: userDoc?.firstName ? `${userDoc.firstName} ${userDoc.lastName}` : "Registered User",
+                   phone: userDoc?.phoneNumber || "N/A",
+                   tableNumber: tableNumberFromCart || "N/A"
+                }
+            } else if (!finalGuestInfo) {
                 throw new Error("Guest information is required for anonymous users.");
             }
             
             const idToken = await currentUser.getIdToken();
 
-            const result = await placeRestaurantOrder(cartItems, cartTotal, guestInfo, idToken);
+            const result = await placeRestaurantOrder(cartItems, cartTotal, finalGuestInfo, idToken);
 
             if (result.success && result.orderId) {
                 toast({
@@ -201,7 +212,7 @@ export function CartSheetContent() {
       <GuestOrderDialog 
         isOpen={isGuestDialogOpen} 
         onOpenChange={setIsGuestDialogOpen}
-        onPlaceOrder={(name, phone) => handlePlaceOrder({ name, phone })}
+        onPlaceOrder={(name, phone, tableNumber) => handlePlaceOrder({ name, phone, tableNumber })}
       />
       <SheetHeader>
         <SheetTitle>{t('shopping-cart')} ({cartCount})</SheetTitle>

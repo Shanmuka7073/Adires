@@ -471,14 +471,11 @@ export async function placeRestaurantOrder(
         let customerName = guestInfo.name;
         let customerPhone = guestInfo.phone;
         let customerEmail: string | undefined;
-        let userDocData: any = {};
 
-        // This logic correctly handles both anonymous and registered users.
-        // If the user is not anonymous, we try to fetch their profile details.
         if (!decodedToken.isAnonymous) {
             const userDoc = await db.collection('users').doc(userId).get();
             if (userDoc.exists) {
-                userDocData = userDoc.data();
+                const userDocData = userDoc.data();
                 customerName = `${userDocData?.firstName} ${userDocData?.lastName}`;
                 customerPhone = userDocData?.phoneNumber || 'N/A';
                 customerEmail = userDocData?.email;
@@ -496,15 +493,14 @@ export async function placeRestaurantOrder(
         }
 
         const orderRef = db.collection('orders').doc();
-        const orderData: Order = {
-            id: orderRef.id,
+        const orderData: Omit<Order, 'id'> = {
             userId,
             storeId: storeId,
             customerName,
             deliveryAddress: 'In-store pickup', // Restaurant orders are pickups
             phone: customerPhone,
-            email: customerEmail || '',
-            tableNumber: guestInfo.tableNumber, // Save the table number
+            email: customerEmail || '', // Ensure email is always a string
+            tableNumber: guestInfo.tableNumber,
             orderDate: Timestamp.now(),
             status: 'Pending',
             totalAmount: cartTotal,
@@ -518,7 +514,7 @@ export async function placeRestaurantOrder(
             }))
         };
 
-        await orderRef.set(orderData);
+        await orderRef.set({ id: orderRef.id, ...orderData });
 
         return { success: true, orderId: orderRef.id };
 

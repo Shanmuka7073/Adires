@@ -1,3 +1,4 @@
+
 'use client';
 
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
@@ -14,7 +15,7 @@ export interface UnidentifiedCartItem {
 interface CartContextType {
   cartItems: CartItem[];
   unidentifiedItems: UnidentifiedCartItem[];
-  addItem: (product: Product, variant: ProductVariant, quantity?: number) => void;
+  addItem: (product: Product, variant: ProductVariant, quantity?: number, tableNumber?: string) => void;
   addIdentifiedItem: (product: Product, variant: ProductVariant, quantity: number, originalTermId: string) => void;
   removeItem: (variantSku: string) => void;
   updateQuantity: (variantSku: string, quantity: number) => void;
@@ -53,15 +54,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setCartItems = (items: CartItem[] | ((prev: CartItem[]) => CartItem[])) => {
-    setCartItemsState(prevItems => {
-        const newItems = typeof items === 'function' ? items(prevItems) : items;
-        try {
-            localStorage.setItem('localbasket-cart', JSON.stringify(newItems));
-        } catch (error) {
-            console.error("Failed to save cart to localStorage", error);
-        }
-        return newItems;
-    });
+    const newItems = typeof items === 'function' ? items(cartItems) : items;
+    setCartItemsState(newItems);
+    try {
+        localStorage.setItem('localbasket-cart', JSON.stringify(newItems));
+    } catch (error) {
+        console.error("Failed to save cart to localStorage", error);
+    }
   };
 
   const setActiveStoreId = (storeId: string | null) => {
@@ -89,7 +88,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [cartItems.length]);
 
 
-  const addItem = useCallback((product: Product, variant: ProductVariant, quantity = 1) => {
+  const addItem = useCallback((product: Product, variant: ProductVariant, quantity = 1, tableNumber?: string) => {
     setCartItems((prevItems) => {
         if (prevItems.length > 0 && activeStoreId && product.storeId !== activeStoreId) {
             if (window.confirm("You have items from another store. Do you want to clear your current cart and start a new one with this item?")) {
@@ -98,7 +97,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
                     title: 'New cart started!',
                     description: `${product.name} (${variant.weight}) has been added.`,
                 });
-                return [{ product, variant, quantity }];
+                return [{ product, variant, quantity, tableNumber }];
             }
             return prevItems;
         }
@@ -116,7 +115,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
                     : item
             );
         } else {
-            newItems = [...prevItems, { product, variant, quantity }];
+            newItems = [...prevItems, { product, variant, quantity, tableNumber }];
         }
 
         toast({
