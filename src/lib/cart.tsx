@@ -89,52 +89,55 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
 
   const addItem = useCallback((product: Product, variant: ProductVariant, quantity = 1, tableNumber?: string) => {
-    if (!activeStoreId && cartItems.length === 0) {
-        // If the cart is empty, set the active store and add the item.
-        setActiveStoreId(product.storeId);
-        setCartItems([{ product, variant, quantity, tableNumber }]);
-        toast({
-            title: 'Item added to cart',
-            description: `${product.name} (${variant.weight}) has been added.`,
-        });
-        return;
-    }
-
-    if (activeStoreId && product.storeId !== activeStoreId) {
-        // If items from another store exist, ask for confirmation to clear cart.
-        if (window.confirm("You have items from another store. Clear your cart to start a new one?")) {
-            setActiveStoreId(product.storeId);
-            setCartItems([{ product, variant, quantity, tableNumber }]);
-            toast({
-                title: 'New cart started!',
-                description: `${product.name} (${variant.weight}) has been added.`,
-            });
-        }
-        return; // Do nothing if the user cancels.
-    }
-
-    // If the item is from the same store or the cart was empty.
     setCartItems((prevItems) => {
-        const existingItem = prevItems.find((item) => item.variant.sku === variant.sku);
-        let newItems;
-        if (existingItem) {
-            newItems = prevItems.map((item) =>
-                item.variant.sku === variant.sku
-                    ? { ...item, quantity: item.quantity + quantity }
-                    : item
-            );
-        } else {
-            newItems = [...prevItems, { product, variant, quantity, tableNumber }];
-        }
+      const currentActiveStoreId = prevItems.length > 0 ? prevItems[0].product.storeId : null;
 
+      // Case 1: Cart is empty, adding the first item.
+      if (!currentActiveStoreId) {
+        setActiveStoreId(product.storeId);
         toast({
             title: 'Item added to cart',
             description: `${product.name} (${variant.weight}) has been added.`,
         });
+        return [{ product, variant, quantity, tableNumber }];
+      }
 
-        return newItems;
+      // Case 2: Item is from a different store.
+      if (product.storeId !== currentActiveStoreId) {
+        if (window.confirm("You have items from another store. Clear your cart to start a new one?")) {
+          setActiveStoreId(product.storeId);
+          toast({
+              title: 'New cart started!',
+              description: `${product.name} (${variant.weight}) has been added.`,
+          });
+          return [{ product, variant, quantity, tableNumber }];
+        }
+        return prevItems; // User cancelled, so do nothing.
+      }
+
+      // Case 3: Item is from the same store.
+      const existingItem = prevItems.find(item => item.variant.sku === variant.sku);
+      let newItems;
+      if (existingItem) {
+        // Increment quantity of existing item.
+        newItems = prevItems.map(item =>
+          item.variant.sku === variant.sku
+            ? { ...item, quantity: item.quantity + quantity }
+            : item
+        );
+      } else {
+        // Add new item to the cart.
+        newItems = [...prevItems, { product, variant, quantity, tableNumber }];
+      }
+      
+      toast({
+          title: 'Item added to cart',
+          description: `${product.name} (${variant.weight}) has been added.`,
+      });
+
+      return newItems;
     });
-  }, [toast, activeStoreId, cartItems.length]);
+  }, [toast]);
 
   const removeItem = useCallback((variantSku: string) => {
     setCartItems((prevItems) => {
