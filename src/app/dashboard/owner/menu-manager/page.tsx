@@ -8,12 +8,13 @@ import type { Store, Menu, MenuItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Upload, Sparkles, QrCode, Printer, Save, Copy } from 'lucide-react';
+import { Loader2, Upload, Sparkles, QrCode, Printer, Save, Copy, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import Image from 'next/image';
 import { extractMenuItems } from '@/ai/flows/extract-menu-items-flow';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import QRCode from 'qrcode.react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (items: MenuItem[]) => void }) {
     const { toast } = useToast();
@@ -79,7 +80,15 @@ function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (items: MenuItem[]
 
 function MenuDisplay({ storeId, menu, onReplace }: { storeId: string, menu: Menu, onReplace: () => void }) {
     const { toast } = useToast();
-    const menuUrl = `${window.location.origin}/menu/${storeId}`;
+    const [menuUrl, setMenuUrl] = useState('');
+
+    useEffect(() => {
+        // This check ensures window is defined, which it will be in a client component.
+        if (typeof window !== 'undefined') {
+            setMenuUrl(`${window.location.origin}/menu/${storeId}`);
+        }
+    }, [storeId]);
+
 
     const handlePrint = () => {
         const qrCodeElement = document.getElementById('qr-code-to-print');
@@ -153,15 +162,22 @@ function MenuDisplay({ storeId, menu, onReplace }: { storeId: string, menu: Menu
                     <CardDescription>Print this code and place it on your tables for customers to scan.</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col items-center gap-4">
+                    <Alert variant="destructive">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle>Developer Note</AlertTitle>
+                        <AlertDescription>
+                            This QR code will only work on a publicly deployed version of the app, not in the local development environment.
+                        </AlertDescription>
+                    </Alert>
                     <div id="qr-code-to-print" className="p-4 bg-white rounded-lg border">
-                        <QRCode value={menuUrl} size={256} />
+                        {menuUrl ? <QRCode value={menuUrl} size={256} /> : <div className="w-[256px] h-[256px] bg-gray-200 animate-pulse" />}
                     </div>
-                    <p className="text-xs text-muted-foreground break-all">{menuUrl}</p>
+                    <p className="text-xs text-muted-foreground break-all">{menuUrl || 'Generating URL...'}</p>
                     <div className="grid grid-cols-2 gap-2 w-full">
-                        <Button onClick={handleCopyLink} variant="outline"><Copy className="mr-2 h-4 w-4" /> Copy Link</Button>
-                        <Button onClick={handleCopyQRCode} variant="outline"><Copy className="mr-2 h-4 w-4" /> Copy QR</Button>
+                        <Button onClick={handleCopyLink} variant="outline" disabled={!menuUrl}><Copy className="mr-2 h-4 w-4" /> Copy Link</Button>
+                        <Button onClick={handleCopyQRCode} variant="outline" disabled={!menuUrl}><Copy className="mr-2 h-4 w-4" /> Copy QR</Button>
                     </div>
-                    <Button onClick={handlePrint} className="w-full">
+                    <Button onClick={handlePrint} className="w-full" disabled={!menuUrl}>
                         <Printer className="mr-2 h-4 w-4" /> Print QR Code
                     </Button>
                 </CardContent>
