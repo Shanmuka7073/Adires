@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useTransition, useEffect, useMemo, useRef, RefObject } from 'react';
@@ -63,7 +62,7 @@ import {
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
-import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Camera, CameraOff, Sparkles, PlusCircle, Edit, Link2, QrCode } from 'lucide-react';
+import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Camera, CameraOff, Sparkles, PlusCircle, Edit, Link2, QrCode, ClipboardList } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import Link from 'next/link';
@@ -85,6 +84,7 @@ const storeSchema = z.object({
   address: z.string().min(10, 'Please enter a valid address'),
   latitude: z.coerce.number().min(-90, "Invalid latitude").max(90, "Invalid latitude"),
   longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude"),
+  tables: z.array(z.string()).optional(),
 });
 
 const locationSchema = z.object({
@@ -291,6 +291,81 @@ function StoreImageUploader({ store }: { store: Store }) {
                         )}
                     </div>
                 )}
+            </CardContent>
+        </Card>
+    );
+}
+
+function TableManager({ store }: { store: Store }) {
+    const { firestore } = useFirebase();
+    const [newTableName, setNewTableName] = useState('');
+    const [isSaving, startSaveTransition] = useTransition();
+    const { toast } = useToast();
+
+    const handleAddTable = () => {
+        if (!newTableName.trim()) return;
+        const currentTables = store.tables || [];
+        const updatedTables = [...new Set([...currentTables, newTableName.trim()])];
+        
+        startSaveTransition(() => {
+            updateDoc(doc(firestore, 'stores', store.id), { tables: updatedTables })
+                .then(() => {
+                    toast({ title: "Table Added", description: `"${newTableName}" has been added.` });
+                    setNewTableName('');
+                })
+                .catch(err => {
+                    console.error("Error adding table:", err);
+                    toast({ variant: "destructive", title: "Save Failed", description: err.message });
+                });
+        });
+    };
+    
+    const handleRemoveTable = (tableToRemove: string) => {
+        const updatedTables = (store.tables || []).filter(t => t !== tableToRemove);
+        startSaveTransition(() => {
+            updateDoc(doc(firestore, 'stores', store.id), { tables: updatedTables })
+                .then(() => toast({ title: "Table Removed", description: `"${tableToRemove}" has been removed.` }))
+                .catch(err => {
+                    console.error("Error removing table:", err);
+                    toast({ variant: "destructive", title: "Update Failed", description: err.message });
+                });
+        });
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Table Management</CardTitle>
+                <CardDescription>Add or remove table numbers/names for your restaurant to generate QR codes.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                    <Input 
+                        placeholder="e.g., Table 5, Patio 2"
+                        value={newTableName}
+                        onChange={(e) => setNewTableName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleAddTable(); }}
+                    />
+                    <Button onClick={handleAddTable} disabled={isSaving || !newTableName.trim()}>
+                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                        Add
+                    </Button>
+                </div>
+                 {store.tables && store.tables.length > 0 && (
+                     <div className="space-y-2">
+                         <Label>Your Tables</Label>
+                         <div className="space-y-2 rounded-md border p-2">
+                             {store.tables.map(table => (
+                                 <div key={table} className="flex items-center justify-between p-2 bg-background rounded-md">
+                                     <span className="font-medium">{table}</span>
+                                     <Button variant="ghost" size="icon" onClick={() => handleRemoveTable(table)}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                     </Button>
+                                 </div>
+                             ))}
+                         </div>
+                     </div>
+                 )}
             </CardContent>
         </Card>
     );
@@ -1670,8 +1745,9 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
                     </Card>
                 )}
              </div>
-             <div className="grid md:grid-cols-2 gap-8">
+             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                 <PromoteStore store={store} />
+                <TableManager store={store} />
                  <Link href="/dashboard/owner/menu-manager" passHref>
                     <Card className="h-full hover:shadow-lg transition-shadow">
                         <CardHeader>
@@ -1784,7 +1860,8 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
             address: isAdmin ? 'Platform-wide' : (profile?.address || ''),
             latitude: 0,
             longitude: 0,
-            teluguName: ''
+            teluguName: '',
+            tables: [],
         },
     });
 
@@ -2085,4 +2162,3 @@ export default function MyStorePage() {
         </div>
     );
 }
-

@@ -1,5 +1,4 @@
 
-
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -14,8 +13,6 @@ export type Product = {
   id: string;
   name: string; // Base name, e.g., 'Potatoes'
   description: string;
-  // Variants are no longer stored on the store-specific product document.
-  // They are fetched from the central productPrices collection.
   variants?: ProductVariant[]; 
   imageId: string;
   storeId: string;
