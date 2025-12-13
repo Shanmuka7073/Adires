@@ -35,6 +35,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import type { Order, Store as StoreType } from '@/lib/types';
+import { t } from '@/lib/locales';
 
 /* ---------------- STAT CARD ---------------- */
 
@@ -42,7 +43,7 @@ function StatCard({ title, value, icon: Icon }: any) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm text-muted-foreground">{title}</CardTitle>
+        <CardTitle className="text-sm text-muted-foreground">{t(title)}</CardTitle>
         <Icon className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
@@ -249,10 +250,14 @@ export default function AdminDashboardPage() {
             href="/dashboard/admin/store-orders-help"
             icon={Store}
           />
+           <ActionCard
+            title="'My Store' Page Code"
+            description="View the source for the owner's store management page."
+            href="/dashboard/admin/my-store-help"
+            icon={Store}
+          />
         </div>
       </section>
     </div>
   );
 }
-
-    
