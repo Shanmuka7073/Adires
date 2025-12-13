@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -7,6 +8,31 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, CartItem } from '@/lib/types';
 import { headers } from 'next/headers';
+import { getApp, getApps } from 'firebase-admin/app';
+
+/**
+ * NEW: Server action to securely provide the client-side Firebase config.
+ * This ensures client and server are always in sync.
+ */
+export async function getFirebaseConfig() {
+  try {
+    const adminApp = getApps()[0] || (await getAdminServices()).app;
+    // The client SDK needs the API key, which isn't in the default app options.
+    // This is a simplified way to expose it. In a real production app,
+    // this might come from a more secure config source.
+    return {
+      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+      authDomain: adminApp.options.authDomain,
+      projectId: adminApp.options.projectId,
+      storageBucket: adminApp.options.storageBucket,
+      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    };
+  } catch (error) {
+    console.error("Failed to get Firebase config:", error);
+    return null;
+  }
+}
 
 
 /**
@@ -447,6 +473,8 @@ export async function placeRestaurantOrder(
         let customerEmail: string | undefined;
         let userDocData: any = {};
         
+        // This logic correctly handles both anonymous and registered users.
+        // If the user is not anonymous, we try to fetch their profile details.
         if (!decodedToken.isAnonymous) {
             const userDoc = await db.collection('users').doc(userId).get();
             if (userDoc.exists) {

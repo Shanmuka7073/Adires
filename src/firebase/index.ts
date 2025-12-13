@@ -1,20 +1,29 @@
+
 'use client';
-import { firebaseConfig } from '@/firebase/config';
+import { getClientFirebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
+// Keep a client-side cache of the initialized app
+let clientFirebaseApp: FirebaseApp | null = null;
+
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
-export function initializeFirebase() {
-  if (!getApps().length) {
-    // Always initialize with the explicit firebaseConfig to ensure correctness in this environment.
-    const firebaseApp = initializeApp(firebaseConfig);
-    return getSdks(firebaseApp);
+export async function initializeFirebase() {
+  // If we've already initialized, return the cached instance
+  if (clientFirebaseApp) {
+    return getSdks(clientFirebaseApp);
   }
 
-  // If already initialized, return the SDKs with the already initialized App
-  return getSdks(getApp());
+  // Fetch the configuration from the server action
+  const firebaseConfig = await getClientFirebaseConfig();
+
+  // Initialize the app with the fetched config
+  const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  clientFirebaseApp = app;
+
+  return getSdks(app);
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {

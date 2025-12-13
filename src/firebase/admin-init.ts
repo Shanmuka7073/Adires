@@ -27,9 +27,11 @@ function getAppOptions(): AppOptions {
             };
         } catch (e) {
             console.error('Failed to parse SERVICE_ACCOUNT env var:', e);
+            // Fallback for environments with Application Default Credentials if parsing fails
+            return {};
         }
     }
-    // Fallback for environments with Application Default Credentials
+    // Fallback for environments with Application Default Credentials (e.g., Cloud Run, Firebase Hosting)
     return {};
 }
 
@@ -40,10 +42,8 @@ export async function getAdminServices(): Promise<AdminServices> {
 
   const appOptions = getAppOptions();
 
-  const app =
-    getApps().length > 0
-      ? getApps()[0]
-      : initializeApp(appOptions);
+  // Initialize app if it doesn't exist.
+  const app = getApps().length ? getApps()[0] : initializeApp(appOptions);
 
   const auth = getAuth(app);
   const db = getFirestore(app);
