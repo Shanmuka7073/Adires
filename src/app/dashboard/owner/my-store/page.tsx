@@ -70,6 +70,7 @@ import { t } from '@/lib/locales';
 import { useAppStore, useMyStorePageStore } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
 import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
+import { Label } from '@/components/ui/label';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -1401,8 +1402,8 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
     const [isOpen, setIsOpen] = useState(false);
     const { getAllAliases } = useAppStore();
 
-    const form = useForm<Omit<StoreFormValues, 'latitude' | 'longitude'>>({
-        resolver: zodResolver(storeSchema.omit({ latitude: true, longitude: true })),
+    const form = useForm<Omit<StoreFormValues, 'latitude' | 'longitude' | 'tables'>>({
+        resolver: zodResolver(storeSchema.omit({ latitude: true, longitude: true, tables: true })),
         defaultValues: {
             name: store.name,
             teluguName: store.teluguName || '',
@@ -1411,7 +1412,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
         },
     });
     
-    const onSubmit = (data: Omit<StoreFormValues, 'latitude' | 'longitude'>) => {
+    const onSubmit = (data: Omit<StoreFormValues, 'latitude' | 'longitude' | 'tables'>) => {
         if (!firestore) return;
 
         startTransition(() => {
@@ -1782,9 +1783,9 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Categories</SelectItem>
-                                {Array.from(new Set(masterProducts.map(p => p.category).filter(Boolean))).map(cat => (
-                                    <SelectItem key={cat} value={cat}>
-                                        {t(cat.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}
+                                {masterProducts.map(p => p.category).filter((v, i, a) => a.indexOf(v) === i && v).map(cat => (
+                                    <SelectItem key={cat} value={cat!}>
+                                        {t(cat!.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -2162,3 +2163,5 @@ export default function MyStorePage() {
         </div>
     );
 }
+
+    
