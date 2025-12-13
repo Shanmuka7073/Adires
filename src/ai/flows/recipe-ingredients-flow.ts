@@ -157,7 +157,7 @@ const getIngredientsFlow = ai.defineFlow(
 
     // If TheMealDB fails, use the AI to generate the recipe from scratch.
     console.log(`TheMealDB failed for "${dishName}". Falling back to generative AI.`);
-    const { output: generatedOutput } = await GenerationPrompt({ dishName, language });
+    const { output: generatedOutput } = await GenerationPrompt({ dishName, language: language || 'en' });
     
     if (!generatedOutput) {
       return { isSuccess: false, title: dishName, ingredients: [], instructions: [] };

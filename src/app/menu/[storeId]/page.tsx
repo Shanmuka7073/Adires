@@ -7,7 +7,7 @@ import type { Store, Menu, MenuItem, GetIngredientsOutput, Product, ProductVaria
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Utensils, Zap, Flame, Info, Plus, Minus, ShoppingCart, Loader2 } from 'lucide-react';
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useState, useTransition, useEffect } from 'react';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -22,27 +22,30 @@ function MenuItemDialog({ item, storeId, isOpen, onClose }: { item: MenuItem; st
     const { addItem } = useCart();
     const { toast } = useToast();
     const [quantity, setQuantity] = useState(1);
-    const [isGenerating, startGeneration] = useTransition();
+    const [isGenerating, setIsGenerating] = useState(false);
     const [details, setDetails] = useState<GetIngredientsOutput | null>(null);
 
     // AI generation effect
-    useMemo(() => {
+    useEffect(() => {
         if (isOpen && !details) {
-            startGeneration(async () => {
-                try {
-                    const dishDetails = await getIngredientsForDish({ dishName: item.name, language: 'en' });
+            setIsGenerating(true);
+            getIngredientsForDish({ dishName: item.name, language: 'en' })
+                .then(dishDetails => {
                     setDetails(dishDetails);
-                } catch (e) {
+                })
+                .catch(e => {
                     console.error("Failed to get dish details:", e);
                     toast({
                         variant: "destructive",
                         title: "Could not fetch details",
                         description: "The AI is currently unavailable. Please try again later."
                     });
-                }
-            });
+                })
+                .finally(() => {
+                    setIsGenerating(false);
+                });
         }
-    }, [isOpen, item.name, details]);
+    }, [isOpen, item.name, details, toast]);
 
     const handleAddToCart = () => {
         if (quantity < 1) return;
