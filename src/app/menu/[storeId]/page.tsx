@@ -3,11 +3,11 @@
 
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
-import type { Store, Menu, MenuItem, GetIngredientsOutput, Product, ProductVariant } from '@/lib/types';
+import type { Store, Menu, MenuItem, GetIngredientsOutput, Product, ProductVariant, Ingredient } from '@/lib/types';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Utensils, Zap, Flame, Info, Plus, Minus, ShoppingCart, Loader2 } from 'lucide-react';
-import { useMemo, useState, useTransition, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,6 @@ function MenuItemDialog({ item, storeId, isOpen, onClose }: { item: MenuItem; st
     const [isGenerating, setIsGenerating] = useState(false);
     const [details, setDetails] = useState<GetIngredientsOutput | null>(null);
 
-    // AI generation effect
     useEffect(() => {
         if (isOpen && !details) {
             setIsGenerating(true);
@@ -56,7 +55,7 @@ function MenuItemDialog({ item, storeId, isOpen, onClose }: { item: MenuItem; st
             description: item.description || '',
             storeId: storeId,
             category: item.category,
-            imageId: 'cat-restaurant', // Generic fallback
+            imageId: 'cat-restaurant',
             isMenuItem: true,
             price: item.price
         };
@@ -75,11 +74,23 @@ function MenuItemDialog({ item, storeId, isOpen, onClose }: { item: MenuItem; st
         });
         onClose();
     };
+    
+    // Helper function to format the scaled quantity
+    const formatScaledQuantity = (ingredient: Ingredient) => {
+        if (ingredient.baseQuantity && ingredient.unit) {
+            const scaledQuantity = ingredient.baseQuantity * quantity;
+            return `${scaledQuantity.toFixed(0)}${ingredient.unit}`;
+        }
+        return ingredient.quantity; // Fallback to the original string
+    };
 
-    const calories = useMemo(() => {
-        if (!details) return Math.floor(200 + Math.random() * 300); // Fallback random calories
-        return Math.round(details.ingredients.length * 40 + Math.random() * 50);
-    }, [details]);
+    const scaledNutrition = useMemo(() => {
+        if (!details?.nutrition) return { calories: 0, protein: 0 };
+        return {
+            calories: Math.round(details.nutrition.calories * quantity),
+            protein: Math.round(details.nutrition.protein * quantity),
+        };
+    }, [details, quantity]);
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -99,6 +110,15 @@ function MenuItemDialog({ item, storeId, isOpen, onClose }: { item: MenuItem; st
                         <DialogTitle className="text-2xl font-bold">{item.name}</DialogTitle>
                     </DialogHeader>
                     
+                    <div className="flex items-center justify-between">
+                         <div className="flex items-center gap-2">
+                            <Button variant="outline" size="icon" onClick={() => setQuantity(q => Math.max(1, q - 1))}><Minus className="h-4 w-4" /></Button>
+                            <Input type="number" value={quantity} onChange={e => setQuantity(parseInt(e.target.value) || 1)} className="w-16 h-10 text-center text-lg font-bold" />
+                            <Button variant="outline" size="icon" onClick={() => setQuantity(q => q + 1)}><Plus className="h-4 w-4" /></Button>
+                        </div>
+                        <p className="text-2xl font-bold text-primary">₹{(item.price * quantity).toFixed(2)}</p>
+                    </div>
+
                     {isGenerating ? (
                         <div className="space-y-4">
                            <Skeleton className="h-4 w-3/4" />
@@ -110,18 +130,18 @@ function MenuItemDialog({ item, storeId, isOpen, onClose }: { item: MenuItem; st
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
                                 <div className="flex items-center gap-1">
                                     <Flame className="h-4 w-4 text-orange-500" />
-                                    <span>{calories} kcal</span>
+                                    <span>{scaledNutrition.calories} kcal</span>
                                 </div>
                                 <div className="flex items-center gap-1">
                                     <Zap className="h-4 w-4 text-yellow-500" />
-                                    <span>{Math.round(calories * 0.15)}g Protein</span>
+                                    <span>{scaledNutrition.protein}g Protein</span>
                                 </div>
                             </div>
                             <div>
-                                <h4 className="font-semibold mb-2">Main Ingredients:</h4>
+                                <h4 className="font-semibold mb-2">Main Ingredients (for {quantity} serving{quantity > 1 ? 's':''}):</h4>
                                 <div className="flex flex-wrap gap-2">
                                     {details.ingredients.slice(0, 5).map(ing => (
-                                        <Badge key={ing.name} variant="secondary">{ing.name}</Badge>
+                                        <Badge key={ing.name} variant="secondary">{ing.name} ({formatScaledQuantity(ing)})</Badge>
                                     ))}
                                 </div>
                             </div>
@@ -132,15 +152,6 @@ function MenuItemDialog({ item, storeId, isOpen, onClose }: { item: MenuItem; st
                             <p>Ingredient and calorie information not available.</p>
                         </div>
                     )}
-                    
-                    <div className="flex items-center justify-between">
-                         <div className="flex items-center gap-2">
-                            <Button variant="outline" size="icon" onClick={() => setQuantity(q => Math.max(1, q - 1))}><Minus className="h-4 w-4" /></Button>
-                            <Input type="number" value={quantity} onChange={e => setQuantity(parseInt(e.target.value) || 1)} className="w-16 h-10 text-center text-lg font-bold" />
-                            <Button variant="outline" size="icon" onClick={() => setQuantity(q => q + 1)}><Plus className="h-4 w-4" /></Button>
-                        </div>
-                        <p className="text-2xl font-bold text-primary">₹{(item.price * quantity).toFixed(2)}</p>
-                    </div>
 
                     <Button onClick={handleAddToCart} className="w-full h-12 text-lg">
                         <ShoppingCart className="mr-2 h-5 w-5" />

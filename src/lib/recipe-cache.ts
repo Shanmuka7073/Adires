@@ -26,6 +26,7 @@ export async function getCachedRecipe(db: Firestore, dishName: string, language:
                 title: data.dishName,
                 ingredients: data.ingredients,
                 instructions: data.instructions,
+                nutrition: data.nutrition || { calories: 0, protein: 0 },
             };
         }
         
@@ -41,6 +42,7 @@ export async function getCachedRecipe(db: Firestore, dishName: string, language:
                     title: data.dishName,
                     ingredients: data.ingredients,
                     instructions: data.instructions,
+                    nutrition: data.nutrition || { calories: 0, protein: 0 },
                 };
             }
         }
@@ -69,6 +71,7 @@ export async function cacheRecipe(db: Firestore, dishName: string, language: 'en
         dishName: data.title, // Use the official title from the AI
         ingredients: data.ingredients,
         instructions: data.instructions,
+        nutrition: data.nutrition,
         createdAt: serverTimestamp(),
     };
 

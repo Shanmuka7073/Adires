@@ -45,20 +45,18 @@ Raw Instructions:
 
 **Your Task:**
 
-1.  **Parse Ingredients**: Clean up the ingredient list.
-    *   For each item, create an object with \`name\` and \`quantity\`.
-    *   Example: "1.5kg Chicken" becomes \`{ name: "Chicken", quantity: "1.5kg" }\`.
-    *   If quantity is missing, use a sensible default like "to taste" or "1".
+1.  **Parse Ingredients**: Clean up the ingredient list. For each ingredient, provide:
+    *   \`name\`: The clean name of the ingredient (e.g., "Chicken").
+    *   \`quantity\`: The full quantity string (e.g., "1.5kg", "2 medium").
+    *   \`baseQuantity\`: The numeric value for a single serving (e.g., for "2 medium onions" this might be 2).
+    *   \`unit\`: The unit of measurement (e.g., "kg", "g", "ml", "pc", "tsp"). If no unit, leave it blank.
 
 2.  **Parse Instructions**: Break down the raw instructions into logical, step-by-step blocks.
-    *   For each block, create an object.
-    *   The \`title\` should be a short, clear heading for the step (e.g., "Prepare the Marinade", "Cook the Onions").
-    *   The \`actions\` should be an array of individual sentences describing what to do in that step.
+    *   For each block, create a \`title\` (e.g., "Prepare the Marinade") and an array of \`actions\`.
 
-3.  **Final Output**:
-    *   Set \`isSuccess\` to true.
-    *   Set \`title\` to the provided \`dishName\`.
-    *   Return the final structured JSON.
+3.  **Estimate Nutrition**: Provide a realistic estimate for \`calories\` and \`protein\` for a single serving of this dish.
+
+4.  **Final Output**: Return the final structured JSON, with \`isSuccess\` set to true.
 `,
 });
 
@@ -72,9 +70,10 @@ const GenerationPrompt = ai.definePrompt({
 Your task is to generate a complete, structured recipe for the dish: "{{dishName}}".
 
 Instructions:
-1.  **Generate Ingredients**: Create a realistic list of ingredients with quantities (e.g., "1 kg chicken", "2 medium onions").
-2.  **Generate Instructions**: Write clear, step-by-step cooking instructions. Group them into logical steps, each with a short, imperative title (e.g., "Prepare the marinade", "Cook the onions").
-3.  **Format Output**: Return the entire recipe in the specified JSON format. Ensure \`isSuccess\` is true.
+1.  **Generate Ingredients**: Create a realistic list of ingredients for a single serving. For each, specify the \`name\`, full \`quantity\` string, a numeric \`baseQuantity\`, and the \`unit\` (e.g., 'g', 'ml', 'pc').
+2.  **Generate Instructions**: Write clear, step-by-step cooking instructions, grouped into logical steps with titles.
+3.  **Estimate Nutrition**: Provide realistic \`calories\` and \`protein\` estimates for one serving.
+4.  **Format Output**: Return the entire recipe in the specified JSON format. Ensure \`isSuccess\` is true.
 `,
 });
 
@@ -105,9 +104,9 @@ const TranslatePrompt = ai.definePrompt({
 
 **Your Task:**
 1.  Translate the dish title.
-2.  Translate each ingredient name. Keep the quantity the same.
-3.  Translate each instruction step title.
-4.  Translate each instruction action.
+2.  Translate each ingredient name. Keep the quantity, baseQuantity, and unit the same.
+3.  Translate each instruction step title and action.
+4.  Keep the nutrition information the same.
 5.  Return the fully translated recipe in the specified JSON format. Ensure 'isSuccess' is true.`,
   });
   
@@ -160,7 +159,7 @@ const getIngredientsFlow = ai.defineFlow(
     const { output: generatedOutput } = await GenerationPrompt({ dishName, language: language || 'en' });
     
     if (!generatedOutput) {
-      return { isSuccess: false, title: dishName, ingredients: [], instructions: [] };
+      return { isSuccess: false, title: dishName, ingredients: [], instructions: [], nutrition: { calories: 0, protein: 0 } };
     }
 
     return generatedOutput;

@@ -1,4 +1,5 @@
 
+
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -23,8 +24,8 @@ export type Product = {
   imageHint?: string;
   matchedAlias?: string; // The alias the user spoke
   isAiAssisted?: boolean; // Flag to show if AI identified this item
-  isMenuItem?: boolean; // NEW: Flag to identify a restaurant menu item
-  price?: number; // NEW: Price for single-item menu products
+  isMenuItem?: boolean;
+  price?: number;
 };
 
 export type Store = {
@@ -151,6 +152,8 @@ export type VoiceAliasGroup = {
 export interface Ingredient {
     name: string;
     quantity: string;
+    baseQuantity?: number;
+    unit?: string;
 }
 
 // NEW: Structured instruction step
@@ -161,9 +164,13 @@ export interface InstructionStep {
 
 export interface GetIngredientsOutput {
     isSuccess: boolean;
+    title: string;
     ingredients: Ingredient[];
     instructions: InstructionStep[];
-    title: string;
+    nutrition: {
+        calories: number;
+        protein: number;
+    }
 }
 
 export type CachedRecipe = {
@@ -171,6 +178,10 @@ export type CachedRecipe = {
     dishName: string;
     ingredients: Ingredient[];
     instructions: InstructionStep[];
+    nutrition: {
+        calories: number;
+        protein: number;
+    };
     createdAt: any; // Allow serverTimestamp
 }
 

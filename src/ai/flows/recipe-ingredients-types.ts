@@ -9,7 +9,9 @@ import { z } from 'zod';
 
 const IngredientSchema = z.object({
     name: z.string().describe('The name of the ingredient.'),
-    quantity: z.string().describe('The quantity and unit (e.g., "1 cup", "200g").'),
+    quantity: z.string().describe('The display quantity and unit (e.g., "1 cup", "200g").'),
+    baseQuantity: z.number().optional().describe('The numeric quantity for a single serving (e.g., 200).'),
+    unit: z.string().optional().describe('The unit of measurement (e.g., "g", "ml", "cup").'),
 });
 
 const InstructionStepSchema = z.object({
@@ -17,11 +19,17 @@ const InstructionStepSchema = z.object({
     actions: z.array(z.string()).describe("A list of individual actions to perform in this step."),
 });
 
+const NutritionSchema = z.object({
+    calories: z.number().describe('Estimated total calories for a single serving.'),
+    protein: z.number().describe('Estimated grams of protein for a single serving.'),
+});
+
 export const GetIngredientsOutputSchema = z.object({
     isSuccess: z.boolean().describe('Whether ingredients were successfully found.'),
     title: z.string().describe('The official or common name of the dish.'),
     ingredients: z.array(IngredientSchema).describe('An array of ingredients.'),
     instructions: z.array(InstructionStepSchema).describe('An array of step-by-step instructions.'),
+    nutrition: NutritionSchema.describe('Estimated nutritional information per serving.'),
 });
 export type GetIngredientsOutput = z.infer<typeof GetIngredientsOutputSchema>;
 
