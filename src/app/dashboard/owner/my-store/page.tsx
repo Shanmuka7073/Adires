@@ -1,3 +1,5 @@
+
+
 'use client';
 
 import { useState, useTransition, useEffect, useMemo, useRef, RefObject } from 'react';
@@ -1536,7 +1538,6 @@ function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Prod
     );
 }
 
-
 function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdmin: boolean, adminStoreId?: string; }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
@@ -2084,3 +2085,4 @@ export default function MyStorePage() {
         </div>
     );
 }
+

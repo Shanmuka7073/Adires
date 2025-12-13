@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
@@ -8,13 +9,14 @@ import type { Store, Menu, MenuItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Upload, Sparkles, QrCode, Printer, Save, Copy, AlertTriangle } from 'lucide-react';
+import { Loader2, Upload, Sparkles, QrCode, Printer, Save, Copy, AlertTriangle, List } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import Image from 'next/image';
 import { extractMenuItems } from '@/ai/flows/extract-menu-items-flow';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import QRCode from 'qrcode.react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (items: MenuItem[]) => void }) {
     const { toast } = useToast();
@@ -78,26 +80,25 @@ function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (items: MenuItem[]
     );
 }
 
-function MenuDisplay({ storeId, menu, onReplace }: { storeId: string, menu: Menu, onReplace: () => void }) {
-    const { toast } = useToast();
+function QRCodeDialog({ table, storeId }: { table: string, storeId: string }) {
     const [menuUrl, setMenuUrl] = useState('');
+    const { toast } = useToast();
 
     useEffect(() => {
-        // This check ensures window is defined, which it will be in a client component.
         if (typeof window !== 'undefined') {
-            setMenuUrl(`${window.location.origin}/menu/${storeId}`);
+            const url = `${window.location.origin}/menu/${storeId}?table=${encodeURIComponent(table)}`;
+            setMenuUrl(url);
         }
-    }, [storeId]);
-
-
+    }, [storeId, table]);
+    
     const handlePrint = () => {
-        const qrCodeElement = document.getElementById('qr-code-to-print');
+        const qrCodeElement = document.getElementById(`qr-code-${table}`);
         if (qrCodeElement) {
             const printWindow = window.open('', '', 'height=600,width=800');
-            printWindow?.document.write('<html><head><title>Print QR Code</title>');
+            printWindow?.document.write('<html><head><title>Print QR Code for ' + table + '</title>');
             printWindow?.document.write('<style>body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; } h1 { font-family: sans-serif; } </style>');
             printWindow?.document.write('</head><body>');
-            printWindow?.document.write('<h1>Scan to view our menu!</h1>');
+            printWindow?.document.write(`<h1>Scan for ${table}</h1>`);
             printWindow?.document.write(qrCodeElement.innerHTML);
             printWindow?.document.write('</body></html>');
             printWindow?.document.close();
@@ -113,19 +114,31 @@ function MenuDisplay({ storeId, menu, onReplace }: { storeId: string, menu: Menu
             toast({ variant: "destructive", title: "Copy Failed", description: "Could not copy the link." });
         });
     };
+
+    return (
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>QR Code for {table}</DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-4">
+                 <div id={`qr-code-${table}`} className="p-4 bg-white rounded-lg border">
+                    {menuUrl ? <QRCode value={menuUrl} size={256} /> : <div className="w-[256px] h-[256px] bg-gray-200 animate-pulse" />}
+                </div>
+                <p className="text-xs text-muted-foreground break-all">{menuUrl || 'Generating URL...'}</p>
+                <div className="grid grid-cols-2 gap-2 w-full">
+                    <Button onClick={handleCopyLink} variant="outline" disabled={!menuUrl}><Copy className="mr-2 h-4 w-4" /> Copy Link</Button>
+                    <Button onClick={handlePrint} className="w-full" disabled={!menuUrl}>
+                        <Printer className="mr-2 h-4 w-4" /> Print QR Code
+                    </Button>
+                </div>
+            </div>
+        </DialogContent>
+    )
+}
+
+function MenuDisplay({ store, menu, onReplace }: { store: Store, menu: Menu, onReplace: () => void }) {
     
-    const handleCopyQRCode = () => {
-        const canvas = document.querySelector('#qr-code-to-print canvas') as HTMLCanvasElement;
-        if (canvas) {
-            canvas.toBlob((blob) => {
-                if(blob) {
-                    navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-                        .then(() => toast({ title: "QR Code Copied!", description: "The QR code image has been copied." }))
-                        .catch(() => toast({ variant: "destructive", title: "Copy Failed", description: "Could not copy the QR code." }));
-                }
-            });
-        }
-    };
+    const tables = store.tables || [];
 
     return (
         <div className="grid md:grid-cols-2 gap-8">
@@ -158,8 +171,8 @@ function MenuDisplay({ storeId, menu, onReplace }: { storeId: string, menu: Menu
             </Card>
              <Card>
                 <CardHeader>
-                    <CardTitle>Your Menu QR Code</CardTitle>
-                    <CardDescription>Print this code and place it on your tables for customers to scan.</CardDescription>
+                    <CardTitle>Your Table QR Codes</CardTitle>
+                    <CardDescription>Generate a unique QR code for each table in your restaurant.</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col items-center gap-4">
                     <Alert variant="destructive">
@@ -169,17 +182,24 @@ function MenuDisplay({ storeId, menu, onReplace }: { storeId: string, menu: Menu
                             This QR code will only work on a publicly deployed version of the app, not in the local development environment.
                         </AlertDescription>
                     </Alert>
-                    <div id="qr-code-to-print" className="p-4 bg-white rounded-lg border">
-                        {menuUrl ? <QRCode value={menuUrl} size={256} /> : <div className="w-[256px] h-[256px] bg-gray-200 animate-pulse" />}
-                    </div>
-                    <p className="text-xs text-muted-foreground break-all">{menuUrl || 'Generating URL...'}</p>
-                    <div className="grid grid-cols-2 gap-2 w-full">
-                        <Button onClick={handleCopyLink} variant="outline" disabled={!menuUrl}><Copy className="mr-2 h-4 w-4" /> Copy Link</Button>
-                        <Button onClick={handleCopyQRCode} variant="outline" disabled={!menuUrl}><Copy className="mr-2 h-4 w-4" /> Copy QR</Button>
-                    </div>
-                    <Button onClick={handlePrint} className="w-full" disabled={!menuUrl}>
-                        <Printer className="mr-2 h-4 w-4" /> Print QR Code
-                    </Button>
+                    
+                    {tables.length > 0 ? (
+                        <div className="w-full space-y-2">
+                            {tables.map(table => (
+                                <Dialog key={table}>
+                                    <DialogTrigger asChild>
+                                        <Button variant="secondary" className="w-full justify-between">
+                                            <span>{table}</span>
+                                            <QrCode className="h-4 w-4" />
+                                        </Button>
+                                    </DialogTrigger>
+                                    <QRCodeDialog table={table} storeId={store.id} />
+                                </Dialog>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-muted-foreground text-center py-4">You haven't added any tables yet. Go to "My Store" to add them.</p>
+                    )}
                 </CardContent>
             </Card>
         </div>
@@ -251,7 +271,7 @@ export default function MenuManagerPage() {
 
             {existingMenu && extractedItems.length === 0 ? (
                 // If a menu exists and we are NOT in the middle of uploading a new one, show it.
-                <MenuDisplay storeId={store.id} menu={existingMenu} onReplace={() => setExtractedItems([])} />
+                <MenuDisplay store={store} menu={existingMenu} onReplace={() => setExtractedItems([])} />
             ) : (
                 // Show the upload/review flow if no menu exists OR if we have just extracted new items
                  <div className="grid md:grid-cols-2 gap-8">
@@ -293,3 +313,4 @@ export default function MenuManagerPage() {
         </div>
     );
 }
+
