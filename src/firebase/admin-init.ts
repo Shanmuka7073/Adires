@@ -1,7 +1,7 @@
 
 'use server';
 
-import { initializeApp, getApps, App, type AppOptions } from 'firebase-admin/app';
+import { initializeApp, getApps, App, cert, type AppOptions } from 'firebase-admin/app';
 import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
@@ -18,18 +18,18 @@ function getAppOptions(): AppOptions {
         try {
             const serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT);
             return {
-                credential: {
+                credential: cert({
                     clientEmail: serviceAccount.client_email,
-                    privateKey: serviceAccount.private_key,
+                    privateKey: serviceAccount.private_key.replace(/\\n/g, '\n'),
                     projectId: serviceAccount.project_id,
-                },
+                }),
                 projectId: serviceAccount.project_id,
             };
         } catch (e) {
             console.error('Failed to parse SERVICE_ACCOUNT env var:', e);
         }
     }
-    // Fallback for local development or if env var is missing
+    // Fallback for environments with Application Default Credentials
     return {};
 }
 
