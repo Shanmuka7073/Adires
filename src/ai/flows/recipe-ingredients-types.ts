@@ -32,4 +32,3 @@ export const GetIngredientsInputSchema = z.object({
   existingRecipe: GetIngredientsOutputSchema.optional().describe("An optional existing recipe in another language to be translated."),
 });
 export type GetIngredientsInput = z.infer<typeof GetIngredientsInputSchema>;
-

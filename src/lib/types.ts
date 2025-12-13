@@ -1,5 +1,4 @@
 
-
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -173,7 +172,6 @@ export type CachedRecipe = {
     ingredients: Ingredient[];
     instructions: InstructionStep[];
     createdAt: any; // Allow serverTimestamp
-    title: string;
 }
 
 export type CachedAIResponse = {
