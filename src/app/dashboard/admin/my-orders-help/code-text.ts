@@ -94,7 +94,7 @@ export default function MyOrdersPage() {
         const prevOrder = prevOrdersRef.current.get(orderId);
         
         if (prevOrder && prevOrder.status !== currentOrder.status) {
-          const toastMessage = `Your order #${currentOrder.id.substring(0, 7)} is now "${currentOrder.status}".`;
+          const toastMessage = \`Your order #${'${currentOrder.id.substring(0, 7)}'} is now "\${currentOrder.status}".\`;
           toast({
             title: "Order Status Updated",
             description: toastMessage,
@@ -318,5 +318,3 @@ export default function MyOrdersPage() {
 `,
     },
 ];
-
-    
