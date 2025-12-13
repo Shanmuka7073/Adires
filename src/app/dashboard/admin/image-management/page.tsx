@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition, useMemo, useRef, useCallback } from 'react';
@@ -11,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, PlusCircle, Trash2, ImageIcon, Search, Link2, Sparkles, Save, Upload as UploadIcon, Copy } from 'lucide-react';
-import { getPlaceholderImages, updatePlaceholderImages, uploadPwaIcon, getManifest } from '@/app/actions';
+import { getPlaceholderImages, updatePlaceholderImages } from '@/app/actions';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -294,157 +293,14 @@ function ProductImageManager() {
 function PwaIconManager() {
     const { toast } = useToast();
     const [isUploading, startUploadTransition] = useTransition();
-    const [isLoadingManifest, setIsLoadingManifest] = useState(true);
-    const [preview, setPreview] = useState<string | null>(null);
-    const [file, setFile] = useState<File | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const [uploadedUrls, setUploadedUrls] = useState<{ icon192Url?: string; icon512Url?: string; } | null>(null);
-
-    const fetchCurrentIcons = useCallback(async () => {
-        setIsLoadingManifest(true);
-        try {
-            const manifest = await getManifest();
-            if (manifest && manifest.icons) {
-                const icon192 = manifest.icons.find((icon: any) => icon.sizes === '192x192');
-                const icon512 = manifest.icons.find((icon: any) => icon.sizes === '512x512');
-                setUploadedUrls({
-                    icon192Url: icon192?.src,
-                    icon512Url: icon512?.src
-                });
-                // Set initial preview to the existing icon if available
-                if (!preview && icon192?.src) {
-                    setPreview(icon192.src);
-                }
-            }
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Could not load manifest', description: (error as Error).message });
-        } finally {
-            setIsLoadingManifest(false);
-        }
-    }, [toast, preview]);
-
-    useEffect(() => {
-        fetchCurrentIcons();
-    }, []); // Run only once on mount
-
-
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const selectedFile = event.target.files?.[0];
-        if (selectedFile) {
-            setFile(selectedFile);
-            const reader = new FileReader();
-            reader.onload = (e) => setPreview(e.target?.result as string);
-            reader.readAsDataURL(selectedFile);
-        }
-    };
-
-    const handleUpload = async () => {
-        if (!file) {
-            toast({ variant: 'destructive', title: 'No file selected.' });
-            return;
-        }
-
-        startUploadTransition(async () => {
-            try {
-                const formData = new FormData();
-                formData.append('file', file);
-                
-                const result = await uploadPwaIcon(formData);
-                if (result.success) {
-                    toast({ title: 'PWA Icons Updated!', description: 'The manifest and icon files have been saved.' });
-                    setUploadedUrls({ icon192Url: result.icon192Url, icon512Url: result.icon512Url });
-                    await fetchCurrentIcons(); // Re-fetch to confirm and update display
-                } else {
-                    throw new Error(result.error);
-                }
-            } catch (error: any) {
-                toast({ variant: 'destructive', title: 'Upload Failed', description: error.message });
-            }
-        });
-    };
+    // This component is now simplified as the action is not available
     
-    const handleCopy = (url: string | undefined) => {
-        if (!url) return;
-        const fullUrl = `${window.location.origin}${url}`;
-        
-        navigator.clipboard.writeText(fullUrl).then(() => {
-            toast({ title: 'Link Copied!', description: 'The full icon URL has been copied.' });
-        }).catch(err => {
-            // Fallback for browsers that don't support clipboard API in this context
-            const textArea = document.createElement("textarea");
-            textArea.value = fullUrl;
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            try {
-                document.execCommand('copy');
-                toast({ title: 'Link Copied!', description: 'The full icon URL has been copied.' });
-            } catch (copyErr) {
-                toast({ variant: 'destructive', title: 'Copy Failed', description: 'Could not copy the link.' });
-            }
-            document.body.removeChild(textArea);
-        });
-    };
-
     return (
         <Card className="max-w-md mx-auto">
             <CardHeader>
                 <CardTitle>Upload PWA Icon</CardTitle>
-                <CardDescription>Upload a single icon file (PNG preferred). It will be used for your app icon.</CardDescription>
+                <CardDescription>This feature is currently unavailable as the server action is not implemented.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="w-32 h-32 mx-auto rounded-xl border-2 border-dashed flex items-center justify-center bg-muted">
-                    {preview ? (
-                        <Image src={preview} alt="Icon preview" width={128} height={128} className="rounded-lg object-cover" />
-                    ) : (
-                        <ImageIcon className="h-12 w-12 text-muted-foreground" />
-                    )}
-                </div>
-                <Input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/png, image/jpeg"
-                    onChange={handleFileChange}
-                    disabled={isUploading}
-                    className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-                />
-                <Button className="w-full" onClick={handleUpload} disabled={isUploading || !file}>
-                    {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadIcon className="mr-2 h-4 w-4" />}
-                    Upload & Set as PWA Icon
-                </Button>
-                 
-                <div className="pt-4 border-t space-y-4">
-                    <h4 className="font-semibold">Current PWA Icons</h4>
-                    {isLoadingManifest ? (
-                        <Skeleton className="h-24 w-full" />
-                    ) : (
-                         <div className="space-y-2">
-                            {uploadedUrls?.icon192Url ? (
-                                <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
-                                    <div className="flex items-center gap-3">
-                                        <Image src={uploadedUrls.icon192Url} alt="192x192 icon" width={40} height={40} className="rounded-md" />
-                                        <p className="text-sm font-mono text-muted-foreground">icon-192x192.png</p>
-                                    </div>
-                                    <Button size="sm" variant="outline" onClick={() => handleCopy(uploadedUrls.icon192Url)}>
-                                        <Copy className="mr-2 h-4 w-4" /> Copy Link
-                                    </Button>
-                                </div>
-                            ) : <p className="text-xs text-muted-foreground">No 192x192 icon found.</p>}
-                             {uploadedUrls?.icon512Url ? (
-                                 <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
-                                    <div className="flex items-center gap-3">
-                                        <Image src={uploadedUrls.icon512Url} alt="512x512 icon" width={40} height={40} className="rounded-md" />
-                                        <p className="text-sm font-mono text-muted-foreground">icon-512x512.png</p>
-                                    </div>
-                                    <Button size="sm" variant="outline" onClick={() => handleCopy(uploadedUrls.icon512Url)}>
-                                        <Copy className="mr-2 h-4 w-4" /> Copy Link
-                                    </Button>
-                                </div>
-                            ) : <p className="text-xs text-muted-foreground">No 512x512 icon found.</p>}
-                        </div>
-                    )}
-                </div>
-            </CardContent>
         </Card>
     );
 }
