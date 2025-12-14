@@ -8,17 +8,25 @@ import type { Store, Menu, MenuItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Upload, Sparkles, QrCode, Printer, Save, Copy, AlertTriangle, List } from 'lucide-react';
+import { Trash2, Sparkles, Loader2, Save, QrCode, Printer, Copy, AlertTriangle, List } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { useAppStore } from '@/lib/store';
+import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import Image from 'next/image';
-import { extractMenuItems } from '@/ai/flows/extract-menu-items-flow';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { generateBreakfastPack, GenerateBreakfastPackOutput } from '@/ai/flows/generate-breakfast-pack-flow';
+import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { useCart } from '@/lib/cart';
+import { calculateSimilarity } from '@/lib/calculate-similarity';
+import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
+import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
+import Image from 'next/image';
 import QRCode from 'qrcode.react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
-import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
-import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 
 function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (items: MenuItem[]) => void }) {
     const { toast } = useToast();
@@ -159,6 +167,7 @@ function MenuDisplay({ store, menu, onReplace }: { store: Store, menu: Menu, onR
         startGeneration(async () => {
             let processedCount = 0;
             let successCount = 0;
+            let failureCount = 0;
             const totalItems = menu.items.length;
 
             for (const item of menu.items) {
@@ -166,22 +175,32 @@ function MenuDisplay({ store, menu, onReplace }: { store: Store, menu: Menu, onR
                     const cached = await getCachedRecipe(firestore, item.name, 'en');
                     if (cached) {
                         console.log(`Skipping cached item: ${item.name}`);
+                        successCount++;
                     } else {
                         const recipe = await getIngredientsForDish({ dishName: item.name, language: 'en' });
                         if (recipe.isSuccess) {
                             await cacheRecipe(firestore, item.name, 'en', recipe);
                             successCount++;
+                        } else {
+                            failureCount++;
                         }
                     }
                 } catch (error) {
                     console.error(`Failed to process ingredients for ${item.name}:`, error);
+                    toast({
+                        variant: 'destructive',
+                        title: `Failed on: ${item.name}`,
+                        description: (error as Error).message,
+                        duration: 10000,
+                    });
+                    failureCount++;
                 }
                 processedCount++;
                 setGenerationProgress((processedCount / totalItems) * 100);
             }
             toast({
                 title: 'Bulk Generation Complete',
-                description: `Successfully generated and cached ingredients for ${successCount} out of ${totalItems} menu items.`,
+                description: `Successfully processed ${successCount} and failed on ${failureCount} out of ${totalItems} menu items.`,
             });
             setGenerationProgress(0); // Reset progress bar
         });
