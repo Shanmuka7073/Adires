@@ -1,31 +1,12 @@
 
+// This file is a placeholder to hold the raw text of the firestore.rules file
+// so it can be easily displayed in a help page component.
+
 export const rulesText = `
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * @fileOverview Firestore Security Rules for LocalBasket.
-     *
-     * Core Philosophy:
-     * This ruleset enforces a strict user-ownership model for user profiles and stores.
-     * Orders can be updated by the customer, the store owner, or the assigned delivery partner.
-     * Read access is generally restricted to the owner, except for specific public data.
-     *
-     * Data Structure:
-     * - /users/{userId}: User profile information, only accessible by the user.
-     * - /stores/{storeId}: Store information, owned by a specific user.
-     * - /stores/{storeId}/products/{productId}: Products listed under a store, managed by the store owner.
-     * - /orders/{orderId}: Order information, with denormalized userId and storeId.
-     * - /orders/{orderId}/orderItems/{orderItemId}: Items within an order.
-     * - /users/{userId}/productRecommendations/{productRecommendationId}: Product recommendations for a user.
-     * - /cachedRecipes/{recipeId}: Cached recipe ingredients.
-     * - /deliveryPartners/{partnerId}: Delivery partner earnings and payout information. Document ID is the same as the user ID.
-     * - /deliveryPartners/{partnerId}/payouts/{payoutId}: Payout requests for delivery partners.
-     * - /store-images/{storeId}/{fileName}: User uploaded store images.
-     * - /productPrices/{productName}: Admin-managed canonical pricing for product variants.
-     * - /asha-conversations/{userId}/conversation/{messageId}: Private chat history for the Diagnostic agent.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
@@ -34,8 +15,16 @@ service cloud.firestore {
         return isSignedIn() && (request.auth.token.email == 'admin@gmail.com' || request.auth.token.email == 'admin2@gmail.com');
     }
 
+    function isChickenAdmin() {
+        return isSignedIn() && request.auth.token.email == 'chickenadmin@gmail.com';
+    }
+
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isStoreOwner(storeId) {
+        return isSignedIn() && get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == request.auth.uid;
     }
 
     match /users/{userId} {
@@ -44,13 +33,10 @@ service cloud.firestore {
       allow create: if isOwner(userId) && request.resource.data.id == userId;
     }
 
-    // --- Atlas Diagnostic Agent Chat History ---
-    // This rule allows a user to read and write only to their own conversation history.
     match /asha-conversations/{userId}/{document=**} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if isSignedIn();
     }
      
-    // Allow users to write their own reports
     match /asha-conversations/{userId}/atlas_reports/{reportId} {
       allow create, read: if isOwner(userId);
     }
@@ -58,19 +44,22 @@ service cloud.firestore {
     match /stores/{storeId} {
       allow get, list: if true;
       allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isStoreOwner(storeId);
     }
 
     match /stores/{storeId}/products/{productId} {
       allow get, list: if true;
-      allow create, update, delete: if isSignedIn()
-        && get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == request.auth.uid;
+      allow create, update, delete: if isStoreOwner(storeId);
+    }
+
+    match /stores/{storeId}/menus/{menuId} {
+      allow read: if true;
+      allow write: if isStoreOwner(storeId);
     }
 
     match /stores/{storeId}/packages/{packageId} {
       allow get, list: if true;
-      allow create, update, delete: if isSignedIn()
-        && get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == request.auth.uid;
+      allow create, update, delete: if isStoreOwner(storeId);
     }
 
     match /orders/{orderId} {
@@ -82,7 +71,8 @@ service cloud.firestore {
         request.auth.uid == resource.data.userId ||
         (exists(/databases/$(database)/documents/stores/$(resource.data.storeId)) && get(/databases/$(database)/documents/stores/$(resource.data.storeId)).data.ownerId == request.auth.uid) ||
         request.auth.uid == resource.data.deliveryPartnerId ||
-        isAdmin()
+        isAdmin() ||
+        (resource.data.deliveryPartnerId == null && request.resource.data.deliveryPartnerId == request.auth.uid)
       );
 
       allow delete: if false;
@@ -104,12 +94,13 @@ service cloud.firestore {
 
     match /cachedRecipes/{recipeId} {
       allow get, list: if true;
-      allow create, update, delete: if false;
+      allow create: if isSignedIn();
+      allow update, delete: if false;
     }
 
     match /cachedAIResponses/{responseId} {
         allow get, list: if true;
-        allow create: if true; // Allow any authenticated user to create cache entries
+        allow create: if true;
         allow update, delete: if false;
     }
 
@@ -127,42 +118,29 @@ service cloud.firestore {
     }
 
     match /productPrices/{productName} {
-        allow get, list: if true;
-        allow write: if isAdmin();
+      allow get, list: if true;
+      allow write: if isAdmin() || (isChickenAdmin() && productName.matches('.*chicken.*'));
     }
     
     match /failedCommands/{commandId} {
-      allow read: if isAdmin();
-      allow list: if isAdmin();
+      allow read, list: if isAdmin();
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isAdmin();
     }
 
     match /voiceAliasGroups/{key} {
       allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow write: if isAdmin();
     }
     
     match /voiceCommands/{commandKey} {
       allow read: if true;
-      allow write: if isAdmin(); // Only the admin can write to this collection
+      allow write: if isAdmin();
     }
 
     match /siteConfig/{configId} {
-        allow read: if true; // Public read access for feature flags
+        allow read: if true;
         allow write: if isAdmin();
-    }
-  }
-}
-
-service firebase.storage {
-  match /b/{bucket}/o {
-    // Store images: owner can upload, everyone can read
-    match /store-images/{storeId}/{fileName} {
-      allow read: if true;
-      allow write: if request.auth != null
-        && exists(/databases/$(database)/documents/stores/$(storeId))
-        && get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == request.auth.uid;
     }
   }
 }

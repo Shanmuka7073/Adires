@@ -23,6 +23,7 @@ import {
   KeyRound,
   Bug,
   Package,
+  BookOpen,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -170,6 +171,12 @@ export default function AdminDashboardPage() {
             href="/dashboard/owner/my-store"
             icon={Store}
           />
+           <ActionCard
+            title="Sales Reports"
+            description="View daily and monthly sales data"
+            href="/dashboard/admin/sales-report"
+            icon={FileCode}
+          />
         </div>
       </section>
 
@@ -232,7 +239,13 @@ export default function AdminDashboardPage() {
             href="/dashboard/admin/manifest-help"
             icon={FileCode}
           />
-          <ActionCard
+           <ActionCard
+            title="Recipe Cache Code"
+            description="View the source for the recipe caching logic."
+            href="/dashboard/admin/cached-recipes-help"
+            icon={BookOpen}
+          />
+           <ActionCard
             title="Admin Dashboard Code"
             description="View the source code for this dashboard."
             href="/dashboard/admin/dashboard-help"

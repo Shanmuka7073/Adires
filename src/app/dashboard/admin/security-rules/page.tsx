@@ -2,12 +2,12 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { RulesDisplay } from './rules-display';
+import { CodeDisplay } from '../fingerprint-help/code-display'; // Reusing the code display component
 import { rulesText } from './rules-text';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
+import { Shield } from 'lucide-react';
 
-// This is a client component to allow for the share functionality.
 export default function SecurityRulesPage() {
     const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
     const router = useRouter();
@@ -25,13 +25,16 @@ export default function SecurityRulesPage() {
         <div className="container mx-auto py-12 px-4 md:px-6">
             <Card className="max-w-4xl mx-auto">
                 <CardHeader>
-                    <CardTitle className="text-3xl font-headline">Firestore Security Rules</CardTitle>
+                    <CardTitle className="text-3xl font-headline flex items-center gap-2">
+                        <Shield className="h-8 w-8 text-primary" />
+                        Firestore Security Rules
+                    </CardTitle>
                     <CardDescription>
                         This is the full content of your `firestore.rules` file. Use this to debug permission errors.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                   <RulesDisplay rulesText={rulesText} />
+                   <CodeDisplay codeText={rulesText} />
                 </CardContent>
             </Card>
         </div>
