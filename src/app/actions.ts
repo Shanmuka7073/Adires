@@ -500,9 +500,12 @@ export async function placeRestaurantOrder(
             storeId: storeId,
             customerName,
             deliveryAddress: 'In-store pickup', // Restaurant orders are pickups
+            deliveryLat: 0,
+            deliveryLng: 0,
             phone: customerPhone,
             email: customerEmail || '', // Ensure email is always a string
             tableNumber: guestInfo.tableNumber,
+            sessionId: cartItems[0].sessionId,
             orderDate: Timestamp.now(),
             status: 'Pending',
             totalAmount: cartTotal,
@@ -678,5 +681,3 @@ export async function updateSiteConfig(configId: string, data: Partial<SiteConfi
         return { success: false, error: error.message };
     }
 }
-
-    

@@ -68,6 +68,7 @@ export type CartItem = {
   variant: ProductVariant; // The specific variant chosen
   quantity: number;
   tableNumber?: string;
+  sessionId?: string;
 };
 
 export type OrderItem = {
