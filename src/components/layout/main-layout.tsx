@@ -17,6 +17,8 @@ import { useFirebase } from '@/firebase';
 import { PriceCheckDisplay, PriceCheckInfo } from './price-check-display';
 import { useInstall } from '../install-provider';
 import { CartIcon } from '../cart/cart-icon';
+import { Button } from '../ui/button';
+import { Mic } from 'lucide-react';
 
 // Create a context to provide the trigger function
 const VoiceCommandContext = createContext<{ 
@@ -39,7 +41,7 @@ export function useVoiceCommanderContext() {
     return context;
 }
 
-function SharedVoiceProvider({ children }: { children: React.ReactNode }) {
+export function SharedVoiceProvider({ children }: { children: React.ReactNode }) {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState('Click the mic to start listening.');
   const [suggestedCommands, setSuggestedCommands] = useState<Command[]>([]);
@@ -121,36 +123,38 @@ function SharedVoiceProvider({ children }: { children: React.ReactNode }) {
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   return (
-    <SharedVoiceProvider>
-        <div className="relative flex min-h-dvh flex-col bg-background">
-            <Header suggestedCommands={[]} />
-            <ProfileCompletionChecker />
-            <NotificationPermissionManager />
-            <main className="flex-1 pb-16 md:pb-0">{children}</main>
-            <Footer />
-            <BottomNavBar />
-        </div>
-    </SharedVoiceProvider>
+    <div className="relative flex min-h-dvh flex-col bg-background">
+        <Header suggestedCommands={[]} />
+        <ProfileCompletionChecker />
+        <NotificationPermissionManager />
+        <main className="flex-1 pb-16 md:pb-0">{children}</main>
+        <Footer />
+        <BottomNavBar />
+    </div>
   );
 }
 
-// NEW: Minimal layout for menu pages
-export function MenuLayout({ children }: { children: React.ReactNode }) {
+// Separate the UI part of the MenuLayout
+function MenuLayoutContent({ children }: { children: React.ReactNode }) {
     const { onCartOpenChange, isCartOpen, onToggleVoice, voiceEnabled } = useVoiceCommanderContext();
     return (
-        <SharedVoiceProvider>
-            <div className="relative min-h-dvh bg-background">
-                {children}
-                <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
-                     <Button variant="outline" size="icon" className="relative h-14 w-14 rounded-2xl shadow-lg bg-background" onClick={onToggleVoice}>
-                        <Mic className="h-7 w-7 text-primary" />
-                        {voiceEnabled && <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>}
-                        <span className="sr-only">Toggle Voice Commands</span>
-                    </Button>
-                    <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />
-                </div>
+        <div className="relative min-h-dvh bg-background">
+            {children}
+            <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+                 <Button variant="outline" size="icon" className="relative h-14 w-14 rounded-2xl shadow-lg bg-background" onClick={onToggleVoice}>
+                    <Mic className="h-7 w-7 text-primary" />
+                    {voiceEnabled && <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>}
+                    <span className="sr-only">Toggle Voice Commands</span>
+                </Button>
+                <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />
             </div>
-        </SharedVoiceProvider>
+        </div>
     );
 }
 
+// The main MenuLayout now just provides the context
+export function MenuLayout({ children }: { children: React.ReactNode }) {
+    return (
+        <MenuLayoutContent>{children}</MenuLayoutContent>
+    );
+}

@@ -4,7 +4,7 @@
 import React, { useEffect } from 'react';
 import { FirebaseClientProvider, useFirebase } from '@/firebase';
 import { CartProvider } from '@/lib/cart';
-import { MainLayout, MenuLayout } from '@/components/layout/main-layout';
+import { MainLayout, MenuLayout, SharedVoiceProvider } from '@/components/layout/main-layout';
 import { Toaster } from '@/components/ui/toaster';
 import { useAppStore } from '@/lib/store';
 import GlobalLoader from './global-loader';
@@ -59,11 +59,13 @@ function AppContent({ children }: { children: React.ReactNode }) {
     return (
         <InstallProvider>
             <CartProvider>
-                {isMenuPage ? (
-                    <MenuLayout>{children}</MenuLayout>
-                ) : (
-                    <MainLayout>{children}</MainLayout>
-                )}
+                <SharedVoiceProvider>
+                    {isMenuPage ? (
+                        <MenuLayout>{children}</MenuLayout>
+                    ) : (
+                        <MainLayout>{children}</MainLayout>
+                    )}
+                </SharedVoiceProvider>
                 <Toaster />
             </CartProvider>
         </InstallProvider>
