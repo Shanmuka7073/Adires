@@ -1,35 +1,31 @@
+
+const withPWA = require('next-pwa')({
+  dest: 'public',
+  register: true,
+  skipWaiting: true,
+  disable: process.env.NODE_ENV === 'development',
+});
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'placehold.co',
-      },
-      {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'picsum.photos',
-      },
-      {
-        protocol: 'https',
-        hostname: 'i.ibb.co',
-      },
-      {
-        protocol: 'https',
-        hostname: 'storage.googleapis.com',
-      }
+      { protocol: 'https', hostname: 'placehold.co' },
+      { protocol: 'https', hostname: 'images.unsplash.com' },
+      { protocol: 'https', hostname: 'picsum.photos' },
+      { protocol: 'https', hostname: 'i.ibb.co' },
+      { protocol: 'https', hostname: 'storage.googleapis.com' },
     ],
   },
+
   experimental: {
     serverActions: {
       bodySizeLimit: '4.5mb',
     },
-    esmExternals: 'loose',
+    // Setting to false is often safer for compatibility with various libraries, including Firebase.
+    esmExternals: false,
   },
+
   webpack: (
     config,
     { buildId, dev, isServer, defaultLoaders, nextRuntime, webpack }
@@ -39,17 +35,23 @@ const nextConfig = {
     }
     return config
   },
-  transpilePackages: ['firebase', '@firebase/auth', '@firebase/firestore'],
+
+  transpilePackages: [
+    'firebase',
+    '@firebase/app',
+    '@firebase/auth',
+    '@firebase/firestore',
+  ],
+
   typescript: {
-    // !! WARN !!
-    // Dangerously allow production builds to successfully complete even if
-    // your project has type errors.
-    // !! WARN !!
-    ignoreBuildErrors: true,
+    // Re-enabling build errors is a good practice for production.
+    ignoreBuildErrors: false,
   },
+
   eslint: {
-    ignoreDuringBuilds: true,
+    // Re-enabling linting during builds is a good practice.
+    ignoreDuringBuilds: false,
   },
 };
 
-module.exports = nextConfig;
+module.exports = withPWA(nextConfig);
