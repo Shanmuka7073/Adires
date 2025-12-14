@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, errorEmitter, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import { useFirebase, errorEmitter, useDoc, useMemoFirebase } from '@/firebase';
 import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, SiteConfig, VoiceAliasGroup, Menu, MenuItem } from '@/lib/types';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
@@ -1096,17 +1096,14 @@ const findProductAndVariant = useCallback(
           const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
           
           if (isMenuPage) {
-              // Direct order for restaurant
               speak(t('placing-your-order-now-speech', replyLang), langWithRegion, () => {
                   placeRestaurantOrder();
               });
           } else if (pathname === '/checkout' && placeOrderBtnRef?.current) {
-              // Click button on checkout page for grocery order
               speak(t('placing-your-order-now-speech', replyLang), langWithRegion, () => {
                   placeOrderBtnRef?.current?.click();
               });
           } else if (cartItemsProp.length > 0) {
-              // If not on checkout, but have items, navigate there first
               commandActionsRef.current.checkout({ lang });
           } else {
               speak(t('your-cart-is-empty-speech', replyLang), langWithRegion);
@@ -1381,5 +1378,3 @@ const findProductAndVariant = useCallback(
 
   return null;
 }
-
-    

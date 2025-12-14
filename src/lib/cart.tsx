@@ -1,8 +1,13 @@
+
 'use client';
 
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
 import type { CartItem, Product, ProductVariant } from './types';
 import { useToast } from '@/hooks/use-toast';
+import { placeRestaurantOrder as placeRestaurantOrderAction } from '@/app/actions';
+import { useFirebase } from '@/firebase';
+import { useRouter } from 'next/navigation';
+import { signInAnonymously } from 'firebase/auth';
 
 export interface UnidentifiedCartItem {
   id: string;
@@ -21,6 +26,7 @@ interface CartContextType {
   updateUnidentifiedItem: (id: string, status: 'failed') => void;
   removeUnidentifiedItem: (id: string) => void;
   clearCart: () => void;
+  placeRestaurantOrder: (guestInfo?: { name: string, phone: string, tableNumber: string }) => Promise<{ success: boolean; orderId?: string; error?: string; }>;
   cartCount: number;
   cartTotal: number;
   activeStoreId: string | null;
@@ -31,6 +37,8 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  const { user, auth, firestore } = useFirebase();
+  const router = useRouter();
 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [unidentifiedItems, setUnidentifiedItems] = useState<UnidentifiedCartItem[]>([]);
@@ -152,6 +160,55 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setUnidentifiedItems([]);
     setActiveStoreId(null);
   }, []);
+  
+  const placeRestaurantOrder = async (guestInfo?: { name: string, phone: string, tableNumber: string }) => {
+    if (!auth || !firestore) {
+        const errorMsg = "Firebase services not available.";
+        toast({ variant: 'destructive', title: 'Order Failed', description: errorMsg });
+        return { success: false, error: errorMsg };
+    }
+
+    try {
+        let currentUser = user;
+        let finalGuestInfo = guestInfo;
+
+        if (!currentUser && !guestInfo) {
+             return { success: false, error: 'guest-info-required' };
+        }
+
+        if (!currentUser) {
+            const userCredential = await signInAnonymously(auth);
+            currentUser = userCredential.user;
+        }
+
+        const idToken = await currentUser.getIdToken();
+        const cartTotalValue = cartItems.reduce((t, i) => t + i.quantity * i.variant.price, 0);
+
+        // This ensures guestInfo is not undefined when calling the action
+        const result = await placeRestaurantOrderAction(cartItems, cartTotalValue, finalGuestInfo!, idToken);
+
+        if (result.success && result.orderId) {
+            toast({
+                title: 'Order Placed!',
+                description: 'Your order has been sent to the kitchen.',
+            });
+            clearCart();
+            router.push(`/order-confirmation?orderId=${result.orderId}`);
+        } else {
+            throw new Error(result.error || 'Could not place your order.');
+        }
+        return result;
+
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Order Failed',
+            description: error.message,
+        });
+        return { success: false, error: error.message };
+    }
+  };
+
 
   const cartCount = cartItems.reduce((n, i) => n + i.quantity, 0);
   const cartTotal = cartItems.reduce((t, i) => t + i.quantity * i.variant.price, 0);
@@ -169,6 +226,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         updateUnidentifiedItem,
         removeUnidentifiedItem,
         clearCart,
+        placeRestaurantOrder,
         cartCount,
         cartTotal,
         activeStoreId,
