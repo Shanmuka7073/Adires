@@ -64,22 +64,21 @@ service cloud.firestore {
     match /orders/{orderId} {
         allow get, list: if true;
 
-        allow create: if (isSignedIn() && request.resource.data.userId == request.auth.uid) || 
-                          // Allow anonymous/guest users to create orders ONLY if a tableNumber and sessionId are present
-                         (request.resource.data.tableNumber != null && request.resource.data.sessionId != null);
+        allow create: if 
+          (isSignedIn() && request.resource.data.userId == request.auth.uid) || 
+          (request.resource.data.userId == 'guest' && request.resource.data.storeId is string && request.resource.data.sessionId is string);
 
-        allow update: if isSignedIn() && (
-            // Allow customer to update their own order
-            request.auth.uid == resource.data.userId ||
-            // Allow store owner to update
-            (exists(/databases/$(database)/documents/stores/$(resource.data.storeId)) && get(/databases/$(database)/documents/stores/$(resource.data.storeId)).data.ownerId == request.auth.uid) ||
-            // Allow the already-assigned delivery partner to update
-            request.auth.uid == resource.data.deliveryPartnerId ||
-            // Allow an admin to update
+        allow update: if 
+            // Store owner can update order status
+            (isStoreOwner(resource.data.storeId)) ||
+            // Customer can mark their own order as billed
+            (request.auth.uid == resource.data.userId && request.resource.data.status == 'Billed') ||
+            // Delivery partner can update
+            (resource.data.deliveryPartnerId != null && request.auth.uid == resource.data.deliveryPartnerId) ||
+            // Admin can do anything
             isAdmin() ||
-            // Allow any signed-in user to become the delivery partner if one is not yet assigned
-            (resource.data.deliveryPartnerId == null && request.resource.data.deliveryPartnerId == request.auth.uid)
-        );
+            // Any signed-in user can accept a job if unassigned
+            (resource.data.deliveryPartnerId == null && request.resource.data.deliveryPartnerId == request.auth.uid);
 
         allow delete: if false;
     }

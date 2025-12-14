@@ -100,88 +100,95 @@ function MenuItemDialog({
   const [isGenerating, setIsGenerating] = useState(false);
   const [details, setDetails] = useState<GetIngredientsOutput | null>(null);
   const [saving, startSaving] = useTransition();
+  const [image, setImage] = useState({ imageUrl: '', imageHint: '' });
 
   useEffect(() => {
-    if (isOpen && !details) {
-      if (!firestore) return;
-
+    if (isOpen) {
       setIsGenerating(true);
-      
       const fetchDetails = async () => {
         try {
-            // 1. Check cache first
+          if (firestore) {
             const cached = await getCachedRecipe(firestore, item.name, 'en');
             if (cached) {
-                setDetails(cached);
-                toast({ title: "Details loaded from cache." });
-                return; // Exit if found in cache
+              setDetails(cached);
+              toast({ title: "Details loaded from cache." });
+              return;
             }
+          }
 
-            // 2. If not in cache, call AI
-            const dishDetails = await getIngredientsForDish({ dishName: item.name, language: 'en' });
-            if (dishDetails.isSuccess) {
-                setDetails(dishDetails);
-                // 3. Cache the new result for next time
-                await cacheRecipe(firestore, item.name, 'en', dishDetails);
-            } else {
-                 toast({
-                    variant: "destructive",
-                    title: "Could not fetch details",
-                    description: "The AI is currently unavailable. Please try again later."
-                });
+          const dishDetails = await getIngredientsForDish({ dishName: item.name, language: 'en' });
+          if (dishDetails.isSuccess) {
+            setDetails(dishDetails);
+            if (firestore) {
+              await cacheRecipe(firestore, item.name, 'en', dishDetails);
             }
+          } else {
+            toast({ variant: "destructive", title: "Could not fetch details" });
+          }
         } catch (e) {
-            console.error("Failed to get dish details:", e);
-            toast({
-                variant: "destructive",
-                title: "Error",
-                description: "An unexpected error occurred while fetching details."
-            });
+          console.error("Failed to get dish details:", e);
+          toast({ variant: "destructive", title: "Error", description: "Could not fetch dish details." });
         } finally {
-            setIsGenerating(false);
+          setIsGenerating(false);
+        }
+      };
+
+      const fetchImage = async () => {
+        try {
+            const unsplashUrl = `https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop&q=80&seed=${encodeURIComponent(item.name)}`;
+            setImage({ imageUrl: unsplashUrl, imageHint: item.name });
+        } catch (error) {
+            console.error("Failed to get image", error);
         }
       };
       
       fetchDetails();
+      fetchImage();
     }
-  }, [isOpen, item.name, details, toast, firestore]);
+  }, [isOpen, item.name, firestore, toast]);
 
   const placeOrder = () => {
-    if (!firestore) return;
+    if (!firestore || !sessionId) return;
 
     startSaving(async () => {
       const orderId = uuidv4();
+      const orderItemId = uuidv4();
 
-      const orderItem: OrderItem = {
-        productId: `${storeId}-${item.name.replace(/\s+/g, '-')}`,
-        productName: item.name,
-        quantity,
-        price: item.price,
-        variantSku: `${item.name.replace(/\s+/g, '-')}-default`,
-        variantWeight: '1 serving',
-      };
-
-      const order: Omit<Order, 'orderDate' | 'items' | 'deliveryAddress' | 'phone' | 'email' | 'deliveryLat' | 'deliveryLng' > & { orderDate: Timestamp; items: OrderItem[] } = {
+      const order: Order = {
         id: orderId,
         storeId,
         sessionId,
         tableNumber: tableNumber ?? null,
         userId: 'guest',
         customerName: `Table ${tableNumber || 'Guest'}`,
+        deliveryAddress: "In-store dining",
+        deliveryLat: 0,
+        deliveryLng: 0,
+        phone: '',
+        email: '',
         orderDate: Timestamp.now(),
         status: 'Pending',
         totalAmount: item.price * quantity,
-        items: [orderItem],
+        items: [
+          {
+            id: orderItemId,
+            orderId: orderId,
+            productId: `${storeId}-${item.name.replace(/\s+/g, '-')}`,
+            productName: item.name,
+            quantity,
+            price: item.price,
+            variantSku: `${item.name.replace(/\s+/g, '-')}-default`,
+            variantWeight: '1 serving',
+          },
+        ],
       };
 
       try {
         await setDoc(doc(firestore, 'orders', orderId), order);
-
         toast({
           title: 'Order sent to kitchen!',
           description: `${quantity} × ${item.name}`,
         });
-
         onClose();
       } catch (err) {
         console.error(err);
@@ -216,14 +223,16 @@ function MenuItemDialog({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md p-0">
         <div className="relative h-48 w-full">
-          <Image
-            src={`https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop&q=80&seed=${encodeURIComponent(item.name)}`}
-            alt={item.name}
-            layout="fill"
-            objectFit="cover"
-            className="rounded-t-lg"
-            data-ai-hint={item.name}
-          />
+            {image.imageUrl ? (
+                <Image
+                    src={image.imageUrl}
+                    alt={item.name}
+                    layout="fill"
+                    objectFit="cover"
+                    className="rounded-t-lg"
+                    data-ai-hint={image.imageHint}
+                />
+            ) : <Skeleton className="w-full h-full" />}
         </div>
         <div className="p-6 space-y-4">
           <DialogHeader>
@@ -241,9 +250,9 @@ function MenuItemDialog({
 
           {isGenerating ? (
             <div className="space-y-4">
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-4 w-1/2" />
-              <Skeleton className="h-10 w-full" />
+               <Skeleton className="h-4 w-3/4" />
+               <Skeleton className="h-4 w-1/2" />
+               <Skeleton className="h-10 w-full" />
             </div>
           ) : details && details.isSuccess ? (
             <div className="space-y-3">
@@ -259,8 +268,8 @@ function MenuItemDialog({
               </div>
               <div>
                 <h4 className="font-semibold mb-2 flex items-center gap-2">
-                  <Salad className="h-5 w-5 text-green-600" />
-                  Main Ingredients (per serving)
+                   <Salad className="h-5 w-5 text-green-600"/>
+                   Main Ingredients (per serving)
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {details.ingredients.slice(0, 5).map(ing => (
@@ -292,7 +301,7 @@ function MenuItemDialog({
             </Button>
           </div>
           <p className="text-xs text-center text-muted-foreground italic flex items-center justify-center gap-2">
-            <Mic className="h-4 w-4" /> Say "add {item.name.toLowerCase()}" to order
+             <Mic className="h-4 w-4" /> Say "add {item.name.toLowerCase()}" to order
           </p>
         </div>
       </DialogContent>
