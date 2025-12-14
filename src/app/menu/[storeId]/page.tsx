@@ -10,6 +10,10 @@ import {
   doc,
   orderBy,
   Timestamp,
+  getDoc,
+  setDoc,
+  arrayUnion,
+  increment,
 } from 'firebase/firestore';
 
 import type {
@@ -293,24 +297,19 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [closing, startClose] = useTransition();
+  const orderId = `${storeId}_${sessionId}`;
 
   const orderQuery = useMemoFirebase(
-    () =>
-      firestore
-        ? doc(firestore, 'orders', `${storeId}_${sessionId}`)
-        : null,
-    [firestore, storeId, sessionId]
+    () => (firestore ? doc(firestore, 'orders', orderId) : null),
+    [firestore, orderId]
   );
   
-  // This uses useDoc, which is more efficient for a single document
-  const { data: order, isLoading } = useCollection<Order>(orderQuery ? [orderQuery] : null);
+  const { data: order, isLoading } = useDoc<Order>(orderQuery);
   
-  const singleOrder = order?.[0];
-
   const closeBill = async () => {
-    if (!firestore || !singleOrder) return;
+    if (!firestore || !order) return;
     startClose(async () => {
-      const orderRef = doc(firestore, 'orders', singleOrder.id);
+      const orderRef = doc(firestore, 'orders', order.id);
       try {
         await setDoc(orderRef, { status: 'Billed' }, { merge: true });
         toast({ title: 'Bill closed. Please proceed to the counter to pay.' });
@@ -334,11 +333,11 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
       </CardHeader>
 
       <CardContent>
-        {!singleOrder || !singleOrder.items?.length ? (
+        {!order || !order.items?.length ? (
           <p className="text-muted-foreground text-center">No orders yet. Add an item to start a bill.</p>
         ) : (
           <>
-            {singleOrder.items.map((it, idx) => (
+            {order.items.map((it, idx) => (
               <div key={idx} className="border-b py-2 flex justify-between text-sm">
                 <span>{it.productName} × {it.quantity}</span>
                 <span>₹{(it.price * it.quantity).toFixed(2)}</span>
@@ -347,15 +346,15 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
 
             <div className="flex justify-between font-bold mt-3 text-lg">
               <span>Total</span>
-              <span>₹{singleOrder.totalAmount.toFixed(2)}</span>
+              <span>₹{order.totalAmount.toFixed(2)}</span>
             </div>
             
             <div className="mt-4">
-              {singleOrder.status === 'Billed' ? (
+              {order.status === 'Billed' ? (
                 <div className="text-center p-4 bg-green-100 rounded-md">
                     <Check className="mx-auto h-6 w-6 text-green-600 mb-2" />
                     <p className="font-semibold text-green-800">Bill Closed. Please pay at the counter.</p>
-                    <p className="text-xs text-green-700">Started at {format(new Date(singleOrder.orderDate.seconds * 1000), 'p')}</p>
+                    {order.orderDate && <p className="text-xs text-green-700">Started at {format(new Date((order.orderDate as Timestamp).seconds * 1000), 'p')}</p>}
                 </div>
               ) : (
                 <AlertDialog>
