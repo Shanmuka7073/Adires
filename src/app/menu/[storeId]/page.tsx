@@ -250,19 +250,7 @@ function LiveBill({ sessionId, storeId }: { sessionId: string; storeId: string }
 
     const allItems = useMemo(() => {
         if (!sessionOrders) return [];
-        const itemMap = new Map<string, OrderItem & { productName: string }>();
-        sessionOrders.forEach(order => {
-            order.items.forEach(item => {
-                const key = `${item.productId}-${item.variantSku}`;
-                const existing = itemMap.get(key);
-                if (existing) {
-                    itemMap.set(key, { ...existing, quantity: existing.quantity + item.quantity });
-                } else {
-                    itemMap.set(key, { ...item, productName: item.productName });
-                }
-            });
-        });
-        return Array.from(itemMap.values());
+        return sessionOrders.flatMap(order => order.items || []);
     }, [sessionOrders]);
 
     const totalAmount = useMemo(() => allItems.reduce((acc, item) => acc + (item.price * item.quantity), 0), [allItems]);

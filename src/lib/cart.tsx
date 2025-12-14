@@ -18,7 +18,7 @@ export interface UnidentifiedCartItem {
 interface CartContextType {
   cartItems: CartItem[];
   unidentifiedItems: UnidentifiedCartItem[];
-  addItem: (product: Product, variant: ProductVariant, quantity?: number, tableNumber?: string) => void;
+  addItem: (product: Product, variant: ProductVariant, quantity?: number, tableNumber?: string, sessionId?: string) => void;
   addIdentifiedItem: (product: Product, variant: ProductVariant, quantity: number, originalTermId: string) => void;
   removeItem: (variantSku: string) => void;
   updateQuantity: (variantSku: string, quantity: number) => void;
@@ -70,7 +70,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   /* ------------------ Cart actions ------------------ */
 
   const addItem = useCallback(
-    (product: Product, variant: ProductVariant, quantity = 1, tableNumber?: string) => {
+    (product: Product, variant: ProductVariant, quantity = 1, tableNumber?: string, sessionId?: string) => {
       setCartItems(prev => {
         // 🔒 store lock
         if (activeStoreId && product.storeId !== activeStoreId) {
@@ -97,7 +97,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           );
         }
 
-        return [...prev, { product, variant, quantity, tableNumber }];
+        return [...prev, { product, variant, quantity, tableNumber, sessionId }];
       });
 
       toast({
@@ -185,7 +185,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const cartTotalValue = cartItems.reduce((t, i) => t + i.quantity * i.variant.price, 0);
 
         // This ensures guestInfo is not undefined when calling the action
-        const result = await placeRestaurantOrderAction(cartItems, cartTotalValue, finalGuestInfo!, idToken);
+        if (!finalGuestInfo) {
+             throw new Error("Guest information is required to place an order.");
+        }
+
+        const result = await placeRestaurantOrderAction(cartItems, cartTotalValue, finalGuestInfo, idToken);
 
         if (result.success && result.orderId) {
             toast({
