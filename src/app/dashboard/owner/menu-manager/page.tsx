@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
@@ -17,6 +16,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import QRCode from 'qrcode.react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Progress } from '@/components/ui/progress';
+import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
+import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 
 function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (items: MenuItem[]) => void }) {
     const { toast } = useToast();
@@ -144,6 +146,46 @@ function QRCodeDialog({ table, storeId }: { table: string, storeId: string }) {
 }
 
 function MenuDisplay({ store, menu, onReplace }: { store: Store, menu: Menu, onReplace: () => void }) {
+    const { toast } = useToast();
+    const { firestore } = useFirebase();
+    const [isGenerating, startGeneration] = useTransition();
+    const [generationProgress, setGenerationProgress] = useState(0);
+
+    const handleGenerateAllIngredients = async () => {
+        if (!firestore) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Database connection not found.' });
+            return;
+        }
+        startGeneration(async () => {
+            let processedCount = 0;
+            let successCount = 0;
+            const totalItems = menu.items.length;
+
+            for (const item of menu.items) {
+                try {
+                    const cached = await getCachedRecipe(firestore, item.name, 'en');
+                    if (cached) {
+                        console.log(`Skipping cached item: ${item.name}`);
+                    } else {
+                        const recipe = await getIngredientsForDish({ dishName: item.name, language: 'en' });
+                        if (recipe.isSuccess) {
+                            await cacheRecipe(firestore, item.name, 'en', recipe);
+                            successCount++;
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Failed to process ingredients for ${item.name}:`, error);
+                }
+                processedCount++;
+                setGenerationProgress((processedCount / totalItems) * 100);
+            }
+            toast({
+                title: 'Bulk Generation Complete',
+                description: `Successfully generated and cached ingredients for ${successCount} out of ${totalItems} menu items.`,
+            });
+            setGenerationProgress(0); // Reset progress bar
+        });
+    };
     
     const tables = store.tables || [];
 
@@ -155,6 +197,18 @@ function MenuDisplay({ store, menu, onReplace }: { store: Store, menu: Menu, onR
                     <CardDescription>This is your currently active menu. You can replace it by uploading a new one.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                     <div className="space-y-2">
+                        <Button onClick={handleGenerateAllIngredients} disabled={isGenerating} className="w-full">
+                            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                            Generate All Ingredients
+                        </Button>
+                        {isGenerating && (
+                            <div className="space-y-1">
+                                <Progress value={generationProgress} />
+                                <p className="text-xs text-center text-muted-foreground">Processing... {Math.round(generationProgress)}%</p>
+                            </div>
+                        )}
+                    </div>
                      <Table>
                         <TableHeader>
                             <TableRow>
@@ -320,4 +374,3 @@ export default function MenuManagerPage() {
         </div>
     );
 }
-
