@@ -110,7 +110,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     const newItems: OrderItem[] = cartItems.map(ci => ({
       // This ID is for the subcollection, but we are not using a subcollection here.
-      // It's here to satisfy the type, but can be simplified later.
       id: doc(collection(firestore, `orders/${orderId}/orderItems`)).id,
       orderId: orderId,
       productId: ci.product.id,
