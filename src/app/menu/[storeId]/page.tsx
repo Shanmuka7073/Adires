@@ -356,6 +356,11 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
                     <p className="font-semibold text-green-800">Bill Closed. Please pay at the counter.</p>
                     {order.orderDate && <p className="text-xs text-green-700">Started at {format(new Date((order.orderDate as Timestamp).seconds * 1000), 'p')}</p>}
                 </div>
+              ) : order.status === 'Completed' ? (
+                <div className="text-center p-4 bg-blue-100 rounded-md">
+                    <Check className="mx-auto h-6 w-6 text-blue-600 mb-2" />
+                    <p className="font-semibold text-blue-800">Thank you! Visit Again.</p>
+                </div>
               ) : (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
