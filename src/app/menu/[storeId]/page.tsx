@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useFirebase, useMemoFirebase } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import {
   collection,
   query,
@@ -270,7 +270,7 @@ function MenuItemDialog({
           )}
 
           <Button onClick={handleOrder} disabled={isPlacingOrder} className="w-full h-12 text-lg">
-             {isPlacingOrder && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+             {isPlacingOrder && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
             <ShoppingCart className="mr-2 h-5 w-5" />
             Add to Bill
           </Button>
