@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -472,6 +473,7 @@ export async function placeRestaurantOrder(
         let customerPhone = guestInfo.phone;
         let customerEmail: string | undefined;
 
+        // If the user is NOT anonymous, try to fetch their real details
         if (!decodedToken.isAnonymous) {
             const userDoc = await db.collection('users').doc(userId).get();
             if (userDoc.exists) {
@@ -676,3 +678,5 @@ export async function updateSiteConfig(configId: string, data: Partial<SiteConfi
         return { success: false, error: error.message };
     }
 }
+
+    

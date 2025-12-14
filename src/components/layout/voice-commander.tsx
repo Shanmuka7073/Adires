@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -107,7 +106,7 @@ export function VoiceCommander({
   const pathname = usePathname();
   const { toast } = useToast();
   const { firestore, user } = useFirebase();
-  const { clearCart, addItem: addItemToCart, removeItem, updateQuantity, addUnidentifiedItem, updateUnidentifiedItem, addIdentifiedItem, activeStoreId, setActiveStoreId, cartTotal } = useCart();
+  const { clearCart, addItem: addItemToCart, removeItem, updateQuantity, addUnidentifiedItem, updateUnidentifiedItem, addIdentifiedItem, activeStoreId, setActiveStoreId, cartTotal, placeRestaurantOrder } = useCart();
   const { retryCommand, showPriceCheck, hidePriceCheck } = useVoiceCommanderContext();
 
   const { stores, masterProducts, allMenus, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands, loading: isAppStoreLoading, fetchInitialData } = useAppStore();
@@ -580,7 +579,7 @@ const findProductAndVariant = useCallback(
         };
         finalQty = 1;
 
-    } else if (unit) {
+    } else if (unit) { // Handle explicit units like 'kg' or 'gm'
         const isLiquidUnit = unit === 'ml';
         let requestedAmount = qty;
         
@@ -975,7 +974,7 @@ const findProductAndVariant = useCallback(
       placeOrderBtnRef, isWaitingForQuickOrderConfirmation, onCloseCart, setHomeAddress,
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
       removeItem, addUnidentifiedItem, updateUnidentifiedItem, router, stores, productPrices,
-      showPriceCheck, hidePriceCheck, masterProducts, isMenuPage, currentMenu, menuStoreId
+      showPriceCheck, hidePriceCheck, masterProducts, isMenuPage, currentMenu, menuStoreId, placeRestaurantOrder
   ]);
 
     // Effect to handle retrying a command
@@ -1091,19 +1090,27 @@ const findProductAndVariant = useCallback(
           handleUseCurrentLocation();
         }
       },
-      placeOrder: (params: {lang: string}) => {
-        const lang = params?.lang || language;
-        const replyLang = lang;
-        const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
-        if (pathname === '/checkout' && placeOrderBtnRef?.current) {
-          speak(t('placing-your-order-now-speech', replyLang), langWithRegion, () => {
-              placeOrderBtnRef?.current?.click();
-          });
-        } else if (cartItemsProp.length > 0) {
-          commandActionsRef.current.checkout({ lang });
-        } else {
-          speak(t('your-cart-is-empty-speech', replyLang), langWithRegion);
-        }
+      placeOrder: (params: { lang: string }) => {
+          const lang = params?.lang || language;
+          const replyLang = lang;
+          const langWithRegion = replyLang === 'en' ? 'en-IN' : `${replyLang}-IN`;
+          
+          if (isMenuPage) {
+              // Direct order for restaurant
+              speak(t('placing-your-order-now-speech', replyLang), langWithRegion, () => {
+                  placeRestaurantOrder();
+              });
+          } else if (pathname === '/checkout' && placeOrderBtnRef?.current) {
+              // Click button on checkout page for grocery order
+              speak(t('placing-your-order-now-speech', replyLang), langWithRegion, () => {
+                  placeOrderBtnRef?.current?.click();
+              });
+          } else if (cartItemsProp.length > 0) {
+              // If not on checkout, but have items, navigate there first
+              commandActionsRef.current.checkout({ lang });
+          } else {
+              speak(t('your-cart-is-empty-speech', replyLang), langWithRegion);
+          }
       },
       saveChanges: (params: {lang: string}) => {
         const lang = params?.lang || language;
@@ -1369,7 +1376,7 @@ const findProductAndVariant = useCallback(
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
       removeItem, addUnidentifiedItem, updateUnidentifiedItem,
       getProductName, addItemToCart, locales, commands, getAllAliases, recognizeIntent, stores,
-      showPriceCheck, hidePriceCheck, findProductAndVariant, onInstallApp, isMenuPage, currentMenu, menuStoreId
+      showPriceCheck, hidePriceCheck, findProductAndVariant, onInstallApp, isMenuPage, currentMenu, menuStoreId, placeRestaurantOrder
   ]);
 
   return null;
