@@ -80,9 +80,9 @@ function MenuItemDialog({
           
           // 1. Check cache first
           const cached = await getCachedRecipe(firestore, item.name, 'en');
-          if (cached) {
+          if (cached && cached.isSuccess) {
             setDetails(cached);
-            toast({ title: "Details loaded from cache!" });
+            toast({ title: "Recipe details loaded from cache!" });
             return;
           }
 
