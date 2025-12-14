@@ -97,7 +97,7 @@ export type Order = {
   translatedList?: string;
   store?: Store; 
   deliveryPartnerId?: string | null;
-  tableNumber?: string;
+  tableNumber?: string | null;
   sessionId?: string; // To group all orders for a single table session
 };
 

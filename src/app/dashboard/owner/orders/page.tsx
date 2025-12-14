@@ -1,157 +1,140 @@
+
 'use client';
 
 import { Order, Store } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
-} from '@/components/ui/dialog';
-import {
-  AlertDialog, AlertDialogContent, AlertDialogHeader,
-  AlertDialogTitle, AlertDialogDescription, AlertDialogFooter
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-
 import {
   CookingPot,
   Truck,
   CheckCircle,
   AlertTriangle,
-  Store as StoreIcon
+  Store as StoreIcon,
+  Loader2,
+  Check,
+  Package,
 } from 'lucide-react';
 
 import {
   collection, query, where, orderBy, doc, writeBatch
 } from 'firebase/firestore';
 
-import { useFirebase, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { format } from 'date-fns';
-import { getStores } from '@/lib/data';
 
 const STATUS_META: Record<string, any> = {
   Pending: { icon: AlertTriangle, variant: 'secondary' },
   Processing: { icon: CookingPot, variant: 'secondary' },
   'Out for Delivery': { icon: Truck, variant: 'outline' },
-  Delivered: { icon: 'default', icon: CheckCircle },
-  Cancelled: { icon: 'destructive', icon: AlertTriangle },
+  Billed: { icon: Check, variant: 'default' },
+  Completed: { icon: CheckCircle, variant: 'default' },
+  Delivered: { icon: CheckCircle, variant: 'default' },
+  Cancelled: { icon: AlertTriangle, variant: 'destructive' },
 };
 
-/* ---------------- ORDER DETAILS DIALOG ---------------- */
 
-function OrderDetailsDialog({ order, onClose }: { order: Order | null; onClose: () => void }) {
-  if (!order) return null;
-
-  return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Order #{order.id.slice(0, 6)}</DialogTitle>
-        </DialogHeader>
-
-        <ScrollArea className="max-h-[60vh]">
-          <div className="space-y-4">
-            {order.items?.map((item, i) => (
-              <div key={i} className="flex justify-between text-sm">
-                <span>{item.productName} × {item.quantity}</span>
-                <span>₹{item.price.toFixed(2)}</span>
-              </div>
-            ))}
-            <div className="border-t pt-2 font-bold text-right">
-              Total: ₹{order.totalAmount.toFixed(2)}
-            </div>
-            <div className="text-sm text-muted-foreground">
-              {order.deliveryAddress}
-            </div>
-          </div>
-        </ScrollArea>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Close</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
+interface Session {
+  id: string;
+  tableNumber: string | null;
+  orders: Order[];
+  totalAmount: number;
+  status: Order['status'];
+  lastActivity: Date;
 }
 
-/* ---------------- ORDER CARD ---------------- */
+function SessionCard({ session, onStatusChange, isUpdating }: { session: Session; onStatusChange: (sessionId: string, newStatus: Order['status']) => void; isUpdating: boolean }) {
+  const { toast } = useToast();
 
-function OrderCard({
-  order,
-  onStatusChange,
-  onView,
-  isUpdating,
-}: any) {
-  const meta = STATUS_META[order.status];
-  const Icon = meta.icon;
+  const handleConfirmPayment = () => {
+    if (session.status !== 'Billed') {
+      toast({ variant: 'destructive', title: 'Action not allowed', description: 'Can only confirm payment for billed orders.' });
+      return;
+    }
+    onStatusChange(session.id, 'Completed');
+  };
 
   return (
-    <Card className="relative">
-      <CardContent className="p-4 space-y-3">
-        <div className="flex justify-between items-start">
-          <div>
-            <p className="font-semibold">Order #{order.id.slice(0, 6)}</p>
-            <p className="text-sm text-muted-foreground flex gap-1 items-center">
-              <StoreIcon className="h-4 w-4" /> {order.storeName}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {format(order.orderDate.seconds * 1000, 'PPP p')}
-            </p>
-          </div>
-
-          <div className="text-right space-y-1">
-            <Badge variant={meta.variant} className="flex gap-1 items-center">
-              <Icon className="h-3 w-3" /> {order.status}
-            </Badge>
-            <p className="font-bold">₹{order.totalAmount.toFixed(2)}</p>
+    <Card className={session.status === 'Billed' ? 'border-primary ring-2 ring-primary' : ''}>
+      <CardHeader>
+        <div className="flex justify-between items-center">
+            <div>
+                 <CardTitle>Table {session.tableNumber || 'N/A'}</CardTitle>
+                 <CardDescription>Session ID: {session.id.slice(0, 8)}</CardDescription>
+            </div>
+             <Badge variant={STATUS_META[session.status]?.variant || 'secondary'} className="text-lg">
+                {session.status}
+             </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div>
+          <h4 className="font-semibold mb-2">Items Ordered:</h4>
+          <div className="max-h-48 overflow-y-auto space-y-2">
+            {session.orders.flatMap(o => o.items).map((item, index) => (
+              <div key={index} className="flex justify-between items-center text-sm p-2 bg-muted/50 rounded-md">
+                <span>{item.productName} <span className="text-muted-foreground">x{item.quantity}</span></span>
+                <span className="font-medium">₹{(item.price * item.quantity).toFixed(2)}</span>
+              </div>
+            ))}
           </div>
         </div>
-
-        <div className="flex gap-2 justify-between items-center">
-          <Select
-            defaultValue={order.status}
-            onValueChange={(v) => onStatusChange(order.id, v)}
-            disabled={isUpdating || ['Delivered', 'Cancelled'].includes(order.status)}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.keys(STATUS_META).map(s => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Button variant="outline" size="sm" onClick={onView}>
-            View Details
-          </Button>
+        <div className="border-t pt-4 space-y-4">
+            <div className="flex justify-between font-bold text-xl">
+                <span>Total Bill</span>
+                <span>₹{session.totalAmount.toFixed(2)}</span>
+            </div>
+            {session.status === 'Billed' ? (
+                 <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button className="w-full bg-green-600 hover:bg-green-700">
+                            <Check className="mr-2 h-4 w-4" /> Confirm Payment & Close
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Confirm Payment Received?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This will mark the session as completed and cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleConfirmPayment}>Yes, Payment Received</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            ) : (
+                <p className="text-xs text-center text-muted-foreground">Waiting for customer to close bill.</p>
+            )}
         </div>
       </CardContent>
     </Card>
-  );
+  )
 }
 
-/* ---------------- MAIN PAGE ---------------- */
-
-export default function LiveOrdersPage() {
+export default function StoreOrdersPage() {
   const { firestore, user } = useFirebase();
-  const { toast } = useToast();
-  const [stores, setStores] = useState<Store[]>([]);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [isUpdating, startTransition] = useTransition();
-  const prevOrders = useRef<Map<string, Order>>(new Map());
+  const [isUpdating, startUpdateTransition] = useTransition();
 
   const storeQuery = useMemoFirebase(() =>
     firestore && user
       ? query(collection(firestore, 'stores'), where('ownerId', '==', user.uid))
       : null,
-    [firestore, user]
-  );
+  [firestore, user]);
 
   const { data: myStores } = useCollection<Store>(storeQuery);
   const myStore = myStores?.[0];
@@ -164,109 +147,120 @@ export default function LiveOrdersPage() {
           orderBy('orderDate', 'desc')
         )
       : null,
-    [firestore, myStore]
-  );
+  [firestore, myStore]);
 
-  const { data: orders } = useCollection<Order>(ordersQuery);
+  const { data: orders, isLoading } = useCollection<Order>(ordersQuery);
 
-  useEffect(() => {
-    if (firestore) getStores(firestore).then(setStores);
-  }, [firestore]);
+  const sessions = useMemo((): Record<string, Session> => {
+    if (!orders) return {};
+    return orders.reduce((acc, order) => {
+        const sessionId = order.sessionId;
+        if (!sessionId) return acc;
 
-  const ordersWithStores = useMemo(() => {
-    if (!orders) return [];
-    const map = new Map(stores.map(s => [s.id, s.name]));
-    return orders.map(o => ({ ...o, storeName: map.get(o.storeId) || 'Store' }));
-  }, [orders, stores]);
+        if (!acc[sessionId]) {
+            acc[sessionId] = {
+                id: sessionId,
+                tableNumber: order.tableNumber || 'N/A',
+                orders: [],
+                totalAmount: 0,
+                status: 'Pending', // Default status
+                lastActivity: new Date(0),
+            };
+        }
+        acc[sessionId].orders.push(order);
+        acc[sessionId].totalAmount += order.totalAmount;
+        
+        // Update session status based on the latest order's status
+        const orderDate = new Date(order.orderDate.seconds * 1000);
+        if (orderDate > acc[sessionId].lastActivity) {
+            acc[sessionId].lastActivity = orderDate;
+            acc[sessionId].status = order.status;
+        }
 
-  const grouped = useMemo(() => ({
-    pending: ordersWithStores.filter(o => o.status === 'Pending'),
-    active: ordersWithStores.filter(o =>
-      ['Processing', 'Out for Delivery'].includes(o.status)
-    ),
-    done: ordersWithStores.filter(o =>
-      ['Delivered', 'Cancelled'].includes(o.status)
-    ),
-  }), [ordersWithStores]);
-
-  const updateStatus = (id: string, status: Order['status']) => {
+        return acc;
+    }, {} as Record<string, Session>);
+  }, [orders]);
+  
+  const handleSessionStatusChange = (sessionId: string, newStatus: Order['status']) => {
     if (!firestore) return;
-
-    startTransition(async () => {
-      try {
-        await writeBatch(firestore)
-          .update(doc(firestore, 'orders', id), { status })
-          .commit();
-        toast({ title: `Order marked as ${status}` });
-      } catch (e) {
-        errorEmitter.emit('permission-error',
-          new FirestorePermissionError({
-            path: `orders/${id}`,
-            operation: 'update',
-            requestResourceData: { status },
-          })
-        );
-      }
+    const session = sessions[sessionId];
+    if (!session) return;
+    
+    startUpdateTransition(async () => {
+        const batch = writeBatch(firestore);
+        session.orders.forEach(order => {
+            const orderRef = doc(firestore, 'orders', order.id);
+            batch.update(orderRef, { status: newStatus });
+        });
+        await batch.commit();
     });
   };
 
+  const activeSessions = Object.values(sessions).filter(s => s.status !== 'Completed' && s.status !== 'Cancelled');
+  const completedSessions = Object.values(sessions).filter(s => s.status === 'Completed' || s.status === 'Cancelled');
+
+
   return (
-    <div className="container mx-auto max-w-5xl py-10 space-y-10">
+    <div className="container mx-auto py-12 px-4 md:px-6">
+        <div className="mb-8">
+            <h1 className="text-4xl font-bold font-headline">Live Table Orders</h1>
+            <p className="text-muted-foreground">Manage incoming orders from your restaurant tables.</p>
+        </div>
 
-      <h1 className="text-4xl font-bold">Live Orders</h1>
+        <div className="space-y-8">
+            <div>
+                <h2 className="text-2xl font-semibold mb-4">Active & Billed Tables</h2>
+                 {isLoading ? (
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <Skeleton className="h-64 w-full" />
+                        <Skeleton className="h-64 w-full" />
+                    </div>
+                ) : activeSessions.length > 0 ? (
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {activeSessions.sort((a,b) => b.lastActivity.getTime() - a.lastActivity.getTime()).map(session => (
+                            <SessionCard key={session.id} session={session} onStatusChange={handleSessionStatusChange} isUpdating={isUpdating} />
+                        ))}
+                    </div>
+                ) : (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>No Active Orders</CardTitle>
+                            <CardDescription>When customers order using a QR code, their live bills will appear here.</CardDescription>
+                        </CardHeader>
+                     </Card>
+                )}
+            </div>
 
-      {/* NEW ORDERS */}
-      {grouped.pending.length > 0 && (
-        <section className="space-y-4">
-          <h2 className="text-xl font-bold text-destructive">New Orders</h2>
-          {grouped.pending.map(o => (
-            <OrderCard
-              key={o.id}
-              order={o}
-              onStatusChange={updateStatus}
-              onView={() => setSelectedOrder(o)}
-              isUpdating={isUpdating}
-            />
-          ))}
-        </section>
-      )}
-
-      {/* ACTIVE */}
-      {grouped.active.length > 0 && (
-        <section className="space-y-4">
-          <h2 className="text-xl font-bold">In Progress</h2>
-          {grouped.active.map(o => (
-            <OrderCard
-              key={o.id}
-              order={o}
-              onStatusChange={updateStatus}
-              onView={() => setSelectedOrder(o)}
-              isUpdating={isUpdating}
-            />
-          ))}
-        </section>
-      )}
-
-      {/* COMPLETED */}
-      {grouped.done.length > 0 && (
-        <section className="space-y-4">
-          <h2 className="text-xl font-bold text-muted-foreground">Completed</h2>
-          {grouped.done.map(o => (
-            <OrderCard
-              key={o.id}
-              order={o}
-              onStatusChange={updateStatus}
-              onView={() => setSelectedOrder(o)}
-              isUpdating
-            />
-          ))}
-        </section>
-      )}
-
-      <OrderDetailsDialog
-        order={selectedOrder}
-        onClose={() => setSelectedOrder(null)}
-      />
+             <div>
+                <h2 className="text-2xl font-semibold mb-4 text-muted-foreground">Completed Sessions</h2>
+                 {isLoading ? (
+                    <Skeleton className="h-24 w-full" />
+                ) : completedSessions.length > 0 ? (
+                    <div className="space-y-4">
+                        {completedSessions.sort((a,b) => b.lastActivity.getTime() - a.lastActivity.getTime()).map(session => (
+                             <Card key={session.id} className="bg-muted/50">
+                                <CardHeader>
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <CardTitle className="text-base">Table {session.tableNumber || 'N/A'}</CardTitle>
+                                             <p className="text-xs text-muted-foreground">
+                                                {format(session.lastActivity, 'PPP p')}
+                                             </p>
+                                        </div>
+                                        <div className="text-right">
+                                             <Badge variant="default">Completed</Badge>
+                                             <p className="font-bold text-lg">₹{session.totalAmount.toFixed(2)}</p>
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                            </Card>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-muted-foreground text-center">No completed sessions yet.</p>
+                )}
+            </div>
+        </div>
     </div>
   );
 }
