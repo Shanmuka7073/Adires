@@ -7,7 +7,6 @@ import {
   useState,
   ReactNode,
   useCallback,
-  useEffect,
 } from 'react';
 
 import type { CartItem, Product, ProductVariant, OrderItem } from './types';
@@ -19,9 +18,7 @@ import {
   setDoc,
   getDoc,
   Timestamp,
-  arrayUnion,
   increment,
-  collection,
 } from 'firebase/firestore';
 
 interface CartContextType {
@@ -35,9 +32,9 @@ interface CartContextType {
   ) => void;
   clearCart: () => void;
   placeRestaurantOrder: () => Promise<void>;
-  // These are now part of the default useCart return but are not used by the new restaurant flow
   cartCount: number;
   cartTotal: number;
+  // Non-restaurant flow properties added for type compatibility
   unidentifiedItems: any[];
   activeStoreId: string | null;
   setActiveStoreId: (id: string | null) => void;
@@ -54,7 +51,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [activeStoreId, setActiveStoreId] = useState<string | null>(null);
 
-
   /* ---------------- ADD ITEM ---------------- */
   const addItem = useCallback(
     (
@@ -65,14 +61,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
       sessionId?: string
     ) => {
       setCartItems(prev => {
-        const existing = prev.find(i => i.variant.sku === variant.sku);
+        const key = `${product.id}_${variant.sku}`;
+        const existing = prev.find(
+          i => `${i.product.id}_${i.variant.sku}` === key
+        );
+
         if (existing) {
           return prev.map(i =>
-            i.variant.sku === variant.sku
+            `${i.product.id}_${i.variant.sku}` === key
               ? { ...i, quantity: i.quantity + quantity }
               : i
           );
         }
+
         return [...prev, { product, variant, quantity, tableNumber, sessionId }];
       });
 
@@ -84,10 +85,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [toast]
   );
 
-  /* ---------------- CLEAR CART (UI ONLY) ---------------- */
   const clearCart = () => setCartItems([]);
 
-  /* ---------------- PLACE ORDER (UPSERT) ---------------- */
+  /* ---------------- PLACE ORDER (CORRECT BILL LOGIC) ---------------- */
   const placeRestaurantOrder = async () => {
     if (!firestore || cartItems.length === 0) return;
 
@@ -96,66 +96,85 @@ export function CartProvider({ children }: { children: ReactNode }) {
       currentUser = (await signInAnonymously(auth)).user;
     }
 
-    const item = cartItems[0];
-    if (!item.sessionId || !item.product.storeId) {
-        toast({variant: 'destructive', title: 'Error', description: 'Missing session or store information.'});
-        return;
+    const base = cartItems[0];
+    if (!base.sessionId || !base.product.storeId) {
+      toast({ variant: 'destructive', title: 'Invalid session' });
+      return;
     }
 
-    const sessionId = item.sessionId!;
-    const orderId = `${item.product.storeId}_${sessionId}`;
-
+    const orderId = `${base.product.storeId}_${base.sessionId}`;
     const orderRef = doc(firestore, 'orders', orderId);
     const snap = await getDoc(orderRef);
 
-    const newItems: OrderItem[] = cartItems.map(ci => ({
-      // This ID is for the subcollection, but we are not using a subcollection here.
-      id: doc(collection(firestore, `orders/${orderId}/orderItems`)).id,
-      orderId: orderId,
-      productId: ci.product.id,
-      productName: ci.product.name,
-      quantity: ci.quantity,
-      price: ci.variant.price,
-      variantSku: ci.variant.sku,
-      variantWeight: ci.variant.weight,
-    }));
+    // Build merged items map
+    const newItemsMap: Record<string, any> = {};
 
-    const totalOfNewItems = newItems.reduce(
-        (s, i) => s + i.price * i.quantity,
-        0
+    cartItems.forEach(ci => {
+      const key = `${ci.product.id}_${ci.variant.sku}`;
+      if (!newItemsMap[key]) {
+        newItemsMap[key] = {
+          productId: ci.product.id,
+          productName: ci.product.name,
+          variantSku: ci.variant.sku,
+          variantWeight: ci.variant.weight,
+          price: ci.variant.price,
+          quantity: 0,
+        };
+      }
+      newItemsMap[key].quantity += ci.quantity;
+    });
+
+    const newItems = Object.values(newItemsMap);
+    const addedTotal = newItems.reduce(
+      (s: number, i: any) => s + i.price * i.quantity,
+      0
     );
 
     if (!snap.exists()) {
-      // 🔥 FIRST ORDER (create bill)
       await setDoc(orderRef, {
         id: orderId,
-        storeId: item.product.storeId,
-        sessionId,
-        tableNumber: item.tableNumber,
+        storeId: base.product.storeId,
+        sessionId: base.sessionId,
+        tableNumber: base.tableNumber,
         userId: 'guest',
-        customerName: `Table ${item.tableNumber || 'Guest'}`,
+        customerName: `Table ${base.tableNumber}`,
         items: newItems,
-        totalAmount: totalOfNewItems,
+        totalAmount: addedTotal,
         status: 'Pending',
-        orderDate: Timestamp.now(),
+        orderDate: Timestamp.now(), // 🔒 NEVER CHANGE
+        updatedAt: Timestamp.now(),
       });
     } else {
-      // 🔥 APPEND TO SAME BILL
+      const existing = snap.data();
+      const merged: Record<string, any> = {};
+
+      existing.items.forEach((i: any) => {
+        merged[`${i.productId}_${i.variantSku}`] = { ...i };
+      });
+
+      newItems.forEach((i: any) => {
+        const key = `${i.productId}_${i.variantSku}`;
+        if (merged[key]) {
+          merged[key].quantity += i.quantity;
+        } else {
+          merged[key] = i;
+        }
+      });
+
       await setDoc(
         orderRef,
         {
-          items: arrayUnion(...newItems),
-          totalAmount: increment(totalOfNewItems),
-          // Ensure status is Pending if it was previously Completed/Billed
+          items: Object.values(merged),
+          totalAmount: existing.totalAmount + addedTotal,
           status: 'Pending',
-          orderDate: Timestamp.now(), // Update timestamp to show recent activity
+          updatedAt: Timestamp.now(),
         },
         { merge: true }
       );
     }
 
-    clearCart(); // UI only
-    toast({ title: 'Order sent to kitchen' });
+    clearCart();
+    toast({ title: 'Order added to bill' });
   };
   
   // Dummy implementations for non-restaurant cart functions
@@ -175,7 +194,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const cartCount = cartItems.reduce((n, i) => n + i.quantity, 0);
   const cartTotal = cartItems.reduce((t, i) => t + i.quantity * i.variant.price, 0);
 
-
   return (
     <CartContext.Provider
       value={{
@@ -185,7 +203,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         placeRestaurantOrder,
         cartCount,
         cartTotal,
-        unidentifiedItems: [], // Not used in this flow
+        // Non-restaurant flow properties
+        unidentifiedItems: [],
         activeStoreId,
         setActiveStoreId,
         removeItem,
