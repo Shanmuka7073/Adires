@@ -34,11 +34,11 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { CheckCircle, MapPin, Loader2, AlertCircle, Store as StoreIcon, Home, LocateFixed } from 'lucide-react';
 import Link from 'next/link';
 import type { User as AppUser, Store, ProductPrice } from '@/lib/types';
-import { create } from 'zustand';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAppStore } from '@/lib/store';
 import { t } from '@/lib/locales';
 import { useVoiceCommanderContext } from '@/components/layout/main-layout';
+import { useCheckoutStore } from '@/lib/checkout-store';
 
 
 const checkoutSchema = z.object({
@@ -74,40 +74,6 @@ function OrderSummaryItem({ item, image }: { item: any, image: any }) {
         </div>
     );
 }
-
-// State store for the checkout page, allowing the VoiceCommander to interact with it.
-interface CheckoutState {
-  placeOrderBtnRef: RefObject<HTMLButtonElement> | null;
-  setPlaceOrderBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
-  isWaitingForQuickOrderConfirmation: boolean;
-  setIsWaitingForQuickOrderConfirmation: (isWaiting: boolean) => void;
-  shouldPlaceOrderDirectly: boolean;
-  setShouldPlaceOrderDirectly: (shouldPlace: boolean) => void;
-  setHomeAddress: (address: string | null) => void;
-  setShouldUseCurrentLocation: (shouldUse: boolean) => void;
-  // Handlers for voice commands to call directly
-  handleUseHomeAddress: () => void;
-  handleUseCurrentLocation: () => void;
-  setAddressHandlers: (homeHandler: () => void, currentHandler: () => void) => void;
-}
-
-export const useCheckoutStore = create<CheckoutState>((set) => ({
-  placeOrderBtnRef: null,
-  setPlaceOrderBtnRef: (placeOrderBtnRef) => set({ placeOrderBtnRef }),
-  isWaitingForQuickOrderConfirmation: false,
-  setIsWaitingForQuickOrderConfirmation: (isWaiting) => set({ isWaitingForQuickOrderConfirmation: isWaiting }),
-  shouldPlaceOrderDirectly: false,
-  setShouldPlaceOrderDirectly: (shouldPlace) => set({ shouldPlaceOrderDirectly: shouldPlace }),
-  setHomeAddress: (address) => {
-    set(state => ({ ...state })); 
-  },
-  setShouldUseCurrentLocation: (shouldUse) => {
-     set(state => ({ ...state }));
-  },
-  handleUseHomeAddress: () => {},
-  handleUseCurrentLocation: () => {},
-  setAddressHandlers: (homeHandler, currentHandler) => set({ handleUseHomeAddress: homeHandler, handleUseCurrentLocation: currentHandler }),
-}));
 
 export default function CheckoutPage() {
   const { cartItems, cartTotal, clearCart, activeStoreId, setActiveStoreId } = useCart();
@@ -471,5 +437,3 @@ export default function CheckoutPage() {
     </div>
   );
 }
-
-    
