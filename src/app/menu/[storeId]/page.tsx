@@ -2,7 +2,7 @@
 'use client';
 
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, writeBatch, doc } from 'firebase/firestore';
 import type {
   Store,
   Menu,
@@ -37,9 +37,10 @@ import {
   Receipt,
   Loader2,
 } from 'lucide-react';
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef, useTransition } from 'react';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -236,6 +237,8 @@ function MenuItemDialog({
 
 function LiveBill({ sessionId, storeId }: { sessionId: string; storeId: string }) {
     const { firestore } = useFirebase();
+    const { toast } = useToast();
+    const [isClosing, startCloseTransition] = useTransition();
 
     const sessionOrdersQuery = useMemoFirebase(() => {
         if (!firestore || !sessionId) return null;
@@ -254,6 +257,42 @@ function LiveBill({ sessionId, storeId }: { sessionId: string; storeId: string }
     }, [sessionOrders]);
 
     const totalAmount = useMemo(() => allItems.reduce((acc, item) => acc + (item.price * item.quantity), 0), [allItems]);
+    
+    const isBillClosed = useMemo(() => {
+        if (!sessionOrders || sessionOrders.length === 0) return false;
+        // If any order in the session is 'Billed', the whole session is considered closed for the user.
+        return sessionOrders.some(order => order.status === 'Billed');
+    }, [sessionOrders]);
+
+    const handleCloseBill = () => {
+        if (!firestore || !sessionOrders || sessionOrders.length === 0) {
+            toast({ variant: 'destructive', title: 'No orders to close.' });
+            return;
+        }
+
+        startCloseTransition(async () => {
+            const batch = writeBatch(firestore);
+            sessionOrders.forEach(order => {
+                const orderRef = doc(firestore, 'orders', order.id);
+                batch.update(orderRef, { status: 'Billed' });
+            });
+            
+            try {
+                await batch.commit();
+                toast({
+                    title: 'Bill Closed',
+                    description: 'The kitchen has been notified that you are ready to pay.',
+                });
+            } catch (error) {
+                console.error("Failed to close bill:", error);
+                toast({
+                    variant: 'destructive',
+                    title: 'Action Failed',
+                    description: 'Could not close the bill. Please contact staff.',
+                });
+            }
+        });
+    };
 
     return (
         <Card className="shadow-lg mt-8">
@@ -285,6 +324,34 @@ function LiveBill({ sessionId, storeId }: { sessionId: string; storeId: string }
                         </div>
                     </div>
                 )}
+                 <div className="mt-6 border-t pt-4">
+                    {isBillClosed ? (
+                        <Button className="w-full" disabled>
+                           <Check className="mr-2 h-4 w-4" /> Bill Closed & Pending Payment
+                        </Button>
+                    ) : (
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button className="w-full" variant="destructive" disabled={isClosing || allItems.length === 0}>
+                                    {isClosing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Close Bill & Pay
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This will close the ordering session for your table and notify the staff you are ready to pay. You won't be able to add more items.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleCloseBill}>Yes, Close Bill</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    )}
+                </div>
             </CardContent>
         </Card>
     );

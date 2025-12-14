@@ -90,7 +90,7 @@ export type Order = {
   deliveryLng: number;
   items: OrderItem[];
   totalAmount: number;
-  status: 'Pending' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled' | 'Completed';
+  status: 'Pending' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled' | 'Completed' | 'Billed';
   orderDate: Timestamp | Date | string;
   phone: string;
   email: string;
@@ -98,7 +98,7 @@ export type Order = {
   store?: Store; 
   deliveryPartnerId?: string | null;
   tableNumber?: string;
-  sessionId?: string; // NEW: To group all orders for a single table session
+  sessionId?: string; // To group all orders for a single table session
 };
 
 
