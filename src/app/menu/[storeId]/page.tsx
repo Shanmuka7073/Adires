@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { useFirebase, useMemoFirebase } from '@/firebase';
 import {
   collection,
   query,
@@ -24,8 +24,6 @@ import type {
   OrderItem,
   GetIngredientsOutput,
   Ingredient,
-  Product,
-  ProductVariant
 } from '@/lib/types';
 
 import { useParams, useSearchParams } from 'next/navigation';

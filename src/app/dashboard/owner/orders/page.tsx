@@ -32,7 +32,7 @@ import {
 
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition, useRef } from 'react';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -55,6 +55,26 @@ interface Session {
   status: Order['status'];
   lastActivity: Date;
 }
+
+function playNotificationSound() {
+  try {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    if (!audioContext) return;
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    oscillator.type = 'triangle';
+    oscillator.frequency.setValueAtTime(1000, audioContext.currentTime);
+    gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.5);
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 0.5);
+  } catch (error) {
+    console.error("Could not play notification sound:", error);
+  }
+}
+
 
 function SessionCard({ session, onStatusChange, isUpdating }: { session: Session; onStatusChange: (sessionId: string, newStatus: Order['status']) => void; isUpdating: boolean }) {
   const { toast } = useToast();
@@ -129,6 +149,8 @@ function SessionCard({ session, onStatusChange, isUpdating }: { session: Session
 export default function StoreOrdersPage() {
   const { firestore, user } = useFirebase();
   const [isUpdating, startUpdateTransition] = useTransition();
+  const { toast } = useToast();
+  const billedSessionIds = useRef<Set<string>>(new Set());
 
   const storeQuery = useMemoFirebase(() =>
     firestore && user
@@ -170,7 +192,6 @@ export default function StoreOrdersPage() {
         acc[sessionId].orders.push(order);
         acc[sessionId].totalAmount += order.totalAmount;
         
-        // Update session status based on the latest order's status
         const orderDate = new Date(order.orderDate.seconds * 1000);
         if (orderDate > acc[sessionId].lastActivity) {
             acc[sessionId].lastActivity = orderDate;
@@ -181,6 +202,22 @@ export default function StoreOrdersPage() {
     }, {} as Record<string, Session>);
   }, [orders]);
   
+  useEffect(() => {
+    Object.values(sessions).forEach(session => {
+        if(session.status === 'Billed' && !billedSessionIds.current.has(session.id)) {
+            playNotificationSound();
+            toast({
+                title: 'Payment Request',
+                description: `Table ${session.tableNumber || session.id.slice(0, 4)} has closed their bill and is ready to pay.`,
+                duration: 10000,
+            });
+            billedSessionIds.current.add(session.id);
+        } else if (session.status !== 'Billed') {
+             billedSessionIds.current.delete(session.id);
+        }
+    });
+  }, [sessions, toast]);
+
   const handleSessionStatusChange = (sessionId: string, newStatus: Order['status']) => {
     if (!firestore) return;
     const session = sessions[sessionId];
@@ -193,6 +230,7 @@ export default function StoreOrdersPage() {
             batch.update(orderRef, { status: newStatus });
         });
         await batch.commit();
+        toast({ title: 'Session Updated', description: `Session for table ${session.tableNumber} marked as ${newStatus}.`});
     });
   };
 
