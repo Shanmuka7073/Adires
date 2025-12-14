@@ -65,7 +65,9 @@ service cloud.firestore {
         allow get, list: if true;
 
         allow create: if 
+          // Logged-in user creating their own order
           (isSignedIn() && request.resource.data.userId == request.auth.uid) || 
+          // Anonymous restaurant guest creating an order with a session
           (request.resource.data.userId == 'guest' && request.resource.data.storeId is string && request.resource.data.sessionId is string);
 
         allow update: if 
@@ -77,6 +79,8 @@ service cloud.firestore {
             (resource.data.deliveryPartnerId != null && request.auth.uid == resource.data.deliveryPartnerId) ||
             // Admin can do anything
             isAdmin() ||
+            // A guest user can append items to their own session-based order
+            (resource.data.userId == 'guest' && request.resource.data.sessionId == resource.data.sessionId) ||
             // Any signed-in user can accept a job if unassigned
             (resource.data.deliveryPartnerId == null && request.resource.data.deliveryPartnerId == request.auth.uid);
 

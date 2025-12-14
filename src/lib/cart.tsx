@@ -1,254 +1,195 @@
 
 'use client';
 
-import { createContext, useContext, useState, ReactNode, useCallback, useEffect, useTransition } from 'react';
-import type { CartItem, Product, ProductVariant, Order, OrderItem } from './types';
+import {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  useCallback,
+  useEffect,
+} from 'react';
+
+import type { CartItem, Product, ProductVariant, OrderItem } from './types';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase } from '@/firebase';
-import { useRouter } from 'next/navigation';
 import { signInAnonymously } from 'firebase/auth';
-import { doc, writeBatch, setDoc, collection, Timestamp } from 'firebase/firestore';
-
-export interface UnidentifiedCartItem {
-  id: string;
-  term: string;
-  status: 'pending' | 'failed';
-}
+import {
+  doc,
+  setDoc,
+  getDoc,
+  Timestamp,
+  arrayUnion,
+  increment,
+} from 'firebase/firestore';
 
 interface CartContextType {
   cartItems: CartItem[];
-  unidentifiedItems: UnidentifiedCartItem[];
-  addItem: (product: Product, variant: ProductVariant, quantity?: number, tableNumber?: string, sessionId?: string) => void;
-  addIdentifiedItem: (product: Product, variant: ProductVariant, quantity: number, originalTermId: string) => void;
-  removeItem: (variantSku: string) => void;
-  updateQuantity: (variantSku: string, quantity: number) => void;
-  addUnidentifiedItem: (term: string) => string;
-  updateUnidentifiedItem: (id: string, status: 'failed') => void;
-  removeUnidentifiedItem: (id: string) => void;
+  addItem: (
+    product: Product,
+    variant: ProductVariant,
+    quantity?: number,
+    tableNumber?: string,
+    sessionId?: string
+  ) => void;
   clearCart: () => void;
-  placeRestaurantOrder: () => Promise<{ success: boolean; orderId?: string; error?: string; }>;
+  placeRestaurantOrder: () => Promise<void>;
+  // These are now part of the default useCart return but are not used by the new restaurant flow
   cartCount: number;
   cartTotal: number;
+  unidentifiedItems: any[];
   activeStoreId: string | null;
-  setActiveStoreId: (storeId: string | null) => void;
+  setActiveStoreId: (id: string | null) => void;
+  removeItem: (sku: string) => void;
+  updateQuantity: (sku: string, qty: number) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
-  const { user, auth, firestore } = useFirebase();
-  const router = useRouter();
+  const { auth, firestore, user } = useFirebase();
 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [unidentifiedItems, setUnidentifiedItems] = useState<UnidentifiedCartItem[]>([]);
   const [activeStoreId, setActiveStoreId] = useState<string | null>(null);
 
-  /* ------------------ Load from storage ------------------ */
-  useEffect(() => {
-    try {
-      const cart = localStorage.getItem('localbasket-cart');
-      const store = localStorage.getItem('localbasket-active-store');
-      if (cart) setCartItems(JSON.parse(cart));
-      if (store) setActiveStoreId(JSON.parse(store));
-    } catch {}
-  }, []);
 
-  /* ------------------ Persist storage ------------------ */
-  useEffect(() => {
-    localStorage.setItem('localbasket-cart', JSON.stringify(cartItems));
-  }, [cartItems]);
-
-  useEffect(() => {
-    if (activeStoreId) {
-      localStorage.setItem('localbasket-active-store', JSON.stringify(activeStoreId));
-    } else {
-      localStorage.removeItem('localbasket-active-store');
-    }
-  }, [activeStoreId]);
-
-  /* ------------------ Cart actions ------------------ */
-
+  /* ---------------- ADD ITEM ---------------- */
   const addItem = useCallback(
-    (product: Product, variant: ProductVariant, quantity = 1, tableNumber?: string, sessionId?: string) => {
+    (
+      product: Product,
+      variant: ProductVariant,
+      quantity = 1,
+      tableNumber?: string,
+      sessionId?: string
+    ) => {
       setCartItems(prev => {
-        // 🔒 store lock
-        if (activeStoreId && product.storeId !== activeStoreId && !product.isMenuItem) {
-          toast({
-            title: 'Different store detected',
-            description: 'Please clear cart before ordering from another store.',
-            variant: 'destructive',
-          });
-          return prev;
-        }
-
-        // First item
-        if (!activeStoreId && !product.isMenuItem) {
-          setActiveStoreId(product.storeId);
-        }
-
         const existing = prev.find(i => i.variant.sku === variant.sku);
-
         if (existing) {
           return prev.map(i =>
             i.variant.sku === variant.sku
-              ? { ...i, quantity: i.quantity + quantity, tableNumber: tableNumber || i.tableNumber, sessionId: sessionId || i.sessionId }
+              ? { ...i, quantity: i.quantity + quantity }
               : i
           );
         }
-
         return [...prev, { product, variant, quantity, tableNumber, sessionId }];
       });
 
-      if (!product.isMenuItem) {
-        toast({
-            title: 'Added to cart',
-            description: `${product.name} (${variant.weight})`,
-        });
-      }
+      toast({
+        title: 'Added',
+        description: `${product.name} × ${quantity}`,
+      });
     },
-    [activeStoreId, toast]
+    [toast]
   );
 
-  const removeItem = useCallback((variantSku: string) => {
-    setCartItems(prev => {
-      const next = prev.filter(i => i.variant.sku !== variantSku);
-      if (next.length === 0 && unidentifiedItems.length === 0) {
-        setActiveStoreId(null);
-      }
-      return next;
-    });
-  }, [unidentifiedItems.length]);
+  /* ---------------- CLEAR CART (UI ONLY) ---------------- */
+  const clearCart = () => setCartItems([]);
 
-  const updateQuantity = useCallback(
-    (variantSku: string, quantity: number) => {
+  /* ---------------- PLACE ORDER (UPSERT) ---------------- */
+  const placeRestaurantOrder = async () => {
+    if (!firestore || cartItems.length === 0) return;
+
+    let currentUser = user;
+    if (!currentUser && auth) {
+      currentUser = (await signInAnonymously(auth)).user;
+    }
+
+    const item = cartItems[0];
+    if (!item.sessionId || !item.product.storeId) {
+        toast({variant: 'destructive', title: 'Error', description: 'Missing session or store information.'});
+        return;
+    }
+
+    const sessionId = item.sessionId!;
+    const orderId = `${item.product.storeId}_${sessionId}`;
+
+    const orderRef = doc(firestore, 'orders', orderId);
+    const snap = await getDoc(orderRef);
+
+    const newItems: OrderItem[] = cartItems.map(ci => ({
+      // This ID is for the subcollection, but we are not using a subcollection here.
+      // It's here to satisfy the type, but can be simplified later.
+      id: doc(collection(firestore, `orders/${orderId}/orderItems`)).id,
+      orderId: orderId,
+      productId: ci.product.id,
+      productName: ci.product.name,
+      quantity: ci.quantity,
+      price: ci.variant.price,
+      variantSku: ci.variant.sku,
+      variantWeight: ci.variant.weight,
+    }));
+
+    const totalOfNewItems = newItems.reduce(
+        (s, i) => s + i.price * i.quantity,
+        0
+    );
+
+    if (!snap.exists()) {
+      // 🔥 FIRST ORDER (create bill)
+      await setDoc(orderRef, {
+        id: orderId,
+        storeId: item.product.storeId,
+        sessionId,
+        tableNumber: item.tableNumber,
+        userId: 'guest',
+        customerName: `Table ${item.tableNumber || 'Guest'}`,
+        items: newItems,
+        totalAmount: totalOfNewItems,
+        status: 'Pending',
+        orderDate: Timestamp.now(),
+      });
+    } else {
+      // 🔥 APPEND TO SAME BILL
+      await setDoc(
+        orderRef,
+        {
+          items: arrayUnion(...newItems),
+          totalAmount: increment(totalOfNewItems),
+          // Ensure status is Pending if it was previously Completed/Billed
+          status: 'Pending',
+          orderDate: Timestamp.now(), // Update timestamp to show recent activity
+        },
+        { merge: true }
+      );
+    }
+
+    clearCart(); // UI only
+    toast({ title: 'Order sent to kitchen' });
+  };
+  
+  // Dummy implementations for non-restaurant cart functions
+  const removeItem = (sku: string) => {
+    setCartItems(prev => prev.filter(item => item.variant.sku !== sku));
+  };
+  const updateQuantity = (sku: string, quantity: number) => {
       if (quantity <= 0) {
-        removeItem(variantSku);
+        removeItem(sku);
         return;
       }
       setCartItems(prev =>
-        prev.map(i => (i.variant.sku === variantSku ? { ...i, quantity } : i))
+        prev.map(i => (i.variant.sku === sku ? { ...i, quantity } : i))
       );
-    },
-    [removeItem]
-  );
-
-  const addUnidentifiedItem = useCallback((term: string) => {
-    const id = crypto.randomUUID();
-    setUnidentifiedItems(prev => [...prev, { id, term, status: 'pending' }]);
-    return id;
-  }, []);
-
-  const updateUnidentifiedItem = useCallback((id: string, status: 'failed') => {
-    setUnidentifiedItems(prev =>
-      prev.map(i => (i.id === id ? { ...i, status } : i))
-    );
-  }, []);
-
-  const removeUnidentifiedItem = useCallback((id: string) => {
-    setUnidentifiedItems(prev => prev.filter(i => i.id !== id));
-  }, []);
-
-  const addIdentifiedItem = useCallback(
-    (product: Product, variant: ProductVariant, quantity: number, originalTermId: string) => {
-      removeUnidentifiedItem(originalTermId);
-      addItem(product, variant, quantity);
-    },
-    [addItem, removeUnidentifiedItem]
-  );
-
-  const clearCart = useCallback(() => {
-    setCartItems([]);
-    setUnidentifiedItems([]);
-    setActiveStoreId(null);
-  }, []);
-  
-  const placeRestaurantOrder = async () => {
-    if (!auth || !firestore || cartItems.length === 0) {
-        const errorMsg = "Cannot place order: services not ready or cart is empty.";
-        toast({ variant: 'destructive', title: 'Order Failed', description: errorMsg });
-        return { success: false, error: errorMsg };
-    }
-
-    try {
-        let currentUser = user;
-        if (!currentUser) {
-            const userCredential = await signInAnonymously(auth);
-            currentUser = userCredential.user;
-        }
-        
-        const idToken = await currentUser.getIdToken();
-        const batch = writeBatch(firestore);
-
-        const sessionOrders = cartItems.filter(item => item.sessionId && item.product.isMenuItem);
-
-        sessionOrders.forEach(cartItem => {
-            const orderRef = doc(collection(firestore, 'orders'));
-            const order: Order = {
-                id: orderRef.id,
-                storeId: cartItem.product.storeId,
-                sessionId: cartItem.sessionId,
-                tableNumber: cartItem.tableNumber,
-                userId: 'guest',
-                customerName: `Table ${cartItem.tableNumber || 'Guest'}`,
-                deliveryAddress: "In-store dining",
-                deliveryLat: 0,
-                deliveryLng: 0,
-                items: [{
-                    id: doc(collection(firestore, `orders/${orderRef.id}/orderItems`)).id,
-                    orderId: orderRef.id,
-                    productId: cartItem.product.id,
-                    productName: cartItem.product.name,
-                    quantity: cartItem.quantity,
-                    price: cartItem.variant.price,
-                    variantSku: cartItem.variant.weight,
-                    variantWeight: cartItem.variant.weight,
-                }],
-                totalAmount: cartItem.quantity * cartItem.variant.price,
-                status: 'Pending', 
-                orderDate: Timestamp.now(),
-                phone: '',
-                email: '',
-            };
-            batch.set(orderRef, order);
-        });
-
-        await batch.commit();
-
-        return { success: true, orderId: "restaurant_order" };
-        
-    } catch (error: any) {
-        toast({
-            variant: 'destructive',
-            title: 'Order Failed',
-            description: error.message,
-        });
-        return { success: false, error: error.message };
-    }
-  };
-
+  }
 
   const cartCount = cartItems.reduce((n, i) => n + i.quantity, 0);
   const cartTotal = cartItems.reduce((t, i) => t + i.quantity * i.variant.price, 0);
+
 
   return (
     <CartContext.Provider
       value={{
         cartItems,
-        unidentifiedItems,
         addItem,
-        addIdentifiedItem,
-        removeItem,
-        updateQuantity,
-        addUnidentifiedItem,
-        updateUnidentifiedItem,
-        removeUnidentifiedItem,
         clearCart,
         placeRestaurantOrder,
         cartCount,
         cartTotal,
+        unidentifiedItems: [], // Not used in this flow
         activeStoreId,
         setActiveStoreId,
+        removeItem,
+        updateQuantity
       }}
     >
       {children}

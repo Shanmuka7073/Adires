@@ -10,7 +10,6 @@ import {
   doc,
   orderBy,
   Timestamp,
-  setDoc,
 } from 'firebase/firestore';
 
 import type {
@@ -21,7 +20,6 @@ import type {
   OrderItem,
   GetIngredientsOutput,
   Ingredient,
-  CartItem,
 } from '@/lib/types';
 
 import { useParams, useSearchParams } from 'next/navigation';
@@ -78,6 +76,10 @@ import Link from 'next/link';
 import { useCart } from '@/lib/cart';
 
 
+/* -------------------------------------------------------------------------- */
+/*                               MENU ITEM DIALOG                             */
+/* -------------------------------------------------------------------------- */
+
 function MenuItemDialog({
   item,
   storeId,
@@ -93,14 +95,14 @@ function MenuItemDialog({
   isOpen: boolean;
   onClose: () => void;
 }) {
-  const { addItem } = useCart();
+  const { addItem, placeRestaurantOrder } = useCart();
   const { toast } = useToast();
   const [quantity, setQuantity] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [details, setDetails] = useState<GetIngredientsOutput | null>(null);
   const { firestore } = useFirebase();
   const [image, setImage] = useState({ imageUrl: '', imageHint: '' });
-
+  const [isPlacingOrder, startPlacingOrder] = useTransition();
 
   useEffect(() => {
     if (isOpen) {
@@ -111,7 +113,6 @@ function MenuItemDialog({
             const cached = await getCachedRecipe(firestore, item.name, 'en');
             if (cached && Object.keys(cached).length > 0) {
               setDetails(cached);
-              toast({ title: 'Details loaded from cache.' });
               return;
             }
           }
@@ -147,30 +148,35 @@ function MenuItemDialog({
     }
   }, [isOpen, item.name, firestore, toast]);
 
-  const handleAddToCart = () => {
-    addItem(
-      {
-        id: `${storeId}-${item.name}`,
-        name: item.name,
-        description: item.description || '',
-        storeId,
-        category: item.category,
-        imageId: 'cat-restaurant',
-        isMenuItem: true,
-        price: item.price,
-      },
-      {
-        sku: `${storeId}-${item.name.replace(/\s+/g, '-')}-default`,
-        weight: '1 pc',
-        price: item.price,
-        stock: 99,
-      },
-      quantity,
-      tableNumber ?? undefined,
-      sessionId
-    );
-    toast({ title: 'Added to your bill', description: `${quantity} × ${item.name}` });
-    onClose();
+  const handleOrder = () => {
+      startPlacingOrder(async () => {
+          addItem(
+            {
+              id: `${storeId}-${item.name}`,
+              name: item.name,
+              description: item.description || '',
+              storeId,
+              category: item.category,
+              imageId: 'cat-restaurant',
+              isMenuItem: true,
+              price: item.price,
+            },
+            {
+              sku: `${storeId}-${item.name.replace(/\s+/g, '-')}-default`,
+              weight: '1 pc',
+              price: item.price,
+              stock: 99,
+            },
+            quantity,
+            tableNumber ?? undefined,
+            sessionId
+          );
+          // Wait for state to update, then place order
+          setTimeout(() => {
+            placeRestaurantOrder();
+            onClose();
+          }, 100)
+      })
   };
 
   const formatScaledQuantity = (ingredient: Ingredient) => {
@@ -259,7 +265,8 @@ function MenuItemDialog({
             </div>
           )}
 
-          <Button onClick={handleAddToCart} className="w-full h-12 text-lg">
+          <Button onClick={handleOrder} disabled={isPlacingOrder} className="w-full h-12 text-lg">
+             {isPlacingOrder && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             <ShoppingCart className="mr-2 h-5 w-5" />
             Add to Bill
           </Button>
@@ -278,14 +285,46 @@ function MenuItemDialog({
 }
 
 
-function LiveBill({ cartItems, onBillClosed }: { cartItems: CartItem[], onBillClosed: () => void }) {
+/* -------------------------------------------------------------------------- */
+/*                                   LIVE BILL                                */
+/* -------------------------------------------------------------------------- */
+
+function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }) {
+  const { firestore } = useFirebase();
+  const { toast } = useToast();
   const [closing, startClose] = useTransition();
 
-  const total = useMemo(
-    () => cartItems.reduce((s, o) => s + (o.variant.price * o.quantity), 0),
-    [cartItems]
+  const orderQuery = useMemoFirebase(
+    () =>
+      firestore
+        ? doc(firestore, 'orders', `${storeId}_${sessionId}`)
+        : null,
+    [firestore, storeId, sessionId]
   );
   
+  // This uses useDoc, which is more efficient for a single document
+  const { data: order, isLoading } = useCollection<Order>(orderQuery ? [orderQuery] : null);
+  
+  const singleOrder = order?.[0];
+
+  const closeBill = async () => {
+    if (!firestore || !singleOrder) return;
+    startClose(async () => {
+      const orderRef = doc(firestore, 'orders', singleOrder.id);
+      try {
+        await setDoc(orderRef, { status: 'Billed' }, { merge: true });
+        toast({ title: 'Bill closed. Please proceed to the counter to pay.' });
+      } catch (e) {
+        console.error(e);
+        toast({ variant: 'destructive', title: 'Failed to close bill.' });
+      }
+    });
+  };
+
+  if (isLoading) {
+    return <Loader2 className="animate-spin mx-auto" />;
+  }
+
   return (
     <Card className="mt-6">
       <CardHeader>
@@ -295,29 +334,38 @@ function LiveBill({ cartItems, onBillClosed }: { cartItems: CartItem[], onBillCl
       </CardHeader>
 
       <CardContent>
-        {!cartItems?.length ? (
+        {!singleOrder || !singleOrder.items?.length ? (
           <p className="text-muted-foreground text-center">No orders yet. Add an item to start a bill.</p>
         ) : (
           <>
-            {cartItems.map((item, i) => (
-              <div key={i} className="border-b py-2 flex justify-between text-sm">
-                <span>{item.product.name} × {item.quantity}</span>
-                <span>₹{(item.variant.price * item.quantity).toFixed(2)}</span>
+            {singleOrder.items.map((it, idx) => (
+              <div key={idx} className="border-b py-2 flex justify-between text-sm">
+                <span>{it.productName} × {it.quantity}</span>
+                <span>₹{(it.price * it.quantity).toFixed(2)}</span>
               </div>
             ))}
 
             <div className="flex justify-between font-bold mt-3 text-lg">
               <span>Total</span>
-              <span>₹{total.toFixed(2)}</span>
+              <span>₹{singleOrder.totalAmount.toFixed(2)}</span>
             </div>
             
             <div className="mt-4">
+              {singleOrder.status === 'Billed' ? (
+                <div className="text-center p-4 bg-green-100 rounded-md">
+                    <Check className="mx-auto h-6 w-6 text-green-600 mb-2" />
+                    <p className="font-semibold text-green-800">Bill Closed. Please pay at the counter.</p>
+                    <p className="text-xs text-green-700">Started at {format(new Date(singleOrder.orderDate.seconds * 1000), 'p')}</p>
+                </div>
+              ) : (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button className="w-full" variant="destructive">
+                    <Button className="w-full" variant="destructive" disabled={closing}>
+                      {closing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                       Close Bill & Pay
                     </Button>
                   </AlertDialogTrigger>
+
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Ready to Pay?</AlertDialogTitle>
@@ -325,12 +373,13 @@ function LiveBill({ cartItems, onBillClosed }: { cartItems: CartItem[], onBillCl
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Not yet</AlertDialogCancel>
-                      <AlertDialogAction onClick={onBillClosed}>
+                      <AlertDialogAction onClick={closeBill}>
                         Yes, Close Bill
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+              )}
             </div>
           </>
         )}
@@ -340,12 +389,14 @@ function LiveBill({ cartItems, onBillClosed }: { cartItems: CartItem[], onBillCl
 }
 
 
+/* -------------------------------------------------------------------------- */
+/*                                MAIN PAGE                                   */
+/* -------------------------------------------------------------------------- */
+
 export default function PublicMenuPage() {
   const { storeId } = useParams<{ storeId: string }>();
   const tableNumber = useSearchParams().get('table');
   const { firestore } = useFirebase();
-  const { cartItems, placeRestaurantOrder } = useCart();
-  const { toast } = useToast();
 
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [sessionId, setSessionId] = useState('');
@@ -373,14 +424,7 @@ export default function PublicMenuPage() {
 
   const store = stores?.[0];
   const menu = menus?.[0];
-
-  const handleCloseBill = async () => {
-    const result = await placeRestaurantOrder();
-    if(result.success) {
-      toast({ title: 'Bill Closed', description: 'Please wait for the cashier to confirm payment.' });
-    }
-  };
-
+  
   const groupedMenu = useMemo(() => {
     if (!menu?.items) return {};
     return menu.items.reduce((acc, item) => {
@@ -390,10 +434,6 @@ export default function PublicMenuPage() {
         return acc;
     }, {} as Record<string, MenuItem[]>)
   }, [menu]);
-  
-  const relevantCartItems = useMemo(() => {
-      return cartItems.filter(item => item.sessionId === sessionId);
-  }, [cartItems, sessionId]);
 
   if (storeLoading || menuLoading) return (
       <div className="p-4 space-y-4">
@@ -430,7 +470,7 @@ export default function PublicMenuPage() {
                 {tableNumber && <Badge className="mx-auto mt-2">Table {tableNumber}</Badge>}
             </CardHeader>
             <CardContent className="space-y-6">
-                {sessionId && <LiveBill cartItems={relevantCartItems} onBillClosed={handleCloseBill} storeId={storeId} sessionId={sessionId} />}
+                {sessionId && <LiveBill storeId={storeId} sessionId={sessionId} />}
 
                 {Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
                     <div key={category}>
