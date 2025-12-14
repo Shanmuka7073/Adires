@@ -1,13 +1,14 @@
 
 'use client';
 
-import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
-import type { CartItem, Product, ProductVariant, OrderItem } from './types';
+import { createContext, useContext, useState, ReactNode, useCallback, useEffect, useTransition } from 'react';
+import type { CartItem, Product, ProductVariant, OrderItem, Order } from './types';
 import { useToast } from '@/hooks/use-toast';
 import { placeRestaurantOrder as placeRestaurantOrderAction } from '@/app/actions';
 import { useFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { signInAnonymously } from 'firebase/auth';
+import { doc, writeBatch } from 'firebase/firestore';
 
 export interface UnidentifiedCartItem {
   id: string;
@@ -26,7 +27,7 @@ interface CartContextType {
   updateUnidentifiedItem: (id: string, status: 'failed') => void;
   removeUnidentifiedItem: (id: string) => void;
   clearCart: () => void;
-  placeRestaurantOrder: (guestInfo?: { name: string, phone: string, tableNumber: string }) => Promise<{ success: boolean; orderId?: string; error?: string; }>;
+  placeRestaurantOrder: () => Promise<{ success: boolean; orderId?: string; error?: string; }>;
   cartCount: number;
   cartTotal: number;
   activeStoreId: string | null;
@@ -100,10 +101,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return [...prev, { product, variant, quantity, tableNumber, sessionId }];
       });
 
-      toast({
-        title: 'Added to cart',
-        description: `${product.name} (${variant.weight})`,
-      });
+      if (!product.isMenuItem) {
+        toast({
+            title: 'Added to cart',
+            description: `${product.name} (${variant.weight})`,
+        });
+      }
     },
     [activeStoreId, toast]
   );
@@ -161,47 +164,69 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setActiveStoreId(null);
   }, []);
   
-  const placeRestaurantOrder = async (guestInfo?: { name: string, phone: string, tableNumber: string }) => {
-    if (!auth || !firestore) {
-        const errorMsg = "Firebase services not available.";
+  const placeRestaurantOrder = async () => {
+    if (!auth || !firestore || cartItems.length === 0) {
+        const errorMsg = "Cannot place order: services not ready or cart is empty.";
         toast({ variant: 'destructive', title: 'Order Failed', description: errorMsg });
         return { success: false, error: errorMsg };
     }
 
     try {
         let currentUser = user;
-        let finalGuestInfo = guestInfo;
-
-        if (!currentUser && !guestInfo) {
-             return { success: false, error: 'guest-info-required' };
-        }
-
         if (!currentUser) {
             const userCredential = await signInAnonymously(auth);
             currentUser = userCredential.user;
         }
 
         const idToken = await currentUser.getIdToken();
-        const cartTotalValue = cartItems.reduce((t, i) => t + i.quantity * i.variant.price, 0);
+        const firstItem = cartItems[0];
+        const storeId = firstItem.product.storeId;
+        const sessionId = firstItem.sessionId;
+        const tableNumber = firstItem.tableNumber;
+        const totalAmount = cartItems.reduce((t, i) => t + i.quantity * i.variant.price, 0);
 
-        if (!finalGuestInfo) {
-             throw new Error("Guest information is required to place an order.");
-        }
+        const orderData: Omit<Order, 'id' | 'orderDate' | 'items'> = {
+            storeId: storeId,
+            sessionId: sessionId,
+            tableNumber: tableNumber,
+            userId: 'guest',
+            customerName: `Table ${tableNumber || 'Guest'}`,
+            deliveryAddress: "In-store dining",
+            deliveryLat: 0,
+            deliveryLng: 0,
+            phone: '',
+            email: '',
+            status: 'Billed',
+            totalAmount: totalAmount,
+        };
 
-        const result = await placeRestaurantOrderAction(cartItems, cartTotalValue, finalGuestInfo, idToken);
+        const batch = writeBatch(firestore);
 
-        if (result.success && result.orderId) {
-            toast({
-                title: 'Order Placed!',
-                description: 'Your order has been sent to the kitchen.',
-            });
-            clearCart();
-            // We no longer redirect, keeping the user on the menu page.
-        } else {
-            throw new Error(result.error || 'Could not place your order.');
-        }
-        return result;
+        cartItems.forEach(cartItem => {
+            const orderRef = doc(collection(firestore, 'orders'));
+            const order: Order = {
+                ...orderData,
+                id: orderRef.id,
+                totalAmount: cartItem.quantity * cartItem.variant.price,
+                orderDate: new Date(),
+                items: [{
+                    id: doc(collection(firestore, `orders/${orderRef.id}/orderItems`)).id,
+                    orderId: orderRef.id,
+                    productId: cartItem.product.id,
+                    productName: cartItem.product.name,
+                    quantity: cartItem.quantity,
+                    price: cartItem.variant.price,
+                    variantSku: cartItem.variant.sku,
+                    variantWeight: cartItem.variant.weight,
+                }]
+            };
+            batch.set(orderRef, order);
+        });
 
+        await batch.commit();
+        clearCart();
+        return { success: true, orderId: "restaurant_order" };
+        
     } catch (error: any) {
         toast({
             variant: 'destructive',

@@ -21,6 +21,7 @@ import type {
   OrderItem,
   GetIngredientsOutput,
   Ingredient,
+  CartItem,
 } from '@/lib/types';
 
 import { useParams, useSearchParams } from 'next/navigation';
@@ -74,10 +75,8 @@ import { format } from 'date-fns';
 import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import Link from 'next/link';
+import { useCart } from '@/lib/cart';
 
-/* -------------------------------------------------------------------------- */
-/*                               MENU ITEM DIALOG                             */
-/* -------------------------------------------------------------------------- */
 
 function MenuItemDialog({
   item,
@@ -94,13 +93,14 @@ function MenuItemDialog({
   isOpen: boolean;
   onClose: () => void;
 }) {
-  const { firestore } = useFirebase();
+  const { addItem } = useCart();
   const { toast } = useToast();
   const [quantity, setQuantity] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [details, setDetails] = useState<GetIngredientsOutput | null>(null);
-  const [saving, startSaving] = useTransition();
+  const { firestore } = useFirebase();
   const [image, setImage] = useState({ imageUrl: '', imageHint: '' });
+
 
   useEffect(() => {
     if (isOpen) {
@@ -111,7 +111,7 @@ function MenuItemDialog({
             const cached = await getCachedRecipe(firestore, item.name, 'en');
             if (cached) {
               setDetails(cached);
-              toast({ title: "Details loaded from cache." });
+              toast({ title: 'Details loaded from cache.' });
               return;
             }
           }
@@ -123,11 +123,11 @@ function MenuItemDialog({
               await cacheRecipe(firestore, item.name, 'en', dishDetails);
             }
           } else {
-            toast({ variant: "destructive", title: "Could not fetch details" });
+            toast({ variant: 'destructive', title: 'Could not fetch details' });
           }
         } catch (e) {
-          console.error("Failed to get dish details:", e);
-          toast({ variant: "destructive", title: "Error", description: "Could not fetch dish details." });
+          console.error('Failed to get dish details:', e);
+          toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch dish details.' });
         } finally {
           setIsGenerating(false);
         }
@@ -147,57 +147,30 @@ function MenuItemDialog({
     }
   }, [isOpen, item.name, firestore, toast]);
 
-  const placeOrder = () => {
-    if (!firestore || !sessionId) return;
-
-    startSaving(async () => {
-      const orderId = uuidv4();
-      const orderItemId = uuidv4();
-
-      const order: Order = {
-        id: orderId,
+  const handleAddToCart = () => {
+    addItem(
+      {
+        id: `${storeId}-${item.name}`,
+        name: item.name,
+        description: item.description || '',
         storeId,
-        sessionId,
-        tableNumber: tableNumber ?? null,
-        userId: 'guest',
-        customerName: `Table ${tableNumber || 'Guest'}`,
-        deliveryAddress: "In-store dining",
-        deliveryLat: 0,
-        deliveryLng: 0,
-        phone: '',
-        email: '',
-        orderDate: Timestamp.now(),
-        status: 'Pending',
-        totalAmount: item.price * quantity,
-        items: [
-          {
-            id: orderItemId,
-            orderId: orderId,
-            productId: `${storeId}-${item.name.replace(/\s+/g, '-')}`,
-            productName: item.name,
-            quantity,
-            price: item.price,
-            variantSku: `${item.name.replace(/\s+/g, '-')}-default`,
-            variantWeight: '1 serving',
-          },
-        ],
-      };
-
-      try {
-        await setDoc(doc(firestore, 'orders', orderId), order);
-        toast({
-          title: 'Order sent to kitchen!',
-          description: `${quantity} × ${item.name}`,
-        });
-        onClose();
-      } catch (err) {
-        console.error(err);
-        toast({
-          variant: 'destructive',
-          title: 'Failed to add order',
-        });
-      }
-    });
+        category: item.category,
+        imageId: 'cat-restaurant',
+        isMenuItem: true,
+        price: item.price,
+      },
+      {
+        sku: `${storeId}-${item.name.replace(/\s+/g, '-')}-default`,
+        weight: '1 pc',
+        price: item.price,
+        stock: 99,
+      },
+      quantity,
+      tableNumber ?? undefined,
+      sessionId
+    );
+    toast({ title: 'Added to your bill', description: `${quantity} × ${item.name}` });
+    onClose();
   };
 
   const formatScaledQuantity = (ingredient: Ingredient) => {
@@ -227,9 +200,8 @@ function MenuItemDialog({
                 <Image
                     src={image.imageUrl}
                     alt={item.name}
-                    layout="fill"
-                    objectFit="cover"
-                    className="rounded-t-lg"
+                    fill
+                    className="object-cover rounded-t-lg"
                     data-ai-hint={image.imageHint}
                 />
             ) : <Skeleton className="w-full h-full" />}
@@ -287,12 +259,11 @@ function MenuItemDialog({
             </div>
           )}
 
-          <Button onClick={placeOrder} disabled={saving} className="w-full h-12 text-lg">
-            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button onClick={handleAddToCart} className="w-full h-12 text-lg">
             <ShoppingCart className="mr-2 h-5 w-5" />
-            Add to Order
+            Add to Bill
           </Button>
-          <div className="flex items-center justify-center gap-4">
+           <div className="flex items-center justify-center gap-4">
             <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
               <Link href={`/live-order/${storeId}`}>
                 <Eye className="mr-2 h-4 w-4" />
@@ -300,87 +271,21 @@ function MenuItemDialog({
               </Link>
             </Button>
           </div>
-          <p className="text-xs text-center text-muted-foreground italic flex items-center justify-center gap-2">
-             <Mic className="h-4 w-4" /> Say "add {item.name.toLowerCase()}" to order
-          </p>
         </div>
       </DialogContent>
     </Dialog>
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/*                                   LIVE BILL                                */
-/* -------------------------------------------------------------------------- */
 
-function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }) {
-  const { firestore } = useFirebase();
-  const { toast } = useToast();
+function LiveBill({ storeId, sessionId, cartItems, onBillClosed }: { storeId: string; sessionId: string; cartItems: CartItem[], onBillClosed: () => void }) {
   const [closing, startClose] = useTransition();
 
-  const ordersQuery = useMemoFirebase(() =>
-    firestore
-      ? query(
-          collection(firestore, 'orders'),
-          where('storeId', '==', storeId),
-          where('sessionId', '==', sessionId),
-          orderBy('orderDate', 'asc')
-        )
-      : null,
-  [firestore, storeId, sessionId]);
-
-  const { data: orders, isLoading } = useCollection<Order>(ordersQuery);
-
   const total = useMemo(
-    () => orders?.reduce((s, o) => s + o.totalAmount, 0) ?? 0,
-    [orders]
+    () => cartItems.reduce((s, o) => s + (o.variant.price * o.quantity), 0),
+    [cartItems]
   );
   
-  const isBilled = useMemo(() => orders?.some(o => o.status === 'Billed'), [orders]);
-  const isCompleted = useMemo(() => orders?.every(o => o.status === 'Completed'), [orders]);
-
-  const closeBill = () => {
-    if (!firestore || !orders?.length) return;
-
-    startClose(async () => {
-      const batch = writeBatch(firestore);
-      orders.forEach(o => {
-        batch.update(doc(firestore, 'orders', o.id), { status: 'Billed' });
-      });
-
-      await batch.commit();
-      toast({ title: 'Bill Closed', description: 'Notifying cashier. Please wait for payment confirmation.' });
-    });
-  };
-
-  if (isCompleted) {
-    return (
-        <Card className="mt-6 bg-green-50 border-green-200">
-            <CardHeader className="text-center">
-                <Check className="mx-auto h-12 w-12 text-green-500" />
-                <CardTitle className="text-green-700">Thank You!</CardTitle>
-                 <p className="text-sm text-green-600">Your payment has been confirmed. Please visit again!</p>
-            </CardHeader>
-        </Card>
-    )
-  }
-  
-  if (isLoading && (!orders || orders.length === 0)) {
-      return (
-          <Card className="mt-6">
-              <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Receipt /> Live Bill
-                  </CardTitle>
-              </CardHeader>
-              <CardContent className="text-center text-muted-foreground py-8">
-                  <Loader2 className="mx-auto h-6 w-6 animate-spin" />
-                  <p className="mt-2">Loading your bill...</p>
-              </CardContent>
-          </Card>
-      );
-  }
-
   return (
     <Card className="mt-6">
       <CardHeader>
@@ -390,19 +295,14 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
       </CardHeader>
 
       <CardContent>
-        {!orders?.length ? (
+        {!cartItems?.length ? (
           <p className="text-muted-foreground text-center">No orders yet. Add an item to start a bill.</p>
         ) : (
           <>
-            {orders.map((o, i) => (
-              <div key={o.id} className="border-b py-2">
-                <p className="text-sm font-semibold text-muted-foreground">Order {i + 1} at {format(new Date(o.orderDate.seconds * 1000), 'p')}</p>
-                {o.items.map((it, idx) => (
-                  <div key={idx} className="flex justify-between text-sm">
-                    <span>{it.productName} × {it.quantity}</span>
-                    <span>₹{(it.price * it.quantity).toFixed(2)}</span>
-                  </div>
-                ))}
+            {cartItems.map((item, i) => (
+              <div key={i} className="border-b py-2 flex justify-between text-sm">
+                <span>{item.product.name} × {item.quantity}</span>
+                <span>₹{(item.variant.price * item.quantity).toFixed(2)}</span>
               </div>
             ))}
 
@@ -412,13 +312,7 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
             </div>
             
             <div className="mt-4">
-              {isBilled ? (
-                <Button className="w-full" disabled>
-                  <Clock className="mr-2 h-4 w-4 animate-spin"/>
-                  Waiting for payment confirmation...
-                </Button>
-              ) : (
-                 <AlertDialog>
+                <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button className="w-full" variant="destructive">
                       Close Bill & Pay
@@ -431,13 +325,12 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Not yet</AlertDialogCancel>
-                      <AlertDialogAction onClick={closeBill}>
+                      <AlertDialogAction onClick={onBillClosed}>
                         Yes, Close Bill
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-              )}
             </div>
           </>
         )}
@@ -447,14 +340,12 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
 }
 
 
-/* -------------------------------------------------------------------------- */
-/*                                MAIN PAGE                                   */
-/* -------------------------------------------------------------------------- */
-
 export default function PublicMenuPage() {
   const { storeId } = useParams<{ storeId: string }>();
   const tableNumber = useSearchParams().get('table');
   const { firestore } = useFirebase();
+  const { cartItems, placeRestaurantOrder, clearCart } = useCart();
+  const { toast } = useToast();
 
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [sessionId, setSessionId] = useState('');
@@ -482,6 +373,13 @@ export default function PublicMenuPage() {
 
   const store = stores?.[0];
   const menu = menus?.[0];
+
+  const handleCloseBill = async () => {
+    const result = await placeRestaurantOrder(); // This now handles writing all cart items
+    if(result.success) {
+      toast({ title: 'Bill Closed', description: 'Please wait for the cashier to confirm payment.' });
+    }
+  };
 
   const groupedMenu = useMemo(() => {
     if (!menu?.items) return {};
@@ -522,13 +420,13 @@ export default function PublicMenuPage() {
           <Card className="max-w-2xl mx-auto shadow-lg">
             <CardHeader className="text-center">
                 <div className="flex items-center justify-center gap-2">
-                    <span className="text-3xl font-bold text-green-600 font-mono">Ψ۹</span>
+                    <Utensils className="h-8 w-8 text-primary" />
                     <CardTitle className="text-3xl font-bold font-headline">{store.name}</CardTitle>
                 </div>
                 {tableNumber && <Badge className="mx-auto mt-2">Table {tableNumber}</Badge>}
             </CardHeader>
             <CardContent className="space-y-6">
-                {sessionId && <LiveBill storeId={storeId} sessionId={sessionId} />}
+                {sessionId && <LiveBill storeId={storeId} sessionId={sessionId} cartItems={cartItems} onBillClosed={handleCloseBill} />}
 
                 {Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
                     <div key={category}>
