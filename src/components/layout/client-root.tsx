@@ -11,49 +11,41 @@ import GlobalLoader from './global-loader';
 import { InstallProvider } from '@/components/install-provider';
 import { usePathname } from 'next/navigation';
 
-/**
- * This hook is responsible for making sure the application's essential
- * data is loaded before the UI is shown to the user. It handles both
- * the initial data fetch and rehydration from persisted local storage.
- */
-function useInitializeApp() {
+function AppContent({ children }: { children: React.ReactNode }) {
     const { firestore } = useFirebase();
     const {
         fetchInitialData,
         isInitialized,
         loading,
         setAppReady,
-        stores, // Use a core data array to check for rehydration
+        appReady
     } = useAppStore();
+    const pathname = usePathname();
+    const isMenuPage = pathname.startsWith('/menu/');
 
     useEffect(() => {
-        // If data is already in the store (from persisted state), the app is ready.
+        // If the app is already ready, we don't need to do anything.
+        if (appReady) return;
+
+        // If data is already initialized from persisted state, mark app as ready.
+        // Still fetch in the background for updates if not currently loading.
         if (isInitialized) {
             setAppReady(true);
-             if (firestore && !loading) {
-                // Fetch in the background for updates if not already loading.
+            if (firestore && !loading) {
                 fetchInitialData(firestore);
             }
             return;
         }
 
-        // If not initialized and not already loading, start the data fetch.
+        // If not initialized and not already loading, start the main data fetch.
         if (firestore && !isInitialized && !loading) {
             fetchInitialData(firestore);
         }
-    }, [firestore, isInitialized, loading, fetchInitialData, setAppReady, stores.length]);
-}
-
-
-function AppContent({ children }: { children: React.ReactNode }) {
-    useInitializeApp();
-    const { appReady, isInitialized } = useAppStore();
-    const pathname = usePathname();
-
-    const isMenuPage = pathname.startsWith('/menu/');
+    }, [firestore, isInitialized, loading, appReady, fetchInitialData, setAppReady]);
     
-    // Show loader if the app is not ready OR if it's not initialized yet.
-    if (!appReady || !isInitialized) {
+    // The loader is shown if the app isn't ready. 
+    // `appReady` is set to true by `fetchInitialData` upon completion.
+    if (!appReady) {
         return <GlobalLoader />;
     }
 
