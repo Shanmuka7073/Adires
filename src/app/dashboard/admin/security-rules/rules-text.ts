@@ -94,8 +94,8 @@ service cloud.firestore {
 
     match /cachedRecipes/{recipeId} {
       allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if false;
+      allow create, update: if isSignedIn();
+      allow delete: if false;
     }
 
     match /cachedAIResponses/{responseId} {
