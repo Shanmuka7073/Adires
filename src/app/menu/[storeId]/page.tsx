@@ -49,7 +49,7 @@ import { cn } from '@/lib/utils';
 import { getStoreImage } from '@/lib/data';
 import { motion } from "framer-motion";
 import { Label } from '@/components/ui/label';
-import { cacheRecipe } from '@/lib/recipe-cache'; // Import the cache function
+import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache'; // Import cache functions
 
 function MenuItemDialog({
   item,
@@ -66,31 +66,53 @@ function MenuItemDialog({
 }) {
   const { addItem } = useCart();
   const { toast } = useToast();
-  const { firestore } = useFirebase();
+  const { firestore } = useFirebase(); // Get firestore instance
   const [quantity, setQuantity] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [details, setDetails] = useState<GetIngredientsOutput | null>(null);
 
   useEffect(() => {
     if (isOpen && !details) {
-      setIsGenerating(true);
-      getIngredientsForDish({ dishName: item.name, language: 'en' })
-        .then(dishDetails => {
-          setDetails(dishDetails);
-          // If successful and we have a firestore instance, cache the result
-          if (dishDetails.isSuccess && firestore) {
-              cacheRecipe(firestore, item.name, 'en', dishDetails);
+      const fetchDetails = async () => {
+        setIsGenerating(true);
+        try {
+          if (!firestore) throw new Error("Firestore not available");
+          
+          // 1. Check cache first
+          const cached = await getCachedRecipe(firestore, item.name, 'en');
+          if (cached) {
+            setDetails(cached);
+            toast({ title: "Details loaded from cache!" });
+            return;
           }
-        })
-        .catch((e) => {
+
+          // 2. If not in cache, call AI
+          const dishDetails = await getIngredientsForDish({ dishName: item.name, language: 'en' });
+          
+          if (dishDetails.isSuccess) {
+            setDetails(dishDetails);
+            // 3. Save successful result to cache
+            await cacheRecipe(firestore, item.name, 'en', dishDetails);
+          } else {
+             toast({
+              variant: "destructive",
+              title: "Details Unavailable",
+              description: "We couldn’t load ingredient details right now, but you can still order the item.",
+            });
+          }
+
+        } catch (e) {
           console.error("Failed to get dish details:", e);
           toast({
-            variant: 'destructive',
-            title: 'Details Unavailable',
+            variant: "destructive",
+            title: "Details Unavailable",
             description: "We couldn’t load ingredient details right now, but you can still order the item.",
           });
-        })
-        .finally(() => setIsGenerating(false));
+        } finally {
+          setIsGenerating(false);
+        }
+      };
+      fetchDetails();
     }
   }, [isOpen, item.name, details, toast, firestore]);
 
@@ -98,7 +120,7 @@ function MenuItemDialog({
     const product: Product = {
       id: `${storeId}-${item.name}`,
       name: item.name,
-      description: '',
+      description: item.description || '',
       storeId,
       category: item.category,
       imageId: 'cat-restaurant',
