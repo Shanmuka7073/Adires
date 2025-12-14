@@ -35,6 +35,7 @@ import {
   MapPin,
   Check,
   Receipt,
+  Loader2,
 } from 'lucide-react';
 import { useMemo, useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
@@ -53,6 +54,7 @@ import { getStoreImage } from '@/lib/data';
 import { motion } from "framer-motion";
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { v4 as uuidv4 } from 'uuid';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 function MenuItemDialog({
   item,
