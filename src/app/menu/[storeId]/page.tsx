@@ -92,7 +92,13 @@ function MenuItemDialog({
           if (dishDetails.isSuccess) {
             setDetails(dishDetails);
             // 3. Save successful result to cache
-            await cacheRecipe(firestore, item.name, 'en', dishDetails);
+            await cacheRecipe(firestore, item.name, 'en', dishDetails)
+                .then(() => {
+                     toast({ title: 'Success', description: 'Recipe has been cached for future use.'});
+                })
+                .catch((e) => {
+                     toast({ variant: 'destructive', title: 'Cache Failed', description: `Could not save recipe to cache: ${e.message}` });
+                });
           } else {
              toast({
               variant: "destructive",

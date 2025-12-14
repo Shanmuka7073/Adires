@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { Firestore, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -76,10 +75,6 @@ export async function cacheRecipe(db: Firestore, dishName: string, language: 'en
         createdAt: serverTimestamp(),
     };
 
-    try {
-        await setDoc(docRef, recipeData);
-    } catch (error) {
-        console.error("Error caching recipe:", error);
-        // We don't throw here, as caching failure shouldn't break the user flow.
-    }
+    // Return the promise from setDoc
+    return setDoc(docRef, recipeData);
 }
