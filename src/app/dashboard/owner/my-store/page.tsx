@@ -1757,17 +1757,17 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
 
     return (
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="products">Products</TabsTrigger>
           <TabsTrigger value="orders">Orders</TabsTrigger>
+          <TabsTrigger value="restaurant">Restaurant / QR Menu</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="mt-6 space-y-6">
             <StoreDetails store={store} onUpdate={() => {}} />
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid md:grid-cols-2 gap-8">
                 <StoreImageUploader store={store} />
                 <PromoteStore store={store} />
-                <TableManager store={store} />
             </div>
             {needsLocationUpdate && <UpdateLocationForm store={store} onUpdate={() => {}} />}
             <DangerZone store={store} />
@@ -1790,6 +1790,23 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
                     <p className="text-muted-foreground">Order management UI will be here.</p>
                 </CardContent>
             </Card>
+        </TabsContent>
+        <TabsContent value="restaurant" className="mt-6 space-y-6">
+            <TableManager store={store} />
+             <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <QrCode className="h-6 w-6 text-primary" />
+                        QR Code Menu Manager
+                    </CardTitle>
+                    <CardDescription>Create a full digital menu for your restaurant tables.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button asChild className="w-full">
+                        <Link href="/dashboard/owner/menu-manager">Go to Menu Manager</Link>
+                    </Button>
+                </CardContent>
+             </Card>
         </TabsContent>
     </Tabs>
     )
