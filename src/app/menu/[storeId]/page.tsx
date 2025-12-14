@@ -251,16 +251,13 @@ function LiveBill({ sessionId, storeId }: { sessionId: string; storeId: string }
 
     const { data: sessionOrders, isLoading } = useCollection<Order>(sessionOrdersQuery);
 
-    const allItems = useMemo(() => {
-        if (!sessionOrders) return [];
-        return sessionOrders.flatMap(order => order.items || []);
+    const totalAmount = useMemo(() => {
+      if (!sessionOrders) return 0;
+      return sessionOrders.reduce((acc, order) => acc + order.totalAmount, 0);
     }, [sessionOrders]);
-
-    const totalAmount = useMemo(() => allItems.reduce((acc, item) => acc + (item.price * item.quantity), 0), [allItems]);
     
     const isBillClosed = useMemo(() => {
         if (!sessionOrders || sessionOrders.length === 0) return false;
-        // If any order in the session is 'Billed', the whole session is considered closed for the user.
         return sessionOrders.some(order => order.status === 'Billed');
     }, [sessionOrders]);
 
@@ -308,15 +305,22 @@ function LiveBill({ sessionId, storeId }: { sessionId: string; storeId: string }
                     <div className="flex justify-center items-center h-24">
                         <Loader2 className="h-6 w-6 animate-spin text-primary" />
                     </div>
-                ) : allItems.length === 0 ? (
+                ) : !sessionOrders || sessionOrders.length === 0 ? (
                     <p className="text-center text-muted-foreground py-4">No items ordered yet.</p>
                 ) : (
-                    <div className="space-y-2">
-                        {allItems.map((item, index) => (
-                            <div key={index} className="flex justify-between items-center text-sm">
-                                <p>{item.productName} <span className="text-muted-foreground">x{item.quantity}</span></p>
-                                <p className="font-medium">₹{(item.price * item.quantity).toFixed(2)}</p>
-                            </div>
+                    <div className="space-y-4">
+                        {sessionOrders.map((order, orderIndex) => (
+                             <div key={order.id} className="border-b pb-2 last:border-b-0 last:pb-0">
+                                <h4 className="font-semibold text-sm mb-2 text-muted-foreground">Order #{orderIndex + 1}</h4>
+                                <div className="space-y-1">
+                                    {order.items.map((item, itemIndex) => (
+                                        <div key={itemIndex} className="flex justify-between items-center text-sm">
+                                            <p>{item.productName} <span className="text-muted-foreground">x{item.quantity}</span></p>
+                                            <p className="font-medium">₹{(item.price * item.quantity).toFixed(2)}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                             </div>
                         ))}
                         <div className="border-t pt-2 mt-2 flex justify-between font-bold text-lg">
                             <p>Total</p>
@@ -332,7 +336,7 @@ function LiveBill({ sessionId, storeId }: { sessionId: string; storeId: string }
                     ) : (
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <Button className="w-full" variant="destructive" disabled={isClosing || allItems.length === 0}>
+                                <Button className="w-full" variant="destructive" disabled={isClosing || !sessionOrders || sessionOrders.length === 0}>
                                     {isClosing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Close Bill & Pay
                                 </Button>
