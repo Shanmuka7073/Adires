@@ -22,7 +22,8 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '4.5mb',
     },
-    esmExternals: false, // safer for Firebase
+    // Setting to false is often safer for compatibility with various libraries, including Firebase.
+    esmExternals: false,
   },
 
   transpilePackages: [
@@ -33,11 +34,13 @@ const nextConfig = {
   ],
 
   typescript: {
-    ignoreBuildErrors: true, // temporary only
+    // Re-enabling build errors is a good practice for production.
+    ignoreBuildErrors: false,
   },
 
   eslint: {
-    ignoreDuringBuilds: true, // temporary only
+    // Re-enabling linting during builds is a good practice.
+    ignoreDuringBuilds: false,
   },
 };
 
