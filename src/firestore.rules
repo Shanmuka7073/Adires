@@ -87,7 +87,6 @@ service cloud.firestore {
     match /orders/{orderId} {
       allow get, list: if true;
 
-      // Allow any authenticated user (including anonymous) to create an order for themselves.
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
 
       allow update: if isSignedIn() && (
@@ -122,7 +121,8 @@ service cloud.firestore {
 
     match /cachedRecipes/{recipeId} {
       allow get, list: if true;
-      allow create, update, delete: if false;
+      allow create: if isSignedIn(); // Allow any authenticated user to create new cache entries.
+      allow update, delete: if false; // Prevent modification or deletion of existing cache entries.
     }
 
     match /cachedAIResponses/{responseId} {
