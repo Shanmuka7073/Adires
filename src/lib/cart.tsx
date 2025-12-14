@@ -2,9 +2,8 @@
 'use client';
 
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect, useTransition } from 'react';
-import type { CartItem, Product, ProductVariant, OrderItem, Order } from './types';
+import type { CartItem, Product, ProductVariant, Order, OrderItem } from './types';
 import { useToast } from '@/hooks/use-toast';
-import { placeRestaurantOrder as placeRestaurantOrderAction } from '@/app/actions';
 import { useFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { signInAnonymously } from 'firebase/auth';
@@ -74,7 +73,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     (product: Product, variant: ProductVariant, quantity = 1, tableNumber?: string, sessionId?: string) => {
       setCartItems(prev => {
         // 🔒 store lock
-        if (activeStoreId && product.storeId !== activeStoreId) {
+        if (activeStoreId && product.storeId !== activeStoreId && !product.isMenuItem) {
           toast({
             title: 'Different store detected',
             description: 'Please clear cart before ordering from another store.',
@@ -84,7 +83,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
 
         // First item
-        if (!activeStoreId) {
+        if (!activeStoreId && !product.isMenuItem) {
           setActiveStoreId(product.storeId);
         }
 
@@ -159,18 +158,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 
   const clearCart = useCallback(() => {
-    // Only clear non-restaurant items, or everything if no restaurant items exist
-    setCartItems(prev => {
-        const restaurantItems = prev.filter(item => item.product.isMenuItem);
-        if (restaurantItems.length > 0) {
-            // If there's a restaurant session, only clear grocery items
-            return restaurantItems;
-        }
-        // Otherwise, clear everything
-        setActiveStoreId(null);
-        return [];
-    });
+    setCartItems([]);
     setUnidentifiedItems([]);
+    setActiveStoreId(null);
   }, []);
   
   const placeRestaurantOrder = async () => {
@@ -211,7 +201,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
                     productName: cartItem.product.name,
                     quantity: cartItem.quantity,
                     price: cartItem.variant.price,
-                    variantSku: cartItem.variant.sku,
+                    variantSku: cartItem.variant.weight,
                     variantWeight: cartItem.variant.weight,
                 }],
                 totalAmount: cartItem.quantity * cartItem.variant.price,
@@ -225,8 +215,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
         await batch.commit();
 
-        // **FIX**: Do NOT clear the cart here. The bill should remain visible.
-        // The cart will be cleared when the owner confirms payment and the session ends.
+        clearCart();
+
         return { success: true, orderId: "restaurant_order" };
         
     } catch (error: any) {
@@ -273,3 +263,5 @@ export function useCart() {
   if (!ctx) throw new Error('useCart must be used inside CartProvider');
   return ctx;
 }
+
+    
