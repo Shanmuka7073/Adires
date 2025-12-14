@@ -21,6 +21,7 @@ import {
   Timestamp,
   arrayUnion,
   increment,
+  collection,
 } from 'firebase/firestore';
 
 interface CartContextType {
