@@ -1,4 +1,5 @@
 
+
 {
   "entities": {
     "Store": {
@@ -50,6 +51,11 @@
         "isClosed": {
             "type": "boolean",
             "description": "A flag to indicate if the store is permanently closed."
+        },
+        "tables": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "A list of table numbers or names for a restaurant."
         }
       },
       "required": [
@@ -108,6 +114,30 @@
         "name",
         "imageId"
       ]
+    },
+    "Menu": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "Menu",
+        "type": "object",
+        "description": "Represents a restaurant menu, with items extracted by AI.",
+        "properties": {
+            "id": { "type": "string" },
+            "storeId": { "type": "string" },
+            "items": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": { "type": "string" },
+                        "description": { "type": "string" },
+                        "price": { "type": "number" },
+                        "category": { "type": "string" }
+                    },
+                    "required": ["name", "price", "category"]
+                }
+            }
+        },
+        "required": ["id", "storeId", "items"]
     },
     "User": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -226,6 +256,10 @@
         "deliveryPartnerId": {
             "type": "string",
             "description": "The ID of the user who is assigned to deliver this order."
+        },
+        "tableNumber": {
+            "type": "string",
+            "description": "The table number for an in-restaurant order."
         }
       },
       "required": [
@@ -833,6 +867,18 @@
               "name": "productId",
               "description": "The unique identifier of the product."
             }
+          ]
+        }
+      },
+       {
+        "path": "/stores/{storeId}/menus/{menuId}",
+        "definition": {
+          "entityName": "Menu",
+          "schema": { "$ref": "#/entities/Menu" },
+          "description": "Stores menu information for a restaurant.",
+          "params": [
+            { "name": "storeId" },
+            { "name": "menuId" }
           ]
         }
       },

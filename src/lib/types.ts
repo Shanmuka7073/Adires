@@ -22,6 +22,8 @@ export type Product = {
   imageHint?: string;
   matchedAlias?: string; // The alias the user spoke
   isAiAssisted?: boolean; // Flag to show if AI identified this item
+  isMenuItem?: boolean; // NEW: Flag to identify a restaurant menu item
+  price?: number; // NEW: Direct price for menu items
 };
 
 export type Store = {
@@ -37,6 +39,7 @@ export type Store = {
   longitude: number;
   distance?: number;
   isClosed?: boolean;
+  tables?: string[]; // For restaurant table numbers
 };
 
 // WebAuthn types
@@ -65,6 +68,7 @@ export type CartItem = {
   product: Product; // The base product
   variant: ProductVariant; // The specific variant chosen
   quantity: number;
+  tableNumber?: string;
 };
 
 export type OrderItem = {
@@ -80,20 +84,20 @@ export type Order = {
   id:string;
   userId: string;
   storeId: string;
-  storeOwnerId?: string; // Denormalized for security rules, optional for backwards compatibility
   customerName: string;
   deliveryAddress: string;
   deliveryLat: number;
   deliveryLng: number;
   items: OrderItem[];
   totalAmount: number;
-  status: 'Pending' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
-  orderDate: Timestamp; 
+  status: 'Pending' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled' | 'Completed';
+  orderDate: Timestamp | Date | string;
   phone: string;
   email: string;
-  translatedList?: string; // Bilingual translated list
-  store?: Store; // Optional: Denormalized or joined store data
-  deliveryPartnerId?: string | null; // ID of the user who is delivering
+  translatedList?: string;
+  store?: Store; 
+  deliveryPartnerId?: string | null;
+  tableNumber?: string;
 };
 
 
@@ -151,7 +155,6 @@ export interface Ingredient {
     unit?: string;
 }
 
-// NEW: Structured instruction step
 export interface InstructionStep {
     title: string;
     actions: string[];
@@ -214,7 +217,6 @@ export type SiteConfig = {
     isAliasSuggesterEnabled?: boolean;
 };
 
-// Type for conversational history
 export type ChatMessage = {
   id?: string;
   role: 'user' | 'model';
@@ -222,12 +224,10 @@ export type ChatMessage = {
   timestamp?: any;
 };
 
-// --- Voice ID Types ---
-
 export type Voiceprint = {
-  userId: string; // Document ID should be the user's UID
-  enrollments: number[][]; // Array of raw feature vectors from each enrollment
-  voiceprint: number[]; // The final, averaged feature vector
+  userId: string; 
+  enrollments: number[][]; 
+  voiceprint: number[]; 
   createdAt: string;
   lastUpdatedAt: string;
 };
@@ -276,11 +276,10 @@ export type CommandGroup = {
 
 export type Locales = Record<string, VoiceAliasGroup>;
 
-// NLU Training Dashboard Types
 export type NluExtractedSentence = {
     id: string;
     rawText: string;
-    extractedNumbers: any[]; // Consider defining a more specific type for extracted numbers later
+    extractedNumbers: any[]; 
     confidence: number;
     status: 'pending' | 'approved' | 'rejected';
     createdAt: any;
@@ -295,3 +294,18 @@ export type GenerateBreakfastPackOutput = {
   }[];
   estimatedCost: number;
 };
+
+// NEW Restaurant Menu Types
+export type MenuItem = {
+  name: string;
+  description?: string;
+  price: number;
+  category: string;
+};
+
+export type Menu = {
+  id: string;
+  storeId: string;
+  items: MenuItem[];
+};
+

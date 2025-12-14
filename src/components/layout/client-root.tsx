@@ -1,9 +1,10 @@
+
 'use client';
 
 import React, { useEffect } from 'react';
 import { FirebaseClientProvider, useFirebase } from '@/firebase';
 import { CartProvider } from '@/lib/cart';
-import { MainLayout } from '@/components/layout/main-layout';
+import { MainLayout, MenuLayout } from '@/components/layout/main-layout';
 import { Toaster } from '@/components/ui/toaster';
 import { useAppStore } from '@/lib/store';
 import GlobalLoader from './global-loader';
@@ -43,32 +44,28 @@ function useInitializeApp() {
 
 
 function AppContent({ children }: { children: React.ReactNode }) {
-    // Initialize data in the background. This no longer blocks rendering.
     useInitializeApp();
+    const { appReady } = useAppStore();
     const pathname = usePathname();
 
-    // Check if the current route is a menu page
     const isMenuPage = pathname.startsWith('/menu/');
 
-    const content = (
+    if (!appReady) {
+        return <GlobalLoader />;
+    }
+
+    return (
         <InstallProvider>
             <CartProvider>
                 {isMenuPage ? (
-                    <>
-                        {children}
-                        <Toaster />
-                    </>
+                    <MenuLayout>{children}</MenuLayout>
                 ) : (
-                    <MainLayout>
-                        {children}
-                    </MainLayout>
+                    <MainLayout>{children}</MainLayout>
                 )}
                 <Toaster />
             </CartProvider>
         </InstallProvider>
     );
-
-    return content;
 }
 
 export function ClientRoot({ children }: { children: React.ReactNode }) {
@@ -78,3 +75,4 @@ export function ClientRoot({ children }: { children: React.ReactNode }) {
     </FirebaseClientProvider>
   );
 }
+

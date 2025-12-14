@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { create } from 'zustand';
@@ -25,13 +24,13 @@ export interface ProfileFormValues {
 export interface AppState {
   stores: Store[];
   masterProducts: Product[];
-  allMenus: Menu[]; // NEW: To hold all restaurant menus
+  allMenus: Menu[];
   productPrices: Record<string, ProductPrice | null>;
   locales: Locales;
   commands: Record<string, CommandGroup>;
   loading: boolean;
   isInitialized: boolean;
-  appReady: boolean; // Flag to indicate if the app is ready to be shown
+  appReady: boolean;
   error: Error | null;
   language: string;
   activeStoreId: string | null;
@@ -43,7 +42,7 @@ export interface AppState {
   getAllAliases: (key: string) => Record<string, string[]>;
   setLocales: (newLocales: Locales) => void;
   setCommands: (newCommands: Record<string, CommandGroup>) => void;
-  setAppReady: (isReady: boolean) => void; // Setter for the app ready flag
+  setAppReady: (isReady: boolean) => void;
 }
 
 const getInitialLanguage = (): string => {
@@ -59,13 +58,13 @@ export const useAppStore = create<AppState>()(
     (set, get) => ({
       stores: [],
       masterProducts: [],
-      allMenus: [], // NEW
+      allMenus: [],
       productPrices: {},
       locales: {},
       commands: {},
       loading: false,
       isInitialized: false,
-      appReady: true, // Default to true, app renders immediately and loads in background
+      appReady: false,
       error: null,
       language: getInitialLanguage(),
       activeStoreId: null,
@@ -87,8 +86,7 @@ export const useAppStore = create<AppState>()(
       setAppReady: (isReady: boolean) => set({ appReady: isReady }),
 
       fetchInitialData: async (db: Firestore) => {
-        // Prevent re-fetching if already loading or initialized
-        if (get().loading || get().isInitialized) return;
+        if (get().loading) return;
 
         set({ loading: true, error: null });
         
@@ -99,12 +97,10 @@ export const useAppStore = create<AppState>()(
             getDocs(collection(db, 'voiceAliasGroups')),
             getDocs(collection(db, 'voiceCommands'))
           ]);
-
-          // NEW: Fetch all menus from all stores
+          
           const menuPromises = stores.map(store => getDocs(collection(db, `stores/${store.id}/menus`)));
           const menuSnapshots = await Promise.all(menuPromises);
           const allMenus = menuSnapshots.flatMap(snapshot => snapshot.docs.map(doc => doc.data() as Menu));
-          // END NEW
 
           const voiceAliasGroups = aliasDocs.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
           const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
@@ -121,7 +117,7 @@ export const useAppStore = create<AppState>()(
           set({
             stores,
             masterProducts,
-            allMenus, // NEW
+            allMenus,
             locales,
             commands: enrichedCommands,
             isInitialized: true,
@@ -182,13 +178,12 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'localbasket-app-storage', // The key for localStorage
+      name: 'localbasket-app-storage',
       storage: createJSONStorage(() => localStorage),
-      // IMPORTANT: `appReady` is a transient state and should NOT be persisted.
       partialize: (state) => ({ 
           stores: state.stores,
           masterProducts: state.masterProducts,
-          allMenus: state.allMenus, // NEW
+          allMenus: state.allMenus,
           locales: state.locales,
           commands: state.commands,
           language: state.language,
