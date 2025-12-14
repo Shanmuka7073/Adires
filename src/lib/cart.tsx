@@ -7,7 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { signInAnonymously } from 'firebase/auth';
-import { doc, writeBatch, setDoc, collection } from 'firebase/firestore';
+import { doc, writeBatch, setDoc, collection, Timestamp } from 'firebase/firestore';
 
 export interface UnidentifiedCartItem {
   id: string;
@@ -205,8 +205,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
                     variantWeight: cartItem.variant.weight,
                 }],
                 totalAmount: cartItem.quantity * cartItem.variant.price,
-                status: 'Billed', // User is ready to pay
-                orderDate: new Date(),
+                status: 'Pending', 
+                orderDate: Timestamp.now(),
                 phone: '',
                 email: '',
             };
@@ -214,8 +214,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
         });
 
         await batch.commit();
-
-        clearCart();
 
         return { success: true, orderId: "restaurant_order" };
         
@@ -263,5 +261,3 @@ export function useCart() {
   if (!ctx) throw new Error('useCart must be used inside CartProvider');
   return ctx;
 }
-
-    
