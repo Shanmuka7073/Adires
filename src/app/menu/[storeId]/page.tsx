@@ -56,6 +56,7 @@ import { motion } from "framer-motion";
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { v4 as uuidv4 } from 'uuid';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { format } from 'date-fns';
 
 function MenuItemDialog({
   item,
@@ -290,6 +291,16 @@ function LiveBill({ sessionId, storeId }: { sessionId: string; storeId: string }
             }
         });
     };
+    
+    const formatDate = (date: any): string => {
+        if (!date) return '';
+        const jsDate = date.seconds ? new Date(date.seconds * 1000) : new Date(date);
+        try {
+            return format(jsDate, 'p'); // e.g., '8:30 PM'
+        } catch {
+            return '';
+        }
+    };
 
     return (
         <Card className="shadow-lg mt-8">
@@ -311,7 +322,10 @@ function LiveBill({ sessionId, storeId }: { sessionId: string; storeId: string }
                     <div className="space-y-4">
                         {sessionOrders.map((order, orderIndex) => (
                              <div key={order.id} className="border-b pb-2 last:border-b-0 last:pb-0">
-                                <h4 className="font-semibold text-sm mb-2 text-muted-foreground">Order #{orderIndex + 1}</h4>
+                                <div className="flex justify-between items-baseline">
+                                    <h4 className="font-semibold text-sm mb-2 text-muted-foreground">Order #{orderIndex + 1}</h4>
+                                    <p className="text-xs text-muted-foreground">{formatDate(order.orderDate)}</p>
+                                </div>
                                 <div className="space-y-1">
                                     {order.items.map((item, itemIndex) => (
                                         <div key={itemIndex} className="flex justify-between items-center text-sm">
