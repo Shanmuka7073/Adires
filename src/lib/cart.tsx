@@ -7,9 +7,10 @@ import {
   useState,
   ReactNode,
   useCallback,
+  useEffect,
 } from 'react';
 
-import type { CartItem, Product, ProductVariant, UnidentifiedCartItem } from './types';
+import type { CartItem, Product, ProductVariant, UnidentifiedCartItem, Order } from './types';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase } from '@/firebase';
 import { signInAnonymously } from 'firebase/auth';
@@ -37,7 +38,6 @@ interface CartContextType {
   updateUnidentifiedItem: (id: string, status: 'pending' | 'failed' | 'identified') => void;
   removeUnidentifiedItem: (id: string) => void;
   addIdentifiedItem: (product: Product, variant: ProductVariant, originalTerm: string) => void;
-  placeRestaurantOrder: () => Promise<void>;
   cartCount: number;
   cartTotal: number;
   activeStoreId: string | null;
@@ -126,97 +126,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
 
   const clearCart = () => setCartItems([]);
-
-  /* ---------------- PLACE ORDER (CORRECT BILL LOGIC) ---------------- */
-  const placeRestaurantOrder = async () => {
-    if (!firestore || cartItems.length === 0) return;
-
-    let currentUser = user;
-    if (!currentUser && auth) {
-      currentUser = (await signInAnonymously(auth)).user;
-    }
-
-    const base = cartItems[0];
-    if (!base.sessionId || !base.product.storeId) {
-      toast({ variant: 'destructive', title: 'Invalid session' });
-      return;
-    }
-
-    const orderId = `${base.product.storeId}_${base.sessionId}`;
-    const orderRef = doc(firestore, 'orders', orderId);
-    const snap = await getDoc(orderRef);
-
-    // Build merged items map
-    const newItemsMap: Record<string, any> = {};
-
-    cartItems.forEach(ci => {
-      const key = `${ci.product.id}_${ci.variant.sku}`;
-      if (!newItemsMap[key]) {
-        newItemsMap[key] = {
-          productId: ci.product.id,
-          productName: ci.product.name,
-          variantSku: ci.variant.sku,
-          variantWeight: ci.variant.weight,
-          price: ci.variant.price,
-          quantity: 0,
-        };
-      }
-      newItemsMap[key].quantity += ci.quantity;
-    });
-
-    const newItems = Object.values(newItemsMap);
-    const addedTotal = newItems.reduce(
-      (s: number, i: any) => s + i.price * i.quantity,
-      0
-    );
-
-    if (!snap.exists()) {
-      await setDoc(orderRef, {
-        id: orderId,
-        storeId: base.product.storeId,
-        sessionId: base.sessionId,
-        tableNumber: base.tableNumber,
-        userId: 'guest',
-        customerName: `Table ${base.tableNumber}`,
-        items: newItems,
-        totalAmount: addedTotal,
-        status: 'Pending',
-        orderDate: Timestamp.now(), // 🔒 NEVER CHANGE
-        updatedAt: Timestamp.now(),
-      });
-    } else {
-      const existing = snap.data();
-      const merged: Record<string, any> = {};
-
-      existing.items.forEach((i: any) => {
-        merged[`${i.productId}_${i.variantSku}`] = { ...i };
-      });
-
-      newItems.forEach((i: any) => {
-        const key = `${i.productId}_${i.variantSku}`;
-        if (merged[key]) {
-          merged[key].quantity += i.quantity;
-        } else {
-          merged[key] = i;
-        }
-      });
-
-      await setDoc(
-        orderRef,
-        {
-          items: Object.values(merged),
-          totalAmount: existing.totalAmount + addedTotal,
-          status: 'Pending',
-          updatedAt: Timestamp.now(),
-        },
-        { merge: true }
-      );
-    }
-
-    clearCart();
-    toast({ title: 'Order added to bill' });
-  };
-
+  
   const cartCount = cartItems.reduce((n, i) => n + i.quantity, 0);
   const cartTotal = cartItems.reduce((t, i) => t + i.quantity * i.variant.price, 0);
 
@@ -233,7 +143,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
         updateUnidentifiedItem,
         removeUnidentifiedItem,
         addIdentifiedItem,
-        placeRestaurantOrder,
         cartCount,
         cartTotal,
         activeStoreId,

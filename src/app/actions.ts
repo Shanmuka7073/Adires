@@ -3,10 +3,10 @@
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { getStorage } from 'firebase-admin/storage';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, CartItem, NluExtractedSentence } from '@/lib/types';
+import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, CartItem, NluExtractedSentence, MenuItem } from '@/lib/types';
 import { headers } from 'next/headers';
 import { getApp, getApps } from 'firebase-admin/app';
 import * as pdfjs from 'pdfjs-dist';
@@ -453,113 +453,101 @@ export async function bulkUploadRecipes(csvText: string): Promise<{ success: boo
     }
 }
 
-export async function placeRestaurantOrder(
-    cartItems: CartItem[],
-    cartTotal: number,
-    guestInfo: { name: string; phone: string; tableNumber: string },
-    idToken: string | null
-): Promise<{ success: boolean; orderId?: string; error?: string; }> {
-    try {
-        const { db, auth: adminAuth } = await getAdminServices();
+export async function addRestaurantOrderItem({
+  storeId,
+  sessionId,
+  tableNumber,
+  item,
+  quantity
+}: {
+  storeId: string;
+  sessionId: string;
+  tableNumber: string | null;
+  item: MenuItem;
+  quantity: number;
+}): Promise<{ success: boolean, error?: string }> {
+  try {
+    const { db } = await getAdminServices();
+    const orderId = `${storeId}_${sessionId}`;
+    const orderRef = db.collection('orders').doc(orderId);
+    
+    const orderItem: OrderItem = {
+      id: `${item.name.replace(/\s+/g, '-')}-${Date.now()}`,
+      orderId,
+      productId: `${storeId}-${item.name.replace(/\s+/g, '-')}`,
+      productName: item.name,
+      variantSku: 'default',
+      variantWeight: '1 pc',
+      quantity,
+      price: item.price,
+    };
 
-        if (!idToken) {
-            return { success: false, error: 'Authentication token is required.' };
-        }
+    const doc = await orderRef.get();
 
-        const decodedToken = await adminAuth.verifyIdToken(idToken);
-        const userId = decodedToken.uid;
-
-        let customerName = guestInfo.name;
-        let customerPhone = guestInfo.phone;
-        let customerEmail: string | undefined;
-
-        // If the user is NOT anonymous, try to fetch their real details
-        if (!decodedToken.isAnonymous) {
-            const userDoc = await db.collection('users').doc(userId).get();
-            if (userDoc.exists) {
-                const userDocData = userDoc.data();
-                customerName = `${userDocData?.firstName} ${userDocData?.lastName}`;
-                customerPhone = userDocData?.phoneNumber || 'N/A';
-                customerEmail = userDocData?.email;
-            }
-        }
-
-        if (cartItems.length === 0) {
-            return { success: false, error: 'Cart is empty.' };
-        }
-
-        const firstItem = cartItems[0];
-        const storeId = firstItem.product.storeId;
-        if (!storeId) {
-            return { success: false, error: 'Store ID is missing from cart items.' };
-        }
-
-        const orderRef = db.collection('orders').doc();
-        const orderData: Omit<Order, 'id'> = {
-            userId,
-            storeId: storeId,
-            customerName,
-            deliveryAddress: 'In-store pickup', // Restaurant orders are pickups
-            deliveryLat: 0,
-            deliveryLng: 0,
-            phone: customerPhone,
-            email: customerEmail || '', // Ensure email is always a string
-            tableNumber: guestInfo.tableNumber,
-            sessionId: cartItems[0].sessionId,
-            orderDate: Timestamp.now(),
-            status: 'Pending',
-            totalAmount: cartTotal,
-            items: cartItems.map(item => ({
-                productId: item.product.id,
-                productName: item.product.name,
-                variantSku: item.variant.sku,
-                variantWeight: item.variant.weight,
-                quantity: item.quantity,
-                price: item.variant.price
-            }))
-        };
-
-        await orderRef.set({ id: orderRef.id, ...orderData });
-
-        return { success: true, orderId: orderRef.id };
-
-    } catch (error: any) {
-        console.error("placeRestaurantOrder failed:", error);
-        return { success: false, error: error.message || "An unknown server error occurred." };
+    if (!doc.exists) {
+      const newOrder: Order = {
+        id: orderId,
+        storeId,
+        sessionId,
+        tableNumber,
+        userId: 'guest',
+        customerName: `Table ${tableNumber || 'N/A'}`,
+        deliveryAddress: "In-store dining",
+        deliveryLat: 0,
+        deliveryLng: 0,
+        phone: 'N/A',
+        email: 'N/A',
+        items: [orderItem],
+        totalAmount: orderItem.price * orderItem.quantity,
+        status: 'Pending',
+        orderDate: Timestamp.now(),
+      };
+      await orderRef.set(newOrder);
+    } else {
+      await orderRef.update({
+        items: FieldValue.arrayUnion(orderItem),
+        totalAmount: FieldValue.increment(orderItem.price * orderItem.quantity),
+        updatedAt: Timestamp.now(),
+        status: 'Pending' // Revert to pending if they add more items
+      });
     }
+
+    return { success: true };
+
+  } catch (error: any) {
+    console.error("addRestaurantOrderItem failed:", error);
+    return { success: false, error: error.message || "An unknown server error occurred." };
+  }
 }
 
 
-const placeholderImagesPath = path.join(process.cwd(), 'src', 'lib', 'placeholder-images.json');
-
-export async function getPlaceholderImages() {
+export async function getSiteConfig(configId: string): Promise<Partial<SiteConfig> | null> {
+    const { db } = await getAdminServices();
     try {
-        const fileContent = await fs.readFile(placeholderImagesPath, 'utf-8');
-        return JSON.parse(fileContent);
+        const docRef = db.collection('siteConfig').doc(configId);
+        const docSnap = await docRef.get();
+        if (docSnap.exists()) {
+            return docSnap.data() as SiteConfig;
+        }
+        return null;
     } catch (error) {
-        console.error('Failed to read placeholder images:', error);
-        return { placeholderImages: [] };
+        console.error("Failed to get site config:", error);
+        return null;
     }
 }
 
-export async function updatePlaceholderImages(data: any): Promise<{ success: boolean; error?: string }> {
+
+export async function updateSiteConfig(configId: string, data: Partial<SiteConfig>): Promise<{ success: boolean; error?: string }> {
+    const { db } = await getAdminServices();
     try {
-        await fs.writeFile(placeholderImagesPath, JSON.stringify(data, null, 2), 'utf-8');
+        const docRef = db.collection('siteConfig').doc(configId);
+        await docRef.set(data, { merge: true });
         return { success: true };
     } catch (error: any) {
-        console.error('Failed to write placeholder images:', error);
+        console.error("Failed to update site config:", error);
         return { success: false, error: error.message };
     }
 }
-
-export async function uploadPwaIcon(formData: FormData): Promise<{ success: boolean; icon192Url?: string, icon512Url?: string; error?: string }> {
-  // This function is complex and requires libraries like 'sharp' for image resizing,
-  // which are not available in this environment. A full implementation is not feasible here.
-  // This is a placeholder demonstrating the expected logic.
-  console.log("uploadPwaIcon called, but image processing is not available in this environment.");
-  return { success: true, icon192Url: '/icon-192x192.png', icon512Url: '/icon-512x512.png' };
-}
-
 
 // A simplified function to extract sentences from a PDF buffer.
 async function extractSentencesFromPdf(pdfBuffer: Buffer): Promise<string[]> {
@@ -649,35 +637,6 @@ export async function rejectRule(sentenceId: string): Promise<{ success: boolean
         await ruleRef.update({ status: 'rejected' });
         return { success: true };
     } catch (error: any) {
-        return { success: false, error: error.message };
-    }
-}
-
-
-export async function getSiteConfig(configId: string): Promise<Partial<SiteConfig> | null> {
-    const { db } = await getAdminServices();
-    try {
-        const docRef = db.collection('siteConfig').doc(configId);
-        const docSnap = await docRef.get();
-        if (docSnap.exists()) {
-            return docSnap.data() as SiteConfig;
-        }
-        return null;
-    } catch (error) {
-        console.error("Failed to get site config:", error);
-        return null;
-    }
-}
-
-
-export async function updateSiteConfig(configId: string, data: Partial<SiteConfig>): Promise<{ success: boolean; error?: string }> {
-    const { db } = await getAdminServices();
-    try {
-        const docRef = db.collection('siteConfig').doc(configId);
-        await docRef.set(data, { merge: true });
-        return { success: true };
-    } catch (error: any) {
-        console.error("Failed to update site config:", error);
         return { success: false, error: error.message };
     }
 }

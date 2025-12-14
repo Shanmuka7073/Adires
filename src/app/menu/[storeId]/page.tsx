@@ -77,217 +77,7 @@ import { format } from 'date-fns';
 import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import Link from 'next/link';
-import { useCart } from '@/lib/cart';
-
-
-/* -------------------------------------------------------------------------- */
-/*                               MENU ITEM DIALOG                             */
-/* -------------------------------------------------------------------------- */
-
-function MenuItemDialog({
-  item,
-  storeId,
-  tableNumber,
-  sessionId,
-  isOpen,
-  onClose,
-}: {
-  item: MenuItem;
-  storeId: string;
-  tableNumber: string | null;
-  sessionId: string;
-  isOpen: boolean;
-  onClose: () => void;
-}) {
-  const { addItem, placeRestaurantOrder } = useCart();
-  const { toast } = useToast();
-  const [quantity, setQuantity] = useState(1);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [details, setDetails] = useState<GetIngredientsOutput | null>(null);
-  const { firestore } = useFirebase();
-  const [image, setImage] = useState({ imageUrl: '', imageHint: '' });
-  const [isPlacingOrder, startPlacingOrder] = useTransition();
-
-  useEffect(() => {
-    if (isOpen) {
-      setIsGenerating(true);
-      const fetchDetails = async () => {
-        try {
-          if (firestore) {
-            const cached = await getCachedRecipe(firestore, item.name, 'en');
-            if (cached && Object.keys(cached).length > 0) {
-              setDetails(cached);
-              return;
-            }
-          }
-
-          const dishDetails = await getIngredientsForDish({ dishName: item.name, language: 'en' });
-          if (dishDetails.isSuccess) {
-            setDetails(dishDetails);
-            if (firestore) {
-              await cacheRecipe(firestore, item.name, 'en', dishDetails);
-            }
-          } else {
-            toast({ variant: 'destructive', title: 'Could not fetch details' });
-          }
-        } catch (e) {
-          console.error('Failed to get dish details:', e);
-          toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch dish details.' });
-        } finally {
-          setIsGenerating(false);
-        }
-      };
-
-      const fetchImage = async () => {
-        try {
-            const unsplashUrl = `https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop&q=80&seed=${encodeURIComponent(item.name)}`;
-            setImage({ imageUrl: unsplashUrl, imageHint: item.name });
-        } catch (error) {
-            console.error("Failed to get image", error);
-        }
-      };
-      
-      fetchDetails();
-      fetchImage();
-    }
-  }, [isOpen, item.name, firestore, toast]);
-
-  const handleOrder = () => {
-      startPlacingOrder(async () => {
-          addItem(
-            {
-              id: `${storeId}-${item.name}`,
-              name: item.name,
-              description: item.description || '',
-              storeId,
-              category: item.category,
-              imageId: 'cat-restaurant',
-              isMenuItem: true,
-              price: item.price,
-            },
-            {
-              sku: `${storeId}-${item.name.replace(/\s+/g, '-')}-default`,
-              weight: '1 pc',
-              price: item.price,
-              stock: 99,
-            },
-            quantity,
-            tableNumber ?? undefined,
-            sessionId
-          );
-          // Wait for state to update, then place order
-          setTimeout(() => {
-            placeRestaurantOrder();
-            onClose();
-          }, 100)
-      })
-  };
-
-  const formatScaledQuantity = (ingredient: Ingredient) => {
-    if (ingredient.baseQuantity && ingredient.unit) {
-      const scaledQuantity = ingredient.baseQuantity * quantity;
-      const unit = ingredient.unit === 'pc' && scaledQuantity > 1 ? 'pcs' : ingredient.unit;
-      return `${scaledQuantity.toFixed(0)}${unit}`;
-    }
-    return ingredient.quantity;
-  };
-
-  const scaledNutrition = useMemo(() => {
-    if (!details?.nutrition) return { calories: 0, protein: 0 };
-    return {
-      calories: Math.round(details.nutrition.calories * quantity),
-      protein: Math.round(details.nutrition.protein * quantity),
-    };
-  }, [details, quantity]);
-
-  const hasShellfish = item.name.toLowerCase().includes('prawn');
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md p-0">
-        <div className="relative h-48 w-full">
-            {image.imageUrl ? (
-                <Image
-                    src={image.imageUrl}
-                    alt={item.name}
-                    fill
-                    className="object-cover rounded-t-lg"
-                    data-ai-hint={image.imageHint}
-                />
-            ) : <Skeleton className="w-full h-full" />}
-        </div>
-        <div className="p-6 space-y-4">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">{item.name}</DialogTitle>
-          </DialogHeader>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" onClick={() => setQuantity(q => Math.max(1, q - 1))}><Minus className="h-4 w-4" /></Button>
-              <Input type="number" value={quantity} onChange={e => setQuantity(parseInt(e.target.value) || 1)} className="w-16 h-10 text-center text-lg font-bold" />
-              <Button variant="outline" size="icon" onClick={() => setQuantity(q => q + 1)}><Plus className="h-4 w-4" /></Button>
-            </div>
-            <p className="text-3xl font-extrabold text-primary">₹{(item.price * quantity).toFixed(2)}</p>
-          </div>
-
-          {isGenerating ? (
-            <div className="space-y-4">
-               <Skeleton className="h-4 w-3/4" />
-               <Skeleton className="h-4 w-1/2" />
-               <Skeleton className="h-10 w-full" />
-            </div>
-          ) : details && details.isSuccess ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1 font-medium">
-                  <Flame className="h-4 w-4 text-orange-500" />
-                  <span>{scaledNutrition.calories} kcal</span>
-                </div>
-                <div className="flex items-center gap-1 font-medium">
-                  <Zap className="h-4 w-4 text-yellow-500" />
-                  <span>{scaledNutrition.protein}g Protein</span>
-                </div>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-2 flex items-center gap-2">
-                   <Salad className="h-5 w-5 text-green-600"/>
-                   Main Ingredients (per serving)
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {details.ingredients.slice(0, 5).map(ing => (
-                    <Badge key={ing.name} variant="secondary">{ing.name} ({formatScaledQuantity(ing)})</Badge>
-                  ))}
-                  {hasShellfish && <Badge variant="destructive" className="bg-red-100 text-red-800">🦐 Contains Shellfish</Badge>}
-                </div>
-                <p className="text-xs text-gray-500 mt-2">Ingredients & nutrition values are approximate per serving.</p>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Info className="h-4 w-4" />
-              <p>Ingredient and calorie information not available.</p>
-            </div>
-          )}
-
-          <Button onClick={handleOrder} disabled={isPlacingOrder} className="w-full h-12 text-lg">
-             {isPlacingOrder && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-            <ShoppingCart className="mr-2 h-5 w-5" />
-            Add to Bill
-          </Button>
-           <div className="flex items-center justify-center gap-4">
-            <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
-              <Link href={`/live-order/${storeId}`}>
-                <Eye className="mr-2 h-4 w-4" />
-                See preparation
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
+import { addRestaurantOrderItem } from '@/app/actions';
 
 /* -------------------------------------------------------------------------- */
 /*                                   LIVE BILL                                */
@@ -323,6 +113,21 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
   if (isLoading) {
     return <Loader2 className="animate-spin mx-auto" />;
   }
+  
+  if (!order || !order.items?.length) {
+      return (
+          <Card className="mt-6">
+              <CardHeader>
+                   <CardTitle className="flex items-center gap-2">
+                      <Receipt /> Live Bill
+                    </CardTitle>
+              </CardHeader>
+              <CardContent>
+                  <p className="text-muted-foreground text-center">No orders yet. Add an item to start a bill.</p>
+              </CardContent>
+          </Card>
+      )
+  }
 
   return (
     <Card className="mt-6">
@@ -333,10 +138,6 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
       </CardHeader>
 
       <CardContent>
-        {!order || !order.items?.length ? (
-          <p className="text-muted-foreground text-center">No orders yet. Add an item to start a bill.</p>
-        ) : (
-          <>
             {order.items.map((it, idx) => (
               <div key={idx} className="border-b py-2 flex justify-between text-sm">
                 <span>{it.productName} × {it.quantity}</span>
@@ -385,8 +186,6 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
                 </AlertDialog>
               )}
             </div>
-          </>
-        )}
       </CardContent>
     </Card>
   );
@@ -402,7 +201,8 @@ export default function PublicMenuPage() {
   const tableNumber = useSearchParams().get('table');
   const { firestore } = useFirebase();
 
-  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const { toast } = useToast();
+  const [isAdding, startAdding] = useTransition();
   const [sessionId, setSessionId] = useState('');
 
   useEffect(() => {
@@ -439,6 +239,31 @@ export default function PublicMenuPage() {
     }, {} as Record<string, MenuItem[]>)
   }, [menu]);
 
+  const handleAddItem = (item: MenuItem) => {
+    startAdding(async () => {
+      const result = await addRestaurantOrderItem({
+        storeId,
+        sessionId,
+        tableNumber,
+        item,
+        quantity: 1,
+      });
+
+      if (result.success) {
+        toast({
+          title: "Added to Bill",
+          description: `${item.name} has been added to your live bill.`,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Failed to Add Item",
+          description: result.error || "An unknown error occurred.",
+        });
+      }
+    });
+  };
+
   if (storeLoading || menuLoading) return (
       <div className="p-4 space-y-4">
         <Skeleton className="h-8 w-1/2" />
@@ -451,19 +276,7 @@ export default function PublicMenuPage() {
   if (!store || !menu) return <div className="p-4 text-center">Menu not found.</div>;
 
   return (
-    <>
-      {selectedItem && (
-        <MenuItemDialog
-          item={selectedItem}
-          storeId={storeId}
-          tableNumber={tableNumber}
-          sessionId={sessionId}
-          isOpen={!!selectedItem}
-          onClose={() => setSelectedItem(null)}
-        />
-      )}
-
-       <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50">
         <div className="container mx-auto py-8 px-4 md:px-6">
           <Card className="max-w-2xl mx-auto shadow-lg">
             <CardHeader className="text-center">
@@ -483,8 +296,9 @@ export default function PublicMenuPage() {
                             {items.map((item, index) => (
                                 <button
                                     key={index}
-                                    onClick={() => setSelectedItem(item)}
-                                    className="w-full flex justify-between items-center py-2 text-left hover:bg-muted/50 rounded-md px-2"
+                                    onClick={() => handleAddItem(item)}
+                                    disabled={isAdding}
+                                    className="w-full flex justify-between items-center py-2 text-left hover:bg-muted/50 rounded-md px-2 transition-colors disabled:opacity-50"
                                 >
                                     <p className="font-medium text-gray-800">{item.name}</p>
                                     <p className="font-semibold text-gray-600">₹{item.price.toFixed(2)}</p>
@@ -497,6 +311,5 @@ export default function PublicMenuPage() {
           </Card>
         </div>
       </div>
-    </>
   );
 }
