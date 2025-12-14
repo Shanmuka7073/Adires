@@ -72,6 +72,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
+import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import Link from 'next/link';
 
 /* -------------------------------------------------------------------------- */
@@ -102,60 +103,85 @@ function MenuItemDialog({
 
   useEffect(() => {
     if (isOpen && !details) {
+      if (!firestore) return;
+
       setIsGenerating(true);
-      getIngredientsForDish({ dishName: item.name, language: 'en' })
-        .then(setDetails)
-        .catch(e => {
-          console.error('Failed to get dish details:', e);
-          toast({
-            variant: 'destructive',
-            title: 'Could not fetch details',
-            description: 'The AI is currently unavailable. Please try again later.',
-          });
-        })
-        .finally(() => setIsGenerating(false));
+      
+      const fetchDetails = async () => {
+        try {
+            // 1. Check cache first
+            const cached = await getCachedRecipe(firestore, item.name, 'en');
+            if (cached) {
+                setDetails(cached);
+                toast({ title: "Details loaded from cache." });
+                return; // Exit if found in cache
+            }
+
+            // 2. If not in cache, call AI
+            const dishDetails = await getIngredientsForDish({ dishName: item.name, language: 'en' });
+            if (dishDetails.isSuccess) {
+                setDetails(dishDetails);
+                // 3. Cache the new result for next time
+                await cacheRecipe(firestore, item.name, 'en', dishDetails);
+            } else {
+                 toast({
+                    variant: "destructive",
+                    title: "Could not fetch details",
+                    description: "The AI is currently unavailable. Please try again later."
+                });
+            }
+        } catch (e) {
+            console.error("Failed to get dish details:", e);
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "An unexpected error occurred while fetching details."
+            });
+        } finally {
+            setIsGenerating(false);
+        }
+      };
+      
+      fetchDetails();
     }
-  }, [isOpen, item.name, details, toast]);
+  }, [isOpen, item.name, details, toast, firestore]);
 
   const placeOrder = () => {
     if (!firestore) return;
 
     startSaving(async () => {
       const orderId = uuidv4();
-      
+
       const orderItem: OrderItem = {
         productId: `${storeId}-${item.name.replace(/\s+/g, '-')}`,
         productName: item.name,
-        quantity: quantity,
+        quantity,
         price: item.price,
         variantSku: `${item.name.replace(/\s+/g, '-')}-default`,
         variantWeight: '1 serving',
       };
 
-      const order: Omit<Order, 'orderDate' | 'items'> & { orderDate: Timestamp; items: OrderItem[] } = {
+      const order: Omit<Order, 'orderDate' | 'items' | 'deliveryAddress' | 'phone' | 'email' | 'deliveryLat' | 'deliveryLng' > & { orderDate: Timestamp; items: OrderItem[] } = {
         id: orderId,
         storeId,
         sessionId,
-        tableNumber: tableNumber || null,
+        tableNumber: tableNumber ?? null,
         userId: 'guest',
         customerName: `Table ${tableNumber || 'Guest'}`,
         orderDate: Timestamp.now(),
         status: 'Pending',
         totalAmount: item.price * quantity,
         items: [orderItem],
-        deliveryAddress: '',
-        deliveryLat: 0,
-        deliveryLng: 0,
-        phone: '',
-        email: '',
       };
 
       try {
         await setDoc(doc(firestore, 'orders', orderId), order);
+
         toast({
           title: 'Order sent to kitchen!',
           description: `${quantity} × ${item.name}`,
         });
+
         onClose();
       } catch (err) {
         console.error(err);
@@ -329,9 +355,21 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
         </Card>
     )
   }
-
+  
   if (isLoading && (!orders || orders.length === 0)) {
-    return <div className="text-center text-muted-foreground py-4">Loading your bill...</div>;
+      return (
+          <Card className="mt-6">
+              <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Receipt /> Live Bill
+                  </CardTitle>
+              </CardHeader>
+              <CardContent className="text-center text-muted-foreground py-8">
+                  <Loader2 className="mx-auto h-6 w-6 animate-spin" />
+                  <p className="mt-2">Loading your bill...</p>
+              </CardContent>
+          </Card>
+      );
   }
 
   return (
