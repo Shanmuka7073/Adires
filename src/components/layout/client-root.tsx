@@ -28,10 +28,10 @@ function useInitializeApp() {
 
     useEffect(() => {
         // If data is already in the store (from persisted state), the app is ready.
-        if (stores.length > 0 && isInitialized) {
+        if (isInitialized) {
             setAppReady(true);
-            // Optionally, you can still fetch data in the background to get updates
-            if (firestore) {
+             if (firestore && !loading) {
+                // Fetch in the background for updates if not already loading.
                 fetchInitialData(firestore);
             }
             return;
@@ -47,12 +47,13 @@ function useInitializeApp() {
 
 function AppContent({ children }: { children: React.ReactNode }) {
     useInitializeApp();
-    const { appReady } = useAppStore();
+    const { appReady, isInitialized } = useAppStore();
     const pathname = usePathname();
 
     const isMenuPage = pathname.startsWith('/menu/');
-
-    if (!appReady) {
+    
+    // Show loader if the app is not ready OR if it's not initialized yet.
+    if (!appReady || !isInitialized) {
         return <GlobalLoader />;
     }
 
