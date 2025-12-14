@@ -109,7 +109,7 @@ function MenuItemDialog({
         try {
           if (firestore) {
             const cached = await getCachedRecipe(firestore, item.name, 'en');
-            if (cached) {
+            if (cached && Object.keys(cached).length > 0) {
               setDetails(cached);
               toast({ title: 'Details loaded from cache.' });
               return;
@@ -278,7 +278,7 @@ function MenuItemDialog({
 }
 
 
-function LiveBill({ storeId, sessionId, cartItems, onBillClosed }: { storeId: string; sessionId: string; cartItems: CartItem[], onBillClosed: () => void }) {
+function LiveBill({ cartItems, onBillClosed }: { cartItems: CartItem[], onBillClosed: () => void }) {
   const [closing, startClose] = useTransition();
 
   const total = useMemo(
@@ -344,7 +344,7 @@ export default function PublicMenuPage() {
   const { storeId } = useParams<{ storeId: string }>();
   const tableNumber = useSearchParams().get('table');
   const { firestore } = useFirebase();
-  const { cartItems, placeRestaurantOrder, clearCart } = useCart();
+  const { cartItems, placeRestaurantOrder } = useCart();
   const { toast } = useToast();
 
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
@@ -375,7 +375,7 @@ export default function PublicMenuPage() {
   const menu = menus?.[0];
 
   const handleCloseBill = async () => {
-    const result = await placeRestaurantOrder(); // This now handles writing all cart items
+    const result = await placeRestaurantOrder();
     if(result.success) {
       toast({ title: 'Bill Closed', description: 'Please wait for the cashier to confirm payment.' });
     }
@@ -390,6 +390,10 @@ export default function PublicMenuPage() {
         return acc;
     }, {} as Record<string, MenuItem[]>)
   }, [menu]);
+  
+  const relevantCartItems = useMemo(() => {
+      return cartItems.filter(item => item.sessionId === sessionId);
+  }, [cartItems, sessionId]);
 
   if (storeLoading || menuLoading) return (
       <div className="p-4 space-y-4">
@@ -426,7 +430,7 @@ export default function PublicMenuPage() {
                 {tableNumber && <Badge className="mx-auto mt-2">Table {tableNumber}</Badge>}
             </CardHeader>
             <CardContent className="space-y-6">
-                {sessionId && <LiveBill storeId={storeId} sessionId={sessionId} cartItems={cartItems} onBillClosed={handleCloseBill} />}
+                {sessionId && <LiveBill cartItems={relevantCartItems} onBillClosed={handleCloseBill} storeId={storeId} sessionId={sessionId} />}
 
                 {Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
                     <div key={category}>

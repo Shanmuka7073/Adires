@@ -8,7 +8,7 @@ import { placeRestaurantOrder as placeRestaurantOrderAction } from '@/app/action
 import { useFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { signInAnonymously } from 'firebase/auth';
-import { doc, writeBatch } from 'firebase/firestore';
+import { doc, writeBatch, setDoc, collection } from 'firebase/firestore';
 
 export interface UnidentifiedCartItem {
   id: string;
@@ -93,7 +93,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         if (existing) {
           return prev.map(i =>
             i.variant.sku === variant.sku
-              ? { ...i, quantity: i.quantity + quantity }
+              ? { ...i, quantity: i.quantity + quantity, tableNumber: tableNumber || i.tableNumber, sessionId: sessionId || i.sessionId }
               : i
           );
         }
@@ -159,9 +159,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 
   const clearCart = useCallback(() => {
-    setCartItems([]);
+    // Only clear non-restaurant items, or everything if no restaurant items exist
+    setCartItems(prev => {
+        const restaurantItems = prev.filter(item => item.product.isMenuItem);
+        if (restaurantItems.length > 0) {
+            // If there's a restaurant session, only clear grocery items
+            return restaurantItems;
+        }
+        // Otherwise, clear everything
+        setActiveStoreId(null);
+        return [];
+    });
     setUnidentifiedItems([]);
-    setActiveStoreId(null);
   }, []);
   
   const placeRestaurantOrder = async () => {
@@ -177,38 +186,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
             const userCredential = await signInAnonymously(auth);
             currentUser = userCredential.user;
         }
-
+        
         const idToken = await currentUser.getIdToken();
-        const firstItem = cartItems[0];
-        const storeId = firstItem.product.storeId;
-        const sessionId = firstItem.sessionId;
-        const tableNumber = firstItem.tableNumber;
-        const totalAmount = cartItems.reduce((t, i) => t + i.quantity * i.variant.price, 0);
-
-        const orderData: Omit<Order, 'id' | 'orderDate' | 'items'> = {
-            storeId: storeId,
-            sessionId: sessionId,
-            tableNumber: tableNumber,
-            userId: 'guest',
-            customerName: `Table ${tableNumber || 'Guest'}`,
-            deliveryAddress: "In-store dining",
-            deliveryLat: 0,
-            deliveryLng: 0,
-            phone: '',
-            email: '',
-            status: 'Billed',
-            totalAmount: totalAmount,
-        };
-
         const batch = writeBatch(firestore);
 
-        cartItems.forEach(cartItem => {
+        const sessionOrders = cartItems.filter(item => item.sessionId && item.product.isMenuItem);
+
+        sessionOrders.forEach(cartItem => {
             const orderRef = doc(collection(firestore, 'orders'));
             const order: Order = {
-                ...orderData,
                 id: orderRef.id,
-                totalAmount: cartItem.quantity * cartItem.variant.price,
-                orderDate: new Date(),
+                storeId: cartItem.product.storeId,
+                sessionId: cartItem.sessionId,
+                tableNumber: cartItem.tableNumber,
+                userId: 'guest',
+                customerName: `Table ${cartItem.tableNumber || 'Guest'}`,
+                deliveryAddress: "In-store dining",
+                deliveryLat: 0,
+                deliveryLng: 0,
                 items: [{
                     id: doc(collection(firestore, `orders/${orderRef.id}/orderItems`)).id,
                     orderId: orderRef.id,
@@ -218,13 +213,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
                     price: cartItem.variant.price,
                     variantSku: cartItem.variant.sku,
                     variantWeight: cartItem.variant.weight,
-                }]
+                }],
+                totalAmount: cartItem.quantity * cartItem.variant.price,
+                status: 'Billed', // User is ready to pay
+                orderDate: new Date(),
+                phone: '',
+                email: '',
             };
             batch.set(orderRef, order);
         });
 
         await batch.commit();
-        clearCart();
+
+        // **FIX**: Do NOT clear the cart here. The bill should remain visible.
+        // The cart will be cleared when the owner confirms payment and the session ends.
         return { success: true, orderId: "restaurant_order" };
         
     } catch (error: any) {
