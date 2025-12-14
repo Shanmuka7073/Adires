@@ -8,6 +8,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { useAppStore } from '@/lib/store';
 import GlobalLoader from './global-loader';
 import { InstallProvider } from '@/components/install-provider';
+import { usePathname } from 'next/navigation';
 
 /**
  * This hook is responsible for making sure the application's essential
@@ -44,17 +45,30 @@ function useInitializeApp() {
 function AppContent({ children }: { children: React.ReactNode }) {
     // Initialize data in the background. This no longer blocks rendering.
     useInitializeApp();
+    const pathname = usePathname();
 
-    return (
+    // Check if the current route is a menu page
+    const isMenuPage = pathname.startsWith('/menu/');
+
+    const content = (
         <InstallProvider>
             <CartProvider>
-                <MainLayout>
-                    {children}
-                </MainLayout>
+                {isMenuPage ? (
+                    <>
+                        {children}
+                        <Toaster />
+                    </>
+                ) : (
+                    <MainLayout>
+                        {children}
+                    </MainLayout>
+                )}
                 <Toaster />
             </CartProvider>
         </InstallProvider>
     );
+
+    return content;
 }
 
 export function ClientRoot({ children }: { children: React.ReactNode }) {
