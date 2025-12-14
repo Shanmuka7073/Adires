@@ -2,7 +2,7 @@
 'use client';
 
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
-import type { CartItem, Product, ProductVariant } from './types';
+import type { CartItem, Product, ProductVariant, OrderItem } from './types';
 import { useToast } from '@/hooks/use-toast';
 import { placeRestaurantOrder as placeRestaurantOrderAction } from '@/app/actions';
 import { useFirebase } from '@/firebase';
@@ -184,7 +184,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const idToken = await currentUser.getIdToken();
         const cartTotalValue = cartItems.reduce((t, i) => t + i.quantity * i.variant.price, 0);
 
-        // This ensures guestInfo is not undefined when calling the action
         if (!finalGuestInfo) {
              throw new Error("Guest information is required to place an order.");
         }
@@ -197,7 +196,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 description: 'Your order has been sent to the kitchen.',
             });
             clearCart();
-            router.push(`/order-confirmation?orderId=${result.orderId}`);
+            // We no longer redirect, keeping the user on the menu page.
         } else {
             throw new Error(result.error || 'Could not place your order.');
         }
