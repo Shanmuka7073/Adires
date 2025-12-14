@@ -3,6 +3,8 @@
 
 import { Firestore, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import type { CachedRecipe, GetIngredientsOutput } from './types';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 /**
  * Retrieves a cached recipe from Firestore.
@@ -75,6 +77,19 @@ export async function cacheRecipe(db: Firestore, dishName: string, language: 'en
         createdAt: serverTimestamp(),
     };
 
-    // Return the promise from setDoc
-    return setDoc(docRef, recipeData);
+    // Use a .catch block to handle permissions errors and emit a detailed error.
+    return setDoc(docRef, recipeData)
+        .catch(error => {
+            console.error("Firestore cache write failed:", error);
+            const permissionError = new FirestorePermissionError({
+                path: docRef.path,
+                operation: 'create',
+                requestResourceData: recipeData,
+            });
+            // Emit the detailed error for better debugging.
+            errorEmitter.emit('permission-error', permissionError);
+            // Propagate the original error so the UI can still handle it.
+            throw error;
+        });
 }
+
