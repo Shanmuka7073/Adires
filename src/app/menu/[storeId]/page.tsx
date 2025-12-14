@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import {
   collection,
   query,
@@ -24,10 +24,12 @@ import type {
   OrderItem,
   GetIngredientsOutput,
   Ingredient,
+  Product,
+  ProductVariant
 } from '@/lib/types';
 
 import { useParams, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition, useRef } from 'react';
 import Image from 'next/image';
 import { v4 as uuidv4 } from 'uuid';
 
