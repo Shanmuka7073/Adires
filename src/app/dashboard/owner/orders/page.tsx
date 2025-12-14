@@ -21,7 +21,6 @@ import {
   Truck,
   CheckCircle,
   AlertTriangle,
-  Store as StoreIcon,
   Loader2,
   Check,
   Package,
@@ -35,6 +34,7 @@ import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { format } from 'date-fns';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const STATUS_META: Record<string, any> = {
   Pending: { icon: AlertTriangle, variant: 'secondary' },
