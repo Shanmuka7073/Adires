@@ -14,7 +14,7 @@ import { t } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection, query, where, getDocs, writeBatch, arrayUnion, setDoc, limit } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
-import { useCheckoutStore } from '@/app/checkout/page';
+import { useCheckoutStore } from '@/lib/checkout-store';
 import { useProfileFormStore, ProfileFormValues } from '@/lib/store';
 import { getWikipediaSummary, getMealDbRecipe } from '@/app/actions';
 import { useVoiceCommanderContext } from './main-layout';
@@ -538,7 +538,7 @@ const findProductAndVariant = useCallback(
         } else {
             for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
                 const similarity = calculateSimilarity(productPhrase, alias);
-                if (similarity > 0.7 && (!bestMatch || similarity > bestMatch.score)) {
+                if (similarity > 0.7 && (!bestMatch || similarity > bestMatch.similarity)) {
                     bestMatch = { product, alias, score: similarity, lang };
                 }
             }
@@ -1043,7 +1043,7 @@ const findProductAndVariant = useCallback(
       myProfile: (params: {lang: string}) => router.push('/dashboard/customer/my-profile'),
       managePacks: (params: {lang: string}) => router.push('/dashboard/owner/packs'),
       'recipe-tester': (params: {lang: string}) => router.push('/dashboard/admin/recipe-tester'),
-      installApp: (params: {lang: string}) => onInstallApp(),
+      installApp: onInstallApp,
 
       'get-recipe': async ({ dishName, lang }: { dishName: string, lang: string }) => {
         const replyLang = lang;
