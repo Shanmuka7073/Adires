@@ -49,6 +49,7 @@ import { cn } from '@/lib/utils';
 import { getStoreImage } from '@/lib/data';
 import { motion } from "framer-motion";
 import { Label } from '@/components/ui/label';
+import { cacheRecipe } from '@/lib/recipe-cache'; // Import the cache function
 
 function MenuItemDialog({
   item,
@@ -65,6 +66,7 @@ function MenuItemDialog({
 }) {
   const { addItem } = useCart();
   const { toast } = useToast();
+  const { firestore } = useFirebase();
   const [quantity, setQuantity] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [details, setDetails] = useState<GetIngredientsOutput | null>(null);
@@ -73,7 +75,13 @@ function MenuItemDialog({
     if (isOpen && !details) {
       setIsGenerating(true);
       getIngredientsForDish({ dishName: item.name, language: 'en' })
-        .then(setDetails)
+        .then(dishDetails => {
+          setDetails(dishDetails);
+          // If successful and we have a firestore instance, cache the result
+          if (dishDetails.isSuccess && firestore) {
+              cacheRecipe(firestore, item.name, 'en', dishDetails);
+          }
+        })
         .catch((e) => {
           console.error("Failed to get dish details:", e);
           toast({
@@ -84,7 +92,7 @@ function MenuItemDialog({
         })
         .finally(() => setIsGenerating(false));
     }
-  }, [isOpen, details, item.name, toast]);
+  }, [isOpen, item.name, details, toast, firestore]);
 
   const handleAddToCart = () => {
     const product: Product = {
@@ -266,7 +274,7 @@ function MenuHeader({ store, tableNumber }: { store: Store, tableNumber: string 
     return (
         <div className="relative h-40 w-full">
             {isLoading ? <Skeleton className="w-full h-full" /> : (
-                 <Image src={image.imageUrl} alt={store.name} layout="fill" className="object-cover" />
+                 <Image src={image.imageUrl} alt={store.name} fill className="object-cover" />
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent" />
             <div className="absolute bottom-0 left-0 p-4 text-white">
@@ -499,5 +507,3 @@ export default function PublicMenuPage() {
     </>
   );
 }
-
-    

@@ -56,7 +56,7 @@ Raw Instructions:
 
 3.  **Estimate Nutrition**: Provide a realistic estimate for \`calories\` and \`protein\` for a single serving of this dish.
 
-4.  **Final Output**: Return the final structured JSON, with \`isSuccess\` set to true.
+4.  **Final Output**: Return the final structured JSON, with \`isSuccess\` set to true and a title for the dish.
 `,
 });
 
@@ -73,7 +73,7 @@ Instructions:
 1.  **Generate Ingredients**: Create a realistic list of ingredients for a single serving. For each, specify the \`name\`, full \`quantity\` string, a numeric \`baseQuantity\`, and the \`unit\` (e.g., 'g', 'ml', 'pc').
 2.  **Generate Instructions**: Write clear, step-by-step cooking instructions, grouped into logical steps with titles.
 3.  **Estimate Nutrition**: Provide realistic \`calories\` and \`protein\` estimates for one serving.
-4.  **Format Output**: Return the entire recipe in the specified JSON format. Ensure \`isSuccess\` is true.
+4.  **Format Output**: Return the entire recipe in the specified JSON format. Ensure \`isSuccess\` is true and include a 'title' for the dish.
 `,
 });
 
