@@ -11,6 +11,8 @@ import type {
   Product,
   ProductVariant,
   Ingredient,
+  Order,
+  OrderItem,
 } from '@/lib/types';
 import { useParams, useSearchParams } from 'next/navigation';
 import {
@@ -32,6 +34,7 @@ import {
   Clock,
   MapPin,
   Check,
+  Receipt,
 } from 'lucide-react';
 import { useMemo, useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
@@ -48,8 +51,8 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { getStoreImage } from '@/lib/data';
 import { motion } from "framer-motion";
-import { Label } from '@/components/ui/label';
-import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache'; // Import cache functions
+import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
+import { v4 as uuidv4 } from 'uuid';
 
 function MenuItemDialog({
   item,
@@ -57,16 +60,18 @@ function MenuItemDialog({
   isOpen,
   onClose,
   tableNumber,
+  sessionId,
 }: {
   item: MenuItem;
   storeId: string;
   isOpen: boolean;
   onClose: () => void;
   tableNumber: string | null;
+  sessionId: string;
 }) {
   const { addItem } = useCart();
   const { toast } = useToast();
-  const { firestore } = useFirebase(); // Get firestore instance
+  const { firestore } = useFirebase();
   const [quantity, setQuantity] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [details, setDetails] = useState<GetIngredientsOutput | null>(null);
@@ -78,42 +83,24 @@ function MenuItemDialog({
         try {
           if (!firestore) throw new Error("Firestore not available");
           
-          // 1. Check cache first
           const cached = await getCachedRecipe(firestore, item.name, 'en');
           if (cached && cached.isSuccess) {
             setDetails(cached);
-            toast({ title: "Recipe details loaded from cache!" });
             return;
           }
 
-          // 2. If not in cache, call AI
           const dishDetails = await getIngredientsForDish({ dishName: item.name, language: 'en' });
           
           if (dishDetails.isSuccess) {
             setDetails(dishDetails);
-            // 3. Save successful result to cache
-            await cacheRecipe(firestore, item.name, 'en', dishDetails)
-                .then(() => {
-                     toast({ title: 'Success', description: 'Recipe has been cached for future use.'});
-                })
-                .catch((e) => {
-                     toast({ variant: 'destructive', title: 'Cache Failed', description: `Could not save recipe to cache: ${e.message}` });
-                });
+            await cacheRecipe(firestore, item.name, 'en', dishDetails);
           } else {
-             toast({
-              variant: "destructive",
-              title: "Details Unavailable",
-              description: "We couldn’t load ingredient details right now, but you can still order the item.",
-            });
+             toast({ variant: "destructive", title: "Details Unavailable" });
           }
 
         } catch (e) {
           console.error("Failed to get dish details:", e);
-          toast({
-            variant: "destructive",
-            title: "Details Unavailable",
-            description: "We couldn’t load ingredient details right now, but you can still order the item.",
-          });
+          toast({ variant: "destructive", title: "Details Unavailable" });
         } finally {
           setIsGenerating(false);
         }
@@ -141,7 +128,7 @@ function MenuItemDialog({
       stock: 99,
     };
 
-    addItem(product, variant, quantity, tableNumber || undefined);
+    addItem(product, variant, quantity, tableNumber || undefined, sessionId);
     toast({ title: 'Added to Cart', description: `${quantity} × ${item.name}` });
     onClose();
   };
@@ -236,14 +223,6 @@ function MenuItemDialog({
             <ShoppingCart className="mr-2 h-5 w-5" /> Add to Cart
           </Button>
 
-          <div className="flex items-center justify-center gap-4">
-            <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
-              <Link href={`/live-order/${storeId}`}>
-                <Eye className="mr-2 h-4 w-4" /> See preparation
-              </Link>
-            </Button>
-          </div>
-
           <p className="text-xs text-center text-muted-foreground italic flex justify-center gap-2">
             <Mic className="h-4 w-4" /> Say “add {item.name.toLowerCase()}” to order
           </p>
@@ -253,32 +232,71 @@ function MenuItemDialog({
   );
 }
 
-function QuickLinks({ categories, onLinkClick, activeFilter }: { categories: string[], onLinkClick: (category: string) => void, activeFilter: string | null }) {
-    const scrollRef = useRef<HTMLDivElement>(null);
+function LiveBill({ sessionId, storeId }: { sessionId: string; storeId: string }) {
+    const { firestore } = useFirebase();
+
+    const sessionOrdersQuery = useMemoFirebase(() => {
+        if (!firestore || !sessionId) return null;
+        return query(
+            collection(firestore, 'orders'),
+            where('sessionId', '==', sessionId),
+            where('storeId', '==', storeId)
+        );
+    }, [firestore, sessionId, storeId]);
+
+    const { data: sessionOrders, isLoading } = useCollection<Order>(sessionOrdersQuery);
+
+    const allItems = useMemo(() => {
+        if (!sessionOrders) return [];
+        const itemMap = new Map<string, OrderItem & { productName: string }>();
+        sessionOrders.forEach(order => {
+            order.items.forEach(item => {
+                const key = `${item.productId}-${item.variantSku}`;
+                const existing = itemMap.get(key);
+                if (existing) {
+                    itemMap.set(key, { ...existing, quantity: existing.quantity + item.quantity });
+                } else {
+                    itemMap.set(key, { ...item, productName: item.productName });
+                }
+            });
+        });
+        return Array.from(itemMap.values());
+    }, [sessionOrders]);
+
+    const totalAmount = useMemo(() => allItems.reduce((acc, item) => acc + (item.price * item.quantity), 0), [allItems]);
 
     return (
-        <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm py-2">
-             <ScrollArea className="w-full whitespace-nowrap">
-                <div className="flex gap-3 px-4" ref={scrollRef}>
-                    {categories.map(category => {
-                        const Icon = Utensils; // Fallback Icon
-                        const isActive = activeFilter === category;
-                        return (
-                             <Button 
-                                key={category} 
-                                variant={isActive ? "default" : "outline"} 
-                                className={cn("rounded-full shadow-sm", isActive ? "ring-2 ring-primary ring-offset-2" : "bg-card")}
-                                onClick={() => onLinkClick(category)}
-                            >
-                                <Icon className="mr-2 h-4 w-4" />
-                                {category}
-                            </Button>
-                        )
-                    })}
-                </div>
-                <ScrollBar orientation="horizontal" />
-            </ScrollArea>
-        </div>
+        <Card className="shadow-lg mt-8">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Receipt className="h-6 w-6 text-primary" />
+                    Live Bill
+                </CardTitle>
+                <CardDescription>Your running total for this session. It updates automatically.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {isLoading ? (
+                    <div className="flex justify-center items-center h-24">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                ) : allItems.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-4">No items ordered yet.</p>
+                ) : (
+                    <div className="space-y-2">
+                        {allItems.map((item, index) => (
+                            <div key={index} className="flex justify-between items-center text-sm">
+                                <p>{item.productName} <span className="text-muted-foreground">x{item.quantity}</span></p>
+                                <p className="font-medium">₹{(item.price * item.quantity).toFixed(2)}</p>
+                            </div>
+                        ))}
+                        <div className="border-t pt-2 mt-2 flex justify-between font-bold text-lg">
+                            <p>Total</p>
+                            <p>₹{totalAmount.toFixed(2)}</p>
+                        </div>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
     );
 }
 
@@ -297,7 +315,6 @@ function MenuHeader({ store, tableNumber }: { store: Store, tableNumber: string 
     }, [store]);
     
     const rating = useMemo(() => (4 + Math.random()).toFixed(1), [store.id]);
-    const deliveryTime = useMemo(() => Math.floor(Math.random() * 20) + 15, [store.id]);
 
     return (
         <div className="relative h-40 w-full">
@@ -307,22 +324,7 @@ function MenuHeader({ store, tableNumber }: { store: Store, tableNumber: string 
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent" />
             <div className="absolute bottom-0 left-0 p-4 text-white">
                 <h1 className="text-3xl font-bold">{store.name}</h1>
-                <p className="text-sm text-gray-200">Order directly • No waiting</p>
-                <div className="flex items-center text-xs mt-2 gap-4">
-                    <div className="flex items-center gap-1">
-                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                        <span className="font-bold">{rating}</span>
-                    </div>
-                     <div className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        <span>{deliveryTime}-{deliveryTime+5} mins</span>
-                    </div>
-                     <div className="flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        <span className="truncate">{store.address}</span>
-                    </div>
-                </div>
-                 {tableNumber && (
+                {tableNumber && (
                     <Badge className="mt-2 text-base">Table: {tableNumber}</Badge>
                 )}
             </div>
@@ -349,8 +351,17 @@ export default function PublicMenuPage() {
 
   const { firestore } = useFirebase();
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
+  useEffect(() => {
+    const sessionKey = `tableSession_${storeId}_${tableNumber}`;
+    let currentSessionId = sessionStorage.getItem(sessionKey);
+    if (!currentSessionId) {
+        currentSessionId = uuidv4();
+        sessionStorage.setItem(sessionKey, currentSessionId);
+    }
+    setSessionId(currentSessionId);
+  }, [storeId, tableNumber]);
 
   const storeQuery = useMemoFirebase(() =>
     firestore ? query(collection(firestore, 'stores'), where('__name__', '==', storeId)) : null,
@@ -378,41 +389,6 @@ export default function PublicMenuPage() {
     }, {} as Record<string, MenuItem[]>);
   }, [menu]);
   
-  const quickLinkKeywords = useMemo(() => {
-    if (!menu?.items) return [];
-    const keywords = new Set<string>();
-    const commonTerms = ['Biryani', 'Naan', 'Seafood', 'Curry', 'Starter', 'Tandoori', 'Fish', 'Rice', 'Bread', 'Soup', 'Kebab', 'Pizza'];
-
-    Object.keys(menuByCategory).forEach(cat => keywords.add(cat));
-    menu.items.forEach(item => {
-        commonTerms.forEach(term => {
-            if (item.name.toLowerCase().includes(term.toLowerCase())) {
-                keywords.add(term);
-            }
-        });
-    });
-
-    return Array.from(keywords);
-  }, [menu, menuByCategory]);
-
-  const handleFilterClick = (filter: string) => {
-    if (activeFilter === filter) {
-        setActiveFilter(null);
-    } else {
-        setActiveFilter(filter);
-    }
-  };
-
-  const filteredItems = useMemo(() => {
-    if (!menu?.items) return [];
-    if (!activeFilter) return null; 
-
-    return menu.items.filter(item => 
-        item.name.toLowerCase().includes(activeFilter.toLowerCase()) ||
-        item.category.toLowerCase().includes(activeFilter.toLowerCase())
-    );
-  }, [menu?.items, activeFilter]);
-
   const isLoading = storeLoading || menuLoading;
 
   if (isLoading) {
@@ -426,8 +402,6 @@ export default function PublicMenuPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <MenuItemSkeleton />
                         <MenuItemSkeleton />
-                        <MenuItemSkeleton />
-                        <MenuItemSkeleton />
                     </div>
                 </div>
             </div>
@@ -439,98 +413,60 @@ export default function PublicMenuPage() {
 
   return (
     <>
-      {selectedItem && (
+      {selectedItem && sessionId && (
         <MenuItemDialog
           item={selectedItem}
           storeId={storeId}
           isOpen
           onClose={() => setSelectedItem(null)}
           tableNumber={tableNumber}
+          sessionId={sessionId}
         />
       )}
 
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
           <MenuHeader store={store} tableNumber={tableNumber} />
-          <QuickLinks categories={quickLinkKeywords} onLinkClick={handleFilterClick} activeFilter={activeFilter} />
 
           <div className="max-w-3xl mx-auto space-y-8 px-4 py-6">
-             {filteredItems ? (
-                <section>
-                     <h2 className="flex items-center gap-2 text-lg font-semibold mb-3 text-gray-800 dark:text-gray-200">
-                        Results for "{activeFilter}"
+             {sessionId && <LiveBill sessionId={sessionId} storeId={storeId} />}
+            
+            {Object.entries(menuByCategory).map(([category, items]) => (
+                <section key={category}>
+                    <h2 className="flex items-center gap-2 text-lg font-semibold mb-3 text-gray-800 dark:text-gray-200">
+                        <Utensils className="h-4 w-4 text-muted-foreground" />
+                        {category}
                     </h2>
-                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {filteredItems.length > 0 ? filteredItems.map(item => (
-                            <motion.button
-                                key={item.name}
-                                onClick={() => setSelectedItem(item)}
-                                className="bg-card text-card-foreground p-3 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 flex gap-3 items-center"
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                            >
-                                <div className="h-16 w-16 bg-muted rounded-lg relative overflow-hidden">
-                                <Image
-                                    src={`https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=150&h=150&fit=crop&q=80&seed=${encodeURIComponent(item.name)}`}
-                                    alt={item.name}
-                                    fill
-                                    className="object-cover"
-                                />
-                                </div>
-            
-                                <div className="flex-1 text-left">
-                                <p className="font-semibold">{item.name}</p>
-                                <p className="text-sm text-muted-foreground">Tap for details</p>
-                                </div>
-            
-                                <p className="font-extrabold text-lg text-primary">₹{item.price.toFixed(2)}</p>
-                            </motion.button>
-                        )) : (
-                            <p className="text-muted-foreground col-span-full text-center py-8">No items found for "{activeFilter}".</p>
-                        )}
+    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {items.map(item => (
+                        <motion.button
+                            key={item.name}
+                            onClick={() => setSelectedItem(item)}
+                            className="bg-card text-card-foreground p-3 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 flex gap-3 items-center"
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                        >
+                            <div className="h-16 w-16 bg-muted rounded-lg relative overflow-hidden">
+                            <Image
+                                src={`https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=150&h=150&fit=crop&q=80&seed=${encodeURIComponent(item.name)}`}
+                                alt={item.name}
+                                fill
+                                className="object-cover"
+                            />
+                            </div>
+        
+                            <div className="flex-1 text-left">
+                            <p className="font-semibold">{item.name}</p>
+                            <p className="text-sm text-muted-foreground">Tap for details</p>
+                            </div>
+        
+                            <p className="font-extrabold text-lg text-primary">₹{item.price.toFixed(2)}</p>
+                        </motion.button>
+                        ))}
                     </div>
                 </section>
-             ) : (
-                Object.entries(menuByCategory).map(([category, items]) => (
-                    <section key={category}>
-                        <h2 className="flex items-center gap-2 text-lg font-semibold mb-3 text-gray-800 dark:text-gray-200">
-                            <Utensils className="h-4 w-4 text-muted-foreground" />
-                            {category}
-                        </h2>
-        
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {items.map(item => (
-                            <motion.button
-                                key={item.name}
-                                onClick={() => setSelectedItem(item)}
-                                className="bg-card text-card-foreground p-3 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 flex gap-3 items-center"
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                            >
-                                <div className="h-16 w-16 bg-muted rounded-lg relative overflow-hidden">
-                                <Image
-                                    src={`https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=150&h=150&fit=crop&q=80&seed=${encodeURIComponent(item.name)}`}
-                                    alt={item.name}
-                                    fill
-                                    className="object-cover"
-                                />
-                                </div>
-            
-                                <div className="flex-1 text-left">
-                                <p className="font-semibold">{item.name}</p>
-                                <p className="text-sm text-muted-foreground">Tap for details</p>
-                                </div>
-            
-                                <p className="font-extrabold text-lg text-primary">₹{item.price.toFixed(2)}</p>
-                            </motion.button>
-                            ))}
-                        </div>
-                    </section>
-                ))
-             )}
+            ))}
           </div>
-           <div className="text-center py-8 px-4 text-sm text-muted-foreground">
-                <p>✓ Ingredients shown • No hidden charges • Order goes directly to kitchen</p>
-           </div>
       </div>
     </>
   );

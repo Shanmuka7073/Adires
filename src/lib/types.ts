@@ -1,5 +1,4 @@
 
-
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -98,6 +97,7 @@ export type Order = {
   store?: Store; 
   deliveryPartnerId?: string | null;
   tableNumber?: string;
+  sessionId?: string; // NEW: To group all orders for a single table session
 };
 
 
@@ -308,4 +308,3 @@ export type Menu = {
   storeId: string;
   items: MenuItem[];
 };
-
