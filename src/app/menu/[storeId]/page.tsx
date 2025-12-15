@@ -1,12 +1,13 @@
 
 'use client';
 
-import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
+import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import {
   collection,
   query,
   where,
   doc,
+  setDoc,
 } from 'firebase/firestore';
 
 import type {
@@ -62,6 +63,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { addRestaurantOrderItem } from '@/app/actions';
 import { useInstall } from '@/components/install-provider';
+import type { Timestamp } from 'firebase/firestore';
 
 /* -------------------------------------------------------------------------- */
 /*                                   LIVE BILL                                */
