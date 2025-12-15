@@ -72,7 +72,7 @@ import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
 import { generateVoiceReply } from '@/ai/flows/generate-voice-reply-flow';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 
 
@@ -510,4 +510,3 @@ export default function PublicMenuPage() {
     </div>
   );
 }
-
