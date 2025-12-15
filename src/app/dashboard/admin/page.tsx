@@ -25,6 +25,7 @@ import {
   Package,
   BookOpen,
   HelpCircle,
+  BrainCircuit,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
