@@ -281,17 +281,18 @@ export default function PublicMenuPage() {
                     <CardTitle className="text-3xl font-bold font-headline">{store.name}</CardTitle>
                 </div>
                 {tableNumber && <Badge className="mx-auto mt-2">Table {tableNumber}</Badge>}
-                 {canInstall && (
-                  <div className="pt-4">
-                    <Button onClick={triggerInstall} size="sm">
+            </CardHeader>
+            <CardContent className="space-y-6">
+                {sessionId && <LiveBill storeId={storeId} sessionId={sessionId} />}
+
+                {canInstall && (
+                  <div className="pt-4 border-t">
+                    <Button onClick={triggerInstall} className="w-full" variant="outline">
                         <Download className="mr-2 h-4 w-4" />
                         Add {store.name} to Home Screen
                     </Button>
                   </div>
                  )}
-            </CardHeader>
-            <CardContent className="space-y-6">
-                {sessionId && <LiveBill storeId={storeId} sessionId={sessionId} />}
 
                 {Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
                     <div key={category}>
