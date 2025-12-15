@@ -63,6 +63,8 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { addRestaurantOrderItem } from '@/app/actions';
 import type { Timestamp } from 'firebase/firestore';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+
 
 function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }) {
   const { firestore } = useFirebase();
@@ -314,7 +316,7 @@ export default function PublicMenuPage() {
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-primary text-lg">
-                      ₹{item.price}
+                      ₹{item.price.toFixed(2)}
                     </p>
                   </div>
                 </div>
