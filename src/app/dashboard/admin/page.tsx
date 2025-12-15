@@ -269,6 +269,12 @@ export default function AdminDashboardPage() {
             href="/dashboard/admin/my-store-help"
             icon={Store}
           />
+          <ActionCard
+            title="Menu Page Code"
+            description="View the source code for the public-facing QR menu page."
+            href="/dashboard/admin/menu-help"
+            icon={FileCode}
+          />
         </div>
       </section>
     </div>
