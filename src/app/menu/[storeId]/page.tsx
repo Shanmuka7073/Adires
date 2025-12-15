@@ -40,7 +40,7 @@ import {
   AlertDialogAction,
   AlertDialogDescription,
 } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -57,8 +57,27 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 /* -------------------------------------------------------------------------- */
 /*                          INGREDIENTS DIALOG                                */
 /* -------------------------------------------------------------------------- */
-function IngredientsDialog({ isOpen, onClose, item, details, isLoading }: { isOpen: boolean, onClose: () => void, item: MenuItem | null, details: GetIngredientsOutput | null, isLoading: boolean }) {
+function IngredientsDialog({ 
+    isOpen, 
+    onClose, 
+    item, 
+    details, 
+    isLoading,
+    onAddItem 
+}: { 
+    isOpen: boolean, 
+    onClose: () => void, 
+    item: MenuItem | null, 
+    details: GetIngredientsOutput | null, 
+    isLoading: boolean,
+    onAddItem: (item: MenuItem) => void 
+}) {
     if (!item) return null;
+
+    const handleAddClick = () => {
+        onAddItem(item);
+        onClose();
+    };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -102,6 +121,12 @@ function IngredientsDialog({ isOpen, onClose, item, details, isLoading }: { isOp
                         </div>
                     </ScrollArea>
                 )}
+                 <DialogFooter className="pt-4">
+                    <Button variant="outline" onClick={onClose}>Close</Button>
+                    <Button onClick={handleAddClick} disabled={isLoading || !details?.isSuccess}>
+                        <Plus className="mr-2 h-4 w-4" /> Add to Bill
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     )
@@ -348,6 +373,7 @@ export default function PublicMenuPage() {
             item={selectedItemForIngredients}
             details={ingredientDetails}
             isLoading={isIngredientsLoading}
+            onAddItem={handleAddItem}
         />
         <div className="container mx-auto py-8 px-4 md:px-6">
           <Card className="max-w-2xl mx-auto shadow-lg">
@@ -368,7 +394,7 @@ export default function PublicMenuPage() {
                 {tableNumber && <Badge className="mx-auto mt-2">Table {tableNumber}</Badge>}
                  {canInstall && (
                     <div className="pt-4">
-                        <Button onClick={triggerInstall} size="sm">
+                        <Button variant="outline" size="sm" onClick={triggerInstall}>
                             Add {store.name} to Home Screen
                         </Button>
                     </div>
@@ -412,4 +438,3 @@ export default function PublicMenuPage() {
       </div>
   );
 }
-        
