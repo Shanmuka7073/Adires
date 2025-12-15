@@ -412,12 +412,14 @@ export async function getStoreSalesReport({
     }
 
     const now = new Date();
-    let startDate = new Date();
+    let startDate: Date;
 
     if (period === 'daily') {
-      startDate.setHours(0,0,0,0);
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     } else if (period === 'weekly') {
+      startDate = new Date(now);
       startDate.setDate(now.getDate() - now.getDay());
+      startDate.setHours(0, 0, 0, 0);
     } else {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     }
@@ -425,77 +427,55 @@ export async function getStoreSalesReport({
     const snapshot = await db
       .collection('orders')
       .where('storeId', '==', storeId)
-      .where('status', '==', 'Completed')
+      .where('status', 'in', ['Completed', 'Billed'])
       .where('orderDate', '>=', Timestamp.fromDate(startDate))
       .get();
 
+    if (snapshot.empty) {
+      return {
+        success: true,
+        report: {
+          totalSales: 0,
+          totalOrders: 0,
+          totalItems: 0,
+          topProducts: [],
+          totalCost: 0,
+          profit: 0,
+          ingredientUsage: [],
+        },
+      };
+    }
+
     let totalSales = 0;
-    let totalOrders = snapshot.size;
-    let totalCost = 0;
-
     const productMap = new Map<string, number>();
-    const ingredientMap = new Map<string, number>();
 
-    const orderPromises = snapshot.docs.map(async (doc) => {
-        const order = doc.data() as Order;
-        let orderTotalSales = order.totalAmount;
-        let orderTotalCost = 0;
-    
-        const itemsSnapshot = await db.collection('orders').doc(doc.id).collection('items').get();
-        const items = itemsSnapshot.docs.map(itemDoc => itemDoc.data() as OrderItem);
-        
-        items.forEach(item => {
-            productMap.set(
-              item.productName,
-              (productMap.get(item.productName) || 0) + item.quantity
-            );
-    
-            if (item.ingredients) {
-              item.ingredients.forEach(ing => {
-                const cost =
-                  ing.quantity * ing.costPerUnit * item.quantity;
-    
-                orderTotalCost += cost;
-    
-                ingredientMap.set(
-                  ing.name,
-                  (ingredientMap.get(ing.name) || 0) +
-                  ing.quantity * item.quantity
-                );
-              });
-            }
-        });
-        
-        return { orderTotalSales, orderTotalCost };
-    });
+    snapshot.forEach(doc => {
+      const order = doc.data() as Order;
+      totalSales += order.totalAmount;
 
-    const results = await Promise.all(orderPromises);
-
-    results.forEach(result => {
-        totalSales += result.orderTotalSales;
-        totalCost += result.orderTotalCost;
+      order.items?.forEach(item => {
+        productMap.set(
+          item.productName,
+          (productMap.get(item.productName) || 0) + item.quantity
+        );
+      });
     });
 
     return {
       success: true,
       report: {
         totalSales,
-        totalCost,
-        profit: totalSales - totalCost,
-        totalOrders,
-        totalItems: Array.from(productMap.values()).reduce((a,b)=>a+b,0),
+        totalOrders: snapshot.size,
+        totalItems: Array.from(productMap.values()).reduce((a, b) => a + b, 0),
         topProducts: [...productMap.entries()]
-          .sort((a,b)=>b[1]-a[1])
-          .slice(0,5)
-          .map(([name,count])=>({name,count})),
-        ingredientUsage: [...ingredientMap.entries()].map(([name,qty])=>({
-          name, quantity: qty
-        }))
-      }
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([name, count]) => ({ name, count })),
+      },
     };
-  } catch (e:any) {
-    console.error("Sales report generation failed:", e);
-    return { success:false, error:e.message };
+  } catch (error: any) {
+    console.error('Sales report error:', error);
+    return { success: false, error: error.message };
   }
 }
 

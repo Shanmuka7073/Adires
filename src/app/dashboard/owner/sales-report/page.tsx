@@ -1,15 +1,15 @@
 
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useState, useTransition, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BarChart3, TrendingUp, ShoppingCart, Download, DollarSign, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
-import type { Store } from '@/lib/types';
+import { collection, query, where, Timestamp } from 'firebase/firestore';
+import type { Order, OrderItem, Product, Store } from '@/lib/types';
 import { getStoreSalesReport } from '@/app/actions';
 
 type ReportData = {
@@ -22,7 +22,7 @@ type ReportData = {
   ingredientUsage: { name: string; quantity: number }[];
 };
 
-function StatCard({ title, value, highlight=false }: { title: string, value: string | number, highlight?: boolean }) {
+function StatCard({ title, value, highlight = false }: { title: string, value: string | number, highlight?: boolean }) {
   return (
     <Card className={highlight ? 'border-green-500' : ''}>
       <CardContent className="p-6">
@@ -53,7 +53,7 @@ export default function SalesReportPage() {
             startLoading(async () => {
                 const result = await getStoreSalesReport({ storeId: myStore.id, period: activeTab });
                 if (result.success && result.report) {
-                    setReport(result.report);
+                    setReport(result.report as ReportData);
                 } else {
                     console.error("Failed to fetch sales report:", result.error);
                     setReport(null);
@@ -127,7 +127,7 @@ export default function SalesReportPage() {
                                     <Skeleton className="h-24" />
                                     <Skeleton className="h-24" />
                                 </div>
-                            ) : report ? (
+                            ) : report && report.totalOrders > 0 ? (
                                 <>
                                     <div className="grid md:grid-cols-4 gap-6 mt-6">
                                       <StatCard title="Sales" value={`₹${report.totalSales.toFixed(0)}`} />
@@ -170,8 +170,8 @@ export default function SalesReportPage() {
                                     </div>
                                 </>
                             ) : (
-                                <div className="mt-6 text-center text-muted-foreground">
-                                    Waiting for first completed payment for this period.
+                                <div className="mt-6 text-center text-muted-foreground py-8">
+                                    <p>Waiting for the first completed payment for this period.</p>
                                 </div>
                             )}
                         </TabsContent>
