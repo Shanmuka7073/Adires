@@ -24,7 +24,10 @@ import {
   Check,
   Salad,
   Info,
-  Download
+  Download,
+  Copy,
+  StopCircle,
+  Volume2,
 } from 'lucide-react';
 
 import {
@@ -123,6 +126,9 @@ function IngredientsDialog({
                                         <Badge key={i} variant="secondary">{ing.name} - {ing.quantity}</Badge>
                                     ))}
                                 </div>
+                                <p className="text-xs text-muted-foreground mt-3 italic">
+                                    Disclaimer: Ingredients and nutritional values are AI-generated approximations and may not be exact.
+                                </p>
                             </div>
                         </div>
                     </ScrollArea>
@@ -409,6 +415,7 @@ export default function PublicMenuPage() {
             <h2 className="text-sm font-bold uppercase text-muted-foreground mb-2">
               {category}
             </h2>
+
             <div className="space-y-3">
               {items.map(item => (
                 <div
@@ -419,7 +426,12 @@ export default function PublicMenuPage() {
                     <p className="font-semibold">{item.name}</p>
                     <p className="text-sm text-gray-500">₹{item.price}</p>
                   </button>
-                  <Button size="sm" disabled={isAdding} onClick={() => addItem(item)}>
+
+                  <Button
+                    size="sm"
+                    disabled={isAdding}
+                    onClick={() => addItem(item)}
+                  >
                     <Plus className="h-4 w-4 mr-1" />
                     Add
                   </Button>
@@ -435,3 +447,4 @@ export default function PublicMenuPage() {
     </div>
   );
 }
+
