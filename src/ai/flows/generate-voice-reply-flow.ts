@@ -26,7 +26,7 @@ async function toWav(pcmData: Buffer, channels = 1, rate = 24000, sampleWidth = 
             bitDepth: sampleWidth * 8,
         });
 
-        let bufs: any[] = [];
+        const bufs: any[] = [];
         writer.on('error', reject);
         writer.on('data', (d) => bufs.push(d));
         writer.on('end', () => resolve(Buffer.concat(bufs).toString('base64')));

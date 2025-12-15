@@ -69,7 +69,6 @@ import { addRestaurantOrderItem } from '@/app/actions';
 import type { Timestamp } from 'firebase/firestore';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
-import { generateVoiceReply } from '@/ai/flows/generate-voice-reply-flow';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -189,10 +188,7 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
 function RecipeDialog({ isOpen, onOpenChange, dishName, onAddToBill }: { isOpen: boolean, onOpenChange: (open: boolean) => void, dishName: string, onAddToBill: () => void }) {
     const [result, setResult] = useState<GetIngredientsOutput | null>(null);
     const [isGenerating, startGeneration] = useTransition();
-    const [isSpeaking, setIsSpeaking] = useState(false);
-    const audioRef = useRef<HTMLAudioElement | null>(null);
     const { firestore } = useFirebase();
-    const { toast } = useToast();
 
     useEffect(() => {
         if (isOpen && !result) {
@@ -208,44 +204,12 @@ function RecipeDialog({ isOpen, onOpenChange, dishName, onAddToBill }: { isOpen:
                 }
                 setResult(recipeData);
             });
+        } else if (!isOpen) {
+            // Reset result when dialog is closed to refetch next time
+            setResult(null);
         }
     }, [isOpen, dishName, firestore, result]);
 
-    useEffect(() => {
-        const audio = new Audio();
-        audioRef.current = audio;
-        const onEnded = () => setIsSpeaking(false);
-        const onError = () => { setIsSpeaking(false); };
-        audio.addEventListener('ended', onEnded);
-        audio.addEventListener('error', onError);
-        return () => {
-            audio.removeEventListener('ended', onEnded);
-            audio.removeEventListener('error', onError);
-        };
-    }, []);
-
-    const handleSpeak = async (textToSpeak: string) => {
-        if (!textToSpeak || isSpeaking) return;
-        setIsSpeaking(true);
-        try {
-            const result = await generateVoiceReply({ text: textToSpeak, language: 'en' });
-            if (audioRef.current && result.audioDataUri) {
-                audioRef.current.src = result.audioDataUri;
-                audioRef.current.play();
-            }
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Voice Generation Failed' });
-            setIsSpeaking(false);
-        }
-    };
-
-    const handleStop = () => {
-        if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.currentTime = 0;
-        }
-        setIsSpeaking(false);
-    };
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -273,13 +237,7 @@ function RecipeDialog({ isOpen, onOpenChange, dishName, onAddToBill }: { isOpen:
                                 <ol className="space-y-3 mt-2">
                                     {result.instructions.map((step, i) => (
                                         <li key={i}>
-                                            <div className="flex justify-between items-center">
-                                                <h5 className="font-bold">{step.title}</h5>
-                                                <Button size="icon" variant="ghost" onClick={() => isSpeaking ? handleStop() : handleSpeak(`${step.title}. ${step.actions.join('. ')}`)}>
-                                                    {isSpeaking ? <StopCircle className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                                                    <span className="sr-only">{isSpeaking ? "Stop reading" : "Read step aloud"}</span>
-                                                </Button>
-                                            </div>
+                                            <h5 className="font-bold">{step.title}</h5>
                                             <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
                                                 {step.actions.map((action, j) => <li key={j}>{action}</li>)}
                                             </ul>
