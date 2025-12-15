@@ -56,6 +56,7 @@ export type User = {
     email: string;
     address: string;
     phoneNumber: string;
+    imageUrl?: string;
     latitude?: number;
     longitude?: number;
     fcmToken?: string;
@@ -171,7 +172,7 @@ export interface GetIngredientsOutput {
     nutrition: {
         calories: number;
         protein: number;
-    }
+    };
 }
 
 export type CachedRecipe = {

@@ -13,13 +13,15 @@ import { useToast } from '@/hooks/use-toast';
 import { doc, setDoc } from 'firebase/firestore';
 import { useTransition, useEffect, useState } from 'react';
 import type { User as AppUser } from '@/lib/types';
-import { Loader2, Fingerprint, Store, Truck, Voicemail, LogOut, LayoutDashboard, MapPin, LocateFixed } from 'lucide-react';
+import { Loader2, Fingerprint, Store, Truck, Voicemail, LogOut, LayoutDashboard, MapPin, LocateFixed, User as UserIcon, Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useProfileFormStore, ProfileFormValues } from '@/lib/store';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { getAuth, signOut } from 'firebase/auth';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
+import Image from 'next/image';
+import { updateUserProfileImage } from '@/app/actions';
 
 const profileSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -27,9 +29,63 @@ const profileSchema = z.object({
   email: z.string().email(),
   phone: z.string().min(10, 'A valid phone number is required'),
   address: z.string().min(10, 'A valid address is required'),
+  imageUrl: z.string().url().optional().or(z.literal('')),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
 });
+
+function ProfilePictureCard({ user, imageUrl: initialImageUrl }: { user: AppUser, imageUrl?: string }) {
+    const [imageUrl, setImageUrl] = useState(initialImageUrl || '');
+    const [isSaving, startSave] = useTransition();
+    const { toast } = useToast();
+
+    const handleSave = () => {
+        if (!user) return;
+        startSave(async () => {
+            const result = await updateUserProfileImage(user.id, imageUrl);
+            if (result.success) {
+                toast({ title: "Profile Picture Updated!" });
+            } else {
+                toast({ variant: 'destructive', title: 'Update Failed', description: result.error });
+            }
+        });
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Profile Picture</CardTitle>
+                <CardDescription>Update your profile picture by pasting an image URL.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                 <div className="w-32 h-32 relative rounded-full overflow-hidden border-2 border-primary mx-auto bg-muted">
+                    {imageUrl ? (
+                        <Image src={imageUrl} alt="Profile Picture" fill className="object-cover" />
+                    ) : (
+                        <div className="flex items-center justify-center h-full">
+                            <UserIcon className="w-16 h-16 text-muted-foreground" />
+                        </div>
+                    )}
+                </div>
+                 <div className="space-y-2">
+                    <FormLabel htmlFor="image-url">Image URL</FormLabel>
+                    <Input
+                        id="image-url"
+                        placeholder="https://example.com/your-image.jpg"
+                        value={imageUrl}
+                        onChange={(e) => setImageUrl(e.target.value)}
+                        disabled={isSaving}
+                    />
+                </div>
+                 <Button onClick={handleSave} disabled={isSaving} className="w-full">
+                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    Save Image
+                </Button>
+            </CardContent>
+        </Card>
+    );
+}
+
 
 export default function MyProfilePage() {
   const { user, isUserLoading, firestore } = useFirebase();
@@ -56,6 +112,7 @@ export default function MyProfilePage() {
       email: user?.email || '',
       phone: '',
       address: '',
+      imageUrl: '',
       latitude: undefined,
       longitude: undefined,
     },
@@ -75,6 +132,7 @@ export default function MyProfilePage() {
         email: user?.email || '',
         phone: userData.phoneNumber || '',
         address: userData.address || '',
+        imageUrl: userData.imageUrl || '',
         latitude: userData.latitude,
         longitude: userData.longitude,
       });
@@ -123,6 +181,7 @@ export default function MyProfilePage() {
             email: data.email,
             phoneNumber: data.phone,
             address: data.address,
+            imageUrl: data.imageUrl,
             latitude: data.latitude,
             longitude: data.longitude,
         };
@@ -267,6 +326,7 @@ export default function MyProfilePage() {
             </Card>
         </div>
          <div className="space-y-8">
+            {user && userData && <ProfilePictureCard user={userData} imageUrl={userData.imageUrl} />}
             <div className="space-y-4">
                  <h2 className="text-xl font-bold font-headline">My Dashboards</h2>
                  <Card>

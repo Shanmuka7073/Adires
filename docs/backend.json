@@ -170,6 +170,10 @@
           "type": "string",
           "description": "The phone number of the user."
         },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL for the user's profile picture."
+        },
         "latitude": {
             "type": "number",
             "description": "The latitude of the user's location."

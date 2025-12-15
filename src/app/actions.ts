@@ -40,6 +40,19 @@ export async function getFirebaseConfig() {
   }
 }
 
+export async function updateUserProfileImage(userId: string, imageUrl: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        const { db } = await getAdminServices();
+        const userDocRef = db.collection('users').doc(userId);
+        await userDocRef.update({ imageUrl });
+        return { success: true };
+    } catch (error: any) {
+        console.error('Server-side profile image URL update failed:', error);
+        return { success: false, error: error.message || 'An unknown error occurred.' };
+    }
+}
+
+
 export async function updateStoreImageUrl(storeId: string, imageUrl: string): Promise<{ success: boolean; error?: string }> {
     try {
         const { db } = await getAdminServices();
