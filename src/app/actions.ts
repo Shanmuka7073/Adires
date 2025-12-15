@@ -2,7 +2,7 @@
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
-import { getStorage, ref as storageRef, uploadString, getDownloadURL, deleteObject } from 'firebase-admin/storage';
+import { getStorage } from 'firebase-admin/storage';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -47,11 +47,8 @@ export async function getFirebaseConfig() {
 export async function uploadStoreImage(storeId: string, dataUri: string): Promise<{ success: boolean; imageUrl?: string; error?: string }> {
   try {
     const { db } = await getAdminServices();
-    const { bucket } = getStorage().app.options;
-
-    if (!bucket) {
-      throw new Error("Firebase Storage bucket name not configured on the server.");
-    }
+    // Correctly get the default bucket reference
+    const bucket = getStorage().bucket();
 
     // Split the data URI to get the mime type and the base64 data
     const matches = dataUri.match(/^data:(.+);base64,(.+)$/);
@@ -61,13 +58,21 @@ export async function uploadStoreImage(storeId: string, dataUri: string): Promis
     
     const mimeType = matches[1];
     const base64Data = matches[2];
-
     const buffer = Buffer.from(base64Data, 'base64');
-    const filePath = `store-images/${storeId}/${Date.now()}.jpg`; // Use JPG for simplicity
-    const fileRef = storageRef(getStorage(), filePath);
     
-    await uploadString(fileRef, dataUri, 'data_url');
-    const downloadURL = await getDownloadURL(fileRef);
+    const filePath = `store-images/${storeId}/${Date.now()}.jpg`;
+    const file = bucket.file(filePath);
+    
+    // Upload the buffer to the file
+    await file.save(buffer, {
+      metadata: {
+        contentType: mimeType,
+      },
+    });
+
+    // Make the file public and get the URL
+    await file.makePublic();
+    const downloadURL = file.publicUrl();
 
     // Update the store document in Firestore with the new image URL
     const storeDocRef = db.collection('stores').doc(storeId);
