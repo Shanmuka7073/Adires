@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -453,7 +454,7 @@ export async function addRestaurantOrderItem({
     const orderItem: OrderItem = {
       id: `${item.name.replace(/\s+/g, '-')}-${Date.now()}`,
       orderId,
-      productId: `${storeId}-${item.name.replace(/\s+/g, '-')}`,
+      productId: `${storeId}-${item.name.replace(/\s/g, '-')}`,
       productName: item.name,
       variantSku: 'default',
       variantWeight: '1 pc',
@@ -644,7 +645,7 @@ export async function getStoreSalesReport({ storeId, period }: { storeId: string
     try {
         const ordersQuery = db.collection('orders')
             .where('storeId', '==', storeId)
-            .where('status', '==', 'Completed')
+            .where('status', 'in', ['Completed', 'Billed'])
             .where('orderDate', '>=', startTimestamp);
 
         const snapshot = await ordersQuery.get();
@@ -653,17 +654,17 @@ export async function getStoreSalesReport({ storeId, period }: { storeId: string
         }
 
         let totalSales = 0;
-        let totalItems = 0;
         const productCounts = new Map<string, number>();
 
         snapshot.docs.forEach(doc => {
             const order = doc.data() as Order;
             totalSales += order.totalAmount;
             order.items.forEach(item => {
-                totalItems += item.quantity;
                 productCounts.set(item.productName, (productCounts.get(item.productName) || 0) + item.quantity);
             });
         });
+        
+        const totalItems = Array.from(productCounts.values()).reduce((sum, count) => sum + count, 0);
         
         const topProducts = Array.from(productCounts.entries())
             .sort((a, b) => b[1] - a[1])
