@@ -5,12 +5,13 @@ import { useEffect, useState, useTransition, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BarChart3, TrendingUp, ShoppingCart, Beef, Carrot, Grape, Download, DollarSign, Package } from 'lucide-react';
+import { BarChart3, TrendingUp, ShoppingCart, Beef, Carrot, Grape, Download, DollarSign, Package, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, Timestamp } from 'firebase/firestore';
 import type { Order, OrderItem, Product, Store } from '@/lib/types';
 import { getStoreSalesReport } from '@/app/actions';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type ReportData = {
   totalSales: number;
@@ -36,6 +37,7 @@ function StatCard({ title, value, highlight = false }: { title: string, value: s
 export default function SalesReportPage() {
     const { user, firestore } = useFirebase();
     const [report, setReport] = useState<ReportData | null>(null);
+    const [error, setError] = useState<string | null>(null);
     const [isLoading, startLoading] = useTransition();
     const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
 
@@ -51,11 +53,13 @@ export default function SalesReportPage() {
     useEffect(() => {
         if (myStore) {
             startLoading(async () => {
+                setError(null); // Reset error on new fetch
                 const result = await getStoreSalesReport({ storeId: myStore.id, period: activeTab });
                 if (result.success && result.report) {
                     setReport(result.report as ReportData);
                 } else {
                     console.error("Failed to fetch sales report:", result.error);
+                    setError(result.error || 'An unknown error occurred while fetching the report.');
                     setReport(null);
                 }
             });
@@ -127,6 +131,15 @@ export default function SalesReportPage() {
                                     <Skeleton className="h-24" />
                                     <Skeleton className="h-24" />
                                 </div>
+                            ) : error ? (
+                                <Alert variant="destructive">
+                                    <AlertTriangle className="h-4 w-4" />
+                                    <AlertTitle>Error Loading Report</AlertTitle>
+                                    <AlertDescription>
+                                        <p>There was a problem generating the sales report. Please try again later.</p>
+                                        <p className="mt-2 text-xs font-mono bg-red-900/20 p-2 rounded">Error details: {error}</p>
+                                    </AlertDescription>
+                                </Alert>
                             ) : report && report.totalOrders > 0 ? (
                                 <>
                                     <div className="grid md:grid-cols-4 gap-6 mt-6">
