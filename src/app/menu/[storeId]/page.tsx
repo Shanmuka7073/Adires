@@ -211,7 +211,7 @@ function RecipeContent({ result, onCopyIngredients, onCopyInstructions }: { resu
         <div className="space-y-6">
             <div>
                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-lg flex items-center gap-2"><Salad className="h-5 w-5 text-green-600"/> Ingredients</h4>
+                    <h4 className="font-semibold text-lg flex items-center gap-2"><Salad className="h-5 w-5 text-green-600"/> Main Ingredients</h4>
                     <Button variant="ghost" size="icon" onClick={onCopyIngredients}>
                         <Copy className="h-4 w-4" />
                         <span className="sr-only">Copy Ingredients</span>
@@ -231,15 +231,15 @@ function RecipeContent({ result, onCopyIngredients, onCopyInstructions }: { resu
               <>
                 <Separator />
                 <div>
-                  <h4 className="font-semibold text-lg flex items-center gap-2"><Flame className="h-5 w-5 text-orange-500"/> Nutrition</h4>
-                  <div className="flex gap-4 mt-2 text-center">
-                      <div className="flex-1 bg-orange-50 p-2 rounded-lg">
-                          <p className="text-sm font-bold text-orange-700">{result.nutrition.calories} kcal</p>
-                          <p className="text-xs text-orange-600">Calories</p>
+                  <h4 className="font-semibold text-lg flex items-center gap-2 mb-2"><Flame className="h-5 w-5 text-orange-500"/> Nutrition</h4>
+                  <div className="flex gap-4">
+                      <div className="flex items-center gap-2 text-sm">
+                          <Flame className="h-4 w-4 text-orange-400" />
+                          <span className="font-medium">{result.nutrition.calories} kcal</span>
                       </div>
-                       <div className="flex-1 bg-blue-50 p-2 rounded-lg">
-                          <p className="text-sm font-bold text-blue-700">{result.nutrition.protein} g</p>
-                          <p className="text-xs text-blue-600">Protein</p>
+                       <div className="flex items-center gap-2 text-sm">
+                          <Zap className="h-4 w-4 text-yellow-500" />
+                          <span className="font-medium">{result.nutrition.protein}g Protein</span>
                       </div>
                   </div>
                 </div>
@@ -265,6 +265,8 @@ function RecipeDialog({ isOpen, onOpenChange, dishName, onAddToBill }: { isOpen:
     const [result, setResult] = useState<GetIngredientsOutput | null>(null);
     const [isGenerating, startGeneration] = useTransition();
     const { firestore } = useFirebase();
+    const { toast } = useToast();
+
 
     useEffect(() => {
         if (isOpen && !result) {
@@ -547,3 +549,5 @@ export default function PublicMenuPage() {
     </div>
   );
 }
+
+    
