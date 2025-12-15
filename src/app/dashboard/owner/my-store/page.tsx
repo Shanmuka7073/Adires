@@ -37,7 +37,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Store, Product, ProductPrice, User as AppUser, ProductVariant } from '@/lib/types';
 import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
-import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { uploadStoreImage } from '@/app/actions';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
@@ -130,15 +130,15 @@ function StoreImageUploader({ store }: { store: Store }) {
     const { toast } = useToast();
     const [uploading, startUploadTransition] = useTransition();
     const [progress, setProgress] = useState(0);
-    const { firestore } = useFirebase();
-
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    
     const [isCameraOn, setIsCameraOn] = useState(false);
     const [capturedImage, setCapturedImage] = useState<string | null>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    
+
     // Effect to handle camera stream
     useEffect(() => {
         const setupCamera = async () => {
@@ -180,6 +180,7 @@ function StoreImageUploader({ store }: { store: Store }) {
     const handleToggleCamera = () => {
         setIsCameraOn(prev => !prev);
         setCapturedImage(null); // Clear previous captures when toggling
+        setSelectedFile(null);
     };
     
     const handleCapture = () => {
@@ -198,50 +199,40 @@ function StoreImageUploader({ store }: { store: Store }) {
         }
     };
     
-    const handleUpload = async () => {
-        if (!capturedImage || !firestore) return;
+    const handleUpload = () => {
+        if (!capturedImage) return;
 
-        startUploadTransition(() => {
-            const storage = getStorage();
-            const fileName = `store-images/${store.id}/${Date.now()}.jpg`;
-            const sRef = storageRef(storage, fileName);
+        startUploadTransition(async () => {
+            setProgress(50); // Simulate progress
+            const result = await uploadStoreImage(store.id, capturedImage);
+            setProgress(100);
 
-            // Convert data URI to Blob
-            fetch(capturedImage)
-                .then(res => res.blob())
-                .then(blob => {
-                    const uploadTask = uploadBytesResumable(sRef, blob);
-
-                    uploadTask.on('state_changed',
-                        (snapshot) => {
-                            const prog = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                            setProgress(prog);
-                        },
-                        (error) => {
-                            console.error("Upload failed:", error);
-                            toast({ variant: 'destructive', title: 'Upload Failed' });
-                        },
-                        () => {
-                            getDownloadURL(uploadTask.snapshot.ref).then(async (downloadURL) => {
-                                const storeRef = doc(firestore, 'stores', store.id);
-                                await updateDoc(storeRef, { imageUrl: downloadURL });
-                                toast({ title: 'Image Uploaded!' });
-                                setCapturedImage(null);
-                            });
-                        }
-                    );
+            if (result.success) {
+                toast({ title: 'Image Uploaded!' });
+                setCapturedImage(null);
+                setSelectedFile(null);
+                 // Note: Firestore listener will auto-update the UI with the new image URL.
+            } else {
+                toast({
+                    variant: 'destructive',
+                    title: 'Upload Failed',
+                    description: result.error || 'The server action failed.',
                 });
+            }
         });
     };
     
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files && event.target.files[0]) {
             const file = event.target.files[0];
+            setSelectedFile(file);
+            
             const reader = new FileReader();
             reader.onload = (e) => {
                 setCapturedImage(e.target?.result as string);
             };
             reader.readAsDataURL(file);
+            
             setIsCameraOn(false);
         }
     }
@@ -1836,8 +1827,7 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
             address: isAdmin ? 'Platform-wide' : (profile?.address || ''),
             latitude: 0,
             longitude: 0,
-            teluguName: '',
-            tables: [],
+            teluguName: ''
         },
     });
 

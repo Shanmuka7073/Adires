@@ -2,7 +2,7 @@
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
-import { getStorage } from 'firebase-admin/storage';
+import { getStorage, ref as storageRef, uploadString, getDownloadURL, deleteObject } from 'firebase-admin/storage';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -18,20 +18,66 @@ import * as pdfjs from 'pdfjs-dist';
 export async function getFirebaseConfig() {
   try {
     const adminApp = getApps()[0] || (await getAdminServices()).app;
-    // The client SDK needs the API key, which isn't in the default app options.
-    // This is a simplified way to expose it. In a real production app,
-    // this might come from a more secure config source.
+    
+    // The bucket URL is constructed from the projectId.
+    const projectId = adminApp.options.projectId;
+    if (!projectId) {
+      throw new Error("Firebase Project ID is not available in the admin config.");
+    }
+    const bucket = `${projectId}.appspot.com`;
+
     return {
       apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
       authDomain: adminApp.options.authDomain,
-      projectId: adminApp.options.projectId,
-      storageBucket: adminApp.options.storageBucket,
+      projectId: projectId,
+      storageBucket: bucket,
       messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
       appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
     };
   } catch (error) {
     console.error("Failed to get Firebase config:", error);
     return null;
+  }
+}
+
+/**
+ * Server action to upload a base64 data URI to Firebase Storage.
+ * This is more secure as it doesn't expose storage rules to the client.
+ */
+export async function uploadStoreImage(storeId: string, dataUri: string): Promise<{ success: boolean; imageUrl?: string; error?: string }> {
+  try {
+    const { db } = await getAdminServices();
+    const { bucket } = getStorage().app.options;
+
+    if (!bucket) {
+      throw new Error("Firebase Storage bucket name not configured on the server.");
+    }
+
+    // Split the data URI to get the mime type and the base64 data
+    const matches = dataUri.match(/^data:(.+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      return { success: false, error: 'Invalid data URI format.' };
+    }
+    
+    const mimeType = matches[1];
+    const base64Data = matches[2];
+
+    const buffer = Buffer.from(base64Data, 'base64');
+    const filePath = `store-images/${storeId}/${Date.now()}.jpg`; // Use JPG for simplicity
+    const fileRef = storageRef(getStorage(), filePath);
+    
+    await uploadString(fileRef, dataUri, 'data_url');
+    const downloadURL = await getDownloadURL(fileRef);
+
+    // Update the store document in Firestore with the new image URL
+    const storeDocRef = db.collection('stores').doc(storeId);
+    await storeDocRef.update({ imageUrl: downloadURL });
+
+    return { success: true, imageUrl: downloadURL };
+
+  } catch (error: any) {
+    console.error('Server-side image upload failed:', error);
+    return { success: false, error: error.message || 'An unknown error occurred during upload.' };
   }
 }
 
