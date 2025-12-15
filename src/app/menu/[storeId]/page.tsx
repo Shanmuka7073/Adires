@@ -18,6 +18,7 @@ import type {
   OrderItem,
   GetIngredientsOutput,
   Ingredient,
+  InstructionStep,
 } from '@/lib/types';
 
 import { useParams, useSearchParams } from 'next/navigation';
@@ -42,8 +43,6 @@ import {
   Eye,
   Download,
   Copy,
-  StopCircle,
-  Volume2,
 } from 'lucide-react';
 
 import {
@@ -185,6 +184,83 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
   );
 }
 
+function RecipeContent({ result, onCopyIngredients, onCopyInstructions }: { result: GetIngredientsOutput, onCopyIngredients: () => void, onCopyInstructions: () => void }) {
+    
+    const renderInstructions = (instructions: InstructionStep[]) => {
+        if (!instructions || instructions.length === 0) return <p className="text-muted-foreground">No instructions provided.</p>;
+        
+        return (
+            <ol className="space-y-4">
+                {instructions.map((step, index) => (
+                    <li key={index} className="p-4 bg-gray-50 border-l-4 border-primary rounded-r-lg">
+                        <div className="flex justify-between items-center mb-2">
+                            <h4 className="font-bold text-base text-primary">{step.title}</h4>
+                        </div>
+                        <ul className="list-disc pl-5 space-y-2 text-sm text-gray-700">
+                            {step.actions.map((action, actionIndex) => (
+                                <li key={actionIndex}>{action}</li>
+                            ))}
+                        </ul>
+                    </li>
+                ))}
+            </ol>
+        );
+    };
+
+    return (
+        <div className="space-y-6">
+            <div>
+                 <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold text-lg flex items-center gap-2"><Salad className="h-5 w-5 text-green-600"/> Ingredients</h4>
+                    <Button variant="ghost" size="icon" onClick={onCopyIngredients}>
+                        <Copy className="h-4 w-4" />
+                        <span className="sr-only">Copy Ingredients</span>
+                    </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    {result.ingredients.map((ing, index) => (
+                        <Badge key={index} variant="secondary" className="text-base py-1 px-3">
+                            {ing.name} - {ing.quantity}
+                        </Badge>
+                    ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">Ingredients & nutrition values are approximate per serving.</p>
+            </div>
+            
+            {result.nutrition && (result.nutrition.calories > 0 || result.nutrition.protein > 0) && (
+              <>
+                <Separator />
+                <div>
+                  <h4 className="font-semibold text-lg flex items-center gap-2"><Flame className="h-5 w-5 text-orange-500"/> Nutrition</h4>
+                  <div className="flex gap-4 mt-2 text-center">
+                      <div className="flex-1 bg-orange-50 p-2 rounded-lg">
+                          <p className="text-sm font-bold text-orange-700">{result.nutrition.calories} kcal</p>
+                          <p className="text-xs text-orange-600">Calories</p>
+                      </div>
+                       <div className="flex-1 bg-blue-50 p-2 rounded-lg">
+                          <p className="text-sm font-bold text-blue-700">{result.nutrition.protein} g</p>
+                          <p className="text-xs text-blue-600">Protein</p>
+                      </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <Separator />
+            <div>
+                <div className="flex items-center justify-between mb-2">
+                     <h4 className="font-semibold text-lg">Instructions</h4>
+                     <Button variant="ghost" size="icon" onClick={onCopyInstructions}>
+                       <Copy className="h-4 w-4" />
+                       <span className="sr-only">Copy Instructions</span>
+                    </Button>
+                </div>
+                {renderInstructions(result.instructions)}
+            </div>
+        </div>
+    )
+}
+
 function RecipeDialog({ isOpen, onOpenChange, dishName, onAddToBill }: { isOpen: boolean, onOpenChange: (open: boolean) => void, dishName: string, onAddToBill: () => void }) {
     const [result, setResult] = useState<GetIngredientsOutput | null>(null);
     const [isGenerating, startGeneration] = useTransition();
@@ -209,6 +285,26 @@ function RecipeDialog({ isOpen, onOpenChange, dishName, onAddToBill }: { isOpen:
             setResult(null);
         }
     }, [isOpen, dishName, firestore, result]);
+    
+    const handleCopy = (textToCopy: string, type: 'Ingredients' | 'Instructions') => {
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            toast({ title: `${type} Copied!`, description: `The ${type.toLowerCase()} have been copied to your clipboard.` });
+        }).catch(err => {
+            toast({ variant: 'destructive', title: 'Copy Failed', description: 'Could not copy text to clipboard.' });
+        });
+    };
+
+    const handleCopyIngredients = () => {
+        if (!result?.ingredients) return;
+        const ingredientsText = result.ingredients.map(ing => `${ing.name} - ${ing.quantity}`).join('\n');
+        handleCopy(ingredientsText, 'Ingredients');
+    };
+
+    const handleCopyInstructions = () => {
+        if (!result?.instructions) return;
+        const instructionsText = result.instructions.map(step => `${step.title}\n- ${step.actions.join('\n- ')}`).join('\n\n');
+        handleCopy(instructionsText, 'Instructions');
+    };
 
 
     return (
@@ -224,28 +320,11 @@ function RecipeDialog({ isOpen, onOpenChange, dishName, onAddToBill }: { isOpen:
                             <Loader2 className="h-8 w-8 animate-spin" />
                         </div>
                     ) : result?.isSuccess ? (
-                        <div className="space-y-4">
-                            <div>
-                                <h4 className="font-semibold text-lg flex items-center gap-2"><Salad className="h-5 w-5 text-green-600"/> Ingredients</h4>
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                    {result.ingredients.map((ing, i) => <Badge key={i} variant="secondary">{ing.name}</Badge>)}
-                                </div>
-                            </div>
-                            <Separator />
-                            <div>
-                                <h4 className="font-semibold text-lg">Instructions</h4>
-                                <ol className="space-y-3 mt-2">
-                                    {result.instructions.map((step, i) => (
-                                        <li key={i}>
-                                            <h5 className="font-bold">{step.title}</h5>
-                                            <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                                                {step.actions.map((action, j) => <li key={j}>{action}</li>)}
-                                            </ul>
-                                        </li>
-                                    ))}
-                                </ol>
-                            </div>
-                        </div>
+                        <RecipeContent 
+                            result={result} 
+                            onCopyIngredients={handleCopyIngredients}
+                            onCopyInstructions={handleCopyInstructions}
+                        />
                     ) : (
                         <p>Could not find recipe details.</p>
                     )}
