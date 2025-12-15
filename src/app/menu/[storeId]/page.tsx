@@ -57,7 +57,7 @@ import {
   AlertDialogAction,
   AlertDialogDescription,
 } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -271,6 +271,7 @@ function RecipeDialog({ isOpen, onOpenChange, dishName, onAddToBill }: { isOpen:
                                                 <h5 className="font-bold">{step.title}</h5>
                                                 <Button size="icon" variant="ghost" onClick={() => isSpeaking ? handleStop() : handleSpeak(`${step.title}. ${step.actions.join('. ')}`)}>
                                                     {isSpeaking ? <StopCircle className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                                                    <span className="sr-only">{isSpeaking ? "Stop reading" : "Read step aloud"}</span>
                                                 </Button>
                                             </div>
                                             <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
@@ -299,14 +300,11 @@ export default function PublicMenuPage() {
   const { storeId } = useParams<{ storeId: string }>();
   const tableNumber = useSearchParams().get('table');
   const { firestore } = useFirebase();
-
   const { toast } = useToast();
   const [isAdding, startAdding] = useTransition();
   const [sessionId, setSessionId] = useState('');
-  
   const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
   const canInstall = !!installPrompt;
-  
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [isRecipeOpen, setIsRecipeOpen] = useState(false);
 
@@ -479,5 +477,3 @@ export default function PublicMenuPage() {
     </div>
   );
 }
-
-    
