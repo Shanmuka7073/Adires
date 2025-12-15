@@ -73,6 +73,12 @@ import { generateVoiceReply } from '@/ai/flows/generate-voice-reply-flow';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
+
+
+/* -------------------------------------------------------------------------- */
+/*                                   LIVE BILL                                */
+/* -------------------------------------------------------------------------- */
 
 function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }) {
   const { firestore } = useFirebase();
@@ -307,6 +313,7 @@ export default function PublicMenuPage() {
   const canInstall = !!installPrompt;
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [isRecipeOpen, setIsRecipeOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
 
   useEffect(() => {
     const handleBeforeInstall = (e: Event) => {
@@ -349,16 +356,25 @@ export default function PublicMenuPage() {
   
   const menu = menus?.[0];
   
-  const groupedMenu = useMemo(() => {
-    if (!menu?.items) return {};
-    return menu.items.reduce((acc, item) => {
+  const { categories, groupedMenu } = useMemo(() => {
+    if (!menu?.items) return { categories: [], groupedMenu: {} };
+    const categories = ['All', ...Array.from(new Set(menu.items.map(item => item.category || 'Other'))).sort()];
+    const grouped = menu.items.reduce((acc, item) => {
         const cat = item.category || 'Other';
         if(!acc[cat]) acc[cat] = [];
         acc[cat].push(item);
         return acc;
-    }, {} as Record<string, MenuItem[]>)
+    }, {} as Record<string, MenuItem[]>);
+    return { categories, groupedMenu: grouped };
   }, [menu]);
-  
+
+  const filteredMenu = useMemo(() => {
+    if (selectedCategory === 'All') {
+        return groupedMenu;
+    }
+    return { [selectedCategory]: groupedMenu[selectedCategory] || [] };
+  }, [selectedCategory, groupedMenu]);
+
   const handleItemClick = (item: MenuItem) => {
     setSelectedItem(item);
     setIsRecipeOpen(true);
@@ -411,37 +427,54 @@ export default function PublicMenuPage() {
             onAddToBill={handleAddToBill}
          />
       )}
-      <header className="sticky top-0 z-40 bg-white border-b">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-40 bg-white border-b p-4">
+        <div className="flex items-center gap-4">
              {store.imageUrl && (
-              <Image src={store.imageUrl} alt={store.name} width={40} height={40} className="rounded-full border" />
+              <Image src={store.imageUrl} alt={store.name} width={48} height={48} className="rounded-lg border" />
              )}
             <div>
-              <h1 className="font-bold text-lg">{store.name}</h1>
+              <h1 className="font-bold text-xl">{store.name}</h1>
               {tableNumber && (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   Table {tableNumber} • Live Order
                 </p>
               )}
             </div>
-          </div>
-          {canInstall && (
-            <Button size="icon" variant="ghost" onClick={triggerInstall}>
-              <Download className="h-5 w-5" />
+            {canInstall && (
+            <Button size="sm" variant="ghost" onClick={triggerInstall} className="ml-auto">
+                <Download className="mr-2 h-4 w-4" />
+                Add to Home
             </Button>
-          )}
+           )}
         </div>
       </header>
 
       {sessionId && (
-          <div className="sticky top-[73px] z-30 px-4 py-2 bg-gray-50">
+          <div className="sticky top-[89px] z-30 px-4 py-2 bg-gray-50/80 backdrop-blur-sm">
             <LiveBill storeId={storeId} sessionId={sessionId} />
           </div>
       )}
       
+      <div className="sticky top-[181px] z-30 bg-gray-50/95 backdrop-blur-sm py-2">
+         <ScrollArea className="w-full whitespace-nowrap">
+            <div className="flex space-x-2 px-4">
+                {categories.map(category => (
+                    <Button
+                        key={category}
+                        variant={selectedCategory === category ? "default" : "outline"}
+                        onClick={() => setSelectedCategory(category)}
+                        className="rounded-full shadow-sm"
+                    >
+                        {category}
+                    </Button>
+                ))}
+            </div>
+            <ScrollBar orientation="horizontal" />
+         </ScrollArea>
+      </div>
+
       <main className="px-4 py-4 space-y-6">
-        {Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
+        {Object.entries(filteredMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
           <div key={category}>
             <h2 className="text-xl font-semibold mb-3 tracking-wide text-gray-800">{category}</h2>
             <div className="space-y-3">
@@ -477,3 +510,4 @@ export default function PublicMenuPage() {
     </div>
   );
 }
+
