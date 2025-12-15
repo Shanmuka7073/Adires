@@ -24,6 +24,7 @@ import {
   Bug,
   Package,
   BookOpen,
+  HelpCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -32,7 +33,6 @@ import { useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import type { Order, Store as StoreType } from '@/lib/types';
@@ -40,7 +40,7 @@ import { t } from '@/lib/locales';
 
 /* ---------------- STAT CARD ---------------- */
 
-function StatCard({ title, value, icon: Icon }: any) {
+function StatCard({ title, value, icon: Icon, loading }: any) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -48,7 +48,7 @@ function StatCard({ title, value, icon: Icon }: any) {
         <Icon className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+        {loading ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{value}</div>}
       </CardContent>
     </Card>
   );
@@ -69,7 +69,7 @@ function ActionCard({
 }) {
   return (
     <Link href={href}>
-      <Card className="hover:shadow-md transition">
+      <Card className="hover:shadow-md transition h-full">
         <CardHeader className="flex flex-row gap-4 items-center">
           <Icon className="h-8 w-8 text-primary" />
           <div>
@@ -114,7 +114,15 @@ export default function AdminDashboardPage() {
     if (!isLoading && !isAdmin) router.replace('/dashboard');
   }, [isLoading, isAdmin, router]);
 
-  if (isLoading || usersLoading || storesLoading || ordersLoading) {
+  const stats = useMemo(() => ({
+    totalUsers: users?.length ?? 0,
+    totalStores: stores?.length ?? 0,
+    totalOrdersDelivered: orders?.length ?? 0,
+  }), [users, stores, orders]);
+
+  const statsLoading = isLoading || usersLoading || storesLoading || ordersLoading;
+
+  if (isLoading || !isAdmin) {
     return (
         <div className="container mx-auto px-4 py-10 space-y-16">
             <Skeleton className="h-20 w-full" />
@@ -135,24 +143,11 @@ export default function AdminDashboardPage() {
         </p>
       </div>
 
-      {/* ================= ATTENTION ================= */}
-      <Card className="border-destructive">
-        <CardHeader className="flex flex-row gap-3 items-center">
-          <AlertTriangle className="h-6 w-6 text-destructive" />
-          <div>
-            <CardTitle>Attention Required</CardTitle>
-            <CardDescription>
-              Review failed voice commands, low stock items or system alerts
-            </CardDescription>
-          </div>
-        </CardHeader>
-      </Card>
-
       {/* ================= STATS ================= */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatCard title="Total Users" value={users?.length ?? 0} icon={Users} />
-        <StatCard title="Active Stores" value={stores?.length ?? 0} icon={Store} />
-        <StatCard title="Orders Delivered" value={orders?.length ?? 0} icon={ShoppingBag} />
+        <StatCard title="Total Users" value={stats.totalUsers} icon={Users} loading={statsLoading} />
+        <StatCard title="Active Stores" value={stats.totalStores} icon={Store} loading={statsLoading} />
+        <StatCard title="Orders Delivered" value={stats.totalOrdersDelivered} icon={ShoppingBag} loading={statsLoading} />
       </div>
 
       {/* ================= OPERATIONS ================= */}
@@ -202,6 +197,12 @@ export default function AdminDashboardPage() {
             href="/dashboard/admin/training-ground"
             icon={Lightbulb}
           />
+           <ActionCard
+            title="Asha AI Agent"
+            description="Use the conversational diagnostic assistant."
+            href="/dashboard/admin/asha-agent"
+            icon={BrainCircuit}
+          />
           <ActionCard
             title="Ingredient AI Tester"
             description="Test recipe ingredient generation"
@@ -213,8 +214,26 @@ export default function AdminDashboardPage() {
 
       {/* ================= SYSTEM & DEBUGGING ================= */}
       <section className="space-y-6">
-        <h2 className="text-2xl font-bold">System & Debugging</h2>
+        <h2 className="text-2xl font-bold">System & Debugging (Seek Help)</h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+           <ActionCard
+            title="System Status"
+            description="Check the health of backend services and APIs."
+            href="/dashboard/admin/system-status"
+            icon={Server}
+          />
+           <ActionCard
+            title="App Pitch"
+            description="Review and share the official app pitch document."
+            href="/dashboard/admin/pitch"
+            icon={FileText}
+          />
+          <ActionCard
+            title="App Overview"
+            description="Get a complete breakdown of the app's features and design."
+            href="/dashboard/admin/app-overview"
+            icon={FileSignature}
+          />
           <ActionCard
             title="Live Order Video"
             description="Set kitchen live stream URL"
@@ -274,6 +293,18 @@ export default function AdminDashboardPage() {
             description="View the source code for the public-facing QR menu page."
             href="/dashboard/admin/menu-help"
             icon={FileCode}
+          />
+          <ActionCard
+            title="Voice Commander Code"
+            description="View source for the main voice command processing logic."
+            href="/dashboard/admin/voice-commander-help"
+            icon={Mic}
+          />
+           <ActionCard
+            title="Checkout Loop Debug"
+            description="Isolate the specific code related to the checkout page command loop."
+            href="/dashboard/admin/checkout-loop-help"
+            icon={Bug}
           />
         </div>
       </section>

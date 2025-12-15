@@ -677,5 +677,3 @@ export default function AdminDashboardPage() {
 `,
     },
 ];
-
-    

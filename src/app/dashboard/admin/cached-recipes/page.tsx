@@ -47,7 +47,7 @@ function CachedRecipeRow({ recipe }: { recipe: CachedRecipe }) {
             <TableCell>
                 <div className="flex flex-wrap gap-1 max-w-md">
                     {recipe.ingredients.map(ing => (
-                        <Badge key={ing} variant="secondary">{ing}</Badge>
+                        <Badge key={ing.name} variant="secondary">{ing.name}</Badge>
                     ))}
                 </div>
             </TableCell>

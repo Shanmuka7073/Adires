@@ -1,3 +1,4 @@
+
 // This file is purely for storing the large string of text for the overview page.
 // It is not a React component.
 
@@ -24,18 +25,18 @@ This document provides a comprehensive overview of the LocalBasket application, 
 
 ### Key Technical Components
 
-*   **`src/lib/store.ts` (Zustand Global Store)**: This is the client-side single source of truth. It fetches and holds all essential data on startup (stores, master products, voice aliases) to ensure the app is fast and responsive without constant re-fetching.
-*   **`src/app/page.tsx` (Homepage)**: This is the main entry point, showcasing product categories and providing the primary search/voice interface.
-*   **`src/app/stores/[id]/page.tsx` (Store Detail Page)**: Displays products for a selected store, filtered by category. It relies on the data from the global store.
-*   **`src/components/layout/voice-commander.tsx` (The Brain)**: This is the most complex component. It handles:
+*   **\`src/lib/store.ts\` (Zustand Global Store)**: This is the client-side single source of truth. It fetches and holds all essential data on startup (stores, master products, voice aliases) to ensure the app is fast and responsive without constant re-fetching.
+*   **\`src/app/page.tsx\` (Homepage)**: This is the main entry point, showcasing product categories and providing the primary search/voice interface.
+*   **\`src/app/stores/[id]/page.tsx\` (Store Detail Page)**: Displays products for a selected store, filtered by category. It relies on the data from the global store.
+*   **\`src/components/layout/voice-commander.tsx\` (The Brain)**: This is the most complex component. It handles:
     *   Speech recognition via the Web Speech API.
     *   Natural Language Understanding (NLU) to parse commands.
     *   Intent recognition (e.g., is the user ordering, navigating, or asking a question?).
     *   Contextual conversation (e.g., asking for clarification after a price check).
-*   **`src/lib/nlu/` (NLU Engine)**: A set of files responsible for parsing numbers, units, and product names from raw text.
-*   **`src/app/actions.ts` (Server Actions)**: Secure server-side functions used for tasks that require admin privileges, like bulk-importing products.
-*   **`src/app/api/auth/` (API Routes)**: Handles the backend logic for secure WebAuthn (Fingerprint) login.
-*   **`src/firebase/`**: Contains all Firebase configuration and custom hooks (`useCollection`, `useDoc`) for real-time data fetching.
+*   **\`src/lib/nlu/\` (NLU Engine)**: A set of files responsible for parsing numbers, units, and product names from raw text.
+*   **\`src/app/actions.ts\` (Server Actions)**: Secure server-side functions used for tasks that require admin privileges, like bulk-importing products.
+*   **\`src/app/api/auth/\` (API Routes)**: Handles the backend logic for secure WebAuthn (Fingerprint) login.
+*   **\`src/firebase/\`**: Contains all Firebase configuration and custom hooks (\`useCollection\`, \`useDoc\`) for real-time data fetching.
 
 ---
 
@@ -57,5 +58,3 @@ This document provides a comprehensive overview of the LocalBasket application, 
     *   The user is navigated to the \`/checkout\` page.
     *   A flag is set to tell the checkout page to auto-submit the order.
 `;
-`
-]];
