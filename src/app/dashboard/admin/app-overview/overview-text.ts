@@ -23,6 +23,18 @@ This document provides a comprehensive overview of the LocalBasket application, 
 
 ---
 
+### Restaurant & POS Features
+
+This app includes a full suite of features designed for restaurants, cafes, and food stalls, effectively turning it into a lightweight Point-of-Sale (POS) system.
+
+*   **AI Menu Scanning**: Restaurant owners can upload a photo of their physical menu, and the AI will automatically extract all items, categories, descriptions, and prices, creating a digital menu in seconds.
+*   **QR Code Table Ordering**: Owners can define their table layout (e.g., "Table 1", "Patio 3") and generate unique QR codes for each. Customers scan the code to instantly access the menu on their phone without needing to install an app.
+*   **Live Table Ordering System**: When a customer places an order via the QR menu, it appears in real-time on the restaurant owner's "Store Orders" dashboard. This dashboard functions as a Kitchen Display System (KDS).
+*   **Real-time Order Management**: Owners can see incoming orders, track which tables have paid, and manage the entire floor from one screen.
+*   **Profit & Ingredient Analytics**: The sales report dashboard is designed for restaurants, providing a breakdown of sales, cost of goods sold, and overall profit. It also tracks ingredient consumption, helping owners manage stock and reduce waste.
+
+---
+
 ### Key Technical Components
 
 *   **\`src/lib/store.ts\` (Zustand Global Store)**: This is the client-side single source of truth. It fetches and holds all essential data on startup (stores, master products, voice aliases) to ensure the app is fast and responsive without constant re-fetching.

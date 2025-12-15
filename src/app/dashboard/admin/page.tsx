@@ -248,7 +248,7 @@ export default function AdminDashboardPage() {
             icon={ImageIcon}
           />
           <ActionCard
-            title="Firestore Rules"
+            title="Security Rules"
             description="View database security rules"
             href="/dashboard/admin/security-rules"
             icon={Shield}
