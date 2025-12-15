@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -618,5 +617,70 @@ export async function rejectRule(sentenceId: string): Promise<{ success: boolean
         return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message };
+    }
+}
+
+export async function getStoreSalesReport({ storeId, period }: { storeId: string, period: 'daily' | 'weekly' | 'monthly' }): Promise<{ success: boolean, report?: any, error?: string }> {
+    const { db } = await getAdminServices();
+    
+    if (!storeId) {
+        return { success: false, error: 'Store ID is required.' };
+    }
+
+    const now = new Date();
+    let startDate: Date;
+
+    if (period === 'daily') {
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    } else if (period === 'weekly') {
+        startDate = new Date(now.setDate(now.getDate() - now.getDay()));
+        startDate.setHours(0, 0, 0, 0);
+    } else { // monthly
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+    
+    const startTimestamp = Timestamp.fromDate(startDate);
+    
+    try {
+        const ordersQuery = db.collection('orders')
+            .where('storeId', '==', storeId)
+            .where('status', '==', 'Completed')
+            .where('orderDate', '>=', startTimestamp);
+
+        const snapshot = await ordersQuery.get();
+        if (snapshot.empty) {
+            return { success: true, report: { totalSales: 0, totalItems: 0, topProducts: [] } };
+        }
+
+        let totalSales = 0;
+        let totalItems = 0;
+        const productCounts = new Map<string, number>();
+
+        snapshot.docs.forEach(doc => {
+            const order = doc.data() as Order;
+            totalSales += order.totalAmount;
+            order.items.forEach(item => {
+                totalItems += item.quantity;
+                productCounts.set(item.productName, (productCounts.get(item.productName) || 0) + item.quantity);
+            });
+        });
+        
+        const topProducts = Array.from(productCounts.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([name, count]) => ({ name, count }));
+
+        return {
+            success: true,
+            report: {
+                totalSales,
+                totalItems,
+                topProducts
+            }
+        };
+
+    } catch (error: any) {
+        console.error("Store sales report generation failed:", error);
+        return { success: false, error: error.message || "An unknown server error occurred." };
     }
 }

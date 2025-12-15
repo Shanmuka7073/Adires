@@ -1,10 +1,12 @@
-
 'use client';
 
 import { Order, Store } from '@/lib/types';
 import {
   Card, CardContent, CardHeader, CardTitle, CardDescription
 } from '@/components/ui/card';
+import {
+  Accordion, AccordionContent, AccordionItem, AccordionTrigger
+} from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -16,6 +18,7 @@ import {
   Loader2,
   Check,
   Package,
+  BarChart3
 } from 'lucide-react';
 
 import {
@@ -28,6 +31,7 @@ import { useEffect, useMemo, useState, useTransition, useRef } from 'react';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+import Link from 'next/link';
 
 
 const STATUS_META: Record<string, any> = {
@@ -183,14 +187,10 @@ export default function StoreOrdersPage() {
             };
         }
         
-        const existingItemIndex = acc[sessionId].orders.flatMap(o => o.items).findIndex(i => i.productName === order.items[0]?.productName);
-
-        // This logic is imperfect for session reconstruction but works for the demo.
-        // A better approach would be to have a single order document per session.
         acc[sessionId].orders.push(order);
         acc[sessionId].totalAmount += order.totalAmount;
         
-        const orderDate = new Date(order.orderDate.seconds * 1000);
+        const orderDate = new Date((order.orderDate as Timestamp).seconds * 1000);
         if (orderDate > acc[sessionId].lastActivity) {
             acc[sessionId].lastActivity = orderDate;
             acc[sessionId].status = order.status;
@@ -238,9 +238,17 @@ export default function StoreOrdersPage() {
 
   return (
     <div className="container mx-auto py-12 px-4 md:px-6">
-        <div className="mb-8">
-            <h1 className="text-4xl font-bold font-headline">Live Table Orders</h1>
-            <p className="text-muted-foreground">Manage incoming orders from your restaurant tables.</p>
+        <div className="mb-8 flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <div>
+                <h1 className="text-4xl font-bold font-headline">Live Table Orders</h1>
+                <p className="text-muted-foreground">Manage incoming orders from your restaurant tables.</p>
+            </div>
+            <Button asChild variant="outline">
+                <Link href="/dashboard/owner/sales-report">
+                    <BarChart3 className="mr-2 h-4 w-4" />
+                    View Sales Report
+                </Link>
+            </Button>
         </div>
 
         <div className="space-y-8">
