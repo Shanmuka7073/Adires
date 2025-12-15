@@ -5,7 +5,7 @@ import { useEffect, useState, useTransition, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BarChart3, TrendingUp, ShoppingCart, Download, DollarSign, Package } from 'lucide-react';
+import { BarChart3, TrendingUp, ShoppingCart, Beef, Carrot, Grape, Download, DollarSign, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, Timestamp } from 'firebase/firestore';
@@ -19,7 +19,7 @@ type ReportData = {
   totalItems: number;
   totalOrders: number;
   topProducts: { name: string; count: number }[];
-  ingredientUsage: { name: string; quantity: number }[];
+  ingredientUsage: { name: string; quantity: number, unit: string }[];
 };
 
 function StatCard({ title, value, highlight = false }: { title: string, value: string | number, highlight?: boolean }) {
@@ -161,11 +161,11 @@ export default function SalesReportPage() {
                                             {report.ingredientUsage.map(i => (
                                               <div key={i.name} className="flex justify-between bg-muted/50 p-3 rounded">
                                                 <span>{i.name}</span>
-                                                <b>{i.quantity} g/ml</b>
+                                                <b>{i.quantity} {i.unit}</b>
                                               </div>
                                             ))}
                                           </div>
-                                        ) : <p className="text-muted-foreground">No ingredient data available.</p>}
+                                        ) : <p className="text-muted-foreground">No ingredient data available for cost/profit calculation.</p>}
                                       </div>
                                     </div>
                                 </>

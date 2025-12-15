@@ -459,9 +459,9 @@ export async function getStoreSalesReport({
 
     for (const order of validOrders) {
       totalSales += order.totalAmount;
-      const itemsSnapshot = await db.collection('orders', order.id, 'items').get();
       
-      const items: OrderItem[] = itemsSnapshot.docs.map(d => d.data() as OrderItem);
+      // Correctly fetch items from the 'items' array on the order document itself.
+      const items: OrderItem[] = order.items || [];
 
       for (const item of items) {
         productMap.set(
@@ -561,3 +561,4 @@ Top Item: ${report.topProducts[0]?.name || 'N/A'}
 
 
     
+
