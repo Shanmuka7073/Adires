@@ -24,6 +24,7 @@ function getAppOptions(): AppOptions {
                     projectId: serviceAccount.project_id,
                 }),
                 projectId: serviceAccount.project_id,
+                storageBucket: `${serviceAccount.project_id}.appspot.com`,
             };
         } catch (e) {
             console.error('Failed to parse SERVICE_ACCOUNT env var:', e);
