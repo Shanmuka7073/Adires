@@ -37,7 +37,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Store, Product, ProductPrice, User as AppUser, ProductVariant } from '@/lib/types';
 import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
-import { uploadStoreImage } from '@/app/actions';
+import { updateStoreImageUrl } from '@/app/actions';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
@@ -128,130 +128,45 @@ const createSlug = (text: string) => {
 
 function StoreImageUploader({ store }: { store: Store }) {
     const { toast } = useToast();
-    const [uploading, startUploadTransition] = useTransition();
-    const [progress, setProgress] = useState(0);
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    
-    const [isCameraOn, setIsCameraOn] = useState(false);
-    const [capturedImage, setCapturedImage] = useState<string | null>(null);
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const streamRef = useRef<MediaStream | null>(null);
+    const [isSaving, startSaveTransition] = useTransition();
+    const [imageUrl, setImageUrl] = useState(store.imageUrl || '');
 
-    // Effect to handle camera stream
     useEffect(() => {
-        const setupCamera = async () => {
-            if (isCameraOn) {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                    streamRef.current = stream;
-                    if (videoRef.current) {
-                        videoRef.current.srcObject = stream;
-                    }
-                } catch (error) {
-                    console.error("Error accessing camera:", error);
-                    toast({
-                        variant: 'destructive',
-                        title: 'Camera Access Denied',
-                        description: 'Please enable camera permissions in your browser settings.',
-                    });
-                    setIsCameraOn(false);
-                }
-            } else {
-                 if (streamRef.current) {
-                    streamRef.current.getTracks().forEach(track => track.stop());
-                    streamRef.current = null;
-                }
-            }
-        };
-        
-        setupCamera();
+        setImageUrl(store.imageUrl || '');
+    }, [store.imageUrl]);
 
-        // Cleanup function
-        return () => {
-            if (streamRef.current) {
-                streamRef.current.getTracks().forEach(track => track.stop());
-                streamRef.current = null;
-            }
-        };
-    }, [isCameraOn, toast]);
-
-    const handleToggleCamera = () => {
-        setIsCameraOn(prev => !prev);
-        setCapturedImage(null); // Clear previous captures when toggling
-        setSelectedFile(null);
-    };
-    
-    const handleCapture = () => {
-        if (videoRef.current && canvasRef.current) {
-            const video = videoRef.current;
-            const canvas = canvasRef.current;
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const context = canvas.getContext('2d');
-            if(context) {
-                context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-                const dataUrl = canvas.toDataURL('image/jpeg');
-                setCapturedImage(dataUrl);
-                setIsCameraOn(false); // Turn off camera after capture
-            }
+    const handleSave = () => {
+        if (!imageUrl) {
+            toast({ variant: 'destructive', title: 'URL is required.' });
+            return;
         }
-    };
-    
-    const handleUpload = () => {
-        if (!capturedImage) return;
 
-        startUploadTransition(async () => {
-            setProgress(50); // Simulate progress
-            const result = await uploadStoreImage(store.id, capturedImage);
-            setProgress(100);
+        startSaveTransition(async () => {
+            const result = await updateStoreImageUrl(store.id, imageUrl);
 
             if (result.success) {
-                toast({ title: 'Image Uploaded!' });
-                setCapturedImage(null);
-                setSelectedFile(null);
-                 // Note: Firestore listener will auto-update the UI with the new image URL.
+                toast({ title: 'Image URL Updated!' });
+                // The UI will update automatically due to the real-time listener on the store document.
             } else {
                 toast({
                     variant: 'destructive',
-                    title: 'Upload Failed',
+                    title: 'Update Failed',
                     description: result.error || 'The server action failed.',
                 });
             }
         });
     };
-    
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        if (event.target.files && event.target.files[0]) {
-            const file = event.target.files[0];
-            setSelectedFile(file);
-            
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                setCapturedImage(e.target?.result as string);
-            };
-            reader.readAsDataURL(file);
-            
-            setIsCameraOn(false);
-        }
-    }
-
 
     return (
         <Card>
             <CardHeader>
                 <CardTitle>{t('store-image')}</CardTitle>
-                <CardDescription>{t('take-or-upload-a-picture-of-your-storefront')}</CardDescription>
+                <CardDescription>Update your store's image by pasting a URL.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                  <div className="w-full aspect-video relative rounded-md overflow-hidden border bg-muted">
-                    {capturedImage ? (
-                        <Image src={capturedImage} alt="Captured preview" fill className="object-cover" />
-                    ) : isCameraOn ? (
-                         <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-                    ) : store.imageUrl ? (
-                        <Image src={store.imageUrl} alt={store.name} fill className="object-cover" />
+                    {imageUrl ? (
+                        <Image src={imageUrl} alt={store.name} fill className="object-cover" />
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full bg-muted/50 text-muted-foreground">
                             <ImageIcon className="h-10 w-10 mb-2" />
@@ -259,42 +174,22 @@ function StoreImageUploader({ store }: { store: Store }) {
                         </div>
                     )}
                 </div>
-                 {/* Hidden canvas for capturing frame */}
-                 <canvas ref={canvasRef} style={{ display: 'none' }} />
-                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
 
-
-                {uploading ? (
-                    <div className="space-y-2">
-                        <Progress value={progress} />
-                        <p className="text-xs text-center text-muted-foreground">{t('uploading')}...</p>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-2 gap-4">
-                        <Button variant="outline" onClick={handleToggleCamera}>
-                            {isCameraOn ? <CameraOff className="mr-2 h-4 w-4" /> : <Camera className="mr-2 h-4 w-4" />}
-                            {isCameraOn ? t('close-camera') : t('open-camera')}
-                        </Button>
-                        
-                        {isCameraOn && !capturedImage && (
-                            <Button onClick={handleCapture}>{t('capture')}</Button>
-                        )}
-                        
-                        {!isCameraOn && !capturedImage && (
-                            <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                                <Upload className="mr-2 h-4 w-4" />
-                                {t('from-device')}
-                            </Button>
-                        )}
-
-                        {capturedImage && (
-                             <Button onClick={handleUpload}>
-                                <Upload className="mr-2 h-4 w-4" />
-                                {t('upload-and-save')}
-                            </Button>
-                        )}
-                    </div>
-                )}
+                <div className="space-y-2">
+                    <Label htmlFor="store-image-url">Image URL</Label>
+                    <Input
+                        id="store-image-url"
+                        placeholder="https://example.com/your-store.jpg"
+                        value={imageUrl}
+                        onChange={(e) => setImageUrl(e.target.value)}
+                        disabled={isSaving}
+                    />
+                </div>
+                
+                <Button onClick={handleSave} disabled={isSaving} className="w-full">
+                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    Save Image URL
+                </Button>
             </CardContent>
         </Card>
     );
@@ -1181,485 +1076,6 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
   );
 }
 
-function PromoteStore({ store }: { store: Store }) {
-    const { toast } = useToast();
-
-    const handleShare = async () => {
-        if (!('contacts' in navigator && 'select' in navigator.contacts)) {
-            toast({
-                variant: 'destructive',
-                title: 'API Not Supported',
-                description: 'Your browser does not support the Contact Picker API.',
-            });
-            return;
-        }
-
-        try {
-            const contacts = await (navigator as any).contacts.select(['name', 'email', 'tel'], { multiple: true });
-
-            if (contacts.length === 0) {
-                toast({ title: 'No contacts selected.' });
-                return;
-            }
-
-            const phoneNumbers = contacts.flatMap((c: { tel: any; }) => c.tel || []);
-            const shareText = `Check out my store, ${store.name}, on the LocalBasket app! You can order groceries online and get them delivered right to your door. Visit my storefront here: ${window.location.origin}/stores/${store.id}`;
-            
-            if (phoneNumbers.length > 0) {
-                 const smsLink = `sms:${phoneNumbers.join(',')}?&body=${encodeURIComponent(shareText)}`;
-                 window.open(smsLink, '_blank');
-            } else {
-                 toast({
-                    variant: 'destructive',
-                    title: 'No Phone Numbers Found',
-                    description: 'The selected contacts do not have phone numbers. Email sharing is not yet implemented.',
-                });
-            }
-            
-            toast({
-                title: 'Contacts Selected!',
-                description: `Opening your messaging app to share with ${contacts.length} contacts.`,
-            });
-
-        } catch (ex) {
-            toast({
-                variant: 'destructive',
-                title: 'Could not access contacts',
-                description: 'There was an error trying to access your contacts.',
-            });
-            console.error(ex);
-        }
-    };
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>{t('promote-your-store')}</CardTitle>
-                <CardDescription>
-                    {t('share-your-store-with-your-phone-contacts')}
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Button onClick={handleShare} className="w-full">
-                    <Share2 className="mr-2 h-4 w-4" />
-                    {t('share-with-contacts')}
-                </Button>
-                <p className="text-xs text-muted-foreground mt-2 text-center">
-                    {t('this-will-open-your-phones-contact-picker')}
-                </p>
-            </CardContent>
-        </Card>
-    );
-}
-
-function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () => void }) {
-    const { firestore } = useFirebase();
-    const [isPending, startTransition] = useTransition();
-    const { toast } = useToast();
-
-    const form = useForm<LocationFormValues>({
-        resolver: zodResolver(locationSchema),
-        defaultValues: {
-            latitude: store.latitude || 0,
-            longitude: store.longitude || 0,
-        },
-    });
-
-    const handleGetLocation = () => {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    form.setValue('latitude', position.coords.latitude);
-                    form.setValue('longitude', position.coords.longitude);
-                    toast({ title: "Location Fetched!", description: "Your current location has been filled in." });
-                },
-                () => {
-                    toast({ variant: 'destructive', title: "Location Error", description: "Could not retrieve your location. Please enter it manually." });
-                }
-            );
-        } else {
-            toast({ variant: 'destructive', title: "Not Supported", description: "Geolocation is not supported by this browser." });
-        }
-    };
-    
-    const onSubmit = (data: LocationFormValues) => {
-        if (!firestore) return;
-        startTransition(() => {
-            const storeRef = doc(firestore, 'stores', store.id);
-            updateDoc(storeRef, data)
-                .then(() => {
-                    toast({ title: "Store Location Updated!", description: "Your store's location has been saved." });
-                    onUpdate();
-                })
-                .catch((error) => {
-                    const permissionError = new FirestorePermissionError({
-                        path: storeRef.path,
-                        operation: 'update',
-                        requestResourceData: data,
-                    });
-                    errorEmitter.emit('permission-error', permissionError);
-                });
-        });
-    };
-
-    return (
-        <Alert variant="destructive">
-            <AlertTitle>{t('action-required-update-your-stores-location')}</AlertTitle>
-            <AlertDescription>
-                {t('your-store-is-missing-gps-coordinates')}
-            </AlertDescription>
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
-                    <div className="flex items-end gap-4">
-                        <div className="grid grid-cols-2 gap-4 flex-1">
-                            <FormField control={form.control} name="latitude" render={({ field }) => (
-                                <FormItem><FormLabel className="text-xs text-muted-foreground">{t('latitude')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                            )} />
-                            <FormField control={form.control} name="longitude" render={({ field }) => (
-                                <FormItem><FormLabel className="text-xs text-muted-foreground">{t('longitude')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                            )} />
-                        </div>
-                         <Button type="button" variant="outline" onClick={handleGetLocation}>
-                            <MapPin className="mr-2 h-4 w-4" /> {t('get-current-location')}
-                        </Button>
-                    </div>
-                     <Button type="submit" disabled={isPending}>
-                        {isPending ? t('saving') : t('save-location')}
-                    </Button>
-                </form>
-            </Form>
-        </Alert>
-    );
-}
-
-function DangerZone({ store }: { store: Store }) {
-    const { firestore } = useFirebase();
-    const [isClosing, startCloseTransition] = useTransition();
-    const { toast } = useToast();
-
-    const handleCloseStore = () => {
-        if (!firestore) return;
-
-        startCloseTransition(async () => {
-            const storeRef = doc(firestore, 'stores', store.id);
-            try {
-                await updateDoc(storeRef, { isClosed: true });
-                toast({
-                    title: "Store Closed",
-                    description: `${store.name} has been closed and will no longer be visible to customers.`,
-                });
-            } catch (error) {
-                console.error("Failed to close store:", error);
-                const permissionError = new FirestorePermissionError({
-                    path: storeRef.path,
-                    operation: 'update',
-                    requestResourceData: { isClosed: true },
-                });
-                errorEmitter.emit('permission-error', permissionError);
-            }
-        });
-    };
-
-    return (
-        <Card className="border-destructive">
-            <CardHeader>
-                <CardTitle className="text-destructive">{t('danger-zone')}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="flex justify-between items-center">
-                    <div>
-                        <p className="font-medium">{t('close-store')}</p>
-                        <p className="text-sm text-muted-foreground">
-                            {t('this-will-make-your-store-invisible')}
-                        </p>
-                    </div>
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="destructive">{t('close-store')}</Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>{t('are-you-sure')}</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    {t('your-store-and-all-its-products-will-no-longer-be-visible')}
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleCloseStore} disabled={isClosing}>
-                                    {isClosing ? t('closing') : t('yes-close-my-store')}
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                </div>
-            </CardContent>
-        </Card>
-    );
-}
-
-function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void }) {
-    const { firestore } = useFirebase();
-    const [isPending, startTransition] = useTransition();
-    const { toast } = useToast();
-    const [isOpen, setIsOpen] = useState(false);
-    const { getAllAliases } = useAppStore();
-
-    const form = useForm<Omit<StoreFormValues, 'latitude' | 'longitude' | 'tables'>>({
-        resolver: zodResolver(storeSchema.omit({ latitude: true, longitude: true, tables: true })),
-        defaultValues: {
-            name: store.name,
-            teluguName: store.teluguName || '',
-            description: store.description,
-            address: store.address,
-        },
-    });
-    
-    const onSubmit = (data: Omit<StoreFormValues, 'latitude' | 'longitude' | 'tables'>) => {
-        if (!firestore) return;
-
-        startTransition(() => {
-            const storeRef = doc(firestore, 'stores', store.id);
-            updateDoc(storeRef, data)
-                .then(() => {
-                    toast({ title: "Store Details Updated!", description: "Your store's information has been saved." });
-                    setIsOpen(false);
-                    onUpdate(); // Trigger re-fetch in parent if needed
-                })
-                .catch((error) => {
-                    const permissionError = new FirestorePermissionError({
-                        path: storeRef.path,
-                        operation: 'update',
-                        requestResourceData: data,
-                    });
-                    errorEmitter.emit('permission-error', permissionError);
-                });
-        });
-    };
-
-    const storeAliases = useMemo(() => {
-        const key = createSlug(store.name);
-        return getAllAliases(key);
-    }, [store.name, getAllAliases]);
-
-    return (
-        <Card>
-            <CardHeader>
-                <div className="flex justify-between items-center">
-                    <CardTitle>{t('store-details')}</CardTitle>
-                    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                        <DialogTrigger asChild>
-                            <Button variant="outline" size="sm">
-                                <Edit className="mr-2 h-4 w-4" /> {t('edit')}
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>{t('edit-store-details')}</DialogTitle>
-                                <DialogDescription>{t('update-your-stores-public-information')}</DialogDescription>
-                            </DialogHeader>
-                            <Form {...form}>
-                                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                                    <FormField
-                                        control={form.control}
-                                        name="name"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>{t('store-name')}</FormLabel>
-                                                <FormControl>
-                                                    <Input {...field} disabled={store.name === 'LocalBasket'} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="teluguName"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Store Name (Telugu)</FormLabel>
-                                                <FormControl>
-                                                    <Input {...field} placeholder="e.g., పటేల్ కిరాణా స్టోర్" />
-                                                </FormControl>
-                                                 <FormDescription>This name will be used for Telugu voice commands.</FormDescription>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="description"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>{t('description')}</FormLabel>
-                                                <FormControl><Textarea {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="address"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>{t('address')}</FormLabel>
-                                                <FormControl><Input {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <DialogFooter>
-                                        <Button type="button" variant="secondary" onClick={() => setIsOpen(false)}>{t('cancel')}</Button>
-                                        <Button type="submit" disabled={isPending}>{isPending ? t('saving') : t('save-changes')}</Button>
-                                    </DialogFooter>
-                                </form>
-                            </Form>
-                        </DialogContent>
-                    </Dialog>
-                </div>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm">
-                <p><strong>{t('description')}:</strong> {store.description}</p>
-                <p><strong>{t('address')}:</strong> {store.address}</p>
-                 <p><strong>Telugu Name:</strong> {store.teluguName || 'Not set'}</p>
-                <p><strong>{t('location')}:</strong> {store.latitude}, {store.longitude}</p>
-                <div>
-                  <strong>Voice Aliases:</strong>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                      {Object.entries(storeAliases).flatMap(([lang, aliases]) =>
-                          aliases.map(alias => (
-                              <Badge key={`${lang}-${alias}`} variant="secondary">{alias} ({lang})</Badge>
-                          ))
-                      )}
-                      {Object.keys(storeAliases).length === 0 && <span className="text-muted-foreground ml-2">None set. Add aliases in the Voice Commands admin page.</span>}
-                  </div>
-                </div>
-            </CardContent>
-        </Card>
-    );
-}
-
-function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Product; storeId: string; onEdit: () => void; onDelete: () => void; }) {
-    const { firestore } = useFirebase();
-    const { getProductName, language, getAllAliases } = useAppStore();
-
-    const priceDocRef = useMemoFirebase(() => {
-        if (!firestore || !product.name) return null;
-        return doc(firestore, 'productPrices', product.name.toLowerCase());
-    }, [firestore, product.name]);
-
-    const { data: priceData, isLoading: pricesLoading } = useDoc<ProductPrice>(priceDocRef);
-    
-    const productAliases = useMemo(() => {
-        const key = createSlug(product.name);
-        return getAllAliases(key);
-    }, [product.name, getAllAliases]);
-
-    const variantsString = useMemo(() => {
-        if (pricesLoading) return "Loading prices...";
-        if (!priceData || !priceData.variants || priceData.variants.length === 0) return 'N/A';
-        return priceData.variants.map(v => `${v.weight} (₹${v.price}, Stock: ${v.stock})`).join(' | ');
-    }, [priceData, pricesLoading]);
-
-    return (
-        <TableRow>
-            <TableCell>
-                 <div className="flex items-start gap-4">
-                    <Image
-                        src={product.imageUrl || 'https://placehold.co/40x40/E2E8F0/64748B?text=?'}
-                        alt={product.name}
-                        width={40}
-                        height={40}
-                        className="rounded-sm object-cover mt-1"
-                    />
-                    <div>
-                        <span className="font-semibold">{getProductName(product)}</span>
-                         <div className="flex flex-wrap gap-1 mt-1">
-                            {Object.entries(productAliases).flatMap(([lang, aliases]) => 
-                                aliases.map(alias => (
-                                    <Badge key={`${lang}-${alias}`} variant="outline">{alias} ({lang})</Badge>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </TableCell>
-            <TableCell>{t(product.category?.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</TableCell>
-            <TableCell>{variantsString}</TableCell>
-            <TableCell className="text-right">
-                <Button variant="ghost" size="icon" onClick={onEdit}>
-                    <Edit className="h-4 w-4" />
-                    <span className="sr-only">Edit {product.name}</span>
-                </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <Trash2 className="h-4 w-4" />
-                      <span className="sr-only">Delete {product.name}</span>
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>{t('are-you-sure')}</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently delete the master product "{product.name}" and its pricing from the entire platform. This cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
-                      <AlertDialogAction onClick={onDelete} className="bg-destructive hover:bg-destructive/90">{t('delete')}</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-            </TableCell>
-        </TableRow>
-    );
-}
-
-function ProductList({ products }: { products: Product[] }) {
-    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-
-    const handleEdit = (product: Product) => {
-        setEditingProduct(product);
-    }
-    
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Products</CardTitle>
-                <CardDescription>Items you sell in your store.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {products.map(p => (
-                    <Card key={p.id} className="hover:shadow-md transition-shadow">
-                        <CardContent className="flex gap-4 p-4 items-center">
-                            <Image src={p.imageUrl || 'https://placehold.co/60x60/E2E8F0/64748B?text=?'} width={60} height={60} alt={p.name} className="rounded-md object-cover" />
-                            <div className="space-y-2">
-                                <p className="font-semibold leading-tight">{p.name}</p>
-                                <p className="text-sm text-muted-foreground">{p.category}</p>
-                                <Button size="sm" variant="outline" onClick={() => handleEdit(p)}>
-                                    <Edit className="mr-2 h-3 w-3" />
-                                    Edit
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))}
-            </CardContent>
-            {editingProduct && (
-                 <EditProductDialog
-                    storeId={editingProduct.storeId}
-                    product={editingProduct}
-                    isOpen={!!editingProduct}
-                    onOpenChange={(open) => !open && setEditingProduct(null)}
-                />
-            )}
-        </Card>
-    );
-}
-
-
 function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdmin: boolean, adminStoreId?: string; }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
@@ -1775,7 +1191,6 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
         <TabsContent value="products" className="mt-6 space-y-6">
             {isAdmin ? (
                 <>
-                    <ProductList products={filteredProducts} />
                     <AddProductForm storeId={store.id} isAdmin={true} />
                 </>
             ) : (
@@ -1977,7 +1392,7 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                             render={({ field }) => (
                             <FormItem>
                                 <FormLabel>{t('full-store-address')}</FormLabel>
-                                <FormControl><Input placeholder="123 Market Street, Mumbai" {...field} /></FormControl>
+                                <FormControl><Input placeholder="123 Main Street, Mumbai" {...field} /></FormControl>
                                 <FormMessage />
                             </FormItem>
                             )}
@@ -2126,4 +1541,3 @@ export default function MyStorePage() {
         </div>
     );
 }
-

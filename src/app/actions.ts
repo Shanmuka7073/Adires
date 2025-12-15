@@ -40,50 +40,16 @@ export async function getFirebaseConfig() {
   }
 }
 
-/**
- * Server action to upload a base64 data URI to Firebase Storage.
- * This is more secure as it doesn't expose storage rules to the client.
- */
-export async function uploadStoreImage(storeId: string, dataUri: string): Promise<{ success: boolean; imageUrl?: string; error?: string }> {
-  try {
-    const { db } = await getAdminServices();
-    // Correctly get the default bucket reference
-    const bucket = getStorage().bucket();
-
-    // Split the data URI to get the mime type and the base64 data
-    const matches = dataUri.match(/^data:(.+);base64,(.+)$/);
-    if (!matches || matches.length !== 3) {
-      return { success: false, error: 'Invalid data URI format.' };
+export async function updateStoreImageUrl(storeId: string, imageUrl: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        const { db } = await getAdminServices();
+        const storeDocRef = db.collection('stores').doc(storeId);
+        await storeDocRef.update({ imageUrl });
+        return { success: true };
+    } catch (error: any) {
+        console.error('Server-side image URL update failed:', error);
+        return { success: false, error: error.message || 'An unknown error occurred.' };
     }
-    
-    const mimeType = matches[1];
-    const base64Data = matches[2];
-    const buffer = Buffer.from(base64Data, 'base64');
-    
-    const filePath = `store-images/${storeId}/${Date.now()}.jpg`;
-    const file = bucket.file(filePath);
-    
-    // Upload the buffer to the file
-    await file.save(buffer, {
-      metadata: {
-        contentType: mimeType,
-      },
-    });
-
-    // Make the file public and get the URL
-    await file.makePublic();
-    const downloadURL = file.publicUrl();
-
-    // Update the store document in Firestore with the new image URL
-    const storeDocRef = db.collection('stores').doc(storeId);
-    await storeDocRef.update({ imageUrl: downloadURL });
-
-    return { success: true, imageUrl: downloadURL };
-
-  } catch (error: any) {
-    console.error('Server-side image upload failed:', error);
-    return { success: false, error: error.message || 'An unknown error occurred during upload.' };
-  }
 }
 
 
