@@ -1,19 +1,12 @@
 
 'use client';
 
-import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import {
   collection,
   query,
   where,
-  writeBatch,
   doc,
-  orderBy,
-  Timestamp,
-  getDoc,
-  setDoc,
-  arrayUnion,
-  increment,
 } from 'firebase/firestore';
 
 import type {
@@ -46,14 +39,8 @@ import {
   Salad,
   Mic,
   Eye,
+  Download,
 } from 'lucide-react';
-
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 
 import {
   AlertDialog,
@@ -68,16 +55,13 @@ import {
 } from '@/components/ui/alert-dialog';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
-import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
-import Link from 'next/link';
 import { addRestaurantOrderItem } from '@/app/actions';
+import { useInstall } from '@/components/install-provider';
 
 /* -------------------------------------------------------------------------- */
 /*                                   LIVE BILL                                */
@@ -116,14 +100,14 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
   
   if (!order || !order.items?.length) {
       return (
-          <Card className="mt-6">
+          <Card className="mt-6 bg-muted/50">
               <CardHeader>
-                   <CardTitle className="flex items-center gap-2">
+                   <CardTitle className="flex items-center gap-2 text-lg">
                       <Receipt /> Live Bill
                     </CardTitle>
               </CardHeader>
               <CardContent>
-                  <p className="text-muted-foreground text-center">No orders yet. Add an item to start a bill.</p>
+                  <p className="text-muted-foreground text-center py-4">No items added to your bill yet.</p>
               </CardContent>
           </Card>
       )
@@ -140,27 +124,27 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
       <CardContent>
             {order.items.map((it, idx) => (
               <div key={idx} className="border-b py-2 flex justify-between text-sm">
-                <span>{it.productName} × {it.quantity}</span>
+                <span className="font-medium">{it.productName} <span className="text-muted-foreground">x{it.quantity}</span></span>
                 <span>₹{(it.price * it.quantity).toFixed(2)}</span>
               </div>
             ))}
 
-            <div className="flex justify-between font-bold mt-3 text-lg">
+            <div className="flex justify-between font-bold mt-3 text-xl">
               <span>Total</span>
               <span>₹{order.totalAmount.toFixed(2)}</span>
             </div>
             
             <div className="mt-4">
-              {order.status === 'Billed' ? (
-                <div className="text-center p-4 bg-green-100 rounded-md">
-                    <Check className="mx-auto h-6 w-6 text-green-600 mb-2" />
-                    <p className="font-semibold text-green-800">Bill Closed. Please pay at the counter.</p>
-                    {order.orderDate && <p className="text-xs text-green-700">Started at {format(new Date((order.orderDate as Timestamp).seconds * 1000), 'p')}</p>}
-                </div>
-              ) : order.status === 'Completed' ? (
-                <div className="text-center p-4 bg-blue-100 rounded-md">
+              {order.status === 'Completed' ? (
+                 <div className="text-center p-4 bg-blue-100 rounded-md">
                     <Check className="mx-auto h-6 w-6 text-blue-600 mb-2" />
                     <p className="font-semibold text-blue-800">Thank you! Visit Again.</p>
+                </div>
+              ) : order.status === 'Billed' ? (
+                <div className="text-center p-4 bg-green-100 rounded-md">
+                    <Clock className="mx-auto h-6 w-6 text-green-600 mb-2" />
+                    <p className="font-semibold text-green-800">Bill Closed. Please pay at the counter.</p>
+                    {order.orderDate && <p className="text-xs text-green-700">Started at {format(new Date((order.orderDate as Timestamp).seconds * 1000), 'p')}</p>}
                 </div>
               ) : (
                 <AlertDialog>
@@ -204,6 +188,7 @@ export default function PublicMenuPage() {
   const { toast } = useToast();
   const [isAdding, startAdding] = useTransition();
   const [sessionId, setSessionId] = useState('');
+  const { canInstall, triggerInstall } = useInstall();
 
   useEffect(() => {
     const key = `session_${storeId}_${tableNumber}`;
@@ -223,10 +208,10 @@ export default function PublicMenuPage() {
     firestore ? query(collection(firestore, `stores/${storeId}/menus`)) : null,
   [firestore, storeId]);
 
-  const { data: stores, isLoading: storeLoading } = useCollection<Store>(storeQuery);
+  const { data: stores, isLoading: storeLoading } = useDoc<Store>(storeQuery);
   const { data: menus, isLoading: menuLoading } = useCollection<Menu>(menuQuery);
 
-  const store = stores?.[0];
+  const store = stores;
   const menu = menus?.[0];
   
   const groupedMenu = useMemo(() => {
@@ -244,7 +229,7 @@ export default function PublicMenuPage() {
       const result = await addRestaurantOrderItem({
         storeId,
         sessionId,
-        tableNumber,
+        tableNumber: tableNumber || null,
         item,
         quantity: 1,
       });
@@ -280,11 +265,28 @@ export default function PublicMenuPage() {
         <div className="container mx-auto py-8 px-4 md:px-6">
           <Card className="max-w-2xl mx-auto shadow-lg">
             <CardHeader className="text-center">
-                <div className="flex items-center justify-center gap-2">
+                 {store.imageUrl && (
+                    <Image
+                      src={store.imageUrl}
+                      alt={store.name}
+                      width={128}
+                      height={128}
+                      className="mx-auto rounded-full border-4 border-white shadow-md -mt-16"
+                    />
+                  )}
+                <div className="flex items-center justify-center gap-2 mt-4">
                     <Utensils className="h-8 w-8 text-primary" />
                     <CardTitle className="text-3xl font-bold font-headline">{store.name}</CardTitle>
                 </div>
                 {tableNumber && <Badge className="mx-auto mt-2">Table {tableNumber}</Badge>}
+                 {canInstall && (
+                  <div className="pt-4">
+                    <Button onClick={triggerInstall} size="sm">
+                        <Download className="mr-2 h-4 w-4" />
+                        Add {store.name} to Home Screen
+                    </Button>
+                  </div>
+                 )}
             </CardHeader>
             <CardContent className="space-y-6">
                 {sessionId && <LiveBill storeId={storeId} sessionId={sessionId} />}
