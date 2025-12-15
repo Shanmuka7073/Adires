@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { PT_Sans } from "next/font/google";
 import "./globals.css";
 import { ClientRoot } from "@/components/layout/client-root";
+import Script from "next/script";
 
 const ptSans = PT_Sans({
   subsets: ["latin"],
@@ -29,19 +30,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${ptSans.variable}`}>
+    <html lang="en" className={ptSans.variable}>
        <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
       </head>
       <body>
         <ClientRoot>{children}</ClientRoot>
-        <script>{`
-          if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-              navigator.serviceWorker.register('/sw.js');
-            });
-          }
-        `}</script>
+        <Script id="sw-register" strategy="afterInteractive">
+          {`
+            if ('serviceWorker' in navigator) {
+              window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                  .then(() => console.log('Service Worker registered'))
+                  .catch(err => console.error('SW registration failed', err));
+              });
+            }
+          `}
+        </Script>
       </body>
     </html>
   );
