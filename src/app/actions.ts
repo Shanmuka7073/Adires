@@ -428,16 +428,22 @@ export async function getStoreSalesReport({
       .collection('orders')
       .where('storeId', '==', storeId)
       .where('status', 'in', ['Completed', 'Billed'])
-      .where('orderDate', '>=', Timestamp.fromDate(startDate))
       .get();
+    
+    const validOrders = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() } as Order))
+      .filter(order => {
+        const orderDate = (order.orderDate as Timestamp).toDate();
+        return orderDate >= startDate;
+      });
 
-    if (snapshot.empty) {
+    if (validOrders.length === 0) {
       return {
         success: true,
         report: {
           totalSales: 0,
-          totalOrders: 0,
           totalItems: 0,
+          totalOrders: 0,
           topProducts: [],
           totalCost: 0,
           profit: 0,
@@ -447,30 +453,53 @@ export async function getStoreSalesReport({
     }
 
     let totalSales = 0;
+    let totalCost = 0;
     const productMap = new Map<string, number>();
+    const ingredientMap = new Map<string, { quantity: number; unit: string }>();
 
-    snapshot.forEach(doc => {
-      const order = doc.data() as Order;
+    for (const order of validOrders) {
       totalSales += order.totalAmount;
+      const itemsSnapshot = await db.collection('orders', order.id, 'items').get();
+      
+      const items: OrderItem[] = itemsSnapshot.docs.map(d => d.data() as OrderItem);
 
-      order.items?.forEach(item => {
+      for (const item of items) {
         productMap.set(
           item.productName,
           (productMap.get(item.productName) || 0) + item.quantity
         );
-      });
-    });
+
+        if (item.ingredients) {
+          item.ingredients.forEach(ing => {
+            totalCost += (ing.costPerUnit || 0) * ing.quantity * item.quantity;
+            
+            const currentUsage = ingredientMap.get(ing.name) || { quantity: 0, unit: ing.unit };
+            ingredientMap.set(ing.name, {
+              quantity: currentUsage.quantity + (ing.quantity * item.quantity),
+              unit: ing.unit,
+            });
+          });
+        }
+      }
+    }
 
     return {
       success: true,
       report: {
         totalSales,
-        totalOrders: snapshot.size,
+        totalCost,
+        profit: totalSales - totalCost,
+        totalOrders: validOrders.length,
         totalItems: Array.from(productMap.values()).reduce((a, b) => a + b, 0),
         topProducts: [...productMap.entries()]
           .sort((a, b) => b[1] - a[1])
           .slice(0, 5)
           .map(([name, count]) => ({ name, count })),
+        ingredientUsage: [...ingredientMap.entries()].map(([name, data]) => ({
+          name,
+          quantity: data.quantity,
+          unit: data.unit,
+        })),
       },
     };
   } catch (error: any) {
