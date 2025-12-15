@@ -2,20 +2,12 @@
 'use client';
 
 import { Order, Store } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+  Card, CardContent, CardHeader, CardTitle, CardDescription
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import {
   CookingPot,
   Truck,
@@ -35,6 +27,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useEffect, useMemo, useState, useTransition, useRef } from 'react';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+
 
 const STATUS_META: Record<string, any> = {
   Pending: { icon: AlertTriangle, variant: 'secondary' },
@@ -80,10 +74,6 @@ function SessionCard({ session, onStatusChange, isUpdating }: { session: Session
   const { toast } = useToast();
 
   const handleConfirmPayment = () => {
-    if (session.status !== 'Billed') {
-      toast({ variant: 'destructive', title: 'Action not allowed', description: 'Can only confirm payment for billed orders.' });
-      return;
-    }
     onStatusChange(session.id, 'Completed');
   };
 
@@ -117,27 +107,30 @@ function SessionCard({ session, onStatusChange, isUpdating }: { session: Session
                 <span>Total Bill</span>
                 <span>₹{session.totalAmount.toFixed(2)}</span>
             </div>
-            {session.status === 'Billed' ? (
-                 <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button className="w-full bg-green-600 hover:bg-green-700">
-                            <Check className="mr-2 h-4 w-4" /> Confirm Payment & Close
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Confirm Payment Received?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                This will mark the session as completed and cannot be undone.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleConfirmPayment}>Yes, Payment Received</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            ) : (
+            
+            <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <Button 
+                        className={session.status === 'Billed' ? 'w-full bg-green-600 hover:bg-green-700' : 'w-full'}
+                        variant={session.status === 'Billed' ? 'default' : 'outline'}
+                    >
+                        <Check className="mr-2 h-4 w-4" /> Confirm Payment & Close
+                    </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Confirm Payment Received?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will mark the session as completed and cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmPayment}>Yes, Payment Received</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            {session.status === 'Pending' && (
                 <p className="text-xs text-center text-muted-foreground">Waiting for customer to close bill.</p>
             )}
         </div>
@@ -189,6 +182,11 @@ export default function StoreOrdersPage() {
                 lastActivity: new Date(0),
             };
         }
+        
+        const existingItemIndex = acc[sessionId].orders.flatMap(o => o.items).findIndex(i => i.productName === order.items[0]?.productName);
+
+        // This logic is imperfect for session reconstruction but works for the demo.
+        // A better approach would be to have a single order document per session.
         acc[sessionId].orders.push(order);
         acc[sessionId].totalAmount += order.totalAmount;
         
