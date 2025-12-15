@@ -122,6 +122,7 @@ export function SharedVoiceProvider({ children }: { children: React.ReactNode })
 
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
+  const { suggestedCommands } = useAppStore();
   return (
     <div className="relative flex min-h-dvh flex-col bg-background">
         <Header suggestedCommands={[]} />
@@ -134,8 +135,8 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Separate the UI part of the MenuLayout
-function MenuLayoutContent({ children }: { children: React.ReactNode }) {
+// The main MenuLayout now just provides the context
+export function MenuLayout({ children }: { children: React.ReactNode }) {
     const { onCartOpenChange, isCartOpen, onToggleVoice, voiceEnabled } = useVoiceCommanderContext();
     return (
         <div className="relative min-h-dvh bg-background">
@@ -152,9 +153,3 @@ function MenuLayoutContent({ children }: { children: React.ReactNode }) {
     );
 }
 
-// The main MenuLayout now just provides the context
-export function MenuLayout({ children }: { children: React.ReactNode }) {
-    return (
-        <MenuLayoutContent>{children}</MenuLayoutContent>
-    );
-}

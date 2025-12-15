@@ -24,11 +24,15 @@ function AppContent({ children }: { children: React.ReactNode }) {
     const isMenuPage = pathname.startsWith('/menu/');
 
     useEffect(() => {
-        // If the app is already ready, we don't need to do anything.
+        // If it's a menu page, it's immediately ready without global data.
+        if (isMenuPage) {
+            if (!appReady) setAppReady(true);
+            return;
+        }
+
+        // Standard global data loading for the main app
         if (appReady) return;
 
-        // If data is already initialized from persisted state, mark app as ready.
-        // Still fetch in the background for updates if not currently loading.
         if (isInitialized) {
             setAppReady(true);
             if (firestore && !loading) {
@@ -37,14 +41,11 @@ function AppContent({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        // If not initialized and not already loading, start the main data fetch.
         if (firestore && !isInitialized && !loading) {
             fetchInitialData(firestore);
         }
-    }, [firestore, isInitialized, loading, appReady, fetchInitialData, setAppReady]);
+    }, [firestore, isInitialized, loading, appReady, fetchInitialData, setAppReady, isMenuPage]);
     
-    // The loader is shown if the app isn't ready. 
-    // `appReady` is set to true by `fetchInitialData` upon completion.
     if (!appReady) {
         return <GlobalLoader />;
     }

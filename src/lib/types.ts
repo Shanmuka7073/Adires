@@ -1,5 +1,4 @@
 
-
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -301,6 +300,7 @@ export type GenerateBreakfastPackOutput = {
 
 // NEW Restaurant Menu Types
 export type MenuItem = {
+  id?: string;
   name: string;
   description?: string;
   price: number;
@@ -311,4 +311,10 @@ export type Menu = {
   id: string;
   storeId: string;
   items: MenuItem[];
+};
+
+export type UnidentifiedCartItem = {
+    id: string;
+    term: string;
+    status: 'pending' | 'failed' | 'identified';
 };
