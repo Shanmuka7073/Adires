@@ -413,47 +413,45 @@ export async function getStoreSalesReport({ storeId, period }: { storeId: string
       startDate = new Date(now);
       startDate.setDate(now.getDate() - now.getDay());
       startDate.setHours(0, 0, 0, 0);
-    } else {
+    } else { // monthly
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     }
 
     const startTimestamp = Timestamp.fromDate(startDate);
-
-    const snapshot = await db
-      .collection('orders')
+    
+    // Query for all completed or billed orders for the store
+    const ordersQuery = db.collection('orders')
       .where('storeId', '==', storeId)
-      .where('status', 'in', ['Completed', 'Billed'])
-      .where('orderDate', '>=', startTimestamp)
-      .get();
-
-    if (snapshot.empty) {
-      return {
-        success: true,
-        report: {
-          totalSales: 0,
-          totalItems: 0,
-          totalOrders: 0,
-          topProducts: [],
-        },
-      };
-    }
-
+      .where('status', 'in', ['Completed', 'Billed']);
+      
+    const snapshot = await ordersQuery.get();
+    
     let totalSales = 0;
-    let totalOrders = snapshot.size;
     const productMap = new Map<string, number>();
+    let validOrdersCount = 0;
 
-    snapshot.forEach(doc => {
-      const order = doc.data() as Order;
-      totalSales += order.totalAmount;
-
-      order.items.forEach(item => {
-        productMap.set(
-          item.productName,
-          (productMap.get(item.productName) || 0) + item.quantity
-        );
-      });
+    const filteredDocs = snapshot.docs.filter(doc => {
+      const orderData = doc.data() as Order;
+      const orderDate = (orderData.orderDate as Timestamp).toDate();
+      return orderDate >= startDate;
     });
 
+    for (const doc of filteredDocs) {
+      const order = doc.data() as Order;
+      totalSales += order.totalAmount;
+      validOrdersCount++;
+      
+      // Assume items are stored on the order document directly
+      if (order.items && Array.isArray(order.items)) {
+         order.items.forEach(item => {
+            productMap.set(
+              item.productName,
+              (productMap.get(item.productName) || 0) + item.quantity
+            );
+          });
+      }
+    }
+    
     const totalItems = Array.from(productMap.values()).reduce((a, b) => a + b, 0);
 
     const topProducts = Array.from(productMap.entries())
@@ -466,7 +464,7 @@ export async function getStoreSalesReport({ storeId, period }: { storeId: string
       report: {
         totalSales,
         totalItems,
-        totalOrders,
+        totalOrders: validOrdersCount,
         topProducts,
       },
     };
@@ -510,3 +508,5 @@ export async function markSessionAsPaid(sessionId: string): Promise<{ success: b
     return { success: false, error: error.message };
   }
 }
+
+    
