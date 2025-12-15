@@ -9,12 +9,11 @@ import {
   setDoc,
 } from 'firebase/firestore';
 
-import type { Store, Menu, MenuItem, Order } from '@/lib/types';
+import type { Store, Menu, MenuItem, Order, GetIngredientsOutput, Ingredient, InstructionStep } from '@/lib/types';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
 import { v4 as uuidv4 } from 'uuid';
-import { format } from 'date-fns';
 
 import {
   Utensils,
@@ -22,7 +21,12 @@ import {
   Loader2,
   Plus,
   Clock,
-  Check
+  Check,
+  Zap,
+  Flame,
+  Info,
+  ShoppingCart,
+  Salad
 } from 'lucide-react';
 
 import {
@@ -36,21 +40,79 @@ import {
   AlertDialogAction,
   AlertDialogDescription,
 } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { addRestaurantOrderItem } from '@/app/actions';
 import { useInstall } from '@/components/install-provider';
 import type { Timestamp } from 'firebase/firestore';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter } from '@/components/ui/sheet';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
+import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 /* -------------------------------------------------------------------------- */
-/*                               LIVE BILL SHEET                              */
+/*                          INGREDIENTS DIALOG                                */
+/* -------------------------------------------------------------------------- */
+function IngredientsDialog({ isOpen, onClose, item, details, isLoading }: { isOpen: boolean, onClose: () => void, item: MenuItem | null, details: GetIngredientsOutput | null, isLoading: boolean }) {
+    if (!item) return null;
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="max-w-md">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <Salad className="h-5 w-5 text-green-600" />
+                        Ingredients for {item.name}
+                    </DialogTitle>
+                </DialogHeader>
+                {isLoading ? (
+                    <div className="flex justify-center items-center h-48">
+                        <Loader2 className="h-8 w-8 animate-spin" />
+                    </div>
+                ) : !details || !details.isSuccess ? (
+                    <div className="text-center py-8">
+                        <Info className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                        <p className="text-muted-foreground">Could not retrieve ingredients for this item.</p>
+                    </div>
+                ) : (
+                    <ScrollArea className="max-h-[60vh] -mx-4 px-4">
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4 text-center">
+                                <div className="p-3 bg-blue-50 rounded-lg">
+                                    <p className="text-xs text-blue-700 font-bold">CALORIES</p>
+                                    <p className="text-lg font-bold text-blue-900">{details.nutrition.calories}</p>
+                                </div>
+                                 <div className="p-3 bg-green-50 rounded-lg">
+                                    <p className="text-xs text-green-700 font-bold">PROTEIN</p>
+                                    <p className="text-lg font-bold text-green-900">{details.nutrition.protein}g</p>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 className="font-semibold mb-2">Ingredients</h4>
+                                <div className="flex flex-wrap gap-2">
+                                    {details.ingredients.map((ing, i) => (
+                                        <Badge key={i} variant="secondary">{ing.name} - {ing.quantity}</Badge>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </ScrollArea>
+                )}
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+
+/* -------------------------------------------------------------------------- */
+/*                               LIVE BILL                                */
 /* -------------------------------------------------------------------------- */
 
-function LiveBillSheet({ storeId, sessionId }: { storeId: string; sessionId: string }) {
+function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [closing, startClose] = useTransition();
@@ -78,78 +140,83 @@ function LiveBillSheet({ storeId, sessionId }: { storeId: string; sessionId: str
   };
 
   if (isLoading) {
-    return <div className="p-4"><Loader2 className="animate-spin mx-auto" /></div>;
+    return <Loader2 className="animate-spin mx-auto" />;
   }
   
   if (!order || !order.items?.length) {
       return (
-          <div className="p-4">
-              <p className="text-muted-foreground text-center py-4">No items added to your bill yet.</p>
-          </div>
+          <Card className="mt-6 bg-muted/50">
+              <CardHeader>
+                   <CardTitle className="flex items-center gap-2 text-lg">
+                      <Receipt /> Live Bill
+                    </CardTitle>
+              </CardHeader>
+              <CardContent>
+                  <p className="text-muted-foreground text-center py-4">No items added to your bill yet.</p>
+              </CardContent>
+          </Card>
       )
   }
 
   return (
-    <div className="flex flex-col h-full">
-        <SheetHeader className="px-4 pt-4">
-            <SheetTitle className="flex items-center gap-2">
-                <Receipt /> Live Bill
-            </SheetTitle>
-        </SheetHeader>
+    <Card className="mt-6">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Receipt /> Live Bill
+        </CardTitle>
+      </CardHeader>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <CardContent>
             {order.items.map((it, idx) => (
-                <div key={idx} className="border-b py-2 flex justify-between text-sm">
+              <div key={idx} className="border-b py-2 flex justify-between text-sm">
                 <span className="font-medium">{it.productName} <span className="text-muted-foreground">x{it.quantity}</span></span>
                 <span>₹{(it.price * it.quantity).toFixed(2)}</span>
-                </div>
+              </div>
             ))}
-        </div>
 
-        <SheetFooter className="p-4 border-t bg-background">
-            <div className="w-full space-y-4">
-                <div className="flex justify-between font-bold text-xl">
-                <span>Total</span>
-                <span>₹{order.totalAmount.toFixed(2)}</span>
-                </div>
-                
-                {order.status === 'Completed' ? (
-                    <div className="text-center p-4 bg-blue-100 rounded-md">
-                        <Check className="mx-auto h-6 w-6 text-blue-600 mb-2" />
-                        <p className="font-semibold text-blue-800">Thank you! Visit Again.</p>
-                    </div>
-                ) : order.status === 'Billed' ? (
-                    <div className="text-center p-4 bg-green-100 rounded-md">
-                        <Clock className="mx-auto h-6 w-6 text-green-600 mb-2" />
-                        <p className="font-semibold text-green-800">Bill Closed. Please pay at the counter.</p>
-                        {order.orderDate && <p className="text-xs text-green-700">Started at {format(new Date((order.orderDate as Timestamp).seconds * 1000), 'p')}</p>}
-                    </div>
-                ) : (
-                    <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button className="w-full" variant="destructive" disabled={closing}>
-                        {closing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                        Close Bill & Pay
-                        </Button>
-                    </AlertDialogTrigger>
-
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                        <AlertDialogTitle>Ready to Pay?</AlertDialogTitle>
-                        <AlertDialogDescription>This will notify the kitchen that you are done ordering and ready to pay your bill.</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                        <AlertDialogCancel>Not yet</AlertDialogCancel>
-                        <AlertDialogAction onClick={closeBill}>
-                            Yes, Close Bill
-                        </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                    </AlertDialog>
-                )}
+            <div className="flex justify-between font-bold mt-3 text-xl">
+              <span>Total</span>
+              <span>₹{order.totalAmount.toFixed(2)}</span>
             </div>
-        </SheetFooter>
-    </div>
+            
+            <div className="mt-4">
+              {order.status === 'Completed' ? (
+                 <div className="text-center p-4 bg-blue-100 rounded-md">
+                    <Check className="mx-auto h-6 w-6 text-blue-600 mb-2" />
+                    <p className="font-semibold text-blue-800">Thank you! Visit Again.</p>
+                </div>
+              ) : order.status === 'Billed' ? (
+                <div className="text-center p-4 bg-green-100 rounded-md">
+                    <Clock className="mx-auto h-6 w-6 text-green-600 mb-2" />
+                    <p className="font-semibold text-green-800">Bill Closed. Please pay at the counter.</p>
+                    {order.orderDate && <p className="text-xs text-green-700">Started at {format(new Date((order.orderDate as Timestamp).seconds * 1000), 'p')}</p>}
+                </div>
+              ) : (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button className="w-full" variant="destructive" disabled={closing}>
+                      {closing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                      Close Bill & Pay
+                    </Button>
+                  </AlertDialogTrigger>
+
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Ready to Pay?</AlertDialogTitle>
+                      <AlertDialogDescription>This will notify the kitchen that you are done ordering and ready to pay your bill.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Not yet</AlertDialogCancel>
+                      <AlertDialogAction onClick={closeBill}>
+                        Yes, Close Bill
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -162,13 +229,19 @@ export default function PublicMenuPage() {
   const { storeId } = useParams<{ storeId: string }>();
   const tableNumber = useSearchParams().get('table');
   const { firestore } = useFirebase();
+
   const { toast } = useToast();
-  const { canInstall, triggerInstall } = useInstall();
-
-  const [sessionId, setSessionId] = useState('');
   const [isAdding, startAdding] = useTransition();
+  const [sessionId, setSessionId] = useState('');
+  
+  const { canInstall, triggerInstall } = useInstall();
+  
+  const [isIngredientsDialogOpen, setIsIngredientsDialogOpen] = useState(false);
+  const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null);
+  const [ingredientDetails, setIngredientDetails] = useState<GetIngredientsOutput | null>(null);
+  const [isIngredientsLoading, startIngredientsLoading] = useTransition();
 
-  /* ---------------- SESSION ---------------- */
+
   useEffect(() => {
     const key = `session_${storeId}_${tableNumber}`;
     let id = sessionStorage.getItem(key);
@@ -179,23 +252,16 @@ export default function PublicMenuPage() {
     setSessionId(id);
   }, [storeId, tableNumber]);
 
-  /* ---------------- DATA ---------------- */
-  const storeRef = useMemoFirebase(
-    () => (firestore ? doc(firestore, 'stores', storeId) : null),
+  const storeRef = useMemoFirebase(() =>
+    firestore ? doc(firestore, 'stores', storeId) : null,
   [firestore, storeId]);
 
-  const menuQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, `stores/${storeId}/menus`)) : null),
+  const menuQuery = useMemoFirebase(() =>
+    firestore ? query(collection(firestore, `stores/${storeId}/menus`)) : null,
   [firestore, storeId]);
-  
-  const orderRef = useMemoFirebase(
-    () => (firestore && sessionId ? doc(firestore, 'orders', `${storeId}_${sessionId}`) : null),
-    [firestore, storeId, sessionId]
-  );
 
   const { data: store, isLoading: storeLoading } = useDoc<Store>(storeRef);
   const { data: menus, isLoading: menuLoading } = useCollection<Menu>(menuQuery);
-  const { data: order } = useDoc<Order>(orderRef);
   
   const menu = menus?.[0];
   
@@ -208,9 +274,37 @@ export default function PublicMenuPage() {
         return acc;
     }, {} as Record<string, MenuItem[]>)
   }, [menu]);
+  
+  const handleShowIngredients = (item: MenuItem) => {
+    if (!firestore) return;
+    setSelectedItemForIngredients(item);
+    setIsIngredientsDialogOpen(true);
+    startIngredientsLoading(async () => {
+        setIngredientDetails(null);
+        try {
+            const cached = await getCachedRecipe(firestore, item.name, 'en');
+            if (cached) {
+                setIngredientDetails(cached);
+                return;
+            }
+            const details = await getIngredientsForDish({ dishName: item.name, language: 'en' });
+            if (details.isSuccess) {
+                setIngredientDetails(details);
+                await cacheRecipe(firestore, item.name, 'en', details);
+            } else {
+                setIngredientDetails(null);
+                toast({ variant: "destructive", title: "Could not find ingredients for this item." });
+            }
+        } catch (e) {
+            console.error(e);
+            setIngredientDetails(null);
+            toast({ variant: "destructive", title: "An error occurred while fetching ingredients." });
+        }
+    });
+  };
 
-  /* ---------------- ACTION ---------------- */
-  const addItem = (item: MenuItem) => {
+
+  const handleAddItem = (item: MenuItem) => {
     startAdding(async () => {
       const result = await addRestaurantOrderItem({
         storeId,
@@ -237,8 +331,9 @@ export default function PublicMenuPage() {
 
   if (storeLoading || menuLoading) return (
       <div className="p-4 space-y-4">
+        <Skeleton className="h-8 w-1/2" />
         <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-10 w-1/2" />
+        <Skeleton className="h-6 w-1/4" />
         <Skeleton className="h-12 w-full" />
         <Skeleton className="h-12 w-full" />
       </div>
@@ -246,92 +341,75 @@ export default function PublicMenuPage() {
   if (!store || !menu) return <div className="p-4 text-center">Menu not found.</div>;
 
   return (
-    <div className="min-h-screen bg-gray-100 pb-20">
-      <header className="sticky top-0 bg-white shadow z-40">
-        <div className="flex items-center gap-3 p-4">
-          {store.imageUrl && (
-            <Image
-              src={store.imageUrl}
-              alt={store.name}
-              width={48}
-              height={48}
-              className="rounded-full"
-            />
-          )}
-          <div className="flex-1">
-            <h1 className="font-bold text-lg">{store.name}</h1>
-            {tableNumber && (
-              <p className="text-xs text-muted-foreground">
-                Table {tableNumber}
-              </p>
-            )}
-          </div>
-          <Utensils className="text-primary" />
-        </div>
-
-        {canInstall && (
-          <div className="px-4 pb-3">
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={triggerInstall}
-            >
-              Add to Home Screen
-            </Button>
-          </div>
-        )}
-      </header>
-
-      <main className="p-4 space-y-6">
-        {Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
-            <div key={category}>
-                <h2 className="text-sm font-bold uppercase text-muted-foreground mb-2">{category}</h2>
-                <div className="space-y-3">
-                    {items.map((item, index) => (
-                        <div key={index} className="bg-white rounded-xl shadow-sm p-4 flex justify-between items-center">
-                          <div>
-                            <p className="font-semibold">{item.name}</p>
-                            <p className="text-sm text-gray-500">₹{item.price.toFixed(2)}</p>
-                          </div>
-                          <Button
-                            size="sm"
-                            disabled={isAdding}
-                            onClick={() => addItem(item)}
-                          >
-                            <Plus className="h-4 w-4 mr-1" />
-                            Add
-                          </Button>
-                        </div>
-                    ))}
+    <div className="min-h-screen bg-gray-50">
+        <IngredientsDialog 
+            isOpen={isIngredientsDialogOpen}
+            onClose={() => setIsIngredientsDialogOpen(false)}
+            item={selectedItemForIngredients}
+            details={ingredientDetails}
+            isLoading={isIngredientsLoading}
+        />
+        <div className="container mx-auto py-8 px-4 md:px-6">
+          <Card className="max-w-2xl mx-auto shadow-lg">
+            <CardHeader className="text-center">
+                 {store.imageUrl && (
+                    <Image
+                      src={store.imageUrl}
+                      alt={store.name}
+                      width={128}
+                      height={128}
+                      className="mx-auto rounded-full border-4 border-white shadow-md -mt-16"
+                    />
+                  )}
+                <div className="flex items-center justify-center gap-2 mt-4">
+                    <Utensils className="h-8 w-8 text-primary" />
+                    <CardTitle className="text-3xl font-bold font-headline">{store.name}</CardTitle>
                 </div>
-            </div>
-        ))}
-      </main>
-
-       {order && order.items?.length > 0 && sessionId && (
-         <Sheet>
-            <SheetTrigger asChild>
-                <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-50">
-                    <div className="flex justify-between items-center px-4 py-3 cursor-pointer">
-                        <div>
-                        <p className="font-bold text-lg">₹{order.totalAmount.toFixed(0)}</p>
-                        <p className="text-xs text-muted-foreground">
-                            {order.items.length} items
-                        </p>
-                        </div>
-                        <Button className="rounded-full px-6">
-                        <Receipt className="mr-2 h-4 w-4" />
-                        View Bill
+                {tableNumber && <Badge className="mx-auto mt-2">Table {tableNumber}</Badge>}
+                 {canInstall && (
+                    <div className="pt-4">
+                        <Button onClick={triggerInstall} size="sm">
+                            Add {store.name} to Home Screen
                         </Button>
                     </div>
-                </div>
-            </SheetTrigger>
-            <SheetContent side="bottom" className="h-[80vh] flex flex-col">
-                <LiveBillSheet storeId={storeId} sessionId={sessionId} />
-            </SheetContent>
-         </Sheet>
-       )}
+                )}
+            </CardHeader>
+            <CardContent className="space-y-6">
+                {sessionId && <LiveBill storeId={storeId} sessionId={sessionId} />}
+
+                {Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
+                    <div key={category}>
+                        <h2 className="text-xl font-semibold mb-3 border-b pb-2 tracking-widest uppercase text-muted-foreground">{category}</h2>
+                        <div className="space-y-2">
+                            {items.map((item, index) => (
+                                <div
+                                    key={index}
+                                    className="w-full flex justify-between items-center py-2 px-2"
+                                >
+                                    <button 
+                                      className="text-left flex-1"
+                                      onClick={() => handleShowIngredients(item)}
+                                    >
+                                        <p className="font-medium text-gray-800 hover:text-primary transition-colors">{item.name}</p>
+                                        <p className="font-semibold text-gray-600">₹{item.price.toFixed(2)}</p>
+                                    </button>
+                                    <Button
+                                        size="sm"
+                                        disabled={isAdding}
+                                        onClick={() => handleAddItem(item)}
+                                    >
+                                        <Plus className="h-4 w-4 mr-1" />
+                                        Add
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </CardContent>
+          </Card>
+        </div>
       </div>
   );
 }
+        
