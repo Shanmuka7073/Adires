@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { Order, Store } from '@/lib/types';
@@ -33,7 +34,7 @@ import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import Link from 'next/link';
-import { markOrderAsPaid } from '@/app/actions';
+import { markSessionAsPaid } from '@/app/actions';
 
 
 const STATUS_META: Record<string, any> = {
@@ -82,15 +83,12 @@ function SessionCard({ session, onStatusChange, isUpdating }: { session: Session
 
   const handleConfirmPayment = () => {
     startCompletion(async () => {
-      const orderIdToComplete = session.orders[0]?.id; // Assuming one order per session for now
-      if (orderIdToComplete) {
-        const result = await markOrderAsPaid(orderIdToComplete);
+        const result = await markSessionAsPaid(session.id);
         if (result.success) {
             toast({ title: 'Payment Confirmed', description: `Order for table ${session.tableNumber} is now complete.`});
         } else {
             toast({ variant: 'destructive', title: 'Update Failed', description: result.error });
         }
-      }
     });
   };
 

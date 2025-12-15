@@ -346,7 +346,7 @@ export async function addRestaurantOrderItem({
         items: [orderItem],
         totalAmount: orderItem.price * orderItem.quantity,
         status: 'Pending',
-        orderDate: FieldValue.serverTimestamp(),
+        orderDate: Timestamp.now(),
       };
       await orderRef.set(newOrder);
     } else {
@@ -422,7 +422,7 @@ export async function getStoreSalesReport({ storeId, period }: { storeId: string
     const snapshot = await db
       .collection('orders')
       .where('storeId', '==', storeId)
-      .where('status', '==', 'Completed') 
+      .where('status', 'in', ['Completed', 'Billed'])
       .where('orderDate', '>=', startTimestamp)
       .get();
 
@@ -479,19 +479,34 @@ export async function getStoreSalesReport({ storeId, period }: { storeId: string
   }
 }
 
-export async function markOrderAsPaid(orderId: string): Promise<{ success: boolean; error?: string }> {
+export async function markSessionAsPaid(sessionId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const { db } = await getAdminServices();
 
-    await db.collection('orders').doc(orderId).update({
-      status: 'Completed',
-      paidAt: Timestamp.now(),
-      paymentMode: 'UPI', // or Cash
+    const snapshot = await db
+      .collection('orders')
+      .where('sessionId', '==', sessionId)
+      .get();
+
+    if (snapshot.empty) {
+      return { success: false, error: 'No orders found for this session' };
+    }
+
+    const batch = db.batch();
+
+    snapshot.docs.forEach(doc => {
+      batch.update(doc.ref, {
+        status: 'Completed',
+        paidAt: Timestamp.now(),
+        paymentMode: 'UPI',
+      });
     });
+
+    await batch.commit();
 
     return { success: true };
   } catch (error: any) {
-    console.error('Payment update failed:', error);
+    console.error('Session payment failed:', error);
     return { success: false, error: error.message };
   }
 }
