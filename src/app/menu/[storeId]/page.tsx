@@ -202,18 +202,17 @@ export default function PublicMenuPage() {
     setSessionId(id);
   }, [storeId, tableNumber]);
 
-  const storeQuery = useMemoFirebase(() =>
-    firestore ? query(collection(firestore, 'stores'), where('__name__', '==', storeId)) : null,
+  const storeRef = useMemoFirebase(() =>
+    firestore ? doc(firestore, 'stores', storeId) : null,
   [firestore, storeId]);
 
   const menuQuery = useMemoFirebase(() =>
     firestore ? query(collection(firestore, `stores/${storeId}/menus`)) : null,
   [firestore, storeId]);
 
-  const { data: stores, isLoading: storeLoading } = useDoc<Store>(storeQuery);
+  const { data: store, isLoading: storeLoading } = useDoc<Store>(storeRef);
   const { data: menus, isLoading: menuLoading } = useCollection<Menu>(menuQuery);
-
-  const store = stores;
+  
   const menu = menus?.[0];
   
   const groupedMenu = useMemo(() => {
