@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Order, Store } from '@/lib/types';
@@ -32,6 +33,7 @@ import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import Link from 'next/link';
+import { markOrderAsPaid } from '@/app/actions';
 
 
 const STATUS_META: Record<string, any> = {
@@ -76,9 +78,20 @@ function playNotificationSound() {
 
 function SessionCard({ session, onStatusChange, isUpdating }: { session: Session; onStatusChange: (sessionId: string, newStatus: Order['status']) => void; isUpdating: boolean }) {
   const { toast } = useToast();
+  const [isCompleting, startCompletion] = useTransition();
 
   const handleConfirmPayment = () => {
-    onStatusChange(session.id, 'Completed');
+    startCompletion(async () => {
+      const orderIdToComplete = session.orders[0]?.id; // Assuming one order per session for now
+      if (orderIdToComplete) {
+        const result = await markOrderAsPaid(orderIdToComplete);
+        if (result.success) {
+            toast({ title: 'Payment Confirmed', description: `Order for table ${session.tableNumber} is now complete.`});
+        } else {
+            toast({ variant: 'destructive', title: 'Update Failed', description: result.error });
+        }
+      }
+    });
   };
 
   return (
@@ -117,6 +130,7 @@ function SessionCard({ session, onStatusChange, isUpdating }: { session: Session
                     <Button 
                         className={session.status === 'Billed' ? 'w-full bg-green-600 hover:bg-green-700' : 'w-full'}
                         variant={session.status === 'Billed' ? 'default' : 'outline'}
+                        disabled={isUpdating || isCompleting || session.status === 'Completed'}
                     >
                         <Check className="mr-2 h-4 w-4" /> Confirm Payment & Close
                     </Button>

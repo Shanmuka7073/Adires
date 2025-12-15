@@ -11,10 +11,6 @@ import { headers } from 'next/headers';
 import { getApp, getApps } from 'firebase-admin/app';
 import * as pdfjs from 'pdfjs-dist';
 
-/**
- * NEW: Server action to securely provide the client-side Firebase config.
- * This ensures client and server are always in sync.
- */
 export async function getFirebaseConfig() {
   try {
     const adminApp = getApps()[0] || (await getAdminServices()).app;
@@ -215,72 +211,7 @@ export async function importProductsFromUrl(url: string): Promise<{ success: boo
     }
 }
 
-/**
- * Fetches a summary from Wikipedia's public API by first searching for the
- * best matching article, then fetching its summary.
- * @param topic The topic to search for.
- * @returns A promise that resolves to the summary text or an error message.
- */
-export async function getWikipediaSummary(topic: string): Promise<{ summary?: string; error?: string }> {
-  const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(topic)}&format=json&utf8=1`;
 
-  try {
-    // Step 1: Search for the topic to find the correct article title
-    const searchResponse = await fetch(searchUrl, {
-      headers: {
-        'User-Agent': 'LocalBasket/1.0 (https://localbasket.com; admin@localbasket.com)'
-      }
-    });
-    
-    if (!searchResponse.ok) {
-        throw new Error(`Wikipedia search API returned status ${searchResponse.status}`);
-    }
-
-    const searchData = await searchResponse.json();
-
-    if (!searchData.query.search || searchData.query.search.length === 0) {
-      return { error: `I couldn't find any Wikipedia articles related to "${topic}".` };
-    }
-
-    const bestTitle = searchData.query.search[0].title;
-
-    // Step 2: Fetch the summary for the best matching article title
-    const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(bestTitle)}`;
-    
-    const summaryResponse = await fetch(summaryUrl, {
-      headers: {
-        'Accept': 'application/json; charset=utf-8',
-        'User-Agent': 'LocalBasket/1.0 (https://localbasket.com; admin@localbasket.com)'
-      }
-    });
-
-    if (!summaryResponse.ok) {
-      throw new Error(`Wikipedia summary API returned status ${summaryResponse.status}`);
-    }
-
-    const summaryData = await summaryResponse.json();
-
-    if (summaryData.type === 'disambiguation') {
-      return { error: `The term "${topic}" is ambiguous. Please be more specific.` };
-    }
-    
-    if (!summaryData.extract) {
-      return { error: `I found an article for "${bestTitle}", but couldn't get a summary.` };
-    }
-
-    return { summary: summaryData.extract };
-
-  } catch (error: any) {
-    console.error("Wikipedia API fetch error:", error);
-    return { error: error.message || `Failed to fetch information for "${topic}".` };
-  }
-}
-
-/**
- * Fetches a recipe from TheMealDB API.
- * @param dishName The name of the dish to search for.
- * @returns A promise that resolves to the recipe details or an error message.
- */
 export async function getMealDbRecipe(dishName: string): Promise<{ ingredients?: string[]; instructions?: string; error?: string }> {
   const url = `https://www.themealdb.com/api/json/v1/1/search.php?s=${encodeURIComponent(dishName)}`;
 
@@ -372,67 +303,6 @@ export async function updateManifest(newData: { icons?: any[], screenshots?: any
     }
 }
 
-/**
- * Processes a CSV string and bulk-uploads recipes to the cachedRecipes collection.
- * @param csvText The raw string content of the CSV file.
- * @returns An object indicating success, count of uploaded recipes, or an error message.
- */
-export async function bulkUploadRecipes(csvText: string): Promise<{ success: boolean; count?: number; error?: string; }> {
-    if (!csvText) {
-        return { success: false, error: 'CSV text cannot be empty.' };
-    }
-
-    try {
-        const { db } = await getAdminServices();
-        const batch = db.batch();
-        const rows = csvText.split('\n').slice(1); // Skip header
-        let processedCount = 0;
-
-        for (const row of rows) {
-            if (!row.trim()) continue;
-
-            const [dishName, ingredientsString, instructionsString] = row.split(',');
-            if (!dishName || !ingredientsString) {
-                console.warn(`Skipping invalid row: ${row}`);
-                continue;
-            }
-            
-            const ingredients = ingredientsString.split('|').map(ing => {
-                const parts = ing.trim().split(';');
-                return { name: parts[1] || '', quantity: parts[0] || '' };
-            }).filter(ing => ing.name && ing.quantity);
-
-            const instructions = instructionsString ? instructionsString.split('|').map(step => {
-                 const [title, ...actions] = step.split(';');
-                 return { title: title.trim(), actions: actions.map(a => a.trim()) };
-            }) : [];
-            
-            const normalizedId = dishName.toLowerCase().replace(/\s+/g, '-');
-            const recipeRef = db.collection('cachedRecipes').doc(normalizedId);
-
-            const recipeData = {
-                id: normalizedId,
-                dishName: dishName.trim(),
-                ingredients,
-                instructions,
-                createdAt: Timestamp.now()
-            };
-            batch.set(recipeRef, recipeData);
-            processedCount++;
-        }
-
-        if (processedCount > 0) {
-            await batch.commit();
-        }
-
-        return { success: true, count: processedCount };
-
-    } catch (error: any) {
-        console.error('Bulk recipe upload failed:', error);
-        return { success: false, error: error.message || 'An unknown server error occurred.' };
-    }
-}
-
 export async function addRestaurantOrderItem({
   storeId,
   sessionId,
@@ -465,7 +335,7 @@ export async function addRestaurantOrderItem({
     const doc = await orderRef.get();
 
     if (!doc.exists) {
-      const newOrder: Order = {
+      const newOrder: Partial<Order> = {
         id: orderId,
         storeId,
         sessionId,
@@ -473,21 +343,17 @@ export async function addRestaurantOrderItem({
         userId: 'guest',
         customerName: `Table ${tableNumber || 'N/A'}`,
         deliveryAddress: "In-store dining",
-        deliveryLat: 0,
-        deliveryLng: 0,
-        phone: 'N/A',
-        email: 'N/A',
         items: [orderItem],
         totalAmount: orderItem.price * orderItem.quantity,
         status: 'Pending',
-        orderDate: Timestamp.now(),
+        orderDate: FieldValue.serverTimestamp(),
       };
       await orderRef.set(newOrder);
     } else {
       await orderRef.update({
         items: FieldValue.arrayUnion(orderItem),
         totalAmount: FieldValue.increment(orderItem.price * orderItem.quantity),
-        updatedAt: Timestamp.now(),
+        updatedAt: FieldValue.serverTimestamp(),
         status: 'Pending' // Revert to pending if they add more items
       });
     }
@@ -529,159 +395,103 @@ export async function updateSiteConfig(configId: string, data: Partial<SiteConfi
     }
 }
 
-// A simplified function to extract sentences from a PDF buffer.
-async function extractSentencesFromPdf(pdfBuffer: Buffer): Promise<string[]> {
-    const data = new Uint8Array(pdfBuffer);
-    const pdf = await pdfjs.getDocument(data).promise;
-    const sentences: string[] = [];
-    for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map(item => ('str' in item ? item.str : '')).join(' ');
-        // Simple sentence splitting by period, question mark, or exclamation mark.
-        const pageSentences = pageText.match(/[^.!?]+[.!?]+/g) || [];
-        sentences.push(...pageSentences.map(s => s.trim()));
-    }
-    return sentences;
-}
 
-export async function processPdfAndExtractRules(formData: FormData): Promise<{ success: boolean, sentenceCount?: number, error?: string }> {
+export async function getStoreSalesReport({ storeId, period }: { storeId: string; period: 'daily' | 'weekly' | 'monthly' }): Promise<{ success: boolean; report?: { totalSales: number; totalItems: number; totalOrders: number; topProducts: { name: string; count: number }[]; }; error?: string; }> {
+  try {
     const { db } = await getAdminServices();
-    const pdfFile = formData.get('pdf') as File;
 
-    if (!pdfFile) {
-        return { success: false, error: 'No PDF file provided.' };
-    }
-
-    try {
-        const pdfBuffer = Buffer.from(await pdfFile.arrayBuffer());
-        const sentences = await extractSentencesFromPdf(pdfBuffer);
-        
-        if (sentences.length === 0) {
-            return { success: false, error: 'Could not extract any text from the PDF.' };
-        }
-
-        const batch = db.batch();
-        let addedCount = 0;
-
-        for (const sentence of sentences) {
-            if (sentence.length < 10 || sentence.length > 300) continue; // Skip very short/long sentences
-            const docRef = db.collection('nlu_extracted_sentences').doc();
-            
-            // This is a placeholder for a real NLU analysis.
-            const extractedNumbers = (sentence.match(/\d+/g) || []).map(num => ({ raw: num, normalizedValue: parseInt(num, 10), meaningType: 'number' }));
-
-            const data: NluExtractedSentence = {
-                id: docRef.id,
-                rawText: sentence,
-                extractedNumbers: extractedNumbers,
-                confidence: Math.random() * 0.5 + 0.4, // Assign random confidence for demo
-                status: 'pending',
-                createdAt: Timestamp.now(),
-            };
-            batch.set(docRef, data);
-            addedCount++;
-        }
-
-        await batch.commit();
-        return { success: true, sentenceCount: addedCount };
-
-    } catch (error: any) {
-        console.error('PDF processing failed:', error);
-        return { success: false, error: error.message || 'An unknown server error occurred.' };
-    }
-}
-
-
-export async function approveRule(sentenceId: string, ruleText: string): Promise<{ success: boolean; error?: string }> {
-    const { db } = await getAdminServices();
-    try {
-        // In a real app, you would parse `ruleText` and add it to a structured ruleset.
-        // For this demo, we'll just update the status.
-        const ruleRef = db.collection('nlu_extracted_sentences').doc(sentenceId);
-        await ruleRef.update({ status: 'approved' });
-
-        // Placeholder for appending to a learned-rules.json file
-        console.log(`[Server Action] Approved rule: "${ruleText}". This would be appended to a rules file.`);
-
-        return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message };
-    }
-}
-
-export async function rejectRule(sentenceId: string): Promise<{ success: boolean; error?: string }> {
-    const { db } = await getAdminServices();
-    try {
-        const ruleRef = db.collection('nlu_extracted_sentences').doc(sentenceId);
-        await ruleRef.update({ status: 'rejected' });
-        return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message };
-    }
-}
-
-export async function getStoreSalesReport({ storeId, period }: { storeId: string, period: 'daily' | 'weekly' | 'monthly' }): Promise<{ success: boolean, report?: any, error?: string }> {
-    const { db } = await getAdminServices();
-    
     if (!storeId) {
-        return { success: false, error: 'Store ID is required.' };
+      return { success: false, error: 'Store ID is required' };
     }
 
     const now = new Date();
     let startDate: Date;
 
     if (period === 'daily') {
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     } else if (period === 'weekly') {
-        startDate = new Date(now.setDate(now.getDate() - now.getDay()));
-        startDate.setHours(0, 0, 0, 0);
-    } else { // monthly
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - now.getDay());
+      startDate.setHours(0, 0, 0, 0);
+    } else {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     }
-    
+
     const startTimestamp = Timestamp.fromDate(startDate);
-    
-    try {
-        const ordersQuery = db.collection('orders')
-            .where('storeId', '==', storeId)
-            .where('status', 'in', ['Completed', 'Billed'])
-            .where('orderDate', '>=', startTimestamp);
 
-        const snapshot = await ordersQuery.get();
-        if (snapshot.empty) {
-            return { success: true, report: { totalSales: 0, totalItems: 0, topProducts: [] } };
-        }
+    const snapshot = await db
+      .collection('orders')
+      .where('storeId', '==', storeId)
+      .where('status', '==', 'Completed') 
+      .where('orderDate', '>=', startTimestamp)
+      .get();
 
-        let totalSales = 0;
-        const productCounts = new Map<string, number>();
-
-        snapshot.docs.forEach(doc => {
-            const order = doc.data() as Order;
-            totalSales += order.totalAmount;
-            order.items.forEach(item => {
-                productCounts.set(item.productName, (productCounts.get(item.productName) || 0) + item.quantity);
-            });
-        });
-        
-        const totalItems = Array.from(productCounts.values()).reduce((sum, count) => sum + count, 0);
-        
-        const topProducts = Array.from(productCounts.entries())
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 5)
-            .map(([name, count]) => ({ name, count }));
-
-        return {
-            success: true,
-            report: {
-                totalSales,
-                totalItems,
-                topProducts
-            }
-        };
-
-    } catch (error: any) {
-        console.error("Store sales report generation failed:", error);
-        return { success: false, error: error.message || "An unknown server error occurred." };
+    if (snapshot.empty) {
+      return {
+        success: true,
+        report: {
+          totalSales: 0,
+          totalItems: 0,
+          totalOrders: 0,
+          topProducts: [],
+        },
+      };
     }
+
+    let totalSales = 0;
+    let totalOrders = snapshot.size;
+    const productMap = new Map<string, number>();
+
+    snapshot.forEach(doc => {
+      const order = doc.data() as Order;
+      totalSales += order.totalAmount;
+
+      order.items.forEach(item => {
+        productMap.set(
+          item.productName,
+          (productMap.get(item.productName) || 0) + item.quantity
+        );
+      });
+    });
+
+    const totalItems = Array.from(productMap.values()).reduce((a, b) => a + b, 0);
+
+    const topProducts = Array.from(productMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name, count]) => ({ name, count }));
+
+    return {
+      success: true,
+      report: {
+        totalSales,
+        totalItems,
+        totalOrders,
+        topProducts,
+      },
+    };
+  } catch (error: any) {
+    console.error('Sales report error:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to generate report',
+    };
+  }
+}
+
+export async function markOrderAsPaid(orderId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { db } = await getAdminServices();
+
+    await db.collection('orders').doc(orderId).update({
+      status: 'Completed',
+      paidAt: Timestamp.now(),
+      paymentMode: 'UPI', // or Cash
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Payment update failed:', error);
+    return { success: false, error: error.message };
+  }
 }

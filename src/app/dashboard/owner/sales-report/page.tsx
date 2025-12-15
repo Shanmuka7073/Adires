@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
@@ -14,80 +15,9 @@ import { getStoreSalesReport } from '@/app/actions';
 type ReportData = {
   totalSales: number;
   totalItems: number;
+  totalOrders: number;
   topProducts: { name: string; count: number }[];
 };
-
-function ReportDisplayCard({ title, data, isLoading }: { title: string; data: ReportData | null; isLoading: boolean }) {
-    if (isLoading) {
-        return (
-             <Card>
-                <CardHeader>
-                    <Skeleton className="h-6 w-32" />
-                    <Skeleton className="h-4 w-48" />
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <Skeleton className="h-8 w-24" />
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-20 w-full" />
-                </CardContent>
-            </Card>
-        )
-    }
-
-    if (!data || data.totalSales === 0) {
-        return (
-            <Card>
-                <CardHeader>
-                    <CardTitle>{title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-sm text-muted-foreground">No sales data available for this period.</p>
-                </CardContent>
-            </Card>
-        );
-    }
-
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>{title}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-                <div className="flex justify-between items-baseline p-4 bg-muted/50 rounded-lg">
-                    <div className="flex items-center gap-2">
-                        <DollarSign className="h-5 w-5 text-green-500" />
-                        <span className="text-sm text-muted-foreground">Total Sales</span>
-                    </div>
-                    <p className="text-2xl font-bold">₹{data.totalSales.toFixed(2)}</p>
-                </div>
-                <div className="flex justify-between items-baseline p-4 bg-muted/50 rounded-lg">
-                     <div className="flex items-center gap-2">
-                        <Package className="h-5 w-5 text-blue-500" />
-                        <span className="text-sm text-muted-foreground">Items Sold</span>
-                    </div>
-                    <p className="text-2xl font-bold">{data.totalItems}</p>
-                </div>
-                <div>
-                    <h4 className="font-semibold text-sm mb-2">Top Selling Products:</h4>
-                    {data.topProducts.length > 0 ? (
-                         <div className="flex flex-col gap-2">
-                            {data.topProducts.map(p => (
-                                <div key={p.name} className="flex justify-between items-center text-sm p-2 bg-background rounded-md border">
-                                    <span className="font-medium truncate">{p.name}</span>
-                                    <span className="font-bold">{p.count} units</span>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <p className="text-xs text-muted-foreground">No products sold in this period yet.</p>
-                    )}
-                </div>
-            </CardContent>
-        </Card>
-    );
-}
-
 
 export default function SalesReportPage() {
     const { user, firestore } = useFirebase();
@@ -109,7 +39,7 @@ export default function SalesReportPage() {
             startLoading(async () => {
                 const result = await getStoreSalesReport({ storeId: myStore.id, period: activeTab });
                 if (result.success) {
-                    setReport(result.report);
+                    setReport(result.report!);
                 } else {
                     console.error("Failed to fetch sales report:", result.error);
                     setReport(null);
@@ -176,14 +106,55 @@ export default function SalesReportPage() {
                             <TabsTrigger value="weekly">This Week's Report</TabsTrigger>
                             <TabsTrigger value="monthly">This Month's Report</TabsTrigger>
                         </TabsList>
-                        <TabsContent value="daily" className="mt-6">
-                             <ReportDisplayCard title="Today's Performance" data={report} isLoading={isLoading} />
-                        </TabsContent>
-                         <TabsContent value="weekly" className="mt-6">
-                             <ReportDisplayCard title="This Week's Performance" data={report} isLoading={isLoading} />
-                        </TabsContent>
-                        <TabsContent value="monthly" className="mt-6">
-                           <ReportDisplayCard title="This Month's Performance" data={report} isLoading={isLoading} />
+                        <TabsContent value={activeTab} className="mt-6">
+                            {isLoading ? (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                                    <Skeleton className="h-32" />
+                                    <Skeleton className="h-32" />
+                                    <Skeleton className="h-32" />
+                                </div>
+                            ) : report ? (
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                                <Card>
+                                  <CardContent className="p-6">
+                                    <p className="text-sm text-muted-foreground">Total Sales</p>
+                                    <h2 className="text-3xl font-bold">₹{report.totalSales.toFixed(2)}</h2>
+                                  </CardContent>
+                                </Card>
+
+                                <Card>
+                                  <CardContent className="p-6">
+                                    <p className="text-sm text-muted-foreground">Orders</p>
+                                    <h2 className="text-3xl font-bold">{report.totalOrders}</h2>
+                                  </CardContent>
+                                </Card>
+
+                                <Card>
+                                  <CardContent className="p-6">
+                                    <p className="text-sm text-muted-foreground">Items Sold</p>
+                                    <h2 className="text-3xl font-bold">{report.totalItems}</h2>
+                                  </CardContent>
+                                </Card>
+                              </div>
+                            ) : null}
+
+                            {report?.topProducts?.length === 0 && !isLoading ? (
+                              <div className="mt-6 text-center text-muted-foreground">
+                                Waiting for first completed payment for this period.
+                              </div>
+                            ) : report?.topProducts && report.topProducts.length > 0 && !isLoading ? (
+                                <div className="mt-6">
+                                    <h3 className="text-lg font-semibold mb-2">Top Products</h3>
+                                    <div className="space-y-2">
+                                        {report.topProducts.map(p => (
+                                            <div key={p.name} className="flex justify-between items-center text-sm p-2 bg-muted/50 rounded-md">
+                                                <span>{p.name}</span>
+                                                <span className="font-bold">{p.count} units</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : null}
                         </TabsContent>
                     </Tabs>
                 </CardContent>
@@ -191,3 +162,4 @@ export default function SalesReportPage() {
         </div>
     );
 }
+
