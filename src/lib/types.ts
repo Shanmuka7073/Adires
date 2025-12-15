@@ -81,6 +81,12 @@ export type OrderItem = {
   variantWeight: string;
   quantity: number;
   price: number;
+  ingredients?: {
+    name: string;
+    quantity: number;
+    unit: 'g' | 'ml' | 'pcs';
+    costPerUnit: number;
+  }[];
 }
 
 export type Order = {
@@ -102,6 +108,8 @@ export type Order = {
   deliveryPartnerId?: string | null;
   tableNumber?: string | null;
   sessionId?: string; // To group all orders for a single table session
+  paidAt?: Timestamp;
+  paymentMode?: string;
 };
 
 
@@ -306,6 +314,12 @@ export type MenuItem = {
   description?: string;
   price: number;
   category: string;
+  ingredients?: {
+    name: string;
+    quantity: number;
+    unit: 'g' | 'ml' | 'pcs';
+    costPerUnit: number;
+  }[];
 };
 
 export type Menu = {

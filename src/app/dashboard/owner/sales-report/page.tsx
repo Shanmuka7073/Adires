@@ -14,10 +14,24 @@ import { getStoreSalesReport } from '@/app/actions';
 
 type ReportData = {
   totalSales: number;
+  totalCost: number;
+  profit: number;
   totalItems: number;
   totalOrders: number;
   topProducts: { name: string; count: number }[];
+  ingredientUsage: { name: string; quantity: number }[];
 };
+
+function StatCard({ title, value, highlight=false }: { title: string, value: string | number, highlight?: boolean }) {
+  return (
+    <Card className={highlight ? 'border-green-500' : ''}>
+      <CardContent className="p-6">
+        <p className="text-sm text-muted-foreground">{title}</p>
+        <h2 className="text-3xl font-bold mt-1">{value}</h2>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function SalesReportPage() {
     const { user, firestore } = useFirebase();
@@ -38,8 +52,8 @@ export default function SalesReportPage() {
         if (myStore) {
             startLoading(async () => {
                 const result = await getStoreSalesReport({ storeId: myStore.id, period: activeTab });
-                if (result.success) {
-                    setReport(result.report!);
+                if (result.success && result.report) {
+                    setReport(result.report);
                 } else {
                     console.error("Failed to fetch sales report:", result.error);
                     setReport(null);
@@ -57,7 +71,7 @@ export default function SalesReportPage() {
         report.topProducts.forEach(p => {
              csvContent += `"${p.name}",${p.count}\n`;
         });
-        
+
         const summary = `Total Sales,${report.totalSales.toFixed(2)}\nTotal Items,${report.totalItems}\n`;
         csvContent = `Period,${activeTab}\n${summary}\n${csvContent}`;
         
@@ -77,7 +91,6 @@ export default function SalesReportPage() {
     if (!myStore) {
         return <div className="container mx-auto py-12"><p>You must have a store to view sales reports.</p></div>
     }
-
 
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
@@ -108,53 +121,59 @@ export default function SalesReportPage() {
                         </TabsList>
                         <TabsContent value={activeTab} className="mt-6">
                             {isLoading ? (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                                    <Skeleton className="h-32" />
-                                    <Skeleton className="h-32" />
-                                    <Skeleton className="h-32" />
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+                                    <Skeleton className="h-24" />
+                                    <Skeleton className="h-24" />
+                                    <Skeleton className="h-24" />
+                                    <Skeleton className="h-24" />
                                 </div>
                             ) : report ? (
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                                <Card>
-                                  <CardContent className="p-6">
-                                    <p className="text-sm text-muted-foreground">Total Sales</p>
-                                    <h2 className="text-3xl font-bold">₹{report.totalSales.toFixed(2)}</h2>
-                                  </CardContent>
-                                </Card>
-
-                                <Card>
-                                  <CardContent className="p-6">
-                                    <p className="text-sm text-muted-foreground">Orders</p>
-                                    <h2 className="text-3xl font-bold">{report.totalOrders}</h2>
-                                  </CardContent>
-                                </Card>
-
-                                <Card>
-                                  <CardContent className="p-6">
-                                    <p className="text-sm text-muted-foreground">Items Sold</p>
-                                    <h2 className="text-3xl font-bold">{report.totalItems}</h2>
-                                  </CardContent>
-                                </Card>
-                              </div>
-                            ) : null}
-
-                            {report?.topProducts?.length === 0 && !isLoading ? (
-                              <div className="mt-6 text-center text-muted-foreground">
-                                Waiting for first completed payment for this period.
-                              </div>
-                            ) : report?.topProducts && report.topProducts.length > 0 && !isLoading ? (
-                                <div className="mt-6">
-                                    <h3 className="text-lg font-semibold mb-2">Top Products</h3>
-                                    <div className="space-y-2">
-                                        {report.topProducts.map(p => (
-                                            <div key={p.name} className="flex justify-between items-center text-sm p-2 bg-muted/50 rounded-md">
-                                                <span>{p.name}</span>
-                                                <span className="font-bold">{p.count} units</span>
-                                            </div>
-                                        ))}
+                                <>
+                                    <div className="grid md:grid-cols-4 gap-6 mt-6">
+                                      <StatCard title="Sales" value={`₹${report.totalSales.toFixed(0)}`} />
+                                      <StatCard title="Cost" value={`₹${report.totalCost.toFixed(0)}`} />
+                                      <StatCard
+                                        title="Profit"
+                                        value={`₹${report.profit.toFixed(0)}`}
+                                        highlight={report.profit > 0}
+                                      />
+                                      <StatCard title="Orders" value={report.totalOrders} />
                                     </div>
+
+                                    <div className="grid md:grid-cols-2 gap-8 mt-10">
+                                      <div>
+                                        <h3 className="text-xl font-semibold mb-3">Top Products</h3>
+                                        {report.topProducts.length > 0 ? (
+                                            <div className="space-y-2">
+                                                {report.topProducts.map(p => (
+                                                    <div key={p.name} className="flex justify-between items-center text-sm p-2 bg-muted/50 rounded-md">
+                                                        <span>{p.name}</span>
+                                                        <span className="font-bold">{p.count} units</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : <p className="text-muted-foreground">No products sold in this period.</p>}
+                                      </div>
+                                      <div>
+                                        <h3 className="text-xl font-semibold mb-3">Ingredient Consumption</h3>
+                                        {report.ingredientUsage.length > 0 ? (
+                                          <div className="space-y-2">
+                                            {report.ingredientUsage.map(i => (
+                                              <div key={i.name} className="flex justify-between bg-muted/50 p-3 rounded">
+                                                <span>{i.name}</span>
+                                                <b>{i.quantity} g/ml</b>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        ) : <p className="text-muted-foreground">No ingredient data available.</p>}
+                                      </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="mt-6 text-center text-muted-foreground">
+                                    Waiting for first completed payment for this period.
                                 </div>
-                            ) : null}
+                            )}
                         </TabsContent>
                     </Tabs>
                 </CardContent>
@@ -162,4 +181,3 @@ export default function SalesReportPage() {
         </div>
     );
 }
-

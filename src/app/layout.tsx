@@ -35,6 +35,13 @@ export default function RootLayout({
       </head>
       <body>
         <ClientRoot>{children}</ClientRoot>
+        <script>{`
+          if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+              navigator.serviceWorker.register('/sw.js');
+            });
+          }
+        `}</script>
       </body>
     </html>
   );

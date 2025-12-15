@@ -330,6 +330,7 @@ export async function addRestaurantOrderItem({
       variantWeight: '1 pc',
       quantity,
       price: item.price,
+      ingredients: item.ingredients || [],
     };
 
     const doc = await orderRef.get();
@@ -396,7 +397,13 @@ export async function updateSiteConfig(configId: string, data: Partial<SiteConfi
 }
 
 
-export async function getStoreSalesReport({ storeId, period }: { storeId: string; period: 'daily' | 'weekly' | 'monthly' }): Promise<{ success: boolean; report?: { totalSales: number; totalItems: number; totalOrders: number; topProducts: { name: string; count: number }[]; }; error?: string; }> {
+export async function getStoreSalesReport({
+  storeId,
+  period,
+}: {
+  storeId: string;
+  period: 'daily' | 'weekly' | 'monthly';
+}) {
   try {
     const { db } = await getAdminServices();
 
@@ -405,75 +412,90 @@ export async function getStoreSalesReport({ storeId, period }: { storeId: string
     }
 
     const now = new Date();
-    let startDate: Date;
+    let startDate = new Date();
 
     if (period === 'daily') {
-      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      startDate.setHours(0,0,0,0);
     } else if (period === 'weekly') {
-      startDate = new Date(now);
       startDate.setDate(now.getDate() - now.getDay());
-      startDate.setHours(0, 0, 0, 0);
-    } else { // monthly
+    } else {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     }
 
-    const startTimestamp = Timestamp.fromDate(startDate);
-    
-    // Query for all completed or billed orders for the store
-    const ordersQuery = db.collection('orders')
+    const snapshot = await db
+      .collection('orders')
       .where('storeId', '==', storeId)
-      .where('status', 'in', ['Completed', 'Billed']);
-      
-    const snapshot = await ordersQuery.get();
-    
+      .where('status', '==', 'Completed')
+      .where('orderDate', '>=', Timestamp.fromDate(startDate))
+      .get();
+
     let totalSales = 0;
+    let totalOrders = snapshot.size;
+    let totalCost = 0;
+
     const productMap = new Map<string, number>();
-    let validOrdersCount = 0;
+    const ingredientMap = new Map<string, number>();
 
-    const filteredDocs = snapshot.docs.filter(doc => {
-      const orderData = doc.data() as Order;
-      const orderDate = (orderData.orderDate as Timestamp).toDate();
-      return orderDate >= startDate;
-    });
-
-    for (const doc of filteredDocs) {
-      const order = doc.data() as Order;
-      totalSales += order.totalAmount;
-      validOrdersCount++;
-      
-      // Assume items are stored on the order document directly
-      if (order.items && Array.isArray(order.items)) {
-         order.items.forEach(item => {
+    const orderPromises = snapshot.docs.map(async (doc) => {
+        const order = doc.data() as Order;
+        let orderTotalSales = order.totalAmount;
+        let orderTotalCost = 0;
+    
+        const itemsSnapshot = await db.collection('orders').doc(doc.id).collection('items').get();
+        const items = itemsSnapshot.docs.map(itemDoc => itemDoc.data() as OrderItem);
+        
+        items.forEach(item => {
             productMap.set(
               item.productName,
               (productMap.get(item.productName) || 0) + item.quantity
             );
-          });
-      }
-    }
     
-    const totalItems = Array.from(productMap.values()).reduce((a, b) => a + b, 0);
+            if (item.ingredients) {
+              item.ingredients.forEach(ing => {
+                const cost =
+                  ing.quantity * ing.costPerUnit * item.quantity;
+    
+                orderTotalCost += cost;
+    
+                ingredientMap.set(
+                  ing.name,
+                  (ingredientMap.get(ing.name) || 0) +
+                  ing.quantity * item.quantity
+                );
+              });
+            }
+        });
+        
+        return { orderTotalSales, orderTotalCost };
+    });
 
-    const topProducts = Array.from(productMap.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([name, count]) => ({ name, count }));
+    const results = await Promise.all(orderPromises);
+
+    results.forEach(result => {
+        totalSales += result.orderTotalSales;
+        totalCost += result.orderTotalCost;
+    });
 
     return {
       success: true,
       report: {
         totalSales,
-        totalItems,
-        totalOrders: validOrdersCount,
-        topProducts,
-      },
+        totalCost,
+        profit: totalSales - totalCost,
+        totalOrders,
+        totalItems: Array.from(productMap.values()).reduce((a,b)=>a+b,0),
+        topProducts: [...productMap.entries()]
+          .sort((a,b)=>b[1]-a[1])
+          .slice(0,5)
+          .map(([name,count])=>({name,count})),
+        ingredientUsage: [...ingredientMap.entries()].map(([name,qty])=>({
+          name, quantity: qty
+        }))
+      }
     };
-  } catch (error: any) {
-    console.error('Sales report error:', error);
-    return {
-      success: false,
-      error: error.message || 'Failed to generate report',
-    };
+  } catch (e:any) {
+    console.error("Sales report generation failed:", e);
+    return { success:false, error:e.message };
   }
 }
 
@@ -509,4 +531,21 @@ export async function markSessionAsPaid(sessionId: string): Promise<{ success: b
   }
 }
 
+
+export async function generateDailyWhatsappMessage(storeId:string) {
+  const reportData = await getStoreSalesReport({ storeId, period:'daily' });
+
+  if (!reportData.success || !reportData.report) return null;
+  const { report } = reportData;
+
+  return `
+📊 *Daily Sales Report*
+Sales: ₹${report.totalSales.toFixed(0)}
+Cost: ₹${report.totalCost.toFixed(0)}
+Profit: ₹${report.profit.toFixed(0)}
+Orders: ${report.totalOrders}
+
+Top Item: ${report.topProducts[0]?.name || 'N/A'}
+`;
+}
     
