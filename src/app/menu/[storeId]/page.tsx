@@ -49,7 +49,7 @@ import {
   SheetTrigger,
   SheetFooter,
 } from '@/components/ui/sheet';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import IngredientsDialog from '@/components/IngredientsDialog';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -62,87 +62,6 @@ import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
-
-/* -------------------------------------------------------------------------- */
-/*                          INGREDIENTS DIALOG                                */
-/* -------------------------------------------------------------------------- */
-function IngredientsDialog({ 
-    isOpen, 
-    onClose, 
-    item, 
-    details, 
-    isLoading,
-    onAddItem 
-}: { 
-    isOpen: boolean, 
-    onClose: () => void, 
-    item: MenuItem | null, 
-    details: GetIngredientsOutput | null, 
-    isLoading: boolean,
-    onAddItem: (item: MenuItem) => void 
-}) {
-    if (!item) return null;
-
-    const handleAddClick = () => {
-        onAddItem(item);
-        onClose();
-    };
-
-    return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-md">
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                        <Salad className="h-5 w-5 text-green-600" />
-                        Ingredients for {item.name}
-                    </DialogTitle>
-                </DialogHeader>
-                {isLoading ? (
-                    <div className="flex justify-center items-center h-48">
-                        <Loader2 className="h-8 w-8 animate-spin" />
-                    </div>
-                ) : !details || !details.isSuccess ? (
-                    <div className="text-center py-8">
-                        <Info className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                        <p className="text-muted-foreground">Could not retrieve ingredients for this item.</p>
-                    </div>
-                ) : (
-                    <ScrollArea className="max-h-[60vh] -mx-4 px-4">
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4 text-center">
-                                <div className="p-3 bg-blue-50 rounded-lg">
-                                    <p className="text-xs text-blue-700 font-bold">CALORIES</p>
-                                    <p className="text-lg font-bold text-blue-900">{details.nutrition.calories}</p>
-                                </div>
-                                 <div className="p-3 bg-green-50 rounded-lg">
-                                    <p className="text-xs text-green-700 font-bold">PROTEIN</p>
-                                    <p className="text-lg font-bold text-green-900">{details.nutrition.protein}g</p>
-                                </div>
-                            </div>
-                            <div>
-                                <h4 className="font-semibold mb-2">Ingredients</h4>
-                                <div className="flex flex-wrap gap-2">
-                                    {details.ingredients.map((ing, i) => (
-                                        <Badge key={i} variant="secondary">{ing.name} - {ing.quantity}</Badge>
-                                    ))}
-                                </div>
-                                <p className="text-xs text-muted-foreground mt-3 italic">
-                                    Disclaimer: Ingredients and nutritional values are AI-generated approximations and may not be exact.
-                                </p>
-                            </div>
-                        </div>
-                    </ScrollArea>
-                )}
-                 <DialogFooter className="pt-4">
-                    <Button variant="outline" onClick={onClose}>Close</Button>
-                    <Button onClick={handleAddClick} disabled={isLoading || !details?.isSuccess}>
-                        <Plus className="mr-2 h-4 w-4" /> Add to Bill
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    )
-}
 
 /* -------------------------------------------------------------------------- */
 /*                            LIVE BILL COMPONENTS                            */
@@ -370,14 +289,21 @@ export default function PublicMenuPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 pb-20">
-       <IngredientsDialog 
-            isOpen={isIngredientsDialogOpen}
+       {isIngredientsDialogOpen && selectedItemForIngredients && (
+        <IngredientsDialog
+            open={isIngredientsDialogOpen}
             onClose={() => setIsIngredientsDialogOpen(false)}
-            item={selectedItemForIngredients}
-            details={ingredientDetails}
-            isLoading={isIngredientsLoading}
-            onAddItem={addItem}
+            dishName={selectedItemForIngredients.name}
+            price={selectedItemForIngredients.price}
+            calories={ingredientDetails?.nutrition?.calories || 0}
+            protein={ingredientDetails?.nutrition?.protein || 0}
+            ingredients={(ingredientDetails?.ingredients || []).map(ing => ({ name: ing.name, qty: ing.quantity }))}
+            onAdd={() => {
+                addItem(selectedItemForIngredients);
+                setIsIngredientsDialogOpen(false);
+            }}
         />
+       )}
 
       {/* ---------------- HEADER ---------------- */}
       <header className="sticky top-0 bg-white shadow z-40">
