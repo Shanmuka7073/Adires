@@ -1,32 +1,142 @@
 
 'use client';
 
-import { useState, useTransition, useMemo, useEffect } from 'react';
+import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, setDoc, limit } from 'firebase/firestore';
 import type { Store, Menu, MenuItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Trash2, Sparkles, Loader2, Save, QrCode, Printer, Copy, AlertTriangle, List } from 'lucide-react';
+import { Trash2, Sparkles, Loader2, Save, QrCode, Printer, Copy, AlertTriangle, List, PlusCircle, Edit } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { useAppStore } from '@/lib/store';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { generateBreakfastPack, GenerateBreakfastPackOutput } from '@/ai/flows/generate-breakfast-pack-flow';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { useCart } from '@/lib/cart';
-import { calculateSimilarity } from '@/lib/calculate-similarity';
-import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
-import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import Image from 'next/image';
 import QRCode from 'qrcode.react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Textarea } from '@/components/ui/textarea';
+import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
+import { cacheRecipe, getCachedRecipe } from '@/lib/recipe-cache';
+import { extractMenuItems } from '@/ai/flows/extract-menu-items-flow';
+
+
+// Schema for a single menu item
+const menuItemSchema = z.object({
+  name: z.string().min(2, "Item name is required."),
+  description: z.string().optional(),
+  price: z.coerce.number().min(0, "Price must be a positive number."),
+  category: z.string().min(2, "Category is required."),
+});
+type MenuItemFormValues = z.infer<typeof menuItemSchema>;
+
+
+function EditMenuDialog({
+  isOpen,
+  onOpenChange,
+  onSave,
+  existingItem,
+  onDeleteItem,
+}: {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (item: MenuItem, isNew: boolean) => void;
+  existingItem?: MenuItem | null;
+  onDeleteItem?: (itemToDelete: MenuItem) => void;
+}) {
+  const form = useForm<MenuItemFormValues>({
+    resolver: zodResolver(menuItemSchema),
+    defaultValues: existingItem || { name: '', price: 0, category: '', description: '' },
+  });
+
+  useEffect(() => {
+    form.reset(existingItem || { name: '', price: 0, category: '', description: '' });
+  }, [existingItem, form]);
+
+  const handleSubmit = (data: MenuItemFormValues) => {
+    onSave(data, !existingItem);
+    onOpenChange(false);
+  };
+  
+  const handleDelete = () => {
+    if (existingItem && onDeleteItem) {
+        onDeleteItem(existingItem);
+        onOpenChange(false);
+    }
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{existingItem ? 'Edit Menu Item' : 'Add New Item'}</DialogTitle>
+          <DialogDescription>
+            {existingItem ? `Update details for ${existingItem.name}.` : 'Add a new item to your menu.'}
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+                 <FormField control={form.control} name="name" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Item Name</FormLabel>
+                        <FormControl><Input {...field} placeholder="e.g., Chicken Biryani" /></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                 <FormField control={form.control} name="category" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Category</FormLabel>
+                        <FormControl><Input {...field} placeholder="e.g., Main Course" /></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                 <FormField control={form.control} name="price" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Price (₹)</FormLabel>
+                        <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                <FormField control={form.control} name="description" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Description (Optional)</FormLabel>
+                        <FormControl><Textarea {...field} placeholder="A short description of the dish." /></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                <DialogFooter className="pt-4">
+                   {existingItem && onDeleteItem && (
+                     <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                             <Button type="button" variant="destructive" className="mr-auto">Delete Item</Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>This will permanently remove "{existingItem.name}" from your menu.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                             <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                   )}
+                    <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
+                    <Button type="submit">Save Item</Button>
+                </DialogFooter>
+            </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (items: MenuItem[]) => void }) {
     const { toast } = useToast();
@@ -153,11 +263,66 @@ function QRCodeDialog({ table, storeId }: { table: string, storeId: string }) {
     )
 }
 
-function MenuDisplay({ store, menu, onReplace }: { store: Store, menu: Menu, onReplace: () => void }) {
+function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, menu: Menu, onReplace: () => void }) {
     const { toast } = useToast();
     const { firestore } = useFirebase();
     const [isGenerating, startGeneration] = useTransition();
     const [generationProgress, setGenerationProgress] = useState(0);
+    const [isSaving, startSave] = useTransition();
+    const [menu, setMenu] = useState(initialMenu);
+    
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+
+    // Update local state if the initialMenu from props changes (e.g., after a save)
+    useEffect(() => {
+        setMenu(initialMenu);
+    }, [initialMenu]);
+
+    const handleEditItem = (item: MenuItem) => {
+        setEditingItem(item);
+        setIsEditDialogOpen(true);
+    }
+    
+    const handleAddNewItem = () => {
+        setEditingItem(null);
+        setIsEditDialogOpen(true);
+    }
+
+    const handleSaveItem = (itemData: MenuItem, isNew: boolean) => {
+        let updatedItems;
+        if (isNew) {
+            // Find the highest existing temp ID to avoid collisions
+            const maxId = Math.max(0, ...menu.items.map(i => parseInt((i.id || '0').split('-')[1] || '0')));
+            const newItem = { ...itemData, id: `temp-${maxId + 1}` };
+            updatedItems = [...menu.items, newItem];
+        } else {
+            updatedItems = menu.items.map(item => item.id === editingItem?.id ? { ...item, ...itemData } : item);
+        }
+        const updatedMenu = { ...menu, items: updatedItems };
+        setMenu(updatedMenu);
+        // The save to DB happens in the main save button
+    };
+
+    const handleDeleteItem = (itemToDelete: MenuItem) => {
+         const updatedItems = menu.items.filter(item => item.id !== itemToDelete.id);
+         const updatedMenu = { ...menu, items: updatedItems };
+         setMenu(updatedMenu);
+    }
+
+    const handleSaveMenu = async () => {
+        if (!firestore || !store) return;
+        startSave(async () => {
+            const menuRef = doc(firestore, `stores/${store.id}/menus`, menu.id);
+            try {
+                await setDoc(menuRef, { ...menu }, { merge: true });
+                toast({ title: "Menu Saved!", description: "Your changes have been saved." });
+            } catch (error) {
+                 toast({ variant: 'destructive', title: "Save Failed", description: "Could not save menu changes." });
+                 console.error("Menu save failed:", error);
+            }
+        });
+    }
 
     const handleGenerateAllIngredients = async () => {
         if (!firestore) {
@@ -210,10 +375,25 @@ function MenuDisplay({ store, menu, onReplace }: { store: Store, menu: Menu, onR
 
     return (
         <div className="grid md:grid-cols-2 gap-8">
+            {isEditDialogOpen && (
+                 <EditMenuDialog 
+                    isOpen={isEditDialogOpen}
+                    onOpenChange={setIsEditDialogOpen}
+                    onSave={handleSaveItem}
+                    existingItem={editingItem}
+                    onDeleteItem={handleDeleteItem}
+                 />
+            )}
             <Card>
                 <CardHeader>
-                    <CardTitle>Your Digital Menu</CardTitle>
-                    <CardDescription>This is your currently active menu. You can replace it by uploading a new one.</CardDescription>
+                    <div className="flex justify-between items-center">
+                        <CardTitle>Your Digital Menu</CardTitle>
+                         <Button onClick={handleSaveMenu} disabled={isSaving}>
+                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                            Save All Changes
+                        </Button>
+                    </div>
+                    <CardDescription>This is your currently active menu. You can add, edit, or remove items below.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                      <div className="space-y-2">
@@ -228,25 +408,34 @@ function MenuDisplay({ store, menu, onReplace }: { store: Store, menu: Menu, onR
                             </div>
                         )}
                     </div>
+                    <Button onClick={handleAddNewItem} variant="outline" className="w-full">
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add New Menu Item
+                    </Button>
                      <Table>
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Category</TableHead>
                                 <TableHead>Item Name</TableHead>
                                 <TableHead className="text-right">Price</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {menu.items.map((item, index) => (
-                                <TableRow key={index}>
+                                <TableRow key={item.id || index}>
                                     <TableCell className="font-medium">{item.category}</TableCell>
                                     <TableCell>{item.name}</TableCell>
                                     <TableCell className="text-right">₹{item.price.toFixed(2)}</TableCell>
+                                     <TableCell className="text-right">
+                                        <Button variant="ghost" size="icon" onClick={() => handleEditItem(item)}>
+                                            <Edit className="h-4 w-4" />
+                                        </Button>
+                                    </TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
                     </Table>
-                     <Button onClick={onReplace} variant="outline" className="w-full">Upload New Menu to Replace</Button>
+                     <Button onClick={onReplace} variant="destructive" className="w-full mt-4">Upload New Menu to Replace</Button>
                 </CardContent>
             </Card>
              <Card>
@@ -306,26 +495,26 @@ export default function MenuManagerPage() {
         return query(collection(firestore, `stores/${store.id}/menus`));
     }, [firestore, store]);
 
-    const { data: menus, isLoading: menuLoading } = useCollection<Menu>(menuQuery);
+    const { data: menus, isLoading: menuLoading, refetch: refetchMenu } = useCollection<Menu>(menuQuery);
     const existingMenu = menus?.[0];
     
     const handleSaveMenu = () => {
         if (!firestore || !store || extractedItems.length === 0) return;
 
         startSave(async () => {
-            // If a menu already exists, we replace it (doc ID is known). Otherwise, create new.
             const menuRef = existingMenu ? doc(firestore, `stores/${store.id}/menus`, existingMenu.id) : doc(collection(firestore, `stores/${store.id}/menus`));
             
             const menuData: Menu = {
                 id: menuRef.id,
                 storeId: store.id,
-                items: extractedItems,
+                items: extractedItems.map((item, index) => ({...item, id: item.id || `temp-${Date.now()}-${index}` })),
             };
 
             try {
                 await setDoc(menuRef, menuData, { merge: true });
                 toast({ title: 'Menu Saved!', description: 'Your digital menu is now live.' });
                 setExtractedItems([]); // Clear the form after saving
+                if(refetchMenu) refetchMenu();
             } catch (error) {
                 console.error("Failed to save menu:", error);
                 toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the menu to the database.' });
@@ -350,10 +539,8 @@ export default function MenuManagerPage() {
             </div>
 
             {existingMenu && extractedItems.length === 0 ? (
-                // If a menu exists and we are NOT in the middle of uploading a new one, show it.
                 <MenuDisplay store={store} menu={existingMenu} onReplace={() => setExtractedItems([])} />
             ) : (
-                // Show the upload/review flow if no menu exists OR if we have just extracted new items
                  <div className="grid md:grid-cols-2 gap-8">
                      <MenuUploader onMenuExtracted={setExtractedItems} />
                      {extractedItems.length > 0 && (
