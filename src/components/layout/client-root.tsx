@@ -4,7 +4,7 @@
 import React, { useEffect } from 'react';
 import { FirebaseClientProvider, useFirebase } from '@/firebase';
 import { CartProvider } from '@/lib/cart';
-import { MainLayout, MenuLayout } from '@/components/layout/main-layout';
+import { MainLayout } from '@/components/layout/main-layout';
 import { Toaster } from '@/components/ui/toaster';
 import { useAppStore } from '@/lib/store';
 import GlobalLoader from './global-loader';
@@ -56,19 +56,6 @@ function AppContent({ children }: { children: React.ReactNode }) {
     useInitializeApp();
     const { appReady } = useAppStore();
     const pathname = usePathname();
-    const isMenuPage = pathname.startsWith('/menu/');
-
-    if (isMenuPage) {
-        // For menu pages, we don't need to wait for all global data.
-        return (
-             <InstallProvider>
-                <CartProvider>
-                    <MenuLayout>{children}</MenuLayout>
-                    <Toaster />
-                </CartProvider>
-            </InstallProvider>
-        )
-    }
     
     if (!appReady) {
         return <GlobalLoader />;
