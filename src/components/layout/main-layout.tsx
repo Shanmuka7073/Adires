@@ -16,9 +16,6 @@ import { BottomNavBar } from './bottom-nav-bar';
 import { useFirebase } from '@/firebase';
 import { PriceCheckDisplay, PriceCheckInfo } from './price-check-display';
 import { useInstall } from '../install-provider';
-import { CartIcon } from '../cart/cart-icon';
-import { Button } from '../ui/button';
-import { Mic } from 'lucide-react';
 
 // Create a context to provide the trigger function
 const VoiceCommandContext = createContext<{ 
@@ -26,11 +23,6 @@ const VoiceCommandContext = createContext<{
     retryCommand?: (command: string) => void; 
     showPriceCheck: (info: PriceCheckInfo) => void;
     hidePriceCheck: () => void;
-    voiceEnabled: boolean;
-    voiceStatus: string;
-    onToggleVoice: () => void;
-    isCartOpen: boolean;
-    onCartOpenChange: (open: boolean) => void;
 } | undefined>(undefined);
 
 export function useVoiceCommanderContext() {
@@ -41,65 +33,69 @@ export function useVoiceCommanderContext() {
     return context;
 }
 
-export function SharedVoiceProvider({ children }: { children: React.ReactNode }) {
+export function MainLayout({ 
+  children,
+}: { 
+  children: React.ReactNode;
+}) {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState('Click the mic to start listening.');
   const [suggestedCommands, setSuggestedCommands] = useState<Command[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { cartItems } = useCart();
   const { toast } = useToast();
+  const pathname = usePathname();
+  
   const { user } = useFirebase();
-  const { setLanguage, isInitialized } = useAppStore();
+  
+  const { setLanguage, isInitialized, fetchInitialData } = useAppStore();
   const [priceCheckInfo, setPriceCheckInfo] = useState<PriceCheckInfo | null>(null);
+
   const [voiceTrigger, setVoiceTrigger] = useState(0);
   const [retryCommandText, setRetryCommandText] = useState<string | null>(null);
   const { triggerInstall } = useInstall();
 
+  // --- Location-based language detection ---
   useEffect(() => {
+    if (!isInitialized) return;
     const savedLanguage = localStorage.getItem('app-language');
     if (savedLanguage) {
       setLanguage(savedLanguage);
       return;
     }
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          const detectedLang = getLanguageForLocation(latitude, longitude);
-          if (!localStorage.getItem('app-language')) {
-            setLanguage(detectedLang);
-            toast({
-              title: 'Language Detected',
-              description: `Voice assistant language set to ${detectedLang === 'te' ? 'Telugu' : 'English'}. You can change this anytime.`,
-            });
-          }
-        }
-      );
-    }
-  }, [setLanguage, toast]);
+  }, [isInitialized, setLanguage]);
 
-  const triggerVoicePrompt = useCallback(() => setVoiceTrigger(v => v + 1), []);
-  const retryCommand = useCallback((command: string) => setRetryCommandText(command), []);
-  const showPriceCheck = useCallback((info: PriceCheckInfo) => setPriceCheckInfo(info), []);
-  const hidePriceCheck = useCallback(() => setPriceCheckInfo(null), []);
-  const onToggleVoice = useCallback(() => setVoiceEnabled(prev => !prev), []);
 
-  const voiceContextValue = {
-    triggerVoicePrompt,
-    retryCommand,
-    showPriceCheck,
-    hidePriceCheck,
-    voiceEnabled,
-    voiceStatus,
-    onToggleVoice,
-    isCartOpen,
-    onCartOpenChange: setIsCartOpen,
-  };
+  // Stable callback to trigger the voice prompt check
+  const triggerVoicePrompt = useCallback(() => {
+    setVoiceTrigger(v => v + 1);
+  }, []);
+
+  const retryCommand = useCallback((command: string) => {
+    setRetryCommandText(command);
+  }, []);
+
+  const showPriceCheck = useCallback((info: PriceCheckInfo) => {
+      setPriceCheckInfo(info);
+  }, []);
+  
+  const hidePriceCheck = useCallback(() => {
+      setPriceCheckInfo(null);
+  }, []);
+
 
   return (
-    <VoiceCommandContext.Provider value={voiceContextValue}>
-        {children}
-        {isInitialized && (
+    <VoiceCommandContext.Provider value={{ triggerVoicePrompt, retryCommand, showPriceCheck, hidePriceCheck }}>
+        <div className="relative flex min-h-dvh flex-col bg-background">
+        <Header 
+            voiceEnabled={voiceEnabled}
+            onToggleVoice={() => setVoiceEnabled(prev => !prev)}
+            voiceStatus={voiceStatus}
+            suggestedCommands={suggestedCommands}
+            isCartOpen={isCartOpen}
+            onCartOpenChange={setIsCartOpen}
+        />
+        {user && isInitialized && (
             <VoiceCommander 
                 enabled={voiceEnabled} 
                 onStatusUpdate={setVoiceStatus}
@@ -115,41 +111,26 @@ export function SharedVoiceProvider({ children }: { children: React.ReactNode })
                 onInstallApp={triggerInstall}
             />
         )}
+        <ProfileCompletionChecker />
         <PriceCheckDisplay info={priceCheckInfo} onClose={hidePriceCheck} />
+        <main className="flex-1 pb-16 md:pb-0">{children}</main>
+        <NotificationPermissionManager />
+        <Footer />
+        <BottomNavBar />
+        </div>
     </VoiceCommandContext.Provider>
   );
 }
 
 
-export function MainLayout({ children }: { children: React.ReactNode }) {
-  const { suggestedCommands } = useAppStore();
+// New simplified layout for the Menu pages
+export function MenuLayout({ children }: { children: React.ReactNode }) {
+    // Menu layout doesn't need its own full voice context, but a provider is needed.
+    // The functionality will be simpler, perhaps just for adding items.
+    // For now, it's a simple passthrough.
   return (
-    <div className="relative flex min-h-dvh flex-col bg-background">
-        <Header suggestedCommands={[]} />
-        <ProfileCompletionChecker />
-        <NotificationPermissionManager />
-        <main className="flex-1 pb-16 md:pb-0">{children}</main>
-        <Footer />
-        <BottomNavBar />
+    <div className="relative min-h-dvh bg-background">
+        {children}
     </div>
   );
 }
-
-// The main MenuLayout now just provides the context
-export function MenuLayout({ children }: { children: React.ReactNode }) {
-    const { onCartOpenChange, isCartOpen, onToggleVoice, voiceEnabled } = useVoiceCommanderContext();
-    return (
-        <div className="relative min-h-dvh bg-background">
-            {children}
-            <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
-                 <Button variant="outline" size="icon" className="relative h-14 w-14 rounded-2xl shadow-lg bg-background" onClick={onToggleVoice}>
-                    <Mic className="h-7 w-7 text-primary" />
-                    {voiceEnabled && <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>}
-                    <span className="sr-only">Toggle Voice Commands</span>
-                </Button>
-                <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />
-            </div>
-        </div>
-    );
-}
-
