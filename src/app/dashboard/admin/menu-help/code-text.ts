@@ -79,7 +79,7 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [closing, startClose] = useTransition();
-  const orderId = `${storeId}_${sessionId}`;
+  const orderId = \`\${storeId}_\${sessionId}\`;
 
   const orderQuery = useMemoFirebase(
     () => (firestore ? doc(firestore, 'orders', orderId) : null),
