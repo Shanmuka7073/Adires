@@ -41,6 +41,9 @@ import {
   Mic,
   Eye,
   Download,
+  Copy,
+  StopCircle,
+  Volume2,
 } from 'lucide-react';
 
 import {
@@ -54,6 +57,7 @@ import {
   AlertDialogAction,
   AlertDialogDescription,
 } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -64,7 +68,11 @@ import { format } from 'date-fns';
 import { addRestaurantOrderItem } from '@/app/actions';
 import type { Timestamp } from 'firebase/firestore';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-
+import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
+import { generateVoiceReply } from '@/ai/flows/generate-voice-reply-flow';
+import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
+import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }) {
   const { firestore } = useFirebase();
@@ -172,6 +180,120 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
   );
 }
 
+function RecipeDialog({ isOpen, onOpenChange, dishName, onAddToBill }: { isOpen: boolean, onOpenChange: (open: boolean) => void, dishName: string, onAddToBill: () => void }) {
+    const [result, setResult] = useState<GetIngredientsOutput | null>(null);
+    const [isGenerating, startGeneration] = useTransition();
+    const [isSpeaking, setIsSpeaking] = useState(false);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+
+    useEffect(() => {
+        if (isOpen && !result) {
+            startGeneration(async () => {
+                if (!firestore) return;
+                let recipeData = await getCachedRecipe(firestore, dishName, 'en');
+                if (!recipeData) {
+                    const generatedData = await getIngredientsForDish({ dishName, language: 'en' });
+                    if (generatedData.isSuccess) {
+                        recipeData = generatedData;
+                        await cacheRecipe(firestore, dishName, 'en', generatedData);
+                    }
+                }
+                setResult(recipeData);
+            });
+        }
+    }, [isOpen, dishName, firestore, result]);
+
+    useEffect(() => {
+        const audio = new Audio();
+        audioRef.current = audio;
+        const onEnded = () => setIsSpeaking(false);
+        const onError = () => { setIsSpeaking(false); };
+        audio.addEventListener('ended', onEnded);
+        audio.addEventListener('error', onError);
+        return () => {
+            audio.removeEventListener('ended', onEnded);
+            audio.removeEventListener('error', onError);
+        };
+    }, []);
+
+    const handleSpeak = async (textToSpeak: string) => {
+        if (!textToSpeak || isSpeaking) return;
+        setIsSpeaking(true);
+        try {
+            const result = await generateVoiceReply({ text: textToSpeak, language: 'en' });
+            if (audioRef.current && result.audioDataUri) {
+                audioRef.current.src = result.audioDataUri;
+                audioRef.current.play();
+            }
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Voice Generation Failed' });
+            setIsSpeaking(false);
+        }
+    };
+
+    const handleStop = () => {
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+        }
+        setIsSpeaking(false);
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-md w-[90vw] max-h-[85vh] flex flex-col">
+                <DialogHeader>
+                    <DialogTitle>{result?.title || dishName}</DialogTitle>
+                    <DialogDescription>Ingredients & Instructions</DialogDescription>
+                </DialogHeader>
+                <ScrollArea className="flex-1 -mx-6 px-6">
+                    {isGenerating ? (
+                        <div className="flex items-center justify-center h-48">
+                            <Loader2 className="h-8 w-8 animate-spin" />
+                        </div>
+                    ) : result?.isSuccess ? (
+                        <div className="space-y-4">
+                            <div>
+                                <h4 className="font-semibold text-lg flex items-center gap-2"><Salad className="h-5 w-5 text-green-600"/> Ingredients</h4>
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    {result.ingredients.map((ing, i) => <Badge key={i} variant="secondary">{ing.name}</Badge>)}
+                                </div>
+                            </div>
+                            <Separator />
+                            <div>
+                                <h4 className="font-semibold text-lg">Instructions</h4>
+                                <ol className="space-y-3 mt-2">
+                                    {result.instructions.map((step, i) => (
+                                        <li key={i}>
+                                            <div className="flex justify-between items-center">
+                                                <h5 className="font-bold">{step.title}</h5>
+                                                <Button size="icon" variant="ghost" onClick={() => isSpeaking ? handleStop() : handleSpeak(`${step.title}. ${step.actions.join('. ')}`)}>
+                                                    {isSpeaking ? <StopCircle className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                                                </Button>
+                                            </div>
+                                            <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+                                                {step.actions.map((action, j) => <li key={j}>{action}</li>)}
+                                            </ul>
+                                        </li>
+                                    ))}
+                                </ol>
+                            </div>
+                        </div>
+                    ) : (
+                        <p>Could not find recipe details.</p>
+                    )}
+                </ScrollArea>
+                <DialogFooter className="mt-4">
+                    <Button className="w-full" onClick={() => { onAddToBill(); onOpenChange(false); }}>
+                        <Plus className="mr-2 h-4 w-4" /> Add to Bill
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 export default function PublicMenuPage() {
   const { storeId } = useParams<{ storeId: string }>();
@@ -182,9 +304,11 @@ export default function PublicMenuPage() {
   const [isAdding, startAdding] = useTransition();
   const [sessionId, setSessionId] = useState('');
   
-  // Local install prompt logic
   const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
   const canInstall = !!installPrompt;
+  
+  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const [isRecipeOpen, setIsRecipeOpen] = useState(false);
 
   useEffect(() => {
     const handleBeforeInstall = (e: Event) => {
@@ -236,21 +360,27 @@ export default function PublicMenuPage() {
         return acc;
     }, {} as Record<string, MenuItem[]>)
   }, [menu]);
-
-  const handleAddItem = (item: MenuItem) => {
+  
+  const handleItemClick = (item: MenuItem) => {
+    setSelectedItem(item);
+    setIsRecipeOpen(true);
+  };
+  
+  const handleAddToBill = () => {
+    if (!selectedItem) return;
     startAdding(async () => {
       const result = await addRestaurantOrderItem({
         storeId,
         sessionId,
         tableNumber: tableNumber || null,
-        item,
+        item: selectedItem,
         quantity: 1,
       });
 
       if (result.success) {
         toast({
           title: "Added to Bill",
-          description: `${item.name} has been added to your live bill.`,
+          description: `${selectedItem.name} has been added to your live bill.`,
         });
       } else {
         toast({
@@ -275,15 +405,28 @@ export default function PublicMenuPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
+      {selectedItem && (
+         <RecipeDialog 
+            isOpen={isRecipeOpen} 
+            onOpenChange={setIsRecipeOpen} 
+            dishName={selectedItem.name} 
+            onAddToBill={handleAddToBill}
+         />
+      )}
       <header className="sticky top-0 z-40 bg-white border-b">
         <div className="flex items-center justify-between px-4 py-3">
-          <div>
-            <h1 className="font-bold text-lg">{store.name}</h1>
-            {tableNumber && (
-              <p className="text-xs text-muted-foreground">
-                Table {tableNumber} • Live Order
-              </p>
-            )}
+          <div className="flex items-center gap-3">
+             {store.imageUrl && (
+              <Image src={store.imageUrl} alt={store.name} width={40} height={40} className="rounded-full border" />
+             )}
+            <div>
+              <h1 className="font-bold text-lg">{store.name}</h1>
+              {tableNumber && (
+                <p className="text-xs text-muted-foreground">
+                  Table {tableNumber} • Live Order
+                </p>
+              )}
+            </div>
           </div>
           {canInstall && (
             <Button size="icon" variant="ghost" onClick={triggerInstall}>
@@ -294,7 +437,7 @@ export default function PublicMenuPage() {
       </header>
 
       {sessionId && (
-          <div className="sticky top-[64px] z-30 px-4 py-2 bg-gray-50">
+          <div className="sticky top-[73px] z-30 px-4 py-2 bg-gray-50">
             <LiveBill storeId={storeId} sessionId={sessionId} />
           </div>
       )}
@@ -307,7 +450,7 @@ export default function PublicMenuPage() {
               {items.map((item, index) => (
                 <div
                   key={index}
-                  onClick={() => handleAddItem(item)}
+                  onClick={() => handleItemClick(item)}
                   className="flex items-center justify-between p-4 bg-white rounded-xl shadow-sm active:scale-[0.98] transition-transform"
                 >
                   <div>
@@ -336,4 +479,5 @@ export default function PublicMenuPage() {
     </div>
   );
 }
-        
+
+    
