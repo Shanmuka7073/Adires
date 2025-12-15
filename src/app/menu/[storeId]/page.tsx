@@ -62,12 +62,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { addRestaurantOrderItem } from '@/app/actions';
-import { useInstall } from '@/components/install-provider';
 import type { Timestamp } from 'firebase/firestore';
-
-/* -------------------------------------------------------------------------- */
-/*                                   LIVE BILL                                */
-/* -------------------------------------------------------------------------- */
 
 function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }) {
   const { firestore } = useFirebase();
@@ -102,61 +97,48 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
   
   if (!order || !order.items?.length) {
       return (
-          <Card className="mt-6 bg-muted/50">
-              <CardHeader>
-                   <CardTitle className="flex items-center gap-2 text-lg">
-                      <Receipt /> Live Bill
-                    </CardTitle>
-              </CardHeader>
-              <CardContent>
-                  <p className="text-muted-foreground text-center py-4">No items added to your bill yet.</p>
+          <Card className="bg-muted/50 rounded-xl shadow">
+              <CardContent className="p-3">
+                  <p className="text-muted-foreground text-center text-sm py-2">No items added to your bill yet.</p>
               </CardContent>
           </Card>
       )
   }
 
   return (
-    <Card className="mt-6">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Receipt /> Live Bill
-        </CardTitle>
-      </CardHeader>
-
-      <CardContent>
-            {order.items.map((it, idx) => (
-              <div key={idx} className="border-b py-2 flex justify-between text-sm">
-                <span className="font-medium">{it.productName} <span className="text-muted-foreground">x{it.quantity}</span></span>
-                <span>₹{(it.price * it.quantity).toFixed(2)}</span>
-              </div>
-            ))}
-
-            <div className="flex justify-between font-bold mt-3 text-xl">
-              <span>Total</span>
-              <span>₹{order.totalAmount.toFixed(2)}</span>
-            </div>
-            
-            <div className="mt-4">
-              {order.status === 'Completed' ? (
-                 <div className="text-center p-4 bg-blue-100 rounded-md">
-                    <Check className="mx-auto h-6 w-6 text-blue-600 mb-2" />
-                    <p className="font-semibold text-blue-800">Thank you! Visit Again.</p>
-                </div>
-              ) : order.status === 'Billed' ? (
-                <div className="text-center p-4 bg-green-100 rounded-md">
-                    <Clock className="mx-auto h-6 w-6 text-green-600 mb-2" />
-                    <p className="font-semibold text-green-800">Bill Closed. Please pay at the counter.</p>
-                    {order.orderDate && <p className="text-xs text-green-700">Started at {format(new Date((order.orderDate as Timestamp).seconds * 1000), 'p')}</p>}
-                </div>
-              ) : (
-                <AlertDialog>
+    <Card className="rounded-xl shadow-md overflow-hidden">
+      <Accordion type="single" collapsible defaultValue="live-bill">
+          <AccordionItem value="live-bill" className="border-b-0">
+              <AccordionTrigger className="p-3 bg-white hover:no-underline">
+                 <div className="flex justify-between items-center w-full">
+                    <div className="flex items-center gap-2">
+                        <Receipt className="h-5 w-5" />
+                        <span className="font-semibold text-base">Live Bill</span>
+                    </div>
+                    <p className="font-bold text-lg pr-2">₹{order.totalAmount.toFixed(2)}</p>
+                 </div>
+              </AccordionTrigger>
+              <AccordionContent className="p-0">
+                  <div className="bg-muted/30 p-3 space-y-2 max-h-48 overflow-y-auto">
+                    {order.items.map((it, idx) => (
+                      <div key={idx} className="flex justify-between text-sm items-center">
+                        <span className="font-medium">{it.productName} <span className="text-muted-foreground">x{it.quantity}</span></span>
+                        <span>₹{(it.price * it.quantity).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+              </AccordionContent>
+          </AccordionItem>
+      </Accordion>
+       {order.status !== 'Completed' && order.status !== 'Billed' && (
+          <div className="p-3 border-t">
+              <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button className="w-full" variant="destructive" disabled={closing}>
                       {closing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                       Close Bill & Pay
                     </Button>
                   </AlertDialogTrigger>
-
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Ready to Pay?</AlertDialogTitle>
@@ -170,17 +152,24 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-              )}
-            </div>
-      </CardContent>
+          </div>
+      )}
+      {order.status === 'Billed' && (
+         <div className="p-3 bg-green-100 text-center">
+             <Clock className="mx-auto h-5 w-5 text-green-600 mb-1" />
+             <p className="font-semibold text-sm text-green-800">Bill Closed. Please pay at the counter.</p>
+         </div>
+      )}
+       {order.status === 'Completed' && (
+         <div className="p-3 bg-blue-100 text-center">
+             <Check className="mx-auto h-5 w-5 text-blue-600 mb-1" />
+             <p className="font-semibold text-sm text-blue-800">Thank you! Visit Again.</p>
+         </div>
+      )}
     </Card>
   );
 }
 
-
-/* -------------------------------------------------------------------------- */
-/*                                MAIN PAGE                                   */
-/* -------------------------------------------------------------------------- */
 
 export default function PublicMenuPage() {
   const { storeId } = useParams<{ storeId: string }>();
@@ -190,7 +179,24 @@ export default function PublicMenuPage() {
   const { toast } = useToast();
   const [isAdding, startAdding] = useTransition();
   const [sessionId, setSessionId] = useState('');
-  const { canInstall, triggerInstall } = useInstall();
+  
+  // Local install prompt logic
+  const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
+  const canInstall = !!installPrompt;
+
+  useEffect(() => {
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
+
+  const triggerInstall = () => {
+    if (!installPrompt) return;
+    (installPrompt as any).prompt();
+  };
 
   useEffect(() => {
     const key = `session_${storeId}_${tableNumber}`;
@@ -209,7 +215,11 @@ export default function PublicMenuPage() {
   const menuQuery = useMemoFirebase(() =>
     firestore ? query(collection(firestore, `stores/${storeId}/menus`)) : null,
   [firestore, storeId]);
-
+    
+  const orderId = `${storeId}_${sessionId}`;
+  const orderQuery = useMemoFirebase(() => firestore && sessionId ? doc(firestore, 'orders', orderId) : null, [firestore, orderId, sessionId]);
+  
+  const { data: liveOrder } = useDoc<Order>(orderQuery);
   const { data: store, isLoading: storeLoading } = useDoc<Store>(storeRef);
   const { data: menus, isLoading: menuLoading } = useCollection<Menu>(menuQuery);
   
@@ -262,57 +272,66 @@ export default function PublicMenuPage() {
   if (!store || !menu) return <div className="p-4 text-center">Menu not found.</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto py-8 px-4 md:px-6">
-          <Card className="max-w-2xl mx-auto shadow-lg">
-            <CardHeader className="text-center">
-                 {store.imageUrl && (
-                    <Image
-                      src={store.imageUrl}
-                      alt={store.name}
-                      width={128}
-                      height={128}
-                      className="mx-auto rounded-full border-4 border-white shadow-md -mt-16"
-                    />
-                  )}
-                <div className="flex items-center justify-center gap-2 mt-4">
-                    <Utensils className="h-8 w-8 text-primary" />
-                    <CardTitle className="text-3xl font-bold font-headline">{store.name}</CardTitle>
-                </div>
-                {tableNumber && <Badge className="mx-auto mt-2">Table {tableNumber}</Badge>}
-                 {canInstall && (
-                  <div className="pt-4">
-                    <Button onClick={triggerInstall} size="sm">
-                        <Download className="mr-2 h-4 w-4" />
-                        Add {store.name} to Home Screen
-                    </Button>
-                  </div>
-                 )}
-            </CardHeader>
-            <CardContent className="space-y-6">
-                {sessionId && <LiveBill storeId={storeId} sessionId={sessionId} />}
-
-                {Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
-                    <div key={category}>
-                        <h2 className="text-xl font-semibold mb-3 border-b pb-2 tracking-widest uppercase text-muted-foreground">{category}</h2>
-                        <div className="space-y-2">
-                            {items.map((item, index) => (
-                                <button
-                                    key={index}
-                                    onClick={() => handleAddItem(item)}
-                                    disabled={isAdding}
-                                    className="w-full flex justify-between items-center py-2 text-left hover:bg-muted/50 rounded-md px-2 transition-colors disabled:opacity-50"
-                                >
-                                    <p className="font-medium text-gray-800">{item.name}</p>
-                                    <p className="font-semibold text-gray-600">₹{item.price.toFixed(2)}</p>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                ))}
-            </CardContent>
-          </Card>
+    <div className="min-h-screen bg-gray-50 pb-24">
+      <header className="sticky top-0 z-40 bg-white border-b">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div>
+            <h1 className="font-bold text-lg">{store.name}</h1>
+            {tableNumber && (
+              <p className="text-xs text-muted-foreground">
+                Table {tableNumber} • Live Order
+              </p>
+            )}
+          </div>
+          {canInstall && (
+            <Button size="icon" variant="ghost" onClick={triggerInstall}>
+              <Download className="h-5 w-5" />
+            </Button>
+          )}
         </div>
-      </div>
+      </header>
+
+      {sessionId && (
+          <div className="sticky top-[64px] z-30 px-4 py-2 bg-gray-50">
+            <LiveBill storeId={storeId} sessionId={sessionId} />
+          </div>
+      )}
+      
+      <main className="px-4 py-4 space-y-6">
+        {Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
+          <div key={category}>
+            <h2 className="text-xl font-semibold mb-3 tracking-wide text-gray-800">{category}</h2>
+            <div className="space-y-3">
+              {items.map((item, index) => (
+                <div
+                  key={index}
+                  onClick={() => handleAddItem(item)}
+                  className="flex items-center justify-between p-4 bg-white rounded-xl shadow-sm active:scale-[0.98] transition-transform"
+                >
+                  <div>
+                    <p className="font-semibold text-base">{item.name}</p>
+                    <p className="text-xs text-muted-foreground">Tap to add</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-primary text-lg">
+                      ₹{item.price}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </main>
+
+       {liveOrder && liveOrder.totalAmount > 0 && liveOrder.status === 'Billed' && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-sm border-t p-3 z-50">
+          <Button className="w-full h-14 text-lg font-bold">
+            Pay ₹{liveOrder.totalAmount.toFixed(0)} at Counter
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
+        
