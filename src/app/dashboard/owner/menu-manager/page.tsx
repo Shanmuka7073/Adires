@@ -26,6 +26,7 @@ import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
 import { cacheRecipe, getCachedRecipe } from '@/lib/recipe-cache';
 import { extractMenuItems } from '@/ai/flows/extract-menu-items-flow';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 // Schema for a single menu item
