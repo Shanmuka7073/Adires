@@ -51,11 +51,10 @@ export default function SalesReportPage() {
     useEffect(() => {
         if (myStore) {
             startLoading(async () => {
-                setError(null); // Reset error on new fetch
+                setError(null);
                 const result = await getStoreSalesReport({ storeId: myStore.id, period: activeTab });
                 if (result.success && result.report) {
                     setReport(result.report as ReportData);
-                    // Do not set the error here anymore as we've made the logic resilient
                 } else {
                     console.error("Failed to fetch sales report:", result.error);
                     setError(result.error || 'An unknown error occurred while fetching the report.');
@@ -142,7 +141,7 @@ export default function SalesReportPage() {
                                             <div className="space-y-2">
                                                 {report.topProducts.map(p => (
                                                     <div key={p.name} className="flex justify-between items-center text-sm p-2 bg-muted/50 rounded-md">
-                                                        <span>{p.name}</span>
+                                                        <span className="capitalize">{p.name}</span>
                                                         <span className="font-bold">{p.count} units</span>
                                                     </div>
                                                 ))}
@@ -155,8 +154,8 @@ export default function SalesReportPage() {
                                           <div className="space-y-2">
                                             {report.ingredientUsage.map(i => (
                                               <div key={i.name} className="flex justify-between bg-muted/50 p-3 rounded">
-                                                <span>{i.name}</span>
-                                                <b>{i.quantity.toFixed(2)} {i.unit}</b>
+                                                <span className="capitalize">{i.name}</span>
+                                                <b className="font-mono">{i.quantity.toFixed(2)} {i.unit}</b>
                                               </div>
                                             ))}
                                           </div>
@@ -166,7 +165,7 @@ export default function SalesReportPage() {
                                 </>
                             ) : (
                                 <div className="mt-6 text-center text-muted-foreground py-8">
-                                    <p>Waiting for the first completed payment for this period.</p>
+                                    <p>No sales data for this period yet.</p>
                                 </div>
                             )}
                         </TabsContent>

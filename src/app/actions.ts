@@ -328,8 +328,8 @@ export async function addRestaurantOrderItem({
     const orderItem: OrderItem = {
       id: uuidv4(),
       orderId,
-      productId: `${storeId}-${createSlug(item.name)}`,
-      menuItemId: menuItemId,
+      productId: `${storeId}-${createSlug(item.name)}`, // For consistency, though less critical now
+      menuItemId: menuItemId, // Use the actual menu item ID
       productName: item.name,
       variantSku: 'default',
       variantWeight: '1 pc',
@@ -435,14 +435,20 @@ export async function getStoreSalesReport({
     return { success: false, error: 'Store ID is required' };
   }
 
-  const menuSnap = await db.collection('stores').doc(storeId).collection('menus').get();
+  // --- FIX: Fetch menus from the central "LocalBasket" store ---
+  const adminStoreSnap = await db.collection('stores').where('name', '==', 'LocalBasket').limit(1).get();
+  if (adminStoreSnap.empty) {
+      return { success: false, error: 'Master "LocalBasket" store not found.' };
+  }
+  const masterStoreId = adminStoreSnap.docs[0].id;
+  const menuSnap = await db.collection('stores').doc(masterStoreId).collection('menus').get();
   
   // Build a map keyed by normalized names for robust lookup
   const menuMap = new Map<string, MenuItem>();
   menuSnap.forEach(doc => {
     const menuItem = doc.data() as MenuItem;
+    // --- FIX: Ensure menuItem and menuItem.name exist before normalizing ---
     if (menuItem && menuItem.name) {
-      // Key by normalized name for the fallback lookup
       menuMap.set(menuItem.name.toLowerCase().trim(), { ...menuItem, id: doc.id });
     }
   });
@@ -478,7 +484,6 @@ export async function getStoreSalesReport({
   }
 
   let totalSales = 0;
-  let dataMismatchError: string | null = null;
   const productMap = new Map<string, number>();
   const ingredientMap = new Map<string, { quantity: number; unit: string }>();
 
@@ -493,18 +498,14 @@ export async function getStoreSalesReport({
       const normalizedProductName = item.productName.toLowerCase().trim();
       productMap.set(normalizedProductName, (productMap.get(normalizedProductName) || 0) + item.quantity);
       
-      let menuItem: MenuItem | undefined;
-
-      // Robust lookup: first by ID, then by normalized name
-      menuItem = menuMap.get(normalizedProductName);
+      // --- FIX: Safe name-based lookup ---
+      const menuItem = menuMap.get(normalizedProductName);
         
       if (menuItem && menuItem.ingredients && menuItem.ingredients.length > 0) {
           menuItem.ingredients.forEach(ing => {
               if (typeof ing.quantity !== 'number' || !ing.unit) {
-                if (!dataMismatchError) {
-                    dataMismatchError = `Incomplete ingredient data for "${ing.name}" in menu item "${item.productName}". Skipping consumption calculation for this ingredient.`;
-                }
-                return; // Skip this ingredient
+                // Silently skip incomplete ingredients, as we're not showing errors anymore
+                return;
               }
               
               const baseQuantityConsumed = convertToBaseUnit(ing.quantity, ing.unit) * item.quantity;
@@ -538,7 +539,7 @@ export async function getStoreSalesReport({
           };
       }),
     },
-    error: null, // Error is removed as we now have a robust fallback
+    error: null,
   };
 }
 
