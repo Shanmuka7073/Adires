@@ -99,7 +99,8 @@ export const useAppStore = create<AppState>()(
             getDocs(collection(db, 'voiceCommands'))
           ]);
 
-          const menuPromises = stores.map(store => getDocs(collection(db, `stores/${store.id}/menus`)));
+          // Fetch menus efficiently
+          const menuPromises = stores.map(store => getDocs(query(collection(db, `stores/${store.id}/menus`))));
           const menuSnapshots = await Promise.all(menuPromises);
           const allMenus = menuSnapshots.flatMap(snapshot => snapshot.docs.map(doc => doc.data() as Menu));
 
