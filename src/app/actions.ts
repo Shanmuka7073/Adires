@@ -6,7 +6,7 @@ import { getStorage } from 'firebase-admin/storage';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, CartItem, NluExtractedSentence, MenuItem, Menu } from '@/lib/types';
+import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu } from '@/lib/types';
 import { headers } from 'next/headers';
 import { getApp, getApps } from 'firebase-admin/app';
 import * as pdfjs from 'pdfjs-dist';
@@ -320,9 +320,10 @@ export async function addRestaurantOrderItem({
     const { db } = await getAdminServices();
     const orderId = `${storeId}_${sessionId}`;
     const orderRef = db.collection('orders').doc(orderId);
-    
+    const orderItemRef = db.collection('orders').doc(orderId).collection('orderItems').doc();
+
     const orderItem: OrderItem = {
-      id: `${item.name.replace(/\s+/g, '-')}-${Date.now()}`,
+      id: orderItemRef.id,
       orderId,
       productId: `${storeId}-${item.name.replace(/\s/g, '-')}`,
       productName: item.name,
@@ -332,6 +333,8 @@ export async function addRestaurantOrderItem({
       price: item.price,
       ingredients: item.ingredients || [],
     };
+    
+    await orderItemRef.set(orderItem);
 
     const doc = await orderRef.get();
 
@@ -344,7 +347,6 @@ export async function addRestaurantOrderItem({
         userId: 'guest',
         customerName: `Table ${tableNumber || 'N/A'}`,
         deliveryAddress: "In-store dining",
-        items: [orderItem],
         totalAmount: orderItem.price * orderItem.quantity,
         status: 'Pending',
         orderDate: Timestamp.now(),
@@ -352,7 +354,6 @@ export async function addRestaurantOrderItem({
       await orderRef.set(newOrder);
     } else {
       await orderRef.update({
-        items: FieldValue.arrayUnion(orderItem),
         totalAmount: FieldValue.increment(orderItem.price * orderItem.quantity),
         updatedAt: FieldValue.serverTimestamp(),
         status: 'Pending' // Revert to pending if they add more items
@@ -415,8 +416,11 @@ export async function getStoreSalesReport({
   const menuMap = new Map<string, MenuItem>();
   menuSnap.forEach(doc => {
       const menuItem = doc.data() as MenuItem;
-      // Normalize key
-      menuMap.set(menuItem.name.toLowerCase().trim(), menuItem);
+      // FIX: Add a check for menuItem.name before using it
+      if (menuItem.name) {
+          // Normalize key
+          menuMap.set(menuItem.name.toLowerCase().trim(), menuItem);
+      }
   });
 
   const now = new Date();
@@ -562,6 +566,7 @@ Top Item: ${report.topProducts[0]?.name || 'N/A'}
 
 
     
+
 
 
 
