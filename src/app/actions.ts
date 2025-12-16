@@ -433,13 +433,11 @@ export async function getStoreSalesReport({
 
   const menuSnap = await db.collection('stores').doc(storeId).collection('menus').get();
   const menuMap = new Map<string, MenuItem>();
+  // Use a map keyed by menu item ID for reliable lookup
   menuSnap.forEach(doc => {
-    if (doc.exists) {
-      const menuItem = doc.data() as MenuItem;
-      if (menuItem && menuItem.name) {
-        // Normalize key
+    const menuItem = doc.data() as MenuItem;
+    if (menuItem) {
         menuMap.set(doc.id, menuItem);
-      }
     }
   });
 
@@ -489,31 +487,39 @@ export async function getStoreSalesReport({
       const normalizedProductName = item.productName.toLowerCase().trim();
       productMap.set(normalizedProductName, (productMap.get(normalizedProductName) || 0) + item.quantity);
       
-      if (item.menuItemId) {
-        const menuItem = menuMap.get(item.menuItemId);
-        
-        if (menuItem && menuItem.ingredients && menuItem.ingredients.length > 0) {
-            menuItem.ingredients.forEach(ing => {
-                const costOfIngredient = (ing.costPerUnit || 0) * ing.quantity * item.quantity;
-                totalCost += costOfIngredient;
-                
-                const currentUsage = ingredientMap.get(ing.name) || { quantity: 0, unit: ing.unit };
-                const baseQuantityConsumed = convertToBaseUnit(ing.quantity, ing.unit) * item.quantity;
+      // *** START FIX: Backwards compatibility for ingredient calculation ***
+      let menuItem: MenuItem | undefined;
 
-                ingredientMap.set(ing.name, {
-                    quantity: currentUsage.quantity + baseQuantityConsumed,
-                    unit: ['g', 'gm', 'kg'].includes(ing.unit) ? 'g' : ['ml', 'l', 'litre'].includes(ing.unit) ? 'ml' : 'pcs',
-                });
-            });
-        } else if (!dataMismatchError) { // Capture the first error found
-            if (!menuItem) {
-                dataMismatchError = `Data mismatch: Order item "${item.productName}" has a menuItemId ("${item.menuItemId}") that was not found in the menu. The item may have been deleted.`;
-            } else {
-                dataMismatchError = `Missing data: Menu item "${item.productName}" does not have an 'ingredients' array for cost calculation.`;
-            }
-        }
-      } else if (!dataMismatchError) {
-         dataMismatchError = `Missing data: Order item "${item.productName}" is missing a 'menuItemId' and cannot be used for cost calculation.`;
+      // 1. Prioritize the reliable menuItemId lookup
+      if (item.menuItemId) {
+          menuItem = menuMap.get(item.menuItemId);
+      } 
+      
+      // 2. Fallback to name matching for older orders
+      if (!menuItem) {
+          menuItem = [...menuMap.values()].find(m => m.name.toLowerCase().trim() === normalizedProductName);
+      }
+      // *** END FIX ***
+        
+      if (menuItem && menuItem.ingredients && menuItem.ingredients.length > 0) {
+          menuItem.ingredients.forEach(ing => {
+              const costOfIngredient = (ing.costPerUnit || 0) * ing.quantity * item.quantity;
+              totalCost += costOfIngredient;
+              
+              const currentUsage = ingredientMap.get(ing.name) || { quantity: 0, unit: ing.unit };
+              const baseQuantityConsumed = convertToBaseUnit(ing.quantity, ing.unit) * item.quantity;
+
+              ingredientMap.set(ing.name, {
+                  quantity: currentUsage.quantity + baseQuantityConsumed,
+                  unit: ['g', 'gm', 'kg'].includes(ing.unit) ? 'g' : ['ml', 'l', 'litre'].includes(ing.unit) ? 'ml' : 'pcs',
+              });
+          });
+      } else if (!dataMismatchError) { // Capture the first error found
+          if (!menuItem) {
+              dataMismatchError = `Data mismatch: Order item "${item.productName}" could not be matched to a menu item for cost calculation. It may have been renamed or deleted.`;
+          } else {
+              dataMismatchError = `Missing data: Menu item "${item.productName}" does not have an 'ingredients' array for cost calculation.`;
+          }
       }
     }
   }
