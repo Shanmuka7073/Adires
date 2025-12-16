@@ -26,6 +26,7 @@ import {
   BookOpen,
   HelpCircle,
   BrainCircuit,
+  BarChart3,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -252,6 +253,12 @@ export default function AdminDashboardPage() {
             description="View database security rules"
             href="/dashboard/admin/security-rules"
             icon={Shield}
+          />
+           <ActionCard
+            title="Performance Audit"
+            description="View a detailed breakdown of Firestore usage and costs."
+            href="/dashboard/admin/performance-audit"
+            icon={BarChart3}
           />
           <ActionCard
             title="PWA Manifest"
