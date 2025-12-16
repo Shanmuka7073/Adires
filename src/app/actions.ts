@@ -321,11 +321,15 @@ export async function addRestaurantOrderItem({
     const orderId = `${storeId}_${sessionId}`;
     const orderRef = db.collection('orders').doc(orderId);
 
+    // FIX: Ensure menuItemId is always defined.
+    // If the item has a persisted ID, use it. Otherwise, create a stable ID from its name.
+    const menuItemId = item.id || `item-${createSlug(item.name)}`;
+
     const orderItem: OrderItem = {
       id: uuidv4(),
       orderId,
-      productId: `${storeId}-${item.name.replace(/\s/g, '-')}`,
-      menuItemId: item.id, // Store the stable menu item ID
+      productId: `${storeId}-${createSlug(item.name)}`,
+      menuItemId: menuItemId, // Use the guaranteed menuItemId
       productName: item.name,
       variantSku: 'default',
       variantWeight: '1 pc',
@@ -436,9 +440,9 @@ export async function getStoreSalesReport({
   
   menuSnap.forEach(doc => {
     const menuItem = doc.data() as MenuItem;
-    // Normalize key: Ensure name exists before calling toLowerCase
+    // FIX: Ensure name exists before trying to access it
     if (menuItem.name) {
-        menuMap.set(menuItem.name.toLowerCase().trim(), menuItem);
+        menuMap.set(menuItem.id, menuItem);
     }
   });
 
@@ -494,7 +498,7 @@ export async function getStoreSalesReport({
       // 1. Prioritize the reliable menuItemId lookup
       if (item.menuItemId) {
           menuItem = menuMap.get(item.menuItemId);
-      } 
+      }
       
       // 2. Fallback to name matching for older orders
       if (!menuItem) {
