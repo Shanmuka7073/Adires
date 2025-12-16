@@ -335,7 +335,12 @@ export async function addRestaurantOrderItem({
       variantWeight: '1 pc',
       quantity,
       price: item.price,
-      ingredients: item.ingredients || [],
+      // Create the immutable snapshot of ingredients at the time of order
+      recipeSnapshot: (item.ingredients || []).map(ing => ({
+        name: ing.name,
+        qty: ing.quantity,
+        unit: ing.unit,
+      })),
     };
     
     const doc = await orderRef.get();
@@ -498,13 +503,12 @@ export async function getStoreSalesReport({
       const normalizedProductName = item.productName.toLowerCase().trim();
       productMap.set(normalizedProductName, (productMap.get(normalizedProductName) || 0) + item.quantity);
       
-      // --- FIX: Safe name-based lookup ---
+      // Use the name-based lookup on the reliable menuMap
       const menuItem = menuMap.get(normalizedProductName);
         
       if (menuItem && menuItem.ingredients && menuItem.ingredients.length > 0) {
           menuItem.ingredients.forEach(ing => {
               if (typeof ing.quantity !== 'number' || !ing.unit) {
-                // Silently skip incomplete ingredients, as we're not showing errors anymore
                 return;
               }
               
@@ -591,5 +595,3 @@ Orders: ${report.totalOrders}
 Top Item: ${report.topProducts[0]?.name || 'N/A'}
 `;
 }
-
-    
