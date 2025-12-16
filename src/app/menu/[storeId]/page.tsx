@@ -311,6 +311,9 @@ export default function PublicMenuPage() {
       </div>
   );
   if (!store || !menu) return <div className="p-4 text-center">Menu not found.</div>;
+  
+  const isBillFinalized = order?.status === 'Billed' || order?.status === 'Completed';
+
 
   return (
     <>
@@ -350,41 +353,51 @@ export default function PublicMenuPage() {
                    </div>
               </header>
 
-              <main className="space-y-8 pb-24">
-                  {Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
-                      <div key={category}>
-                          <h2 className="text-sm font-bold mb-4 tracking-widest uppercase text-muted-foreground">{category}</h2>
-                          <div className="space-y-3">
-                              {items.map((item, index) => (
-                                  <div
-                                      key={index}
-                                      className="flex justify-between items-center bg-gray-50 p-4 rounded-xl"
-                                  >
-                                      <div>
-                                          <p className="font-semibold text-gray-800">{item.name}</p>
-                                          <p className="text-sm text-gray-600">₹{item.price.toFixed(2)}</p>
+              {isBillFinalized ? (
+                  <Card className="text-center py-16 px-6">
+                      <CardHeader>
+                          <Check className="mx-auto h-16 w-16 text-green-500 bg-green-100 rounded-full p-2" />
+                          <CardTitle className="text-2xl font-bold mt-4">Thank You!</CardTitle>
+                          <CardDescription className="text-base text-muted-foreground">Your bill has been finalized. Please proceed to the counter for payment.</CardDescription>
+                      </CardHeader>
+                  </Card>
+              ) : (
+                  <main className="space-y-8 pb-24">
+                      {Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
+                          <div key={category}>
+                              <h2 className="text-sm font-bold mb-4 tracking-widest uppercase text-muted-foreground">{category}</h2>
+                              <div className="space-y-3">
+                                  {items.map((item, index) => (
+                                      <div
+                                          key={index}
+                                          className="flex justify-between items-center bg-gray-50 p-4 rounded-xl"
+                                      >
+                                          <div>
+                                              <p className="font-semibold text-gray-800">{item.name}</p>
+                                              <p className="text-sm text-gray-600">₹{item.price.toFixed(2)}</p>
+                                          </div>
+                                          <div className="flex gap-2">
+                                            <Button variant="ghost" size="sm" onClick={() => handleShowIngredients(item)}>
+                                                <Eye className="mr-2 h-4 w-4" /> Ingredients
+                                            </Button>
+                                            <Button 
+                                                onClick={() => handleAddItem(item)} 
+                                                disabled={isAdding}
+                                                className="bg-green-500 hover:bg-green-600 text-white rounded-lg"
+                                            >
+                                                <Plus className="mr-2 h-4 w-4" /> Add
+                                            </Button>
+                                          </div>
                                       </div>
-                                      <div className="flex gap-2">
-                                         <Button variant="ghost" size="sm" onClick={() => handleShowIngredients(item)}>
-                                            <Eye className="mr-2 h-4 w-4" /> Ingredients
-                                         </Button>
-                                         <Button 
-                                              onClick={() => handleAddItem(item)} 
-                                              disabled={isAdding}
-                                              className="bg-green-500 hover:bg-green-600 text-white rounded-lg"
-                                         >
-                                              <Plus className="mr-2 h-4 w-4" /> Add
-                                          </Button>
-                                      </div>
-                                  </div>
-                              ))}
+                                  ))}
+                              </div>
                           </div>
-                      </div>
-                  ))}
-              </main>
+                      ))}
+                  </main>
+              )}
           </div>
           
-          {itemCount > 0 && (
+          {itemCount > 0 && !isBillFinalized && (
                <Sheet>
                   <SheetTrigger asChild>
                       <div className="fixed bottom-4 right-4 z-50">
