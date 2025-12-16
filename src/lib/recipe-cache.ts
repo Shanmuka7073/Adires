@@ -1,7 +1,7 @@
 
 'use server';
 
-import { Firestore, serverTimestamp } from 'firebase-admin/firestore';
+import { Firestore, FieldValue } from 'firebase-admin/firestore';
 import type { CachedRecipe, GetIngredientsOutput } from './types';
 
 /**
@@ -33,7 +33,6 @@ const createSlug = (text: string): string => {
 export async function getCachedRecipe(db: Firestore, dishName: string, language: 'en' | 'te'): Promise<GetIngredientsOutput | null> {
     const normalizedDishName = createSlug(dishName);
     const targetDocId = `${normalizedDishName}_${language}`;
-    // CORRECTED SYNTAX: Use db.collection().doc() for admin SDK
     const targetDocRef = db.collection('cachedRecipes').doc(targetDocId);
     
     try {
@@ -52,7 +51,6 @@ export async function getCachedRecipe(db: Firestore, dishName: string, language:
         // If target language not found, try fetching the English version as a base for translation
         if (language !== 'en') {
             const englishDocId = `${normalizedDishName}_en`;
-            // CORRECTED SYNTAX: Use db.collection().doc() for admin SDK
             const englishDocRef = db.collection('cachedRecipes').doc(englishDocId);
             const englishDocSnap = await englishDocRef.get();
             if (englishDocSnap.exists()) {
@@ -84,7 +82,6 @@ export async function getCachedRecipe(db: Firestore, dishName: string, language:
 export async function cacheRecipe(db: Firestore, dishName: string, language: 'en' | 'te', data: GetIngredientsOutput): Promise<void> {
     const normalizedDishName = createSlug(dishName);
     const docId = `${normalizedDishName}_${language}`;
-    // CORRECTED SYNTAX: Use db.collection().doc() for admin SDK
     const docRef = db.collection('cachedRecipes').doc(docId);
 
     const recipeData: CachedRecipe = {
@@ -93,7 +90,7 @@ export async function cacheRecipe(db: Firestore, dishName: string, language: 'en
         ingredients: data.ingredients,
         instructions: data.instructions,
         nutrition: data.nutrition,
-        createdAt: serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
     };
 
     // Use a try-catch for server-side functions
