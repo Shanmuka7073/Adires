@@ -438,7 +438,7 @@ export async function getStoreSalesReport({
   menuSnap.forEach(doc => {
     if (doc.exists) {
       const menuItem = doc.data() as MenuItem;
-      if (menuItem.name) { // Ensure menuItem has a name before setting
+      if (menuItem.name) {
         // Normalize key
         menuMap.set(menuItem.id, menuItem);
       }
@@ -484,7 +484,6 @@ export async function getStoreSalesReport({
   for (const order of validOrders) {
     totalSales += order.totalAmount;
     
-    // Correctly get items from the order's `items` array
     const items: OrderItem[] = order.items || [];
     if (items.length === 0) continue; 
     
@@ -492,9 +491,16 @@ export async function getStoreSalesReport({
       const normalizedProductName = item.productName.toLowerCase().trim();
       productMap.set(normalizedProductName, (productMap.get(normalizedProductName) || 0) + item.quantity);
       
+      // Check if we have a menuItemId to perform the lookup
       if (item.menuItemId) {
         const menuItem = menuMap.get(item.menuItemId);
-        if (menuItem?.ingredients) {
+        // ADDED DEBUGGING LOGS
+        if (!menuItem) {
+            console.log(`[SALES REPORT DEBUG] Menu item not found in map for menuItemId: "${item.menuItemId}" (Product: "${item.productName}")`);
+        } else if (!menuItem.ingredients || menuItem.ingredients.length === 0) {
+            console.log(`[SALES REPORT DEBUG] Menu item found for "${item.productName}", but it has no ingredients listed.`);
+        } else {
+            // This block executes only if a matching menu item with ingredients is found.
             menuItem.ingredients.forEach(ing => {
                 const costOfIngredient = (ing.costPerUnit || 0) * ing.quantity * item.quantity;
                 totalCost += costOfIngredient;
@@ -508,6 +514,9 @@ export async function getStoreSalesReport({
                 });
             });
         }
+      } else {
+        // Log if an order item is missing the crucial menuItemId
+        console.log(`[SALES REPORT DEBUG] Order item "${item.productName}" is missing a menuItemId and cannot be used for cost calculation.`);
       }
     }
   }
@@ -586,3 +595,5 @@ Orders: ${report.totalOrders}
 Top Item: ${report.topProducts[0]?.name || 'N/A'}
 `;
 }
+
+    
