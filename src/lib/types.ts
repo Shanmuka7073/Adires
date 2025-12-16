@@ -76,6 +76,7 @@ export type OrderItem = {
   id: string;
   orderId: string;
   productId: string;
+  menuItemId?: string; // Reference to the menu item for cost calculation
   productName: string;
   variantSku: string;
   variantWeight: string;
@@ -309,7 +310,7 @@ export type GenerateBreakfastPackOutput = {
 
 // NEW Restaurant Menu Types
 export type MenuItem = {
-  id?: string;
+  id: string;
   name: string;
   description?: string;
   price: number;

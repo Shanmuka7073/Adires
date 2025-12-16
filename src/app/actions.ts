@@ -10,6 +10,7 @@ import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfi
 import { headers } from 'next/headers';
 import { getApp, getApps } from 'firebase-admin/app';
 import * as pdfjs from 'pdfjs-dist';
+import { v4 as uuidv4 } from 'uuid';
 
 export async function getFirebaseConfig() {
   try {
@@ -322,9 +323,10 @@ export async function addRestaurantOrderItem({
     const orderRef = db.collection('orders').doc(orderId);
 
     const orderItem: OrderItem = {
-      id: uuidv4(), // Use uuid for a unique ID within the array
+      id: uuidv4(),
       orderId,
       productId: `${storeId}-${item.name.replace(/\s/g, '-')}`,
+      menuItemId: item.id, // Store the stable menu item ID
       productName: item.name,
       variantSku: 'default',
       variantWeight: '1 pc',
@@ -347,16 +349,15 @@ export async function addRestaurantOrderItem({
         totalAmount: orderItem.price * orderItem.quantity,
         status: 'Pending',
         orderDate: Timestamp.now(),
-        items: [orderItem], // Add the first item
+        items: [orderItem],
       };
       await orderRef.set(newOrder);
     } else {
-      // Use arrayUnion to add the new item, ensuring atomicity
       await orderRef.update({
         items: FieldValue.arrayUnion(orderItem),
         totalAmount: FieldValue.increment(orderItem.price * orderItem.quantity),
         updatedAt: FieldValue.serverTimestamp(),
-        status: 'Pending' // Revert to pending if they add more items
+        status: 'Pending'
       });
     }
 
@@ -435,11 +436,15 @@ export async function getStoreSalesReport({
   const menuSnap = await db.collection('stores').doc(storeId).collection('menus').get();
   const menuMap = new Map<string, MenuItem>();
   menuSnap.forEach(doc => {
+    if (doc.exists) {
       const menuItem = doc.data() as MenuItem;
-       if (menuItem.name) {
-            menuMap.set(menuItem.name.toLowerCase().trim(), menuItem);
-       }
+      if (menuItem.name) { // Ensure menuItem has a name before setting
+        // Normalize key
+        menuMap.set(menuItem.id, menuItem);
+      }
+    }
   });
+
 
   const now = new Date();
   let startDate: Date;
@@ -484,27 +489,25 @@ export async function getStoreSalesReport({
     if (items.length === 0) continue; 
     
     for (const item of items) {
-      // Normalize product name for lookup
       const normalizedProductName = item.productName.toLowerCase().trim();
-
-      // Aggregate all sold products for the "Top Products" list
       productMap.set(normalizedProductName, (productMap.get(normalizedProductName) || 0) + item.quantity);
       
-      // Look up the menu item to get ingredient info for cost calculation
-      const menuItem = menuMap.get(normalizedProductName);
-      if (menuItem && menuItem.ingredients) {
-          menuItem.ingredients.forEach(ing => {
-              const costOfIngredient = (ing.costPerUnit || 0) * ing.quantity * item.quantity;
-              totalCost += costOfIngredient;
-              
-              const currentUsage = ingredientMap.get(ing.name) || { quantity: 0, unit: ing.unit };
-              const baseQuantityConsumed = convertToBaseUnit(ing.quantity, ing.unit) * item.quantity;
+      if (item.menuItemId) {
+        const menuItem = menuMap.get(item.menuItemId);
+        if (menuItem?.ingredients) {
+            menuItem.ingredients.forEach(ing => {
+                const costOfIngredient = (ing.costPerUnit || 0) * ing.quantity * item.quantity;
+                totalCost += costOfIngredient;
+                
+                const currentUsage = ingredientMap.get(ing.name) || { quantity: 0, unit: ing.unit };
+                const baseQuantityConsumed = convertToBaseUnit(ing.quantity, ing.unit) * item.quantity;
 
-              ingredientMap.set(ing.name, {
-                  quantity: currentUsage.quantity + baseQuantityConsumed,
-                  unit: ['g', 'gm', 'kg'].includes(ing.unit) ? 'g' : ['ml', 'l', 'litre'].includes(ing.unit) ? 'ml' : 'pcs',
-              });
-          });
+                ingredientMap.set(ing.name, {
+                    quantity: currentUsage.quantity + baseQuantityConsumed,
+                    unit: ['g', 'gm', 'kg'].includes(ing.unit) ? 'g' : ['ml', 'l', 'litre'].includes(ing.unit) ? 'ml' : 'pcs',
+                });
+            });
+        }
       }
     }
   }
@@ -583,15 +586,3 @@ Orders: ${report.totalOrders}
 Top Item: ${report.topProducts[0]?.name || 'N/A'}
 `;
 }
-    
-
-
-    
-
-
-
-
-
-
-
-
