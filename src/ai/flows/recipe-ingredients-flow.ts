@@ -18,9 +18,6 @@ import {
   GetIngredientsOutput,
   GetIngredientsOutputSchema,
 } from './recipe-ingredients-types';
-import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
-import { getAdminServices } from '@/firebase/admin-init'; // Correct server-side import
-
 
 const ParsingPrompt = ai.definePrompt({
     name: 'recipeParsingPrompt',
@@ -114,7 +111,7 @@ const TranslatePrompt = ai.definePrompt({
   });
   
 
-const getIngredientsFlow = ai.defineFlow(
+export const getIngredientsForDishFlow = ai.defineFlow(
   {
     name: 'getIngredientsFlow',
     inputSchema: GetIngredientsInputSchema,
@@ -134,16 +131,6 @@ const getIngredientsFlow = ai.defineFlow(
         }
     }
     
-    // Get Firestore admin instance for server-side operations
-    const { db } = await getAdminServices();
-
-    const cachedRecipe = await getCachedRecipe(db, dishName, language);
-    if (cachedRecipe) {
-        console.log(`Recipe for "${dishName}" in ${language} found in cache.`);
-        return cachedRecipe;
-    }
-
-
     // First, try to get the recipe from the external API.
     const mealDbResult = await getMealDbRecipe(dishName);
 
@@ -162,11 +149,9 @@ const getIngredientsFlow = ai.defineFlow(
                 targetLanguage: language,
             });
             if (translatedOutput) {
-                 await cacheRecipe(db, dishName, language, translatedOutput);
                  return translatedOutput;
             }
         }
-        await cacheRecipe(db, dishName, language, output);
         return output;
       }
     }
@@ -178,15 +163,7 @@ const getIngredientsFlow = ai.defineFlow(
     if (!generatedOutput) {
       return { isSuccess: false, title: dishName, ingredients: [], instructions: [], nutrition: { calories: 0, protein: 0 } };
     }
-
-    // Cache the newly generated recipe
-    await cacheRecipe(db, dishName, language, generatedOutput);
-
+    
     return generatedOutput;
   }
 );
-
-// Main exported function
-export async function getIngredientsForDish(input: GetIngredientsInput): Promise<GetIngredientsOutput> {
-  return await getIngredientsFlow(input);
-}

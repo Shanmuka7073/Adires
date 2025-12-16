@@ -1,4 +1,6 @@
 
+'use server';
+
 import { Firestore, doc, getDoc, setDoc, serverTimestamp } from 'firebase-admin/firestore';
 import type { CachedRecipe, GetIngredientsOutput } from './types';
 

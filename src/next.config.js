@@ -1,3 +1,4 @@
+
 const withPWA = require('next-pwa')({
   dest: 'public',
   register: true,
@@ -37,6 +38,26 @@ const nextConfig = {
     },
     esmExternals: 'loose',
   },
+
+  webpack: (
+    config,
+    { buildId, dev, isServer, defaultLoaders, nextRuntime, webpack }
+  ) => {
+    if (!isServer) {
+        // Prevent bundling of server-only modules on the client
+        config.resolve.fallback = {
+            ...config.resolve.fallback,
+            net: false,
+            dns: false,
+            tls: false,
+            fs: false,
+            child_process: false,
+            http2: false, // Add http2 to the list of excluded modules
+        };
+    }
+    return config
+  },
+
   transpilePackages: ['firebase', '@firebase/auth', '@firebase/firestore'],
   typescript: {
     // !! WARN !!

@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { ChefHat, Loader2, Sparkles, ShoppingCart, AlertCircle, Search, Volume2, Copy, StopCircle, Salad, Info } from 'lucide-react';
-import { getIngredientsForDish, GetIngredientsOutput } from '@/ai/flows/recipe-ingredients-flow';
+import { getIngredientsForDish } from '@/app/actions';
+import type { GetIngredientsOutput } from '@/ai/flows/recipe-ingredients-types';
 import { generateVoiceReply } from '@/ai/flows/generate-voice-reply-flow';
 import { useAppStore } from '@/lib/store';
 import { useCart } from '@/lib/cart';
@@ -93,7 +94,6 @@ export function RecipeCard() {
     const [dishName, setDishName] = useState('');
     const [recipeData, setRecipeData] = useState<Record<string, GetIngredientsOutput>>({});
     const [currentLanguage, setCurrentLanguage] = useState<'en' | 'te'>('en');
-    const { firestore } = useFirebase();
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
     const result = useMemo(() => recipeData[currentLanguage] || null, [recipeData, currentLanguage]);
@@ -111,17 +111,6 @@ export function RecipeCard() {
         
         startGeneration(async () => {
             try {
-                if (!firestore) throw new Error("Firestore not available");
-
-                const cached = await getCachedRecipe(firestore, dishName, lang);
-                if (cached) {
-                    setRecipeData(prev => ({...prev, [lang]: cached}));
-                    if(Object.keys(cached).length > 0) {
-                         toast({ title: 'Recipe Loaded from Cache!' });
-                         return;
-                    }
-                }
-
                 const response = await getIngredientsForDish({
                     dishName: dishName,
                     language: lang,
@@ -130,7 +119,6 @@ export function RecipeCard() {
 
                 if (response.isSuccess) {
                     setRecipeData(prev => ({...prev, [lang]: response}));
-                    await cacheRecipe(firestore, dishName, lang, response);
                 } else {
                      toast({
                         variant: 'destructive',

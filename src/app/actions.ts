@@ -5,11 +5,12 @@ import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe } from '@/lib/types';
+import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput } from '@/lib/types';
 import { headers } from 'next/headers';
 import { getApp, getApps } from 'firebase-admin/app';
 import * as pdfjs from 'pdfjs-dist';
 import { v4 as uuidv4 } from 'uuid';
+import { getIngredientsForDish as getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
 
 export async function getFirebaseConfig() {
   try {
@@ -319,25 +320,22 @@ export async function addRestaurantOrderItem({
 }): Promise<{ success: boolean; error?: string }> {
   try {
     const { db } = await getAdminServices();
-
-    // 1. Fetch the cached recipe to ensure we have the correct ingredient data
-    const recipeId = `${createSlug(item.name)}_en`; // Assuming 'en' for now
-    const recipeRef = db.collection('cachedRecipes').doc(recipeId);
-    const recipeSnap = await recipeRef.get();
-
-    let recipeSnapshotData = [];
-    if (recipeSnap.exists()) {
-      const recipe = recipeSnap.data() as CachedRecipe;
-      recipeSnapshotData = (recipe.ingredients || []).map(ing => ({
-        name: ing.name,
-        qty: ing.baseQuantity, // CRITICAL: Use the numeric baseQuantity
-        unit: ing.unit || '',
-      }));
+    
+    const recipeId = `${createSlug(item.name)}_en`;
+    const recipeDoc = await db.collection('cachedRecipes').doc(recipeId).get();
+    
+    let recipeSnapshotData: any[] = [];
+    if (recipeDoc.exists) {
+        const recipe = recipeDoc.data() as CachedRecipe;
+        recipeSnapshotData = (recipe.ingredients || []).map(ing => ({
+            name: ing.name,
+            qty: ing.baseQuantity, // Use the correct numeric baseQuantity
+            unit: ing.unit || '',
+        }));
     } else {
         console.warn(`No cached recipe found for "${item.name}". Order item will have an empty recipe snapshot.`);
     }
 
-    // 2. Prepare the Order Item with the fetched snapshot
     const orderId = `${storeId}_${sessionId}`;
     const orderRef = db.collection('orders').doc(orderId);
     const menuItemId = item.id || `item-${createSlug(item.name)}`;
@@ -352,10 +350,9 @@ export async function addRestaurantOrderItem({
       variantWeight: '1 pc',
       quantity,
       price: item.price,
-      recipeSnapshot: recipeSnapshotData, // Use the reliable snapshot data
+      recipeSnapshot: recipeSnapshotData,
     };
 
-    // 3. Add the item to the order document
     const doc = await orderRef.get();
 
     if (!doc.exists) {
@@ -582,4 +579,9 @@ Orders: ${report.totalOrders}
 
 Top Item: ${report.topProducts[0]?.name || 'N/A'}
 `;
+}
+
+// Server Action to wrap the AI flow
+export async function getIngredientsForDish(input: { dishName: string; language: 'en' | 'te', existingRecipe?: GetIngredientsOutput }): Promise<GetIngredientsOutput> {
+  return getIngredientsForDishFlow(input);
 }
