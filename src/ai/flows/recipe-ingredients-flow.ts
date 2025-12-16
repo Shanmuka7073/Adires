@@ -18,6 +18,9 @@ import {
   GetIngredientsOutput,
   GetIngredientsOutputSchema,
 } from './recipe-ingredients-types';
+import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
+import { useFirebase } from '@/firebase';
+
 
 const ParsingPrompt = ai.definePrompt({
     name: 'recipeParsingPrompt',
@@ -117,19 +120,30 @@ const getIngredientsFlow = ai.defineFlow(
     inputSchema: GetIngredientsInputSchema,
     outputSchema: GetIngredientsOutputSchema,
   },
-  async ({ dishName, language, existingRecipe }) => {
+  async ({ dishName, language = 'en', existingRecipe }) => {
     
     // If an existing recipe in another language is provided, translate it.
     if (existingRecipe) {
         console.log(`Translating recipe for "${dishName}" to ${language}.`);
         const { output: translatedOutput } = await TranslatePrompt({
             existingRecipe,
-            targetLanguage: language || 'en',
+            targetLanguage: language,
         });
         if (translatedOutput) {
             return translatedOutput;
         }
     }
+    
+    // Get Firestore instance inside the server-side flow.
+    const { firestore } = useFirebase();
+    if (firestore) {
+        const cachedRecipe = await getCachedRecipe(firestore, dishName, language);
+        if (cachedRecipe) {
+            console.log(`Recipe for "${dishName}" in ${language} found in cache.`);
+            return cachedRecipe;
+        }
+    }
+
 
     // First, try to get the recipe from the external API.
     const mealDbResult = await getMealDbRecipe(dishName);
@@ -148,7 +162,13 @@ const getIngredientsFlow = ai.defineFlow(
                 existingRecipe: output,
                 targetLanguage: language,
             });
-            if (translatedOutput) return translatedOutput;
+            if (translatedOutput && firestore) {
+                 await cacheRecipe(firestore, dishName, language, translatedOutput);
+                 return translatedOutput;
+            }
+        }
+        if (firestore) {
+            await cacheRecipe(firestore, dishName, language, output);
         }
         return output;
       }
@@ -156,10 +176,15 @@ const getIngredientsFlow = ai.defineFlow(
 
     // If TheMealDB fails, use the AI to generate the recipe from scratch.
     console.log(`TheMealDB failed for "${dishName}". Falling back to generative AI.`);
-    const { output: generatedOutput } = await GenerationPrompt({ dishName, language: language || 'en' });
+    const { output: generatedOutput } = await GenerationPrompt({ dishName, language });
     
     if (!generatedOutput) {
       return { isSuccess: false, title: dishName, ingredients: [], instructions: [], nutrition: { calories: 0, protein: 0 } };
+    }
+
+    // Cache the newly generated recipe
+    if (firestore) {
+        await cacheRecipe(firestore, dishName, language, generatedOutput);
     }
 
     return generatedOutput;
@@ -170,3 +195,4 @@ const getIngredientsFlow = ai.defineFlow(
 export async function getIngredientsForDish(input: GetIngredientsInput): Promise<GetIngredientsOutput> {
   return await getIngredientsFlow(input);
 }
+
