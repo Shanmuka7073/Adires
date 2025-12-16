@@ -7,6 +7,24 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
 /**
+ * Creates a URL-friendly and Firestore-safe slug from a string.
+ * Replaces spaces with hyphens and removes all non-alphanumeric characters except hyphens.
+ * @param text The input string.
+ * @returns A sanitized slug.
+ */
+const createSlug = (text: string): string => {
+    if (!text) return '';
+    return text
+        .toLowerCase()
+        .replace(/\s+/g, '-')        // Replace spaces with hyphens
+        .replace(/[^\w-]+/g, '')     // Remove all non-word chars except hyphens
+        .replace(/--+/g, '-')        // Replace multiple hyphens with a single one
+        .replace(/^-+/, '')          // Trim hyphens from the start
+        .replace(/-+$/, '');         // Trim hyphens from the end
+};
+
+
+/**
  * Retrieves a cached recipe from Firestore.
  * It will also try to fetch the english version if the target language is not found.
  * @param db Firestore instance.
@@ -15,7 +33,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
  * @returns A promise that resolves to a GetIngredientsOutput object or null if not in cache.
  */
 export async function getCachedRecipe(db: Firestore, dishName: string, language: 'en' | 'te'): Promise<GetIngredientsOutput | null> {
-    const normalizedDishName = dishName.toLowerCase().replace(/\s+/g, '-');
+    const normalizedDishName = createSlug(dishName);
     const targetDocId = `${normalizedDishName}_${language}`;
     const targetDocRef = doc(db, 'cachedRecipes', targetDocId);
     
@@ -64,7 +82,7 @@ export async function getCachedRecipe(db: Firestore, dishName: string, language:
  * @param data The GetIngredientsOutput object from the AI.
  */
 export async function cacheRecipe(db: Firestore, dishName: string, language: 'en' | 'te', data: GetIngredientsOutput): Promise<void> {
-    const normalizedDishName = dishName.toLowerCase().replace(/\s+/g, '-');
+    const normalizedDishName = createSlug(dishName);
     const docId = `${normalizedDishName}_${language}`;
     const docRef = doc(db, 'cachedRecipes', docId);
 
@@ -92,4 +110,3 @@ export async function cacheRecipe(db: Firestore, dishName: string, language: 'en
             throw error;
         });
 }
-
