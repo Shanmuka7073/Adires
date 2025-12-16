@@ -6,7 +6,7 @@ import { getStorage } from 'firebase-admin/storage';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, CartItem, NluExtractedSentence, MenuItem } from '@/lib/types';
+import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, CartItem, NluExtractedSentence, MenuItem, Menu } from '@/lib/types';
 import { headers } from 'next/headers';
 import { getApp, getApps } from 'firebase-admin/app';
 import * as pdfjs from 'pdfjs-dist';
@@ -411,6 +411,19 @@ export async function getStoreSalesReport({
       return { success: false, error: 'Store ID is required' };
     }
 
+    // Step A: Load menu once
+    const menuSnap = await db.collection('stores').doc(storeId).collection('menus').get();
+    const menuMap = new Map<string, MenuItem>();
+    menuSnap.forEach(doc => {
+        const menuItem = doc.data() as MenuItem;
+        menuMap.set(menuItem.name, menuItem);
+    });
+
+    if (menuMap.size === 0) {
+        // No menu, so can't calculate cost/profit
+        return { success: true, report: { totalSales: 0, totalCost: 0, profit: 0, totalOrders: 0, totalItems: 0, topProducts: [], ingredientUsage: [] } };
+    }
+
     const now = new Date();
     let startDate: Date;
 
@@ -424,31 +437,20 @@ export async function getStoreSalesReport({
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     }
 
-    const snapshot = await db
+    // Fetch relevant orders
+    const ordersSnapshot = await db
       .collection('orders')
       .where('storeId', '==', storeId)
       .where('status', 'in', ['Completed', 'Billed'])
+      .where('orderDate', '>=', Timestamp.fromDate(startDate))
       .get();
     
-    const validOrders = snapshot.docs
-      .map(doc => ({ id: doc.id, ...doc.data() } as Order))
-      .filter(order => {
-        const orderDate = (order.orderDate as Timestamp).toDate();
-        return orderDate >= startDate;
-      });
+    const validOrders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
 
     if (validOrders.length === 0) {
       return {
         success: true,
-        report: {
-          totalSales: 0,
-          totalItems: 0,
-          totalOrders: 0,
-          topProducts: [],
-          totalCost: 0,
-          profit: 0,
-          ingredientUsage: [],
-        },
+        report: { totalSales: 0, totalCost: 0, profit: 0, totalOrders: 0, totalItems: 0, topProducts: [], ingredientUsage: [] },
       };
     }
 
@@ -460,25 +462,24 @@ export async function getStoreSalesReport({
     for (const order of validOrders) {
       totalSales += order.totalAmount;
       
-      // Correctly fetch items from the 'items' array on the order document itself.
       const items: OrderItem[] = order.items || [];
 
       for (const item of items) {
-        productMap.set(
-          item.productName,
-          (productMap.get(item.productName) || 0) + item.quantity
-        );
-
-        if (item.ingredients) {
-          item.ingredients.forEach(ing => {
-            totalCost += (ing.costPerUnit || 0) * ing.quantity * item.quantity;
-            
-            const currentUsage = ingredientMap.get(ing.name) || { quantity: 0, unit: ing.unit };
-            ingredientMap.set(ing.name, {
-              quantity: currentUsage.quantity + (ing.quantity * item.quantity),
-              unit: ing.unit,
+        productMap.set(item.productName, (productMap.get(item.productName) || 0) + item.quantity);
+        
+        // Step B: Calculate cost and ingredients from the menu map
+        const menuItem = menuMap.get(item.productName);
+        if (menuItem && menuItem.ingredients) {
+            menuItem.ingredients.forEach(ing => {
+                const costOfIngredient = (ing.costPerUnit || 0) * ing.quantity * item.quantity;
+                totalCost += costOfIngredient;
+                
+                const currentUsage = ingredientMap.get(ing.name) || { quantity: 0, unit: ing.unit };
+                ingredientMap.set(ing.name, {
+                    quantity: currentUsage.quantity + (ing.quantity * item.quantity),
+                    unit: ing.unit,
+                });
             });
-          });
         }
       }
     }
@@ -561,4 +562,5 @@ Top Item: ${report.topProducts[0]?.name || 'N/A'}
 
 
     
+
 
