@@ -415,7 +415,8 @@ export async function getStoreSalesReport({
   const menuMap = new Map<string, MenuItem>();
   menuSnap.forEach(doc => {
       const menuItem = doc.data() as MenuItem;
-      menuMap.set(menuItem.name, menuItem);
+      // Normalize key
+      menuMap.set(menuItem.name.toLowerCase().trim(), menuItem);
   });
 
   const now = new Date();
@@ -455,18 +456,22 @@ export async function getStoreSalesReport({
 
   for (const order of validOrders) {
     totalSales += order.totalAmount;
-
+    
+    // For each order, fetch the orderItems subcollection
     const itemsSnapshot = await db.collection('orders').doc(order.id).collection('orderItems').get();
-    if (itemsSnapshot.empty) continue; // Skip if order has no items subcollection
+    if (itemsSnapshot.empty) continue; 
     
     const items = itemsSnapshot.docs.map(doc => doc.data() as OrderItem);
 
     for (const item of items) {
+      // Normalize product name for lookup
+      const normalizedProductName = item.productName.toLowerCase().trim();
+
       // Aggregate all sold products for the "Top Products" list
-      productMap.set(item.productName, (productMap.get(item.productName) || 0) + item.quantity);
+      productMap.set(normalizedProductName, (productMap.get(normalizedProductName) || 0) + item.quantity);
       
-      // Only calculate cost and ingredient usage for items that are on the restaurant's menu
-      const menuItem = menuMap.get(item.productName);
+      // Look up the menu item to get ingredient info
+      const menuItem = menuMap.get(normalizedProductName);
       if (menuItem && menuItem.ingredients) {
           menuItem.ingredients.forEach(ing => {
               const costOfIngredient = (ing.costPerUnit || 0) * ing.quantity * item.quantity;
@@ -557,6 +562,7 @@ Top Item: ${report.topProducts[0]?.name || 'N/A'}
 
 
     
+
 
 
 
