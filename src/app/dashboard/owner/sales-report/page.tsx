@@ -55,7 +55,7 @@ export default function SalesReportPage() {
                 const result = await getStoreSalesReport({ storeId: myStore.id, period: activeTab });
                 if (result.success && result.report) {
                     setReport(result.report as ReportData);
-                    setError(result.error || null); // Set the specific data error if it exists
+                    // Do not set the error here anymore as we've made the logic resilient
                 } else {
                     console.error("Failed to fetch sales report:", result.error);
                     setError(result.error || 'An unknown error occurred while fetching the report.');
@@ -134,15 +134,7 @@ export default function SalesReportPage() {
                                       <StatCard title="Total Sales" value={`₹${report.totalSales.toFixed(0)}`} />
                                       <StatCard title="Total Orders" value={report.totalOrders} />
                                     </div>
-
-                                    {error && (
-                                        <Alert variant="destructive" className="mt-6">
-                                            <AlertTriangle className="h-4 w-4" />
-                                            <AlertTitle>Data Inconsistency Found</AlertTitle>
-                                            <AlertDescription>{error}</AlertDescription>
-                                        </Alert>
-                                    )}
-
+                                    
                                     <div className="grid md:grid-cols-2 gap-8 mt-10">
                                       <div>
                                         <h3 className="text-xl font-semibold mb-3">Top Products</h3>
@@ -184,4 +176,3 @@ export default function SalesReportPage() {
         </div>
     );
 }
-

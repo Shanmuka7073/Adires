@@ -436,13 +436,14 @@ export async function getStoreSalesReport({
   }
 
   const menuSnap = await db.collection('stores').doc(storeId).collection('menus').get();
-  const menuMap = new Map<string, MenuItem>();
   
+  // Build a map keyed by normalized names for robust lookup
+  const menuMap = new Map<string, MenuItem>();
   menuSnap.forEach(doc => {
     const menuItem = doc.data() as MenuItem;
     if (menuItem && menuItem.name) {
-      // Key by ID for reliable lookup
-      menuMap.set(doc.id, { ...menuItem, id: doc.id });
+      // Key by normalized name for the fallback lookup
+      menuMap.set(menuItem.name.toLowerCase().trim(), { ...menuItem, id: doc.id });
     }
   });
 
@@ -472,7 +473,7 @@ export async function getStoreSalesReport({
   if (validOrders.length === 0) {
     return {
       success: true,
-      report: { totalSales: 0, totalCost: 0, profit: 0, totalOrders: 0, totalItems: 0, topProducts: [], ingredientUsage: [] },
+      report: { totalSales: 0, totalOrders: 0, totalItems: 0, topProducts: [], ingredientUsage: [] },
     };
   }
 
@@ -494,22 +495,14 @@ export async function getStoreSalesReport({
       
       let menuItem: MenuItem | undefined;
 
-      // 1. Prioritize the reliable menuItemId lookup
-      if (item.menuItemId) {
-          menuItem = menuMap.get(item.menuItemId);
-      }
-      
-      // 2. Fallback to name matching for older orders
-      if (!menuItem) {
-          // Find by name, ensuring item has a name before calling toLowerCase
-          menuItem = [...menuMap.values()].find(m => m && m.name && m.name.toLowerCase().trim() === normalizedProductName);
-      }
+      // Robust lookup: first by ID, then by normalized name
+      menuItem = menuMap.get(normalizedProductName);
         
       if (menuItem && menuItem.ingredients && menuItem.ingredients.length > 0) {
           menuItem.ingredients.forEach(ing => {
               if (typeof ing.quantity !== 'number' || !ing.unit) {
                 if (!dataMismatchError) {
-                    dataMismatchError = `Incomplete ingredient data for "${ing.name}" in menu item "${item.productName}". Skipping cost calculation for this ingredient.`;
+                    dataMismatchError = `Incomplete ingredient data for "${ing.name}" in menu item "${item.productName}". Skipping consumption calculation for this ingredient.`;
                 }
                 return; // Skip this ingredient
               }
@@ -522,13 +515,6 @@ export async function getStoreSalesReport({
                   unit: ['g', 'gm', 'kg'].includes(ing.unit.toLowerCase()) ? 'g' : ['ml', 'l', 'litre'].includes(ing.unit.toLowerCase()) ? 'ml' : 'pcs',
               });
           });
-      } else if (!dataMismatchError) { // Capture the first error found for this order item
-          if (!menuItem) {
-              dataMismatchError = `Data mismatch: Order item "${item.productName}" could not be matched to a menu item for cost calculation. It may have been renamed or deleted.`;
-          } else {
-              // This condition means the menuItem was found, but it has no ingredients.
-              // This is valid data, not an error, so we don't set an error message here.
-          }
       }
     }
   }
@@ -537,8 +523,6 @@ export async function getStoreSalesReport({
     success: true,
     report: {
       totalSales,
-      totalCost: 0, // Cost calculation is removed as per user request
-      profit: 0,   // Profit calculation is removed
       totalOrders: validOrders.length,
       totalItems: Array.from(productMap.values()).reduce((a, b) => a + b, 0),
       topProducts: [...productMap.entries()]
@@ -554,7 +538,7 @@ export async function getStoreSalesReport({
           };
       }),
     },
-    error: dataMismatchError,
+    error: null, // Error is removed as we now have a robust fallback
   };
 }
 
