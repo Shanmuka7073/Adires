@@ -125,6 +125,7 @@ export async function getSystemStatus() {
 }
 
 const createSlug = (text: string) => {
+    if(!text) return '';
     return text
       .toLowerCase()
       .replace(/\s+/g, '-')
@@ -321,7 +322,7 @@ export async function addRestaurantOrderItem({
     const orderId = `${storeId}_${sessionId}`;
     const orderRef = db.collection('orders').doc(orderId);
     
-    // Ensure menuItemId is stable, using a slug as a fallback
+    // Ensure menuItemId is the actual item ID if it exists, otherwise generate a stable one.
     const menuItemId = item.id || `item-${createSlug(item.name)}`;
 
     const orderItem: OrderItem = {
@@ -402,7 +403,7 @@ export async function updateSiteConfig(configId: string, data: Partial<SiteConfi
 
 // Helper to convert units to a base unit (grams or ml)
 const convertToBaseUnit = (quantity: number, unit: string) => {
-    const u = unit.toLowerCase();
+    const u = unit?.toLowerCase() || '';
     if (u === 'kg' || u === 'l' || u === 'litre') return quantity * 1000;
     if (u === 'g' || u === 'gm' || u === 'ml') return quantity;
     // For 'pcs' or other units, we treat them as a base unit of 1 for aggregation
@@ -439,8 +440,8 @@ export async function getStoreSalesReport({
   
   menuSnap.forEach(doc => {
     const menuItem = doc.data() as MenuItem;
-    // Normalize key to be robust against case/spacing issues
     if (menuItem && menuItem.name) {
+      // Key by ID for reliable lookup
       menuMap.set(doc.id, { ...menuItem, id: doc.id });
     }
   });
@@ -476,8 +477,7 @@ export async function getStoreSalesReport({
   }
 
   let totalSales = 0;
-  let totalCost = 0;
-  let dataMismatchError = null;
+  let dataMismatchError: string | null = null;
   const productMap = new Map<string, number>();
   const ingredientMap = new Map<string, { quantity: number; unit: string }>();
 
@@ -501,30 +501,33 @@ export async function getStoreSalesReport({
       
       // 2. Fallback to name matching for older orders
       if (!menuItem) {
+          // Find by name, ensuring item has a name before calling toLowerCase
           menuItem = [...menuMap.values()].find(m => m && m.name && m.name.toLowerCase().trim() === normalizedProductName);
       }
         
       if (menuItem && menuItem.ingredients && menuItem.ingredients.length > 0) {
           menuItem.ingredients.forEach(ing => {
-              const costOfIngredient = (ing.costPerUnit || 0) * ing.quantity * item.quantity;
-              totalCost += costOfIngredient;
+              if (typeof ing.quantity !== 'number' || !ing.unit) {
+                if (!dataMismatchError) {
+                    dataMismatchError = `Incomplete ingredient data for "${ing.name}" in menu item "${item.productName}". Skipping cost calculation for this ingredient.`;
+                }
+                return; // Skip this ingredient
+              }
               
-              const currentUsage = ingredientMap.get(ing.name) || { quantity: 0, unit: ing.unit };
               const baseQuantityConsumed = convertToBaseUnit(ing.quantity, ing.unit) * item.quantity;
+              const currentUsage = ingredientMap.get(ing.name) || { quantity: 0, unit: ing.unit };
 
               ingredientMap.set(ing.name, {
                   quantity: currentUsage.quantity + baseQuantityConsumed,
-                  unit: ['g', 'gm', 'kg'].includes(ing.unit) ? 'g' : ['ml', 'l', 'litre'].includes(ing.unit) ? 'ml' : 'pcs',
+                  unit: ['g', 'gm', 'kg'].includes(ing.unit.toLowerCase()) ? 'g' : ['ml', 'l', 'litre'].includes(ing.unit.toLowerCase()) ? 'ml' : 'pcs',
               });
           });
-      } else if (!dataMismatchError) { // Capture the first error found
+      } else if (!dataMismatchError) { // Capture the first error found for this order item
           if (!menuItem) {
               dataMismatchError = `Data mismatch: Order item "${item.productName}" could not be matched to a menu item for cost calculation. It may have been renamed or deleted.`;
-          } else if (!item.menuItemId) {
-              // This condition is now part of the fallback, so we focus on the ingredient data itself
-              if (!menuItem.ingredients || menuItem.ingredients.length === 0) {
-                 dataMismatchError = `Missing data: Menu item "${item.productName}" was found, but does not have an 'ingredients' array for cost calculation.`;
-              }
+          } else {
+              // This condition means the menuItem was found, but it has no ingredients.
+              // This is valid data, not an error, so we don't set an error message here.
           }
       }
     }
@@ -534,8 +537,8 @@ export async function getStoreSalesReport({
     success: true,
     report: {
       totalSales,
-      totalCost,
-      profit: totalSales - totalCost,
+      totalCost: 0, // Cost calculation is removed as per user request
+      profit: 0,   // Profit calculation is removed
       totalOrders: validOrders.length,
       totalItems: Array.from(productMap.values()).reduce((a, b) => a + b, 0),
       topProducts: [...productMap.entries()]
@@ -551,7 +554,7 @@ export async function getStoreSalesReport({
           };
       }),
     },
-    error: dataMismatchError, // Return the captured error
+    error: dataMismatchError,
   };
 }
 
@@ -598,12 +601,8 @@ export async function generateDailyWhatsappMessage(storeId:string) {
   return `
 📊 *Daily Sales Report*
 Sales: ₹${report.totalSales.toFixed(0)}
-Cost: ₹${report.totalCost.toFixed(0)}
-Profit: ₹${report.profit.toFixed(0)}
 Orders: ${report.totalOrders}
 
 Top Item: ${report.topProducts[0]?.name || 'N/A'}
 `;
 }
-
-    

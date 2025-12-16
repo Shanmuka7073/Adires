@@ -15,8 +15,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type ReportData = {
   totalSales: number;
-  totalCost: number;
-  profit: number;
   totalItems: number;
   totalOrders: number;
   topProducts: { name: string; count: number }[];
@@ -126,23 +124,15 @@ export default function SalesReportPage() {
                         </TabsList>
                         <TabsContent value={activeTab} className="mt-6">
                             {isLoading ? (
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-                                    <Skeleton className="h-24" />
-                                    <Skeleton className="h-24" />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                                     <Skeleton className="h-24" />
                                     <Skeleton className="h-24" />
                                 </div>
                             ) : report && report.totalOrders > 0 ? (
                                 <>
-                                    <div className="grid md:grid-cols-4 gap-6 mt-6">
-                                      <StatCard title="Sales" value={`₹${report.totalSales.toFixed(0)}`} />
-                                      <StatCard title="Cost" value={`₹${report.totalCost.toFixed(0)}`} />
-                                      <StatCard
-                                        title="Profit"
-                                        value={`₹${report.profit.toFixed(0)}`}
-                                        highlight={report.profit > 0}
-                                      />
-                                      <StatCard title="Orders" value={report.totalOrders} />
+                                    <div className="grid md:grid-cols-2 gap-6 mt-6">
+                                      <StatCard title="Total Sales" value={`₹${report.totalSales.toFixed(0)}`} />
+                                      <StatCard title="Total Orders" value={report.totalOrders} />
                                     </div>
 
                                     {error && (
@@ -178,7 +168,7 @@ export default function SalesReportPage() {
                                               </div>
                                             ))}
                                           </div>
-                                        ) : <p className="text-muted-foreground">No ingredient data available for cost/profit calculation.</p>}
+                                        ) : <p className="text-muted-foreground">No ingredient data available for consumption calculation.</p>}
                                       </div>
                                     </div>
                                 </>
@@ -194,3 +184,4 @@ export default function SalesReportPage() {
         </div>
     );
 }
+
