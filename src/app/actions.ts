@@ -436,8 +436,8 @@ export async function getStoreSalesReport({
   menuSnap.forEach(doc => {
     if (doc.exists) {
       const menuItem = doc.data() as MenuItem;
-      if (menuItem.name) {
-        // Normalize key for robust matching
+      if (menuItem && menuItem.name) {
+        // Normalize key
         menuMap.set(doc.id, menuItem);
       }
     }
