@@ -335,10 +335,10 @@ export async function addRestaurantOrderItem({
       variantWeight: '1 pc',
       quantity,
       price: item.price,
-      // 🔒 SNAPSHOT (THIS FIXES EVERYTHING)
+      // 🔒 SNAPSHOT (FIXED TO USE baseQuantity)
       recipeSnapshot: (item.ingredients || []).map(i => ({
         name: i.name,
-        qty: i.quantity,
+        qty: i.baseQuantity, // Use numeric baseQuantity
         unit: i.unit
       })),
     };

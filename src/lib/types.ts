@@ -74,7 +74,8 @@ export type CartItem = {
 
 export type Ingredient = {
   name: string;
-  qty: number;
+  baseQuantity: number;
+  quantity: string;
   unit: 'g' | 'kg' | 'ml' | 'l' | 'pcs';
 };
 
@@ -88,7 +89,7 @@ export type OrderItem = {
   variantWeight: string;
   quantity: number;
   price: number;
-  recipeSnapshot: Ingredient[];
+  recipeSnapshot: { name: string; qty: number; unit: string; }[];
 }
 
 export type Order = {
@@ -112,6 +113,7 @@ export type Order = {
   sessionId?: string; // To group all orders for a single table session
   paidAt?: Timestamp;
   paymentMode?: string;
+  updatedAt?: any;
 };
 
 
