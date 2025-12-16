@@ -207,6 +207,8 @@ export default function PublicMenuPage() {
   const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null);
   const [ingredientsData, setIngredientsData] = useState<GetIngredientsOutput | null>(null);
   const [isFetchingIngredients, startFetchingIngredients] = useTransition();
+  const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
+
 
   const orderId = `${storeId}_${sessionId}`;
   const orderQuery = useMemoFirebase(
@@ -265,6 +267,14 @@ export default function PublicMenuPage() {
           title: "Added to Bill",
           description: `${item.name} has been added to your live bill.`,
         });
+        setRecentlyAdded(prev => new Set(prev.add(item.id)));
+        setTimeout(() => {
+            setRecentlyAdded(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(item.id);
+                return newSet;
+            });
+        }, 2000);
       } else {
         toast({
           variant: "destructive",
@@ -368,29 +378,33 @@ export default function PublicMenuPage() {
                           <div key={category}>
                               <h2 className="text-sm font-bold mb-4 tracking-widest uppercase text-muted-foreground">{category}</h2>
                               <div className="space-y-3">
-                                  {items.map((item, index) => (
-                                      <div
-                                          key={index}
-                                          className="flex justify-between items-center bg-gray-50 p-4 rounded-xl"
-                                      >
-                                          <div>
-                                              <p className="font-semibold text-gray-800">{item.name}</p>
-                                              <p className="text-sm text-gray-600">₹{item.price.toFixed(2)}</p>
+                                  {items.map((item, index) => {
+                                      const isRecentlyAdded = recentlyAdded.has(item.id);
+                                      return (
+                                          <div
+                                              key={item.id || index}
+                                              className="flex justify-between items-center bg-gray-50 p-4 rounded-xl"
+                                          >
+                                              <div>
+                                                  <p className="font-semibold text-gray-800">{item.name}</p>
+                                                  <p className="text-sm text-gray-600">₹{item.price.toFixed(2)}</p>
+                                              </div>
+                                              <div className="flex gap-2">
+                                                <Button variant="ghost" size="sm" onClick={() => handleShowIngredients(item)}>
+                                                    <Eye className="mr-2 h-4 w-4" /> Ingredients
+                                                </Button>
+                                                <Button 
+                                                    onClick={() => handleAddItem(item)} 
+                                                    disabled={isAdding || isRecentlyAdded}
+                                                    className="bg-green-500 hover:bg-green-600 text-white rounded-lg w-[80px]"
+                                                >
+                                                    {isRecentlyAdded ? <Check className="h-5 w-5" /> : (isAdding ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />) }
+                                                    {isRecentlyAdded ? 'Added' : 'Add'}
+                                                </Button>
+                                              </div>
                                           </div>
-                                          <div className="flex gap-2">
-                                            <Button variant="ghost" size="sm" onClick={() => handleShowIngredients(item)}>
-                                                <Eye className="mr-2 h-4 w-4" /> Ingredients
-                                            </Button>
-                                            <Button 
-                                                onClick={() => handleAddItem(item)} 
-                                                disabled={isAdding}
-                                                className="bg-green-500 hover:bg-green-600 text-white rounded-lg"
-                                            >
-                                                <Plus className="mr-2 h-4 w-4" /> Add
-                                            </Button>
-                                          </div>
-                                      </div>
-                                  ))}
+                                      )
+                                  })}
                               </div>
                           </div>
                       ))}
