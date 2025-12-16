@@ -127,6 +127,12 @@ export default function SalesReportPage() {
                                     <Skeleton className="h-24" />
                                     <Skeleton className="h-24" />
                                 </div>
+                            ) : error ? (
+                                <Alert variant="destructive">
+                                    <AlertTriangle className="h-4 w-4" />
+                                    <AlertTitle>Error Loading Report</AlertTitle>
+                                    <AlertDescription>{error}</AlertDescription>
+                                </Alert>
                             ) : report && report.totalOrders > 0 ? (
                                 <>
                                     <div className="grid md:grid-cols-2 gap-6 mt-6">

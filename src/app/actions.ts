@@ -5,7 +5,7 @@ import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu } from '@/lib/types';
+import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe } from '@/lib/types';
 import { headers } from 'next/headers';
 import { getApp, getApps } from 'firebase-admin/app';
 import * as pdfjs from 'pdfjs-dist';
@@ -309,40 +309,53 @@ export async function addRestaurantOrderItem({
   sessionId,
   tableNumber,
   item,
-  quantity
+  quantity,
 }: {
   storeId: string;
   sessionId: string;
   tableNumber: string | null;
   item: MenuItem;
   quantity: number;
-}): Promise<{ success: boolean, error?: string }> {
+}): Promise<{ success: boolean; error?: string }> {
   try {
     const { db } = await getAdminServices();
+
+    // 1. Fetch the cached recipe to ensure we have the correct ingredient data
+    const recipeId = `${createSlug(item.name)}_en`; // Assuming 'en' for now
+    const recipeRef = db.collection('cachedRecipes').doc(recipeId);
+    const recipeSnap = await recipeRef.get();
+
+    let recipeSnapshotData = [];
+    if (recipeSnap.exists()) {
+      const recipe = recipeSnap.data() as CachedRecipe;
+      recipeSnapshotData = (recipe.ingredients || []).map(ing => ({
+        name: ing.name,
+        qty: ing.baseQuantity, // CRITICAL: Use the numeric baseQuantity
+        unit: ing.unit || '',
+      }));
+    } else {
+        console.warn(`No cached recipe found for "${item.name}". Order item will have an empty recipe snapshot.`);
+    }
+
+    // 2. Prepare the Order Item with the fetched snapshot
     const orderId = `${storeId}_${sessionId}`;
     const orderRef = db.collection('orders').doc(orderId);
-    
-    // Ensure menuItemId is the actual item ID if it exists, otherwise generate a stable one.
     const menuItemId = item.id || `item-${createSlug(item.name)}`;
 
     const orderItem: OrderItem = {
       id: uuidv4(),
       orderId,
-      productId: `${storeId}-${createSlug(item.name)}`, // For consistency, though less critical now
-      menuItemId: menuItemId, // Use the actual menu item ID
+      productId: `${storeId}-${createSlug(item.name)}`,
+      menuItemId: menuItemId,
       productName: item.name,
       variantSku: 'default',
       variantWeight: '1 pc',
       quantity,
       price: item.price,
-      // 🔒 SNAPSHOT (THIS FIXES EVERYTHING)
-      recipeSnapshot: (item.ingredients || []).map(i => ({
-        name: i.name,
-        qty: i.baseQuantity, // Use numeric baseQuantity
-        unit: i.unit || ''
-      })),
+      recipeSnapshot: recipeSnapshotData, // Use the reliable snapshot data
     };
-    
+
+    // 3. Add the item to the order document
     const doc = await orderRef.get();
 
     if (!doc.exists) {
@@ -570,5 +583,3 @@ Orders: ${report.totalOrders}
 Top Item: ${report.topProducts[0]?.name || 'N/A'}
 `;
 }
-
-    

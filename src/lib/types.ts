@@ -76,7 +76,7 @@ export type Ingredient = {
   name: string;
   baseQuantity: number;
   quantity: string;
-  unit: 'g' | 'kg' | 'ml' | 'l' | 'pcs';
+  unit: 'g' | 'kg' | 'ml' | 'l' | 'pcs' | 'tsp' | 'tbsp' | '' ;
 };
 
 export type OrderItem = {
