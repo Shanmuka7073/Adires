@@ -150,7 +150,7 @@ export default function SalesReportPage() {
                                       </div>
                                       <div>
                                         <h3 className="text-xl font-semibold mb-3">Ingredient Consumption</h3>
-                                        {report.ingredientUsage.length ? (
+                                        {report.ingredientUsage.length > 0 ? (
                                           <div className="space-y-2">
                                             {report.ingredientUsage.map(i => (
                                               <div
