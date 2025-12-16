@@ -294,7 +294,7 @@ export default function PublicMenuPage() {
             });
             toast({
                 variant: "destructive",
-                title: "Ingredients Not Found",
+                title: "Ingredients Not Available",
                 description: `Ingredients for "${item.name}" are not in the database.`,
             });
         }
@@ -312,7 +312,7 @@ export default function PublicMenuPage() {
   );
   if (!store || !menu) return <div className="p-4 text-center">Menu not found.</div>;
   
-  const isBillFinalized = order?.status === 'Billed' || order?.status === 'Completed';
+  const isBillFinalized = order?.status === 'Completed';
 
 
   return (
