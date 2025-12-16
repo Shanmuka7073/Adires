@@ -320,16 +320,14 @@ export async function addRestaurantOrderItem({
     const { db } = await getAdminServices();
     const orderId = `${storeId}_${sessionId}`;
     const orderRef = db.collection('orders').doc(orderId);
-
-    // FIX: Ensure menuItemId is always defined.
-    // If the item has a persisted ID, use it. Otherwise, create a stable ID from its name.
+    
     const menuItemId = item.id || `item-${createSlug(item.name)}`;
 
     const orderItem: OrderItem = {
       id: uuidv4(),
       orderId,
       productId: `${storeId}-${createSlug(item.name)}`,
-      menuItemId: menuItemId, // Use the guaranteed menuItemId
+      menuItemId: menuItemId,
       productName: item.name,
       variantSku: 'default',
       variantWeight: '1 pc',
@@ -440,9 +438,9 @@ export async function getStoreSalesReport({
   
   menuSnap.forEach(doc => {
     const menuItem = doc.data() as MenuItem;
-    // FIX: Ensure name exists before trying to access it
-    if (menuItem.name) {
-        menuMap.set(menuItem.id, menuItem);
+    // FIX: Ensure menuItem and its name exist before creating the map entry
+    if (menuItem && menuItem.name) {
+        menuMap.set(doc.id, menuItem);
     }
   });
 
@@ -522,6 +520,8 @@ export async function getStoreSalesReport({
       } else if (!dataMismatchError) { // Capture the first error found
           if (!menuItem) {
               dataMismatchError = `Data mismatch: Order item "${item.productName}" could not be matched to a menu item for cost calculation. It may have been renamed or deleted.`;
+          } else if (!item.menuItemId) {
+              dataMismatchError = `Missing data: Order item '${item.productName}' is missing a 'menuItemId' and cannot be used for cost calculation.`;
           } else {
               dataMismatchError = `Missing data: Menu item "${item.productName}" does not have an 'ingredients' array for cost calculation.`;
           }
