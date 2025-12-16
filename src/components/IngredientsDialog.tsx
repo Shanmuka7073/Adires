@@ -5,12 +5,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Flame, Zap, X, CheckCircle, Info, Loader2 } from "lucide-react";
-
-type Ingredient = {
-  name: string;
-  quantity: string;
-  icon?: string;
-};
+import type { Ingredient } from "@/lib/types";
 
 interface Props {
   open: boolean;
@@ -95,7 +90,6 @@ export default function IngredientsDialog({
                   variant="secondary"
                   className="rounded-full px-3 py-1 text-sm"
                 >
-                  {ing.icon && <span className="mr-1">{ing.icon}</span>}
                   {ing.name} · {ing.quantity}
                 </Badge>
               ))}
