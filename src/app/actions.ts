@@ -433,11 +433,12 @@ export async function getStoreSalesReport({
 
   const menuSnap = await db.collection('stores').doc(storeId).collection('menus').get();
   const menuMap = new Map<string, MenuItem>();
-  // Use a map keyed by menu item ID for reliable lookup
+  
   menuSnap.forEach(doc => {
     const menuItem = doc.data() as MenuItem;
-    if (menuItem) {
-        menuMap.set(doc.id, menuItem);
+    // Normalize key: Ensure name exists before calling toLowerCase
+    if (menuItem.name) {
+        menuMap.set(menuItem.name.toLowerCase().trim(), menuItem);
     }
   });
 
@@ -484,10 +485,10 @@ export async function getStoreSalesReport({
     if (items.length === 0) continue; 
     
     for (const item of items) {
+      if (!item.productName) continue;
       const normalizedProductName = item.productName.toLowerCase().trim();
       productMap.set(normalizedProductName, (productMap.get(normalizedProductName) || 0) + item.quantity);
       
-      // *** START FIX: Backwards compatibility for ingredient calculation ***
       let menuItem: MenuItem | undefined;
 
       // 1. Prioritize the reliable menuItemId lookup
@@ -497,7 +498,7 @@ export async function getStoreSalesReport({
       
       // 2. Fallback to name matching for older orders
       if (!menuItem) {
-          menuItem = [...menuMap.values()].find(m => m.name.toLowerCase().trim() === normalizedProductName);
+          menuItem = [...menuMap.values()].find(m => m && m.name && m.name.toLowerCase().trim() === normalizedProductName);
       }
       // *** END FIX ***
         
