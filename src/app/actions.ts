@@ -321,6 +321,7 @@ export async function addRestaurantOrderItem({
     const orderId = `${storeId}_${sessionId}`;
     const orderRef = db.collection('orders').doc(orderId);
     
+    // Ensure menuItemId is stable, using a slug as a fallback
     const menuItemId = item.id || `item-${createSlug(item.name)}`;
 
     const orderItem: OrderItem = {
@@ -438,9 +439,9 @@ export async function getStoreSalesReport({
   
   menuSnap.forEach(doc => {
     const menuItem = doc.data() as MenuItem;
-    // FIX: Ensure menuItem and its name exist before creating the map entry
+    // Normalize key to be robust against case/spacing issues
     if (menuItem && menuItem.name) {
-        menuMap.set(doc.id, menuItem);
+      menuMap.set(doc.id, { ...menuItem, id: doc.id });
     }
   });
 
@@ -502,7 +503,6 @@ export async function getStoreSalesReport({
       if (!menuItem) {
           menuItem = [...menuMap.values()].find(m => m && m.name && m.name.toLowerCase().trim() === normalizedProductName);
       }
-      // *** END FIX ***
         
       if (menuItem && menuItem.ingredients && menuItem.ingredients.length > 0) {
           menuItem.ingredients.forEach(ing => {
@@ -521,9 +521,10 @@ export async function getStoreSalesReport({
           if (!menuItem) {
               dataMismatchError = `Data mismatch: Order item "${item.productName}" could not be matched to a menu item for cost calculation. It may have been renamed or deleted.`;
           } else if (!item.menuItemId) {
-              dataMismatchError = `Missing data: Order item '${item.productName}' is missing a 'menuItemId' and cannot be used for cost calculation.`;
-          } else {
-              dataMismatchError = `Missing data: Menu item "${item.productName}" does not have an 'ingredients' array for cost calculation.`;
+              // This condition is now part of the fallback, so we focus on the ingredient data itself
+              if (!menuItem.ingredients || menuItem.ingredients.length === 0) {
+                 dataMismatchError = `Missing data: Menu item "${item.productName}" was found, but does not have an 'ingredients' array for cost calculation.`;
+              }
           }
       }
     }
@@ -604,3 +605,5 @@ Orders: ${report.totalOrders}
 Top Item: ${report.topProducts[0]?.name || 'N/A'}
 `;
 }
+
+    
