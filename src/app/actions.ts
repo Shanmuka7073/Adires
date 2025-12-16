@@ -591,3 +591,5 @@ Orders: ${report.totalOrders}
 Top Item: ${report.topProducts[0]?.name || 'N/A'}
 `;
 }
+
+    
