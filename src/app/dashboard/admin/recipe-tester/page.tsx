@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Beaker, Check, AlertTriangle, ShoppingCart } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { getIngredientsForDish, GetIngredientsOutput } from '@/ai/flows/recipe-ingredients-flow';
+import { getIngredientsForDish } from '@/app/actions';
+import type { GetIngredientsOutput } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
 import { useCart } from '@/lib/cart';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
@@ -46,7 +47,7 @@ export default function RecipeTesterPage() {
                         description: `Found ${response.ingredients.length} ingredients for "${dishName}".`,
                     });
                 } else {
-                     setResult({ isSuccess: false, ingredients: [], instructions: response.instructions, title: response.title });
+                     setResult({ isSuccess: false, ingredients: [], instructions: response.instructions, title: response.title, nutrition: response.nutrition });
                      toast({
                         title: 'AI Could Not Find Recipe',
                         description: `The model could not find ingredients for "${dishName}".`,

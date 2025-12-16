@@ -8,17 +8,8 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { ChefHat, Loader2, Sparkles, ShoppingCart, AlertCircle, Search, Volume2, Copy, StopCircle, Salad, Info } from 'lucide-react';
 import { getIngredientsForDish } from '@/app/actions';
-import type { GetIngredientsOutput } from '@/ai/flows/recipe-ingredients-types';
+import type { GetIngredientsOutput, Ingredient, InstructionStep } from '@/lib/types';
 import { generateVoiceReply } from '@/ai/flows/generate-voice-reply-flow';
-import { useAppStore } from '@/lib/store';
-import { useCart } from '@/lib/cart';
-import { calculateSimilarity } from '@/lib/calculate-similarity';
-import { Badge } from '../ui/badge';
-import { Alert, AlertTitle, AlertDescription } from '../ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useFirebase } from '@/firebase';
-import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
-import { Ingredient, InstructionStep, Product, ProductVariant } from '@/lib/types';
 import { t as translate } from '@/lib/locales';
 
 
