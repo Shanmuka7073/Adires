@@ -13,6 +13,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ai } from '@/ai/genkit';
 import { GetIngredientsInputSchema, GetIngredientsOutputSchema } from '@/ai/flows/recipe-ingredients-types';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
+import { googleAI } from '@genkit-ai/google-genai';
 
 
 export async function getFirebaseConfig() {
@@ -600,6 +601,7 @@ export async function getIngredientsForDish(input: { dishName: string; language:
       name: 'recipeIngredientsPrompt',
       input: { schema: GetIngredientsInputSchema },
       output: { schema: GetIngredientsOutputSchema },
+      model: googleAI.model('gemini-2.5-flash'),
       prompt: `
           You are an expert chef and nutritionist for an Indian grocery app.
           Your primary task is to generate a list of ingredients, step-by-step instructions, and nutritional information for any given dish.
