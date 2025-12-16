@@ -410,17 +410,13 @@ export async function getStoreSalesReport({
     return { success: false, error: 'Store ID is required' };
   }
 
-  // Step A: Load menu once
+  // Step A: Load menu once to know which items have ingredients for cost calculation.
   const menuSnap = await db.collection('stores').doc(storeId).collection('menus').get();
   const menuMap = new Map<string, MenuItem>();
   menuSnap.forEach(doc => {
       const menuItem = doc.data() as MenuItem;
       menuMap.set(menuItem.name, menuItem);
   });
-
-  if (menuMap.size === 0) {
-      return { success: true, report: { totalSales: 0, totalCost: 0, profit: 0, totalOrders: 0, totalItems: 0, topProducts: [], ingredientUsage: [] } };
-  }
 
   const now = new Date();
   let startDate: Date;
@@ -431,11 +427,11 @@ export async function getStoreSalesReport({
     startDate = new Date(now);
     startDate.setDate(now.getDate() - now.getDay());
     startDate.setHours(0, 0, 0, 0);
-  } else {
+  } else { // monthly
     startDate = new Date(now.getFullYear(), now.getMonth(), 1);
   }
 
-  // Fetch relevant orders
+  // Fetch relevant completed orders
   const ordersQuery = db
     .collection('orders')
     .where('storeId', '==', storeId)
@@ -460,13 +456,16 @@ export async function getStoreSalesReport({
   for (const order of validOrders) {
     totalSales += order.totalAmount;
 
-    // Correctly fetch subcollection
     const itemsSnapshot = await db.collection('orders').doc(order.id).collection('orderItems').get();
+    if (itemsSnapshot.empty) continue; // Skip if order has no items subcollection
+    
     const items = itemsSnapshot.docs.map(doc => doc.data() as OrderItem);
 
     for (const item of items) {
+      // Aggregate all sold products for the "Top Products" list
       productMap.set(item.productName, (productMap.get(item.productName) || 0) + item.quantity);
       
+      // Only calculate cost and ingredient usage for items that are on the restaurant's menu
       const menuItem = menuMap.get(item.productName);
       if (menuItem && menuItem.ingredients) {
           menuItem.ingredients.forEach(ing => {
@@ -558,6 +557,7 @@ Top Item: ${report.topProducts[0]?.name || 'N/A'}
 
 
     
+
 
 
 
