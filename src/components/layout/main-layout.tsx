@@ -16,6 +16,7 @@ import { BottomNavBar } from './bottom-nav-bar';
 import { useFirebase } from '@/firebase';
 import { PriceCheckDisplay, PriceCheckInfo } from './price-check-display';
 import { useInstall } from '../install-provider';
+import { FirestoreCounter } from './firestore-counter'; // Import the counter
 
 // Create a context to provide the trigger function
 const VoiceCommandContext = createContext<{ 
@@ -23,6 +24,11 @@ const VoiceCommandContext = createContext<{
     retryCommand?: (command: string) => void; 
     showPriceCheck: (info: PriceCheckInfo) => void;
     hidePriceCheck: () => void;
+    onCartOpenChange: (open: boolean) => void;
+    isCartOpen: boolean;
+    voiceEnabled: boolean;
+    voiceStatus: string;
+    onToggleVoice: () => void;
 } | undefined>(undefined);
 
 export function useVoiceCommanderContext() {
@@ -85,15 +91,20 @@ export function MainLayout({
 
 
   return (
-    <VoiceCommandContext.Provider value={{ triggerVoicePrompt, retryCommand, showPriceCheck, hidePriceCheck }}>
+    <VoiceCommandContext.Provider value={{ 
+        triggerVoicePrompt, 
+        retryCommand, 
+        showPriceCheck, 
+        hidePriceCheck,
+        onCartOpenChange: setIsCartOpen,
+        isCartOpen,
+        voiceEnabled,
+        voiceStatus,
+        onToggleVoice: () => setVoiceEnabled(prev => !prev),
+    }}>
         <div className="relative flex min-h-dvh flex-col bg-background">
         <Header 
-            voiceEnabled={voiceEnabled}
-            onToggleVoice={() => setVoiceEnabled(prev => !prev)}
-            voiceStatus={voiceStatus}
             suggestedCommands={suggestedCommands}
-            isCartOpen={isCartOpen}
-            onCartOpenChange={setIsCartOpen}
         />
         {user && isInitialized && (
             <VoiceCommander 
@@ -117,6 +128,7 @@ export function MainLayout({
         <NotificationPermissionManager />
         <Footer />
         <BottomNavBar />
+        <FirestoreCounter />
         </div>
     </VoiceCommandContext.Provider>
   );
@@ -125,12 +137,10 @@ export function MainLayout({
 
 // New simplified layout for the Menu pages
 export function MenuLayout({ children }: { children: React.ReactNode }) {
-    // Menu layout doesn't need its own full voice context, but a provider is needed.
-    // The functionality will be simpler, perhaps just for adding items.
-    // For now, it's a simple passthrough.
   return (
     <div className="relative min-h-dvh bg-background">
         {children}
+        <FirestoreCounter />
     </div>
   );
 }

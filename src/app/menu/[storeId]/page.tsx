@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -6,7 +7,7 @@ import {
   query,
   doc,
   setDoc,
-  serverTimestamp,
+  updateDoc,
 } from 'firebase/firestore';
 
 import type {
@@ -15,10 +16,11 @@ import type {
   MenuItem,
   Order,
   OrderItem,
+  GetIngredientsOutput,
 } from '@/lib/types';
 
 import { useParams, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition, useRef } from 'react';
 import Image from 'next/image';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -28,7 +30,8 @@ import {
   Loader2,
   Check,
   Clock,
-  Trash2
+  Trash2,
+  Eye,
 } from 'lucide-react';
 
 import {
@@ -45,12 +48,15 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { addRestaurantOrderItem } from '@/app/actions';
 import type { Timestamp } from 'firebase/firestore';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import IngredientsDialog from '@/components/IngredientsDialog'; // Import the new dialog
+import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
 
 /* -------------------------------------------------------------------------- */
 /*                                   LIVE BILL SHEET                          */
@@ -197,6 +203,10 @@ export default function PublicMenuPage() {
   const [isAdding, startAdding] = useTransition();
   const [sessionId, setSessionId] = useState('');
   
+  const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null);
+  const [ingredientsData, setIngredientsData] = useState<GetIngredientsOutput | null>(null);
+  const [isFetchingIngredients, startFetchingIngredients] = useTransition();
+
   const orderId = `${storeId}_${sessionId}`;
   const orderQuery = useMemoFirebase(
     () => (firestore && sessionId ? doc(firestore, 'orders', orderId) : null),
@@ -264,6 +274,14 @@ export default function PublicMenuPage() {
     });
   };
 
+  const handleShowIngredients = (item: MenuItem) => {
+    setSelectedItemForIngredients(item);
+    startFetchingIngredients(async () => {
+      const data = await getIngredientsForDish({ dishName: item.name, language: 'en' });
+      setIngredientsData(data);
+    });
+  };
+
   if (storeLoading || menuLoading) return (
       <div className="p-4 space-y-4">
         <Skeleton className="h-8 w-1/2" />
@@ -276,71 +294,93 @@ export default function PublicMenuPage() {
   if (!store || !menu) return <div className="p-4 text-center">Menu not found.</div>;
 
   return (
-    <div className="min-h-screen bg-white">
-        <div className="container mx-auto py-8 px-4 md:px-6 max-w-2xl">
-            <header className="mb-8">
-                 <div className="flex items-center gap-4">
-                     {store.imageUrl && (
-                        <Image
-                          src={store.imageUrl}
-                          alt={store.name}
-                          width={48}
-                          height={48}
-                          className="rounded-full border-2 border-white shadow-md"
-                        />
-                      )}
-                      <div>
-                        <h1 className="text-2xl font-bold font-headline">{store.name}</h1>
-                         {tableNumber && <p className="text-muted-foreground">Table {tableNumber}</p>}
-                      </div>
-                 </div>
-            </header>
-
-            <main className="space-y-8 pb-24">
-                {Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
-                    <div key={category}>
-                        <h2 className="text-sm font-bold mb-4 tracking-widest uppercase text-muted-foreground">{category}</h2>
-                        <div className="space-y-3">
-                            {items.map((item, index) => (
-                                <div
-                                    key={index}
-                                    className="flex justify-between items-center bg-gray-50 p-4 rounded-xl"
-                                >
-                                    <div>
-                                        <p className="font-semibold text-gray-800">{item.name}</p>
-                                        <p className="text-sm text-gray-600">₹{item.price.toFixed(2)}</p>
-                                    </div>
-                                     <Button 
-                                        onClick={() => handleAddItem(item)} 
-                                        disabled={isAdding}
-                                        className="bg-green-500 hover:bg-green-600 text-white rounded-lg"
-                                     >
-                                        <Plus className="mr-2 h-4 w-4" /> Add
-                                    </Button>
-                                </div>
-                            ))}
+    <>
+      {selectedItemForIngredients && (
+        <IngredientsDialog
+          open={!!selectedItemForIngredients}
+          onClose={() => setSelectedItemForIngredients(null)}
+          dishName={selectedItemForIngredients.name}
+          price={selectedItemForIngredients.price}
+          calories={ingredientsData?.nutrition?.calories || 0}
+          protein={ingredientsData?.nutrition?.protein || 0}
+          ingredients={(ingredientsData?.ingredients as any) || []}
+          onAdd={() => {
+            handleAddItem(selectedItemForIngredients);
+            setSelectedItemForIngredients(null);
+          }}
+        />
+      )}
+      <div className="min-h-screen bg-white">
+          <div className="container mx-auto py-8 px-4 md:px-6 max-w-2xl">
+              <header className="mb-8">
+                   <div className="flex items-center gap-4">
+                       {store.imageUrl && (
+                          <Image
+                            src={store.imageUrl}
+                            alt={store.name}
+                            width={48}
+                            height={48}
+                            className="rounded-full border-2 border-white shadow-md"
+                          />
+                        )}
+                        <div>
+                          <h1 className="text-2xl font-bold font-headline">{store.name}</h1>
+                           {tableNumber && <p className="text-muted-foreground">Table {tableNumber}</p>}
                         </div>
-                    </div>
-                ))}
-            </main>
+                   </div>
+              </header>
+
+              <main className="space-y-8 pb-24">
+                  {Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
+                      <div key={category}>
+                          <h2 className="text-sm font-bold mb-4 tracking-widest uppercase text-muted-foreground">{category}</h2>
+                          <div className="space-y-3">
+                              {items.map((item, index) => (
+                                  <div
+                                      key={index}
+                                      className="flex justify-between items-center bg-gray-50 p-4 rounded-xl"
+                                  >
+                                      <div>
+                                          <p className="font-semibold text-gray-800">{item.name}</p>
+                                          <p className="text-sm text-gray-600">₹{item.price.toFixed(2)}</p>
+                                      </div>
+                                      <div className="flex gap-2">
+                                         <Button variant="ghost" size="sm" onClick={() => handleShowIngredients(item)}>
+                                            <Eye className="mr-2 h-4 w-4" /> Ingredients
+                                         </Button>
+                                         <Button 
+                                              onClick={() => handleAddItem(item)} 
+                                              disabled={isAdding}
+                                              className="bg-green-500 hover:bg-green-600 text-white rounded-lg"
+                                         >
+                                              <Plus className="mr-2 h-4 w-4" /> Add
+                                          </Button>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  ))}
+              </main>
+          </div>
+          
+          {itemCount > 0 && (
+               <Sheet>
+                  <SheetTrigger asChild>
+                      <div className="fixed bottom-4 right-4 z-50">
+                          <Button className="h-14 rounded-full shadow-lg bg-green-600 hover:bg-green-700 text-lg pl-6 pr-8">
+                              <Receipt className="mr-3 h-5 w-5" />
+                              View Bill 
+                              <Badge className="ml-3">{itemCount} items</Badge>
+                          </Button>
+                      </div>
+                  </SheetTrigger>
+                  <SheetContent>
+                      <LiveBillSheet storeId={storeId} sessionId={sessionId} />
+                  </SheetContent>
+              </Sheet>
+          )}
         </div>
-        
-        {itemCount > 0 && (
-             <Sheet>
-                <SheetTrigger asChild>
-                    <div className="fixed bottom-4 right-4 z-50">
-                        <Button className="h-14 rounded-full shadow-lg bg-green-600 hover:bg-green-700 text-lg pl-6 pr-8">
-                            <Receipt className="mr-3 h-5 w-5" />
-                            View Bill 
-                            <Badge className="ml-3">{itemCount} items</Badge>
-                        </Button>
-                    </div>
-                </SheetTrigger>
-                <SheetContent>
-                    <LiveBillSheet storeId={storeId} sessionId={sessionId} />
-                </SheetContent>
-            </Sheet>
-        )}
-      </div>
+    </>
   );
 }
