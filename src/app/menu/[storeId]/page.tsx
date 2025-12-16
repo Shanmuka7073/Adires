@@ -1,13 +1,12 @@
-
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import {
   collection,
   query,
-  where,
   doc,
   setDoc,
+  serverTimestamp,
 } from 'firebase/firestore';
 
 import type {
@@ -16,31 +15,20 @@ import type {
   MenuItem,
   Order,
   OrderItem,
-  GetIngredientsOutput,
-  Ingredient,
 } from '@/lib/types';
 
 import { useParams, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState, useTransition, useRef } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
 import { v4 as uuidv4 } from 'uuid';
 
 import {
-  Utensils,
   Plus,
-  Minus,
   Receipt,
   Loader2,
   Check,
   Clock,
-  Zap,
-  Flame,
-  Info,
-  ShoppingCart,
-  Salad,
-  Mic,
-  Eye,
-  Download,
+  Trash2
 } from 'lucide-react';
 
 import {
@@ -57,19 +45,18 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { addRestaurantOrderItem } from '@/app/actions';
-import { useInstall } from '@/components/install-provider';
 import type { Timestamp } from 'firebase/firestore';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 
 /* -------------------------------------------------------------------------- */
-/*                                   LIVE BILL                                */
+/*                                   LIVE BILL SHEET                          */
 /* -------------------------------------------------------------------------- */
 
-function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }) {
+function LiveBillSheet({ storeId, sessionId }: { storeId: string; sessionId: string }) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [closing, startClose] = useTransition();
@@ -96,47 +83,67 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
     });
   };
 
+  const handleRemoveItem = async (itemToRemove: OrderItem) => {
+      if (!firestore || !order) return;
+
+      const orderRef = doc(firestore, 'orders', order.id);
+      const updatedItems = order.items.filter(item => item.id !== itemToRemove.id);
+      const newTotal = updatedItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+
+      try {
+          await updateDoc(orderRef, {
+              items: updatedItems,
+              totalAmount: newTotal
+          });
+          toast({ description: `${itemToRemove.productName} removed from your bill.` });
+      } catch (e) {
+          console.error("Failed to remove item:", e);
+          toast({ variant: 'destructive', title: 'Failed to remove item.' });
+      }
+  };
+
+
   if (isLoading) {
     return <Loader2 className="animate-spin mx-auto" />;
   }
   
   if (!order || !order.items?.length) {
       return (
-          <Card className="mt-6 bg-muted/50">
-              <CardHeader>
-                   <CardTitle className="flex items-center gap-2 text-lg">
-                      <Receipt /> Live Bill
-                    </CardTitle>
-              </CardHeader>
-              <CardContent>
-                  <p className="text-muted-foreground text-center py-4">No items added to your bill yet.</p>
-              </CardContent>
-          </Card>
+          <div className="p-4">
+              <p className="text-muted-foreground text-center py-4">No items added to your bill yet.</p>
+          </div>
       )
   }
 
   return (
-    <Card className="mt-6">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Receipt /> Live Bill
-        </CardTitle>
-      </CardHeader>
+    <div className="flex flex-col h-full">
+        <SheetHeader className='p-4 border-b'>
+            <SheetTitle className="flex items-center gap-2">
+              <Receipt /> Live Bill
+            </SheetTitle>
+        </SheetHeader>
 
-      <CardContent>
-            {order.items.map((it, idx) => (
-              <div key={idx} className="border-b py-2 flex justify-between text-sm">
-                <span className="font-medium">{it.productName} <span className="text-muted-foreground">x{it.quantity}</span></span>
-                <span>₹{(it.price * it.quantity).toFixed(2)}</span>
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+             {order.items.map((it, idx) => (
+              <div key={idx} className="border-b py-2 flex justify-between items-center text-sm">
+                <div>
+                    <span className="font-medium">{it.productName} <span className="text-muted-foreground">x{it.quantity}</span></span>
+                    <p>₹{(it.price * it.quantity).toFixed(2)}</p>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(it)}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
               </div>
             ))}
+        </div>
 
-            <div className="flex justify-between font-bold mt-3 text-xl">
+        <div className="p-4 border-t space-y-4">
+            <div className="flex justify-between font-bold text-xl">
               <span>Total</span>
               <span>₹{order.totalAmount.toFixed(2)}</span>
             </div>
             
-            <div className="mt-4">
+            <div>
               {order.status === 'Completed' ? (
                  <div className="text-center p-4 bg-blue-100 rounded-md">
                     <Check className="mx-auto h-6 w-6 text-blue-600 mb-2" />
@@ -156,7 +163,6 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
                       Close Bill & Pay
                     </Button>
                   </AlertDialogTrigger>
-
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Ready to Pay?</AlertDialogTitle>
@@ -172,8 +178,8 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
                 </AlertDialog>
               )}
             </div>
-      </CardContent>
-    </Card>
+        </div>
+    </div>
   );
 }
 
@@ -191,7 +197,14 @@ export default function PublicMenuPage() {
   const [isAdding, startAdding] = useTransition();
   const [sessionId, setSessionId] = useState('');
   
-  const { canInstall, triggerInstall } = useInstall();
+  const orderId = `${storeId}_${sessionId}`;
+  const orderQuery = useMemoFirebase(
+    () => (firestore && sessionId ? doc(firestore, 'orders', orderId) : null),
+    [firestore, orderId, sessionId]
+  );
+  const { data: order } = useDoc<Order>(orderQuery);
+  const itemCount = order?.items?.length || 0;
+
 
   useEffect(() => {
     const key = `session_${storeId}_${tableNumber}`;
@@ -263,57 +276,71 @@ export default function PublicMenuPage() {
   if (!store || !menu) return <div className="p-4 text-center">Menu not found.</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto py-8 px-4 md:px-6">
-          <Card className="max-w-2xl mx-auto shadow-lg">
-            <CardHeader className="text-center">
-                 {store.imageUrl && (
-                    <Image
-                      src={store.imageUrl}
-                      alt={store.name}
-                      width={128}
-                      height={128}
-                      className="mx-auto rounded-full border-4 border-white shadow-md -mt-16"
-                    />
-                  )}
-                <div className="flex items-center justify-center gap-2 mt-4">
-                    <Utensils className="h-8 w-8 text-primary" />
-                    <CardTitle className="text-3xl font-bold font-headline">{store.name}</CardTitle>
-                </div>
-                {tableNumber && <Badge className="mx-auto mt-2">Table {tableNumber}</Badge>}
-                 {canInstall && (
-                  <div className="pt-4">
-                    <Button onClick={triggerInstall} size="sm">
-                        <Download className="mr-2 h-4 w-4" />
-                        Add {store.name} to Home Screen
-                    </Button>
-                  </div>
-                 )}
-            </CardHeader>
-            <CardContent className="space-y-6">
-                {sessionId && <LiveBill storeId={storeId} sessionId={sessionId} />}
+    <div className="min-h-screen bg-white">
+        <div className="container mx-auto py-8 px-4 md:px-6 max-w-2xl">
+            <header className="mb-8">
+                 <div className="flex items-center gap-4">
+                     {store.imageUrl && (
+                        <Image
+                          src={store.imageUrl}
+                          alt={store.name}
+                          width={48}
+                          height={48}
+                          className="rounded-full border-2 border-white shadow-md"
+                        />
+                      )}
+                      <div>
+                        <h1 className="text-2xl font-bold font-headline">{store.name}</h1>
+                         {tableNumber && <p className="text-muted-foreground">Table {tableNumber}</p>}
+                      </div>
+                 </div>
+            </header>
 
+            <main className="space-y-8 pb-24">
                 {Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
                     <div key={category}>
-                        <h2 className="text-xl font-semibold mb-3 border-b pb-2 tracking-widest uppercase text-muted-foreground">{category}</h2>
-                        <div className="space-y-2">
+                        <h2 className="text-sm font-bold mb-4 tracking-widest uppercase text-muted-foreground">{category}</h2>
+                        <div className="space-y-3">
                             {items.map((item, index) => (
-                                <button
+                                <div
                                     key={index}
-                                    onClick={() => handleAddItem(item)}
-                                    disabled={isAdding}
-                                    className="w-full flex justify-between items-center py-2 text-left hover:bg-muted/50 rounded-md px-2 transition-colors disabled:opacity-50"
+                                    className="flex justify-between items-center bg-gray-50 p-4 rounded-xl"
                                 >
-                                    <p className="font-medium text-gray-800">{item.name}</p>
-                                    <p className="font-semibold text-gray-600">₹{item.price.toFixed(2)}</p>
-                                </button>
+                                    <div>
+                                        <p className="font-semibold text-gray-800">{item.name}</p>
+                                        <p className="text-sm text-gray-600">₹{item.price.toFixed(2)}</p>
+                                    </div>
+                                     <Button 
+                                        onClick={() => handleAddItem(item)} 
+                                        disabled={isAdding}
+                                        className="bg-green-500 hover:bg-green-600 text-white rounded-lg"
+                                     >
+                                        <Plus className="mr-2 h-4 w-4" /> Add
+                                    </Button>
+                                </div>
                             ))}
                         </div>
                     </div>
                 ))}
-            </CardContent>
-          </Card>
+            </main>
         </div>
+        
+        {itemCount > 0 && (
+             <Sheet>
+                <SheetTrigger asChild>
+                    <div className="fixed bottom-4 right-4 z-50">
+                        <Button className="h-14 rounded-full shadow-lg bg-green-600 hover:bg-green-700 text-lg pl-6 pr-8">
+                            <Receipt className="mr-3 h-5 w-5" />
+                            View Bill 
+                            <Badge className="ml-3">{itemCount} items</Badge>
+                        </Button>
+                    </div>
+                </SheetTrigger>
+                <SheetContent>
+                    <LiveBillSheet storeId={storeId} sessionId={sessionId} />
+                </SheetContent>
+            </Sheet>
+        )}
       </div>
   );
 }
