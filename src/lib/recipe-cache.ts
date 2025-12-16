@@ -1,7 +1,7 @@
 
 'use server';
 
-import { Firestore, doc, getDoc, setDoc, serverTimestamp } from 'firebase-admin/firestore';
+import { Firestore, serverTimestamp } from 'firebase-admin/firestore';
 import type { CachedRecipe, GetIngredientsOutput } from './types';
 
 /**
@@ -33,11 +33,12 @@ const createSlug = (text: string): string => {
 export async function getCachedRecipe(db: Firestore, dishName: string, language: 'en' | 'te'): Promise<GetIngredientsOutput | null> {
     const normalizedDishName = createSlug(dishName);
     const targetDocId = `${normalizedDishName}_${language}`;
-    const targetDocRef = doc(db, 'cachedRecipes', targetDocId);
+    // CORRECTED SYNTAX: Use db.collection().doc() for admin SDK
+    const targetDocRef = db.collection('cachedRecipes').doc(targetDocId);
     
     try {
-        const docSnap = await getDoc(targetDocRef);
-        if (docSnap.exists()) {
+        const docSnap = await targetDocRef.get();
+        if (docSnap.exists) {
             const data = docSnap.data() as CachedRecipe;
             return {
                 isSuccess: true,
@@ -51,8 +52,9 @@ export async function getCachedRecipe(db: Firestore, dishName: string, language:
         // If target language not found, try fetching the English version as a base for translation
         if (language !== 'en') {
             const englishDocId = `${normalizedDishName}_en`;
-            const englishDocRef = doc(db, 'cachedRecipes', englishDocId);
-            const englishDocSnap = await getDoc(englishDocRef);
+            // CORRECTED SYNTAX: Use db.collection().doc() for admin SDK
+            const englishDocRef = db.collection('cachedRecipes').doc(englishDocId);
+            const englishDocSnap = await englishDocRef.get();
             if (englishDocSnap.exists()) {
                  const data = englishDocSnap.data() as CachedRecipe;
                  return {
@@ -82,7 +84,8 @@ export async function getCachedRecipe(db: Firestore, dishName: string, language:
 export async function cacheRecipe(db: Firestore, dishName: string, language: 'en' | 'te', data: GetIngredientsOutput): Promise<void> {
     const normalizedDishName = createSlug(dishName);
     const docId = `${normalizedDishName}_${language}`;
-    const docRef = doc(db, 'cachedRecipes', docId);
+    // CORRECTED SYNTAX: Use db.collection().doc() for admin SDK
+    const docRef = db.collection('cachedRecipes').doc(docId);
 
     const recipeData: CachedRecipe = {
         id: docId,
@@ -95,7 +98,7 @@ export async function cacheRecipe(db: Firestore, dishName: string, language: 'en
 
     // Use a try-catch for server-side functions
     try {
-        await setDoc(docRef, recipeData);
+        await docRef.set(recipeData);
     } catch (error) {
         console.error("Firestore cache write failed:", error);
         // Re-throw the error to be caught by the calling function
