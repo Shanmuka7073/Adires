@@ -52,11 +52,10 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { addRestaurantOrderItem } from '@/app/actions';
+import { addRestaurantOrderItem, getIngredientsForDish } from '@/app/actions';
 import type { Timestamp } from 'firebase/firestore';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import IngredientsDialog from '@/components/IngredientsDialog'; // Import the new dialog
-import { getCachedRecipe } from '@/lib/recipe-cache';
 import { FirestoreCounter } from '@/components/layout/firestore-counter';
 
 
@@ -277,27 +276,29 @@ export default function PublicMenuPage() {
   };
 
   const handleShowIngredients = (item: MenuItem) => {
-    if (!firestore) return;
     setSelectedItemForIngredients(item);
     startFetchingIngredients(async () => {
-        const cachedData = await getCachedRecipe(firestore, item.name, 'en');
-        if (cachedData) {
-            setIngredientsData(cachedData);
-        } else {
-            // If not found in cache, show empty state in dialog
-            setIngredientsData({
-                isSuccess: false,
-                title: item.name,
-                ingredients: [],
-                instructions: [],
-                nutrition: { calories: 0, protein: 0 }
-            });
-            toast({
-                variant: "destructive",
-                title: "Ingredients Not Available",
-                description: `Ingredients for "${item.name}" are not in the database.`,
-            });
-        }
+      const response = await getIngredientsForDish({
+        dishName: item.name,
+        language: 'en', // default language
+      });
+      
+      if (response && response.isSuccess) {
+        setIngredientsData(response);
+      } else {
+        setIngredientsData({
+          isSuccess: false,
+          title: item.name,
+          ingredients: [],
+          instructions: [],
+          nutrition: { calories: 0, protein: 0 },
+        });
+        toast({
+          variant: 'destructive',
+          title: 'Ingredients Not Available',
+          description: `The ingredients for "${item.name}" could not be generated at this time.`,
+        });
+      }
     });
   };
 
