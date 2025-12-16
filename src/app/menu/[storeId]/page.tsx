@@ -48,7 +48,7 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -335,23 +335,23 @@ export default function PublicMenuPage() {
       )}
       <div className="min-h-screen bg-white">
           <div className="container mx-auto py-8 px-4 md:px-6 max-w-2xl">
-              <header className="mb-8">
-                   <div className="flex items-center gap-4">
-                       {store.imageUrl && (
-                          <Image
-                            src={store.imageUrl}
-                            alt={store.name}
-                            width={48}
-                            height={48}
-                            className="rounded-full border-2 border-white shadow-md"
-                          />
-                        )}
-                        <div>
-                          <h1 className="text-2xl font-bold font-headline">{store.name}</h1>
-                           {tableNumber && <p className="text-muted-foreground">Table {tableNumber}</p>}
-                        </div>
-                   </div>
-              </header>
+            <header className="mb-8">
+                <div className="flex items-center gap-4">
+                    {store.imageUrl && (
+                        <Image
+                        src={store.imageUrl}
+                        alt={store.name}
+                        width={48}
+                        height={48}
+                        className="rounded-full border-2 border-white shadow-md"
+                        />
+                    )}
+                    <div>
+                        <h1 className="text-2xl font-bold font-headline">{store.name}</h1>
+                        {tableNumber && <p className="text-muted-foreground">Table {tableNumber}</p>}
+                    </div>
+                </div>
+            </header>
 
               {isBillFinalized ? (
                   <Card className="text-center py-16 px-6">
