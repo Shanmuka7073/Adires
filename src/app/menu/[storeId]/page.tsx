@@ -5,30 +5,42 @@ import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase'
 import {
   collection,
   query,
+  where,
   doc,
   setDoc,
 } from 'firebase/firestore';
 
-import type { Store, Menu, MenuItem, Order, GetIngredientsOutput, Ingredient, InstructionStep } from '@/lib/types';
+import type {
+  Store,
+  Menu,
+  MenuItem,
+  Order,
+  OrderItem,
+  GetIngredientsOutput,
+  Ingredient,
+} from '@/lib/types';
+
 import { useParams, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition, useRef } from 'react';
 import Image from 'next/image';
 import { v4 as uuidv4 } from 'uuid';
 
 import {
   Utensils,
+  Plus,
+  Minus,
   Receipt,
   Loader2,
-  Plus,
-  Clock,
   Check,
-  Salad,
+  Clock,
+  Zap,
+  Flame,
   Info,
+  ShoppingCart,
+  Salad,
+  Mic,
+  Eye,
   Download,
-  Copy,
-  StopCircle,
-  Volume2,
-  Database,
 } from 'lucide-react';
 
 import {
@@ -42,27 +54,16 @@ import {
   AlertDialogAction,
   AlertDialogDescription,
 } from '@/components/ui/alert-dialog';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-  SheetFooter,
-} from '@/components/ui/sheet';
-import IngredientsDialog from '@/components/IngredientsDialog';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
 import { addRestaurantOrderItem } from '@/app/actions';
 import { useInstall } from '@/components/install-provider';
 import type { Timestamp } from 'firebase/firestore';
-import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
-import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { format } from 'date-fns';
 
 /* -------------------------------------------------------------------------- */
 /*                                   LIVE BILL                                */
@@ -191,11 +192,6 @@ export default function PublicMenuPage() {
   const [sessionId, setSessionId] = useState('');
   
   const { canInstall, triggerInstall } = useInstall();
-  
-  // State for tracking reads and writes
-  const [readCount, setReadCount] = useState(0);
-  const [writeCount, setWriteCount] = useState(0);
-
 
   useEffect(() => {
     const key = `session_${storeId}_${tableNumber}`;
@@ -218,15 +214,6 @@ export default function PublicMenuPage() {
   const { data: store, isLoading: storeLoading } = useDoc<Store>(storeRef);
   const { data: menus, isLoading: menuLoading } = useCollection<Menu>(menuQuery);
   
-  // Track initial data loads
-  useEffect(() => {
-    if(store) setReadCount(prev => prev + 1);
-  }, [store]);
-  useEffect(() => {
-    if(menus) setReadCount(prev => prev + 1);
-  }, [menus]);
-
-
   const menu = menus?.[0];
   
   const groupedMenu = useMemo(() => {
@@ -241,10 +228,6 @@ export default function PublicMenuPage() {
 
   const handleAddItem = (item: MenuItem) => {
     startAdding(async () => {
-      // Increment counters before the operation
-      setReadCount(prev => prev + 1); // For the get() in the action
-      setWriteCount(prev => prev + 1); // For the set() or update() in the action
-
       const result = await addRestaurantOrderItem({
         storeId,
         sessionId,
@@ -264,7 +247,6 @@ export default function PublicMenuPage() {
           title: "Failed to Add Item",
           description: result.error || "An unknown error occurred.",
         });
-        // Decrement on failure if needed, though for a debug view it might be better to show attempts
       }
     });
   };
@@ -283,16 +265,6 @@ export default function PublicMenuPage() {
   return (
     <div className="min-h-screen bg-gray-50">
         <div className="container mx-auto py-8 px-4 md:px-6">
-          <div className="fixed top-2 right-2 bg-gray-800 text-white text-xs font-mono p-2 rounded-lg shadow-lg z-50 flex items-center gap-4">
-            <div className="flex items-center gap-1">
-                <Database className="h-4 w-4 text-green-400" />
-                <span>Reads: {readCount}</span>
-            </div>
-             <div className="flex items-center gap-1">
-                <Database className="h-4 w-4 text-orange-400" />
-                <span>Writes: {writeCount}</span>
-            </div>
-          </div>
           <Card className="max-w-2xl mx-auto shadow-lg">
             <CardHeader className="text-center">
                  {store.imageUrl && (
@@ -345,5 +317,3 @@ export default function PublicMenuPage() {
       </div>
   );
 }
-        
-    
