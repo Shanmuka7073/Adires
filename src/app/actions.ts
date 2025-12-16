@@ -320,10 +320,9 @@ export async function addRestaurantOrderItem({
     const { db } = await getAdminServices();
     const orderId = `${storeId}_${sessionId}`;
     const orderRef = db.collection('orders').doc(orderId);
-    const orderItemRef = db.collection('orders').doc(orderId).collection('orderItems').doc();
 
     const orderItem: OrderItem = {
-      id: orderItemRef.id,
+      id: uuidv4(), // Use uuid for a unique ID within the array
       orderId,
       productId: `${storeId}-${item.name.replace(/\s/g, '-')}`,
       productName: item.name,
@@ -334,8 +333,6 @@ export async function addRestaurantOrderItem({
       ingredients: item.ingredients || [],
     };
     
-    await orderItemRef.set(orderItem);
-
     const doc = await orderRef.get();
 
     if (!doc.exists) {
@@ -350,10 +347,13 @@ export async function addRestaurantOrderItem({
         totalAmount: orderItem.price * orderItem.quantity,
         status: 'Pending',
         orderDate: Timestamp.now(),
+        items: [orderItem], // Add the first item
       };
       await orderRef.set(newOrder);
     } else {
+      // Use arrayUnion to add the new item, ensuring atomicity
       await orderRef.update({
+        items: FieldValue.arrayUnion(orderItem),
         totalAmount: FieldValue.increment(orderItem.price * orderItem.quantity),
         updatedAt: FieldValue.serverTimestamp(),
         status: 'Pending' // Revert to pending if they add more items
@@ -416,9 +416,7 @@ export async function getStoreSalesReport({
   const menuMap = new Map<string, MenuItem>();
   menuSnap.forEach(doc => {
       const menuItem = doc.data() as MenuItem;
-      // FIX: Add a check for menuItem.name before using it
       if (menuItem.name) {
-          // Normalize key
           menuMap.set(menuItem.name.toLowerCase().trim(), menuItem);
       }
   });
@@ -461,12 +459,10 @@ export async function getStoreSalesReport({
   for (const order of validOrders) {
     totalSales += order.totalAmount;
     
-    // For each order, fetch the orderItems subcollection
-    const itemsSnapshot = await db.collection('orders').doc(order.id).collection('orderItems').get();
-    if (itemsSnapshot.empty) continue; 
+    // Correctly get items from the order's `items` array
+    const items: OrderItem[] = order.items || [];
+    if (items.length === 0) continue; 
     
-    const items = itemsSnapshot.docs.map(doc => doc.data() as OrderItem);
-
     for (const item of items) {
       // Normalize product name for lookup
       const normalizedProductName = item.productName.toLowerCase().trim();
@@ -474,7 +470,7 @@ export async function getStoreSalesReport({
       // Aggregate all sold products for the "Top Products" list
       productMap.set(normalizedProductName, (productMap.get(normalizedProductName) || 0) + item.quantity);
       
-      // Look up the menu item to get ingredient info
+      // Look up the menu item to get ingredient info for cost calculation
       const menuItem = menuMap.get(normalizedProductName);
       if (menuItem && menuItem.ingredients) {
           menuItem.ingredients.forEach(ing => {
@@ -566,6 +562,7 @@ Top Item: ${report.topProducts[0]?.name || 'N/A'}
 
 
     
+
 
 
 
