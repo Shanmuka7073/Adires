@@ -274,11 +274,32 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
     
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+    const [cachedStatus, setCachedStatus] = useState<Record<string, boolean>>({});
+    const [checkingCache, setCheckingCache] = useState(true);
 
-    // Update local state if the initialMenu from props changes (e.g., after a save)
+    // Update local state if the initialMenu from props changes
     useEffect(() => {
         setMenu(initialMenu);
     }, [initialMenu]);
+
+     // Check cache status for all items on load and when menu changes
+    useEffect(() => {
+        const checkAllItemsCache = async () => {
+            if (!firestore || !menu?.items) {
+                setCheckingCache(false);
+                return;
+            }
+            setCheckingCache(true);
+            const status: Record<string, boolean> = {};
+            for (const item of menu.items) {
+                const cached = await getCachedRecipe(firestore, item.name, 'en');
+                status[item.id] = !!cached;
+            }
+            setCachedStatus(status);
+            setCheckingCache(false);
+        };
+        checkAllItemsCache();
+    }, [firestore, menu]);
 
     const handleEditItem = (item: MenuItem) => {
         setEditingItem(item);
@@ -293,7 +314,6 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
     const handleSaveItem = (itemData: MenuItem, isNew: boolean) => {
         let updatedItems;
         if (isNew) {
-            // Find the highest existing temp ID to avoid collisions
             const maxId = Math.max(0, ...menu.items.map(i => parseInt((i.id || '0').split('-')[1] || '0')));
             const newItem = { ...itemData, id: `temp-${maxId + 1}` };
             updatedItems = [...menu.items, newItem];
@@ -302,7 +322,6 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
         }
         const updatedMenu = { ...menu, items: updatedItems };
         setMenu(updatedMenu);
-        // The save to DB happens in the main save button
     };
 
     const handleDeleteItem = (itemToDelete: MenuItem) => {
@@ -325,50 +344,26 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
         });
     }
 
-    const handleGenerateAllIngredients = async () => {
-        if (!firestore) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Database connection not found.' });
-            return;
-        }
+    const handleGenerateIngredients = async (item: MenuItem) => {
+        if (!firestore) return;
         startGeneration(async () => {
-            let processedCount = 0;
-            let successCount = 0;
-            let failureCount = 0;
-            const totalItems = menu.items.length;
-
-            for (const item of menu.items) {
-                try {
-                    const cached = await getCachedRecipe(firestore, item.name, 'en');
-                    if (cached) {
-                        console.log(`Skipping cached item: ${item.name}`);
-                        successCount++;
-                    } else {
-                        const recipe = await getIngredientsForDish({ dishName: item.name, language: 'en' });
-                        if (recipe.isSuccess) {
-                            await cacheRecipe(firestore, item.name, 'en', recipe);
-                            successCount++;
-                        } else {
-                            failureCount++;
-                        }
-                    }
-                } catch (error) {
-                    console.error(`Failed to process ingredients for ${item.name}:`, error);
-                    toast({
-                        variant: 'destructive',
-                        title: `Failed on: ${item.name}`,
-                        description: (error as Error).message,
-                        duration: 10000,
-                    });
-                    failureCount++;
+            try {
+                const recipe = await getIngredientsForDish({ dishName: item.name, language: 'en' });
+                if (recipe.isSuccess) {
+                    await cacheRecipe(firestore, item.name, 'en', recipe);
+                    toast({ title: 'Ingredients Generated!', description: `Successfully created recipe for ${item.name}.` });
+                    setCachedStatus(prev => ({ ...prev, [item.id]: true }));
+                } else {
+                    throw new Error("AI failed to generate a recipe.");
                 }
-                processedCount++;
-                setGenerationProgress((processedCount / totalItems) * 100);
+            } catch (error) {
+                console.error(`Failed to process ingredients for ${item.name}:`, error);
+                toast({
+                    variant: 'destructive',
+                    title: `Failed for: ${item.name}`,
+                    description: (error as Error).message,
+                });
             }
-            toast({
-                title: 'Bulk Generation Complete',
-                description: `Successfully processed ${successCount} and failed on ${failureCount} out of ${totalItems} menu items.`,
-            });
-            setGenerationProgress(0); // Reset progress bar
         });
     };
     
@@ -397,18 +392,6 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
                     <CardDescription>This is your currently active menu. You can add, edit, or remove items below.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                     <div className="space-y-2">
-                        <Button onClick={handleGenerateAllIngredients} disabled={isGenerating} className="w-full">
-                            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                            Generate All Ingredients
-                        </Button>
-                        {isGenerating && (
-                            <div className="space-y-1">
-                                <Progress value={generationProgress} />
-                                <p className="text-xs text-center text-muted-foreground">Processing... {Math.round(generationProgress)}%</p>
-                            </div>
-                        )}
-                    </div>
                     <Button onClick={handleAddNewItem} variant="outline" className="w-full">
                         <PlusCircle className="mr-2 h-4 w-4" /> Add New Menu Item
                     </Button>
@@ -417,7 +400,7 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
                             <TableRow>
                                 <TableHead>Category</TableHead>
                                 <TableHead>Item Name</TableHead>
-                                <TableHead className="text-right">Price</TableHead>
+                                <TableHead>Ingredients</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -425,8 +408,18 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
                             {menu.items.map((item, index) => (
                                 <TableRow key={item.id || index}>
                                     <TableCell className="font-medium">{item.category}</TableCell>
-                                    <TableCell>{item.name}</TableCell>
-                                    <TableCell className="text-right">₹{item.price.toFixed(2)}</TableCell>
+                                    <TableCell>{item.name} <span className="text-muted-foreground">(₹{item.price.toFixed(2)})</span></TableCell>
+                                    <TableCell>
+                                        {checkingCache ? (
+                                            <Skeleton className="h-6 w-20" />
+                                        ) : cachedStatus[item.id] ? (
+                                            <Badge variant="default" className="bg-green-100 text-green-800">Cached</Badge>
+                                        ) : (
+                                            <Button size="sm" variant="secondary" onClick={() => handleGenerateIngredients(item)} disabled={isGenerating}>
+                                                {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Generate'}
+                                            </Button>
+                                        )}
+                                    </TableCell>
                                      <TableCell className="text-right">
                                         <Button variant="ghost" size="icon" onClick={() => handleEditItem(item)}>
                                             <Edit className="h-4 w-4" />
