@@ -397,6 +397,26 @@ export async function updateSiteConfig(configId: string, data: Partial<SiteConfi
     }
 }
 
+// Helper to convert units to a base unit (grams or ml)
+const convertToBaseUnit = (quantity: number, unit: string) => {
+    const u = unit.toLowerCase();
+    if (u === 'kg' || u === 'l' || u === 'litre') return quantity * 1000;
+    if (u === 'g' || u === 'gm' || u === 'ml') return quantity;
+    // For 'pcs' or other units, we treat them as a base unit of 1 for aggregation
+    return quantity;
+};
+
+// Helper to format the final aggregated quantity
+const formatAggregatedQuantity = (quantity: number, unit: string) => {
+    if ((unit === 'g' || unit === 'gm') && quantity >= 1000) {
+        return { quantity: quantity / 1000, unit: 'kg' };
+    }
+    if (unit === 'ml' && quantity >= 1000) {
+        return { quantity: quantity / 1000, unit: 'l' };
+    }
+    return { quantity, unit };
+};
+
 
 export async function getStoreSalesReport({
   storeId,
@@ -416,9 +436,9 @@ export async function getStoreSalesReport({
   const menuMap = new Map<string, MenuItem>();
   menuSnap.forEach(doc => {
       const menuItem = doc.data() as MenuItem;
-      if (menuItem.name) {
-          menuMap.set(menuItem.name.toLowerCase().trim(), menuItem);
-      }
+       if (menuItem.name) {
+            menuMap.set(menuItem.name.toLowerCase().trim(), menuItem);
+       }
   });
 
   const now = new Date();
@@ -478,9 +498,11 @@ export async function getStoreSalesReport({
               totalCost += costOfIngredient;
               
               const currentUsage = ingredientMap.get(ing.name) || { quantity: 0, unit: ing.unit };
+              const baseQuantityConsumed = convertToBaseUnit(ing.quantity, ing.unit) * item.quantity;
+
               ingredientMap.set(ing.name, {
-                  quantity: currentUsage.quantity + (ing.quantity * item.quantity),
-                  unit: ing.unit,
+                  quantity: currentUsage.quantity + baseQuantityConsumed,
+                  unit: ['g', 'gm', 'kg'].includes(ing.unit) ? 'g' : ['ml', 'l', 'litre'].includes(ing.unit) ? 'ml' : 'pcs',
               });
           });
       }
@@ -499,11 +521,14 @@ export async function getStoreSalesReport({
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
         .map(([name, count]) => ({ name, count })),
-      ingredientUsage: [...ingredientMap.entries()].map(([name, data]) => ({
-        name,
-        quantity: data.quantity,
-        unit: data.unit,
-      })),
+      ingredientUsage: [...ingredientMap.entries()].map(([name, data]) => {
+          const formatted = formatAggregatedQuantity(data.quantity, data.unit);
+          return {
+              name,
+              quantity: formatted.quantity,
+              unit: formatted.unit
+          };
+      }),
     },
   };
 }
@@ -562,6 +587,7 @@ Top Item: ${report.topProducts[0]?.name || 'N/A'}
 
 
     
+
 
 
 
