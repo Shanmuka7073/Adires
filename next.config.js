@@ -30,6 +30,17 @@ const nextConfig = {
     config,
     { buildId, dev, isServer, defaultLoaders, nextRuntime, webpack }
   ) => {
+    if (!isServer) {
+        // Prevent bundling of server-only modules on the client
+        config.resolve.fallback = {
+            ...config.resolve.fallback,
+            net: false,
+            dns: false,
+            tls: false,
+            fs: false,
+            child_process: false,
+        };
+    }
     if (isServer) {
         config.externals.push('@genkit-ai/google-genai', 'genkit', '@opentelemetry/api');
     }

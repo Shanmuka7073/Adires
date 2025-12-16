@@ -1,10 +1,6 @@
 
-'use client';
-
-import { Firestore, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { Firestore, doc, getDoc, setDoc, serverTimestamp } from 'firebase-admin/firestore';
 import type { CachedRecipe, GetIngredientsOutput } from './types';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 /**
  * Creates a URL-friendly and Firestore-safe slug from a string.
@@ -27,7 +23,7 @@ const createSlug = (text: string): string => {
 /**
  * Retrieves a cached recipe from Firestore.
  * It will also try to fetch the english version if the target language is not found.
- * @param db Firestore instance.
+ * @param db Firestore admin instance.
  * @param dishName The original name of the dish.
  * @param language The language of the recipe to retrieve.
  * @returns A promise that resolves to a GetIngredientsOutput object or null if not in cache.
@@ -76,7 +72,7 @@ export async function getCachedRecipe(db: Firestore, dishName: string, language:
 
 /**
  * Caches a new recipe in Firestore.
- * @param db Firestore instance.
+ * @param db Firestore admin instance.
  * @param dishName The original name of the dish.
  * @param language The language of the recipe being cached.
  * @param data The GetIngredientsOutput object from the AI.
@@ -95,18 +91,12 @@ export async function cacheRecipe(db: Firestore, dishName: string, language: 'en
         createdAt: serverTimestamp(),
     };
 
-    // Use a .catch block to handle permissions errors and emit a detailed error.
-    return setDoc(docRef, recipeData)
-        .catch(error => {
-            console.error("Firestore cache write failed:", error);
-            const permissionError = new FirestorePermissionError({
-                path: docRef.path,
-                operation: 'create',
-                requestResourceData: recipeData,
-            });
-            // Emit the detailed error for better debugging.
-            errorEmitter.emit('permission-error', permissionError);
-            // Propagate the original error so the UI can still handle it.
-            throw error;
-        });
+    // Use a try-catch for server-side functions
+    try {
+        await setDoc(docRef, recipeData);
+    } catch (error) {
+        console.error("Firestore cache write failed:", error);
+        // Re-throw the error to be caught by the calling function
+        throw error;
+    }
 }

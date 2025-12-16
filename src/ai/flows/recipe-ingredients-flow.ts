@@ -19,7 +19,7 @@ import {
   GetIngredientsOutputSchema,
 } from './recipe-ingredients-types';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
-import { useFirebase } from '@/firebase';
+import { getAdminServices } from '@/firebase/admin-init'; // Correct server-side import
 
 
 const ParsingPrompt = ai.definePrompt({
@@ -134,14 +134,13 @@ const getIngredientsFlow = ai.defineFlow(
         }
     }
     
-    // Get Firestore instance inside the server-side flow.
-    const { firestore } = useFirebase();
-    if (firestore) {
-        const cachedRecipe = await getCachedRecipe(firestore, dishName, language);
-        if (cachedRecipe) {
-            console.log(`Recipe for "${dishName}" in ${language} found in cache.`);
-            return cachedRecipe;
-        }
+    // Get Firestore admin instance for server-side operations
+    const { db } = await getAdminServices();
+
+    const cachedRecipe = await getCachedRecipe(db, dishName, language);
+    if (cachedRecipe) {
+        console.log(`Recipe for "${dishName}" in ${language} found in cache.`);
+        return cachedRecipe;
     }
 
 
@@ -162,14 +161,12 @@ const getIngredientsFlow = ai.defineFlow(
                 existingRecipe: output,
                 targetLanguage: language,
             });
-            if (translatedOutput && firestore) {
-                 await cacheRecipe(firestore, dishName, language, translatedOutput);
+            if (translatedOutput) {
+                 await cacheRecipe(db, dishName, language, translatedOutput);
                  return translatedOutput;
             }
         }
-        if (firestore) {
-            await cacheRecipe(firestore, dishName, language, output);
-        }
+        await cacheRecipe(db, dishName, language, output);
         return output;
       }
     }
@@ -183,9 +180,7 @@ const getIngredientsFlow = ai.defineFlow(
     }
 
     // Cache the newly generated recipe
-    if (firestore) {
-        await cacheRecipe(firestore, dishName, language, generatedOutput);
-    }
+    await cacheRecipe(db, dishName, language, generatedOutput);
 
     return generatedOutput;
   }
@@ -195,4 +190,3 @@ const getIngredientsFlow = ai.defineFlow(
 export async function getIngredientsForDish(input: GetIngredientsInput): Promise<GetIngredientsOutput> {
   return await getIngredientsFlow(input);
 }
-
