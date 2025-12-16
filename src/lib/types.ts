@@ -72,6 +72,12 @@ export type CartItem = {
   sessionId?: string;
 };
 
+export type Ingredient = {
+  name: string;
+  qty: number;
+  unit: 'g' | 'kg' | 'ml' | 'l' | 'pcs';
+};
+
 export type OrderItem = {
   id: string;
   orderId: string;
@@ -82,12 +88,7 @@ export type OrderItem = {
   variantWeight: string;
   quantity: number;
   price: number;
-  ingredients?: {
-    name: string;
-    quantity: number;
-    unit: 'g' | 'ml' | 'pcs';
-    costPerUnit: number;
-  }[];
+  recipeSnapshot: Ingredient[];
 }
 
 export type Order = {
@@ -160,18 +161,6 @@ export type VoiceAliasGroup = {
     type: 'product' | 'store' | 'command';
     [key: string]: any; // To allow for language codes as keys (en, te, hi, etc.)
 };
-
-export interface Ingredient {
-    name: string;
-    quantity: string;
-    baseQuantity?: number;
-    unit?: string;
-}
-
-export interface InstructionStep {
-    title: string;
-    actions: string[];
-}
 
 export interface GetIngredientsOutput {
     isSuccess: boolean;
@@ -315,12 +304,7 @@ export type MenuItem = {
   description?: string;
   price: number;
   category: string;
-  ingredients?: {
-    name: string;
-    quantity: number;
-    unit: 'g' | 'ml' | 'pcs';
-    costPerUnit: number;
-  }[];
+  ingredients?: Ingredient[];
 };
 
 export type Menu = {
@@ -328,6 +312,11 @@ export type Menu = {
   storeId: string;
   items: MenuItem[];
 };
+
+export type InstructionStep = {
+    title: string;
+    actions: string[];
+}
 
 export type UnidentifiedCartItem = {
     id: string;

@@ -150,16 +150,25 @@ export default function SalesReportPage() {
                                       </div>
                                       <div>
                                         <h3 className="text-xl font-semibold mb-3">Ingredient Consumption</h3>
-                                        {report.ingredientUsage.length > 0 ? (
+                                        {report.ingredientUsage.length ? (
                                           <div className="space-y-2">
                                             {report.ingredientUsage.map(i => (
-                                              <div key={i.name} className="flex justify-between bg-muted/50 p-3 rounded">
+                                              <div
+                                                key={i.name}
+                                                className="flex justify-between bg-muted/50 p-3 rounded-md"
+                                              >
                                                 <span className="capitalize">{i.name}</span>
-                                                <b className="font-mono">{i.quantity.toFixed(2)} {i.unit}</b>
+                                                <span className="font-mono font-bold">
+                                                  {i.quantity.toFixed(2)} {i.unit}
+                                                </span>
                                               </div>
                                             ))}
                                           </div>
-                                        ) : <p className="text-muted-foreground">No ingredient data available for consumption calculation.</p>}
+                                        ) : (
+                                          <p className="text-muted-foreground">
+                                            Inventory tracking not enabled for this period
+                                          </p>
+                                        )}
                                       </div>
                                     </div>
                                 </>

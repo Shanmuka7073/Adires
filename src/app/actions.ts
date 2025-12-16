@@ -335,11 +335,11 @@ export async function addRestaurantOrderItem({
       variantWeight: '1 pc',
       quantity,
       price: item.price,
-      // Create the immutable snapshot of ingredients at the time of order
-      recipeSnapshot: (item.ingredients || []).map(ing => ({
-        name: ing.name,
-        qty: ing.quantity,
-        unit: ing.unit,
+      // 🔒 SNAPSHOT (THIS FIXES EVERYTHING)
+      recipeSnapshot: (item.ingredients || []).map(i => ({
+        name: i.name,
+        qty: i.quantity,
+        unit: i.unit
       })),
     };
     
@@ -440,38 +440,14 @@ export async function getStoreSalesReport({
     return { success: false, error: 'Store ID is required' };
   }
 
-  // --- FIX: Fetch menus from the central "LocalBasket" store ---
-  const adminStoreSnap = await db.collection('stores').where('name', '==', 'LocalBasket').limit(1).get();
-  if (adminStoreSnap.empty) {
-      return { success: false, error: 'Master "LocalBasket" store not found.' };
-  }
-  const masterStoreId = adminStoreSnap.docs[0].id;
-  const menuSnap = await db.collection('stores').doc(masterStoreId).collection('menus').get();
+  const getStartDate = (period: 'daily' | 'weekly' | 'monthly') => {
+    const now = new Date();
+    if (period === 'daily') return new Date(now.setHours(0, 0, 0, 0));
+    if (period === 'weekly') return new Date(now.setDate(now.getDate() - 7));
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  };
+  const startDate = getStartDate(period);
   
-  // Build a map keyed by normalized names for robust lookup
-  const menuMap = new Map<string, MenuItem>();
-  menuSnap.forEach(doc => {
-    const menuItem = doc.data() as MenuItem;
-    // --- FIX: Ensure menuItem and menuItem.name exist before normalizing ---
-    if (menuItem && menuItem.name) {
-      menuMap.set(menuItem.name.toLowerCase().trim(), { ...menuItem, id: doc.id });
-    }
-  });
-
-
-  const now = new Date();
-  let startDate: Date;
-
-  if (period === 'daily') {
-    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  } else if (period === 'weekly') {
-    startDate = new Date(now);
-    startDate.setDate(now.getDate() - now.getDay());
-    startDate.setHours(0, 0, 0, 0);
-  } else { // monthly
-    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-  }
-
   const ordersQuery = db
     .collection('orders')
     .where('storeId', '==', storeId)
@@ -495,31 +471,30 @@ export async function getStoreSalesReport({
   for (const order of validOrders) {
     totalSales += order.totalAmount;
     
-    const items: OrderItem[] = order.items || [];
-    if (items.length === 0) continue; 
-    
-    for (const item of items) {
-      if (!item.productName) continue;
-      const normalizedProductName = item.productName.toLowerCase().trim();
-      productMap.set(normalizedProductName, (productMap.get(normalizedProductName) || 0) + item.quantity);
-      
-      // Use the name-based lookup on the reliable menuMap
-      const menuItem = menuMap.get(normalizedProductName);
-        
-      if (menuItem && menuItem.ingredients && menuItem.ingredients.length > 0) {
-          menuItem.ingredients.forEach(ing => {
-              if (typeof ing.quantity !== 'number' || !ing.unit) {
-                return;
-              }
-              
-              const baseQuantityConsumed = convertToBaseUnit(ing.quantity, ing.unit) * item.quantity;
-              const currentUsage = ingredientMap.get(ing.name) || { quantity: 0, unit: ing.unit };
+    for (const item of order.items || []) {
+      const key = item.productName.toLowerCase().trim();
+      productMap.set(key, (productMap.get(key) || 0) + item.quantity);
 
-              ingredientMap.set(ing.name, {
-                  quantity: currentUsage.quantity + baseQuantityConsumed,
-                  unit: ['g', 'gm', 'kg'].includes(ing.unit.toLowerCase()) ? 'g' : ['ml', 'l', 'litre'].includes(ing.unit.toLowerCase()) ? 'ml' : 'pcs',
-              });
-          });
+      // ✅ POS-CORRECT INGREDIENT CALCULATION
+      for (const ing of item.recipeSnapshot || []) {
+         if (!ing.name || typeof ing.qty !== 'number' || !ing.unit) continue;
+
+        const consumed =
+          convertToBaseUnit(ing.qty, ing.unit) * item.quantity;
+
+        const prev = ingredientMap.get(ing.name) || {
+          quantity: 0,
+          unit: ing.unit,
+        };
+
+        ingredientMap.set(ing.name, {
+          quantity: prev.quantity + consumed,
+          unit: ['g', 'gm', 'kg'].includes(ing.unit.toLowerCase())
+            ? 'g'
+            : ['ml', 'l', 'litre'].includes(ing.unit.toLowerCase())
+            ? 'ml'
+            : 'pcs',
+        });
       }
     }
   }
