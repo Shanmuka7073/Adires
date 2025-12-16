@@ -404,110 +404,106 @@ export async function getStoreSalesReport({
   storeId: string;
   period: 'daily' | 'weekly' | 'monthly';
 }) {
-  try {
-    const { db } = await getAdminServices();
+  const { db } = await getAdminServices();
 
-    if (!storeId) {
-      return { success: false, error: 'Store ID is required' };
-    }
+  if (!storeId) {
+    return { success: false, error: 'Store ID is required' };
+  }
 
-    // Step A: Load menu once
-    const menuSnap = await db.collection('stores').doc(storeId).collection('menus').get();
-    const menuMap = new Map<string, MenuItem>();
-    menuSnap.forEach(doc => {
-        const menuItem = doc.data() as MenuItem;
-        menuMap.set(menuItem.name, menuItem);
-    });
+  // Step A: Load menu once
+  const menuSnap = await db.collection('stores').doc(storeId).collection('menus').get();
+  const menuMap = new Map<string, MenuItem>();
+  menuSnap.forEach(doc => {
+      const menuItem = doc.data() as MenuItem;
+      menuMap.set(menuItem.name, menuItem);
+  });
 
-    if (menuMap.size === 0) {
-        // No menu, so can't calculate cost/profit
-        return { success: true, report: { totalSales: 0, totalCost: 0, profit: 0, totalOrders: 0, totalItems: 0, topProducts: [], ingredientUsage: [] } };
-    }
+  if (menuMap.size === 0) {
+      return { success: true, report: { totalSales: 0, totalCost: 0, profit: 0, totalOrders: 0, totalItems: 0, topProducts: [], ingredientUsage: [] } };
+  }
 
-    const now = new Date();
-    let startDate: Date;
+  const now = new Date();
+  let startDate: Date;
 
-    if (period === 'daily') {
-      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    } else if (period === 'weekly') {
-      startDate = new Date(now);
-      startDate.setDate(now.getDate() - now.getDay());
-      startDate.setHours(0, 0, 0, 0);
-    } else {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    }
+  if (period === 'daily') {
+    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  } else if (period === 'weekly') {
+    startDate = new Date(now);
+    startDate.setDate(now.getDate() - now.getDay());
+    startDate.setHours(0, 0, 0, 0);
+  } else {
+    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+  }
 
-    // Fetch relevant orders
-    const ordersSnapshot = await db
-      .collection('orders')
-      .where('storeId', '==', storeId)
-      .where('status', 'in', ['Completed', 'Billed'])
-      .where('orderDate', '>=', Timestamp.fromDate(startDate))
-      .get();
-    
-    const validOrders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+  // Fetch relevant orders
+  const ordersQuery = db
+    .collection('orders')
+    .where('storeId', '==', storeId)
+    .where('status', 'in', ['Completed', 'Billed'])
+    .where('orderDate', '>=', Timestamp.fromDate(startDate));
 
-    if (validOrders.length === 0) {
-      return {
-        success: true,
-        report: { totalSales: 0, totalCost: 0, profit: 0, totalOrders: 0, totalItems: 0, topProducts: [], ingredientUsage: [] },
-      };
-    }
+  const ordersSnapshot = await ordersQuery.get();
+  const validOrders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
 
-    let totalSales = 0;
-    let totalCost = 0;
-    const productMap = new Map<string, number>();
-    const ingredientMap = new Map<string, { quantity: number; unit: string }>();
-
-    for (const order of validOrders) {
-      totalSales += order.totalAmount;
-      
-      const items: OrderItem[] = order.items || [];
-
-      for (const item of items) {
-        productMap.set(item.productName, (productMap.get(item.productName) || 0) + item.quantity);
-        
-        // Step B: Calculate cost and ingredients from the menu map
-        const menuItem = menuMap.get(item.productName);
-        if (menuItem && menuItem.ingredients) {
-            menuItem.ingredients.forEach(ing => {
-                const costOfIngredient = (ing.costPerUnit || 0) * ing.quantity * item.quantity;
-                totalCost += costOfIngredient;
-                
-                const currentUsage = ingredientMap.get(ing.name) || { quantity: 0, unit: ing.unit };
-                ingredientMap.set(ing.name, {
-                    quantity: currentUsage.quantity + (ing.quantity * item.quantity),
-                    unit: ing.unit,
-                });
-            });
-        }
-      }
-    }
-
+  if (validOrders.length === 0) {
     return {
       success: true,
-      report: {
-        totalSales,
-        totalCost,
-        profit: totalSales - totalCost,
-        totalOrders: validOrders.length,
-        totalItems: Array.from(productMap.values()).reduce((a, b) => a + b, 0),
-        topProducts: [...productMap.entries()]
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 5)
-          .map(([name, count]) => ({ name, count })),
-        ingredientUsage: [...ingredientMap.entries()].map(([name, data]) => ({
-          name,
-          quantity: data.quantity,
-          unit: data.unit,
-        })),
-      },
+      report: { totalSales: 0, totalCost: 0, profit: 0, totalOrders: 0, totalItems: 0, topProducts: [], ingredientUsage: [] },
     };
-  } catch (error: any) {
-    console.error('Sales report error:', error);
-    return { success: false, error: error.message };
   }
+
+  let totalSales = 0;
+  let totalCost = 0;
+  const productMap = new Map<string, number>();
+  const ingredientMap = new Map<string, { quantity: number; unit: string }>();
+
+  for (const order of validOrders) {
+    totalSales += order.totalAmount;
+
+    // Correctly fetch subcollection
+    const itemsSnapshot = await db.collection('orders').doc(order.id).collection('orderItems').get();
+    const items = itemsSnapshot.docs.map(doc => doc.data() as OrderItem);
+
+    for (const item of items) {
+      productMap.set(item.productName, (productMap.get(item.productName) || 0) + item.quantity);
+      
+      const menuItem = menuMap.get(item.productName);
+      if (menuItem && menuItem.ingredients) {
+          menuItem.ingredients.forEach(ing => {
+              const costOfIngredient = (ing.costPerUnit || 0) * ing.quantity * item.quantity;
+              totalCost += costOfIngredient;
+              
+              const currentUsage = ingredientMap.get(ing.name) || { quantity: 0, unit: ing.unit };
+              ingredientMap.set(ing.name, {
+                  quantity: currentUsage.quantity + (ing.quantity * item.quantity),
+                  unit: ing.unit,
+              });
+          });
+      }
+    }
+  }
+
+  return {
+    success: true,
+    report: {
+      totalSales,
+      totalCost,
+      profit: totalSales - totalCost,
+      totalOrders: validOrders.length,
+      totalItems: Array.from(productMap.values()).reduce((a, b) => a + b, 0),
+      topProducts: [...productMap.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([name, count]) => ({ name, count })),
+      ingredientUsage: [...ingredientMap.entries()].map(([name, data]) => ({
+        name,
+        quantity: data.quantity,
+        unit: data.unit,
+      })),
+    },
+  };
 }
+
 
 export async function markSessionAsPaid(sessionId: string): Promise<{ success: boolean; error?: string }> {
   try {
@@ -562,5 +558,6 @@ Top Item: ${report.topProducts[0]?.name || 'N/A'}
 
 
     
+
 
 
