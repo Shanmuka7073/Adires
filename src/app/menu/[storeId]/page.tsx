@@ -56,7 +56,9 @@ import { addRestaurantOrderItem } from '@/app/actions';
 import type { Timestamp } from 'firebase/firestore';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import IngredientsDialog from '@/components/IngredientsDialog'; // Import the new dialog
-import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
+import { getCachedRecipe } from '@/lib/recipe-cache';
+import { FirestoreCounter } from '@/components/layout/firestore-counter';
+
 
 /* -------------------------------------------------------------------------- */
 /*                                   LIVE BILL SHEET                          */
@@ -275,10 +277,27 @@ export default function PublicMenuPage() {
   };
 
   const handleShowIngredients = (item: MenuItem) => {
+    if (!firestore) return;
     setSelectedItemForIngredients(item);
     startFetchingIngredients(async () => {
-      const data = await getIngredientsForDish({ dishName: item.name, language: 'en' });
-      setIngredientsData(data);
+        const cachedData = await getCachedRecipe(firestore, item.name, 'en');
+        if (cachedData) {
+            setIngredientsData(cachedData);
+        } else {
+            // If not found in cache, show empty state in dialog
+            setIngredientsData({
+                isSuccess: false,
+                title: item.name,
+                ingredients: [],
+                instructions: [],
+                nutrition: { calories: 0, protein: 0 }
+            });
+            toast({
+                variant: "destructive",
+                title: "Ingredients Not Found",
+                description: `Ingredients for "${item.name}" are not in the database.`,
+            });
+        }
     });
   };
 
@@ -301,6 +320,7 @@ export default function PublicMenuPage() {
           onClose={() => setSelectedItemForIngredients(null)}
           dishName={selectedItemForIngredients.name}
           price={selectedItemForIngredients.price}
+          isLoading={isFetchingIngredients}
           calories={ingredientsData?.nutrition?.calories || 0}
           protein={ingredientsData?.nutrition?.protein || 0}
           ingredients={(ingredientsData?.ingredients as any) || []}
@@ -380,6 +400,7 @@ export default function PublicMenuPage() {
                   </SheetContent>
               </Sheet>
           )}
+          <FirestoreCounter />
         </div>
     </>
   );

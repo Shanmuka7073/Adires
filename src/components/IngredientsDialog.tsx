@@ -4,11 +4,11 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Flame, Zap, X, CheckCircle } from "lucide-react";
+import { Flame, Zap, X, CheckCircle, Info, Loader2 } from "lucide-react";
 
 type Ingredient = {
   name: string;
-  qty: string;
+  quantity: string;
   icon?: string;
 };
 
@@ -17,6 +17,7 @@ interface Props {
   onClose: () => void;
   dishName: string;
   price: number;
+  isLoading: boolean;
   calories: number;
   protein: number;
   ingredients: Ingredient[];
@@ -28,6 +29,7 @@ export default function IngredientsDialog({
   onClose,
   dishName,
   price,
+  isLoading,
   calories,
   protein,
   ingredients,
@@ -60,7 +62,7 @@ export default function IngredientsDialog({
               <Flame className="text-orange-500 h-5 w-5" />
               <div>
                 <p className="text-xs text-muted-foreground">Calories</p>
-                <p className="font-bold text-lg">{calories} kcal</p>
+                <p className="font-bold text-lg">{isLoading ? '...' : calories} kcal</p>
               </div>
             </div>
 
@@ -68,7 +70,7 @@ export default function IngredientsDialog({
               <Zap className="text-green-600 h-5 w-5" />
               <div>
                 <p className="text-xs text-muted-foreground">Protein</p>
-                <p className="font-bold text-lg">{protein} g</p>
+                <p className="font-bold text-lg">{isLoading ? '...' : protein} g</p>
               </div>
             </div>
           </div>
@@ -79,23 +81,41 @@ export default function IngredientsDialog({
           <h3 className="font-semibold text-gray-800">
             What goes into your food
           </h3>
+          
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <p className="ml-2">Fetching ingredients...</p>
+            </div>
+          ) : ingredients.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {ingredients.map((ing, i) => (
+                <Badge
+                  key={i}
+                  variant="secondary"
+                  className="rounded-full px-3 py-1 text-sm"
+                >
+                  {ing.icon && <span className="mr-1">{ing.icon}</span>}
+                  {ing.name} · {ing.quantity}
+                </Badge>
+              ))}
+            </div>
+          ) : (
+             <div className="p-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800">
+                  <div className="flex items-center gap-2">
+                    <Info className="h-5 w-5"/>
+                    <h4 className="font-bold">Ingredients Not Available</h4>
+                  </div>
+                  <p className="text-sm mt-1">
+                    The ingredients for this dish haven't been added to the system yet.
+                  </p>
+              </div>
+          )}
 
-          <div className="flex flex-wrap gap-2">
-            {ingredients.map((ing, i) => (
-              <Badge
-                key={i}
-                variant="secondary"
-                className="rounded-full px-3 py-1 text-sm"
-              >
-                {ing.icon && <span className="mr-1">{ing.icon}</span>}
-                {ing.name} · {ing.qty}
-              </Badge>
-            ))}
-          </div>
 
           <p className="text-xs text-muted-foreground flex items-center gap-1 mt-2">
             <CheckCircle className="h-4 w-4 text-green-600" />
-            Ingredients & nutrition are approximate per serving
+            Ingredients & nutrition are approximate per serving.
           </p>
         </div>
 
