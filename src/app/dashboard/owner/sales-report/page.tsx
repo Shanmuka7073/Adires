@@ -57,6 +57,7 @@ export default function SalesReportPage() {
                 const result = await getStoreSalesReport({ storeId: myStore.id, period: activeTab });
                 if (result.success && result.report) {
                     setReport(result.report as ReportData);
+                    setError(result.error || null); // Set the specific data error if it exists
                 } else {
                     console.error("Failed to fetch sales report:", result.error);
                     setError(result.error || 'An unknown error occurred while fetching the report.');
@@ -131,15 +132,6 @@ export default function SalesReportPage() {
                                     <Skeleton className="h-24" />
                                     <Skeleton className="h-24" />
                                 </div>
-                            ) : error ? (
-                                <Alert variant="destructive">
-                                    <AlertTriangle className="h-4 w-4" />
-                                    <AlertTitle>Error Loading Report</AlertTitle>
-                                    <AlertDescription>
-                                        <p>There was a problem generating the sales report. Please try again later.</p>
-                                        <p className="mt-2 text-xs font-mono bg-red-900/20 p-2 rounded">Error details: {error}</p>
-                                    </AlertDescription>
-                                </Alert>
                             ) : report && report.totalOrders > 0 ? (
                                 <>
                                     <div className="grid md:grid-cols-4 gap-6 mt-6">
@@ -152,6 +144,14 @@ export default function SalesReportPage() {
                                       />
                                       <StatCard title="Orders" value={report.totalOrders} />
                                     </div>
+
+                                    {error && (
+                                        <Alert variant="destructive" className="mt-6">
+                                            <AlertTriangle className="h-4 w-4" />
+                                            <AlertTitle>Data Inconsistency Found</AlertTitle>
+                                            <AlertDescription>{error}</AlertDescription>
+                                        </Alert>
+                                    )}
 
                                     <div className="grid md:grid-cols-2 gap-8 mt-10">
                                       <div>
@@ -174,7 +174,7 @@ export default function SalesReportPage() {
                                             {report.ingredientUsage.map(i => (
                                               <div key={i.name} className="flex justify-between bg-muted/50 p-3 rounded">
                                                 <span>{i.name}</span>
-                                                <b>{i.quantity} {i.unit}</b>
+                                                <b>{i.quantity.toFixed(2)} {i.unit}</b>
                                               </div>
                                             ))}
                                           </div>

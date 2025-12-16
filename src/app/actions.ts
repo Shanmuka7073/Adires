@@ -2,7 +2,6 @@
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
-import { getStorage } from 'firebase-admin/storage';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -432,15 +431,14 @@ export async function getStoreSalesReport({
     return { success: false, error: 'Store ID is required' };
   }
 
-  // Step A: Load menu once to know which items have ingredients for cost calculation.
   const menuSnap = await db.collection('stores').doc(storeId).collection('menus').get();
   const menuMap = new Map<string, MenuItem>();
   menuSnap.forEach(doc => {
     if (doc.exists) {
       const menuItem = doc.data() as MenuItem;
       if (menuItem.name) {
-        // Normalize key
-        menuMap.set(menuItem.id, menuItem);
+        // Normalize key for robust matching
+        menuMap.set(doc.id, menuItem);
       }
     }
   });
@@ -459,7 +457,6 @@ export async function getStoreSalesReport({
     startDate = new Date(now.getFullYear(), now.getMonth(), 1);
   }
 
-  // Fetch relevant completed orders
   const ordersQuery = db
     .collection('orders')
     .where('storeId', '==', storeId)
@@ -478,6 +475,7 @@ export async function getStoreSalesReport({
 
   let totalSales = 0;
   let totalCost = 0;
+  let dataMismatchError = null;
   const productMap = new Map<string, number>();
   const ingredientMap = new Map<string, { quantity: number; unit: string }>();
 
@@ -491,16 +489,10 @@ export async function getStoreSalesReport({
       const normalizedProductName = item.productName.toLowerCase().trim();
       productMap.set(normalizedProductName, (productMap.get(normalizedProductName) || 0) + item.quantity);
       
-      // Check if we have a menuItemId to perform the lookup
       if (item.menuItemId) {
         const menuItem = menuMap.get(item.menuItemId);
-        // ADDED DEBUGGING LOGS
-        if (!menuItem) {
-            console.log(`[SALES REPORT DEBUG] Menu item not found in map for menuItemId: "${item.menuItemId}" (Product: "${item.productName}")`);
-        } else if (!menuItem.ingredients || menuItem.ingredients.length === 0) {
-            console.log(`[SALES REPORT DEBUG] Menu item found for "${item.productName}", but it has no ingredients listed.`);
-        } else {
-            // This block executes only if a matching menu item with ingredients is found.
+        
+        if (menuItem && menuItem.ingredients && menuItem.ingredients.length > 0) {
             menuItem.ingredients.forEach(ing => {
                 const costOfIngredient = (ing.costPerUnit || 0) * ing.quantity * item.quantity;
                 totalCost += costOfIngredient;
@@ -513,10 +505,15 @@ export async function getStoreSalesReport({
                     unit: ['g', 'gm', 'kg'].includes(ing.unit) ? 'g' : ['ml', 'l', 'litre'].includes(ing.unit) ? 'ml' : 'pcs',
                 });
             });
+        } else if (!dataMismatchError) { // Capture the first error found
+            if (!menuItem) {
+                dataMismatchError = `Data mismatch: Order item "${item.productName}" has a menuItemId ("${item.menuItemId}") that was not found in the menu. The item may have been deleted.`;
+            } else {
+                dataMismatchError = `Missing data: Menu item "${item.productName}" does not have an 'ingredients' array for cost calculation.`;
+            }
         }
-      } else {
-        // Log if an order item is missing the crucial menuItemId
-        console.log(`[SALES REPORT DEBUG] Order item "${item.productName}" is missing a menuItemId and cannot be used for cost calculation.`);
+      } else if (!dataMismatchError) {
+         dataMismatchError = `Missing data: Order item "${item.productName}" is missing a 'menuItemId' and cannot be used for cost calculation.`;
       }
     }
   }
@@ -542,6 +539,7 @@ export async function getStoreSalesReport({
           };
       }),
     },
+    error: dataMismatchError, // Return the captured error
   };
 }
 
@@ -595,5 +593,3 @@ Orders: ${report.totalOrders}
 Top Item: ${report.topProducts[0]?.name || 'N/A'}
 `;
 }
-
-    
