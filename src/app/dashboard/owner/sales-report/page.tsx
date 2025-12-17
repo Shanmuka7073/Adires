@@ -90,7 +90,7 @@ export default function SalesReportPage() {
         link.click();
         document.body.removeChild(link);
     };
-
+    
     const profit = report ? report.totalSales - report.ingredientCost : 0;
     const profitColor = profit >= 0 ? 'text-green-600' : 'text-red-600';
     const profitPerOrder = report && report.totalOrders > 0 ? profit / report.totalOrders : 0;
