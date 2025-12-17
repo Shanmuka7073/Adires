@@ -12,6 +12,7 @@ import { collection, query, where } from 'firebase/firestore';
 import type { Store } from '@/lib/types';
 import { getStoreSalesReport } from '@/app/actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
 
 type ReportData = {
   totalSales: number;
@@ -22,12 +23,15 @@ type ReportData = {
   ingredientCost: number;
 };
 
-function StatCard({ title, value, highlight = false }: { title: string, value: string | number, highlight?: boolean }) {
+function StatCard({ title, value, highlight = false, description, valueClassName }: { title: string, value: string | number, highlight?: boolean, description?: string, valueClassName?: string }) {
   return (
-    <Card className={highlight ? 'border-green-500 bg-green-50' : 'bg-slate-50'}>
-      <CardContent className="p-4">
-        <p className="text-sm text-muted-foreground">{title}</p>
-        <h2 className="text-2xl font-bold mt-1">{value}</h2>
+    <Card className={cn(highlight ? 'bg-green-500/10 border-green-500/30' : '')}>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        {description && <CardDescription className="text-xs">{description}</CardDescription>}
+      </CardHeader>
+      <CardContent>
+        <h2 className={cn("text-3xl font-bold", valueClassName)}>{value}</h2>
       </CardContent>
     </Card>
   );
@@ -86,6 +90,12 @@ export default function SalesReportPage() {
         link.click();
         document.body.removeChild(link);
     };
+
+    const profit = report ? report.totalSales - report.ingredientCost : 0;
+    const profitColor = profit >= 0 ? 'text-green-600' : 'text-red-600';
+    const profitPerOrder = report && report.totalOrders > 0 ? profit / report.totalOrders : 0;
+    const foodCostPercent = report && report.totalSales > 0 ? (report.ingredientCost / report.totalSales) * 100 : 0;
+    const foodCostColor = foodCostPercent > 50 ? 'text-red-600' : 'text-green-600';
     
     if (storeLoading) {
         return <div className="container mx-auto py-12"><p>Loading store information...</p></div>
@@ -118,9 +128,9 @@ export default function SalesReportPage() {
                 <CardContent>
                     <Tabs defaultValue="daily" value={activeTab} onValueChange={(value) => setActiveTab(value as 'daily' | 'weekly' | 'monthly')} className="w-full">
                         <TabsList className="grid w-full grid-cols-3">
-                            <TabsTrigger value="daily">Today's Report</TabsTrigger>
-                            <TabsTrigger value="weekly">This Week's Report</TabsTrigger>
-                            <TabsTrigger value="monthly">This Month's Report</TabsTrigger>
+                            <TabsTrigger value="daily">Today</TabsTrigger>
+                            <TabsTrigger value="weekly">This Week</TabsTrigger>
+                            <TabsTrigger value="monthly">This Month</TabsTrigger>
                         </TabsList>
                         <TabsContent value={activeTab} className="mt-6">
                             {isLoading ? (
@@ -138,11 +148,22 @@ export default function SalesReportPage() {
                                 </Alert>
                             ) : report && report.totalOrders > 0 ? (
                                 <div className="space-y-8">
+                                    {profit < 0 && (
+                                        <Alert variant="destructive">
+                                            <AlertTriangle className="h-4 w-4" />
+                                            <AlertTitle>Loss Alert</AlertTitle>
+                                            <AlertDescription>
+                                            Your ingredient cost is higher than sales. Consider increasing prices or reviewing portion sizes.
+                                            </AlertDescription>
+                                        </Alert>
+                                    )}
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                      <StatCard title="Gross Profit" value={`₹${profit.toFixed(0)}`} valueClassName={profitColor} highlight={profit > 0} />
                                       <StatCard title="Total Sales" value={`₹${report.totalSales.toFixed(0)}`} />
-                                      <StatCard title="Ingredient Cost" value={`₹${report.ingredientCost.toFixed(0)}`} />
-                                      <StatCard title="Gross Profit" value={`₹${(report.totalSales - report.ingredientCost).toFixed(0)}`} highlight={true} />
-                                      <StatCard title="Total Orders" value={report.totalOrders} />
+                                      <StatCard title="Ingredient Cost" value={`₹${report.ingredientCost.toFixed(0)}`} description={
+                                          <span className={cn("font-semibold", foodCostColor)}>({foodCostPercent.toFixed(1)}% of Sales)</span>
+                                      }/>
+                                      <StatCard title="Profit Per Order" value={`₹${profitPerOrder.toFixed(0)}`} />
                                     </div>
                                     
                                     <div className="grid md:grid-cols-2 gap-8">
