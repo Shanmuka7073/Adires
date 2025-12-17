@@ -333,12 +333,12 @@ export async function addRestaurantOrderItem({
         const recipe = recipeDoc.data() as CachedRecipe;
         recipeSnapshotData = (recipe.ingredients || []).map(ing => ({
             name: ing.name,
-            qty: ing.baseQuantity, // Use the correct numeric baseQuantity
+            qty: ing.baseQuantity,
             unit: ing.unit || '',
             cost: ing.cost || 0,
         }));
     } else {
-        console.warn(`No cached recipe found for "${item.name}". Order item will have an empty recipe snapshot.`);
+        console.warn(`No cached recipe for "${item.name}".`);
     }
 
     const orderId = `${storeId}_${sessionId}`;
@@ -358,30 +358,36 @@ export async function addRestaurantOrderItem({
       recipeSnapshot: recipeSnapshotData,
     };
 
-    const doc = await orderRef.get();
-
-    if (!doc.exists) {
-      const newOrder: Partial<Order> = {
-        id: orderId,
-        storeId,
-        sessionId,
-        tableNumber,
-        userId: 'guest',
-        customerName: `Table ${tableNumber || 'N/A'}`,
-        deliveryAddress: "In-store dining",
-        totalAmount: orderItem.price * orderItem.quantity,
-        status: 'Pending',
-        orderDate: Timestamp.now(),
-        items: [orderItem],
-      };
-      await orderRef.set(newOrder);
-    } else {
+    // Optimistic Update: Try to update first.
+    try {
       await orderRef.update({
         items: FieldValue.arrayUnion(orderItem),
         totalAmount: FieldValue.increment(orderItem.price * orderItem.quantity),
         updatedAt: FieldValue.serverTimestamp(),
         status: 'Pending'
       });
+    } catch (error: any) {
+      // If the document doesn't exist, Firestore throws a specific error.
+      // We catch it and create the document instead.
+      if (error.code === 'NOT_FOUND') {
+        const newOrder: Partial<Order> = {
+          id: orderId,
+          storeId,
+          sessionId,
+          tableNumber,
+          userId: 'guest',
+          customerName: `Table ${tableNumber || 'N/A'}`,
+          deliveryAddress: "In-store dining",
+          totalAmount: orderItem.price * orderItem.quantity,
+          status: 'Pending',
+          orderDate: Timestamp.now(),
+          items: [orderItem],
+        };
+        await orderRef.set(newOrder);
+      } else {
+        // If it's a different error (e.g., permissions), re-throw it.
+        throw error;
+      }
     }
 
     return { success: true };
@@ -678,4 +684,5 @@ export async function addIngredientsToCatalog(ingredients: Omit<RestaurantIngred
   }
 }
     
+
 
