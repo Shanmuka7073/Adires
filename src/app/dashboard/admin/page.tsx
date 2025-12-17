@@ -28,6 +28,7 @@ import {
   BrainCircuit,
   BarChart3,
   ChefHat,
+  TrendingUp,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -242,6 +243,12 @@ export default function AdminDashboardPage() {
             description="Get a complete breakdown of the app's features and design."
             href="/dashboard/admin/app-overview"
             icon={FileSignature}
+          />
+          <ActionCard
+            title="Economics Breakdown"
+            description="Explanation of how the app calculates profit and efficiency."
+            href="/dashboard/admin/economics-breakdown"
+            icon={TrendingUp}
           />
           <ActionCard
             title="Live Order Video"
