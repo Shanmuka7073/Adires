@@ -70,6 +70,50 @@ function ProfitDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean
     );
 }
 
+// New Dialog Component for Profit Per Order Breakdown
+function ProfitPerOrderDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean, onOpenChange: (open: boolean) => void, report: ReportData | null }) {
+    if (!report || report.totalOrders === 0) return null;
+
+    const profit = report.totalSales - report.ingredientCost;
+    const profitPerOrder = profit / report.totalOrders;
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Profit Per Order Calculation</DialogTitle>
+                    <DialogDescription>
+                        This is the average profit you make on each order.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="flex justify-between items-center text-lg">
+                        <span className="text-muted-foreground">Gross Profit</span>
+                        <span className="font-semibold">₹{profit.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-center">
+                        <Divide className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div className="flex justify-between items-center text-lg">
+                        <span className="text-muted-foreground">Total Orders</span>
+                        <span className="font-semibold">{report.totalOrders}</span>
+                    </div>
+                    <div className="flex justify-center">
+                        <Equal className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div className="flex justify-between items-center text-xl p-3 bg-primary/10 rounded-md">
+                        <span className="font-extrabold text-primary">Profit Per Order</span>
+                        <span className="font-extrabold text-primary">₹{profitPerOrder.toFixed(2)}</span>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button onClick={() => onOpenChange(false)}>Close</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 // New Dialog Component for Ingredient Cost Breakdown
 function CostDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean, onOpenChange: (open: boolean) => void, report: ReportData | null }) {
     if (!report) return null;
@@ -143,7 +187,7 @@ function StatCard({ title, value, highlight = false, description, valueClassName
     <Card 
         onClick={onClick}
         className={cn(
-            highlight ? 'border-green-500 bg-green-50' : '',
+            highlight ? 'border-green-500 bg-green-50' : 'bg-slate-50',
             onClick ? 'cursor-pointer hover:shadow-md hover:border-gray-300 transition-all' : ''
         )}
     >
@@ -167,6 +211,8 @@ export default function SalesReportPage() {
     const [isProfitDialogOpen, setIsProfitDialogOpen] = useState(false);
     const [isCostDialogOpen, setIsCostDialogOpen] = useState(false);
     const [isSalesDialogOpen, setIsSalesDialogOpen] = useState(false);
+    const [isProfitPerOrderDialogOpen, setIsProfitPerOrderDialogOpen] = useState(false);
+
 
     const storeQuery = useMemoFirebase(() =>
         firestore && user
@@ -234,6 +280,7 @@ export default function SalesReportPage() {
             <ProfitDetailsDialog isOpen={isProfitDialogOpen} onOpenChange={setIsProfitDialogOpen} report={report} />
             <CostDetailsDialog isOpen={isCostDialogOpen} onOpenChange={setIsCostDialogOpen} report={report} />
             <SalesDetailsDialog isOpen={isSalesDialogOpen} onOpenChange={setIsSalesDialogOpen} report={report} />
+            <ProfitPerOrderDetailsDialog isOpen={isProfitPerOrderDialogOpen} onOpenChange={setIsProfitPerOrderDialogOpen} report={report} />
 
             <Card>
                 <CardHeader>
@@ -287,10 +334,8 @@ export default function SalesReportPage() {
                                     )}
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                       <StatCard title="Gross Profit" value={`₹${profit.toFixed(0)}`} valueClassName={profitColor} highlight={profit > 0} onClick={() => setIsProfitDialogOpen(true)} />
+                                      <StatCard title="Profit Per Order" value={`₹${profitPerOrder.toFixed(0)}`} valueClassName={profitPerOrder > 0 ? 'text-gray-800' : 'text-red-600'} onClick={() => setIsProfitPerOrderDialogOpen(true)} />
                                       <StatCard title="Total Sales" value={`₹${report.totalSales.toFixed(0)}`} onClick={() => setIsSalesDialogOpen(true)} />
-                                      <StatCard title="Ingredient Cost" value={`₹${report.ingredientCost.toFixed(0)}`} description={
-                                          <span className={cn("font-semibold", foodCostColor)}>({foodCostPercent.toFixed(1)}% of Sales)</span>
-                                      } onClick={() => setIsCostDialogOpen(true)} />
                                       <StatCard title="Total Orders" value={report.totalOrders} />
                                     </div>
                                     
@@ -308,8 +353,8 @@ export default function SalesReportPage() {
                                             </div>
                                         ) : <p className="text-muted-foreground">No products sold in this period.</p>}
                                       </div>
-                                      <div>
-                                        <h3 className="text-xl font-semibold mb-3 flex items-center gap-2"><Droplets className="h-5 w-5 text-primary"/> Ingredient Consumption</h3>
+                                      <div onClick={() => setIsCostDialogOpen(true)} className="cursor-pointer">
+                                        <h3 className="text-xl font-semibold mb-3 flex items-center gap-2"><Receipt className="h-5 w-5 text-primary"/> Ingredient Consumption</h3>
                                         {report.ingredientUsage.length > 0 ? (
                                           <div className="space-y-2">
                                             {report.ingredientUsage.map(i => (
