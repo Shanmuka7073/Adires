@@ -1,11 +1,12 @@
 
+
 'use client';
 
 import React, { useEffect, useState, useTransition, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BarChart3, Download, DollarSign, Receipt, AlertTriangle, List, TrendingUp, TrendingDown, Award, Lightbulb } from 'lucide-react';
+import { BarChart3, Download, DollarSign, Receipt, AlertTriangle, List, TrendingUp, TrendingDown, Award, Lightbulb, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
@@ -38,44 +39,38 @@ function SuggestionDetailsDialog({ isOpen, onOpenChange, tableData }: { isOpen: 
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2"><Lightbulb className="text-amber-500"/> Profit Improvement Suggestions</DialogTitle>
                     <DialogDescription>
-                        Detailed breakdown on how to improve Table {tableData.tableNumber}'s profit margin from a risky <strong>{tableData.profitPercentage.toFixed(1)}%</strong> to a healthy <strong>{(TARGET_MARGIN * 100).toFixed(0)}%</strong>.
+                        For Table {tableData.tableNumber}, here's how to increase the profit margin from <strong>{tableData.profitPercentage.toFixed(1)}%</strong> to a healthy <strong>{(TARGET_MARGIN * 100).toFixed(0)}%</strong>.
                     </DialogDescription>
                 </DialogHeader>
-                <ScrollArea className="max-h-[60vh] pr-6">
+                <ScrollArea className="max-h-[60vh] pr-4">
                   <div className="space-y-6 py-4">
                       {/* Path A */}
-                      <div className="space-y-3">
-                          <h4 className="text-lg font-semibold">Path A: Increase Selling Price</h4>
-                          <p className="text-sm text-muted-foreground">To reach a 55% margin with your current ingredient cost of <strong>₹{tableData.totalCost.toFixed(2)}</strong>, your total sales for this period would need to be <strong>₹{requiredTotalSales.toFixed(2)}</strong>.</p>
-                          <div className="font-mono p-2 bg-muted rounded-md text-xs">
+                       <div className="space-y-3 p-4 rounded-lg bg-blue-50 border border-blue-200">
+                          <h4 className="text-lg font-semibold text-blue-800">Path A: Increase Selling Price</h4>
+                          <p className="text-sm text-blue-700">To reach a 55% margin with your current ingredient cost of <strong>₹{tableData.totalCost.toFixed(2)}</strong>, your total sales for this period would need to be <strong>₹{requiredTotalSales.toFixed(2)}</strong>.</p>
+                          <div className="font-mono p-2 bg-blue-100 rounded-md text-xs text-blue-900">
                               Calculation: ₹{tableData.totalCost.toFixed(2)} / (1 - 0.55) = ₹{requiredTotalSales.toFixed(2)}
                           </div>
-                          <p className="text-sm text-muted-foreground">The total increase in sales required is <strong>₹{priceIncreaseNeeded.toFixed(2)}</strong>.</p>
-                          <div className="font-mono p-2 bg-muted rounded-md text-xs">
-                              Calculation: ₹{requiredTotalSales.toFixed(2)} (Target) - ₹{tableData.totalSales.toFixed(2)} (Current) = ₹{priceIncreaseNeeded.toFixed(2)}
-                          </div>
-                          <p className="text-sm text-muted-foreground">Spread across {tableData.orderCount} orders, this means an average price increase of:</p>
+                          <p className="text-sm text-blue-700">The total increase in sales required is <strong>₹{priceIncreaseNeeded.toFixed(2)}</strong>.</p>
+                           <p className="text-sm text-blue-700">Spread across {tableData.orderCount} orders, this means an average price increase of:</p>
                           <p className="text-center font-bold text-2xl text-green-600">~₹{priceIncreasePerOrder.toFixed(2)} per order</p>
                       </div>
 
                       <Separator />
 
                       {/* Path B */}
-                       <div className="space-y-3">
-                          <h4 className="text-lg font-semibold">Path B: Reduce Ingredient Costs</h4>
-                          <p className="text-sm text-muted-foreground">To reach a 55% margin from your current sales of <strong>₹{tableData.totalSales.toFixed(2)}</strong>, your total ingredient cost should not exceed <strong>₹{requiredIngredientCost.toFixed(2)}</strong>.</p>
-                          <div className="font-mono p-2 bg-muted rounded-md text-xs">
+                       <div className="space-y-3 p-4 rounded-lg bg-orange-50 border border-orange-200">
+                          <h4 className="text-lg font-semibold text-orange-800">Path B: Reduce Ingredient Costs</h4>
+                          <p className="text-sm text-orange-700">To reach a 55% margin from your current sales of <strong>₹{tableData.totalSales.toFixed(2)}</strong>, your total ingredient cost should not exceed <strong>₹{requiredIngredientCost.toFixed(2)}</strong>.</p>
+                          <div className="font-mono p-2 bg-orange-100 rounded-md text-xs text-orange-900">
                               Calculation: ₹{tableData.totalSales.toFixed(2)} * (1 - 0.55) = ₹{requiredIngredientCost.toFixed(2)}
                           </div>
-                          <p className="text-sm text-muted-foreground">This means you need to reduce your current costs by <strong>₹{costReductionNeeded.toFixed(2)}</strong>.</p>
-                          <div className="font-mono p-2 bg-muted rounded-md text-xs">
-                              Calculation: ₹{tableData.totalCost.toFixed(2)} (Current) - ₹{requiredIngredientCost.toFixed(2)} (Target) = ₹{costReductionNeeded.toFixed(2)}
-                          </div>
-                          <p className="text-sm text-muted-foreground">This represents a total cost reduction of:</p>
+                          <p className="text-sm text-orange-700">This means you need to reduce your current costs by <strong>₹{costReductionNeeded.toFixed(2)}</strong>.</p>
+                          <p className="text-sm text-orange-700">This represents a total cost reduction of:</p>
                           <p className="text-center font-bold text-2xl text-green-600">~{costReductionPercent.toFixed(1)}%</p>
                       </div>
                   </div>
@@ -216,7 +211,6 @@ function GrossProfitDetailsDialog({ isOpen, onOpenChange, report, onSuggestionCl
     );
 }
 
-
 function ProfitPerOrderDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean, onOpenChange: (open: boolean) => void, report: ReportData | null }) {
     if (!report || report.totalOrders === 0) return null;
 
@@ -225,7 +219,7 @@ function ProfitPerOrderDetailsDialog({ isOpen, onOpenChange, report }: { isOpen:
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-lg">
                 <DialogHeader>
                     <DialogTitle>Profit Per Order Calculation</DialogTitle>
                     <DialogDescription>
@@ -284,33 +278,67 @@ function ProfitPerOrderDetailsDialog({ isOpen, onOpenChange, report }: { isOpen:
 function CostDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean, onOpenChange: (open: boolean) => void, report: ReportData | null }) {
     if (!report) return null;
 
+    const topDrivers = report.costDrivers.slice(0, 3);
+    const otherCost = report.ingredientCost - topDrivers.reduce((acc, d) => acc + d.cost, 0);
+
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-lg">
                 <DialogHeader>
                     <DialogTitle>Ingredient Cost Breakdown</DialogTitle>
                     <DialogDescription>
                         A complete list of all ingredients consumed and their total cost for this period.
                     </DialogDescription>
                 </DialogHeader>
-                <ScrollArea className="max-h-[50vh] pr-4">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Ingredient</TableHead>
-                                <TableHead className="text-right">Cost</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {report.ingredientUsage.map(ing => (
-                                <TableRow key={ing.name}>
-                                    <TableCell className="font-medium capitalize">{ing.name}</TableCell>
-                                    <TableCell className="text-right font-mono">₹{ing.cost.toFixed(2)}</TableCell>
+                <div className="space-y-4 py-4">
+                    {report.costDrivers.length > 0 && (
+                        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                             <h4 className="font-semibold mb-2 flex items-center gap-2 text-amber-900"><Search className="h-4 w-4"/> Top Cost Drivers</h4>
+                            <div className="space-y-2">
+                                {topDrivers.map(driver => (
+                                    <div key={driver.name} className="flex justify-between items-center text-sm">
+                                        <span className="font-medium capitalize">{driver.name}</span>
+                                        <Badge variant="destructive" className="bg-red-100 text-red-800">{driver.percentage.toFixed(1)}%</Badge>
+                                    </div>
+                                ))}
+                                {otherCost > 0 && (
+                                     <div className="flex justify-between items-center text-sm">
+                                        <span className="font-medium">Other Items</span>
+                                        <Badge variant="secondary">{(100 - topDrivers.reduce((acc, d) => acc + d.percentage, 0)).toFixed(1)}%</Badge>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                    <ScrollArea className="max-h-[40vh] pr-4">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Ingredient</TableHead>
+                                    <TableHead className="text-right">Cost</TableHead>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </ScrollArea>
+                            </TableHeader>
+                            <TableBody>
+                                {report.ingredientUsage.sort((a,b) => b.cost - a.cost).map(ing => (
+                                    <TableRow key={ing.name}>
+                                        <TableCell className="font-medium capitalize">{ing.name}</TableCell>
+                                        <TableCell className="text-right font-mono">₹{ing.cost.toFixed(2)}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </ScrollArea>
+
+                     {report.optimizationHint && (
+                        <Alert className="mt-4 bg-blue-50 border-blue-200">
+                             <Lightbulb className="h-4 w-4 text-blue-600" />
+                            <AlertTitle className="text-blue-800">Optimization Hint</AlertTitle>
+                            <AlertDescription className="text-blue-700">
+                                {report.optimizationHint}
+                            </AlertDescription>
+                        </Alert>
+                    )}
+                </div>
                 <DialogFooter className="border-t pt-4">
                     <div className="w-full flex justify-between items-center text-lg font-bold text-red-600">
                         <span>Total Ingredient Cost</span>

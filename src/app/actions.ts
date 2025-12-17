@@ -477,7 +477,7 @@ export async function getStoreSalesReport({
   if (validOrders.length === 0) {
     return {
       success: true,
-      report: { totalSales: 0, totalOrders: 0, totalItems: 0, topProducts: [], ingredientUsage: [], ingredientCost: 0, salesByTable: [] },
+      report: { totalSales: 0, totalOrders: 0, totalItems: 0, topProducts: [], ingredientUsage: [], ingredientCost: 0, costDrivers: [], optimizationHint: null, salesByTable: [] },
     };
   }
 
@@ -527,6 +527,28 @@ export async function getStoreSalesReport({
 
   const totalIngredientCost = Array.from(ingredientMap.values()).reduce((acc, curr) => acc + curr.cost, 0);
 
+  const sortedIngredients = [...ingredientMap.entries()].sort((a, b) => b[1].cost - a[1].cost);
+  const costDrivers = sortedIngredients.slice(0, 5).map(([name, data]) => ({
+      name,
+      cost: data.cost,
+      percentage: totalIngredientCost > 0 ? (data.cost / totalIngredientCost) * 100 : 0,
+  }));
+  
+  let optimizationHint = null;
+  const oilAndGheeCost = sortedIngredients
+      .filter(([name]) => name.toLowerCase().includes('oil') || name.toLowerCase().includes('ghee'))
+      .reduce((acc, [, data]) => acc + data.cost, 0);
+  
+  if (totalIngredientCost > 0) {
+    const oilGheePercentage = (oilAndGheeCost / totalIngredientCost) * 100;
+    if (oilGheePercentage > 15) { // If oils are more than 15% of total cost
+        optimizationHint = `Oils & Ghee make up ${oilGheePercentage.toFixed(0)}% of your costs. A 5-10% reduction in usage here could significantly boost profits.`;
+    } else if (costDrivers.length > 0 && costDrivers[0].percentage > 30) {
+        optimizationHint = `${costDrivers[0].name} is your biggest cost driver at ${costDrivers[0].percentage.toFixed(0)}%. Look for bulk purchase options or alternative suppliers to reduce its cost.`;
+    }
+  }
+
+
   return {
     success: true,
     report: {
@@ -542,6 +564,8 @@ export async function getStoreSalesReport({
           return { name, quantity: formatted.quantity, unit: formatted.unit, cost: data.cost };
       }),
       ingredientCost: totalIngredientCost,
+      costDrivers,
+      optimizationHint,
       salesByTable: Array.from(salesByTableMap.entries()).map(([tableNumber, data]) => {
           const grossProfit = data.totalSales - data.totalCost;
           return {

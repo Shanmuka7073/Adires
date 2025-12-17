@@ -343,6 +343,8 @@ export type ReportData = {
   topProducts: { name: string; count: number }[];
   ingredientUsage: { name: string; quantity: number, unit: string, cost: number }[];
   ingredientCost: number;
+  costDrivers: { name: string; cost: number; percentage: number }[];
+  optimizationHint: string | null;
   salesByTable: { 
     tableNumber: string; 
     totalSales: number; 
