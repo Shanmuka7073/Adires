@@ -1,5 +1,4 @@
 
-
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -334,4 +333,13 @@ export type RestaurantIngredient = {
   name: string;
   unit: string; // e.g., 'kg', 'litre', 'pc'
   cost: number; // The purchase cost per unit
+};
+
+export type ReportData = {
+  totalSales: number;
+  totalItems: number;
+  totalOrders: number;
+  topProducts: { name: string; count: number }[];
+  ingredientUsage: { name: string; quantity: number, unit: string, cost: number }[];
+  ingredientCost: number;
 };

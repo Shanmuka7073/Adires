@@ -9,23 +9,13 @@ import { BarChart3, Download, DollarSign, Package, AlertTriangle, ArrowDown, Min
 import { Button } from '@/components/ui/button';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
-import type { Store } from '@/lib/types';
+import type { Store, ReportData } from '@/lib/types';
 import { getStoreSalesReport } from '@/app/actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-
-
-type ReportData = {
-  totalSales: number;
-  totalItems: number;
-  totalOrders: number;
-  topProducts: { name: string; count: number }[];
-  ingredientUsage: { name: string; quantity: number, unit: string, cost: number }[];
-  ingredientCost: number;
-};
 
 // New Dialog Component for Profit Breakdown
 function ProfitDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean, onOpenChange: (open: boolean) => void, report: ReportData | null }) {
@@ -264,8 +254,6 @@ export default function SalesReportPage() {
     const profit = report ? report.totalSales - report.ingredientCost : 0;
     const profitColor = profit >= 0 ? 'text-green-600' : 'text-red-600';
     const profitPerOrder = report && report.totalOrders > 0 ? profit / report.totalOrders : 0;
-    const foodCostPercent = report && report.totalSales > 0 ? (report.ingredientCost / report.totalSales) * 100 : 0;
-    const foodCostColor = foodCostPercent > 50 ? 'text-red-600' : 'text-green-600';
     
     if (storeLoading) {
         return <div className="container mx-auto py-12"><p>Loading store information...</p></div>
@@ -309,11 +297,8 @@ export default function SalesReportPage() {
                         </TabsList>
                         <TabsContent value={activeTab} className="mt-6">
                             {isLoading ? (
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-                                    <Skeleton className="h-24" />
-                                    <Skeleton className="h-24" />
-                                    <Skeleton className="h-24" />
-                                    <Skeleton className="h-24" />
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mt-6">
+                                    <Skeleton className="h-24" /><Skeleton className="h-24" /><Skeleton className="h-24" /><Skeleton className="h-24" /><Skeleton className="h-24" />
                                 </div>
                             ) : error ? (
                                 <Alert variant="destructive">
@@ -332,9 +317,10 @@ export default function SalesReportPage() {
                                             </AlertDescription>
                                         </Alert>
                                     )}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                                       <StatCard title="Gross Profit" value={`₹${profit.toFixed(0)}`} valueClassName={profitColor} highlight={profit > 0} onClick={() => setIsProfitDialogOpen(true)} />
                                       <StatCard title="Profit Per Order" value={`₹${profitPerOrder.toFixed(0)}`} valueClassName={profitPerOrder > 0 ? 'text-gray-800' : 'text-red-600'} onClick={() => setIsProfitPerOrderDialogOpen(true)} />
+                                      <StatCard title="Ingredient Cost" value={`₹${report.ingredientCost.toFixed(0)}`} valueClassName="text-red-600" onClick={() => setIsCostDialogOpen(true)} />
                                       <StatCard title="Total Sales" value={`₹${report.totalSales.toFixed(0)}`} onClick={() => setIsSalesDialogOpen(true)} />
                                       <StatCard title="Total Orders" value={report.totalOrders} />
                                     </div>
