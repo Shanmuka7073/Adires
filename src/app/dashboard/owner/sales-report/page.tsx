@@ -5,7 +5,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BarChart3, TrendingUp, ShoppingCart, Download, DollarSign, Package, AlertTriangle } from 'lucide-react';
+import { BarChart3, TrendingUp, Download, DollarSign, Package, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
