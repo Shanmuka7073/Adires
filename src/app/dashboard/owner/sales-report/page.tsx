@@ -154,14 +154,37 @@ function SalesDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean,
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Total Sales</DialogTitle>
+                    <DialogTitle>Total Sales Breakdown</DialogTitle>
                     <DialogDescription>
-                        The total revenue generated from completed orders in this period.
+                        The total revenue generated from completed orders in this period, broken down by table.
                     </DialogDescription>
                 </DialogHeader>
-                 <div className="py-4 text-center">
-                    <p className="text-5xl font-extrabold">₹{report.totalSales.toFixed(2)}</p>
-                    <p className="text-muted-foreground mt-2">from {report.totalOrders} orders</p>
+                 <div className="py-4 space-y-4">
+                    <div className="text-center pb-4 border-b">
+                        <p className="text-sm text-muted-foreground">Total Revenue</p>
+                        <p className="text-5xl font-extrabold">₹{report.totalSales.toFixed(2)}</p>
+                        <p className="text-muted-foreground mt-2">from {report.totalOrders} orders</p>
+                    </div>
+                    {report.salesByTable && report.salesByTable.length > 0 && (
+                        <div className="max-h-60 overflow-y-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Table</TableHead>
+                                        <TableHead className="text-right">Sales</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {report.salesByTable.sort((a,b) => b.totalSales - a.totalSales).map(tableData => (
+                                        <TableRow key={tableData.tableNumber}>
+                                            <TableCell className="font-medium">Table {tableData.tableNumber}</TableCell>
+                                            <TableCell className="text-right font-mono">₹{tableData.totalSales.toFixed(2)}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    )}
                 </div>
                 <DialogFooter>
                     <Button onClick={() => onOpenChange(false)}>Close</Button>
@@ -380,3 +403,6 @@ export default function SalesReportPage() {
         </div>
     );
 }
+
+
+    

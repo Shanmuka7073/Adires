@@ -476,16 +476,23 @@ export async function getStoreSalesReport({
   if (validOrders.length === 0) {
     return {
       success: true,
-      report: { totalSales: 0, totalOrders: 0, totalItems: 0, topProducts: [], ingredientUsage: [], ingredientCost: 0 },
+      report: { totalSales: 0, totalOrders: 0, totalItems: 0, topProducts: [], ingredientUsage: [], ingredientCost: 0, salesByTable: [] },
     };
   }
 
   let totalSales = 0;
   const productMap = new Map<string, number>();
   const ingredientMap = new Map<string, { quantity: number; unit: string; cost: number }>();
+  const salesByTableMap = new Map<string, number>();
+
 
   for (const order of validOrders) {
     totalSales += order.totalAmount;
+    
+    if (order.tableNumber) {
+        const currentTableSales = salesByTableMap.get(order.tableNumber) || 0;
+        salesByTableMap.set(order.tableNumber, currentTableSales + order.totalAmount);
+    }
     
     for (const item of order.items || []) {
       const key = item.productName.toLowerCase().trim();
@@ -538,6 +545,7 @@ export async function getStoreSalesReport({
           };
       }),
       ingredientCost: totalIngredientCost,
+      salesByTable: Array.from(salesByTableMap.entries()).map(([tableNumber, totalSales]) => ({ tableNumber, totalSales })),
     },
     error: null,
   };
@@ -686,3 +694,5 @@ export async function addIngredientsToCatalog(ingredients: Omit<RestaurantIngred
 
 
       
+
+    
