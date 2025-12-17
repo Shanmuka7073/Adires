@@ -1,18 +1,18 @@
 
 import { Timestamp } from "firebase/firestore";
+import { z } from 'zod';
 
 export type ProductVariant = {
   sku: string; // Unique identifier for the variant, e.g., 'prod-potatoes-1kg'
   weight: string; // e.g., '500gm', '1kg', '2kg'
   price: number;
+  stock: number; // The available quantity
 };
 
 export type Product = {
   id: string;
   name: string; // Base name, e.g., 'Potatoes'
   description: string;
-  // Variants are no longer stored on the store-specific product document.
-  // They are fetched from the central productPrices collection.
   variants?: ProductVariant[]; 
   imageId: string;
   storeId: string;
@@ -20,6 +20,9 @@ export type Product = {
   imageUrl?: string; // Data URI for AI-generated image
   imageHint?: string;
   matchedAlias?: string; // The alias the user spoke
+  isAiAssisted?: boolean; // Flag to show if AI identified this item
+  isMenuItem?: boolean; // NEW: Flag to identify a restaurant menu item
+  price?: number; // NEW: Direct price for menu items
 };
 
 export type Store = {
@@ -35,6 +38,15 @@ export type Store = {
   longitude: number;
   distance?: number;
   isClosed?: boolean;
+  tables?: string[]; // For restaurant table numbers
+};
+
+// WebAuthn types
+export type Authenticator = {
+  credentialID: string; // This is a Base64URL-encoded string
+  credentialPublicKey: string; // This is now a Base64URL-encoded string
+  counter: number;
+  transports?: AuthenticatorTransport[];
 };
 
 export type User = {
@@ -44,41 +56,65 @@ export type User = {
     email: string;
     address: string;
     phoneNumber: string;
+    imageUrl?: string;
+    latitude?: number;
+    longitude?: number;
+    fcmToken?: string;
+    authenticators?: Authenticator[];
+    currentChallenge?: string | null; // Can be null
 }
 
 export type CartItem = {
   product: Product; // The base product
   variant: ProductVariant; // The specific variant chosen
   quantity: number;
+  tableNumber?: string;
+  sessionId?: string;
+};
+
+export type Ingredient = {
+  name: string;
+  baseQuantity: number;
+  quantity: string;
+  unit: 'g' | 'kg' | 'ml' | 'l' | 'pcs' | 'tsp' | 'tbsp' | '' ;
+  cost?: number;
 };
 
 export type OrderItem = {
+  id: string;
+  orderId: string;
   productId: string;
+  menuItemId?: string; // Reference to the menu item for cost calculation
   productName: string;
   variantSku: string;
   variantWeight: string;
   quantity: number;
   price: number;
+  recipeSnapshot?: { name: string; qty: number; unit: string; cost?: number; }[];
 }
 
 export type Order = {
   id:string;
   userId: string;
   storeId: string;
-  storeOwnerId?: string; // Denormalized for security rules, optional for backwards compatibility
   customerName: string;
   deliveryAddress: string;
   deliveryLat: number;
   deliveryLng: number;
   items: OrderItem[];
   totalAmount: number;
-  status: 'Pending' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
-  orderDate: Timestamp | Date | string; // Allow string for serialized format
+  status: 'Pending' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled' | 'Completed' | 'Billed';
+  orderDate: Timestamp | Date | string;
   phone: string;
   email: string;
-  translatedList?: string; // Bilingual translated list
-  store?: Store; // Optional: Denormalized or joined store data
-  deliveryPartnerId?: string | null; // ID of the user who is delivering
+  translatedList?: string;
+  store?: Store; 
+  deliveryPartnerId?: string | null;
+  tableNumber?: string | null;
+  sessionId?: string; // To group all orders for a single table session
+  paidAt?: Timestamp;
+  paymentMode?: string;
+  updatedAt?: any;
 };
 
 
@@ -120,23 +156,35 @@ export type FailedVoiceCommand = {
     language: string;
     timestamp: Timestamp | Date | string;
     reason: string;
-    status: 'new' | 'no_suggestion';
-    suggestedProduct?: string; // e.g., 'tomatoes'
-    similarityScore?: number; // e.g., 0.75
+    status?: 'new' | 'no_suggestion'; // Status for processing
 }
 
-export type VoiceAlias = {
-    id?: string; // Firestore document ID
-    key: string; // e.g. 'go-to-cart' or 'tomatoes'
-    language: string; // 'en', 'te', 'display', 'reply'
-    alias: string; // 'go to my cart', 'టమోటాలు', 'Go To Cart', 'Navigating...'
-    type: 'command' | 'product' | 'store';
+export type VoiceAliasGroup = {
+    id: string; // The canonical key, e.g., 'tomatoes'
+    type: 'product' | 'store' | 'command';
+    [key: string]: any; // To allow for language codes as keys (en, te, hi, etc.)
 };
+
+export interface GetIngredientsOutput {
+    isSuccess: boolean;
+    title: string;
+    ingredients: Ingredient[];
+    instructions: InstructionStep[];
+    nutrition: {
+        calories: number;
+        protein: number;
+    };
+}
 
 export type CachedRecipe = {
     id: string;
     dishName: string;
-    ingredients: string[];
+    ingredients: Ingredient[];
+    instructions: InstructionStep[];
+    nutrition: {
+        calories: number;
+        protein: number;
+    };
     createdAt: any; // Allow serverTimestamp
 }
 
@@ -146,6 +194,12 @@ export type CachedAIResponse = {
     answer: string;
     createdAt: any; // Allow serverTimestamp
 }
+
+export type DayPlan = {
+  day: number;
+  mainItem: string;
+  sideItem: string;
+};
 
 export type MonthlyPackage = {
     id: string;
@@ -157,28 +211,126 @@ export type MonthlyPackage = {
         name: string;
         quantity: string;
     }[];
+    schedule?: DayPlan[];
 };
 
 export type SiteConfig = {
+    liveVideoUrl?: string;
     isPackGeneratorEnabled?: boolean;
     isRecipeApiEnabled?: boolean;
     isGeneralQuestionApiEnabled?: boolean;
     isAliasSuggesterEnabled?: boolean;
 };
 
-export type AppError = {
-    id: string;
-    userId: string;
-    userEmail: string;
-    timestamp: Timestamp | Date | string;
-    errorMessage: string;
-    errorDetails: any;
-    path: string;
-};
-
-// Type for conversational history
 export type ChatMessage = {
+  id?: string;
   role: 'user' | 'model';
   text: string;
   timestamp?: any;
+};
+
+export type Voiceprint = {
+  userId: string; 
+  enrollments: number[][]; 
+  voiceprint: number[]; 
+  createdAt: string;
+  lastUpdatedAt: string;
+};
+
+export const CreateVoiceprintInputSchema = z.object({
+  userId: z.string().describe('The unique ID of the user.'),
+  audioDataUri: z
+    .string()
+    .describe(
+      "A recording of the user's voice as a data URI. Must include a MIME type and use Base64 encoding. E.g., 'data:audio/webm;base64,...'"
+    ),
+});
+export type CreateVoiceprintInput = z.infer<typeof CreateVoiceprintInputSchema>;
+
+export const CreateVoiceprintOutputSchema = z.object({
+  isSuccess: z.boolean().describe('Whether the voiceprint was successfully saved.'),
+  enrollmentCount: z.number().describe('The total number of enrollments the user now has.'),
+  error: z.string().optional().describe('An error message if the process failed.'),
+});
+export type CreateVoiceprintOutput = z.infer<typeof CreateVoiceprintOutputSchema>;
+
+export const VerifyVoiceprintInputSchema = z.object({
+  userId: z.string().describe('The unique ID of the user to verify against.'),
+  audioDataUri: z.string().describe("A new voice recording to compare against the stored voiceprint."),
+});
+export type VerifyVoiceprintInput = z.infer<typeof VerifyVoiceprintInputSchema>;
+
+export const VerifyVoiceprintOutputSchema = z.object({
+    isMatch: z.boolean().describe('Whether the new recording matches the stored voiceprint.'),
+    confidence: z.number().describe('A score from 0 to 1 indicating the similarity.'),
+    error: z.string().optional().describe('An error message if verification failed.'),
+});
+export type VerifyVoiceprintOutput = z.infer<typeof VerifyVoiceprintOutputSchema>;
+
+export type CommandGroup = {
+  display: string;
+  reply: {
+    en: string;
+    te?: string;
+    hi?: string;
+    en_audio?: string;
+    te_audio?: string;
+    hi_audio?: string;
+  };
+};
+
+export type Locales = Record<string, VoiceAliasGroup>;
+
+export type NluExtractedSentence = {
+    id: string;
+    rawText: string;
+    extractedNumbers: any[]; 
+    confidence: number;
+    status: 'pending' | 'approved' | 'rejected';
+    createdAt: any;
+};
+
+export type GenerateBreakfastPackOutput = {
+  packName: string;
+  schedule: DayPlan[];
+  shoppingList: {
+    itemName: string;
+    quantity: string;
+  }[];
+  estimatedCost: number;
+};
+
+// NEW Restaurant Menu Types
+export type MenuItem = {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  category: string;
+  ingredients?: Ingredient[];
+};
+
+export type Menu = {
+  id: string;
+  storeId: string;
+  items: MenuItem[];
+};
+
+export type InstructionStep = {
+    title: string;
+    actions: string[];
+}
+
+export type UnidentifiedCartItem = {
+    id: string;
+    term: string;
+    status: 'pending' | 'failed' | 'identified';
+};
+
+// NEW Type for Restaurant Inventory
+export type RestaurantIngredient = {
+  id: string;
+  name: string;
+  unit: string; // e.g., 'kg', 'litre', 'pc'
+  cost: number; // The purchase cost per unit
 };
