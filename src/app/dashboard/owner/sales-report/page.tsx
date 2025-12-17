@@ -22,7 +22,7 @@ function GrossProfitDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: bo
     if (!report) return null;
 
     const profit = report.totalSales - report.ingredientCost;
-    
+
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-2xl">
@@ -339,7 +339,7 @@ export default function SalesReportPage() {
 
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
-            <ProfitDetailsDialog isOpen={isProfitDialogOpen} onOpenChange={setIsProfitDialogOpen} report={report} />
+            <GrossProfitDetailsDialog isOpen={isProfitDialogOpen} onOpenChange={setIsProfitDialogOpen} report={report} />
             <CostDetailsDialog isOpen={isCostDialogOpen} onOpenChange={setIsCostDialogOpen} report={report} />
             <SalesDetailsDialog isOpen={isSalesDialogOpen} onOpenChange={setIsSalesDialogOpen} report={report} />
             <ProfitPerOrderDetailsDialog isOpen={isProfitPerOrderDialogOpen} onOpenChange={setIsProfitPerOrderDialogOpen} report={report} />
