@@ -1,4 +1,5 @@
 
+
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -325,4 +326,12 @@ export type UnidentifiedCartItem = {
     id: string;
     term: string;
     status: 'pending' | 'failed' | 'identified';
+};
+
+// NEW Type for Restaurant Inventory
+export type RestaurantIngredient = {
+  id?: string;
+  name: string;
+  unit: string; // e.g., 'kg', 'litre', 'pc'
+  cost: number; // The purchase cost per unit
 };

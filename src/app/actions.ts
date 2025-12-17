@@ -5,7 +5,7 @@ import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput } from '@/lib/types';
+import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient } from '@/lib/types';
 import { headers } from 'next/headers';
 import { getApp, getApps } from 'firebase-admin/app';
 import * as pdfjs from 'pdfjs-dist';
@@ -335,6 +335,7 @@ export async function addRestaurantOrderItem({
             name: ing.name,
             qty: ing.baseQuantity, // Use the correct numeric baseQuantity
             unit: ing.unit || '',
+            cost: ing.cost || 0,
         }));
     } else {
         console.warn(`No cached recipe found for "${item.name}". Order item will have an empty recipe snapshot.`);
@@ -480,7 +481,7 @@ export async function getStoreSalesReport({
 
   let totalSales = 0;
   const productMap = new Map<string, number>();
-  const ingredientMap = new Map<string, { quantity: number; unit: string }>();
+  const ingredientMap = new Map<string, { quantity: number; unit: string; cost: number }>();
 
   for (const order of validOrders) {
     totalSales += order.totalAmount;
@@ -497,6 +498,7 @@ export async function getStoreSalesReport({
 
         const prev = ingredientMap.get(ing.name) || {
           quantity: 0,
+          cost: 0,
           unit: ['g', 'gm', 'kg'].includes(ing.unit.toLowerCase())
             ? 'g'
             : ['ml', 'l', 'litre'].includes(ing.unit.toLowerCase())
@@ -506,14 +508,14 @@ export async function getStoreSalesReport({
 
         ingredientMap.set(ing.name, {
           quantity: prev.quantity + consumed,
+          cost: prev.cost + ((ing.cost || 0) * item.quantity),
           unit: prev.unit,
         });
       }
     }
   }
 
-  // Cost calculation is removed as it's not applicable for restaurants without their own cost input.
-  const totalIngredientCost = 0;
+  const totalIngredientCost = Array.from(ingredientMap.values()).reduce((acc, curr) => acc + curr.cost, 0);
 
   return {
     success: true,
@@ -589,11 +591,9 @@ Top Item: ${report.topProducts[0]?.name || 'N/A'}
 }
 
 
-// This function is the AI flow that will be called by the Server Action
 export async function getIngredientsForDish(input: { dishName: string; language: 'en' | 'te', existingRecipe?: GetIngredientsOutput }): Promise<GetIngredientsOutput> {
   const { db } = await getAdminServices();
   
-  // 1. Check cache first
   const cachedData = await getCachedRecipe(db, input.dishName, input.language);
   if (cachedData) {
     return cachedData;
@@ -607,14 +607,14 @@ export async function getIngredientsForDish(input: { dishName: string; language:
       model: googleAI.model('gemini-2.5-flash'),
       prompt: `
           You are an expert chef and nutritionist for an Indian grocery app.
-          Your primary task is to generate a list of ingredients, step-by-step instructions, and nutritional information for any given dish.
+          Your primary task is to generate a list of ingredients, step-by-step instructions, and nutritional information for any given dish. You must also estimate the cost of each ingredient in Indian Rupees (₹).
 
           **Dish Name**: {{{dishName}}}
           **Desired Language**: {{{language}}}
 
           {{#if existingRecipe}}
           **Translate This Recipe**:
-          You have been provided with an existing recipe. Your main goal is to accurately translate its ingredients, instructions, and title into the desired language ({{{language}}}). Do not change the quantities or the core steps.
+          You have been provided with an existing recipe. Your main goal is to accurately translate its ingredients, instructions, and title into the desired language ({{{language}}}). Do not change the quantities or the core steps. You do not need to re-estimate the cost.
 
           Existing Dish Name: {{{existingRecipe.title}}}
           Existing Ingredients:
@@ -633,6 +633,7 @@ export async function getIngredientsForDish(input: { dishName: string; language:
               *   \`quantity\`: A user-friendly display quantity (e.g., "200g", "1 cup", "2 medium-sized").
               *   \`baseQuantity\`: A numeric quantity for a base unit (e.g., for "1 cup flour", this might be 120).
               *   \`unit\`: The base unit ('g', 'ml', 'pcs').
+              *   \`cost\`: The estimated cost in Indian Rupees (₹) for the given quantity, based on typical market prices in India.
           3.  **Generate Instructions**: Provide clear, step-by-step cooking instructions. Group actions into logical steps, each with a short, imperative title (e.g., 'Marinate the Chicken').
           4.  **Estimate Nutrition**: Provide estimated calories and protein per serving.
           5.  **Set Title**: Provide the official, well-known name of the dish.
@@ -645,10 +646,8 @@ export async function getIngredientsForDish(input: { dishName: string; language:
     }
   );
 
-  // 2. If not in cache, call the AI
   const { output } = await prompt(input);
   
-  // 3. If AI call is successful, cache the new recipe for future use
   if (output && output.isSuccess) {
     await cacheRecipe(db, input.dishName, input.language, output);
   } else if (!output) {
@@ -664,6 +663,29 @@ export async function getIngredientsForDish(input: { dishName: string; language:
   return output;
 }
 
+export async function addIngredientsToCatalog(ingredients: Omit<RestaurantIngredient, 'id'>[]): Promise<{ success: boolean, count: number, error?: string }> {
+  try {
+    const { db } = await getAdminServices();
+    const batch = db.batch();
+    let count = 0;
 
+    for (const ingredient of ingredients) {
+      if (ingredient.name && ingredient.unit && ingredient.cost > 0) {
+        const docId = createSlug(ingredient.name);
+        const docRef = db.collection('restaurantIngredients').doc(docId);
+        batch.set(docRef, { ...ingredient, id: docId }, { merge: true });
+        count++;
+      }
+    }
 
+    if (count > 0) {
+      await batch.commit();
+    }
+    
+    return { success: true, count };
+  } catch (error: any) {
+    console.error("Failed to add ingredients to catalog:", error);
+    return { success: false, count: 0, error: error.message };
+  }
+}
     
