@@ -69,32 +69,53 @@ function ProfitPerOrderDetailsDialog({ isOpen, onOpenChange, report }: { isOpen:
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent className="max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>Profit Per Order Calculation</DialogTitle>
                     <DialogDescription>
-                        This is the average profit you make on each order.
+                        This is the average profit you make on each order, broken down by table.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4 py-4">
-                    <div className="flex justify-between items-center text-lg">
-                        <span className="text-muted-foreground">Gross Profit</span>
-                        <span className="font-semibold">₹{profit.toFixed(2)}</span>
+                 <div className="space-y-4 py-4">
+                     <div className="grid grid-cols-2 gap-4 text-center">
+                        <div>
+                             <p className="text-sm text-muted-foreground">Gross Profit</p>
+                             <p className="font-bold text-lg">₹{profit.toFixed(2)}</p>
+                        </div>
+                         <div>
+                             <p className="text-sm text-muted-foreground">Total Orders</p>
+                             <p className="font-bold text-lg">{report.totalOrders}</p>
+                        </div>
                     </div>
-                    <div className="flex justify-center">
-                        <Divide className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div className="flex justify-between items-center text-lg">
-                        <span className="text-muted-foreground">Total Orders</span>
-                        <span className="font-semibold">{report.totalOrders}</span>
-                    </div>
-                    <div className="flex justify-center">
-                        <Equal className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div className="flex justify-between items-center text-xl p-3 bg-primary/10 rounded-md">
-                        <span className="font-extrabold text-primary">Profit Per Order</span>
+                     <div className="flex justify-between items-center text-xl p-3 bg-primary/10 rounded-md">
+                        <span className="font-extrabold text-primary">Average Profit Per Order</span>
                         <span className="font-extrabold text-primary">₹{profitPerOrder.toFixed(2)}</span>
                     </div>
+                     {report.salesByTable && report.salesByTable.length > 0 && (
+                        <div className="pt-4">
+                            <h4 className="font-semibold mb-2">Profit Breakdown by Table</h4>
+                            <ScrollArea className="max-h-60">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Table</TableHead>
+                                            <TableHead className="text-right">Profit Per Order</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {report.salesByTable.map(tableData => (
+                                            <TableRow key={tableData.tableNumber}>
+                                                <TableCell className="font-medium">Table {tableData.tableNumber}</TableCell>
+                                                <TableCell className={cn("text-right font-mono", tableData.profitPerOrder > 0 ? "text-green-600" : "text-red-600")}>
+                                                    ₹{tableData.profitPerOrder.toFixed(2)}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </ScrollArea>
+                        </div>
+                    )}
                 </div>
                 <DialogFooter>
                     <Button onClick={() => onOpenChange(false)}>Close</Button>

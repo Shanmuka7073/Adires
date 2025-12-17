@@ -483,18 +483,11 @@ export async function getStoreSalesReport({
   let totalSales = 0;
   const productMap = new Map<string, number>();
   const ingredientMap = new Map<string, { quantity: number; unit: string; cost: number }>();
-  const salesByTableMap = new Map<string, { totalSales: number; orderCount: number }>();
+  const salesByTableMap = new Map<string, { totalSales: number; orderCount: number, totalCost: number }>();
 
   for (const order of validOrders) {
     totalSales += order.totalAmount;
-    
-    if (order.tableNumber) {
-        const currentTableData = salesByTableMap.get(order.tableNumber) || { totalSales: 0, orderCount: 0 };
-        salesByTableMap.set(order.tableNumber, {
-            totalSales: currentTableData.totalSales + order.totalAmount,
-            orderCount: currentTableData.orderCount + 1,
-        });
-    }
+    let orderCost = 0;
     
     for (const item of order.items || []) {
       const key = item.productName.toLowerCase().trim();
@@ -503,25 +496,31 @@ export async function getStoreSalesReport({
       for (const ing of item.recipeSnapshot || []) {
          if (!ing.name || typeof ing.qty !== 'number' || !ing.unit) continue;
 
-        const consumed =
-          convertToBaseUnit(ing.qty, ing.unit) * item.quantity;
+        const consumed = convertToBaseUnit(ing.qty, ing.unit) * item.quantity;
+        const itemIngredientCost = (ing.cost || 0) * item.quantity;
+        orderCost += itemIngredientCost;
 
         const prev = ingredientMap.get(ing.name) || {
           quantity: 0,
           cost: 0,
-          unit: ['g', 'gm', 'kg'].includes(ing.unit.toLowerCase())
-            ? 'g'
-            : ['ml', 'l', 'litre'].includes(ing.unit.toLowerCase())
-            ? 'ml'
-            : 'pcs',
+          unit: ['g', 'gm', 'kg'].includes(ing.unit.toLowerCase()) ? 'g' : ['ml', 'l', 'litre'].includes(ing.unit.toLowerCase()) ? 'ml' : 'pcs',
         };
 
         ingredientMap.set(ing.name, {
           quantity: prev.quantity + consumed,
-          cost: prev.cost + ((ing.cost || 0) * item.quantity),
+          cost: prev.cost + itemIngredientCost,
           unit: prev.unit,
         });
       }
+    }
+
+    if (order.tableNumber) {
+        const currentTableData = salesByTableMap.get(order.tableNumber) || { totalSales: 0, orderCount: 0, totalCost: 0 };
+        salesByTableMap.set(order.tableNumber, {
+            totalSales: currentTableData.totalSales + order.totalAmount,
+            orderCount: currentTableData.orderCount + 1,
+            totalCost: currentTableData.totalCost + orderCost,
+        });
     }
   }
 
@@ -539,18 +538,15 @@ export async function getStoreSalesReport({
         .map(([name, count]) => ({ name, count })),
       ingredientUsage: [...ingredientMap.entries()].map(([name, data]) => {
           const formatted = formatAggregatedQuantity(data.quantity, data.unit);
-          return {
-              name,
-              quantity: formatted.quantity,
-              unit: formatted.unit,
-              cost: data.cost // Include the calculated cost
-          };
+          return { name, quantity: formatted.quantity, unit: formatted.unit, cost: data.cost };
       }),
       ingredientCost: totalIngredientCost,
       salesByTable: Array.from(salesByTableMap.entries()).map(([tableNumber, data]) => ({
           tableNumber,
           totalSales: data.totalSales,
           orderCount: data.orderCount,
+          totalCost: data.totalCost,
+          profitPerOrder: data.orderCount > 0 ? (data.totalSales - data.totalCost) / data.orderCount : 0,
       })),
     },
     error: null,
@@ -693,12 +689,3 @@ export async function addIngredientsToCatalog(ingredients: Omit<RestaurantIngred
     return { success: false, count: 0, error: error.message };
   }
 }
-    
-
-
-
-
-
-      
-
-    

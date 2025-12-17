@@ -1,5 +1,4 @@
 
-
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -343,7 +342,11 @@ export type ReportData = {
   topProducts: { name: string; count: number }[];
   ingredientUsage: { name: string; quantity: number, unit: string, cost: number }[];
   ingredientCost: number;
-  salesByTable: { tableNumber: string; totalSales: number; orderCount: number; }[];
+  salesByTable: { 
+    tableNumber: string; 
+    totalSales: number; 
+    orderCount: number; 
+    totalCost: number;
+    profitPerOrder: number;
+  }[];
 };
-
-    
