@@ -27,6 +27,7 @@ import {
   HelpCircle,
   BrainCircuit,
   BarChart3,
+  ChefHat,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -161,6 +162,12 @@ export default function AdminDashboardPage() {
             description="Create and manage restaurant QR menus"
             href="/dashboard/owner/menu-manager"
             icon={QrCode}
+          />
+           <ActionCard
+            title="Restaurant Ingredient Costs"
+            description="Manage the cost price of raw ingredients for restaurants."
+            href="/dashboard/admin/restaurant-inventory"
+            icon={ChefHat}
           />
           <ActionCard
             title="Master Store & Products"

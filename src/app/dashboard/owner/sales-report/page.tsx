@@ -1,15 +1,15 @@
 
 'use client';
 
-import { useEffect, useState, useTransition, useMemo } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BarChart3, TrendingUp, ShoppingCart, Beef, Carrot, Grape, Download, DollarSign, Package, AlertTriangle } from 'lucide-react';
+import { BarChart3, TrendingUp, ShoppingCart, Download, DollarSign, Package, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, Timestamp, getDocs } from 'firebase/firestore';
-import type { Order, OrderItem, Product, Store } from '@/lib/types';
+import { collection, query, where } from 'firebase/firestore';
+import type { Store } from '@/lib/types';
 import { getStoreSalesReport } from '@/app/actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -19,7 +19,7 @@ type ReportData = {
   totalOrders: number;
   topProducts: { name: string; count: number }[];
   ingredientUsage: { name: string; quantity: number, unit: string }[];
-  ingredientCost: number; // This will now be 0
+  ingredientCost: number;
 };
 
 function StatCard({ title, value, highlight = false }: { title: string, value: string | number, highlight?: boolean }) {
@@ -137,10 +137,11 @@ export default function SalesReportPage() {
                                 </Alert>
                             ) : report && report.totalOrders > 0 ? (
                                 <>
-                                    <div className="grid md:grid-cols-3 gap-6 mt-6">
+                                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
                                       <StatCard title="Total Sales" value={`₹${report.totalSales.toFixed(0)}`} highlight={true} />
+                                      <StatCard title="Ingredient Cost" value={`₹${report.ingredientCost.toFixed(0)}`} />
+                                      <StatCard title="Gross Profit" value={`₹${(report.totalSales - report.ingredientCost).toFixed(0)}`} highlight={true} />
                                       <StatCard title="Total Orders" value={report.totalOrders} />
-                                      <StatCard title="Total Items Sold" value={report.totalItems} />
                                     </div>
                                     
                                     <div className="grid md:grid-cols-2 gap-8 mt-10">
@@ -193,5 +194,3 @@ export default function SalesReportPage() {
         </div>
     );
 }
-
-    
