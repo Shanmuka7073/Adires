@@ -18,7 +18,7 @@ type ReportData = {
   totalItems: number;
   totalOrders: number;
   topProducts: { name: string; count: number }[];
-  ingredientUsage: { name: string; quantity: number, unit: string }[];
+  ingredientUsage: { name: string; quantity: number, unit: string, cost: number }[];
   ingredientCost: number;
 };
 
@@ -168,9 +168,14 @@ export default function SalesReportPage() {
                                                 className="flex justify-between bg-muted/50 p-3 rounded-md"
                                               >
                                                 <span className="capitalize">{i.name}</span>
-                                                <span className="font-mono font-bold">
-                                                  {i.quantity.toFixed(2)} {i.unit}
-                                                </span>
+                                                <div className="text-right">
+                                                    <p className="font-mono font-bold">
+                                                    {i.quantity.toFixed(2)} {i.unit}
+                                                    </p>
+                                                     <p className="text-xs text-red-600 font-semibold">
+                                                        (Cost: ₹{i.cost.toFixed(2)})
+                                                     </p>
+                                                </div>
                                               </div>
                                             ))}
                                           </div>
@@ -194,3 +199,5 @@ export default function SalesReportPage() {
         </div>
     );
 }
+
+      

@@ -533,7 +533,8 @@ export async function getStoreSalesReport({
           return {
               name,
               quantity: formatted.quantity,
-              unit: formatted.unit
+              unit: formatted.unit,
+              cost: data.cost // Include the calculated cost
           };
       }),
       ingredientCost: totalIngredientCost,
@@ -608,7 +609,7 @@ export async function getIngredientsForDish(input: { dishName: string; language:
       model: googleAI.model('gemini-2.5-flash'),
       prompt: `
           You are an expert Indian chef creating a recipe for a single restaurant-style serving.
-          Your primary task is to generate a list of ingredients with REALISTIC quantities for ONE serving. For example, a single biryani serving uses around 150-200g of chicken, not 750g.
+          Your primary task is to generate a list of ingredients with REALISTIC quantities and estimated COST in Indian Rupees (₹) for ONE serving. For example, a single biryani serving uses around 150-200g of chicken, not 750g.
 
           **Dish Name**: {{{dishName}}}
           **Desired Language**: {{{language}}}
@@ -682,3 +683,6 @@ export async function addIngredientsToCatalog(ingredients: Omit<RestaurantIngred
 
 
 
+
+
+      
