@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useEffect, useState, useTransition, useMemo } from 'react';
@@ -579,7 +578,7 @@ export default function SalesReportPage() {
                                         <h3 className="text-xl font-semibold mb-3 flex items-center gap-2"><Receipt className="h-5 w-5 text-primary"/> Ingredient Consumption</h3>
                                         {report.ingredientUsage.length > 0 ? (
                                           <div className="space-y-2">
-                                            {report.ingredientUsage.map(i => (
+                                            {report.ingredientUsage.slice(0, 5).map(i => (
                                               <div
                                                 key={i.name}
                                                 className="flex justify-between bg-slate-50 p-3 rounded-lg"
@@ -595,6 +594,7 @@ export default function SalesReportPage() {
                                                 </div>
                                               </div>
                                             ))}
+                                            {report.ingredientUsage.length > 5 && <p className="text-xs text-center text-muted-foreground mt-2">Click to see all {report.ingredientUsage.length} ingredients.</p>}
                                           </div>
                                         ) : (
                                           <p className="text-muted-foreground">
