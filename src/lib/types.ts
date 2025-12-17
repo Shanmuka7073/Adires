@@ -77,6 +77,7 @@ export type Ingredient = {
   baseQuantity: number;
   quantity: string;
   unit: 'g' | 'kg' | 'ml' | 'l' | 'pcs' | 'tsp' | 'tbsp' | '' ;
+  cost?: number;
 };
 
 export type OrderItem = {
@@ -89,7 +90,7 @@ export type OrderItem = {
   variantWeight: string;
   quantity: number;
   price: number;
-  recipeSnapshot: { name: string; qty: number; unit: string; }[];
+  recipeSnapshot: { name: string; qty: number; unit: string; cost?: number; }[];
 }
 
 export type Order = {

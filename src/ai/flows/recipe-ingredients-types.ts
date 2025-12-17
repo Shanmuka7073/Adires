@@ -12,6 +12,7 @@ const IngredientSchema = z.object({
     quantity: z.string().describe('The display quantity and unit (e.g., "1 cup", "200g").'),
     baseQuantity: z.number().optional().describe('The numeric quantity for a single serving (e.g., 200).'),
     unit: z.string().optional().describe('The unit of measurement (e.g., "g", "ml", "cup").'),
+    cost: z.number().optional().describe("The estimated cost for the specified quantity of this ingredient in Indian Rupees (₹)."),
 });
 
 const InstructionStepSchema = z.object({
