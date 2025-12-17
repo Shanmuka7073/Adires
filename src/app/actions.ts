@@ -324,21 +324,21 @@ export async function addRestaurantOrderItem({
 }): Promise<{ success: boolean; error?: string }> {
   try {
     const { db } = await getAdminServices();
-    
+
     const recipeId = `${createSlug(item.name)}_en`;
     const recipeDoc = await db.collection('cachedRecipes').doc(recipeId).get();
-    
+
     let recipeSnapshotData: any[] = [];
     if (recipeDoc.exists) {
-        const recipe = recipeDoc.data() as CachedRecipe;
-        recipeSnapshotData = (recipe.ingredients || []).map(ing => ({
-            name: ing.name,
-            qty: ing.baseQuantity,
-            unit: ing.unit || '',
-            cost: ing.cost || 0,
-        }));
+      const recipe = recipeDoc.data() as CachedRecipe;
+      recipeSnapshotData = (recipe.ingredients || []).map(ing => ({
+        name: ing.name,
+        qty: ing.baseQuantity,
+        unit: ing.unit || '',
+        cost: ing.cost || 0,
+      }));
     } else {
-        console.warn(`No cached recipe for "${item.name}".`);
+      console.warn(`No cached recipe for "${item.name}".`);
     }
 
     const orderId = `${storeId}_${sessionId}`;
@@ -358,40 +358,35 @@ export async function addRestaurantOrderItem({
       recipeSnapshot: recipeSnapshotData,
     };
 
-    // Optimistic Update: Try to update first.
-    try {
+    const doc = await orderRef.get();
+
+    if (doc.exists) {
+      // Document exists, so update it
       await orderRef.update({
         items: FieldValue.arrayUnion(orderItem),
         totalAmount: FieldValue.increment(orderItem.price * orderItem.quantity),
         updatedAt: FieldValue.serverTimestamp(),
-        status: 'Pending'
+        status: 'Pending',
       });
-    } catch (error: any) {
-      // If the document doesn't exist, Firestore throws a specific error.
-      // We catch it and create the document instead.
-      if (error.code === 'NOT_FOUND') {
-        const newOrder: Partial<Order> = {
-          id: orderId,
-          storeId,
-          sessionId,
-          tableNumber,
-          userId: 'guest',
-          customerName: `Table ${tableNumber || 'N/A'}`,
-          deliveryAddress: "In-store dining",
-          totalAmount: orderItem.price * orderItem.quantity,
-          status: 'Pending',
-          orderDate: Timestamp.now(),
-          items: [orderItem],
-        };
-        await orderRef.set(newOrder);
-      } else {
-        // If it's a different error (e.g., permissions), re-throw it.
-        throw error;
-      }
+    } else {
+      // Document does not exist, so create it
+      const newOrder: Partial<Order> = {
+        id: orderId,
+        storeId,
+        sessionId,
+        tableNumber,
+        userId: 'guest',
+        customerName: `Table ${tableNumber || 'N/A'}`,
+        deliveryAddress: 'In-store dining',
+        totalAmount: orderItem.price * orderItem.quantity,
+        status: 'Pending',
+        orderDate: Timestamp.now(),
+        items: [orderItem],
+      };
+      await orderRef.set(newOrder);
     }
 
     return { success: true };
-
   } catch (error: any) {
     console.error("addRestaurantOrderItem failed:", error);
     return { success: false, error: error.message || "An unknown server error occurred." };
@@ -684,5 +679,6 @@ export async function addIngredientsToCatalog(ingredients: Omit<RestaurantIngred
   }
 }
     
+
 
 
