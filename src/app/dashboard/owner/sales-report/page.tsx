@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useTransition, useMemo } from 'react';
+import React, { useEffect, useState, useTransition, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -18,7 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 
-// New Dialog Component for Gross Profit Breakdown
+
 function GrossProfitDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean, onOpenChange: (open: boolean) => void, report: ReportData | null }) {
     if (!report) return null;
 
@@ -63,13 +63,11 @@ function GrossProfitDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: bo
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                    {/* Overall Summary */}
                      <div className="grid grid-cols-3 gap-4 text-center">
                         <Card><CardHeader><CardTitle>₹{report.totalSales.toFixed(2)}</CardTitle><CardDescription>Total Sales</CardDescription></CardHeader></Card>
                         <Card><CardHeader><CardTitle className="text-red-600">₹{report.ingredientCost.toFixed(2)}</CardTitle><CardDescription>Ingredient Cost</CardDescription></CardHeader></Card>
                         <Card className="bg-primary/5 border-primary/20"><CardHeader><CardTitle className={cn("font-extrabold", getProfitColor(profit))}>₹{profit.toFixed(2)}</CardTitle><CardDescription>Gross Profit</CardDescription></CardHeader></Card>
                     </div>
-                     {/* Highlights */}
                     {bestTable && worstTable && bestTable.tableNumber !== worstTable.tableNumber && (
                         <div className="grid grid-cols-2 gap-4">
                              <Alert className="bg-green-50 border-green-200">
@@ -449,8 +447,8 @@ export default function SalesReportPage() {
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                                       <StatCard title="Gross Profit" value={`₹${profit.toFixed(0)}`} valueClassName={profitColor} highlight={profit > 0} onClick={() => setIsProfitDialogOpen(true)} />
                                       <StatCard title="Profit Per Order" value={`₹${profitPerOrder.toFixed(0)}`} valueClassName={profitPerOrder > 0 ? 'text-gray-800' : 'text-red-600'} onClick={() => setIsProfitPerOrderDialogOpen(true)} />
-                                      <StatCard title="Ingredient Cost" value={`₹${report.ingredientCost.toFixed(0)}`} valueClassName="text-red-600" onClick={() => setIsCostDialogOpen(true)} />
                                       <StatCard title="Total Sales" value={`₹${report.totalSales.toFixed(0)}`} onClick={() => setIsSalesDialogOpen(true)} />
+                                      <StatCard title="Ingredient Cost" value={`₹${report.ingredientCost.toFixed(0)}`} valueClassName="text-red-600" onClick={() => setIsCostDialogOpen(true)} />
                                       <StatCard title="Total Orders" value={report.totalOrders} />
                                     </div>
                                     
@@ -509,4 +507,3 @@ export default function SalesReportPage() {
         </div>
     );
 }
-
