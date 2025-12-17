@@ -5,7 +5,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BarChart3, Download, DollarSign, Package, AlertTriangle, ArrowDown, Minus, Equal, Divide } from 'lucide-react';
+import { BarChart3, Download, DollarSign, Package, AlertTriangle, ArrowDown, Minus, Equal, Divide, List, Receipt, Droplets } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
@@ -14,6 +14,8 @@ import { getStoreSalesReport } from '@/app/actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 type ReportData = {
@@ -30,15 +32,14 @@ function ProfitDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean
     if (!report) return null;
 
     const profit = report.totalSales - report.ingredientCost;
-    const profitPerOrder = report.totalOrders > 0 ? profit / report.totalOrders : 0;
-
+    
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Profit Per Order Calculation</DialogTitle>
+                    <DialogTitle>Gross Profit Calculation</DialogTitle>
                     <DialogDescription>
-                        Here's how we calculated your average profit for each order.
+                        Here's how your gross profit is calculated for this period.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
@@ -56,24 +57,77 @@ function ProfitDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean
                     <div className="flex justify-center">
                         <Equal className="h-5 w-5 text-muted-foreground" />
                     </div>
-                    <div className="flex justify-between items-center text-lg p-2 bg-muted rounded-md">
-                        <span className="font-bold">Gross Profit</span>
-                        <span className="font-bold">₹{profit.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-center">
-                         <Divide className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div className="flex justify-between items-center text-lg">
-                        <span className="text-muted-foreground">Total Orders</span>
-                        <span className="font-semibold">{report.totalOrders}</span>
-                    </div>
-                     <div className="flex justify-center">
-                        <Equal className="h-5 w-5 text-muted-foreground" />
-                    </div>
                     <div className="flex justify-between items-center text-xl p-3 bg-primary/10 rounded-md">
-                        <span className="font-extrabold text-primary">Profit Per Order</span>
-                        <span className="font-extrabold text-primary">₹{profitPerOrder.toFixed(2)}</span>
+                        <span className="font-extrabold text-primary">Gross Profit</span>
+                        <span className="font-extrabold text-primary">₹{profit.toFixed(2)}</span>
                     </div>
+                </div>
+                <DialogFooter>
+                    <Button onClick={() => onOpenChange(false)}>Close</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+// New Dialog Component for Ingredient Cost Breakdown
+function CostDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean, onOpenChange: (open: boolean) => void, report: ReportData | null }) {
+    if (!report) return null;
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Ingredient Cost Breakdown</DialogTitle>
+                    <DialogDescription>
+                        A complete list of all ingredients consumed and their total cost for this period.
+                    </DialogDescription>
+                </DialogHeader>
+                <ScrollArea className="max-h-[50vh] pr-4">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Ingredient</TableHead>
+                                <TableHead className="text-right">Cost</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {report.ingredientUsage.map(ing => (
+                                <TableRow key={ing.name}>
+                                    <TableCell className="font-medium capitalize">{ing.name}</TableCell>
+                                    <TableCell className="text-right font-mono">₹{ing.cost.toFixed(2)}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </ScrollArea>
+                <DialogFooter className="border-t pt-4">
+                    <div className="w-full flex justify-between items-center text-lg font-bold text-red-600">
+                        <span>Total Ingredient Cost</span>
+                        <span>₹{report.ingredientCost.toFixed(2)}</span>
+                    </div>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+// New Dialog Component for Total Sales
+function SalesDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean, onOpenChange: (open: boolean) => void, report: ReportData | null }) {
+    if (!report) return null;
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Total Sales</DialogTitle>
+                    <DialogDescription>
+                        The total revenue generated from completed orders in this period.
+                    </DialogDescription>
+                </DialogHeader>
+                 <div className="py-4 text-center">
+                    <p className="text-5xl font-extrabold">₹{report.totalSales.toFixed(2)}</p>
+                    <p className="text-muted-foreground mt-2">from {report.totalOrders} orders</p>
                 </div>
                 <DialogFooter>
                     <Button onClick={() => onOpenChange(false)}>Close</Button>
@@ -111,6 +165,8 @@ export default function SalesReportPage() {
     const [isLoading, startLoading] = useTransition();
     const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
     const [isProfitDialogOpen, setIsProfitDialogOpen] = useState(false);
+    const [isCostDialogOpen, setIsCostDialogOpen] = useState(false);
+    const [isSalesDialogOpen, setIsSalesDialogOpen] = useState(false);
 
     const storeQuery = useMemoFirebase(() =>
         firestore && user
@@ -176,6 +232,9 @@ export default function SalesReportPage() {
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
             <ProfitDetailsDialog isOpen={isProfitDialogOpen} onOpenChange={setIsProfitDialogOpen} report={report} />
+            <CostDetailsDialog isOpen={isCostDialogOpen} onOpenChange={setIsCostDialogOpen} report={report} />
+            <SalesDetailsDialog isOpen={isSalesDialogOpen} onOpenChange={setIsSalesDialogOpen} report={report} />
+
             <Card>
                 <CardHeader>
                     <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
@@ -227,17 +286,17 @@ export default function SalesReportPage() {
                                         </Alert>
                                     )}
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                      <StatCard title="Gross Profit" value={`₹${profit.toFixed(0)}`} valueClassName={profitColor} highlight={profit > 0} />
-                                      <StatCard title="Total Sales" value={`₹${report.totalSales.toFixed(0)}`} />
+                                      <StatCard title="Gross Profit" value={`₹${profit.toFixed(0)}`} valueClassName={profitColor} highlight={profit > 0} onClick={() => setIsProfitDialogOpen(true)} />
+                                      <StatCard title="Total Sales" value={`₹${report.totalSales.toFixed(0)}`} onClick={() => setIsSalesDialogOpen(true)} />
                                       <StatCard title="Ingredient Cost" value={`₹${report.ingredientCost.toFixed(0)}`} description={
                                           <span className={cn("font-semibold", foodCostColor)}>({foodCostPercent.toFixed(1)}% of Sales)</span>
-                                      }/>
-                                      <StatCard title="Profit Per Order" value={`₹${profitPerOrder.toFixed(0)}`} onClick={() => setIsProfitDialogOpen(true)}/>
+                                      } onClick={() => setIsCostDialogOpen(true)} />
+                                      <StatCard title="Total Orders" value={report.totalOrders} />
                                     </div>
                                     
                                     <div className="grid md:grid-cols-2 gap-8">
                                       <div>
-                                        <h3 className="text-xl font-semibold mb-3">Top Products</h3>
+                                        <h3 className="text-xl font-semibold mb-3 flex items-center gap-2"><List className="h-5 w-5 text-primary"/> Top Products</h3>
                                         {report.topProducts.length > 0 ? (
                                             <div className="space-y-2">
                                                 {report.topProducts.map(p => (
@@ -250,7 +309,7 @@ export default function SalesReportPage() {
                                         ) : <p className="text-muted-foreground">No products sold in this period.</p>}
                                       </div>
                                       <div>
-                                        <h3 className="text-xl font-semibold mb-3">Ingredient Consumption</h3>
+                                        <h3 className="text-xl font-semibold mb-3 flex items-center gap-2"><Droplets className="h-5 w-5 text-primary"/> Ingredient Consumption</h3>
                                         {report.ingredientUsage.length > 0 ? (
                                           <div className="space-y-2">
                                             {report.ingredientUsage.map(i => (
