@@ -177,7 +177,7 @@ function SalesDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean,
                                 <TableBody>
                                     {report.salesByTable.sort((a,b) => b.totalSales - a.totalSales).map(tableData => (
                                         <TableRow key={tableData.tableNumber}>
-                                            <TableCell className="font-medium">Table {tableData.tableNumber}</TableCell>
+                                            <TableCell className="font-medium">Table {tableData.tableNumber} ({tableData.orderCount} orders)</TableCell>
                                             <TableCell className="text-right font-mono">₹{tableData.totalSales.toFixed(2)}</TableCell>
                                         </TableRow>
                                     ))}
@@ -403,6 +403,3 @@ export default function SalesReportPage() {
         </div>
     );
 }
-
-
-    

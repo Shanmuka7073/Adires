@@ -483,15 +483,17 @@ export async function getStoreSalesReport({
   let totalSales = 0;
   const productMap = new Map<string, number>();
   const ingredientMap = new Map<string, { quantity: number; unit: string; cost: number }>();
-  const salesByTableMap = new Map<string, number>();
-
+  const salesByTableMap = new Map<string, { totalSales: number; orderCount: number }>();
 
   for (const order of validOrders) {
     totalSales += order.totalAmount;
     
     if (order.tableNumber) {
-        const currentTableSales = salesByTableMap.get(order.tableNumber) || 0;
-        salesByTableMap.set(order.tableNumber, currentTableSales + order.totalAmount);
+        const currentTableData = salesByTableMap.get(order.tableNumber) || { totalSales: 0, orderCount: 0 };
+        salesByTableMap.set(order.tableNumber, {
+            totalSales: currentTableData.totalSales + order.totalAmount,
+            orderCount: currentTableData.orderCount + 1,
+        });
     }
     
     for (const item of order.items || []) {
@@ -545,7 +547,11 @@ export async function getStoreSalesReport({
           };
       }),
       ingredientCost: totalIngredientCost,
-      salesByTable: Array.from(salesByTableMap.entries()).map(([tableNumber, totalSales]) => ({ tableNumber, totalSales })),
+      salesByTable: Array.from(salesByTableMap.entries()).map(([tableNumber, data]) => ({
+          tableNumber,
+          totalSales: data.totalSales,
+          orderCount: data.orderCount,
+      })),
     },
     error: null,
   };
