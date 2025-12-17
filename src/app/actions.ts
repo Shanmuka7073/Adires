@@ -474,7 +474,7 @@ export async function getStoreSalesReport({
   if (validOrders.length === 0) {
     return {
       success: true,
-      report: { totalSales: 0, totalOrders: 0, totalItems: 0, topProducts: [], ingredientUsage: [] },
+      report: { totalSales: 0, totalOrders: 0, totalItems: 0, topProducts: [], ingredientUsage: [], ingredientCost: 0 },
     };
   }
 
@@ -489,7 +489,6 @@ export async function getStoreSalesReport({
       const key = item.productName.toLowerCase().trim();
       productMap.set(key, (productMap.get(key) || 0) + item.quantity);
 
-      // ✅ POS-CORRECT INGREDIENT CALCULATION
       for (const ing of item.recipeSnapshot || []) {
          if (!ing.name || typeof ing.qty !== 'number' || !ing.unit) continue;
 
@@ -498,27 +497,47 @@ export async function getStoreSalesReport({
 
         const prev = ingredientMap.get(ing.name) || {
           quantity: 0,
-          unit: ing.unit,
-        };
-
-        ingredientMap.set(ing.name, {
-          quantity: prev.quantity + consumed,
           unit: ['g', 'gm', 'kg'].includes(ing.unit.toLowerCase())
             ? 'g'
             : ['ml', 'l', 'litre'].includes(ing.unit.toLowerCase())
             ? 'ml'
             : 'pcs',
+        };
+
+        ingredientMap.set(ing.name, {
+          quantity: prev.quantity + consumed,
+          unit: prev.unit,
         });
       }
     }
   }
+
+  // --- NEW: COST CALCULATION LOGIC ---
+  let totalIngredientCost = 0;
+  const priceDocs = await db.collection('productPrices').get();
+  const priceMap = new Map<string, ProductPrice>();
+  priceDocs.forEach(doc => priceMap.set(doc.id, doc.data() as ProductPrice));
+
+  for (const [name, data] of ingredientMap.entries()) {
+    const priceData = priceMap.get(name.toLowerCase());
+    if (priceData?.variants?.length) {
+      const baseVariant = priceData.variants.find(v => v.weight.includes('kg') || v.weight.includes('l')) || priceData.variants[0];
+      const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
+      const baseWeight = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
+      const isKgOrLtr = baseVariant.weight.includes('kg') || baseVariant.weight.includes('l');
+      const baseWeightInGrams = isKgOrLtr ? baseWeight * 1000 : baseWeight;
+      const pricePerGram = baseVariant.price / baseWeightInGrams;
+      totalIngredientCost += pricePerGram * data.quantity;
+    }
+  }
+  // --- END NEW LOGIC ---
 
   return {
     success: true,
     report: {
       totalSales,
       totalOrders: validOrders.length,
-      totalItems: Array.from(productMap.values()).reduce((a, b) => a + b, 0),
+      totalItems: Array.from(productMap.values()).reduce((a, b) => a, b, 0),
       topProducts: [...productMap.entries()]
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
@@ -531,6 +550,7 @@ export async function getStoreSalesReport({
               unit: formatted.unit
           };
       }),
+      ingredientCost: totalIngredientCost, // Return the calculated cost
     },
     error: null,
   };
@@ -660,3 +680,4 @@ export async function getIngredientsForDish(input: { dishName: string; language:
   
   return output;
 }
+

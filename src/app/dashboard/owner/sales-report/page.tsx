@@ -19,6 +19,7 @@ type ReportData = {
   totalOrders: number;
   topProducts: { name: string; count: number }[];
   ingredientUsage: { name: string; quantity: number, unit: string }[];
+  ingredientCost: number;
 };
 
 function StatCard({ title, value, highlight = false }: { title: string, value: string | number, highlight?: boolean }) {
@@ -104,7 +105,7 @@ export default function SalesReportPage() {
                             <div>
                                 <CardTitle className="text-3xl font-headline">Sales Report: {myStore.name}</CardTitle>
                                 <CardDescription>
-                                    An overview of your sales performance.
+                                    An overview of your sales performance and costs.
                                 </CardDescription>
                             </div>
                         </div>
@@ -123,7 +124,8 @@ export default function SalesReportPage() {
                         </TabsList>
                         <TabsContent value={activeTab} className="mt-6">
                             {isLoading ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                                    <Skeleton className="h-24" />
                                     <Skeleton className="h-24" />
                                     <Skeleton className="h-24" />
                                 </div>
@@ -135,9 +137,10 @@ export default function SalesReportPage() {
                                 </Alert>
                             ) : report && report.totalOrders > 0 ? (
                                 <>
-                                    <div className="grid md:grid-cols-2 gap-6 mt-6">
+                                    <div className="grid md:grid-cols-3 gap-6 mt-6">
                                       <StatCard title="Total Sales" value={`₹${report.totalSales.toFixed(0)}`} />
-                                      <StatCard title="Total Orders" value={report.totalOrders} />
+                                      <StatCard title="Ingredient Cost (COGS)" value={`₹${report.ingredientCost.toFixed(0)}`} />
+                                      <StatCard title="Gross Profit" value={`₹${(report.totalSales - report.ingredientCost).toFixed(0)}`} highlight={true}/>
                                     </div>
                                     
                                     <div className="grid md:grid-cols-2 gap-8 mt-10">
