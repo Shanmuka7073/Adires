@@ -541,13 +541,17 @@ export async function getStoreSalesReport({
           return { name, quantity: formatted.quantity, unit: formatted.unit, cost: data.cost };
       }),
       ingredientCost: totalIngredientCost,
-      salesByTable: Array.from(salesByTableMap.entries()).map(([tableNumber, data]) => ({
-          tableNumber,
-          totalSales: data.totalSales,
-          orderCount: data.orderCount,
-          totalCost: data.totalCost,
-          profitPerOrder: data.orderCount > 0 ? (data.totalSales - data.totalCost) / data.orderCount : 0,
-      })),
+      salesByTable: Array.from(salesByTableMap.entries()).map(([tableNumber, data]) => {
+          const grossProfit = data.totalSales - data.totalCost;
+          return {
+              tableNumber,
+              totalSales: data.totalSales,
+              orderCount: data.orderCount,
+              totalCost: data.totalCost,
+              profitPerOrder: data.orderCount > 0 ? grossProfit / data.orderCount : 0,
+              grossProfit: grossProfit,
+          };
+      }),
     },
     error: null,
   };

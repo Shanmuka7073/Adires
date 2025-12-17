@@ -348,5 +348,6 @@ export type ReportData = {
     orderCount: number; 
     totalCost: number;
     profitPerOrder: number;
+    grossProfit: number;
   }[];
 };

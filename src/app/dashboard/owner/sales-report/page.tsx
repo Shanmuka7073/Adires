@@ -5,7 +5,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BarChart3, Download, DollarSign, Package, AlertTriangle, ArrowDown, Minus, Equal, Divide, List, Receipt, Droplets } from 'lucide-react';
+import { BarChart3, Download, DollarSign, Receipt, AlertTriangle, List, Minus, Equal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
@@ -17,30 +17,30 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-// New Dialog Component for Profit Breakdown
-function ProfitDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean, onOpenChange: (open: boolean) => void, report: ReportData | null }) {
+// New Dialog Component for Gross Profit Breakdown
+function GrossProfitDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean, onOpenChange: (open: boolean) => void, report: ReportData | null }) {
     if (!report) return null;
 
     const profit = report.totalSales - report.ingredientCost;
     
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent className="max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>Gross Profit Calculation</DialogTitle>
                     <DialogDescription>
-                        Here's how your gross profit is calculated for this period.
+                        Here's how your gross profit is calculated for this period, broken down by table.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                    <div className="flex justify-between items-center text-lg">
+                    <div className="flex justify-between items-center text-lg p-3 bg-gray-50 rounded-md">
                         <span className="text-muted-foreground">Total Sales</span>
                         <span className="font-semibold">₹{report.totalSales.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-center">
                         <Minus className="h-5 w-5 text-muted-foreground" />
                     </div>
-                    <div className="flex justify-between items-center text-lg">
+                    <div className="flex justify-between items-center text-lg p-3 bg-gray-50 rounded-md">
                         <span className="text-muted-foreground">Ingredient Cost</span>
                         <span className="font-semibold text-red-600">₹{report.ingredientCost.toFixed(2)}</span>
                     </div>
@@ -51,6 +51,36 @@ function ProfitDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean
                         <span className="font-extrabold text-primary">Gross Profit</span>
                         <span className="font-extrabold text-primary">₹{profit.toFixed(2)}</span>
                     </div>
+                    
+                    {report.salesByTable && report.salesByTable.length > 0 && (
+                        <div className="pt-4 mt-4 border-t">
+                            <h4 className="font-semibold mb-2">Gross Profit by Table</h4>
+                            <ScrollArea className="max-h-60">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Table</TableHead>
+                                            <TableHead className="text-right">Sales</TableHead>
+                                            <TableHead className="text-right">Cost</TableHead>
+                                            <TableHead className="text-right">Profit</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {report.salesByTable.map(tableData => (
+                                            <TableRow key={tableData.tableNumber}>
+                                                <TableCell className="font-medium">Table {tableData.tableNumber}</TableCell>
+                                                <TableCell className="text-right font-mono">₹{tableData.totalSales.toFixed(2)}</TableCell>
+                                                <TableCell className="text-right font-mono text-red-600">₹{tableData.totalCost.toFixed(2)}</TableCell>
+                                                <TableCell className={cn("text-right font-mono font-bold", tableData.grossProfit >= 0 ? "text-green-600" : "text-red-600")}>
+                                                    ₹{tableData.grossProfit.toFixed(2)}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </ScrollArea>
+                        </div>
+                    )}
                 </div>
                 <DialogFooter>
                     <Button onClick={() => onOpenChange(false)}>Close</Button>
@@ -106,7 +136,7 @@ function ProfitPerOrderDetailsDialog({ isOpen, onOpenChange, report }: { isOpen:
                                         {report.salesByTable.map(tableData => (
                                             <TableRow key={tableData.tableNumber}>
                                                 <TableCell className="font-medium">Table {tableData.tableNumber}</TableCell>
-                                                <TableCell className={cn("text-right font-mono", tableData.profitPerOrder > 0 ? "text-green-600" : "text-red-600")}>
+                                                <TableCell className={cn("text-right font-mono", tableData.profitPerOrder >= 0 ? "text-green-600" : "text-red-600")}>
                                                     ₹{tableData.profitPerOrder.toFixed(2)}
                                                 </TableCell>
                                             </TableRow>
