@@ -1,4 +1,5 @@
 
+
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -349,5 +350,6 @@ export type ReportData = {
     totalCost: number;
     profitPerOrder: number;
     grossProfit: number;
+    profitPercentage: number;
   }[];
 };

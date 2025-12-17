@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -550,6 +551,7 @@ export async function getStoreSalesReport({
               totalCost: data.totalCost,
               profitPerOrder: data.orderCount > 0 ? grossProfit / data.orderCount : 0,
               grossProfit: grossProfit,
+              profitPercentage: data.totalSales > 0 ? (grossProfit / data.totalSales) * 100 : 0,
           };
       }),
     },

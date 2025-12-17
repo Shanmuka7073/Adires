@@ -1,11 +1,12 @@
 
+
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BarChart3, Download, DollarSign, Receipt, AlertTriangle, List, Minus, Equal } from 'lucide-react';
+import { BarChart3, Download, DollarSign, Receipt, AlertTriangle, List, Minus, Equal, Percent } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
@@ -22,6 +23,8 @@ function GrossProfitDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: bo
     if (!report) return null;
 
     const profit = report.totalSales - report.ingredientCost;
+
+    const getProfitColor = (p: number) => p >= 0 ? 'text-green-600' : 'text-red-600';
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -49,7 +52,7 @@ function GrossProfitDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: bo
                     </div>
                     <div className="flex justify-between items-center text-xl p-3 bg-primary/10 rounded-md">
                         <span className="font-extrabold text-primary">Gross Profit</span>
-                        <span className="font-extrabold text-primary">₹{profit.toFixed(2)}</span>
+                        <span className={cn("font-extrabold", getProfitColor(profit))}>₹{profit.toFixed(2)}</span>
                     </div>
                     
                     {report.salesByTable && report.salesByTable.length > 0 && (
@@ -63,6 +66,7 @@ function GrossProfitDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: bo
                                             <TableHead className="text-right">Sales</TableHead>
                                             <TableHead className="text-right">Cost</TableHead>
                                             <TableHead className="text-right">Profit</TableHead>
+                                            <TableHead className="text-right">Profit %</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -71,8 +75,11 @@ function GrossProfitDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: bo
                                                 <TableCell className="font-medium">Table {tableData.tableNumber}</TableCell>
                                                 <TableCell className="text-right font-mono">₹{tableData.totalSales.toFixed(2)}</TableCell>
                                                 <TableCell className="text-right font-mono text-red-600">₹{tableData.totalCost.toFixed(2)}</TableCell>
-                                                <TableCell className={cn("text-right font-mono font-bold", tableData.grossProfit >= 0 ? "text-green-600" : "text-red-600")}>
+                                                <TableCell className={cn("text-right font-mono font-bold", getProfitColor(tableData.grossProfit))}>
                                                     ₹{tableData.grossProfit.toFixed(2)}
+                                                </TableCell>
+                                                 <TableCell className={cn("text-right font-mono font-bold", getProfitColor(tableData.profitPercentage))}>
+                                                    {tableData.profitPercentage.toFixed(1)}%
                                                 </TableCell>
                                             </TableRow>
                                         ))}
