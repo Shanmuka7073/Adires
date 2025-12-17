@@ -1,10 +1,11 @@
+
 'use client';
 
 import React, { useEffect, useState, useTransition, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BarChart3, Download, DollarSign, Receipt, AlertTriangle, List, Minus, Equal, Percent, TrendingUp, TrendingDown, Award, Lightbulb } from 'lucide-react';
+import { BarChart3, Download, DollarSign, Receipt, AlertTriangle, List, TrendingUp, TrendingDown, Award, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
@@ -21,7 +22,7 @@ import { Badge } from '@/components/ui/badge';
 function SuggestionDetailsDialog({ isOpen, onOpenChange, tableData }: { isOpen: boolean; onOpenChange: (open: boolean) => void; tableData: ReportData['salesByTable'][0] | null }) {
     if (!tableData) return null;
 
-    const TARGET_MARGIN = 0.55; // 55%
+    const TARGET_MARGIN = 0.55;
 
     // Calculations for Path A: Increase Prices
     const requiredTotalSales = tableData.totalCost / (1 - TARGET_MARGIN);
@@ -49,7 +50,7 @@ function SuggestionDetailsDialog({ isOpen, onOpenChange, tableData }: { isOpen: 
                         <CardHeader>
                             <CardTitle className="text-lg">Path A: Increase Selling Price</CardTitle>
                         </CardHeader>
-                        <CardContent className="text-sm space-y-2">
+                        <CardContent className="text-sm space-y-3">
                              <p>To reach a 55% margin with your current ingredient cost of <strong>₹{tableData.totalCost.toFixed(2)}</strong>, your total sales for this period would need to be <strong>₹{requiredTotalSales.toFixed(2)}</strong>.</p>
                              <div className="font-mono p-2 bg-muted rounded-md text-xs">
                                 Calculation: ₹{tableData.totalCost.toFixed(2)} / (1 - 0.55) = ₹{requiredTotalSales.toFixed(2)}
@@ -59,7 +60,7 @@ function SuggestionDetailsDialog({ isOpen, onOpenChange, tableData }: { isOpen: 
                                 Calculation: ₹{requiredTotalSales.toFixed(2)} (Target) - ₹{tableData.totalSales.toFixed(2)} (Current) = ₹{priceIncreaseNeeded.toFixed(2)}
                              </div>
                              <p>Spread across {tableData.orderCount} orders, this means an average price increase of:</p>
-                             <p className="text-center font-bold text-xl text-green-600">~₹{priceIncreasePerOrder.toFixed(2)} per order</p>
+                             <p className="text-center font-bold text-2xl text-green-600">~₹{priceIncreasePerOrder.toFixed(2)} per order</p>
                         </CardContent>
                     </Card>
                      {/* Path B */}
@@ -67,7 +68,7 @@ function SuggestionDetailsDialog({ isOpen, onOpenChange, tableData }: { isOpen: 
                         <CardHeader>
                             <CardTitle className="text-lg">Path B: Reduce Ingredient Costs</CardTitle>
                         </CardHeader>
-                        <CardContent className="text-sm space-y-2">
+                        <CardContent className="text-sm space-y-3">
                              <p>To reach a 55% margin from your current sales of <strong>₹{tableData.totalSales.toFixed(2)}</strong>, your total ingredient cost should not exceed <strong>₹{requiredIngredientCost.toFixed(2)}</strong>.</p>
                              <div className="font-mono p-2 bg-muted rounded-md text-xs">
                                 Calculation: ₹{tableData.totalSales.toFixed(2)} * (1 - 0.55) = ₹{requiredIngredientCost.toFixed(2)}
@@ -77,7 +78,7 @@ function SuggestionDetailsDialog({ isOpen, onOpenChange, tableData }: { isOpen: 
                                 Calculation: ₹{tableData.totalCost.toFixed(2)} (Current) - ₹{requiredIngredientCost.toFixed(2)} (Target) = ₹{costReductionNeeded.toFixed(2)}
                              </div>
                              <p>This represents a total cost reduction of:</p>
-                             <p className="text-center font-bold text-xl text-green-600">~{costReductionPercent.toFixed(1)}%</p>
+                             <p className="text-center font-bold text-2xl text-green-600">~{costReductionPercent.toFixed(1)}%</p>
                         </CardContent>
                     </Card>
                 </div>
@@ -233,7 +234,7 @@ function ProfitPerOrderDetailsDialog({ isOpen, onOpenChange, report }: { isOpen:
                         This is the average profit you make on each order, broken down by table.
                     </DialogDescription>
                 </DialogHeader>
-                 <div className="space-y-4 py-4">
+                 <div className="py-4 space-y-4">
                      <div className="grid grid-cols-2 gap-4 text-center">
                         <div>
                              <p className="text-sm text-muted-foreground">Gross Profit</p>
