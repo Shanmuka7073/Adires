@@ -5,7 +5,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BarChart3, TrendingUp, Download, DollarSign, Package, AlertTriangle } from 'lucide-react';
+import { BarChart3, Download, DollarSign, Package, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
@@ -24,10 +24,10 @@ type ReportData = {
 
 function StatCard({ title, value, highlight = false }: { title: string, value: string | number, highlight?: boolean }) {
   return (
-    <Card className={highlight ? 'border-green-500' : ''}>
-      <CardContent className="p-6">
+    <Card className={highlight ? 'border-green-500 bg-green-50' : 'bg-slate-50'}>
+      <CardContent className="p-4">
         <p className="text-sm text-muted-foreground">{title}</p>
-        <h2 className="text-3xl font-bold mt-1">{value}</h2>
+        <h2 className="text-2xl font-bold mt-1">{value}</h2>
       </CardContent>
     </Card>
   );
@@ -103,9 +103,9 @@ export default function SalesReportPage() {
                         <div className="flex items-center gap-3">
                             <BarChart3 className="h-8 w-8 text-primary" />
                             <div>
-                                <CardTitle className="text-3xl font-headline">Sales Report: {myStore.name}</CardTitle>
+                                <CardTitle className="text-3xl font-headline">Sales & Profit Report</CardTitle>
                                 <CardDescription>
-                                    An overview of your sales performance and ingredient consumption.
+                                    An overview of your sales, costs, and profitability.
                                 </CardDescription>
                             </div>
                         </div>
@@ -124,7 +124,8 @@ export default function SalesReportPage() {
                         </TabsList>
                         <TabsContent value={activeTab} className="mt-6">
                             {isLoading ? (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+                                    <Skeleton className="h-24" />
                                     <Skeleton className="h-24" />
                                     <Skeleton className="h-24" />
                                     <Skeleton className="h-24" />
@@ -136,22 +137,22 @@ export default function SalesReportPage() {
                                     <AlertDescription>{error}</AlertDescription>
                                 </Alert>
                             ) : report && report.totalOrders > 0 ? (
-                                <>
-                                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
-                                      <StatCard title="Total Sales" value={`₹${report.totalSales.toFixed(0)}`} highlight={true} />
+                                <div className="space-y-8">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                      <StatCard title="Total Sales" value={`₹${report.totalSales.toFixed(0)}`} />
                                       <StatCard title="Ingredient Cost" value={`₹${report.ingredientCost.toFixed(0)}`} />
                                       <StatCard title="Gross Profit" value={`₹${(report.totalSales - report.ingredientCost).toFixed(0)}`} highlight={true} />
                                       <StatCard title="Total Orders" value={report.totalOrders} />
                                     </div>
                                     
-                                    <div className="grid md:grid-cols-2 gap-8 mt-10">
+                                    <div className="grid md:grid-cols-2 gap-8">
                                       <div>
                                         <h3 className="text-xl font-semibold mb-3">Top Products</h3>
                                         {report.topProducts.length > 0 ? (
                                             <div className="space-y-2">
                                                 {report.topProducts.map(p => (
-                                                    <div key={p.name} className="flex justify-between items-center text-sm p-2 bg-muted/50 rounded-md">
-                                                        <span className="capitalize">{p.name}</span>
+                                                    <div key={p.name} className="flex justify-between items-center text-sm p-3 bg-slate-50 rounded-lg">
+                                                        <span className="capitalize font-medium">{p.name}</span>
                                                         <span className="font-bold">{p.count} units</span>
                                                     </div>
                                                 ))}
@@ -165,11 +166,11 @@ export default function SalesReportPage() {
                                             {report.ingredientUsage.map(i => (
                                               <div
                                                 key={i.name}
-                                                className="flex justify-between bg-muted/50 p-3 rounded-md"
+                                                className="flex justify-between bg-slate-50 p-3 rounded-lg"
                                               >
-                                                <span className="capitalize">{i.name}</span>
+                                                <span className="capitalize font-medium">{i.name}</span>
                                                 <div className="text-right">
-                                                    <p className="font-mono font-bold">
+                                                    <p className="font-mono font-semibold">
                                                     {i.quantity.toFixed(2)} {i.unit}
                                                     </p>
                                                      <p className="text-xs text-red-600 font-semibold">
@@ -186,7 +187,7 @@ export default function SalesReportPage() {
                                         )}
                                       </div>
                                     </div>
-                                </>
+                                </div>
                             ) : (
                                 <div className="mt-6 text-center text-muted-foreground py-8">
                                     <p>No sales data for this period yet.</p>
@@ -199,5 +200,3 @@ export default function SalesReportPage() {
         </div>
     );
 }
-
-      
