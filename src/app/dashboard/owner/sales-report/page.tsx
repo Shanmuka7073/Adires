@@ -1,12 +1,11 @@
 
-
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useState, useTransition, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BarChart3, Download, DollarSign, Receipt, AlertTriangle, List, Minus, Equal, Percent } from 'lucide-react';
+import { BarChart3, Download, DollarSign, Receipt, AlertTriangle, List, Minus, Equal, Percent, TrendingUp, TrendingDown, Award } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
@@ -17,72 +16,123 @@ import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 
 // New Dialog Component for Gross Profit Breakdown
 function GrossProfitDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean, onOpenChange: (open: boolean) => void, report: ReportData | null }) {
     if (!report) return null;
 
     const profit = report.totalSales - report.ingredientCost;
-
+    
     const getProfitColor = (p: number) => p >= 0 ? 'text-green-600' : 'text-red-600';
+    
+    const getStatusInfo = (p: number): { label: string; className: string; description: string } => {
+        if (p >= 60) return { label: 'Healthy', className: 'bg-green-100 text-green-800 border-green-200', description: 'Excellent profit margin.' };
+        if (p >= 50) return { label: 'Average', className: 'bg-yellow-100 text-yellow-800 border-yellow-200', description: 'Margin is okay, but can be improved.' };
+        return { label: 'Loss Risk', className: 'bg-red-100 text-red-800 border-red-200', description: 'Margin is too low. Action needed.' };
+    };
+
+    const getRecommendation = (tableData: ReportData['salesByTable'][0]) => {
+        if (tableData.profitPercentage >= 55) return null; // No suggestion needed if margin is good
+        const targetMargin = 0.55; // 55%
+        
+        const requiredTotalSales = tableData.totalCost / (1 - targetMargin);
+        const priceIncreaseNeeded = requiredTotalSales - tableData.totalSales;
+        const priceIncreasePerOrder = tableData.orderCount > 0 ? priceIncreaseNeeded / tableData.orderCount : 0;
+        
+        const requiredIngredientCost = tableData.totalSales * (1 - targetMargin);
+        const costReductionNeeded = tableData.totalCost - requiredIngredientCost;
+        const costReductionPercent = tableData.totalCost > 0 ? (costReductionNeeded / tableData.totalCost) * 100 : 0;
+
+        if (priceIncreasePerOrder <= 0 && costReductionPercent <= 0) return null;
+
+        return `Suggestion: Increase dish prices by ~₹${priceIncreasePerOrder.toFixed(0)}/order OR reduce ingredient costs by ${costReductionPercent.toFixed(0)}%.`;
+    };
+
+    const sortedByProfit = report.salesByTable?.slice().sort((a,b) => b.profitPercentage - a.profitPercentage);
+    const bestTable = sortedByProfit?.[0];
+    const worstTable = sortedByProfit?.[sortedByProfit.length - 1];
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-3xl">
                 <DialogHeader>
-                    <DialogTitle>Gross Profit Calculation</DialogTitle>
+                    <DialogTitle>Gross Profit Calculation Breakdown</DialogTitle>
                     <DialogDescription>
                         Here's how your gross profit is calculated for this period, broken down by table.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                    <div className="flex justify-between items-center text-lg p-3 bg-gray-50 rounded-md">
-                        <span className="text-muted-foreground">Total Sales</span>
-                        <span className="font-semibold">₹{report.totalSales.toFixed(2)}</span>
+                    {/* Overall Summary */}
+                     <div className="grid grid-cols-3 gap-4 text-center">
+                        <Card><CardHeader><CardTitle>₹{report.totalSales.toFixed(2)}</CardTitle><CardDescription>Total Sales</CardDescription></CardHeader></Card>
+                        <Card><CardHeader><CardTitle className="text-red-600">₹{report.ingredientCost.toFixed(2)}</CardTitle><CardDescription>Ingredient Cost</CardDescription></CardHeader></Card>
+                        <Card className="bg-primary/5 border-primary/20"><CardHeader><CardTitle className={cn("font-extrabold", getProfitColor(profit))}>₹{profit.toFixed(2)}</CardTitle><CardDescription>Gross Profit</CardDescription></CardHeader></Card>
                     </div>
-                    <div className="flex justify-center">
-                        <Minus className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div className="flex justify-between items-center text-lg p-3 bg-gray-50 rounded-md">
-                        <span className="text-muted-foreground">Ingredient Cost</span>
-                        <span className="font-semibold text-red-600">₹{report.ingredientCost.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-center">
-                        <Equal className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div className="flex justify-between items-center text-xl p-3 bg-primary/10 rounded-md">
-                        <span className="font-extrabold text-primary">Gross Profit</span>
-                        <span className={cn("font-extrabold", getProfitColor(profit))}>₹{profit.toFixed(2)}</span>
-                    </div>
-                    
+                     {/* Highlights */}
+                    {bestTable && worstTable && bestTable.tableNumber !== worstTable.tableNumber && (
+                        <div className="grid grid-cols-2 gap-4">
+                             <Alert className="bg-green-50 border-green-200">
+                                <Award className="h-4 w-4 text-green-600" />
+                                <AlertTitle className="text-green-800">Best Performer</AlertTitle>
+                                <AlertDescription className="text-green-700">
+                                    Table {bestTable.tableNumber} is your most profitable table with a <strong>{bestTable.profitPercentage.toFixed(1)}%</strong> margin.
+                                </AlertDescription>
+                            </Alert>
+                             <Alert className="bg-red-50 border-red-200">
+                                <TrendingDown className="h-4 w-4 text-red-600" />
+                                <AlertTitle className="text-red-800">Needs Attention</AlertTitle>
+                                <AlertDescription className="text-red-700">
+                                    Table {worstTable.tableNumber} has the lowest margin at <strong>{worstTable.profitPercentage.toFixed(1)}%</strong>.
+                                </AlertDescription>
+                            </Alert>
+                        </div>
+                    )}
+
                     {report.salesByTable && report.salesByTable.length > 0 && (
                         <div className="pt-4 mt-4 border-t">
-                            <h4 className="font-semibold mb-2">Gross Profit by Table</h4>
+                            <h4 className="font-semibold mb-2">Profitability by Table</h4>
                             <ScrollArea className="max-h-60">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>Table</TableHead>
+                                            <TableHead>Profit %</TableHead>
                                             <TableHead className="text-right">Sales</TableHead>
                                             <TableHead className="text-right">Cost</TableHead>
                                             <TableHead className="text-right">Profit</TableHead>
-                                            <TableHead className="text-right">Profit %</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {report.salesByTable.map(tableData => (
-                                            <TableRow key={tableData.tableNumber}>
-                                                <TableCell className="font-medium">Table {tableData.tableNumber}</TableCell>
-                                                <TableCell className="text-right font-mono">₹{tableData.totalSales.toFixed(2)}</TableCell>
-                                                <TableCell className="text-right font-mono text-red-600">₹{tableData.totalCost.toFixed(2)}</TableCell>
-                                                <TableCell className={cn("text-right font-mono font-bold", getProfitColor(tableData.grossProfit))}>
-                                                    ₹{tableData.grossProfit.toFixed(2)}
-                                                </TableCell>
-                                                 <TableCell className={cn("text-right font-mono font-bold", getProfitColor(tableData.profitPercentage))}>
-                                                    {tableData.profitPercentage.toFixed(1)}%
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
+                                        {report.salesByTable.map(tableData => {
+                                            const status = getStatusInfo(tableData.profitPercentage);
+                                            const recommendation = getRecommendation(tableData);
+                                            return (
+                                                <React.Fragment key={tableData.tableNumber}>
+                                                    <TableRow>
+                                                        <TableCell className="font-medium">Table {tableData.tableNumber}</TableCell>
+                                                        <TableCell>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={cn("font-bold", getProfitColor(tableData.profitPercentage))}>{tableData.profitPercentage.toFixed(1)}%</span>
+                                                                <Badge className={cn("text-xs", status.className)}>{status.label}</Badge>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-mono">₹{tableData.totalSales.toFixed(2)}</TableCell>
+                                                        <TableCell className="text-right font-mono text-red-600">₹{tableData.totalCost.toFixed(2)}</TableCell>
+                                                        <TableCell className={cn("text-right font-mono font-bold", getProfitColor(tableData.grossProfit))}>
+                                                            ₹{tableData.grossProfit.toFixed(2)}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                    {recommendation && (
+                                                        <TableRow>
+                                                            <TableCell colSpan={5} className="py-2 px-4 bg-amber-50 border-l-4 border-amber-400">
+                                                                <p className="text-xs text-amber-900 font-medium">{recommendation}</p>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )}
+                                                </React.Fragment>
+                                            );
+                                        })}
                                     </TableBody>
                                 </Table>
                             </ScrollArea>
@@ -97,7 +147,7 @@ function GrossProfitDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: bo
     );
 }
 
-// New Dialog Component for Profit Per Order Breakdown
+
 function ProfitPerOrderDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean, onOpenChange: (open: boolean) => void, report: ReportData | null }) {
     if (!report || report.totalOrders === 0) return null;
 
@@ -162,7 +212,6 @@ function ProfitPerOrderDetailsDialog({ isOpen, onOpenChange, report }: { isOpen:
     );
 }
 
-// New Dialog Component for Ingredient Cost Breakdown
 function CostDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean, onOpenChange: (open: boolean) => void, report: ReportData | null }) {
     if (!report) return null;
 
@@ -204,7 +253,6 @@ function CostDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean, 
     );
 }
 
-// New Dialog Component for Total Sales
 function SalesDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean, onOpenChange: (open: boolean) => void, report: ReportData | null }) {
     if (!report) return null;
 
@@ -461,3 +509,4 @@ export default function SalesReportPage() {
         </div>
     );
 }
+
