@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { BarChart3, TrendingUp, ShoppingCart, Beef, Carrot, Grape, Download, DollarSign, Package, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, Timestamp } from 'firebase/firestore';
+import { collection, query, where, Timestamp, getDocs } from 'firebase/firestore';
 import type { Order, OrderItem, Product, Store } from '@/lib/types';
 import { getStoreSalesReport } from '@/app/actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
