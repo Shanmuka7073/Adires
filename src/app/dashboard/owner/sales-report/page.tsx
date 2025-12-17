@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
 
 function SuggestionDetailsDialog({ isOpen, onOpenChange, tableData }: { isOpen: boolean; onOpenChange: (open: boolean) => void; tableData: ReportData['salesByTable'][0] | null }) {
@@ -37,51 +38,48 @@ function SuggestionDetailsDialog({ isOpen, onOpenChange, tableData }: { isOpen: 
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2"><Lightbulb className="text-amber-500"/> Profit Improvement Suggestions</DialogTitle>
                     <DialogDescription>
                         Detailed breakdown on how to improve Table {tableData.tableNumber}'s profit margin from a risky <strong>{tableData.profitPercentage.toFixed(1)}%</strong> to a healthy <strong>{(TARGET_MARGIN * 100).toFixed(0)}%</strong>.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-6 py-4">
-                    {/* Path A */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Path A: Increase Selling Price</CardTitle>
-                        </CardHeader>
-                        <CardContent className="text-sm space-y-3">
-                             <p>To reach a 55% margin with your current ingredient cost of <strong>₹{tableData.totalCost.toFixed(2)}</strong>, your total sales for this period would need to be <strong>₹{requiredTotalSales.toFixed(2)}</strong>.</p>
-                             <div className="font-mono p-2 bg-muted rounded-md text-xs">
-                                Calculation: ₹{tableData.totalCost.toFixed(2)} / (1 - 0.55) = ₹{requiredTotalSales.toFixed(2)}
-                             </div>
-                             <p>The total increase in sales required is <strong>₹{priceIncreaseNeeded.toFixed(2)}</strong>.</p>
-                             <div className="font-mono p-2 bg-muted rounded-md text-xs">
-                                Calculation: ₹{requiredTotalSales.toFixed(2)} (Target) - ₹{tableData.totalSales.toFixed(2)} (Current) = ₹{priceIncreaseNeeded.toFixed(2)}
-                             </div>
-                             <p>Spread across {tableData.orderCount} orders, this means an average price increase of:</p>
-                             <p className="text-center font-bold text-2xl text-green-600">~₹{priceIncreasePerOrder.toFixed(2)} per order</p>
-                        </CardContent>
-                    </Card>
-                     {/* Path B */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Path B: Reduce Ingredient Costs</CardTitle>
-                        </CardHeader>
-                        <CardContent className="text-sm space-y-3">
-                             <p>To reach a 55% margin from your current sales of <strong>₹{tableData.totalSales.toFixed(2)}</strong>, your total ingredient cost should not exceed <strong>₹{requiredIngredientCost.toFixed(2)}</strong>.</p>
-                             <div className="font-mono p-2 bg-muted rounded-md text-xs">
-                                Calculation: ₹{tableData.totalSales.toFixed(2)} * (1 - 0.55) = ₹{requiredIngredientCost.toFixed(2)}
-                             </div>
-                             <p>This means you need to reduce your current costs by <strong>₹{costReductionNeeded.toFixed(2)}</strong>.</p>
-                             <div className="font-mono p-2 bg-muted rounded-md text-xs">
-                                Calculation: ₹{tableData.totalCost.toFixed(2)} (Current) - ₹{requiredIngredientCost.toFixed(2)} (Target) = ₹{costReductionNeeded.toFixed(2)}
-                             </div>
-                             <p>This represents a total cost reduction of:</p>
-                             <p className="text-center font-bold text-2xl text-green-600">~{costReductionPercent.toFixed(1)}%</p>
-                        </CardContent>
-                    </Card>
-                </div>
+                <ScrollArea className="max-h-[60vh] pr-6">
+                  <div className="space-y-6 py-4">
+                      {/* Path A */}
+                      <div className="space-y-3">
+                          <h4 className="text-lg font-semibold">Path A: Increase Selling Price</h4>
+                          <p className="text-sm text-muted-foreground">To reach a 55% margin with your current ingredient cost of <strong>₹{tableData.totalCost.toFixed(2)}</strong>, your total sales for this period would need to be <strong>₹{requiredTotalSales.toFixed(2)}</strong>.</p>
+                          <div className="font-mono p-2 bg-muted rounded-md text-xs">
+                              Calculation: ₹{tableData.totalCost.toFixed(2)} / (1 - 0.55) = ₹{requiredTotalSales.toFixed(2)}
+                          </div>
+                          <p className="text-sm text-muted-foreground">The total increase in sales required is <strong>₹{priceIncreaseNeeded.toFixed(2)}</strong>.</p>
+                          <div className="font-mono p-2 bg-muted rounded-md text-xs">
+                              Calculation: ₹{requiredTotalSales.toFixed(2)} (Target) - ₹{tableData.totalSales.toFixed(2)} (Current) = ₹{priceIncreaseNeeded.toFixed(2)}
+                          </div>
+                          <p className="text-sm text-muted-foreground">Spread across {tableData.orderCount} orders, this means an average price increase of:</p>
+                          <p className="text-center font-bold text-2xl text-green-600">~₹{priceIncreasePerOrder.toFixed(2)} per order</p>
+                      </div>
+
+                      <Separator />
+
+                      {/* Path B */}
+                       <div className="space-y-3">
+                          <h4 className="text-lg font-semibold">Path B: Reduce Ingredient Costs</h4>
+                          <p className="text-sm text-muted-foreground">To reach a 55% margin from your current sales of <strong>₹{tableData.totalSales.toFixed(2)}</strong>, your total ingredient cost should not exceed <strong>₹{requiredIngredientCost.toFixed(2)}</strong>.</p>
+                          <div className="font-mono p-2 bg-muted rounded-md text-xs">
+                              Calculation: ₹{tableData.totalSales.toFixed(2)} * (1 - 0.55) = ₹{requiredIngredientCost.toFixed(2)}
+                          </div>
+                          <p className="text-sm text-muted-foreground">This means you need to reduce your current costs by <strong>₹{costReductionNeeded.toFixed(2)}</strong>.</p>
+                          <div className="font-mono p-2 bg-muted rounded-md text-xs">
+                              Calculation: ₹{tableData.totalCost.toFixed(2)} (Current) - ₹{requiredIngredientCost.toFixed(2)} (Target) = ₹{costReductionNeeded.toFixed(2)}
+                          </div>
+                          <p className="text-sm text-muted-foreground">This represents a total cost reduction of:</p>
+                          <p className="text-center font-bold text-2xl text-green-600">~{costReductionPercent.toFixed(1)}%</p>
+                      </div>
+                  </div>
+                </ScrollArea>
                 <DialogFooter>
                     <Button onClick={() => onOpenChange(false)}>Close</Button>
                 </DialogFooter>
@@ -348,14 +346,14 @@ function SalesDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean,
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Table</TableHead>
-                                        <TableHead className="text-right">Sales</TableHead>
+                                        <TableHead className="text-right">Sales (# Orders)</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {report.salesByTable.sort((a,b) => b.totalSales - a.totalSales).map(tableData => (
                                         <TableRow key={tableData.tableNumber}>
-                                            <TableCell className="font-medium">Table {tableData.tableNumber} ({tableData.orderCount} orders)</TableCell>
-                                            <TableCell className="text-right font-mono">₹{tableData.totalSales.toFixed(2)}</TableCell>
+                                            <TableCell className="font-medium">Table {tableData.tableNumber}</TableCell>
+                                            <TableCell className="text-right font-mono">₹{tableData.totalSales.toFixed(2)} ({tableData.orderCount})</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -474,7 +472,7 @@ export default function SalesReportPage() {
 
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
-             <GrossProfitDetailsDialog isOpen={isGrossProfitDialogOpen} onOpenChange={setIsGrossProfitDialogOpen} report={report} onSuggestionClick={handleSuggestionClick} />
+            <GrossProfitDetailsDialog isOpen={isGrossProfitDialogOpen} onOpenChange={setIsGrossProfitDialogOpen} report={report} onSuggestionClick={handleSuggestionClick} />
             <CostDetailsDialog isOpen={isCostDialogOpen} onOpenChange={setIsCostDialogOpen} report={report} />
             <SalesDetailsDialog isOpen={isSalesDialogOpen} onOpenChange={setIsSalesDialogOpen} report={report} />
             <ProfitPerOrderDetailsDialog isOpen={isProfitPerOrderDialogOpen} onOpenChange={setIsProfitPerOrderDialogOpen} report={report} />
