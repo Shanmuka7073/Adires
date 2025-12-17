@@ -178,8 +178,8 @@ export default function AdminDashboardPage() {
            <ActionCard
             title="Sales Reports"
             description="View daily and monthly sales data"
-            href="/dashboard/admin/sales-report"
-            icon={FileCode}
+            href="/dashboard/owner/sales-report"
+            icon={BarChart3}
           />
         </div>
       </section>
@@ -308,6 +308,12 @@ export default function AdminDashboardPage() {
             description="View the source code for the public-facing QR menu page."
             href="/dashboard/admin/menu-help"
             icon={FileCode}
+          />
+          <ActionCard
+            title="Sales Report Code"
+            description="View the source code for the sales and profit analysis report."
+            href="/dashboard/admin/sales-report-help"
+            icon={BarChart3}
           />
           <ActionCard
             title="Voice Commander Code"
