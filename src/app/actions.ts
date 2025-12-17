@@ -512,32 +512,15 @@ export async function getStoreSalesReport({
     }
   }
 
-  // --- NEW: COST CALCULATION LOGIC ---
-  let totalIngredientCost = 0;
-  const priceDocs = await db.collection('productPrices').get();
-  const priceMap = new Map<string, ProductPrice>();
-  priceDocs.forEach(doc => priceMap.set(doc.id, doc.data() as ProductPrice));
-
-  for (const [name, data] of ingredientMap.entries()) {
-    const priceData = priceMap.get(name.toLowerCase());
-    if (priceData?.variants?.length) {
-      const baseVariant = priceData.variants.find(v => v.weight.includes('kg') || v.weight.includes('l')) || priceData.variants[0];
-      const baseWeightStr = baseVariant.weight.match(/(\d+\.?\d*)/);
-      const baseWeight = baseWeightStr ? parseFloat(baseWeightStr[0]) : 1;
-      const isKgOrLtr = baseVariant.weight.includes('kg') || baseVariant.weight.includes('l');
-      const baseWeightInGrams = isKgOrLtr ? baseWeight * 1000 : baseWeight;
-      const pricePerGram = baseVariant.price / baseWeightInGrams;
-      totalIngredientCost += pricePerGram * data.quantity;
-    }
-  }
-  // --- END NEW LOGIC ---
+  // Cost calculation is removed as it's not applicable for restaurants without their own cost input.
+  const totalIngredientCost = 0;
 
   return {
     success: true,
     report: {
       totalSales,
       totalOrders: validOrders.length,
-      totalItems: Array.from(productMap.values()).reduce((a, b) => a, b, 0),
+      totalItems: Array.from(productMap.values()).reduce((a, b) => a + b, 0),
       topProducts: [...productMap.entries()]
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
@@ -550,7 +533,7 @@ export async function getStoreSalesReport({
               unit: formatted.unit
           };
       }),
-      ingredientCost: totalIngredientCost, // Return the calculated cost
+      ingredientCost: totalIngredientCost,
     },
     error: null,
   };
@@ -681,3 +664,6 @@ export async function getIngredientsForDish(input: { dishName: string; language:
   return output;
 }
 
+
+
+    

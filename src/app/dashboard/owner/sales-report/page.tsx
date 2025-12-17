@@ -19,7 +19,7 @@ type ReportData = {
   totalOrders: number;
   topProducts: { name: string; count: number }[];
   ingredientUsage: { name: string; quantity: number, unit: string }[];
-  ingredientCost: number;
+  ingredientCost: number; // This will now be 0
 };
 
 function StatCard({ title, value, highlight = false }: { title: string, value: string | number, highlight?: boolean }) {
@@ -105,7 +105,7 @@ export default function SalesReportPage() {
                             <div>
                                 <CardTitle className="text-3xl font-headline">Sales Report: {myStore.name}</CardTitle>
                                 <CardDescription>
-                                    An overview of your sales performance and costs.
+                                    An overview of your sales performance and ingredient consumption.
                                 </CardDescription>
                             </div>
                         </div>
@@ -138,9 +138,9 @@ export default function SalesReportPage() {
                             ) : report && report.totalOrders > 0 ? (
                                 <>
                                     <div className="grid md:grid-cols-3 gap-6 mt-6">
-                                      <StatCard title="Total Sales" value={`₹${report.totalSales.toFixed(0)}`} />
-                                      <StatCard title="Ingredient Cost (COGS)" value={`₹${report.ingredientCost.toFixed(0)}`} />
-                                      <StatCard title="Gross Profit" value={`₹${(report.totalSales - report.ingredientCost).toFixed(0)}`} highlight={true}/>
+                                      <StatCard title="Total Sales" value={`₹${report.totalSales.toFixed(0)}`} highlight={true} />
+                                      <StatCard title="Total Orders" value={report.totalOrders} />
+                                      <StatCard title="Total Items Sold" value={report.totalItems} />
                                     </div>
                                     
                                     <div className="grid md:grid-cols-2 gap-8 mt-10">
@@ -175,7 +175,7 @@ export default function SalesReportPage() {
                                           </div>
                                         ) : (
                                           <p className="text-muted-foreground">
-                                            Inventory tracking not enabled for this period
+                                            No ingredient consumption data for this period.
                                           </p>
                                         )}
                                       </div>
@@ -193,3 +193,5 @@ export default function SalesReportPage() {
         </div>
     );
 }
+
+    
