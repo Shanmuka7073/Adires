@@ -5,6 +5,7 @@ import { useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import type { User as AppUser } from '@/lib/types';
 import { useFirebase } from '@/firebase';
+import { useMemo } from 'react';
 
 export function useAdminAuth() {
   const { user, isUserLoading } = useUser();
@@ -17,9 +18,23 @@ export function useAdminAuth() {
 
   const { data: userData, isLoading: isProfileLoading } = useDoc<AppUser>(userDocRef);
 
-  const isAdmin = !isUserLoading && (user?.email === 'admin@gmail.com' || user?.email === 'admin2@gmail.com');
-  const isChickenAdmin = !isUserLoading && user?.email === 'chickenadmin@gmail.com';
-  const isRestaurantOwner = !isProfileLoading && userData?.accountType === 'restaurant';
+  const { isAdmin, isChickenAdmin, isRestaurantOwner, isLoading } = useMemo(() => {
+    const isLoading = isUserLoading || isProfileLoading;
+    if (isLoading) {
+      return { isAdmin: false, isChickenAdmin: false, isRestaurantOwner: false, isLoading: true };
+    }
 
-  return { isAdmin, isChickenAdmin, isRestaurantOwner, isLoading: isUserLoading || isProfileLoading };
+    if (!user) {
+      return { isAdmin: false, isChickenAdmin: false, isRestaurantOwner: false, isLoading: false };
+    }
+    
+    const admin = user.email === 'admin@gmail.com' || user.email === 'admin2@gmail.com';
+    const chickenAdmin = user.email === 'chickenadmin@gmail.com';
+    const restaurantOwner = userData?.accountType === 'restaurant';
+
+    return { isAdmin: admin, isChickenAdmin: chickenAdmin, isRestaurantOwner: restaurantOwner, isLoading: false };
+
+  }, [isUserLoading, isProfileLoading, user, userData]);
+  
+  return { isAdmin, isChickenAdmin, isRestaurantOwner, isLoading };
 }

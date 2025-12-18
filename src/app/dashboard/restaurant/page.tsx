@@ -35,10 +35,15 @@ export default function RestaurantDashboardPage() {
         }
     }, [isLoading, isRestaurantOwner, router]);
     
-    // While loading, or if the user is not a restaurant owner (and will be redirected),
-    // show a simple loading message to prevent any UI flashing.
-    if (isLoading || !isRestaurantOwner) {
+    // While loading, show a simple loading message to prevent any UI flashing or rendering of content for the wrong user.
+    if (isLoading) {
         return <div className="container mx-auto py-12 text-center">Loading restaurant dashboard...</div>;
+    }
+
+    // If the user is not a restaurant owner, this will prevent rendering the dashboard content
+    // just before the redirect happens.
+    if (!isRestaurantOwner) {
+        return null; 
     }
 
     // Render the correct dashboard for the restaurant owner
