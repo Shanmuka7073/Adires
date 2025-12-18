@@ -87,7 +87,7 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true);
     const { isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
     const router = useRouter();
-
+    
     useLayoutEffect(() => {
         if (!isRoleLoading && isRestaurantOwner) {
             router.replace('/dashboard/restaurant');
@@ -117,6 +117,7 @@ export default function DashboardPage() {
             </div>
         );
     }
+
 
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
