@@ -1,4 +1,5 @@
 
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -29,7 +30,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow get, update, delete: if isOwner(userId);
       allow list: if isAdmin();
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow create: if (isOwner(userId) && request.resource.data.id == userId) || isAdmin();
     }
 
     match /asha-conversations/{userId}/{document=**} {
@@ -42,7 +43,7 @@ service cloud.firestore {
 
     match /stores/{storeId} {
       allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow create: if (isSignedIn() && request.resource.data.ownerId == request.auth.uid) || isAdmin();
       allow update, delete: if isStoreOwner(storeId);
     }
 

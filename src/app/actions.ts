@@ -719,3 +719,52 @@ export async function addIngredientsToCatalog(ingredients: Omit<RestaurantIngred
     return { success: false, count: 0, error: error.message };
   }
 }
+
+export async function createRestaurantUserAndStore(
+    email: string,
+    password: string,
+    restaurantName: string
+): Promise<{ success: boolean; userId?: string; storeId?: string; error?: string }> {
+    const { auth, db } = await getAdminServices();
+
+    try {
+        // 1. Create the Firebase Auth user
+        const userRecord = await auth.createUser({
+            email,
+            password,
+            displayName: restaurantName,
+        });
+
+        // 2. Create the User document in Firestore
+        const userDocRef = db.collection('users').doc(userRecord.uid);
+        await userDocRef.set({
+            id: userRecord.uid,
+            email: userRecord.email,
+            firstName: restaurantName,
+            lastName: 'Owner',
+            role: 'restaurant_owner',
+            address: 'To be updated',
+            phoneNumber: 'To be updated',
+        });
+
+        // 3. Create the Store document in Firestore
+        const storeDocRef = db.collection('stores').doc();
+        await storeDocRef.set({
+            id: storeDocRef.id,
+            name: restaurantName,
+            description: `${restaurantName} - quality food and quick service.`,
+            address: 'To be updated',
+            ownerId: userRecord.uid,
+            latitude: 0,
+            longitude: 0,
+            imageId: `store-${Math.floor(Math.random() * 3) + 1}`,
+            isClosed: false,
+        });
+
+        return { success: true, userId: userRecord.uid, storeId: storeDocRef.id };
+
+    } catch (error: any) {
+        console.error("Failed to create restaurant user and store:", error);
+        return { success: false, error: error.message || 'An unknown error occurred.' };
+    }
+}
