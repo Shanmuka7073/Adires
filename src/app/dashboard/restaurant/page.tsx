@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useLayoutEffect } from 'react';
 
 const restaurantLinks = [
     {
@@ -28,7 +28,7 @@ export default function RestaurantDashboardPage() {
     const { isRestaurantOwner, isLoading } = useAdminAuth();
     const router = useRouter();
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         // Only redirect if loading is finished and the user is NOT a restaurant owner.
         if (!isLoading && !isRestaurantOwner) {
             router.replace('/dashboard');
@@ -36,13 +36,8 @@ export default function RestaurantDashboardPage() {
     }, [isLoading, isRestaurantOwner, router]);
     
     // While loading, show a simple loading message to prevent any UI flashing
-    if (isLoading) {
-        return <div className="container mx-auto py-12 text-center">Loading dashboard...</div>;
-    }
-
-    // If the user is not a restaurant owner but we haven't redirected yet, return null to prevent rendering the wrong dashboard.
-    if (!isRestaurantOwner) {
-        return null;
+    if (isLoading || !isRestaurantOwner) {
+        return <div className="container mx-auto py-12 text-center">Loading restaurant dashboard...</div>;
     }
 
     // Render the correct dashboard for the restaurant owner
