@@ -16,7 +16,7 @@ import { BottomNavBar } from './bottom-nav-bar';
 import { useFirebase } from '@/firebase';
 import { PriceCheckDisplay, PriceCheckInfo } from './price-check-display';
 import { useInstall } from '../install-provider';
-import { FirestoreCounter } from './firestore-counter'; // Import the counter
+import { FirestoreCounter } from './firestore-counter'; 
 
 // Create a context to provide the trigger function
 const VoiceCommandContext = createContext<{ 

@@ -34,6 +34,10 @@ export interface AppState {
   error: Error | null;
   language: string;
   activeStoreId: string | null;
+  readCount: number; // For Firestore reads
+  writeCount: number; // For Firestore writes
+  incrementReadCount: (count?: number) => void;
+  incrementWriteCount: (count?: number) => void;
   setLanguage: (lang: string) => void;
   setActiveStoreId: (storeId: string | null) => void;
   fetchInitialData: (db: Firestore) => Promise<void>;
@@ -68,6 +72,11 @@ export const useAppStore = create<AppState>()(
       error: null,
       language: getInitialLanguage(),
       activeStoreId: null,
+      readCount: 0,
+      writeCount: 0,
+
+      incrementReadCount: (count = 1) => set(state => ({ readCount: state.readCount + count })),
+      incrementWriteCount: (count = 1) => set(state => ({ writeCount: state.writeCount + count })),
 
       setLanguage: (lang: string) => {
         if (typeof window !== 'undefined') {
@@ -192,6 +201,8 @@ export const useAppStore = create<AppState>()(
           language: state.language,
           isInitialized: state.isInitialized,
           activeStoreId: state.activeStoreId,
+          readCount: state.readCount,
+          writeCount: state.writeCount,
       }),
     }
   )

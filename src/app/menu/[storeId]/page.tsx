@@ -6,6 +6,8 @@ import {
   collection,
   query,
   doc,
+  setDoc,
+  updateDoc,
 } from 'firebase/firestore';
 
 import type {
@@ -91,7 +93,7 @@ function LiveBillSheet({ storeId, sessionId, theme }: { storeId: string; session
       if (!firestore || !order) return;
 
       const orderRef = doc(firestore, 'orders', order.id);
-      const updatedItems = order.items.filter(item => item.id !== itemToRemove.id);
+      const updatedItems = (order.items || []).filter(item => item.id !== itemToRemove.id);
       const newTotal = updatedItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
       try {
@@ -120,7 +122,7 @@ function LiveBillSheet({ storeId, sessionId, theme }: { storeId: string; session
   }
 
   return (
-    <div className="flex flex-col h-full" style={{ backgroundColor: theme?.backgroundColor, color: theme?.textColor }}>
+    <div className="flex flex-col h-full" style={{ backgroundColor: theme?.backgroundColor }}>
         <SheetHeader className='p-4 border-b' style={{ borderColor: theme?.primaryColor }}>
             <SheetTitle className="flex items-center gap-2" style={{ color: theme?.primaryColor }}>
               <Receipt /> Live Bill
@@ -129,7 +131,7 @@ function LiveBillSheet({ storeId, sessionId, theme }: { storeId: string; session
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
              {order.items.map((it, idx) => (
-              <div key={idx} className="border-b py-2 flex justify-between items-center text-sm" style={{borderColor: theme?.primaryColor + '30'}}>
+              <div key={idx} className="border-b py-2 flex justify-between items-center text-sm" style={{borderColor: theme?.primaryColor + '30', color: theme?.textColor}}>
                 <div>
                     <span className="font-medium">{it.productName} <span className="opacity-70">x{it.quantity}</span></span>
                     <p>₹{(it.price * it.quantity).toFixed(2)}</p>
@@ -337,7 +339,7 @@ export default function PublicMenuPage() {
           }}
         />
       )}
-      <div className="min-h-screen" style={{ backgroundColor: theme?.backgroundColor, color: theme?.textColor }}>
+      <div className="min-h-screen" style={{ backgroundColor: theme?.backgroundColor }}>
           <div className="container mx-auto py-8 px-4 md:px-6 max-w-2xl">
             <Card className="shadow-lg" style={{ backgroundColor: theme?.backgroundColor, borderColor: theme?.primaryColor }}>
               <CardHeader className="text-center relative pb-4">
@@ -370,8 +372,8 @@ export default function PublicMenuPage() {
                 {isBillFinalized ? (
                     <div className="text-center py-16 px-6">
                         <Check className="mx-auto h-16 w-16 text-green-500 bg-green-100 rounded-full p-2" />
-                        <h2 className="text-2xl font-bold mt-4">Thank You!</h2>
-                        <p className="text-base opacity-80">Your bill has been finalized. Please proceed to the counter for payment.</p>
+                        <h2 className="text-2xl font-bold mt-4" style={{color: theme?.textColor}}>Thank You!</h2>
+                        <p className="text-base opacity-80" style={{color: theme?.textColor}}>Your bill has been finalized. Please proceed to the counter for payment.</p>
                     </div>
                 ) : Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
                     <div key={category}>
@@ -383,15 +385,15 @@ export default function PublicMenuPage() {
                                 <Card
                                     key={item.id || index}
                                     className="flex justify-between items-center p-3"
-                                    style={{ backgroundColor: theme?.backgroundColor }}
+                                    style={{ backgroundColor: theme?.backgroundColor, borderColor: theme?.primaryColor + '40' }}
                                 >
                                     <div>
-                                        <p className="font-semibold">{item.name}</p>
-                                        <p className="text-sm opacity-80">₹{item.price.toFixed(2)}</p>
+                                        <p className="font-semibold" style={{color: theme?.textColor}}>{item.name}</p>
+                                        <p className="text-sm" style={{color: theme?.textColor, opacity: 0.8}}>₹{item.price.toFixed(2)}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Button variant="ghost" size="sm" onClick={() => handleShowIngredients(item)}>
-                                            <Eye className="h-4 w-4" />
+                                            <Eye className="h-4 w-4" style={{ color: theme?.textColor }}/>
                                         </Button>
                                          <Button 
                                             onClick={() => handleAddItem(item)} 
