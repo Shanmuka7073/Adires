@@ -87,7 +87,7 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true);
     const { isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
     const router = useRouter();
-    
+
     useLayoutEffect(() => {
         if (!isRoleLoading && isRestaurantOwner) {
             router.replace('/dashboard/restaurant');
@@ -95,7 +95,8 @@ export default function DashboardPage() {
     }, [isRoleLoading, isRestaurantOwner, router]);
 
     useEffect(() => {
-        if (!isRestaurantOwner) {
+        // Only fetch images if we are certain the user is NOT a restaurant owner.
+        if (!isRoleLoading && !isRestaurantOwner) {
             const fetchImages = async () => {
                 const imagePromises = roleCards.map(card => getProductImage(card.imageId));
                 const resolvedImages = await Promise.all(imagePromises);
@@ -108,8 +109,10 @@ export default function DashboardPage() {
             };
             fetchImages();
         }
-    }, [isRestaurantOwner]);
+    }, [isRoleLoading, isRestaurantOwner]);
 
+    // While loading role or if the user is a restaurant owner (and about to be redirected), render nothing.
+    // This prevents the flicker of the main dashboard.
     if (isRoleLoading || isRestaurantOwner) {
         return (
              <div className="container mx-auto py-12 text-center">
@@ -117,7 +120,6 @@ export default function DashboardPage() {
             </div>
         );
     }
-
 
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
