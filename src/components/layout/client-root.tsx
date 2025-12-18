@@ -9,12 +9,11 @@ import { Toaster } from '@/components/ui/toaster';
 import { useAppStore } from '@/lib/store';
 import GlobalLoader from './global-loader';
 import { InstallProvider } from '@/components/install-provider';
-import { usePathname } from 'next/navigation';
 
 /**
  * This hook is responsible for making sure the application's essential
  * data is loaded before the UI is shown to the user. It handles both
- * the initial data fetch and rehydration from persisted local storage.
+ * the initial data fetch and rehydration from persisted state.
  */
 function useInitializeApp() {
     const { firestore } = useFirebase();
@@ -23,40 +22,32 @@ function useInitializeApp() {
         isInitialized,
         loading,
         setAppReady,
-        appReady,
-        stores // Use a core data array to check for rehydration
+        stores, // Use a core data array to check for rehydration
     } = useAppStore();
 
-    // Effect for fetching initial data
     useEffect(() => {
+        // If data is already in the store (from persisted state), the app is ready.
+        if (stores.length > 0 && isInitialized) {
+            setAppReady(true);
+            // Optionally, you can still fetch data in the background to get updates
+            if (firestore) {
+                fetchInitialData(firestore);
+            }
+            return;
+        }
+
+        // If not initialized and not already loading, start the data fetch.
         if (firestore && !isInitialized && !loading) {
             fetchInitialData(firestore);
         }
-    }, [firestore, isInitialized, loading, fetchInitialData]);
-
-    // Effect for determining when the app is ready to be shown
-    useEffect(() => {
-        // If the app is already ready, do nothing.
-        if (appReady) return;
-
-        // If data has been rehydrated from localStorage, the app is ready.
-        if (stores.length > 0 && isInitialized) {
-            setAppReady(true);
-        }
-        // If fetching is complete (initialized and not loading), the app is ready.
-        else if (isInitialized && !loading) {
-            setAppReady(true);
-        }
-
-    }, [isInitialized, loading, appReady, setAppReady, stores.length]);
+    }, [firestore, isInitialized, loading, fetchInitialData, setAppReady, stores.length]);
 }
 
 
 function AppContent({ children }: { children: React.ReactNode }) {
     useInitializeApp();
     const { appReady } = useAppStore();
-    const pathname = usePathname();
-    
+
     if (!appReady) {
         return <GlobalLoader />;
     }
