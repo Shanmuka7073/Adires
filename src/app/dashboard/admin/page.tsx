@@ -44,7 +44,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
-import type { Order, Store as StoreType, User } from '@/lib/types';
+import type { Order, Store as StoreType, User, ProductPrice, ProductVariant, Product } from '@/lib/types';
 import { t } from '@/lib/locales';
 import { Button } from '@/components/ui/button';
 import { createRestaurantUserAndStore } from '@/app/actions';
@@ -204,6 +204,64 @@ function StatCard({ title, value, icon: Icon, loading }: any) {
   );
 }
 
+function LowStockAlerts() {
+    const { productPrices, masterProducts, fetchProductPrices, loading } = useAppStore();
+    const { firestore } = useFirebase();
+
+    useEffect(() => {
+        if (firestore && masterProducts.length > 0) {
+            const productNamesToFetch = masterProducts.map(p => p.name);
+            fetchProductPrices(firestore, productNamesToFetch);
+        }
+    }, [firestore, masterProducts, fetchProductPrices]);
+
+    const lowStockItems = useMemo(() => {
+        const items: { productName: string; variant: ProductVariant }[] = [];
+        if (!productPrices) return items;
+
+        Object.values(productPrices).forEach(priceData => {
+            if (priceData && priceData.variants) {
+                priceData.variants.forEach(variant => {
+                    if (variant.stock <= 10) {
+                        items.push({ productName: priceData.productName, variant });
+                    }
+                });
+            }
+        });
+        return items;
+    }, [productPrices]);
+
+    if (loading) {
+        return (
+            <div className="space-y-2">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+            </div>
+        )
+    }
+
+    if (lowStockItems.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className="mb-8">
+            <h2 className="text-2xl font-bold text-center mb-4 font-headline text-destructive">Low Stock Alerts</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {lowStockItems.map(({ productName, variant }, index) => (
+                    <Alert key={`${productName}-${index}`} variant="destructive">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle>Low Stock: {productName}</AlertTitle>
+                        <AlertDescription>
+                            The variant "{variant.weight}" has only <strong>{variant.stock}</strong> items left.
+                        </AlertDescription>
+                    </Alert>
+                ))}
+            </div>
+        </div>
+    )
+}
+
 /* ---------------- ACTION CARD ---------------- */
 
 function ActionCard({
@@ -300,6 +358,7 @@ export default function AdminDashboardPage() {
         <StatCard title="Orders Delivered" value={stats.totalOrdersDelivered} icon={ShoppingBag} loading={statsLoading} />
       </div>
       
+      <LowStockAlerts />
       <StoreOwnersList />
 
       {/* ================= OPERATIONS ================= */}
