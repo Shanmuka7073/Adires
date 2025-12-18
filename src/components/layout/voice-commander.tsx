@@ -21,6 +21,7 @@ import { useVoiceCommanderContext } from './main-layout';
 import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
 import { runNLU, extractQuantityAndProduct } from '@/lib/nlu/voice-integration';
 import { useInstall } from '../install-provider';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 
 export interface Command {
@@ -108,6 +109,8 @@ export function VoiceCommander({
   const { firestore, user } = useFirebase();
   const { clearCart, addItem: addItemToCart, removeItem, updateQuantity, addUnidentifiedItem, updateUnidentifiedItem, addIdentifiedItem, activeStoreId, setActiveStoreId, cartTotal, placeRestaurantOrder } = useCart();
   const { retryCommand, showPriceCheck, hidePriceCheck } = useVoiceCommanderContext();
+  const { isRestaurantOwner } = useAdminAuth();
+
 
   const { stores, masterProducts, allMenus, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands, loading: isAppStoreLoading, fetchInitialData } = useAppStore();
 
@@ -276,7 +279,7 @@ export function VoiceCommander({
 
   useEffect(() => {
     isEnabledRef.current = enabled;
-    if (recognition) {
+    if (recognition && !isRestaurantOwner) {
         if (enabled) {
             recognition.lang = 'en-IN'; // Always listen in English
             recognition.continuous = false;
@@ -293,7 +296,7 @@ export function VoiceCommander({
             recognition.stop();
         }
     }
-}, [enabled]);
+}, [enabled, isRestaurantOwner]);
 
  const speak = useCallback((textOrReply: Command['reply'] | string, lang: string, onEndCallback?: (() => void) | boolean) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -326,7 +329,7 @@ export function VoiceCommander({
     const onEnd = () => {
         isSpeakingRef.current = false;
         if (typeof onEndCallback === 'function') onEndCallback();
-        if (isEnabledRef.current && recognition) {
+        if (isEnabledRef.current && recognition && !isRestaurantOwner) {
             try { recognition.start(); } catch(e) {}
         }
     };
@@ -365,7 +368,7 @@ export function VoiceCommander({
     };
 
     window.speechSynthesis.speak(utterance);
-  }, [speechSynthesisVoices]);
+  }, [speechSynthesisVoices, isRestaurantOwner]);
 
   const handleProfileFormInteraction = useCallback(() => {
     if (!profileForm?.getValues) {
@@ -538,7 +541,7 @@ const findProductAndVariant = useCallback(
         } else {
             for (const [alias, { product, lang }] of universalProductAliasMap.entries()) {
                 const similarity = calculateSimilarity(productPhrase, alias);
-                if (similarity > 0.7 && (!bestMatch || similarity > bestMatch.similarity)) {
+                if (similarity > 0.7 && (!bestMatch || similarity > bestMatch.score)) {
                     bestMatch = { product, alias, score: similarity, lang };
                 }
             }
@@ -986,8 +989,8 @@ const findProductAndVariant = useCallback(
     }, [retryCommandText, handleCommand, onRetryHandled]);
 
   useEffect(() => {
-    if (!recognition) {
-      onStatusUpdate("Speech recognition not supported by this browser.");
+    if (!recognition || isRestaurantOwner) {
+      if(enabled) onStatusUpdate("Voice commands are disabled for this account.");
       return;
     }
 
@@ -1373,7 +1376,7 @@ const findProductAndVariant = useCallback(
       setShouldUseCurrentLocation, setIsWaitingForQuickOrderConfirmation, clearCart, updateQuantity,
       removeItem, addUnidentifiedItem, updateUnidentifiedItem,
       getProductName, addItemToCart, locales, commands, getAllAliases, recognizeIntent, stores,
-      showPriceCheck, hidePriceCheck, findProductAndVariant, onInstallApp, isMenuPage, currentMenu, menuStoreId, placeRestaurantOrder
+      showPriceCheck, hidePriceCheck, findProductAndVariant, onInstallApp, isMenuPage, currentMenu, menuStoreId, placeRestaurantOrder, isRestaurantOwner
   ]);
 
   return null;

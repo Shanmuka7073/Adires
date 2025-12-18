@@ -22,6 +22,7 @@ import { RecipeCard } from '@/components/features/recipe-card';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useInstall } from '@/components/install-provider';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 
 const homePageSections = [
@@ -169,6 +170,7 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
     const [deliveryTime, setDeliveryTime] = useState<number | null>(null);
     const { onCartOpenChange, isCartOpen, voiceEnabled } = useVoiceCommanderContext();
     const { canInstall, triggerInstall } = useInstall();
+    const { isRestaurantOwner } = useAdminAuth();
 
 
     useEffect(() => {
@@ -202,10 +204,12 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
                             <span className="sr-only">Install App</span>
                         </Button>
                     )}
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full relative" onClick={onMicClick}>
-                        <Mic className="h-5 w-5 text-gray-600" />
-                        {voiceEnabled && <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>}
-                    </Button>
+                    {!isRestaurantOwner && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full relative" onClick={onMicClick}>
+                            <Mic className="h-5 w-5 text-gray-600" />
+                            {voiceEnabled && <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>}
+                        </Button>
+                    )}
                     <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>

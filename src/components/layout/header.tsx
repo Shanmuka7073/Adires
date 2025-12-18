@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -35,6 +36,7 @@ import { useAppStore } from '@/lib/store';
 import { useVoiceCommanderContext } from './main-layout';
 import { useInstall } from '../install-provider';
 import Image from 'next/image';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -75,8 +77,8 @@ function LanguageSwitcher() {
 
 function UserMenu() {
   const { user, isUserLoading } = useFirebase();
-  const isAdmin = user && (user.email === ADMIN_EMAIL || user.email === 'admin2@gmail.com');
-  const dashboardHref = isAdmin ? '/dashboard/admin' : '/dashboard';
+  const { isAdmin, isRestaurantOwner } = useAdminAuth();
+  const dashboardHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : '/dashboard');
   const { canInstall, triggerInstall } = useInstall();
 
 
@@ -115,7 +117,7 @@ function UserMenu() {
               <span>{t('dashboard')}</span>
           </DropdownMenuItem>
         </Link>
-        {!isAdmin && (
+        {!isAdmin && !isRestaurantOwner && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuLabel>{t('roles')}</DropdownMenuLabel>
@@ -178,6 +180,7 @@ export function Header({ suggestedCommands }: HeaderProps) {
   const { toast } = useToast();
   const [hasMounted, setHasMounted] = useState(false);
   const { voiceEnabled, voiceStatus, onToggleVoice, isCartOpen, onCartOpenChange } = useVoiceCommanderContext();
+  const { isRestaurantOwner } = useAdminAuth();
 
 
   useEffect(() => {
@@ -203,7 +206,7 @@ export function Header({ suggestedCommands }: HeaderProps) {
           <Image src="https://i.ibb.co/WpfhKqjW/android-launchericon-512-512.png" alt="Local Basket Logo" width={32} height={32} />
           <span className="font-headline">LocalBasket</span>
         </Link>
-        {navLinks.map(({ href, label }) => (
+        {!isRestaurantOwner && navLinks.map(({ href, label }) => (
           <Link
             key={href}
             href={href}
@@ -237,7 +240,7 @@ export function Header({ suggestedCommands }: HeaderProps) {
           </SheetHeader>
           <div className="flex-1 overflow-y-auto">
             <nav className="grid gap-4 text-lg font-medium mt-8">
-                {navLinks.map(({ href, label }) => (
+                {!isRestaurantOwner && navLinks.map(({ href, label }) => (
                 <SheetClose asChild key={href}>
                     <Link
                         href={href}
@@ -257,16 +260,18 @@ export function Header({ suggestedCommands }: HeaderProps) {
       </Sheet>
       
       <div className="flex w-full items-center justify-end gap-2 md:ml-auto md:gap-2 lg:gap-4">
-        <LanguageSwitcher />
-        <Button variant={voiceEnabled ? 'secondary' : 'outline'} size="icon" onClick={onToggleVoice} className="relative">
-          {voiceEnabled ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-          {voiceEnabled && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>}
-          <span className="sr-only">{voiceEnabled ? 'Stop voice commands' : 'Start voice commands'}</span>
-        </Button>
+        {!isRestaurantOwner && <LanguageSwitcher />}
+        {!isRestaurantOwner && (
+            <Button variant={voiceEnabled ? 'secondary' : 'outline'} size="icon" onClick={onToggleVoice} className="relative">
+              {voiceEnabled ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+              {voiceEnabled && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>}
+              <span className="sr-only">{voiceEnabled ? 'Stop voice commands' : 'Start voice commands'}</span>
+            </Button>
+        )}
         <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />
         <UserMenu />
       </div>
-        {hasMounted && voiceEnabled && (
+        {hasMounted && voiceEnabled && !isRestaurantOwner && (
             <>
                 <div className="absolute top-16 left-0 w-full bg-secondary text-secondary-foreground text-center py-1 text-sm font-mono z-40">
                     {voiceStatus}
