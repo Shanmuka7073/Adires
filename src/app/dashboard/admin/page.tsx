@@ -29,11 +29,12 @@ import {
   BarChart3,
   ChefHat,
   TrendingUp,
+  UserPlus,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -41,6 +42,78 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import type { Order, Store as StoreType } from '@/lib/types';
 import { t } from '@/lib/locales';
+import { Button } from '@/components/ui/button';
+import { createRestaurantUserAndStore } from '@/app/actions';
+import { useToast } from '@/hooks/use-toast';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Loader2 } from 'lucide-react';
+
+
+function CreateRestaurantUserForm() {
+    const { toast } = useToast();
+    const [isCreating, startCreation] = useTransition();
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [restaurantName, setRestaurantName] = useState('');
+
+    const handleCreate = () => {
+        if (!email || !password || !restaurantName) {
+            toast({ variant: 'destructive', title: 'All fields are required.' });
+            return;
+        }
+
+        startCreation(async () => {
+            const result = await createRestaurantUserAndStore(email, password, restaurantName);
+            if (result.success) {
+                toast({
+                    title: 'Restaurant Account Created!',
+                    description: `User ${email} and store "${restaurantName}" have been created successfully.`,
+                });
+                setEmail('');
+                setPassword('');
+                setRestaurantName('');
+            } else {
+                toast({
+                    variant: 'destructive',
+                    title: 'Creation Failed',
+                    description: result.error || 'An unknown error occurred.',
+                });
+            }
+        });
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <UserPlus className="h-6 w-6 text-primary" />
+                    Create Restaurant Account
+                </CardTitle>
+                <CardDescription>Quickly create a new user and an associated store for a restaurant owner.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="space-y-2">
+                    <Label htmlFor="res-email">Owner's Email</Label>
+                    <Input id="res-email" type="email" placeholder="owner@example.com" value={email} onChange={(e) => setEmail(e.target.value)} disabled={isCreating} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="res-password">Password</Label>
+                    <Input id="res-password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} disabled={isCreating} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="res-name">Restaurant Name</Label>
+                    <Input id="res-name" placeholder="e.g., Paradise Biryani" value={restaurantName} onChange={(e) => setRestaurantName(e.target.value)} disabled={isCreating} />
+                </div>
+                <Button onClick={handleCreate} disabled={isCreating} className="w-full">
+                    {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+                    Create Account & Store
+                </Button>
+            </CardContent>
+        </Card>
+    );
+}
+
 
 /* ---------------- STAT CARD ---------------- */
 
@@ -158,6 +231,7 @@ export default function AdminDashboardPage() {
       <section className="space-y-6">
         <h2 className="text-2xl font-bold">Operations</h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <CreateRestaurantUserForm />
           <ActionCard
             title="QR Menu Manager"
             description="Create and manage restaurant QR menus"
@@ -282,7 +356,7 @@ export default function AdminDashboardPage() {
           />
            <ActionCard
             title="Recipe Cache Code"
-            description="View the source for the recipe caching logic."
+            description="View the source code for the recipe caching logic."
             href="/dashboard/admin/cached-recipes-help"
             icon={BookOpen}
           />
