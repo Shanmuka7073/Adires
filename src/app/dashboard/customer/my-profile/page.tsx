@@ -34,13 +34,14 @@ const profileSchema = z.object({
   longitude: z.number().optional(),
 });
 
-function ProfilePictureCard({ user, imageUrl: initialImageUrl }: { user: AppUser, imageUrl?: string }) {
-    const [imageUrl, setImageUrl] = useState(initialImageUrl || '');
-    const [isSaving, startSave] = useTransition();
+function ProfilePictureCard({ user }: { user: AppUser }) {
     const { toast } = useToast();
+    const [isSaving, startSave] = useTransition();
+    const { watch, setValue } = useFormContext<ProfileFormValues>();
+    const imageUrl = watch('imageUrl');
 
     const handleSave = () => {
-        if (!user) return;
+        if (!user || !imageUrl) return;
         startSave(async () => {
             const result = await updateUserProfileImage(user.id, imageUrl);
             if (result.success) {
@@ -68,13 +69,20 @@ function ProfilePictureCard({ user, imageUrl: initialImageUrl }: { user: AppUser
                     )}
                 </div>
                  <div className="space-y-2">
-                    <FormLabel htmlFor="image-url">Image URL</FormLabel>
-                    <Input
-                        id="image-url"
-                        placeholder="https://example.com/your-image.jpg"
-                        value={imageUrl}
-                        onChange={(e) => setImageUrl(e.target.value)}
-                        disabled={isSaving}
+                    <FormField
+                      name="imageUrl"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Image URL</FormLabel>
+                           <FormControl>
+                                <Input
+                                    placeholder="https://example.com/your-image.jpg"
+                                    {...field}
+                                />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                      )}
                     />
                 </div>
                  <Button onClick={handleSave} disabled={isSaving} className="w-full">
@@ -219,173 +227,171 @@ export default function MyProfilePage() {
   
   return (
     <div className="container mx-auto py-12 px-4 md:px-6">
-      <div className="grid lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2">
-            <Card>
-                <CardHeader>
-                <CardTitle className="text-3xl font-headline">{t('my-profile')}</CardTitle>
-                <CardDescription>Manage your personal information. You can use your voice to fill the form.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <FormField
-                                control={form.control}
-                                name="firstName"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>First Name</FormLabel>
-                                    <FormControl>
-                                    <Input placeholder="John" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="lastName"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Last Name</FormLabel>
-                                    <FormControl>
-                                    <Input placeholder="Doe" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                        </div>
-                    <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Email Address</FormLabel>
-                            <FormControl>
-                            <Input type="email" {...field} readOnly disabled />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                        <FormField
-                            control={form.control}
-                            name="phone"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Phone Number</FormLabel>
-                                <FormControl>
-                                <Input placeholder="9876543210" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="address"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Full Address</FormLabel>
-                                <FormControl>
-                                <Input placeholder="123 Main St, Anytown, USA 12345" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-
-                        <div className="p-4 border rounded-lg space-y-3">
-                            <h4 className="font-medium">Home Location (GPS)</h4>
-                             <Button type="button" variant="outline" className="w-full" onClick={handleGetLocation} disabled={isFetchingLocation}>
-                                {isFetchingLocation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LocateFixed className="mr-2 h-4 w-4" />}
-                                Get Current Location
-                            </Button>
-                            <div className="flex items-center gap-2 text-sm">
-                                <MapPin className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-mono">
-                                    Lat: {form.watch('latitude')?.toFixed(4) || 'Not set'}, Lng: {form.watch('longitude')?.toFixed(4) || 'Not set'}
-                                </span>
+         <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="grid lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2">
+                    <Card>
+                        <CardHeader>
+                        <CardTitle className="text-3xl font-headline">{t('my-profile')}</CardTitle>
+                        <CardDescription>Manage your personal information. You can use your voice to fill the form.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <FormField
+                                    control={form.control}
+                                    name="firstName"
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>First Name</FormLabel>
+                                        <FormControl>
+                                        <Input placeholder="John" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="lastName"
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Last Name</FormLabel>
+                                        <FormControl>
+                                        <Input placeholder="Doe" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
                             </div>
-                        </div>
+                            <FormField
+                                control={form.control}
+                                name="email"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Email Address</FormLabel>
+                                    <FormControl>
+                                    <Input type="email" {...field} readOnly disabled />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="phone"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Phone Number</FormLabel>
+                                    <FormControl>
+                                    <Input placeholder="9876543210" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="address"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Full Address</FormLabel>
+                                    <FormControl>
+                                    <Input placeholder="123 Main St, Anytown, USA 12345" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
 
-                    <Button type="submit" disabled={isSaving} className="w-full">
-                        {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Changes'}
-                    </Button>
-                    </form>
-                </Form>
-                </CardContent>
-                <CardFooter>
-                  <Button onClick={handleLogout} variant="destructive" className="w-full">
-                      <LogOut className="mr-2 h-4 w-4" />
-                      {t('logout')}
-                  </Button>
-                </CardFooter>
-            </Card>
-        </div>
-         <div className="space-y-8">
-            {user && userData && <ProfilePictureCard user={userData} imageUrl={userData.imageUrl} />}
-            <div className="space-y-4">
-                 <h2 className="text-xl font-bold font-headline">My Dashboards</h2>
-                 <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                           <LayoutDashboard className="h-5 w-5 text-primary" />
-                           Main Dashboard
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <Button asChild className="w-full" variant="outline">
-                           <Link href={dashboardLink}>
-                                Go to Dashboard
-                            </Link>
-                        </Button>
-                    </CardContent>
-                 </Card>
-            </div>
-            <div className="space-y-4">
-                 <h2 className="text-xl font-bold font-headline">Account Security</h2>
-                 <Card className="bg-secondary/20 border-secondary/40">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Fingerprint className="h-5 w-5 text-secondary-foreground" />
-                            Fingerprint Login
-                        </CardTitle>
-                        <CardDescription>
-                            Enable passwordless login by registering your device's fingerprint sensor.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Button asChild className="w-full">
-                            <Link href="/dashboard/customer/fingerprint">
-                                Manage Fingerprint Login
-                            </Link>
-                        </Button>
-                    </CardContent>
-                </Card>
-                 <Card className="bg-primary/5 border-primary/20">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Voicemail className="h-5 w-5 text-primary" />
-                            Voice ID
-                        </CardTitle>
-                        <CardDescription>
-                            Set up a voice password for a faster, more secure way to log in and confirm actions.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Button asChild className="w-full">
-                            <Link href="/dashboard/customer/voice-id">
-                                Manage Your Voice ID
-                            </Link>
-                        </Button>
-                    </CardContent>
-                </Card>
-            </div>
-        </div>
-      </div>
+                            <div className="p-4 border rounded-lg space-y-3">
+                                <h4 className="font-medium">Home Location (GPS)</h4>
+                                <Button type="button" variant="outline" className="w-full" onClick={handleGetLocation} disabled={isFetchingLocation}>
+                                    {isFetchingLocation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LocateFixed className="mr-2 h-4 w-4" />}
+                                    Get Current Location
+                                </Button>
+                                <div className="flex items-center gap-2 text-sm">
+                                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                                    <span className="font-mono">
+                                        Lat: {form.watch('latitude')?.toFixed(4) || 'Not set'}, Lng: {form.watch('longitude')?.toFixed(4) || 'Not set'}
+                                    </span>
+                                </div>
+                            </div>
+
+                        </CardContent>
+                        <CardFooter className="flex-col gap-4">
+                            <Button type="submit" disabled={isSaving} className="w-full">
+                                {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Changes'}
+                            </Button>
+                            <Button onClick={handleLogout} variant="destructive" className="w-full">
+                                <LogOut className="mr-2 h-4 w-4" />
+                                {t('logout')}
+                            </Button>
+                        </CardFooter>
+                    </Card>
+                </div>
+                <div className="space-y-8">
+                    {user && userData && <ProfilePictureCard user={userData} />}
+                    <div className="space-y-4">
+                        <h2 className="text-xl font-bold font-headline">My Dashboards</h2>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                <LayoutDashboard className="h-5 w-5 text-primary" />
+                                Main Dashboard
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <Button asChild className="w-full" variant="outline">
+                                <Link href={dashboardLink}>
+                                        Go to Dashboard
+                                    </Link>
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    </div>
+                    <div className="space-y-4">
+                        <h2 className="text-xl font-bold font-headline">Account Security</h2>
+                        <Card className="bg-secondary/20 border-secondary/40">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Fingerprint className="h-5 w-5 text-secondary-foreground" />
+                                    Fingerprint Login
+                                </CardTitle>
+                                <CardDescription>
+                                    Enable passwordless login by registering your device's fingerprint sensor.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <Button asChild className="w-full">
+                                    <Link href="/dashboard/customer/fingerprint">
+                                        Manage Fingerprint Login
+                                    </Link>
+                                </Button>
+                            </CardContent>
+                        </Card>
+                        <Card className="bg-primary/5 border-primary/20">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Voicemail className="h-5 w-5 text-primary" />
+                                    Voice ID
+                                </CardTitle>
+                                <CardDescription>
+                                    Set up a voice password for a faster, more secure way to log in and confirm actions.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <Button asChild className="w-full">
+                                    <Link href="/dashboard/customer/voice-id">
+                                        Manage Your Voice ID
+                                    </Link>
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
+            </form>
+        </Form>
     </div>
   );
 }
