@@ -2,12 +2,17 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowRight, Store, ShoppingCart } from 'lucide-react';
+import { ArrowRight, Store, ShoppingCart, CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
-import { useLayoutEffect } from 'react';
+import { useLayoutEffect, useMemo } from 'react';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
+import type { Store as StoreType } from '@/lib/types';
+import { Skeleton } from '@/components/ui/skeleton';
+
 
 const restaurantLinks = [
     {
@@ -24,9 +29,64 @@ const restaurantLinks = [
     }
 ];
 
+function PWAChecklist({ store }: { store: StoreType }) {
+    const checklistItems = [
+        { label: 'Set a Store Name', completed: !!store.name },
+        { label: 'Add a Store Description', completed: !!store.description && store.description.length > 10 },
+        { label: 'Upload a Store Image/Logo', completed: !!store.imageUrl },
+    ];
+
+    const allComplete = checklistItems.every(item => item.completed);
+
+    return (
+        <Card className="mt-8 bg-green-50 border-green-200">
+            <CardHeader>
+                <CardTitle>PWA (Installable App) Readiness</CardTitle>
+                <CardDescription>
+                    Complete these steps to allow customers to add your restaurant's menu to their home screen like a native app.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <ul className="space-y-3">
+                    {checklistItems.map((item, index) => (
+                        <li key={index} className="flex items-center gap-3">
+                            {item.completed ? (
+                                <CheckCircle className="h-5 w-5 text-green-500" />
+                            ) : (
+                                <XCircle className="h-5 w-5 text-red-500" />
+                            )}
+                            <span className={item.completed ? 'text-muted-foreground line-through' : 'font-semibold'}>
+                                {item.label}
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+                {!allComplete && (
+                     <Link href="/dashboard/owner/my-store" passHref>
+                        <button className="mt-4 text-sm font-semibold text-primary hover:underline">
+                            Go to "My Store" to complete setup →
+                        </button>
+                    </Link>
+                )}
+            </CardContent>
+        </Card>
+    )
+}
+
 export default function RestaurantDashboardPage() {
-    const { isRestaurantOwner, isLoading } = useAdminAuth();
+    const { user } = useFirebase();
+    const { isRestaurantOwner, isLoading: isAuthLoading } = useAdminAuth();
     const router = useRouter();
+    const { firestore } = useFirebase();
+
+    const storeQuery = useMemoFirebase(() => 
+        user && isRestaurantOwner ? query(collection(firestore, 'stores'), where('ownerId', '==', user.uid)) : null
+    , [user, isRestaurantOwner, firestore]);
+
+    const { data: stores, isLoading: isStoreLoading } = useCollection<StoreType>(storeQuery);
+    const store = useMemo(() => stores?.[0], [stores]);
+
+    const isLoading = isAuthLoading || isStoreLoading;
 
     useLayoutEffect(() => {
         // Only redirect if loading is finished and the user is confirmed NOT a restaurant owner.
@@ -68,6 +128,9 @@ export default function RestaurantDashboardPage() {
                         </Card>
                     </Link>
                 ))}
+            </div>
+             <div className="max-w-4xl mx-auto">
+                {store ? <PWAChecklist store={store} /> : <Skeleton className="h-48 w-full mt-8" />}
             </div>
         </div>
     );
