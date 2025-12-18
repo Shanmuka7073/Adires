@@ -1,5 +1,4 @@
 
-
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -312,10 +311,17 @@ export type MenuItem = {
   ingredients?: Ingredient[];
 };
 
+export type MenuTheme = {
+  backgroundColor: string;
+  primaryColor: string;
+  textColor: string;
+};
+
 export type Menu = {
   id: string;
   storeId: string;
   items: MenuItem[];
+  theme?: MenuTheme;
 };
 
 export type InstructionStep = {

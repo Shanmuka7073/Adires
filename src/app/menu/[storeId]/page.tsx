@@ -6,8 +6,6 @@ import {
   collection,
   query,
   doc,
-  setDoc,
-  updateDoc,
 } from 'firebase/firestore';
 
 import type {
@@ -29,9 +27,10 @@ import {
   Receipt,
   Loader2,
   Check,
-  Clock,
-  Trash2,
   Eye,
+  Trash2,
+  Clock,
+  Download,
 } from 'lucide-react';
 
 import {
@@ -48,22 +47,20 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { addRestaurantOrderItem, getIngredientsForDish } from '@/app/actions';
 import type { Timestamp } from 'firebase/firestore';
+import { useInstall } from '@/components/install-provider';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import IngredientsDialog from '@/components/IngredientsDialog'; // Import the new dialog
+import IngredientsDialog from '@/components/IngredientsDialog';
 import { FirestoreCounter } from '@/components/layout/firestore-counter';
+import { cn } from '@/lib/utils';
 
 
-/* -------------------------------------------------------------------------- */
-/*                                   LIVE BILL SHEET                          */
-/* -------------------------------------------------------------------------- */
-
-function LiveBillSheet({ storeId, sessionId }: { storeId: string; sessionId: string }) {
+function LiveBillSheet({ storeId, sessionId, theme }: { storeId: string; sessionId: string; theme: Menu['theme'] }) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [closing, startClose] = useTransition();
@@ -90,7 +87,7 @@ function LiveBillSheet({ storeId, sessionId }: { storeId: string; sessionId: str
     });
   };
 
-  const handleRemoveItem = async (itemToRemove: OrderItem) => {
+   const handleRemoveItem = async (itemToRemove: OrderItem) => {
       if (!firestore || !order) return;
 
       const orderRef = doc(firestore, 'orders', order.id);
@@ -123,18 +120,18 @@ function LiveBillSheet({ storeId, sessionId }: { storeId: string; sessionId: str
   }
 
   return (
-    <div className="flex flex-col h-full">
-        <SheetHeader className='p-4 border-b'>
-            <SheetTitle className="flex items-center gap-2">
+    <div className="flex flex-col h-full" style={{ backgroundColor: theme?.backgroundColor, color: theme?.textColor }}>
+        <SheetHeader className='p-4 border-b' style={{ borderColor: theme?.primaryColor }}>
+            <SheetTitle className="flex items-center gap-2" style={{ color: theme?.primaryColor }}>
               <Receipt /> Live Bill
             </SheetTitle>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
              {order.items.map((it, idx) => (
-              <div key={idx} className="border-b py-2 flex justify-between items-center text-sm">
+              <div key={idx} className="border-b py-2 flex justify-between items-center text-sm" style={{borderColor: theme?.primaryColor + '30'}}>
                 <div>
-                    <span className="font-medium">{it.productName} <span className="text-muted-foreground">x{it.quantity}</span></span>
+                    <span className="font-medium">{it.productName} <span className="opacity-70">x{it.quantity}</span></span>
                     <p>₹{(it.price * it.quantity).toFixed(2)}</p>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(it)}>
@@ -144,8 +141,8 @@ function LiveBillSheet({ storeId, sessionId }: { storeId: string; sessionId: str
             ))}
         </div>
 
-        <div className="p-4 border-t space-y-4">
-            <div className="flex justify-between font-bold text-xl">
+        <div className="p-4 border-t space-y-4" style={{ borderColor: theme?.primaryColor + '30' }}>
+            <div className="flex justify-between font-bold text-xl" style={{ color: theme?.primaryColor }}>
               <span>Total</span>
               <span>₹{order.totalAmount.toFixed(2)}</span>
             </div>
@@ -191,10 +188,6 @@ function LiveBillSheet({ storeId, sessionId }: { storeId: string; sessionId: str
 }
 
 
-/* -------------------------------------------------------------------------- */
-/*                                MAIN PAGE                                   */
-/* -------------------------------------------------------------------------- */
-
 export default function PublicMenuPage() {
   const { storeId } = useParams<{ storeId: string }>();
   const tableNumber = useSearchParams().get('table');
@@ -204,11 +197,11 @@ export default function PublicMenuPage() {
   const [isAdding, startAdding] = useTransition();
   const [sessionId, setSessionId] = useState('');
   
+  const { canInstall, triggerInstall } = useInstall();
   const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null);
   const [ingredientsData, setIngredientsData] = useState<GetIngredientsOutput | null>(null);
   const [isFetchingIngredients, startFetchingIngredients] = useTransition();
   const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
-
 
   const orderId = `${storeId}_${sessionId}`;
   const orderQuery = useMemoFirebase(
@@ -217,7 +210,6 @@ export default function PublicMenuPage() {
   );
   const { data: order } = useDoc<Order>(orderQuery);
   const itemCount = order?.items?.length || 0;
-
 
   useEffect(() => {
     const key = `session_${storeId}_${tableNumber}`;
@@ -267,7 +259,7 @@ export default function PublicMenuPage() {
           title: "Added to Bill",
           description: `${item.name} has been added to your live bill.`,
         });
-        setRecentlyAdded(prev => new Set(prev.add(item.id)));
+         setRecentlyAdded(prev => new Set(prev).add(item.id));
         setTimeout(() => {
             setRecentlyAdded(prev => {
                 const newSet = new Set(prev);
@@ -284,8 +276,8 @@ export default function PublicMenuPage() {
       }
     });
   };
-
-  const handleShowIngredients = (item: MenuItem) => {
+  
+   const handleShowIngredients = (item: MenuItem) => {
     setSelectedItemForIngredients(item);
     startFetchingIngredients(async () => {
       const response = await getIngredientsForDish({
@@ -312,6 +304,7 @@ export default function PublicMenuPage() {
     });
   };
 
+
   if (storeLoading || menuLoading) return (
       <div className="p-4 space-y-4">
         <Skeleton className="h-8 w-1/2" />
@@ -324,7 +317,7 @@ export default function PublicMenuPage() {
   if (!store || !menu) return <div className="p-4 text-center">Menu not found.</div>;
   
   const isBillFinalized = order?.status === 'Completed';
-
+  const theme = menu.theme;
 
   return (
     <>
@@ -344,87 +337,94 @@ export default function PublicMenuPage() {
           }}
         />
       )}
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen" style={{ backgroundColor: theme?.backgroundColor, color: theme?.textColor }}>
           <div className="container mx-auto py-8 px-4 md:px-6 max-w-2xl">
-            <header className="mb-8">
-                <div className="flex items-center gap-4">
-                    {store.imageUrl && (
-                        <Image
-                        src={store.imageUrl}
-                        alt={store.name}
-                        width={48}
-                        height={48}
-                        className="rounded-full border-2 border-white shadow-md"
+            <Card className="shadow-lg" style={{ backgroundColor: theme?.backgroundColor, borderColor: theme?.primaryColor }}>
+              <CardHeader className="text-center relative pb-4">
+                  {store.imageUrl && (
+                    <div className="relative h-32 w-full mb-4 rounded-t-lg overflow-hidden">
+                       <Image
+                          src={store.imageUrl}
+                          alt={store.name}
+                          fill
+                          className="object-cover"
                         />
-                    )}
-                    <div>
-                        <h1 className="text-2xl font-bold font-headline">{store.name}</h1>
-                        {tableNumber && <p className="text-muted-foreground">Table {tableNumber}</p>}
+                         <div className="absolute inset-0 bg-black/30"></div>
                     </div>
+                  )}
+                  <div className="flex items-center justify-center gap-2 mt-4" style={{ color: theme?.primaryColor }}>
+                    <CardTitle className="text-3xl font-bold font-headline">{store.name}</CardTitle>
                 </div>
-            </header>
+                {tableNumber && <Badge className="mx-auto mt-2" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>Table {tableNumber}</Badge>}
+                 {canInstall && (
+                  <div className="pt-4">
+                    <Button onClick={triggerInstall} size="sm" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Add {store.name} to Home Screen
+                    </Button>
+                  </div>
+                 )}
+              </CardHeader>
+              <CardContent className="space-y-6">
 
-              {isBillFinalized ? (
-                  <Card className="text-center py-16 px-6">
-                      <CardHeader>
-                          <Check className="mx-auto h-16 w-16 text-green-500 bg-green-100 rounded-full p-2" />
-                          <CardTitle className="text-2xl font-bold mt-4">Thank You!</CardTitle>
-                          <CardDescription className="text-base text-muted-foreground">Your bill has been finalized. Please proceed to the counter for payment.</CardDescription>
-                      </CardHeader>
-                  </Card>
-              ) : (
-                  <main className="space-y-8 pb-24">
-                      {Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
-                          <div key={category}>
-                              <h2 className="text-sm font-bold mb-4 tracking-widest uppercase text-muted-foreground">{category}</h2>
-                              <div className="space-y-3">
-                                  {items.map((item, index) => {
-                                      const isRecentlyAdded = recentlyAdded.has(item.id);
-                                      return (
-                                          <div
-                                              key={item.id || index}
-                                              className="flex justify-between items-center bg-gray-50 p-4 rounded-xl"
-                                          >
-                                              <div>
-                                                  <p className="font-semibold text-gray-800">{item.name}</p>
-                                                  <p className="text-sm text-gray-600">₹{item.price.toFixed(2)}</p>
-                                              </div>
-                                              <div className="flex gap-2">
-                                                <Button variant="ghost" size="sm" onClick={() => handleShowIngredients(item)}>
-                                                    <Eye className="mr-2 h-4 w-4" /> Ingredients
-                                                </Button>
-                                                <Button 
-                                                    onClick={() => handleAddItem(item)} 
-                                                    disabled={isAdding || isRecentlyAdded}
-                                                    className="bg-green-500 hover:bg-green-600 text-white rounded-lg w-[80px]"
-                                                >
-                                                    {isRecentlyAdded ? <Check className="h-5 w-5" /> : (isAdding ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />) }
-                                                    {isRecentlyAdded ? 'Added' : 'Add'}
-                                                </Button>
-                                              </div>
-                                          </div>
-                                      )
-                                  })}
-                              </div>
-                          </div>
-                      ))}
-                  </main>
-              )}
+                {isBillFinalized ? (
+                    <div className="text-center py-16 px-6">
+                        <Check className="mx-auto h-16 w-16 text-green-500 bg-green-100 rounded-full p-2" />
+                        <h2 className="text-2xl font-bold mt-4">Thank You!</h2>
+                        <p className="text-base opacity-80">Your bill has been finalized. Please proceed to the counter for payment.</p>
+                    </div>
+                ) : Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
+                    <div key={category}>
+                        <h2 className="text-xl font-semibold mb-3 border-b pb-2 tracking-wide" style={{ borderColor: theme?.primaryColor + '50', color: theme?.primaryColor }}>{category}</h2>
+                        <div className="space-y-2">
+                            {items.map((item, index) => {
+                                const isRecentlyAdded = recentlyAdded.has(item.id);
+                                return (
+                                <Card
+                                    key={item.id || index}
+                                    className="flex justify-between items-center p-3"
+                                    style={{ backgroundColor: theme?.backgroundColor }}
+                                >
+                                    <div>
+                                        <p className="font-semibold">{item.name}</p>
+                                        <p className="text-sm opacity-80">₹{item.price.toFixed(2)}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Button variant="ghost" size="sm" onClick={() => handleShowIngredients(item)}>
+                                            <Eye className="h-4 w-4" />
+                                        </Button>
+                                         <Button 
+                                            onClick={() => handleAddItem(item)} 
+                                            disabled={isAdding || isRecentlyAdded}
+                                            className={cn("w-20 rounded-lg", isRecentlyAdded && "bg-green-600")}
+                                            style={{ backgroundColor: isRecentlyAdded ? '' : theme?.primaryColor, color: theme?.backgroundColor }}
+                                        >
+                                            {isRecentlyAdded ? <Check className="h-5 w-5" /> : (isAdding ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />) }
+                                            {isRecentlyAdded ? 'Added' : 'Add'}
+                                        </Button>
+                                    </div>
+                                </Card>
+                            )})}
+                        </div>
+                    </div>
+                ))}
+              </CardContent>
+            </Card>
           </div>
           
           {itemCount > 0 && !isBillFinalized && (
                <Sheet>
                   <SheetTrigger asChild>
-                      <div className="fixed bottom-4 right-4 z-50">
-                          <Button className="h-14 rounded-full shadow-lg bg-green-600 hover:bg-green-700 text-lg pl-6 pr-8">
+                      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
+                          <Button className="h-14 rounded-full shadow-lg text-lg pl-6 pr-8" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>
                               <Receipt className="mr-3 h-5 w-5" />
                               View Bill 
-                              <Badge className="ml-3">{itemCount} items</Badge>
+                              <Badge className="ml-3" style={{ backgroundColor: theme?.backgroundColor, color: theme?.primaryColor }}>{itemCount}</Badge>
                           </Button>
                       </div>
                   </SheetTrigger>
-                  <SheetContent>
-                      <LiveBillSheet storeId={storeId} sessionId={sessionId} />
+                  <SheetContent side="bottom" className="h-[75vh] rounded-t-2xl p-0">
+                      <LiveBillSheet storeId={storeId} sessionId={sessionId} theme={theme} />
                   </SheetContent>
               </Sheet>
           )}

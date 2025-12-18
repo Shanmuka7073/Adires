@@ -4,7 +4,7 @@
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, setDoc, limit } from 'firebase/firestore';
-import type { Store, Menu, MenuItem } from '@/lib/types';
+import type { Store, Menu, MenuItem, MenuTheme } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -140,7 +140,7 @@ function EditMenuDialog({
   );
 }
 
-function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (items: MenuItem[]) => void }) {
+function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (data: { items: MenuItem[], theme: MenuTheme }) => void }) {
     const { toast } = useToast();
     const [isProcessing, startProcessing] = useTransition();
     const [menuImage, setMenuImage] = useState<string | null>(null);
@@ -166,7 +166,7 @@ function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (items: MenuItem[]
             try {
                 const result = await extractMenuItems({ menuImage });
                 if (result.items && result.items.length > 0) {
-                    onMenuExtracted(result.items);
+                    onMenuExtracted({ items: result.items, theme: result.theme });
                     toast({ title: 'Menu Extracted!', description: `Found ${result.items.length} items. Please review and save.` });
                 } else {
                     toast({ variant: 'destructive', title: 'No Items Found', description: 'The AI could not find any menu items in the image.' });
@@ -469,7 +469,7 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
 
 export default function MenuManagerPage() {
     const { user, firestore } = useFirebase();
-    const [extractedItems, setExtractedItems] = useState<MenuItem[]>([]);
+    const [extractedData, setExtractedData] = useState<{items: MenuItem[], theme: MenuTheme} | null>(null);
     const { toast } = useToast();
     const [isSaving, startSave] = useTransition();
 
@@ -490,7 +490,7 @@ export default function MenuManagerPage() {
     const existingMenu = menus?.[0];
     
     const handleSaveMenu = () => {
-        if (!firestore || !store || extractedItems.length === 0) return;
+        if (!firestore || !store || !extractedData) return;
 
         startSave(async () => {
             const menuRef = existingMenu ? doc(firestore, `stores/${store.id}/menus`, existingMenu.id) : doc(collection(firestore, `stores/${store.id}/menus`));
@@ -498,13 +498,14 @@ export default function MenuManagerPage() {
             const menuData: Menu = {
                 id: menuRef.id,
                 storeId: store.id,
-                items: extractedItems.map((item, index) => ({...item, id: item.id || `temp-${Date.now()}-${index}` })),
+                items: extractedData.items.map((item, index) => ({...item, id: item.id || `item-${Date.now()}-${index}` })),
+                theme: extractedData.theme,
             };
 
             try {
                 await setDoc(menuRef, menuData, { merge: true });
                 toast({ title: 'Menu Saved!', description: 'Your digital menu is now live.' });
-                setExtractedItems([]); // Clear the form after saving
+                setExtractedData(null); // Clear the form after saving
                 if(refetchMenu) refetchMenu();
             } catch (error) {
                 console.error("Failed to save menu:", error);
@@ -529,16 +530,16 @@ export default function MenuManagerPage() {
                 <p className="text-lg text-muted-foreground mt-2">Manage the digital menu for your restaurant: {store.name}</p>
             </div>
 
-            {existingMenu && extractedItems.length === 0 ? (
+            {existingMenu && !extractedData ? (
                 <MenuDisplay store={store} menu={existingMenu} onReplace={() => { /* This functionality needs to be reconsidered */ }} />
             ) : (
                  <div className="grid md:grid-cols-2 gap-8">
-                     <MenuUploader onMenuExtracted={setExtractedItems} />
-                     {extractedItems.length > 0 && (
+                     <MenuUploader onMenuExtracted={setExtractedData} />
+                     {extractedData && (
                         <Card>
                             <CardHeader>
                                 <CardTitle>2. Review & Save Your Menu</CardTitle>
-                                <CardDescription>Review the items extracted by the AI. This will replace any existing menu.</CardDescription>
+                                <CardDescription>Review the items extracted by the AI. This will {existingMenu ? 'replace' : 'create'} your menu.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <Table>
@@ -550,7 +551,7 @@ export default function MenuManagerPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {extractedItems.map((item, index) => (
+                                        {extractedData.items.map((item, index) => (
                                             <TableRow key={index}>
                                                 <TableCell className="font-medium">{item.category}</TableCell>
                                                 <TableCell>{item.name}</TableCell>
@@ -559,7 +560,7 @@ export default function MenuManagerPage() {
                                         ))}
                                     </TableBody>
                                 </Table>
-                                <Button onClick={handleSaveMenu} disabled={isSaving || extractedItems.length === 0} className="w-full">
+                                <Button onClick={handleSaveMenu} disabled={isSaving || extractedData.items.length === 0} className="w-full">
                                     {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                     {existingMenu ? 'Save & Replace Menu' : 'Save Menu'}
                                 </Button>
