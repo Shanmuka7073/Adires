@@ -11,6 +11,7 @@ export function useAdminAuth() {
   const { user, isUserLoading } = useUser();
   const { firestore } = useFirebase();
 
+  // Memoize the document reference to prevent re-fetching on every render
   const userDocRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return doc(firestore, 'users', user.uid);
@@ -18,23 +19,22 @@ export function useAdminAuth() {
 
   const { data: userData, isLoading: isProfileLoading } = useDoc<AppUser>(userDocRef);
 
-  const { isAdmin, isChickenAdmin, isRestaurantOwner, isLoading } = useMemo(() => {
-    const isLoading = isUserLoading || isProfileLoading;
-    if (isLoading) {
-      return { isAdmin: false, isChickenAdmin: false, isRestaurantOwner: false, isLoading: true };
-    }
+  // The isLoading flag is true until BOTH the auth state and the user profile are resolved.
+  const isLoading = isUserLoading || (user && !userData);
 
-    if (!user) {
-      return { isAdmin: false, isChickenAdmin: false, isRestaurantOwner: false, isLoading: false };
+  const { isAdmin, isChickenAdmin, isRestaurantOwner } = useMemo(() => {
+    // Don't compute roles until loading is fully complete.
+    if (isLoading || !user) {
+      return { isAdmin: false, isChickenAdmin: false, isRestaurantOwner: false };
     }
     
     const admin = user.email === 'admin@gmail.com' || user.email === 'admin2@gmail.com';
     const chickenAdmin = user.email === 'chickenadmin@gmail.com';
     const restaurantOwner = userData?.accountType === 'restaurant';
 
-    return { isAdmin: admin, isChickenAdmin: chickenAdmin, isRestaurantOwner: restaurantOwner, isLoading: false };
+    return { isAdmin: admin, isChickenAdmin: chickenAdmin, isRestaurantOwner: restaurantOwner };
 
-  }, [isUserLoading, isProfileLoading, user, userData]);
+  }, [isLoading, user, userData]);
   
   return { isAdmin, isChickenAdmin, isRestaurantOwner, isLoading };
 }

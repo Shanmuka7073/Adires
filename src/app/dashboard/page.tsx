@@ -18,7 +18,7 @@ const roleCards = [
     {
         title: 'start-shopping',
         description: 'browse-local-stores-and-find-fresh-groceries',
-        href: '/stores/beverages', // Default to beverages category
+        href: '/stores/beverages', // Default to a category
         icon: ShoppingCart,
         imageId: 'dash-shopping'
     },
@@ -88,15 +88,11 @@ export default function DashboardPage() {
     const { isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
     const router = useRouter();
 
-    useLayoutEffect(() => {
-        if (!isRoleLoading && isRestaurantOwner) {
-            router.replace('/dashboard/restaurant');
-        }
-    }, [isRoleLoading, isRestaurantOwner, router]);
-
     useEffect(() => {
+        // Only fetch images if we know we are NOT a restaurant owner.
         if (!isRoleLoading && !isRestaurantOwner) {
             const fetchImages = async () => {
+                setLoading(true);
                 const imagePromises = roleCards.map(card => getProductImage(card.imageId));
                 const resolvedImages = await Promise.all(imagePromises);
                 const imageMap = roleCards.reduce((acc, card, index) => {
@@ -110,7 +106,8 @@ export default function DashboardPage() {
         }
     }, [isRoleLoading, isRestaurantOwner]);
 
-    if (isRoleLoading || isRestaurantOwner) {
+    // This is the gatekeeper.
+    if (isRoleLoading) {
         return (
             <div className="container mx-auto py-12 text-center">
                 <p>Loading your dashboard...</p>
@@ -118,6 +115,13 @@ export default function DashboardPage() {
         );
     }
 
+    // If role is confirmed, redirect immediately.
+    if (isRestaurantOwner) {
+        router.replace('/dashboard/restaurant');
+        return null; // Return null to prevent rendering anything before the redirect completes.
+    }
+
+    // Only render the generic dashboard if the user is NOT a restaurant owner.
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
             <div className="text-center mb-12">
