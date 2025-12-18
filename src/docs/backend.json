@@ -170,6 +170,11 @@
           "type": "string",
           "description": "The phone number of the user."
         },
+        "accountType": {
+            "type": "string",
+            "enum": ["groceries", "restaurant"],
+            "description": "The type of account the user has."
+        },
         "imageUrl": {
           "type": "string",
           "description": "URL for the user's profile picture."
@@ -1157,4 +1162,3 @@
     ]
   }
 }
-

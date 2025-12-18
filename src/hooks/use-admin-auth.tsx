@@ -11,7 +11,6 @@ export function useAdminAuth() {
   const { user, isUserLoading } = useUser();
   const { firestore } = useFirebase();
 
-  // Memoize the document reference to prevent re-fetching on every render
   const userDocRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return doc(firestore, 'users', user.uid);
@@ -19,12 +18,10 @@ export function useAdminAuth() {
 
   const { data: userData, isLoading: isProfileLoading } = useDoc<AppUser>(userDocRef);
 
-  // The isLoading flag is true until BOTH the auth state and the user profile are resolved.
   const isLoading = isUserLoading || (user && !userData);
 
   const { isAdmin, isChickenAdmin, isRestaurantOwner } = useMemo(() => {
-    // Don't compute roles until loading is fully complete.
-    if (isLoading || !user) {
+    if (isLoading || !user || !userData) {
       return { isAdmin: false, isChickenAdmin: false, isRestaurantOwner: false };
     }
     

@@ -28,21 +28,17 @@ export default function RestaurantDashboardPage() {
     const { isRestaurantOwner, isLoading } = useAdminAuth();
     const router = useRouter();
 
-    // Use useLayoutEffect to redirect before the browser paints
     useLayoutEffect(() => {
+        // Only redirect if loading is finished and the user is confirmed NOT a restaurant owner.
         if (!isLoading && !isRestaurantOwner) {
             router.replace('/dashboard');
         }
     }, [isLoading, isRestaurantOwner, router]);
     
-    // While loading or if the user is not a restaurant owner (and about to be redirected),
-    // show a loading message or nothing at all to prevent UI flashing.
+    // While loading, or if the user is not a restaurant owner (and will be redirected),
+    // show a simple loading message to prevent any UI flashing.
     if (isLoading || !isRestaurantOwner) {
-        return (
-            <div className="container mx-auto py-12 text-center">
-                <p>Loading restaurant dashboard...</p>
-            </div>
-        );
+        return <div className="container mx-auto py-12 text-center">Loading restaurant dashboard...</div>;
     }
 
     // Render the correct dashboard for the restaurant owner
