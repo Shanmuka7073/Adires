@@ -30,17 +30,21 @@ import {
   ChefHat,
   TrendingUp,
   UserPlus,
+  ArrowRight,
+  Edit,
+  Search,
+  Download,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
-import { useMemo, useEffect, useState, useTransition } from 'react';
+import { collection, query, where, doc, updateDoc } from 'firebase/firestore';
+import { useMemo, useEffect, useState, useTransition, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
-import type { Order, Store as StoreType } from '@/lib/types';
+import type { Order, Store as StoreType, User } from '@/lib/types';
 import { t } from '@/lib/locales';
 import { Button } from '@/components/ui/button';
 import { createRestaurantUserAndStore } from '@/app/actions';
@@ -48,6 +52,10 @@ import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
+import { useAppStore } from '@/lib/store';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 
 function CreateRestaurantUserForm() {
@@ -112,6 +120,71 @@ function CreateRestaurantUserForm() {
             </CardContent>
         </Card>
     );
+}
+
+function StoreOwnersList() {
+    const { firestore } = useFirebase();
+    const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
+    const storesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'stores') : null, [firestore]);
+
+    const { data: users, isLoading: usersLoading } = useCollection<User>(usersQuery);
+    const { data: stores, isLoading: storesLoading } = useCollection<StoreType>(storesQuery);
+    
+    const storeOwners = useMemo(() => {
+        if (!users || !stores) return [];
+        const storeOwnerIds = new Set(stores.map(s => s.ownerId));
+        return users.filter(u => storeOwnerIds.has(u.id));
+    }, [users, stores]);
+
+    const getStoreForOwner = (ownerId: string) => {
+        return stores?.find(s => s.ownerId === ownerId);
+    }
+
+    if (usersLoading || storesLoading) {
+        return <Skeleton className="h-24 w-full" />;
+    }
+
+    return (
+         <Accordion type="single" collapsible className="w-full mb-8">
+            <AccordionItem value="store-owners">
+                <AccordionTrigger>
+                     <div className="flex justify-between items-center w-full pr-4">
+                        <div>
+                            <h2 className="text-xl font-bold font-headline">Store Owners ({storeOwners.length})</h2>
+                            <p className="text-sm text-muted-foreground text-left">A list of all users who have created a store.</p>
+                        </div>
+                    </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                    <Card>
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Owner Name</TableHead>
+                                        <TableHead>Email</TableHead>
+                                        <TableHead>Store Name</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {storeOwners.map(owner => {
+                                        const store = getStoreForOwner(owner.id);
+                                        return (
+                                            <TableRow key={owner.id}>
+                                                <TableCell className="font-medium">{owner.firstName} {owner.lastName}</TableCell>
+                                                <TableCell>{owner.email}</TableCell>
+                                                <TableCell>{store?.name || 'N/A'}</TableCell>
+                                            </TableRow>
+                                        )
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
+    )
 }
 
 
@@ -226,6 +299,8 @@ export default function AdminDashboardPage() {
         <StatCard title="Active Stores" value={stats.totalStores} icon={Store} loading={statsLoading} />
         <StatCard title="Orders Delivered" value={stats.totalOrdersDelivered} icon={ShoppingBag} loading={statsLoading} />
       </div>
+      
+      <StoreOwnersList />
 
       {/* ================= OPERATIONS ================= */}
       <section className="space-y-6">
@@ -413,3 +488,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
