@@ -111,8 +111,8 @@ export default function DashboardPage() {
         }
     }, [isRoleLoading, isRestaurantOwner]);
 
-    // While loading role or if the user is a restaurant owner (and about to be redirected), render nothing.
-    // This prevents the flicker of the main dashboard.
+    // While loading, or if the user is a restaurant owner (and about to be redirected),
+    // render nothing to prevent any UI flashing.
     if (isRoleLoading || isRestaurantOwner) {
         return (
              <div className="container mx-auto py-12 text-center">
