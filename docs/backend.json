@@ -1,5 +1,3 @@
-
-
 {
   "entities": {
     "Store": {
@@ -123,6 +121,14 @@
         "properties": {
             "id": { "type": "string" },
             "storeId": { "type": "string" },
+            "theme": {
+                "type": "object",
+                "properties": {
+                    "backgroundColor": { "type": "string" },
+                    "primaryColor": { "type": "string" },
+                    "textColor": { "type": "string" }
+                }
+            },
             "items": {
                 "type": "array",
                 "items": {

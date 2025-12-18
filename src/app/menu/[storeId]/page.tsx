@@ -22,7 +22,6 @@ import type {
 import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition, useRef } from 'react';
 import Image from 'next/image';
-import { v4 as uuidv4 } from 'uuid';
 
 import {
   Plus,
@@ -214,14 +213,15 @@ export default function PublicMenuPage() {
   const itemCount = order?.items?.length || 0;
 
   useEffect(() => {
-    const key = `session_${storeId}_${tableNumber}`;
-    let id = sessionStorage.getItem(key);
-    if (!id) {
-      id = uuidv4();
-      sessionStorage.setItem(key, id);
+    // Generate a deterministic session ID based on store, table, and date.
+    // This ensures everyone at the same table on the same day shares the session.
+    if (storeId && tableNumber) {
+        const today = new Date();
+        const dateString = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+        const newSessionId = `table-${tableNumber}-${dateString}`;
+        setSessionId(newSessionId);
     }
-    setSessionId(id);
-  }, [storeId, tableNumber]);
+}, [storeId, tableNumber]);
 
   const storeRef = useMemoFirebase(() =>
     firestore ? doc(firestore, 'stores', storeId) : null,

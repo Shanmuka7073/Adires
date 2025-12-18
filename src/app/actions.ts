@@ -742,7 +742,7 @@ export async function createRestaurantUserAndStore(
             email: userRecord.email,
             firstName: restaurantName,
             lastName: 'Owner',
-            role: 'restaurant_owner',
+            accountType: 'restaurant',
             address: 'To be updated',
             phoneNumber: 'To be updated',
         });

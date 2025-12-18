@@ -1,4 +1,5 @@
 
+
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -362,3 +363,10 @@ export type ReportData = {
     profitPercentage: number;
   }[];
 };
+
+declare global {
+  interface Window {
+      SpeechRecognition: any;
+      webkitSpeechRecognition: any;
+  }
+}
