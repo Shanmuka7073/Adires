@@ -1,4 +1,3 @@
-
 'use client';
 import {
   Card,
@@ -14,7 +13,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useState, useTransition, useEffect } from 'react';
-import { useFirebase } from '@/firebase';
+import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import type { AuthError } from 'firebase/auth';
@@ -28,6 +27,7 @@ import { Fingerprint, Loader2 } from 'lucide-react';
 import { startAuthentication } from '@simplewebauthn/browser';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { User as AppUser } from '@/lib/types';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 const CHICKEN_ADMIN_EMAIL = 'chickenadmin@gmail.com';
@@ -51,19 +51,28 @@ export default function LoginPage() {
   const { toast } = useToast();
 
   const redirectTo = searchParams.get('redirectTo') || '/dashboard';
+  
+  const userDocRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+  
+  const { data: userData, isLoading: isProfileLoading } = useDoc<AppUser>(userDocRef);
+
 
   useEffect(() => {
-    // Do not redirect anonymous users away from their current page
-    if (!isUserLoading && user && !user.isAnonymous) {
+    if (!isUserLoading && !isProfileLoading && user && userData) {
        if (user.email === ADMIN_EMAIL) {
-        router.push('/dashboard/admin');
-      } else if (user.email === CHICKEN_ADMIN_EMAIL) {
-        router.push('/dashboard/chicken-admin');
-      } else {
-        router.push(redirectTo);
-      }
+            router.push('/dashboard/admin');
+       } else if (user.email === CHICKEN_ADMIN_EMAIL) {
+            router.push('/dashboard/chicken-admin');
+       } else if (userData.accountType === 'restaurant') {
+            router.push('/dashboard/restaurant');
+       } else {
+            router.push(redirectTo);
+       }
     }
-  }, [user, isUserLoading, router, redirectTo]);
+  }, [user, isUserLoading, isProfileLoading, userData, router, redirectTo]);
 
 
   const form = useForm<LoginFormValues>({
