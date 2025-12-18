@@ -31,6 +31,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import type { Store, Product, ProductPrice, User as AppUser, ProductVariant } from '@/lib/types';
@@ -1173,7 +1174,7 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
                 }
             );
         } else {
-            toast({ variant: 'destructive', title: "Not Supported", description: "Geolocation is not supported by your browser." });
+            toast({ variant: 'destructive', title: "Not Supported", description: "Geolocation is not supported by this browser." });
         }
     };
     
@@ -1901,3 +1902,5 @@ export default function MyStorePage() {
         </div>
     );
 }
+
+
