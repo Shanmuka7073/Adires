@@ -58,6 +58,7 @@ export type User = {
     address: string;
     phoneNumber: string;
     accountType?: 'groceries' | 'restaurant'; // New field for account type
+    isRestaurantOwner?: boolean;
     imageUrl?: string;
     latitude?: number;
     longitude?: number;

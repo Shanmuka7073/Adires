@@ -7,10 +7,12 @@ import Link from 'next/link';
 import { t } from '@/lib/locales';
 import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useLayoutEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { useAppStore } from '@/lib/store';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
+import { useRouter } from 'next/navigation';
 
 const roleCards = [
     {
@@ -43,13 +45,13 @@ const roleCards = [
     }
 ];
 
-function RoleCard({ card, image, isLoading }) {
+function RoleCard({ card, image, isLoading }: { card: any, image: any, isLoading: boolean }) {
     const firstStoreId = useAppStore((state) => state.stores[0]?.id);
     const href = card.href.startsWith('/stores/') && firstStoreId 
         ? `/stores/${firstStoreId}?category=${card.href.split('/')[2]}` 
         : card.href;
 
-    if (isLoading) {
+    if (isLoading || !image) {
         return <Skeleton className="h-full w-full min-h-[250px]" />;
     }
 
@@ -81,22 +83,40 @@ function RoleCard({ card, image, isLoading }) {
 }
 
 export default function DashboardPage() {
-    const [images, setImages] = useState({});
+    const [images, setImages] = useState<Record<string, { imageUrl: string; imageHint: string }>>({});
     const [loading, setLoading] = useState(true);
+    const { isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
+    const router = useRouter();
+
+    useLayoutEffect(() => {
+        if (!isRoleLoading && isRestaurantOwner) {
+            router.replace('/dashboard/restaurant');
+        }
+    }, [isRoleLoading, isRestaurantOwner, router]);
 
     useEffect(() => {
-        const fetchImages = async () => {
-            const imagePromises = roleCards.map(card => getProductImage(card.imageId));
-            const resolvedImages = await Promise.all(imagePromises);
-            const imageMap = roleCards.reduce((acc, card, index) => {
-                acc[card.imageId] = resolvedImages[index];
-                return acc;
-            }, {});
-            setImages(imageMap);
-            setLoading(false);
+        if (!isRestaurantOwner) {
+            const fetchImages = async () => {
+                const imagePromises = roleCards.map(card => getProductImage(card.imageId));
+                const resolvedImages = await Promise.all(imagePromises);
+                const imageMap = roleCards.reduce((acc, card, index) => {
+                    acc[card.imageId] = resolvedImages[index];
+                    return acc;
+                }, {} as Record<string, { imageUrl: string; imageHint: string }>);
+                setImages(imageMap);
+                setLoading(false);
+            };
+            fetchImages();
         }
-        fetchImages();
-    }, []);
+    }, [isRestaurantOwner]);
+
+    if (isRoleLoading || isRestaurantOwner) {
+        return (
+             <div className="container mx-auto py-12 text-center">
+                <p>Loading your dashboard...</p>
+            </div>
+        );
+    }
 
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
