@@ -91,7 +91,7 @@ export type OrderItem = {
   variantWeight: string;
   quantity: number;
   price: number;
-  recipeSnapshot: { name: string; qty: number; unit: string; cost?: number; }[];
+  recipeSnapshot?: { name: string; qty: number; unit: string; cost?: number; }[];
 }
 
 export type Order = {

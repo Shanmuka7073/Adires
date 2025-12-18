@@ -51,6 +51,11 @@
         "isClosed": {
             "type": "boolean",
             "description": "A flag to indicate if the store is permanently closed."
+        },
+        "tables": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "A list of table numbers or names for a restaurant."
         }
       },
       "required": [
@@ -165,6 +170,10 @@
           "type": "string",
           "description": "The phone number of the user."
         },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL for the user's profile picture."
+        },
         "latitude": {
             "type": "number",
             "description": "The latitude of the user's location."
@@ -234,7 +243,7 @@
         },
         "status": {
           "type": "string",
-          "description": "The current status of the order (e.g., pending, processing, delivered)."
+          "description": "The current status of the order (e.g., pending, processing, delivered, billed, completed)."
         },
         "deliveryAddress": {
           "type": "string",
@@ -251,6 +260,14 @@
         "deliveryPartnerId": {
             "type": "string",
             "description": "The ID of the user who is assigned to deliver this order."
+        },
+        "tableNumber": {
+            "type": "string",
+            "description": "The table number for an in-restaurant order."
+        },
+        "sessionId": {
+            "type": "string",
+            "description": "The session ID for a table to group orders."
         }
       },
       "required": [
@@ -259,8 +276,7 @@
         "storeId",
         "orderDate",
         "totalAmount",
-        "status",
-        "deliveryAddress"
+        "status"
       ]
     },
     "VoiceOrder": {
@@ -865,19 +881,11 @@
         "path": "/stores/{storeId}/menus/{menuId}",
         "definition": {
           "entityName": "Menu",
-          "schema": {
-            "$ref": "#/entities/Menu"
-          },
+          "schema": { "$ref": "#/entities/Menu" },
           "description": "Stores menu information for a restaurant.",
           "params": [
-            {
-              "name": "storeId",
-              "description": "The unique identifier of the store (restaurant)."
-            },
-            {
-              "name": "menuId",
-              "description": "The unique identifier of the menu."
-            }
+            { "name": "storeId" },
+            { "name": "menuId" }
           ]
         }
       },
@@ -1149,3 +1157,4 @@
     ]
   }
 }
+
