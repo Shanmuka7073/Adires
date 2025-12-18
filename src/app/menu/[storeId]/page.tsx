@@ -5,6 +5,7 @@ import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase'
 import {
   collection,
   query,
+  where,
   doc,
   setDoc,
   updateDoc,
@@ -17,20 +18,29 @@ import type {
   Order,
   OrderItem,
   GetIngredientsOutput,
+  Ingredient,
 } from '@/lib/types';
 
 import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition, useRef } from 'react';
 import Image from 'next/image';
+import { v4 as uuidv4 } from 'uuid';
 
 import {
+  Utensils,
   Plus,
+  Minus,
   Receipt,
   Loader2,
   Check,
-  Eye,
-  Trash2,
   Clock,
+  Zap,
+  Flame,
+  Info,
+  ShoppingCart,
+  Salad,
+  Mic,
+  Eye,
   Download,
 } from 'lucide-react';
 
@@ -53,11 +63,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { addRestaurantOrderItem, getIngredientsForDish } from '@/app/actions';
-import type { Timestamp } from 'firebase/firestore';
 import { useInstall } from '@/components/install-provider';
+import type { Timestamp } from 'firebase/firestore';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import IngredientsDialog from '@/components/IngredientsDialog';
-import { FirestoreCounter } from '@/components/layout/firestore-counter';
 import { cn } from '@/lib/utils';
 
 
@@ -135,9 +144,6 @@ function LiveBillSheet({ storeId, sessionId, theme }: { storeId: string; session
                     <span className="font-medium">{it.productName} <span className="opacity-70">x{it.quantity}</span></span>
                     <p>₹{(it.price * it.quantity).toFixed(2)}</p>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(it)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
               </div>
             ))}
         </div>
@@ -213,8 +219,6 @@ export default function PublicMenuPage() {
   const itemCount = order?.items?.length || 0;
 
   useEffect(() => {
-    // Generate a deterministic session ID based on store, table, and date.
-    // This ensures everyone at the same table on the same day shares the session.
     if (storeId && tableNumber) {
         const today = new Date();
         const dateString = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
@@ -430,7 +434,6 @@ export default function PublicMenuPage() {
                   </SheetContent>
               </Sheet>
           )}
-          <FirestoreCounter />
         </div>
     </>
   );

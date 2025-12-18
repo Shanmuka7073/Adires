@@ -1,6 +1,4 @@
-
 import type { Metadata } from "next";
-import { FirestoreCounter } from '@/components/layout/firestore-counter';
 
 export async function generateMetadata({ params }: { params: { storeId: string } }): Promise<Metadata> {
   // In a real app, you would fetch store details here to set the title dynamically
@@ -20,7 +18,6 @@ export default function MenuPageLayout({
   return (
       <div className="relative">
           {children}
-          <FirestoreCounter />
       </div>
   );
 }
