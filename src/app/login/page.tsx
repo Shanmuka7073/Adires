@@ -1,4 +1,5 @@
 
+
 'use client';
 import {
   Card,
@@ -26,14 +27,16 @@ import {
 import { doc, setDoc } from 'firebase/firestore';
 import { Fingerprint, Loader2 } from 'lucide-react';
 import { startAuthentication } from '@simplewebauthn/browser';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 const CHICKEN_ADMIN_EMAIL = 'chickenadmin@gmail.com';
 
-
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6, 'Password must be at least 6 characters'),
+  accountType: z.enum(['groceries', 'restaurant']).optional(),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -66,7 +69,7 @@ export default function LoginPage() {
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', password: '' },
+    defaultValues: { email: '', password: '', accountType: 'groceries' },
   });
 
   const { email } = form.watch();
@@ -143,9 +146,13 @@ export default function LoginPage() {
               setError("Firestore is not available. Please try again later.");
               return;
           }
+           if (!data.accountType) {
+                setError("Please select an account type.");
+                form.setError("accountType", { type: "manual", message: "Account type is required." });
+                return;
+            }
           createUserWithEmailAndPassword(auth, data.email, data.password)
             .then(async (userCredential) => {
-                // *** FIX: Create the user document in Firestore immediately after sign up ***
                 const newUser = userCredential.user;
                 const userDocRef = doc(firestore, 'users', newUser.uid);
                 await setDoc(userDocRef, {
@@ -155,6 +162,7 @@ export default function LoginPage() {
                     lastName: '',
                     address: '',
                     phoneNumber: '',
+                    accountType: data.accountType, // Save account type
                 });
 
                 toast({
@@ -193,66 +201,91 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="m@example.com"
-                {...form.register('email')}
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                        <Input id="email" type="email" placeholder="m@example.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {form.formState.errors.email && (
-                <p className="text-sm text-destructive">
-                  {form.formState.errors.email.message}
-                </p>
+            
+              {!isSignUp && (
+                <div className="space-y-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={handleWebAuthnLogin}
+                      disabled={isWebAuthnPending || !email}
+                    >
+                      {isWebAuthnPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Fingerprint className="mr-2 h-4 w-4" />}
+                      Sign in with fingerprint
+                    </Button>
+                </div>
               )}
-            </div>
-            {!isSignUp && (
-              <div className="space-y-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    onClick={handleWebAuthnLogin}
-                    disabled={isWebAuthnPending || !email}
-                  >
-                    {isWebAuthnPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Fingerprint className="mr-2 h-4 w-4" />}
-                    Sign in with fingerprint
-                  </Button>
+              <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+                  </div>
               </div>
-            )}
-            <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
-                </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                {...form.register('password')}
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                        <Input id="password" type="password" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {form.formState.errors.password && (
-                <p className="text-sm text-destructive">
-                  {form.formState.errors.password.message}
-                </p>
+              {isSignUp && (
+                <FormField
+                  control={form.control}
+                  name="accountType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>I am a...</FormLabel>
+                       <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select an account type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="groceries">Groceries Customer/Owner</SelectItem>
+                          <SelectItem value="restaurant">Restaurant Owner</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               )}
-            </div>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full" disabled={isPending || isUserLoading}>
-              {isPending
-                ? 'Processing...'
-                : isSignUp
-                ? 'Create Account'
-                : 'Sign In with Password'}
-            </Button>
-          </form>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <Button type="submit" className="w-full" disabled={isPending || isUserLoading}>
+                {isPending
+                  ? 'Processing...'
+                  : isSignUp
+                  ? 'Create Account'
+                  : 'Sign In with Password'}
+              </Button>
+            </form>
+          </Form>
           <div className="mt-6 text-center text-sm">
             {isSignUp ? (
               <>

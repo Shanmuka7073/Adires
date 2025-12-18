@@ -57,6 +57,7 @@ export type User = {
     email: string;
     address: string;
     phoneNumber: string;
+    accountType?: 'groceries' | 'restaurant'; // New field for account type
     imageUrl?: string;
     latitude?: number;
     longitude?: number;
@@ -330,7 +331,7 @@ export type UnidentifiedCartItem = {
 
 // NEW Type for Restaurant Inventory
 export type RestaurantIngredient = {
-  id?: string;
+  id: string;
   name: string;
   unit: string; // e.g., 'kg', 'litre', 'pc'
   cost: number; // The purchase cost per unit
