@@ -13,26 +13,16 @@ import { InstallProvider } from '@/components/install-provider';
 /**
  * This hook is responsible for making sure the application's essential
  * data is loaded before the UI is shown to the user. It handles both
- * the initial data fetch and rehydration from persisted state.
+ * the initial data fetch and rehydration from persisted local storage.
  */
 function useInitializeApp() {
     const { firestore } = useFirebase();
-    const {
-        fetchInitialData,
-        isInitialized,
-        loading,
-        setAppReady,
-        stores, // Use a core data array to check for rehydration
-    } = useAppStore();
+    const { fetchInitialData, isInitialized, loading, setAppReady, stores } = useAppStore();
 
     useEffect(() => {
         // If data is already in the store (from persisted state), the app is ready.
         if (stores.length > 0 && isInitialized) {
             setAppReady(true);
-            // Optionally, you can still fetch data in the background to get updates
-            if (firestore) {
-                fetchInitialData(firestore);
-            }
             return;
         }
 
