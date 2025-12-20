@@ -17,20 +17,31 @@ import { InstallProvider } from '@/components/install-provider';
  */
 function useInitializeApp() {
     const { firestore } = useFirebase();
-    const { fetchInitialData, isInitialized, loading, setAppReady, stores } = useAppStore();
+    const {
+        fetchInitialData,
+        isInitialized,
+        loading,
+        setAppReady,
+    } = useAppStore();
 
     useEffect(() => {
-        // If data is already in the store (from persisted state), the app is ready.
-        if (stores.length > 0 && isInitialized) {
+        // If data is already initialized from a previous session (persisted state),
+        // we can mark the app as ready immediately. We might still want to fetch
+        // in the background for updates, but the UI can render.
+        if (isInitialized) {
             setAppReady(true);
+            if (firestore) {
+              // Optional: fetch in the background if needed
+              // fetchInitialData(firestore); 
+            }
             return;
         }
 
         // If not initialized and not already loading, start the data fetch.
-        if (firestore && !isInitialized && !loading) {
+        if (firestore && !loading) {
             fetchInitialData(firestore);
         }
-    }, [firestore, isInitialized, loading, fetchInitialData, setAppReady, stores.length]);
+    }, [firestore, isInitialized, loading, fetchInitialData, setAppReady]);
 }
 
 

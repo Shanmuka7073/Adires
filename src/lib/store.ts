@@ -68,7 +68,7 @@ export const useAppStore = create<AppState>()(
       commands: {},
       loading: false,
       isInitialized: false,
-      appReady: false,
+      appReady: false, // This is a transient state, should not be persisted.
       error: null,
       language: getInitialLanguage(),
       activeStoreId: null,
@@ -95,7 +95,6 @@ export const useAppStore = create<AppState>()(
       setAppReady: (isReady: boolean) => set({ appReady: isReady }),
 
       fetchInitialData: async (db: Firestore) => {
-        // Prevent re-fetching if already loading
         if (get().loading) return;
 
         set({ loading: true, error: null });
@@ -107,10 +106,13 @@ export const useAppStore = create<AppState>()(
             getDocs(collection(db, 'voiceAliasGroups')),
             getDocs(collection(db, 'voiceCommands'))
           ]);
+          set(state => ({ readCount: state.readCount + 4 }));
+
 
           // Fetch menus efficiently
           const menuPromises = stores.map(store => getDocs(query(collection(db, `stores/${store.id}/menus`))));
           const menuSnapshots = await Promise.all(menuPromises);
+          set(state => ({ readCount: state.readCount + menuSnapshots.length }));
           const allMenus = menuSnapshots.flatMap(snapshot => snapshot.docs.map(doc => doc.data() as Menu));
 
           const voiceAliasGroups = aliasDocs.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
@@ -133,7 +135,7 @@ export const useAppStore = create<AppState>()(
             commands: enrichedCommands,
             isInitialized: true,
             loading: false,
-            appReady: true, // Set app as ready once data is fetched
+            appReady: true,
           });
 
           if (masterProducts.length > 0) {
@@ -142,12 +144,12 @@ export const useAppStore = create<AppState>()(
           
         } catch (error) {
           console.error("Failed to fetch initial app data:", error);
-          set({ error: error as Error, loading: false, appReady: true }); // Still unlock the app on error
+          set({ error: error as Error, loading: false, appReady: true });
         }
       },
       
       fetchProductPrices: async (db: Firestore, productNames: string[]) => {
-          const { productPrices } = get();
+          const { productPrices, incrementReadCount } = get();
           const namesToFetch = productNames.filter(name => name && productPrices[name.toLowerCase()] === undefined);
 
           if (namesToFetch.length === 0) return;
@@ -155,12 +157,14 @@ export const useAppStore = create<AppState>()(
           try {
               const pricesToUpdate: Record<string, ProductPrice | null> = {};
               const batchSize = 30;
+              let reads = 0;
 
               for (let i = 0; i < namesToFetch.length; i += batchSize) {
                   const batchNames = namesToFetch.slice(i, i + batchSize).map(n => n.toLowerCase());
                   if (batchNames.length > 0) {
                       const priceQuery = query(collection(db, 'productPrices'), where('productName', 'in', batchNames));
                       const priceSnapshot = await getDocs(priceQuery);
+                      reads++;
                       
                       const fetchedPrices = new Map(priceSnapshot.docs.map(doc => [doc.id, doc.data() as ProductPrice]));
                       
@@ -170,6 +174,7 @@ export const useAppStore = create<AppState>()(
                   }
               }
 
+              incrementReadCount(reads);
               set(state => ({
                   productPrices: { ...state.productPrices, ...pricesToUpdate }
               }));
@@ -189,13 +194,15 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'localbasket-app-storage', // The key for localStorage
+      name: 'localbasket-app-storage',
       storage: createJSONStorage(() => localStorage),
-      // IMPORTANT: `appReady` is a transient state and should NOT be persisted.
+      // Only persist data that is safe and useful to restore on next visit.
+      // Transient state like 'loading' or 'appReady' should NOT be persisted.
       partialize: (state) => ({ 
           stores: state.stores,
           masterProducts: state.masterProducts,
           allMenus: state.allMenus,
+          productPrices: state.productPrices,
           locales: state.locales,
           commands: state.commands,
           language: state.language,
