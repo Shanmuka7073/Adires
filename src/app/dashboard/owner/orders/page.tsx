@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { Order, Store } from '@/lib/types';
@@ -35,6 +34,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import Link from 'next/link';
 import { markSessionAsPaid } from '@/app/actions';
+import type { Timestamp } from 'firebase/firestore';
 
 
 const STATUS_META: Record<string, any> = {
@@ -245,7 +245,23 @@ export default function StoreOrdersPage() {
   };
 
   const activeSessions = Object.values(sessions).filter(s => s.status !== 'Completed' && s.status !== 'Cancelled');
-  const completedSessions = Object.values(sessions).filter(s => s.status === 'Completed' || s.status === 'Cancelled');
+  const completedSessions = useMemo(() => {
+    const grouped: Record<string, Session[]> = {};
+    const filtered = Object.values(sessions).filter(s => s.status === 'Completed' || s.status === 'Cancelled');
+    
+    filtered.forEach(session => {
+        const dateKey = format(session.lastActivity, 'PPP');
+        if (!grouped[dateKey]) {
+            grouped[dateKey] = [];
+        }
+        grouped[dateKey].push(session);
+    });
+    // Sort sessions within each day
+    for (const key in grouped) {
+        grouped[key].sort((a,b) => b.lastActivity.getTime() - a.lastActivity.getTime());
+    }
+    return grouped;
+  }, [sessions]);
 
 
   return (
@@ -291,27 +307,38 @@ export default function StoreOrdersPage() {
                 <h2 className="text-2xl font-semibold mb-4 text-muted-foreground">Completed Sessions</h2>
                  {isLoading ? (
                     <Skeleton className="h-24 w-full" />
-                ) : completedSessions.length > 0 ? (
-                    <div className="space-y-4">
-                        {completedSessions.sort((a,b) => b.lastActivity.getTime() - a.lastActivity.getTime()).map(session => (
-                             <Card key={session.id} className="bg-muted/50">
-                                <CardHeader>
+                ) : Object.keys(completedSessions).length > 0 ? (
+                    <Accordion type="multiple" className="w-full space-y-4">
+                      {Object.entries(completedSessions).sort(([a],[b]) => new Date(b).getTime() - new Date(a).getTime()).map(([date, sessions]) => (
+                        <AccordionItem value={date} key={date}>
+                          <AccordionTrigger className="text-lg font-semibold border px-4 py-3 rounded-lg hover:bg-muted/50 hover:no-underline [&[data-state=open]]:rounded-b-none">
+                            {date}
+                          </AccordionTrigger>
+                          <AccordionContent className="border border-t-0 rounded-b-lg p-0">
+                            <div className="space-y-2 p-2">
+                              {sessions.map(session => (
+                                <Card key={session.id} className="bg-muted/30">
+                                  <CardHeader>
                                     <div className="flex justify-between items-center">
-                                        <div>
-                                            <CardTitle className="text-base">Table {session.tableNumber || 'N/A'}</CardTitle>
-                                             <p className="text-xs text-muted-foreground">
-                                                {format(session.lastActivity, 'PPP p')}
-                                             </p>
-                                        </div>
-                                        <div className="text-right">
-                                             <Badge variant="default">Completed</Badge>
-                                             <p className="font-bold text-lg">₹{session.totalAmount.toFixed(2)}</p>
-                                        </div>
+                                      <div>
+                                        <CardTitle className="text-base">Table {session.tableNumber || 'N/A'}</CardTitle>
+                                        <p className="text-xs text-muted-foreground">
+                                          {format(session.lastActivity, 'p')}
+                                        </p>
+                                      </div>
+                                      <div className="text-right">
+                                        <Badge variant="default">Completed</Badge>
+                                        <p className="font-bold text-lg">₹{session.totalAmount.toFixed(2)}</p>
+                                      </div>
                                     </div>
-                                </CardHeader>
-                            </Card>
-                        ))}
-                    </div>
+                                  </CardHeader>
+                                </Card>
+                              ))}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
                 ) : (
                     <p className="text-muted-foreground text-center">No completed sessions yet.</p>
                 )}
