@@ -245,22 +245,30 @@ export default function StoreOrdersPage() {
   };
 
   const activeSessions = Object.values(sessions).filter(s => s.status !== 'Completed' && s.status !== 'Cancelled');
+  
   const completedSessions = useMemo(() => {
-    const grouped: Record<string, Session[]> = {};
+    const groupedByDate: Record<string, Record<string, Session[]>> = {};
     const filtered = Object.values(sessions).filter(s => s.status === 'Completed' || s.status === 'Cancelled');
     
     filtered.forEach(session => {
-        const dateKey = format(session.lastActivity, 'PPP');
-        if (!grouped[dateKey]) {
-            grouped[dateKey] = [];
+        const dateKey = format(session.lastActivity, 'MMMM do, yyyy');
+        if (!groupedByDate[dateKey]) {
+            groupedByDate[dateKey] = {};
         }
-        grouped[dateKey].push(session);
+        const tableKey = session.tableNumber || 'Unknown Table';
+        if (!groupedByDate[dateKey][tableKey]) {
+            groupedByDate[dateKey][tableKey] = [];
+        }
+        groupedByDate[dateKey][tableKey].push(session);
     });
-    // Sort sessions within each day
-    for (const key in grouped) {
-        grouped[key].sort((a,b) => b.lastActivity.getTime() - a.lastActivity.getTime());
+
+    // Sort sessions within each table
+    for (const date in groupedByDate) {
+        for (const table in groupedByDate[date]) {
+            groupedByDate[date][table].sort((a,b) => b.lastActivity.getTime() - a.lastActivity.getTime());
+        }
     }
-    return grouped;
+    return groupedByDate;
   }, [sessions]);
 
 
@@ -309,32 +317,38 @@ export default function StoreOrdersPage() {
                     <Skeleton className="h-24 w-full" />
                 ) : Object.keys(completedSessions).length > 0 ? (
                     <Accordion type="multiple" className="w-full space-y-4">
-                      {Object.entries(completedSessions).sort(([a],[b]) => new Date(b).getTime() - new Date(a).getTime()).map(([date, sessions]) => (
+                      {Object.entries(completedSessions).sort(([a],[b]) => new Date(b).getTime() - new Date(a).getTime()).map(([date, tables]) => (
                         <AccordionItem value={date} key={date}>
                           <AccordionTrigger className="text-lg font-semibold border px-4 py-3 rounded-lg hover:bg-muted/50 hover:no-underline [&[data-state=open]]:rounded-b-none">
                             {date}
                           </AccordionTrigger>
-                          <AccordionContent className="border border-t-0 rounded-b-lg p-0">
-                            <div className="space-y-2 p-2">
-                              {sessions.map(session => (
-                                <Card key={session.id} className="bg-muted/30">
-                                  <CardHeader>
-                                    <div className="flex justify-between items-center">
-                                      <div>
-                                        <CardTitle className="text-base">Table {session.tableNumber || 'N/A'}</CardTitle>
-                                        <p className="text-xs text-muted-foreground">
-                                          {format(session.lastActivity, 'p')}
-                                        </p>
-                                      </div>
-                                      <div className="text-right">
-                                        <Badge variant="default">Completed</Badge>
-                                        <p className="font-bold text-lg">₹{session.totalAmount.toFixed(2)}</p>
-                                      </div>
-                                    </div>
-                                  </CardHeader>
-                                </Card>
-                              ))}
-                            </div>
+                          <AccordionContent className="border border-t-0 rounded-b-lg p-2 space-y-2">
+                             <Accordion type="multiple" className="w-full space-y-2">
+                                {Object.entries(tables).map(([tableNumber, tableSessions]) => (
+                                    <AccordionItem value={tableNumber} key={tableNumber}>
+                                        <AccordionTrigger className="text-base font-semibold border px-3 py-2 rounded-md bg-background hover:bg-background/80 hover:no-underline [&[data-state=open]]:rounded-b-none">
+                                            Table {tableNumber}
+                                        </AccordionTrigger>
+                                        <AccordionContent className="p-2 space-y-2">
+                                            {tableSessions.map(session => (
+                                                 <Card key={session.id} className="bg-muted/30">
+                                                    <CardContent className="p-3">
+                                                        <div className="flex justify-between items-center">
+                                                            <p className="text-xs text-muted-foreground">
+                                                                {format(session.lastActivity, 'p')}
+                                                            </p>
+                                                            <div className="text-right">
+                                                                <Badge variant="default">Completed</Badge>
+                                                                <p className="font-bold text-lg">₹{session.totalAmount.toFixed(2)}</p>
+                                                            </div>
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            ))}
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                ))}
+                            </Accordion>
                           </AccordionContent>
                         </AccordionItem>
                       ))}
