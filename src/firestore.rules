@@ -29,9 +29,9 @@ service cloud.firestore {
     match /users/{userId} {
       allow get, update, delete: if isOwner(userId);
       allow list: if isAdmin();
-      // Allow creation by the user themselves OR by an admin OR by a store owner creating an employee.
+      // Allow creation by the user themselves OR by an admin OR for an employee account type
       allow create: if (isOwner(userId) && request.resource.data.id == userId) || isAdmin() || 
-                      (request.resource.data.accountType == 'employee' && isStoreOwner(request.resource.data.storeId));
+                      (request.resource.data.accountType == 'employee');
     }
 
     match /asha-conversations/{userId}/{document=**} {
