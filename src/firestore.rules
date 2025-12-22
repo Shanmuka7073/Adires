@@ -29,7 +29,9 @@ service cloud.firestore {
     match /users/{userId} {
       allow get, update, delete: if isOwner(userId);
       allow list: if isAdmin();
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      // Allow creation by the user themselves OR by an admin OR by a store owner creating an employee.
+      allow create: if (isOwner(userId) && request.resource.data.id == userId) || isAdmin() || 
+                      (request.resource.data.accountType == 'employee' && isStoreOwner(request.resource.data.storeId));
     }
 
     match /asha-conversations/{userId}/{document=**} {
@@ -42,7 +44,7 @@ service cloud.firestore {
 
     match /stores/{storeId} {
       allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow create: if (isSignedIn() && request.resource.data.ownerId == request.auth.uid) || isAdmin();
       allow update, delete: if isStoreOwner(storeId);
     }
 
@@ -65,7 +67,9 @@ service cloud.firestore {
         allow get, list: if true;
 
         allow create: if 
+          // Logged-in user creating their own order
           (isSignedIn() && request.resource.data.userId == request.auth.uid) || 
+          // Anonymous restaurant guest creating an order with a session
           (request.resource.data.userId == 'guest' && request.resource.data.storeId is string && request.resource.data.sessionId is string);
 
         allow update: if 
@@ -77,6 +81,8 @@ service cloud.firestore {
             (resource.data.deliveryPartnerId != null && request.auth.uid == resource.data.deliveryPartnerId) ||
             // Admin can do anything
             isAdmin() ||
+            // A guest user can append items to their own session-based order
+            (resource.data.userId == 'guest' && request.resource.data.sessionId == resource.data.sessionId) ||
             // Any signed-in user can accept a job if unassigned
             (resource.data.deliveryPartnerId == null && request.resource.data.deliveryPartnerId == request.auth.uid);
 
@@ -147,6 +153,26 @@ service cloud.firestore {
     match /siteConfig/{configId} {
         allow read: if true;
         allow write: if isAdmin();
+    }
+    
+    match /employeeProfiles/{userId} {
+        allow get, update: if isOwner(userId) || isStoreOwner(get(/databases/$(database)/documents/employeeProfiles/$(userId)).data.storeId);
+        // Allow create by store owner or admin
+        allow create, delete: if isStoreOwner(request.resource.data.storeId) || isAdmin();
+        allow list: if isStoreOwner(resource.data.storeId) || isAdmin();
+    }
+    
+    match /stores/{storeId}/attendance/{recordId} {
+        allow get, list: if isStoreOwner(storeId);
+        allow create: if isOwner(request.resource.data.employeeId);
+        allow update: if isOwner(resource.data.employeeId);
+        allow delete: if false;
+    }
+    
+    match /stores/{storeId}/salarySlips/{slipId} {
+        allow get: if isStoreOwner(storeId) || isOwner(resource.data.employeeId);
+        allow list: if isStoreOwner(storeId);
+        allow create, update, delete: if isStoreOwner(storeId);
     }
   }
 }

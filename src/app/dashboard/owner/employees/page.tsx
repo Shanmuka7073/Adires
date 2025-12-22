@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, doc, deleteDoc, writeBatch } from 'firebase/firestore';
 import type { Store, EmployeeProfile } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,7 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Loader2, PlusCircle, Trash2, Users } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { createEmployeeUserAndProfile } from '@/app/actions'; // IMPORTANT: Using new server action
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 
 const employeeSchema = z.object({
   firstName: z.string().min(2, 'First name is required.'),
@@ -32,9 +32,8 @@ const employeeSchema = z.object({
 
 type EmployeeFormValues = z.infer<typeof employeeSchema>;
 
-
 export default function ManageEmployeesPage() {
-  const { user, firestore } = useFirebase();
+  const { user, auth, firestore } = useFirebase();
   const { toast } = useToast();
   const [isProcessing, startProcessing] = useTransition();
 
@@ -51,38 +50,50 @@ export default function ManageEmployeesPage() {
   });
 
   const onSubmit = (data: EmployeeFormValues) => {
-    if (!myStore) {
-        toast({ variant: 'destructive', title: 'No store found for your account.' });
-        return;
+    if (!myStore || !auth) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Cannot create employee. Store or auth service not available.' });
+      return;
     }
     startProcessing(async () => {
-        try {
-            const result = await createEmployeeUserAndProfile({
-                email: data.email,
-                password: data.password,
-                firstName: data.firstName,
-                lastName: data.lastName,
-                storeId: myStore.id,
-                role: data.role,
-                salaryRate: data.salaryRate,
-                salaryType: data.salaryType
-            });
+      try {
+        // This creates a temporary, secondary auth instance to create the user
+        // without signing out the current admin/owner.
+        const { user: newEmployeeAuth } = await createUserWithEmailAndPassword(auth, data.email, data.password);
+        const uid = newEmployeeAuth.uid;
 
-            if (result.success) {
-                 toast({ title: 'Employee Added!', description: `${data.email} has been added to your store.` });
-                 form.reset();
-            } else {
-                throw new Error(result.error || 'An unknown server error occurred.');
-            }
+        const batch = writeBatch(firestore);
 
-        } catch (error: any) {
-            console.error("Failed to add employee:", error);
-            if (error.message?.includes('email-already-in-use')) {
-                 toast({ variant: 'destructive', title: 'User Exists', description: 'This email is already registered. Please use a different email.' });
-            } else {
-                toast({ variant: 'destructive', title: 'Error Adding Employee', description: error.message });
-            }
-        }
+        const userDocRef = doc(firestore, 'users', uid);
+        batch.set(userDocRef, {
+            id: uid,
+            email: data.email,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            accountType: 'employee',
+            // Pass the owner's storeId to be checked by security rules
+            storeId: myStore.id 
+        });
+
+        const employeeProfileRef = doc(firestore, 'employeeProfiles', uid);
+        batch.set(employeeProfileRef, {
+            userId: uid,
+            storeId: myStore.id,
+            employeeId: `EMP-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
+            role: data.role,
+            hireDate: new Date().toISOString().split('T')[0],
+            salaryRate: data.salaryRate,
+            salaryType: data.salaryType,
+        });
+        
+        await batch.commit();
+
+        toast({ title: 'Employee Added!', description: `${data.email} has been added to your store.` });
+        form.reset();
+
+      } catch (error: any) {
+        console.error("Failed to add employee:", error);
+        toast({ variant: 'destructive', title: 'Error Adding Employee', description: error.message });
+      }
     });
   };
   
