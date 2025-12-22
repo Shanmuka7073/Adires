@@ -18,7 +18,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Loader2, PlusCircle, Trash2, Users } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
+import { initializeApp, deleteApp } from 'firebase/app';
+
 
 const employeeSchema = z.object({
   firstName: z.string().min(2, 'First name is required.'),
@@ -33,7 +35,7 @@ const employeeSchema = z.object({
 type EmployeeFormValues = z.infer<typeof employeeSchema>;
 
 export default function ManageEmployeesPage() {
-  const { user, auth, firestore } = useFirebase();
+  const { user, auth, firestore, firebaseApp } = useFirebase();
   const { toast } = useToast();
   const [isProcessing, startProcessing] = useTransition();
 
@@ -50,15 +52,20 @@ export default function ManageEmployeesPage() {
   });
 
   const onSubmit = (data: EmployeeFormValues) => {
-    if (!myStore || !auth) {
+    if (!myStore || !firestore) {
       toast({ variant: 'destructive', title: 'Error', description: 'Cannot create employee. Store or auth service not available.' });
       return;
     }
+
     startProcessing(async () => {
+      // Create a temporary, secondary Firebase app instance to create the user
+      // without signing out the current store owner.
+      const tempAppName = `temp-employee-creation-${Date.now()}`;
+      const tempApp = initializeApp(firebaseApp.options, tempAppName);
+      const tempAuth = getAuth(tempApp);
+
       try {
-        // This creates a temporary, secondary auth instance to create the user
-        // without signing out the current admin/owner.
-        const { user: newEmployeeAuth } = await createUserWithEmailAndPassword(auth, data.email, data.password);
+        const { user: newEmployeeAuth } = await createUserWithEmailAndPassword(tempAuth, data.email, data.password);
         const uid = newEmployeeAuth.uid;
 
         const batch = writeBatch(firestore);
@@ -70,8 +77,6 @@ export default function ManageEmployeesPage() {
             firstName: data.firstName,
             lastName: data.lastName,
             accountType: 'employee',
-            // Pass the owner's storeId to be checked by security rules
-            storeId: myStore.id 
         });
 
         const employeeProfileRef = doc(firestore, 'employeeProfiles', uid);
@@ -93,6 +98,9 @@ export default function ManageEmployeesPage() {
       } catch (error: any) {
         console.error("Failed to add employee:", error);
         toast({ variant: 'destructive', title: 'Error Adding Employee', description: error.message });
+      } finally {
+        // Clean up the temporary app instance
+        await deleteApp(tempApp);
       }
     });
   };
