@@ -179,7 +179,7 @@
         },
         "accountType": {
             "type": "string",
-            "enum": ["groceries", "restaurant"],
+            "enum": ["groceries", "restaurant", "employee"],
             "description": "The type of account the user has."
         },
         "imageUrl": {
@@ -857,7 +857,6 @@
         "workDate": { "type": "string", "format": "date", "description": "The date of the work shift." },
         "punchInTime": { "type": "string", "format": "date-time", "description": "The timestamp for punching in." },
         "punchOutTime": { "type": "string", "format": "date-time", "description": "The timestamp for punching out." },
-        "punchInPhotoUrl": { "type": "string", "format": "uri", "description": "URL of the photo taken at punch-in." },
         "workHours": { "type": "number", "description": "Total calculated work hours for the shift." }
       },
       "required": ["id", "employeeId", "storeId", "workDate", "punchInTime"]
@@ -1255,5 +1254,3 @@
     ]
   }
 }
-
-    
