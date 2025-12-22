@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowRight, ShoppingCart, Store, Truck, Mic, Sparkles } from 'lucide-react';
+import { ArrowRight, ShoppingCart, Store, Truck, Mic, Sparkles, UserCheck } from 'lucide-react';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import Image from 'next/image';
@@ -42,6 +42,13 @@ const roleCards = [
         href: '/dashboard/delivery/deliveries',
         icon: Truck,
         imageId: 'dash-delivery'
+    },
+    {
+        title: 'employee',
+        description: 'punch-in-and-out-for-your-shift',
+        href: '/dashboard/employee/attendance',
+        icon: UserCheck,
+        imageId: 'dash-delivery' // Re-using an image for now
     }
 ];
 
@@ -113,7 +120,7 @@ export default function DashboardPage() {
         }
     }, [isRoleLoading, isRestaurantOwner]);
 
-    // While role is loading OR if the user is a restaurant owner (and about to be redirected),
+    // While loading, or if the user is a restaurant owner (and about to be redirected),
     // render nothing. This prevents any flickering.
     if (isRoleLoading || isRestaurantOwner) {
         return (
@@ -129,7 +136,7 @@ export default function DashboardPage() {
                 <h1 className="text-4xl font-bold font-headline">{t('your-dashboard')}</h1>
                 <p className="text-lg text-muted-foreground mt-2">{t('select-your-role-to-access-your-tools')}</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
                 {roleCards.map((card) => (
                     <RoleCard 
                         key={card.title} 

@@ -1,5 +1,4 @@
 
-
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -363,6 +362,43 @@ export type ReportData = {
     profitPercentage: number;
   }[];
 };
+
+// Employee and Attendance Types
+export type EmployeeProfile = {
+    userId: string;
+    storeId: string;
+    employeeId: string;
+    role: string;
+    hireDate: string;
+    salaryRate: number;
+    salaryType: 'hourly' | 'monthly';
+};
+
+export type AttendanceRecord = {
+    id: string;
+    employeeId: string;
+    storeId: string;
+    workDate: string;
+    punchInTime: Timestamp | Date | string;
+    punchOutTime: Timestamp | Date | string | null;
+    punchInPhotoUrl: string;
+    workHours: number;
+};
+
+export type SalarySlip = {
+    id: string;
+    employeeId: string;
+    storeId: string;
+    periodStart: string;
+    periodEnd: string;
+    baseSalary: number;
+    overtimeHours: number;
+    overtimePay: number;
+    deductions: number;
+    netPay: number;
+    generatedAt: any;
+};
+
 
 declare global {
   interface Window {
