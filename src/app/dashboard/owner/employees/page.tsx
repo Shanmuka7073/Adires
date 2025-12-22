@@ -52,14 +52,12 @@ export default function ManageEmployeesPage() {
   });
 
   const onSubmit = (data: EmployeeFormValues) => {
-    if (!myStore || !firestore) {
+    if (!myStore || !firestore || !firebaseApp) {
       toast({ variant: 'destructive', title: 'Error', description: 'Cannot create employee. Store or auth service not available.' });
       return;
     }
 
     startProcessing(async () => {
-      // Create a temporary, secondary Firebase app instance to create the user
-      // without signing out the current store owner.
       const tempAppName = `temp-employee-creation-${Date.now()}`;
       const tempApp = initializeApp(firebaseApp.options, tempAppName);
       const tempAuth = getAuth(tempApp);
@@ -71,12 +69,14 @@ export default function ManageEmployeesPage() {
         const batch = writeBatch(firestore);
 
         const userDocRef = doc(firestore, 'users', uid);
+        // Include storeId for the security rule to validate the request
         batch.set(userDocRef, {
             id: uid,
             email: data.email,
             firstName: data.firstName,
             lastName: data.lastName,
             accountType: 'employee',
+            storeId: myStore.id, // This is the crucial addition for the security rule
         });
 
         const employeeProfileRef = doc(firestore, 'employeeProfiles', uid);
@@ -99,7 +99,6 @@ export default function ManageEmployeesPage() {
         console.error("Failed to add employee:", error);
         toast({ variant: 'destructive', title: 'Error Adding Employee', description: error.message });
       } finally {
-        // Clean up the temporary app instance
         await deleteApp(tempApp);
       }
     });
@@ -107,6 +106,7 @@ export default function ManageEmployeesPage() {
   
   const handleDelete = (employee: EmployeeProfile) => {
       if (!confirm(`Are you sure you want to remove ${employee.role}? This cannot be undone.`)) return;
+      if (!firestore) return;
       
       deleteDoc(doc(firestore, 'employeeProfiles', employee.userId))
         .then(() => toast({ title: 'Employee Removed' }))

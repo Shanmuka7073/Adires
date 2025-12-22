@@ -56,7 +56,8 @@ export type User = {
     email: string;
     address: string;
     phoneNumber: string;
-    accountType?: 'groceries' | 'restaurant';
+    accountType?: 'groceries' | 'restaurant' | 'employee';
+    storeId?: string; // For employees, the store they belong to.
     imageUrl?: string;
     latitude?: number;
     longitude?: number;
