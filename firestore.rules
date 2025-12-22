@@ -1,5 +1,4 @@
 
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -153,5 +152,26 @@ service cloud.firestore {
         allow read: if true;
         allow write: if isAdmin();
     }
+    
+    match /employeeProfiles/{userId} {
+        allow get, update: if isOwner(userId) || isStoreOwner(get(/databases/$(database)/documents/employeeProfiles/$(userId)).data.storeId);
+        allow create, delete: if isStoreOwner(request.resource.data.storeId);
+        allow list: if isStoreOwner(resource.data.storeId);
+    }
+    
+    match /stores/{storeId}/attendance/{recordId} {
+        allow get, list: if isStoreOwner(storeId);
+        allow create: if isOwner(request.resource.data.employeeId);
+        allow update: if isOwner(resource.data.employeeId);
+        allow delete: if false;
+    }
+    
+    match /stores/{storeId}/salarySlips/{slipId} {
+        allow get: if isStoreOwner(storeId) || isOwner(resource.data.employeeId);
+        allow list: if isStoreOwner(storeId);
+        allow create, update, delete: if isStoreOwner(storeId);
+    }
   }
 }
+
+    
