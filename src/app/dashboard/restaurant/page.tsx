@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowRight, Store, ShoppingCart, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowRight, Store, ShoppingCart, CheckCircle, XCircle, Users, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -12,7 +12,8 @@ import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import type { Store as StoreType } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 
 const restaurantLinks = [
     {
@@ -26,6 +27,18 @@ const restaurantLinks = [
         description: 'view-and-manage-live-orders-from-your-tables',
         href: '/dashboard/owner/orders',
         icon: ShoppingCart,
+    },
+    {
+        title: 'Manage Employees',
+        description: 'Add new employees and manage their roles.',
+        href: '/dashboard/owner/employees',
+        icon: Users,
+    },
+    {
+        title: 'Salary Reports',
+        description: 'View attendance records and generate salary slips.',
+        href: '/dashboard/owner/salary',
+        icon: FileText,
     }
 ];
 
