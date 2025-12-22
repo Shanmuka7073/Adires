@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, doc, deleteDoc } from 'firebase/firestore';
 import type { Store, EmployeeProfile } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,7 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Loader2, PlusCircle, Trash2, Users } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { createUserWithEmailAndPassword, getAuth, updateProfile } from 'firebase/auth';
+import { createEmployeeUserAndProfile } from '@/app/actions'; // IMPORTANT: Using new server action
 
 const employeeSchema = z.object({
   firstName: z.string().min(2, 'First name is required.'),
@@ -56,44 +56,29 @@ export default function ManageEmployeesPage() {
         return;
     }
     startProcessing(async () => {
-        // This is a temporary auth instance for user creation, separated from the main app auth state
-        const tempAuth = getAuth();
         try {
-            // This creates the user in Firebase Auth but DOES NOT sign them in in the current session.
-            const userCredential = await createUserWithEmailAndPassword(tempAuth, data.email, data.password);
-            const newEmployee = userCredential.user;
-            
-            // Set the display name in Firebase Auth profile
-            await updateProfile(newEmployee, { displayName: `${data.firstName} ${data.lastName}` });
-            
-            // Create the corresponding user document in Firestore
-            await setDoc(doc(firestore, 'users', newEmployee.uid), {
-                id: newEmployee.uid,
+            const result = await createEmployeeUserAndProfile({
+                email: data.email,
+                password: data.password,
                 firstName: data.firstName,
                 lastName: data.lastName,
-                email: data.email,
-                accountType: 'employee' // Set a specific account type for employees
-            });
-            
-            const employeeData: EmployeeProfile = {
-                userId: newEmployee.uid,
                 storeId: myStore.id,
-                employeeId: `EMP-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
                 role: data.role,
-                hireDate: new Date().toISOString().split('T')[0],
                 salaryRate: data.salaryRate,
-                salaryType: data.salaryType,
-            };
+                salaryType: data.salaryType
+            });
 
-            await setDoc(doc(firestore, 'employeeProfiles', newEmployee.uid), employeeData);
-            
-            toast({ title: 'Employee Added!', description: `${data.email} has been added to your store.` });
-            form.reset();
+            if (result.success) {
+                 toast({ title: 'Employee Added!', description: `${data.email} has been added to your store.` });
+                 form.reset();
+            } else {
+                throw new Error(result.error || 'An unknown server error occurred.');
+            }
+
         } catch (error: any) {
             console.error("Failed to add employee:", error);
-            // Handle specific Firebase Auth errors
-            if (error.code === 'auth/email-already-in-use') {
-                toast({ variant: 'destructive', title: 'User Exists', description: 'This email is already registered. Please use a different email.' });
+            if (error.message?.includes('email-already-in-use')) {
+                 toast({ variant: 'destructive', title: 'User Exists', description: 'This email is already registered. Please use a different email.' });
             } else {
                 toast({ variant: 'destructive', title: 'Error Adding Employee', description: error.message });
             }

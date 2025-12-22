@@ -1,12 +1,11 @@
 
-
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient } from '@/lib/types';
+import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient, EmployeeProfile } from '@/lib/types';
 import { headers } from 'next/headers';
 import { getApp, getApps } from 'firebase-admin/app';
 import * as pdfjs from 'pdfjs-dist';
@@ -659,7 +658,7 @@ export async function getIngredientsForDish(input: { dishName: string; language:
           You have been provided with an existing recipe for a single serving. Your main goal is to accurately translate its ingredients and instructions into the desired language ({{{language}}}). Do not change the quantities. You do not need to re-estimate the cost.
           {{else}}
           **Generate New Recipe (Single Serving)**:
-          1.  **Analyze the Dish**: Identify the core components of "{{dishName}}".
+          1.  **Analyze the Dish**: Identify the core components of "{{dishName}}". If the name is generic like "Juice" or "Salad", create a recipe for a common, popular version (e.g., "Fresh Orange Juice", "Garden Salad").
           2.  **Generate Ingredients**: Create a list of ingredients for a SINGLE serving. For each, provide:
               *   \`name\`: Common name of the ingredient.
               *   \`quantity\`: User-friendly quantity (e.g., "150g", "1/2 cup").
@@ -766,5 +765,65 @@ export async function createRestaurantUserAndStore(
     } catch (error: any) {
         console.error("Failed to create restaurant user and store:", error);
         return { success: false, error: error.message || 'An unknown error occurred.' };
+    }
+}
+
+
+export async function createEmployeeUserAndProfile(
+  data: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    storeId: string;
+    role: string;
+    salaryRate: number;
+    salaryType: 'hourly' | 'monthly';
+  }
+): Promise<{ success: boolean; error?: string }> {
+    const { auth, db } = await getAdminServices();
+
+    try {
+        // 1. Create the Auth user
+        const userRecord = await auth.createUser({
+            email: data.email,
+            password: data.password,
+            displayName: `${data.firstName} ${data.lastName}`,
+        });
+
+        const uid = userRecord.uid;
+
+        const batch = db.batch();
+
+        // 2. Create the user profile in /users
+        const userDocRef = db.collection('users').doc(uid);
+        batch.set(userDocRef, {
+            id: uid,
+            email: data.email,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            accountType: 'employee'
+        });
+
+        // 3. Create the employee profile in /employeeProfiles
+        const employeeProfileRef = db.collection('employeeProfiles').doc(uid);
+        const employeeData: EmployeeProfile = {
+            userId: uid,
+            storeId: data.storeId,
+            employeeId: `EMP-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
+            role: data.role,
+            hireDate: new Date().toISOString().split('T')[0],
+            salaryRate: data.salaryRate,
+            salaryType: data.salaryType,
+        };
+        batch.set(employeeProfileRef, employeeData);
+
+        await batch.commit();
+
+        return { success: true };
+
+    } catch (error: any) {
+        console.error('Error creating employee:', error);
+        return { success: false, error: error.message || 'An unknown server error occurred.' };
     }
 }

@@ -29,6 +29,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow get, update, delete: if isOwner(userId);
       allow list: if isAdmin();
+      // Allow creation by an admin OR by the user themselves
       allow create: if (isOwner(userId) && request.resource.data.id == userId) || isAdmin();
     }
 
@@ -155,8 +156,9 @@ service cloud.firestore {
     
     match /employeeProfiles/{userId} {
         allow get, update: if isOwner(userId) || isStoreOwner(get(/databases/$(database)/documents/employeeProfiles/$(userId)).data.storeId);
-        allow create, delete: if isStoreOwner(request.resource.data.storeId);
-        allow list: if isStoreOwner(resource.data.storeId);
+        // Allow create by store owner or admin
+        allow create, delete: if isStoreOwner(request.resource.data.storeId) || isAdmin();
+        allow list: if isStoreOwner(resource.data.storeId) || isAdmin();
     }
     
     match /stores/{storeId}/attendance/{recordId} {
@@ -173,5 +175,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
