@@ -18,9 +18,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Loader2, PlusCircle, Trash2, Users } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
+import { createUserWithEmailAndPassword, getAuth, updateProfile } from 'firebase/auth';
 
 const employeeSchema = z.object({
+  firstName: z.string().min(2, 'First name is required.'),
+  lastName: z.string().min(1, 'Last name is required.'),
   email: z.string().email('Invalid email address.'),
   password: z.string().min(6, 'Password must be at least 6 characters.'),
   role: z.string().min(2, 'Role is required.'),
@@ -45,7 +47,7 @@ export default function ManageEmployeesPage() {
 
   const form = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeSchema),
-    defaultValues: { email: '', password: '', role: '', salaryRate: 0, salaryType: 'monthly' },
+    defaultValues: { firstName: '', lastName: '', email: '', password: '', role: '', salaryRate: 0, salaryType: 'monthly' },
   });
 
   const onSubmit = (data: EmployeeFormValues) => {
@@ -59,10 +61,22 @@ export default function ManageEmployeesPage() {
         try {
             // This creates the user in Firebase Auth but DOES NOT sign them in in the current session.
             const userCredential = await createUserWithEmailAndPassword(tempAuth, data.email, data.password);
-            const newEmployeeId = userCredential.user.uid;
+            const newEmployee = userCredential.user;
+            
+            // Set the display name in Firebase Auth profile
+            await updateProfile(newEmployee, { displayName: `${data.firstName} ${data.lastName}` });
+            
+            // Create the corresponding user document in Firestore
+            await setDoc(doc(firestore, 'users', newEmployee.uid), {
+                id: newEmployee.uid,
+                firstName: data.firstName,
+                lastName: data.lastName,
+                email: data.email,
+                accountType: 'employee' // Set a specific account type for employees
+            });
             
             const employeeData: EmployeeProfile = {
-                userId: newEmployeeId,
+                userId: newEmployee.uid,
                 storeId: myStore.id,
                 employeeId: `EMP-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
                 role: data.role,
@@ -71,7 +85,7 @@ export default function ManageEmployeesPage() {
                 salaryType: data.salaryType,
             };
 
-            await setDoc(doc(firestore, 'employeeProfiles', newEmployeeId), employeeData);
+            await setDoc(doc(firestore, 'employeeProfiles', newEmployee.uid), employeeData);
             
             toast({ title: 'Employee Added!', description: `${data.email} has been added to your store.` });
             form.reset();
@@ -125,6 +139,12 @@ export default function ManageEmployeesPage() {
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                             <div className="grid md:grid-cols-2 gap-4">
+                                <FormField control={form.control} name="firstName" render={({ field }) => (
+                                    <FormItem><FormLabel>First Name</FormLabel><FormControl><Input placeholder="John" {...field} /></FormControl><FormMessage /></FormItem>
+                                )} />
+                                <FormField control={form.control} name="lastName" render={({ field }) => (
+                                    <FormItem><FormLabel>Last Name</FormLabel><FormControl><Input placeholder="Doe" {...field} /></FormControl><FormMessage /></FormItem>
+                                )} />
                                 <FormField control={form.control} name="email" render={({ field }) => (
                                     <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="employee@email.com" {...field} /></FormControl><FormMessage /></FormItem>
                                 )} />
