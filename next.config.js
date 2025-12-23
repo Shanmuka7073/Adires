@@ -44,6 +44,13 @@ const nextConfig = {
     if (isServer) {
         config.externals.push('@genkit-ai/google-genai', 'genkit', '@opentelemetry/api');
     }
+    
+    // Rule to handle raw file imports for .rules files
+    config.module.rules.push({
+      test: /\.rules$/,
+      type: 'asset/source',
+    });
+
     return config
   },
 
@@ -66,3 +73,4 @@ const nextConfig = {
 };
 
 module.exports = withPWA(nextConfig);
+

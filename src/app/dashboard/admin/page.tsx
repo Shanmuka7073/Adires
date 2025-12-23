@@ -477,6 +477,12 @@ export default function AdminDashboardPage() {
             icon={Shield}
           />
            <ActionCard
+            title="Firebase Rules"
+            description="View the root firestore.rules file."
+            href="/dashboard/admin/firebase-rules-help"
+            icon={Shield}
+          />
+           <ActionCard
             title="Performance Audit"
             description="View a detailed breakdown of Firestore usage and costs."
             href="/dashboard/admin/performance-audit"

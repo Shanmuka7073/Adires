@@ -1,5 +1,4 @@
 
-
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -406,5 +405,9 @@ declare global {
   interface Window {
       SpeechRecognition: any;
       webkitSpeechRecognition: any;
+  }
+  module "*.rules" {
+    const content: string;
+    export default content;
   }
 }
