@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, useTransition } from 'react';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import type { Store, EmployeeProfile, AttendanceRecord, SalarySlip } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -36,35 +36,53 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
 
     const { data: requests, isLoading } = useCollection<AttendanceRecord>(requestsQuery);
 
-    const handleApproval = async (recordId: string, isApproved: boolean) => {
-        startUpdate(async () => {
+    const handleApproval = (recordId: string, isApproved: boolean) => {
+        if (!firestore || !storeId) return;
+        
+        startUpdate(() => {
             const newStatus = isApproved ? 'approved' : 'rejected';
-            try {
-                const recordRef = doc(firestore, `stores/${storeId}/attendance`, recordId);
-                await updateDoc(recordRef, { status: newStatus, workHours: isApproved ? 8 : 0 });
-                toast({ title: 'Request Updated', description: `The attendance request has been ${newStatus}.` });
-            } catch (error: any) {
-                toast({ variant: 'destructive', title: 'Update Failed', description: error.message });
-            }
+            const recordRef = doc(firestore, `stores/${storeId}/attendance`, recordId);
+            const updateData = { status: newStatus, workHours: isApproved ? 8 : 0 };
+
+            updateDoc(recordRef, updateData)
+                .then(() => {
+                    toast({ title: 'Request Updated', description: `The attendance request has been ${newStatus}.` });
+                })
+                .catch(async (error) => {
+                    const permissionError = new FirestorePermissionError({
+                        path: recordRef.path,
+                        operation: 'update',
+                        requestResourceData: updateData,
+                    });
+                    errorEmitter.emit('permission-error', permissionError);
+                });
         });
     };
 
-    const handleApproveAll = async () => {
-        if (!requests || requests.length === 0) return;
+    const handleApproveAll = () => {
+        if (!firestore || !requests || requests.length === 0) return;
         
-        startUpdate(async () => {
+        startUpdate(() => {
             const batch = writeBatch(firestore);
             requests.forEach(req => {
                 const recordRef = doc(firestore, `stores/${storeId}/attendance`, req.id);
                 batch.update(recordRef, { status: 'approved', workHours: 8 });
             });
 
-            try {
-                await batch.commit();
-                toast({ title: 'All Requests Approved', description: `${requests.length} requests have been approved.` });
-            } catch (error: any) {
-                toast({ variant: 'destructive', title: 'Bulk Approval Failed', description: error.message });
-            }
+            batch.commit()
+                .then(() => {
+                     toast({ title: 'All Requests Approved', description: `${requests.length} requests have been approved.` });
+                })
+                .catch(async (error) => {
+                    // Although it's a batch, we can provide context for the first failed operation for debugging
+                    const firstReq = requests[0];
+                    const permissionError = new FirestorePermissionError({
+                        path: `stores/${storeId}/attendance/${firstReq.id}`,
+                        operation: 'update',
+                        requestResourceData: { status: 'approved', workHours: 8 },
+                    });
+                    errorEmitter.emit('permission-error', permissionError);
+                });
         });
     };
 
@@ -193,7 +211,7 @@ export default function SalaryReportsPage() {
         return { totalHours, baseSalary, netPay, records: uniqueRecords };
     }, [attendanceRecords, approvedRecords, selectedEmployee]);
 
-    const handleGenerateSlip = async () => {
+    const handleGenerateSlip = () => {
         if (!myStore || !selectedEmployee || !reportData || !dateRange?.from || !dateRange?.to) {
             toast({ variant: 'destructive', title: 'Missing Information', description: 'Please select an employee and a date range with records.' });
             return;
@@ -212,14 +230,20 @@ export default function SalaryReportsPage() {
                 netPay: reportData.netPay,
                 generatedAt: serverTimestamp(),
             };
+            const slipRef = collection(firestore, `stores/${myStore.id}/salarySlips`);
 
-            try {
-                await addDoc(collection(firestore, `stores/${myStore.id}/salarySlips`), slipData);
-                toast({ title: 'Salary Slip Generated!', description: `A salary slip for ${selectedEmployee.role} has been saved.` });
-            } catch (error) {
-                console.error("Failed to generate salary slip:", error);
-                toast({ variant: 'destructive', title: 'Generation Failed', description: 'Could not save the salary slip.' });
-            }
+            addDoc(slipRef, slipData)
+                .then(() => {
+                    toast({ title: 'Salary Slip Generated!', description: `A salary slip for ${selectedEmployee.role} has been saved.` });
+                })
+                .catch(async (error) => {
+                    const permissionError = new FirestorePermissionError({
+                        path: slipRef.path,
+                        operation: 'create',
+                        requestResourceData: slipData,
+                    });
+                    errorEmitter.emit('permission-error', permissionError);
+                });
         });
     };
     
