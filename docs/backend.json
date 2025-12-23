@@ -1,4 +1,5 @@
 
+
 {
   "entities": {
     "Store": {
@@ -857,9 +858,14 @@
         "workDate": { "type": "string", "format": "date", "description": "The date of the work shift." },
         "punchInTime": { "type": "string", "format": "date-time", "description": "The timestamp for punching in." },
         "punchOutTime": { "type": "string", "format": "date-time", "description": "The timestamp for punching out." },
-        "workHours": { "type": "number", "description": "Total calculated work hours for the shift." }
+        "workHours": { "type": "number", "description": "Total calculated work hours for the shift." },
+        "status": {
+          "type": "string",
+          "enum": ["present", "absent", "pending_approval", "approved", "rejected"],
+          "description": "The status of the attendance record."
+        }
       },
-      "required": ["id", "employeeId", "storeId", "workDate", "punchInTime"]
+      "required": ["id", "employeeId", "storeId", "workDate", "punchInTime", "status"]
     },
     "SalarySlip": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -1254,3 +1260,4 @@
     ]
   }
 }
+

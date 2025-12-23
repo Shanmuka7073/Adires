@@ -1,4 +1,5 @@
 
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -29,9 +30,15 @@ service cloud.firestore {
     match /users/{userId} {
       allow get, update, delete: if isOwner(userId);
       allow list: if isAdmin();
-      // Allow creation by the user themselves OR by an admin OR for an employee account type
-      allow create: if (isOwner(userId) && request.resource.data.id == userId) || isAdmin() || 
-                      (request.resource.data.accountType == 'employee');
+      // Allow creation by:
+      // 1. The user themselves.
+      // 2. An Admin.
+      // 3. A store owner, but ONLY if they are creating an 'employee' account for THEIR store.
+      allow create: if (isOwner(userId) && request.resource.data.id == userId) || isAdmin() ||
+                      (
+                        request.resource.data.accountType == 'employee' &&
+                        isStoreOwner(request.resource.data.storeId)
+                      );
     }
 
     match /asha-conversations/{userId}/{document=**} {
@@ -164,8 +171,11 @@ service cloud.firestore {
     
     match /stores/{storeId}/attendance/{recordId} {
         allow get, list: if isStoreOwner(storeId);
+        // Employee can create their own punch-in/out record
         allow create: if isOwner(request.resource.data.employeeId);
-        allow update: if isOwner(resource.data.employeeId);
+        // Employee can update their own record (for punch-out).
+        // Store owner can update (for approvals).
+        allow update: if isOwner(resource.data.employeeId) || isStoreOwner(storeId);
         allow delete: if false;
     }
     
@@ -176,3 +186,4 @@ service cloud.firestore {
     }
   }
 }
+

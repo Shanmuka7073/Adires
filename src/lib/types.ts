@@ -1,4 +1,5 @@
 
+
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -380,10 +381,10 @@ export type AttendanceRecord = {
     employeeId: string;
     storeId: string;
     workDate: string;
-    punchInTime: Timestamp | Date | string;
+    punchInTime: Timestamp | Date | string | null;
     punchOutTime: Timestamp | Date | string | null;
-    punchInPhotoUrl: string;
     workHours: number;
+    status: 'present' | 'absent' | 'pending_approval' | 'approved' | 'rejected';
 };
 
 export type SalarySlip = {

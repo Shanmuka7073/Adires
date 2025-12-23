@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useTransition } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import type { Store, EmployeeProfile, AttendanceRecord, SalarySlip } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,12 +12,95 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarIcon, Loader2, FileText } from 'lucide-react';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { Calendar as CalendarIcon, Loader2, FileText, CheckCircle, XCircle } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+
+
+function ApprovalRequests({ storeId }: { storeId: string }) {
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+    const [isUpdating, startUpdate] = useTransition();
+
+    const requestsQuery = useMemoFirebase(() => {
+        if (!firestore || !storeId) return null;
+        return query(
+            collection(firestore, `stores/${storeId}/attendance`),
+            where('status', '==', 'pending_approval')
+        );
+    }, [firestore, storeId]);
+
+    const { data: requests, isLoading } = useCollection<AttendanceRecord>(requestsQuery);
+
+    const handleApproval = async (recordId: string, isApproved: boolean) => {
+        startUpdate(async () => {
+            const newStatus = isApproved ? 'approved' : 'rejected';
+            try {
+                const recordRef = doc(firestore, `stores/${storeId}/attendance`, recordId);
+                await updateDoc(recordRef, { status: newStatus, workHours: isApproved ? 8 : 0 });
+                toast({ title: 'Request Updated', description: `The attendance request has been ${newStatus}.` });
+            } catch (error: any) {
+                toast({ variant: 'destructive', title: 'Update Failed', description: error.message });
+            }
+        });
+    };
+
+    if (isLoading) return <Skeleton className="h-24 w-full" />;
+
+    if (!requests || requests.length === 0) {
+        return (
+             <Card>
+                <CardHeader>
+                    <CardTitle>No Pending Approvals</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-muted-foreground">There are no missed attendance requests from your employees right now.</p>
+                </CardContent>
+            </Card>
+        );
+    }
+
+    return (
+        <Card className="border-amber-400 bg-amber-50">
+            <CardHeader>
+                <CardTitle className="text-amber-900">Attendance Approval Requests</CardTitle>
+                <CardDescription className="text-amber-800">Review and approve or reject missed punch-in requests from your employees.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Employee ID</TableHead>
+                            <TableHead>Date Requested</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {requests.map(req => (
+                            <TableRow key={req.id}>
+                                <TableCell className="font-mono">{req.employeeId.slice(0, 8)}...</TableCell>
+                                <TableCell>{format(new Date(req.workDate), 'PPP')}</TableCell>
+                                <TableCell className="text-right space-x-2">
+                                    <Button size="sm" variant="ghost" onClick={() => handleApproval(req.id, false)} disabled={isUpdating}>
+                                        <XCircle className="mr-2 h-4 w-4 text-destructive" /> Reject
+                                    </Button>
+                                    <Button size="sm" onClick={() => handleApproval(req.id, true)} disabled={isUpdating}>
+                                        <CheckCircle className="mr-2 h-4 w-4" /> Approve
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+    );
+}
+
 
 export default function SalaryReportsPage() {
     const { user, firestore } = useFirebase();
@@ -41,31 +124,47 @@ export default function SalaryReportsPage() {
         return query(
             collection(firestore, `stores/${myStore.id}/attendance`),
             where('employeeId', '==', selectedEmployeeId),
+            where('status', 'in', ['present', 'approved']),
             where('punchInTime', '>=', dateRange.from),
             where('punchInTime', '<=', dateRange.to),
             orderBy('punchInTime', 'desc')
         );
     }, [myStore, selectedEmployeeId, dateRange]);
     const { data: attendanceRecords, isLoading: attendanceLoading } = useCollection<AttendanceRecord>(attendanceQuery);
+    
+    const approvedMissedDaysQuery = useMemoFirebase(() => {
+        if (!myStore || !selectedEmployeeId || !dateRange?.from || !dateRange?.to) return null;
+         return query(
+            collection(firestore, `stores/${myStore.id}/attendance`),
+            where('employeeId', '==', selectedEmployeeId),
+            where('status', '==', 'approved'),
+            where('workDate', '>=', format(dateRange.from, 'yyyy-MM-dd')),
+            where('workDate', '<=', format(dateRange.to, 'yyyy-MM-dd'))
+        );
+    }, [myStore, selectedEmployeeId, dateRange]);
+    const { data: approvedRecords } = useCollection<AttendanceRecord>(approvedMissedDaysQuery);
+
 
     const selectedEmployee = useMemo(() => employees?.find(e => e.userId === selectedEmployeeId), [employees, selectedEmployeeId]);
 
     const reportData = useMemo(() => {
-        if (!attendanceRecords || !selectedEmployee) return null;
+        if ((!attendanceRecords && !approvedRecords) || !selectedEmployee) return null;
 
-        const totalHours = attendanceRecords.reduce((acc, record) => acc + (record.workHours || 0), 0);
+        const combinedRecords = [...(attendanceRecords || []), ...(approvedRecords || [])];
+        const uniqueRecords = Array.from(new Map(combinedRecords.map(r => [r.id, r])).values());
+        
+        const totalHours = uniqueRecords.reduce((acc, record) => acc + (record.workHours || 0), 0);
         let baseSalary = 0;
+
         if (selectedEmployee.salaryType === 'monthly') {
             baseSalary = selectedEmployee.salaryRate;
         } else {
             baseSalary = totalHours * selectedEmployee.salaryRate;
         }
-
-        // Overtime/deductions logic can be added here in the future
         const netPay = baseSalary;
 
-        return { totalHours, baseSalary, netPay };
-    }, [attendanceRecords, selectedEmployee]);
+        return { totalHours, baseSalary, netPay, records: uniqueRecords };
+    }, [attendanceRecords, approvedRecords, selectedEmployee]);
 
     const handleGenerateSlip = async () => {
         if (!myStore || !selectedEmployee || !reportData || !dateRange?.from || !dateRange?.to) {
@@ -108,6 +207,7 @@ export default function SalaryReportsPage() {
                     <CardDescription>Select an employee and a date range to view attendance and generate salary slips.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                    <ApprovalRequests storeId={myStore.id} />
                     <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label>Employee</Label>
@@ -161,16 +261,16 @@ export default function SalaryReportsPage() {
                         <Card>
                             <CardHeader><CardTitle>Attendance Details</CardTitle></CardHeader>
                             <CardContent>
-                                {attendanceLoading ? <p>Loading attendance...</p> : !attendanceRecords || attendanceRecords.length === 0 ? (
+                                {attendanceLoading ? <p>Loading attendance...</p> : !reportData?.records || reportData.records.length === 0 ? (
                                     <p className="text-muted-foreground">No attendance records found for this period.</p>
                                 ) : (
                                     <Table>
                                         <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Punch In</TableHead><TableHead>Punch Out</TableHead><TableHead className="text-right">Work Hours</TableHead></TableRow></TableHeader>
                                         <TableBody>
-                                            {attendanceRecords.map(rec => (
+                                            {reportData.records.map(rec => (
                                                 <TableRow key={rec.id}>
-                                                    <TableCell>{format((rec.workDate as any).toDate(), 'PPP')}</TableCell>
-                                                    <TableCell>{format((rec.punchInTime as any).toDate(), 'p')}</TableCell>
+                                                    <TableCell>{format(new Date(rec.workDate), 'PPP')}</TableCell>
+                                                    <TableCell>{rec.punchInTime ? format((rec.punchInTime as any).toDate(), 'p') : 'N/A'}</TableCell>
                                                     <TableCell>{rec.punchOutTime ? format((rec.punchOutTime as any).toDate(), 'p') : 'N/A'}</TableCell>
                                                     <TableCell className="text-right font-mono">{rec.workHours?.toFixed(2) || 'N/A'}</TableCell>
                                                 </TableRow>
