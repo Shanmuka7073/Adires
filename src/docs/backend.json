@@ -123,6 +123,14 @@
         "properties": {
             "id": { "type": "string" },
             "storeId": { "type": "string" },
+            "theme": {
+                "type": "object",
+                "properties": {
+                    "backgroundColor": { "type": "string" },
+                    "primaryColor": { "type": "string" },
+                    "textColor": { "type": "string" }
+                }
+            },
             "items": {
                 "type": "array",
                 "items": {
@@ -172,7 +180,7 @@
         },
         "accountType": {
             "type": "string",
-            "enum": ["groceries", "restaurant"],
+            "enum": ["groceries", "restaurant", "employee"],
             "description": "The type of account the user has."
         },
         "imageUrl": {
@@ -821,6 +829,63 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "rawText", "status", "createdAt"]
+    },
+    "EmployeeProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Employee Profile",
+      "type": "object",
+      "description": "Stores professional details for an employee, linked to a user account.",
+      "properties": {
+        "userId": { "type": "string", "description": "The auth UID of the user. This is the document ID." },
+        "storeId": { "type": "string", "description": "The ID of the store the employee belongs to." },
+        "employeeId": { "type": "string", "description": "A unique identifier for the employee within the store." },
+        "role": { "type": "string", "description": "The job title or role (e.g., 'Cashier', 'Delivery Staff')." },
+        "hireDate": { "type": "string", "format": "date", "description": "The date the employee was hired." },
+        "salaryRate": { "type": "number", "description": "The employee's hourly or monthly salary rate." },
+        "salaryType": { "type": "string", "enum": ["hourly", "monthly"], "description": "The type of salary." }
+      },
+      "required": ["userId", "storeId", "employeeId", "role", "hireDate", "salaryRate", "salaryType"]
+    },
+    "AttendanceRecord": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Attendance Record",
+      "type": "object",
+      "description": "Records a single punch-in/punch-out event for an employee.",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeId": { "type": "string", "description": "The employee's UID." },
+        "storeId": { "type": "string", "description": "The store ID where the punch occurred." },
+        "workDate": { "type": "string", "format": "date", "description": "The date of the work shift." },
+        "punchInTime": { "type": "string", "format": "date-time", "description": "The timestamp for punching in." },
+        "punchOutTime": { "type": "string", "format": "date-time", "description": "The timestamp for punching out." },
+        "workHours": { "type": "number", "description": "Total calculated work hours for the shift." },
+        "status": {
+          "type": "string",
+          "enum": ["present", "absent", "pending_approval", "approved", "rejected"],
+          "description": "The status of the attendance record."
+        }
+      },
+      "required": ["id", "employeeId", "storeId", "workDate", "punchInTime", "status"]
+    },
+    "SalarySlip": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Salary Slip",
+      "type": "object",
+      "description": "A generated salary slip for an employee for a specific pay period.",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "storeId": { "type": "string" },
+        "periodStart": { "type": "string", "format": "date" },
+        "periodEnd": { "type": "string", "format": "date" },
+        "baseSalary": { "type": "number" },
+        "overtimeHours": { "type": "number" },
+        "overtimePay": { "type": "number" },
+        "deductions": { "type": "number" },
+        "netPay": { "type": "number" },
+        "generatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "employeeId", "storeId", "periodStart", "periodEnd", "netPay"]
     }
   },
   "auth": {
@@ -1158,7 +1223,41 @@
           "description": "Stores sentences extracted from documents for NLU rule training.",
           "params": [{ "name": "sentenceId" }]
         }
+      },
+      {
+        "path": "/employeeProfiles/{userId}",
+        "definition": {
+          "entityName": "EmployeeProfile",
+          "schema": { "$ref": "#/entities/EmployeeProfile" },
+          "description": "Stores an employee's professional and salary details. Writable by the store owner, readable by the employee.",
+          "params": [{ "name": "userId", "description": "The employee's auth UID." }]
+        }
+      },
+      {
+        "path": "/stores/{storeId}/attendance/{recordId}",
+        "definition": {
+          "entityName": "AttendanceRecord",
+          "schema": { "$ref": "#/entities/AttendanceRecord" },
+          "description": "An employee's punch-in/out record for a specific shift. Writable by the employee, readable by the store owner.",
+          "params": [
+            { "name": "storeId" },
+            { "name": "recordId" }
+          ]
+        }
+      },
+      {
+        "path": "/stores/{storeId}/salarySlips/{slipId}",
+        "definition": {
+          "entityName": "SalarySlip",
+          "schema": { "$ref": "#/entities/SalarySlip" },
+          "description": "A generated salary slip for an employee. Writable by the store owner, readable by the employee.",
+          "params": [
+            { "name": "storeId" },
+            { "name": "slipId" }
+          ]
+        }
       }
     ]
   }
 }
+
