@@ -7,6 +7,7 @@ import { collection, query, where, orderBy, addDoc, serverTimestamp } from 'fire
 import type { Store, EmployeeProfile, AttendanceRecord, SalarySlip } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Calendar } from '@/components/ui/calendar';
@@ -96,7 +97,7 @@ export default function SalaryReportsPage() {
         });
     };
     
-    if (storeLoading) return <div className="container mx-auto py-12">Loading store...</div>
+    if (storeLoading) return <div className="container mx-auto py-12">Loading store information...</div>
     if (!myStore) return <div className="container mx-auto py-12">You must have a store to access this page.</div>
 
     return (
@@ -168,7 +169,7 @@ export default function SalaryReportsPage() {
                                         <TableBody>
                                             {attendanceRecords.map(rec => (
                                                 <TableRow key={rec.id}>
-                                                    <TableCell>{format(rec.workDate, 'PPP')}</TableCell>
+                                                    <TableCell>{format((rec.workDate as any).toDate(), 'PPP')}</TableCell>
                                                     <TableCell>{format((rec.punchInTime as any).toDate(), 'p')}</TableCell>
                                                     <TableCell>{rec.punchOutTime ? format((rec.punchOutTime as any).toDate(), 'p') : 'N/A'}</TableCell>
                                                     <TableCell className="text-right font-mono">{rec.workHours?.toFixed(2) || 'N/A'}</TableCell>
@@ -202,4 +203,3 @@ export default function SalaryReportsPage() {
         </div>
     );
 }
-
