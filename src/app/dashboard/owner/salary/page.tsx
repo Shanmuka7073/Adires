@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useTransition } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import type { Store, EmployeeProfile, AttendanceRecord, SalarySlip } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -49,6 +49,25 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
         });
     };
 
+    const handleApproveAll = async () => {
+        if (!requests || requests.length === 0) return;
+        
+        startUpdate(async () => {
+            const batch = writeBatch(firestore);
+            requests.forEach(req => {
+                const recordRef = doc(firestore, `stores/${storeId}/attendance`, req.id);
+                batch.update(recordRef, { status: 'approved', workHours: 8 });
+            });
+
+            try {
+                await batch.commit();
+                toast({ title: 'All Requests Approved', description: `${requests.length} requests have been approved.` });
+            } catch (error: any) {
+                toast({ variant: 'destructive', title: 'Bulk Approval Failed', description: error.message });
+            }
+        });
+    };
+
     if (isLoading) return <Skeleton className="h-24 w-full" />;
 
     if (!requests || requests.length === 0) {
@@ -67,8 +86,16 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
     return (
         <Card className="border-amber-400 bg-amber-50">
             <CardHeader>
-                <CardTitle className="text-amber-900">Attendance Approval Requests</CardTitle>
-                <CardDescription className="text-amber-800">Review and approve or reject missed punch-in requests from your employees.</CardDescription>
+                <div className="flex justify-between items-center">
+                    <div>
+                        <CardTitle className="text-amber-900">Attendance Approval Requests</CardTitle>
+                        <CardDescription className="text-amber-800">Review and approve or reject missed punch-in requests from your employees.</CardDescription>
+                    </div>
+                     <Button size="sm" onClick={handleApproveAll} disabled={isUpdating}>
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Approve All ({requests.length})
+                    </Button>
+                </div>
             </CardHeader>
             <CardContent>
                 <Table>
