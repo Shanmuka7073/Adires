@@ -2,18 +2,21 @@
 'use client';
 
 import { useState, useEffect, useTransition, useMemo } from 'react';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, where, orderBy, addDoc, updateDoc, serverTimestamp, limit, startOfMonth, endOfMonth, getDocs } from 'firebase/firestore';
+import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
+import { doc, collection, query, where, orderBy, addDoc, updateDoc, serverTimestamp, limit, getDocs } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import type { AttendanceRecord, EmployeeProfile } from '@/lib/types';
 import { Loader2, CheckCircle, Fingerprint, Calendar as CalendarIcon, HelpCircle, XCircle, Clock } from 'lucide-react';
-import { format, isSameDay, startOfToday, eachDayOfInterval } from 'date-fns';
+import { format, isSameDay, startOfToday, eachDayOfInterval, startOfMonth, endOfMonth } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 import { startAuthentication } from '@simplewebauthn/browser';
 import { cn } from '@/lib/utils';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+
 
 async function safeJson(resp: Response) {
     try {
@@ -26,7 +29,7 @@ async function safeJson(resp: Response) {
 
 function CalendarDay({ day, record, onMissedPunch }: { day: Date, record?: AttendanceRecord, onMissedPunch: (date: Date) => void }) {
     const isToday = isSameDay(day, startOfToday());
-    let status: 'present' | 'absent' | 'pending' | 'approved' = 'absent';
+    let status: 'present' | 'absent' | 'pending' | 'approved' | 'rejected' = 'absent';
     let label = 'Absent';
     let icon = <XCircle className="h-4 w-4" />;
 
@@ -35,10 +38,14 @@ function CalendarDay({ day, record, onMissedPunch }: { day: Date, record?: Atten
             status = 'pending';
             label = 'Pending';
             icon = <Clock className="h-4 w-4" />;
-        } else {
+        } else if (record.status === 'approved' || record.status === 'present') {
             status = 'present';
             label = 'Present';
             icon = <CheckCircle className="h-4 w-4" />;
+        } else {
+             status = 'rejected';
+             label = 'Rejected';
+             icon = <XCircle className="h-4 w-4" />;
         }
     }
     
@@ -48,15 +55,15 @@ function CalendarDay({ day, record, onMissedPunch }: { day: Date, record?: Atten
         <div className={cn(
             "relative p-2 rounded-lg text-center border-2",
             isToday && "ring-2 ring-primary ring-offset-2",
-            status === 'present' && "bg-green-100 border-green-200",
+            (status === 'present' || status === 'approved') && "bg-green-100 border-green-200",
             status === 'pending' && "bg-yellow-100 border-yellow-200",
-            status === 'absent' && "bg-red-100 border-red-200"
+            (status === 'absent' || status === 'rejected') && "bg-red-100 border-red-200"
         )}>
             <div className="font-bold text-lg">{dayOfMonth}</div>
             <div className={cn("text-xs font-semibold flex items-center justify-center gap-1", 
-                status === 'present' && "text-green-700",
+                (status === 'present' || status === 'approved') && "text-green-700",
                 status === 'pending' && "text-yellow-700",
-                status === 'absent' && "text-red-700"
+                (status === 'absent' || status === 'rejected') && "text-red-700"
             )}>
                 {icon} {label}
             </div>
@@ -86,30 +93,31 @@ export default function AttendancePage() {
     end: endOfMonth(today),
   });
 
-  useEffect(() => {
+  const fetchRecords = useCallback(async () => {
     if (user && employeeProfile?.storeId) {
-        const fetchRecords = async () => {
-            const start = startOfMonth(today);
-            const end = endOfMonth(today);
+        const start = startOfMonth(today);
+        const end = endOfMonth(today);
 
-            const attendanceCollection = collection(firestore, `stores/${employeeProfile.storeId}/attendance`);
-            const q = query(
-                attendanceCollection,
-                where('employeeId', '==', user.uid),
-                where('workDate', '>=', format(start, 'yyyy-MM-dd')),
-                where('workDate', '<=', format(end, 'yyyy-MM-dd'))
-            );
+        const attendanceCollection = collection(firestore, `stores/${employeeProfile.storeId}/attendance`);
+        const q = query(
+            attendanceCollection,
+            where('employeeId', '==', user.uid),
+            where('workDate', '>=', format(start, 'yyyy-MM-dd')),
+            where('workDate', '<=', format(end, 'yyyy-MM-dd'))
+        );
 
-            const snapshot = await getDocs(q);
-            const records = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as AttendanceRecord[];
-            setMonthlyRecords(records);
-            
-            const activeRecord = records.find(rec => isSameDay(new Date(rec.workDate), today) && rec.punchOutTime === null && rec.status === 'present');
-            setActivePunchIn(activeRecord || null);
-        };
-        fetchRecords();
+        const snapshot = await getDocs(q);
+        const records = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as AttendanceRecord[];
+        setMonthlyRecords(records);
+        
+        const activeRecord = records.find(rec => isSameDay(new Date(rec.workDate), today) && rec.punchOutTime === null && rec.status === 'present');
+        setActivePunchIn(activeRecord || null);
     }
-  }, [user, employeeProfile, firestore]);
+  }, [user, employeeProfile, firestore, today]);
+
+  useEffect(() => {
+    fetchRecords();
+  }, [fetchRecords]);
 
   const handleMissedPunchRequest = async (date: Date) => {
     if (!user || !employeeProfile) return;
@@ -131,10 +139,7 @@ export default function AttendancePage() {
             status: 'pending_approval'
         });
         toast({ title: 'Request Sent', description: 'Your request for a missed punch-in has been sent to the owner.' });
-        // Refetch records
-        const newRecord = { id: 'temp', employeeId: user.uid, storeId: employeeProfile.storeId, workDate: dateStr, status: 'pending_approval', punchInTime: null, punchOutTime: null, workHours: 8 };
-        setMonthlyRecords(prev => [...prev, newRecord]);
-
+        fetchRecords(); // Refetch records to update UI
       } catch (error: any) {
         toast({ variant: 'destructive', title: 'Request Failed', description: error.message });
       }
@@ -177,8 +182,10 @@ export default function AttendancePage() {
             status: 'present' as 'present'
         };
         const newDoc = await addDoc(collection(firestore, `stores/${employeeProfile.storeId}/attendance`), newRecordData);
-        setActivePunchIn({ ...newRecordData, id: newDoc.id, punchInTime: new Date() });
-        setMonthlyRecords(prev => [...prev.filter(r => r.workDate !== newRecordData.workDate), { ...newRecordData, id: newDoc.id, punchInTime: new Date() }]);
+        
+        const newRecordForState = { ...newRecordData, id: newDoc.id, punchInTime: new Date() };
+        setActivePunchIn(newRecordForState);
+        setMonthlyRecords(prev => [...prev.filter(r => r.workDate !== newRecordData.workDate), newRecordForState]);
         
         toast({ title: 'Punched In!', description: 'Your shift has started.' });
 
