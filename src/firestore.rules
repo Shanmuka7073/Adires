@@ -171,9 +171,9 @@ service cloud.firestore {
     match /stores/{storeId}/attendance/{recordId} {
         allow get, list: if isStoreOwner(storeId);
         allow create: if isOwner(request.resource.data.employeeId);
-        // Employee can update their own record (for punch-out).
-        // Store owner can update (for approvals).
-        allow update: if isOwner(resource.data.employeeId) || isStoreOwner(storeId);
+        // An employee can update their own record (for punch-out).
+        // A store owner can update any record in their store (for approvals).
+        allow update: if (isOwner(get(/databases/$(database)/documents/stores/$(storeId)/attendance/$(recordId)).data.employeeId)) || isStoreOwner(storeId);
         allow delete: if false;
     }
     
