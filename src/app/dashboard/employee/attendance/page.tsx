@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useTransition, useMemo, useCallback } from 'react';
-import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
+import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { doc, collection, query, where, orderBy, addDoc, updateDoc, serverTimestamp, limit, getDocs } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -128,20 +128,28 @@ export default function AttendancePage() {
     }
     
     startProcessing(async () => {
+      const attendanceCollection = collection(firestore, `stores/${employeeProfile.storeId}/attendance`);
+      const newRecord = {
+          employeeId: user.uid,
+          storeId: employeeProfile.storeId,
+          workDate: dateStr,
+          punchInTime: null,
+          punchOutTime: null,
+          workHours: 8, // Assume a full day for approved absence
+          status: 'pending_approval'
+      };
+
       try {
-        await addDoc(collection(firestore, `stores/${employeeProfile.storeId}/attendance`), {
-            employeeId: user.uid,
-            storeId: employeeProfile.storeId,
-            workDate: dateStr,
-            punchInTime: null,
-            punchOutTime: null,
-            workHours: 8, // Assume a full day for approved absence
-            status: 'pending_approval'
-        });
+        await addDoc(attendanceCollection, newRecord);
         toast({ title: 'Request Sent', description: 'Your request for a missed punch-in has been sent to the owner.' });
         fetchRecords(); // Refetch records to update UI
       } catch (error: any) {
-        toast({ variant: 'destructive', title: 'Request Failed', description: error.message });
+        const permissionError = new FirestorePermissionError({
+          path: attendanceCollection.path,
+          operation: 'create',
+          requestResourceData: newRecord
+        });
+        errorEmitter.emit('permission-error', permissionError);
       }
     });
   }
@@ -153,6 +161,16 @@ export default function AttendancePage() {
     };
 
     startProcessing(async () => {
+        let newDocRef;
+        const newRecordData = {
+            employeeId: user.uid,
+            storeId: employeeProfile.storeId,
+            workDate: format(new Date(), 'yyyy-MM-dd'),
+            punchInTime: serverTimestamp(),
+            punchOutTime: null,
+            workHours: 0,
+            status: 'present' as 'present'
+        };
       try {
         const respOptions = await fetch('/api/auth/webauthn/generate-authentication-options', {
             method: 'POST',
@@ -172,26 +190,27 @@ export default function AttendancePage() {
         const verificationJSON = await verificationResp.json();
         if (!verificationJSON.verified) throw new Error(verificationJSON.error || 'Biometric verification failed.');
 
-        const newRecordData = {
-            employeeId: user.uid,
-            storeId: employeeProfile.storeId,
-            workDate: format(new Date(), 'yyyy-MM-dd'),
-            punchInTime: serverTimestamp(),
-            punchOutTime: null,
-            workHours: 0,
-            status: 'present' as 'present'
-        };
-        const newDoc = await addDoc(collection(firestore, `stores/${employeeProfile.storeId}/attendance`), newRecordData);
+        const attendanceCollection = collection(firestore, `stores/${employeeProfile.storeId}/attendance`);
+        newDocRef = await addDoc(attendanceCollection, newRecordData);
         
-        const newRecordForState = { ...newRecordData, id: newDoc.id, punchInTime: new Date() };
+        const newRecordForState = { ...newRecordData, id: newDocRef.id, punchInTime: new Date() };
         setActivePunchIn(newRecordForState);
         setMonthlyRecords(prev => [...prev.filter(r => r.workDate !== newRecordData.workDate), newRecordForState]);
         
         toast({ title: 'Punched In!', description: 'Your shift has started.' });
 
       } catch (error: any) {
-        console.error('Punch-in failed:', error);
-        toast({ variant: 'destructive', title: 'Punch-in Failed', description: error.message || 'Could not save your attendance record.' });
+        if(newDocRef) {
+          const permissionError = new FirestorePermissionError({
+            path: newDocRef.path,
+            operation: 'create',
+            requestResourceData: newRecordData,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        } else {
+          console.error('Punch-in failed:', error);
+          toast({ variant: 'destructive', title: 'Punch-in Failed', description: error.message || 'Could not save your attendance record.' });
+        }
       }
     });
   };
@@ -200,24 +219,30 @@ export default function AttendancePage() {
     if (!activePunchIn || !user || !employeeProfile) return;
     
     startProcessing(async () => {
-        try {
-            const punchInTime = (activePunchIn.punchInTime as any).toDate();
-            const punchOutTime = new Date();
-            const workHours = (punchOutTime.getTime() - punchInTime.getTime()) / (1000 * 60 * 60);
+      const punchInTime = (activePunchIn.punchInTime as any).toDate();
+      const punchOutTime = new Date();
+      const workHours = (punchOutTime.getTime() - punchInTime.getTime()) / (1000 * 60 * 60);
+      const recordRef = doc(firestore, `stores/${employeeProfile.storeId}/attendance`, activePunchIn.id);
+      const updateData = {
+          punchOutTime: serverTimestamp(),
+          workHours: parseFloat(workHours.toFixed(2))
+      };
 
-            await updateDoc(doc(firestore, `stores/${employeeProfile.storeId}/attendance`, activePunchIn.id), {
-                punchOutTime: serverTimestamp(),
-                workHours: parseFloat(workHours.toFixed(2))
-            });
-            
-            toast({ title: 'Punched Out!', description: 'Your shift has ended.' });
-            const updatedRecord = { ...activePunchIn, punchOutTime: punchOutTime, workHours: parseFloat(workHours.toFixed(2)) };
-            setMonthlyRecords(prev => prev.map(r => r.id === activePunchIn.id ? updatedRecord : r));
-            setActivePunchIn(null);
-        } catch (error) {
-            console.error('Punch-out failed:', error);
-            toast({ variant: 'destructive', title: 'Punch-out Failed', description: 'Could not update your attendance record.' });
-        }
+      try {
+        await updateDoc(recordRef, updateData);
+        
+        toast({ title: 'Punched Out!', description: 'Your shift has ended.' });
+        const updatedRecord = { ...activePunchIn, punchOutTime: punchOutTime, workHours: parseFloat(workHours.toFixed(2)) };
+        setMonthlyRecords(prev => prev.map(r => r.id === activePunchIn.id ? updatedRecord : r));
+        setActivePunchIn(null);
+      } catch (error) {
+          const permissionError = new FirestorePermissionError({
+            path: recordRef.path,
+            operation: 'update',
+            requestResourceData: updateData,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+      }
     });
   };
   
