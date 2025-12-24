@@ -203,6 +203,7 @@ export default function SalaryReportsPage() {
                 return;
             }
 
+            // CRITICAL FIX: Only generate a slip if there is a salary to be paid.
             if (reportData.baseSalary <= 0) {
                 console.log(`Skipping salary slip for ${selectedEmployee.userId} as base salary is zero.`);
                 return;
@@ -347,4 +348,3 @@ export default function SalaryReportsPage() {
         </div>
     );
 }
-
