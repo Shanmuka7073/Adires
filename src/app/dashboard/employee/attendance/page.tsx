@@ -91,10 +91,6 @@ export default function AttendancePage() {
   const { toast } = useToast();
   const [isProcessing, startProcessing] = useTransition();
   const [activePunchIn, setActivePunchIn] = useState<AttendanceRecord | null>(null);
-  const [monthlyRecords, setMonthlyRecords] = useState<AttendanceRecord[]>([]);
-
-  const employeeProfileRef = useMemoFirebase(() => (user ? doc(firestore, 'employeeProfiles', user.uid) : null), [user, firestore]);
-  const { data: employeeProfile, isLoading: profileLoading } = useDoc<EmployeeProfile>(employeeProfileRef);
   
   const today = startOfToday();
   const daysInMonth = eachDayOfInterval({
@@ -102,31 +98,52 @@ export default function AttendancePage() {
     end: endOfMonth(today),
   });
 
-  const fetchRecords = useCallback(async () => {
+  const employeeProfileRef = useMemoFirebase(() => (user ? doc(firestore, 'employeeProfiles', user.uid) : null), [user, firestore]);
+  const { data: employeeProfile, isLoading: profileLoading } = useDoc<EmployeeProfile>(employeeProfileRef);
+  
+  // CORRECTED QUERY: Ensure the query includes the `employeeId` for the security rule.
+  const attendanceQuery = useMemoFirebase(() => {
     if (user && employeeProfile?.storeId) {
         const start = startOfMonth(today);
         const end = endOfMonth(today);
-
-        const attendanceCollection = collection(firestore, `stores/${employeeProfile.storeId}/attendance`);
-        const q = query(
-            attendanceCollection,
+        
+        return query(
+            collection(firestore, `stores/${employeeProfile.storeId}/attendance`),
             where('employeeId', '==', user.uid),
             where('workDate', '>=', format(start, 'yyyy-MM-dd')),
             where('workDate', '<=', format(end, 'yyyy-MM-dd'))
         );
-
-        const snapshot = await getDocs(q);
-        const records = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as AttendanceRecord[];
-        setMonthlyRecords(records);
-        
-        const activeRecord = records.find(rec => isSameDay(new Date(rec.workDate), today) && !rec.punchOutTime && rec.status === 'present');
-        setActivePunchIn(activeRecord || null);
     }
+    return null;
   }, [user, employeeProfile, firestore, today]);
+  
+  const { data: monthlyRecords, isLoading: recordsLoading } = useCollection<AttendanceRecord>(attendanceQuery);
+
+
+  const fetchActivePunchIn = useCallback(async () => {
+    if (user && employeeProfile?.storeId) {
+      const attendanceCollection = collection(firestore, `stores/${employeeProfile.storeId}/attendance`);
+      const q = query(
+        attendanceCollection,
+        where('employeeId', '==', user.uid),
+        where('status', '==', 'present'),
+        where('punchOutTime', '==', null),
+        limit(1)
+      );
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        const activeRecord = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as AttendanceRecord;
+        setActivePunchIn(activeRecord);
+      } else {
+        setActivePunchIn(null);
+      }
+    }
+  }, [user, employeeProfile, firestore]);
 
   useEffect(() => {
-    fetchRecords();
-  }, [fetchRecords]);
+    fetchActivePunchIn();
+  }, [fetchActivePunchIn, monthlyRecords]); // Refetch active punch-in when monthly records change.
+  
   
   const handleBiometricVerification = async (): Promise<boolean> => {
       if (!user?.email) {
@@ -164,7 +181,7 @@ export default function AttendancePage() {
   const handleMissedPunchRequest = async (date: Date) => {
     if (!user || !employeeProfile) return;
     const dateStr = format(date, 'yyyy-MM-dd');
-    if (monthlyRecords.some(r => r.workDate === dateStr)) {
+    if (monthlyRecords?.some(r => r.workDate === dateStr)) {
         toast({ variant: 'destructive', title: 'Record already exists for this day.' });
         return;
     }
@@ -188,7 +205,7 @@ export default function AttendancePage() {
       try {
         await addDoc(attendanceCollection, newRecord);
         toast({ title: 'Request Sent', description: 'Your request for a missed punch-in has been sent to the owner.' });
-        fetchRecords();
+        // The real-time listener on `attendanceQuery` will automatically update the UI.
       } catch (error) {
         const permissionError = new FirestorePermissionError({
           path: attendanceCollection.path,
@@ -224,9 +241,7 @@ export default function AttendancePage() {
       
       try {
         const newDocRef = await addDoc(attendanceCollection, newRecordData);
-        const newRecordForState = { ...newRecordData, id: newDocRef.id, punchInTime: new Date() };
-        setActivePunchIn(newRecordForState);
-        setMonthlyRecords(prev => [...prev.filter(r => r.workDate !== newRecordData.workDate), newRecordForState]);
+        // The UI will update automatically because of the `useCollection` hook.
         toast({ title: 'Punched In!', description: 'Your shift has started.' });
       } catch (error) {
           const permissionError = new FirestorePermissionError({
@@ -260,9 +275,7 @@ export default function AttendancePage() {
         await updateDoc(recordRef, updateData);
         
         toast({ title: 'Punched Out!', description: 'Your shift has ended.' });
-        const updatedRecord = { ...activePunchIn, punchOutTime: punchOutTime, workHours: parseFloat(workHours.toFixed(2)) };
-        setMonthlyRecords(prev => prev.map(r => r.id === activePunchIn.id ? updatedRecord : r));
-        setActivePunchIn(null);
+        // The UI will update automatically.
       } catch (error) {
           const permissionError = new FirestorePermissionError({
             path: recordRef.path,
@@ -337,7 +350,7 @@ export default function AttendancePage() {
                     <div key={day} className="font-bold text-center text-muted-foreground text-xs md:text-sm">{day}</div>
                 ))}
                 {daysInMonth.map(day => {
-                    const record = monthlyRecords.find(r => isSameDay(new Date(r.workDate), day));
+                    const record = monthlyRecords?.find(r => isSameDay(new Date(r.workDate), day));
                     return <CalendarDay key={day.toString()} day={day} record={record} onMissedPunch={handleMissedPunchRequest} />
                 })}
              </div>
@@ -346,3 +359,4 @@ export default function AttendancePage() {
     </div>
   );
 }
+
