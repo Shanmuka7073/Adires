@@ -103,30 +103,33 @@ service cloud.firestore {
 
     match /stores/{storeId}/attendance/{recordId} {
 
-      // Store owner can view attendance
-      allow get, list: if isStoreOwner(storeId);
+      // Store owner can see all records. Employee can query their own.
+      allow get, list: if isStoreOwner(storeId) || request.auth.uid == request.query.employeeId;
 
-      // Employee marks their own attendance
+      // Employee creates their own attendance
       allow create: if
         isOwner(request.resource.data.employeeId)
         && request.resource.data.storeId == storeId;
 
-      // UPDATE LOGIC (IMPORTANT)
+      // UPDATE LOGIC (KEY FIX)
       allow update: if
         (
-          // Employee can edit only BEFORE approval
+          // Employee can update their own record, but cannot approve it.
           isOwner(resource.data.employeeId)
-          && resource.data.approved != true
-          && request.resource.data.approved == false
+          && resource.data.status != 'approved'
+          && resource.data.status != 'rejected'
+          && request.resource.data.status != 'approved'
+          && request.resource.data.status != 'rejected'
         )
         ||
         (
-          // Store owner can approve / correct attendance
+          // Store owner has full control to approve/reject/correct.
           isStoreOwner(storeId)
         );
 
       allow delete: if false;
     }
+
 
     /* ======================
        SALARY SLIPS
