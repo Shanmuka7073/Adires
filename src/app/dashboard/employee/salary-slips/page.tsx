@@ -1,0 +1,143 @@
+
+'use client';
+
+import { useState, useMemo, useEffect } from 'react';
+import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
+import { collection, query, where, orderBy, doc } from 'firebase/firestore';
+import type { SalarySlip, EmployeeProfile } from '@/lib/types';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { FileText, Download } from 'lucide-react';
+import { format } from 'date-fns';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import Link from 'next/link';
+
+function SalarySlipCard({ slip }: { slip: SalarySlip }) {
+    const handleDownload = () => {
+        const content = `
+Salary Slip
+---------------------------------
+Employee ID: ${slip.employeeId.slice(0, 8)}...
+Pay Period: ${format(new Date(slip.periodStart), 'PPP')} to ${format(new Date(slip.periodEnd), 'PPP')}
+Generated On: ${format(new Date(slip.generatedAt.toDate()), 'PPP p')}
+---------------------------------
+Base Salary:      ₹${slip.baseSalary.toFixed(2)}
+Overtime Pay:     ₹${slip.overtimePay.toFixed(2)}
+Deductions:       - ₹${slip.deductions.toFixed(2)}
+---------------------------------
+Net Pay:          ₹${slip.netPay.toFixed(2)}
+---------------------------------
+        `;
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `salary_slip_${slip.periodStart}_to_${slip.periodEnd}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Pay Period: {format(new Date(slip.periodStart), 'MMMM yyyy')}</CardTitle>
+                <CardDescription>Generated on {format(slip.generatedAt.toDate(), 'PPP')}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+                <div className="flex justify-between">
+                    <span className="text-muted-foreground">Base Salary</span>
+                    <span>₹{slip.baseSalary.toFixed(2)}</span>
+                </div>
+                 <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
+                    <span>Net Pay</span>
+                    <span className="text-primary">₹{slip.netPay.toFixed(2)}</span>
+                </div>
+            </CardContent>
+            <CardFooter>
+                <Button onClick={handleDownload} className="w-full">
+                    <Download className="mr-2 h-4 w-4" /> Download Slip
+                </Button>
+            </CardFooter>
+        </Card>
+    );
+}
+
+export default function EmployeeSalarySlipsPage() {
+    const { user, firestore } = useFirebase();
+
+    const employeeProfileRef = useMemoFirebase(() => (user ? doc(firestore, 'employeeProfiles', user.uid) : null), [user, firestore]);
+    const { data: employeeProfile, isLoading: profileLoading } = useDoc<EmployeeProfile>(employeeProfileRef);
+    
+    const salarySlipsQuery = useMemoFirebase(() => {
+        if (!firestore || !employeeProfile) return null;
+        return query(
+            collection(firestore, `stores/${employeeProfile.storeId}/salarySlips`),
+            where('employeeId', '==', employeeProfile.userId),
+            orderBy('periodStart', 'desc')
+        );
+    }, [firestore, employeeProfile]);
+
+    const { data: salarySlips, isLoading: slipsLoading } = useCollection<SalarySlip>(salarySlipsQuery);
+    
+    const isLoading = profileLoading || slipsLoading;
+
+    if (isLoading) {
+        return (
+            <div className="container mx-auto py-12 px-4 md:px-6">
+                <div className="space-y-4">
+                    <Skeleton className="h-12 w-1/2" />
+                    <Skeleton className="h-48 w-full" />
+                    <Skeleton className="h-48 w-full" />
+                </div>
+            </div>
+        );
+    }
+    
+    if (!employeeProfile) {
+        return (
+            <div className="container mx-auto py-12 px-4 md:px-6">
+                <Alert>
+                    <AlertTitle>Not an Employee</AlertTitle>
+                    <AlertDescription>
+                        This page is for employees. Your account is not linked to an employee profile.
+                    </AlertDescription>
+                     <Button asChild className="mt-4"><Link href="/dashboard">Go to Dashboard</Link></Button>
+                </Alert>
+            </div>
+        );
+    }
+    
+    return (
+        <div className="container mx-auto py-12 px-4 md:px-6">
+            <div className="mb-8">
+                <h1 className="text-4xl font-bold font-headline flex items-center gap-3">
+                    <FileText className="h-8 w-8 text-primary" />
+                    My Salary Slips
+                </h1>
+                <p className="text-muted-foreground">View and download your monthly salary statements.</p>
+            </div>
+            
+            {salarySlips && salarySlips.length > 0 ? (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {salarySlips.map(slip => (
+                        <SalarySlipCard key={slip.id} slip={slip} />
+                    ))}
+                </div>
+            ) : (
+                <Card className="text-center py-12">
+                    <CardHeader>
+                        <CardTitle>No Salary Slips Found</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-muted-foreground">
+                            Your salary slips will appear here once they are generated by your store owner.
+                        </p>
+                    </CardContent>
+                </Card>
+            )}
+        </div>
+    );
+}

@@ -397,7 +397,7 @@ export type SalarySlip = {
     overtimePay: number;
     deductions: number;
     netPay: number;
-    generatedAt: any;
+    generatedAt: Timestamp;
 };
 
 

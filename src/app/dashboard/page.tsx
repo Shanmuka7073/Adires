@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowRight, ShoppingCart, Store, Truck, Mic, Sparkles, UserCheck } from 'lucide-react';
+import { ArrowRight, ShoppingCart, Store, Truck, Mic, Sparkles, UserCheck, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import Image from 'next/image';
@@ -49,6 +49,13 @@ const roleCards = [
         href: '/dashboard/employee/attendance',
         icon: UserCheck,
         imageId: 'dash-delivery' // Re-using an image for now
+    },
+    {
+        title: 'salary-slips',
+        description: 'view-and-download-your-monthly-salary-slips',
+        href: '/dashboard/employee/salary-slips',
+        icon: FileText,
+        imageId: 'dash-owner' // Re-using an image
     }
 ];
 
