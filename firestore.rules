@@ -104,8 +104,10 @@ service cloud.firestore {
 
     match /stores/{storeId}/attendance/{recordId} {
 
-      // Store owner can see all records. Employee can query their own.
-      allow get, list: if isStoreOwner(storeId) || request.auth.uid == request.query.employeeId;
+      // Store owner OR employee can read their own records
+      allow get, list: if
+        isStoreOwner(storeId)
+        || request.auth.uid == resource.data.employeeId;
 
       // Employee creates their own attendance
       allow create: if
