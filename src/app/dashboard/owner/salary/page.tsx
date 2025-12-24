@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useTransition, useCallback, useEffect } from 'react';
@@ -34,7 +33,7 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
         );
     }, [firestore, storeId]);
 
-    const { data: requests, isLoading } = useCollection<AttendanceRecord>(requestsQuery);
+    const { data: requests, isLoading, refetch } = useCollection<AttendanceRecord>(requestsQuery);
 
     const handleApproval = (recordId: string, isApproved: boolean) => {
         if (!firestore || !storeId) return;
@@ -47,6 +46,7 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
             try {
               await updateDoc(recordRef, updateData);
               toast({ title: 'Request Updated', description: `The attendance request has been ${newStatus}.` });
+              refetch(); // Manually refetch the data after update
             } catch(error) {
               const permissionError = new FirestorePermissionError({
                   path: recordRef.path,
@@ -71,8 +71,8 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
             try {
               await batch.commit();
               toast({ title: 'All Requests Approved', description: `${requests.length} requests have been approved.` });
+              refetch(); // Manually refetch after batch update
             } catch(error) {
-              // Although it's a batch, we can provide context for the first failed operation for debugging
               const firstReq = requests[0];
               const permissionError = new FirestorePermissionError({
                   path: `stores/${storeId}/attendance/${firstReq.id}`,
