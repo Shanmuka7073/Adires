@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useTransition } from 'react';
+import { useState, useMemo, useTransition, useCallback, useEffect } from 'react';
 import { useFirebase, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import type { Store, EmployeeProfile, AttendanceRecord, SalarySlip } from '@/lib/types';
@@ -39,50 +39,48 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
     const handleApproval = (recordId: string, isApproved: boolean) => {
         if (!firestore || !storeId) return;
         
-        startUpdate(() => {
+        startUpdate(async () => {
             const newStatus = isApproved ? 'approved' : 'rejected';
             const recordRef = doc(firestore, `stores/${storeId}/attendance`, recordId);
             const updateData = { status: newStatus, workHours: isApproved ? 8 : 0 };
 
-            updateDoc(recordRef, updateData)
-                .then(() => {
-                    toast({ title: 'Request Updated', description: `The attendance request has been ${newStatus}.` });
-                })
-                .catch(async (error) => {
-                     const permissionError = new FirestorePermissionError({
-                        path: recordRef.path,
-                        operation: 'update',
-                        requestResourceData: updateData,
-                    });
-                    errorEmitter.emit('permission-error', permissionError);
-                });
+            try {
+              await updateDoc(recordRef, updateData);
+              toast({ title: 'Request Updated', description: `The attendance request has been ${newStatus}.` });
+            } catch(error) {
+              const permissionError = new FirestorePermissionError({
+                  path: recordRef.path,
+                  operation: 'update',
+                  requestResourceData: updateData,
+              });
+              errorEmitter.emit('permission-error', permissionError);
+            }
         });
     };
 
     const handleApproveAll = () => {
         if (!firestore || !requests || requests.length === 0) return;
         
-        startUpdate(() => {
+        startUpdate(async () => {
             const batch = writeBatch(firestore);
             requests.forEach(req => {
                 const recordRef = doc(firestore, `stores/${storeId}/attendance`, req.id);
                 batch.update(recordRef, { status: 'approved', workHours: 8 });
             });
 
-            batch.commit()
-                .then(() => {
-                     toast({ title: 'All Requests Approved', description: `${requests.length} requests have been approved.` });
-                })
-                .catch(async (error) => {
-                    // Although it's a batch, we can provide context for the first failed operation for debugging
-                    const firstReq = requests[0];
-                    const permissionError = new FirestorePermissionError({
-                        path: `stores/${storeId}/attendance/${firstReq.id}`,
-                        operation: 'update',
-                        requestResourceData: { status: 'approved', workHours: 8 },
-                    });
-                    errorEmitter.emit('permission-error', permissionError);
-                });
+            try {
+              await batch.commit();
+              toast({ title: 'All Requests Approved', description: `${requests.length} requests have been approved.` });
+            } catch(error) {
+              // Although it's a batch, we can provide context for the first failed operation for debugging
+              const firstReq = requests[0];
+              const permissionError = new FirestorePermissionError({
+                  path: `stores/${storeId}/attendance/${firstReq.id}`,
+                  operation: 'update',
+                  requestResourceData: { status: 'approved', workHours: 8 },
+              });
+              errorEmitter.emit('permission-error', permissionError);
+            }
         });
     };
 
