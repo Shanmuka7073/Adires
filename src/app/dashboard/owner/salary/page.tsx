@@ -186,23 +186,23 @@ export default function SalaryReportsPage() {
         let baseSalary = 0;
 
         if (selectedEmployee.salaryType === 'monthly') {
-            baseSalary = selectedEmployee.salaryRate;
+            const workingDaysInMonth = new Date(dateRange?.to?.getFullYear() || new Date().getFullYear(), dateRange?.to?.getMonth() || new Date().getMonth() + 1, 0).getDate();
+            const workedDays = presentOrApprovedRecords.length;
+            baseSalary = (selectedEmployee.salaryRate / workingDaysInMonth) * workedDays;
         } else {
             baseSalary = totalHours * selectedEmployee.salaryRate;
         }
         const netPay = baseSalary; // Add deductions/bonuses logic here in future
 
         return { totalHours, baseSalary, netPay, records: attendanceRecords };
-    }, [attendanceRecords, selectedEmployee]);
+    }, [attendanceRecords, selectedEmployee, dateRange]);
 
-    // Effect to automatically generate the salary slip when data is ready
     useEffect(() => {
         const generateAndSaveSlip = async () => {
             if (!myStore || !selectedEmployee || !reportData || !dateRange?.from || !dateRange?.to || !firestore) {
                 return;
             }
 
-            // CRITICAL FIX: Only generate if there is a salary to be paid.
             if (reportData.baseSalary <= 0) {
                 console.log(`Skipping salary slip for ${selectedEmployee.userId} as base salary is zero.`);
                 return;
@@ -347,3 +347,4 @@ export default function SalaryReportsPage() {
         </div>
     );
 }
+
