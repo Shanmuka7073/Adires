@@ -10,8 +10,6 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarIcon, Loader2, FileText, CheckCircle, XCircle } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
 import { DateRange } from 'react-day-picker';
@@ -19,6 +17,8 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 
 function ApprovalRequests({ storeId }: { storeId: string }) {
@@ -49,7 +49,7 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
                     toast({ title: 'Request Updated', description: `The attendance request has been ${newStatus}.` });
                 })
                 .catch(async (error) => {
-                    const permissionError = new FirestorePermissionError({
+                     const permissionError = new FirestorePermissionError({
                         path: recordRef.path,
                         operation: 'update',
                         requestResourceData: updateData,
@@ -169,36 +169,21 @@ export default function SalaryReportsPage() {
         return query(
             collection(firestore, `stores/${myStore.id}/attendance`),
             where('employeeId', '==', selectedEmployeeId),
-            where('status', 'in', ['present', 'approved']),
-            where('punchInTime', '>=', dateRange.from),
-            where('punchInTime', '<=', dateRange.to),
-            orderBy('punchInTime', 'desc')
+            where('workDate', '>=', format(dateRange.from, 'yyyy-MM-dd')),
+            where('workDate', '<=', format(dateRange.to, 'yyyy-MM-dd')),
+            orderBy('workDate', 'desc')
         );
     }, [myStore, selectedEmployeeId, dateRange]);
     const { data: attendanceRecords, isLoading: attendanceLoading } = useCollection<AttendanceRecord>(attendanceQuery);
-    
-    const approvedMissedDaysQuery = useMemoFirebase(() => {
-        if (!myStore || !selectedEmployeeId || !dateRange?.from || !dateRange?.to) return null;
-         return query(
-            collection(firestore, `stores/${myStore.id}/attendance`),
-            where('employeeId', '==', selectedEmployeeId),
-            where('status', '==', 'approved'),
-            where('workDate', '>=', format(dateRange.from, 'yyyy-MM-dd')),
-            where('workDate', '<=', format(dateRange.to, 'yyyy-MM-dd'))
-        );
-    }, [myStore, selectedEmployeeId, dateRange]);
-    const { data: approvedRecords } = useCollection<AttendanceRecord>(approvedMissedDaysQuery);
-
 
     const selectedEmployee = useMemo(() => employees?.find(e => e.userId === selectedEmployeeId), [employees, selectedEmployeeId]);
 
     const reportData = useMemo(() => {
-        if ((!attendanceRecords && !approvedRecords) || !selectedEmployee) return null;
+        if (!attendanceRecords || !selectedEmployee) return null;
 
-        const combinedRecords = [...(attendanceRecords || []), ...(approvedRecords || [])];
-        const uniqueRecords = Array.from(new Map(combinedRecords.map(r => [r.id, r])).values());
-        
-        const totalHours = uniqueRecords.reduce((acc, record) => acc + (record.workHours || 0), 0);
+        const presentOrApprovedRecords = attendanceRecords.filter(r => r.status === 'present' || r.status === 'approved');
+
+        const totalHours = presentOrApprovedRecords.reduce((acc, record) => acc + (record.workHours || 0), 0);
         let baseSalary = 0;
 
         if (selectedEmployee.salaryType === 'monthly') {
@@ -206,18 +191,18 @@ export default function SalaryReportsPage() {
         } else {
             baseSalary = totalHours * selectedEmployee.salaryRate;
         }
-        const netPay = baseSalary;
+        const netPay = baseSalary; // Add deductions/bonuses logic here in future
 
-        return { totalHours, baseSalary, netPay, records: uniqueRecords };
-    }, [attendanceRecords, approvedRecords, selectedEmployee]);
+        return { totalHours, baseSalary, netPay, records: attendanceRecords };
+    }, [attendanceRecords, selectedEmployee]);
 
-    const handleGenerateSlip = () => {
-        if (!myStore || !selectedEmployee || !reportData || !dateRange?.from || !dateRange?.to) {
-            toast({ variant: 'destructive', title: 'Missing Information', description: 'Please select an employee and a date range with records.' });
-            return;
-        }
+    // Effect to automatically generate the salary slip when data is ready
+    useEffect(() => {
+        const generateAndSaveSlip = async () => {
+            if (!myStore || !selectedEmployee || !reportData || !dateRange?.from || !dateRange?.to || !firestore) {
+                return;
+            }
 
-        startGeneration(async () => {
             const slipData: Omit<SalarySlip, 'id'> = {
                 employeeId: selectedEmployee.userId,
                 storeId: myStore.id,
@@ -230,22 +215,30 @@ export default function SalaryReportsPage() {
                 netPay: reportData.netPay,
                 generatedAt: serverTimestamp(),
             };
-            const slipRef = collection(firestore, `stores/${myStore.id}/salarySlips`);
+            
+            // Generate a consistent ID for the slip based on employee and period
+            const slipId = `${selectedEmployee.userId}_${format(dateRange.from, 'yyyy-MM')}`;
+            const slipRef = doc(firestore, `stores/${myStore.id}/salarySlips`, slipId);
 
-            addDoc(slipRef, slipData)
-                .then(() => {
-                    toast({ title: 'Salary Slip Generated!', description: `A salary slip for ${selectedEmployee.role} has been saved.` });
-                })
-                .catch(async (error) => {
-                    const permissionError = new FirestorePermissionError({
-                        path: slipRef.path,
-                        operation: 'create',
-                        requestResourceData: slipData,
-                    });
-                    errorEmitter.emit('permission-error', permissionError);
+            try {
+                // Use setDoc with merge to create or update the slip for the month
+                await setDoc(slipRef, slipData, { merge: true });
+                console.log(`Salary slip for ${selectedEmployee.role} for ${format(dateRange.from, 'MMMM yyyy')} was automatically saved.`);
+            } catch (error) {
+                console.error("Auto-generation of salary slip failed:", error);
+                 const permissionError = new FirestorePermissionError({
+                    path: slipRef.path,
+                    operation: 'write',
+                    requestResourceData: slipData,
                 });
-        });
-    };
+                errorEmitter.emit('permission-error', permissionError);
+            }
+        };
+
+        if (reportData && !attendanceLoading) {
+            generateAndSaveSlip();
+        }
+    }, [reportData, attendanceLoading, myStore, selectedEmployee, dateRange, firestore]);
     
     if (storeLoading) return <div className="container mx-auto py-12">Loading store information...</div>
     if (!myStore) return <div className="container mx-auto py-12">You must have a store to access this page.</div>
@@ -316,14 +309,14 @@ export default function SalaryReportsPage() {
                                     <p className="text-muted-foreground">No attendance records found for this period.</p>
                                 ) : (
                                     <Table>
-                                        <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Punch In</TableHead><TableHead>Punch Out</TableHead><TableHead className="text-right">Work Hours</TableHead></TableRow></TableHeader>
+                                        <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Punch In</TableHead><TableHead>Punch Out</TableHead><TableHead className="text-right">Status</TableHead></TableRow></TableHeader>
                                         <TableBody>
                                             {reportData.records.map(rec => (
                                                 <TableRow key={rec.id}>
                                                     <TableCell>{format(new Date(rec.workDate), 'PPP')}</TableCell>
                                                     <TableCell>{rec.punchInTime ? format((rec.punchInTime as any).toDate(), 'p') : 'N/A'}</TableCell>
                                                     <TableCell>{rec.punchOutTime ? format((rec.punchOutTime as any).toDate(), 'p') : 'N/A'}</TableCell>
-                                                    <TableCell className="text-right font-mono">{rec.workHours?.toFixed(2) || 'N/A'}</TableCell>
+                                                    <TableCell className="text-right font-mono capitalize">{rec.status.replace('_', ' ')}</TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -342,10 +335,7 @@ export default function SalaryReportsPage() {
                                 <div className="flex justify-between text-lg font-bold text-primary border-t pt-2"><span>Net Payable:</span><span>₹{reportData.netPay.toFixed(2)}</span></div>
                             </CardContent>
                             <CardFooter>
-                                <Button onClick={handleGenerateSlip} disabled={isGenerating} className="w-full">
-                                    {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                    Generate & Save Salary Slip
-                                </Button>
+                                <p className="text-xs text-muted-foreground">A salary slip for this period has been automatically saved.</p>
                             </CardFooter>
                         </Card>
                     )}
