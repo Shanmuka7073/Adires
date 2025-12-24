@@ -37,7 +37,7 @@ export default function EmployeeAttendancePage() {
     );
   }, [user, storeId, firestore]);
 
-  const { data: records, isLoading: recordsLoading } = useCollection<AttendanceRecord>(attendanceQuery);
+  const { data: records, isLoading: recordsLoading, refetch: refetchAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
 
   const todaysRecord = useMemo(() => {
     return records?.find(record => record.workDate === todayStr);
@@ -58,6 +58,7 @@ export default function EmployeeAttendancePage() {
                 workHours: 0
             });
             toast({ title: 'Punched In!', description: 'Your shift has started.' });
+            refetchAttendance(); // Manually trigger a refetch
         } catch(e) {
             console.error("Punch in failed: ", e);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not punch in.' });
@@ -75,6 +76,7 @@ export default function EmployeeAttendancePage() {
             punchOutTime: serverTimestamp()
         });
         toast({ title: 'Punched Out!', description: 'Your shift has ended.' });
+        refetchAttendance(); // Manually trigger a refetch
       } catch (e) {
         console.error("Punch out failed: ", e);
         toast({ variant: 'destructive', title: 'Error', description: 'Could not punch out.' });
