@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import type { AttendanceRecord, EmployeeProfile } from '@/lib/types';
 import { Loader2, CheckCircle, Fingerprint, Calendar as CalendarIcon, HelpCircle, XCircle, Clock } from 'lucide-react';
-import { format, isSameDay, startOfToday, eachDayOfInterval, startOfMonth, endOfMonth } from 'date-fns';
+import { format, isSameDay, startOfToday, eachDayOfInterval, startOfMonth, endOfMonth, isBefore } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 import { startAuthentication } from '@simplewebauthn/browser';
@@ -29,10 +29,16 @@ async function safeJson(resp: Response) {
 
 function CalendarDay({ day, record, onMissedPunch }: { day: Date, record?: AttendanceRecord, onMissedPunch: (date: Date) => void }) {
     const isToday = isSameDay(day, startOfToday());
+    const isFuture = isBefore(startOfToday(), day);
+
+    if (isFuture) {
+      return <div className="p-2 text-center text-muted-foreground/50">{format(day, 'd')}</div>;
+    }
+
     let status: 'present' | 'absent' | 'pending' | 'approved' | 'rejected' = 'absent';
     let label = 'Absent';
     let icon = <XCircle className="h-4 w-4" />;
-
+    
     if (record) {
         if (record.status === 'pending_approval') {
             status = 'pending';
@@ -42,24 +48,27 @@ function CalendarDay({ day, record, onMissedPunch }: { day: Date, record?: Atten
             status = 'present';
             label = 'Present';
             icon = <CheckCircle className="h-4 w-4" />;
-        } else {
+        } else if (record.status === 'rejected') {
              status = 'rejected';
              label = 'Rejected';
              icon = <XCircle className="h-4 w-4" />;
         }
     }
-    
-    const dayOfMonth = format(day, 'd');
 
     return (
-        <div className={cn(
-            "relative p-2 rounded-lg text-center border-2",
-            isToday && "ring-2 ring-primary ring-offset-2",
-            (status === 'present' || status === 'approved') && "bg-green-100 border-green-200",
-            status === 'pending' && "bg-yellow-100 border-yellow-200",
-            (status === 'absent' || status === 'rejected') && "bg-red-100 border-red-200"
-        )}>
-            <div className="font-bold text-lg">{dayOfMonth}</div>
+        <button
+            onClick={() => status === 'absent' && onMissedPunch(day)}
+            disabled={status !== 'absent'}
+            className={cn(
+                "relative p-2 rounded-lg text-center border-2 transition-all",
+                isToday && "ring-2 ring-primary ring-offset-2",
+                (status === 'present' || status === 'approved') && "bg-green-100 border-green-200",
+                status === 'pending' && "bg-yellow-100 border-yellow-200",
+                (status === 'absent' || status === 'rejected') && "bg-red-100 border-red-200",
+                status === 'absent' && "cursor-pointer hover:bg-red-200 hover:border-red-300"
+            )}
+        >
+            <div className="font-bold text-lg">{format(day, 'd')}</div>
             <div className={cn("text-xs font-semibold flex items-center justify-center gap-1", 
                 (status === 'present' || status === 'approved') && "text-green-700",
                 status === 'pending' && "text-yellow-700",
@@ -67,12 +76,12 @@ function CalendarDay({ day, record, onMissedPunch }: { day: Date, record?: Atten
             )}>
                 {icon} {label}
             </div>
-            {status === 'absent' && (
-                <Button size="xs" variant="outline" className="mt-2 h-6 px-2 text-xs" onClick={() => onMissedPunch(day)}>
+             {status === 'absent' && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-xs font-bold opacity-0 hover:opacity-100 transition-opacity">
                     Request
-                </Button>
+                </div>
             )}
-        </div>
+        </button>
     );
 }
 
@@ -110,7 +119,7 @@ export default function AttendancePage() {
         const records = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as AttendanceRecord[];
         setMonthlyRecords(records);
         
-        const activeRecord = records.find(rec => isSameDay(new Date(rec.workDate), today) && rec.punchOutTime === null && rec.status === 'present');
+        const activeRecord = records.find(rec => isSameDay(new Date(rec.workDate), today) && !rec.punchOutTime && rec.status === 'present');
         setActivePunchIn(activeRecord || null);
     }
   }, [user, employeeProfile, firestore, today]);
@@ -118,59 +127,12 @@ export default function AttendancePage() {
   useEffect(() => {
     fetchRecords();
   }, [fetchRecords]);
-
-  const handleMissedPunchRequest = async (date: Date) => {
-    if (!user || !employeeProfile) return;
-    const dateStr = format(date, 'yyyy-MM-dd');
-    if (monthlyRecords.some(r => r.workDate === dateStr)) {
-        toast({ variant: 'destructive', title: 'Record already exists for this day.' });
-        return;
-    }
-    
-    startProcessing(async () => {
-      const attendanceCollection = collection(firestore, `stores/${employeeProfile.storeId}/attendance`);
-      const newRecord = {
-          employeeId: user.uid,
-          storeId: employeeProfile.storeId,
-          workDate: dateStr,
-          punchInTime: null,
-          punchOutTime: null,
-          workHours: 8, // Assume a full day for approved absence
-          status: 'pending_approval'
-      };
-
-      try {
-        await addDoc(attendanceCollection, newRecord);
-        toast({ title: 'Request Sent', description: 'Your request for a missed punch-in has been sent to the owner.' });
-        fetchRecords(); // Refetch records to update UI
-      } catch (error: any) {
-        const permissionError = new FirestorePermissionError({
-          path: attendanceCollection.path,
-          operation: 'create',
-          requestResourceData: newRecord
-        });
-        errorEmitter.emit('permission-error', permissionError);
+  
+  const handleBiometricVerification = async (): Promise<boolean> => {
+      if (!user?.email) {
+          toast({ variant: 'destructive', title: 'Error', description: 'User email not found.' });
+          return false;
       }
-    });
-  }
-
-  const handlePunchIn = async () => {
-    if (!user || !employeeProfile) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Employee profile not loaded.'});
-        return;
-    };
-
-    startProcessing(async () => {
-        let newDocRef;
-        const newRecordData = {
-            employeeId: user.uid,
-            storeId: employeeProfile.storeId,
-            workDate: format(new Date(), 'yyyy-MM-dd'),
-            punchInTime: serverTimestamp(),
-            punchOutTime: null,
-            workHours: 0,
-            status: 'present' as 'present'
-        };
       try {
         const respOptions = await fetch('/api/auth/webauthn/generate-authentication-options', {
             method: 'POST',
@@ -190,6 +152,76 @@ export default function AttendancePage() {
         const verificationJSON = await verificationResp.json();
         if (!verificationJSON.verified) throw new Error(verificationJSON.error || 'Biometric verification failed.');
 
+        return true;
+      } catch (error: any) {
+          console.error('Biometric verification failed:', error);
+          toast({ variant: 'destructive', title: 'Verification Failed', description: error.message || 'Could not verify your identity.' });
+          return false;
+      }
+  };
+
+
+  const handleMissedPunchRequest = async (date: Date) => {
+    if (!user || !employeeProfile) return;
+    const dateStr = format(date, 'yyyy-MM-dd');
+    if (monthlyRecords.some(r => r.workDate === dateStr)) {
+        toast({ variant: 'destructive', title: 'Record already exists for this day.' });
+        return;
+    }
+    
+    startProcessing(async () => {
+      if (!(await handleBiometricVerification())) {
+        return;
+      }
+
+      const attendanceCollection = collection(firestore, `stores/${employeeProfile.storeId}/attendance`);
+      const newRecord = {
+          employeeId: user.uid,
+          storeId: employeeProfile.storeId,
+          workDate: dateStr,
+          punchInTime: null,
+          punchOutTime: null,
+          workHours: 8, // Assume a full day for approved absence
+          status: 'pending_approval' as const
+      };
+
+      try {
+        await addDoc(attendanceCollection, newRecord);
+        toast({ title: 'Request Sent', description: 'Your request for a missed punch-in has been sent to the owner.' });
+        fetchRecords();
+      } catch (error: any) {
+        const permissionError = new FirestorePermissionError({
+          path: attendanceCollection.path,
+          operation: 'create',
+          requestResourceData: newRecord
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      }
+    });
+  }
+
+  const handlePunchIn = async () => {
+    if (!user || !employeeProfile) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Employee profile not loaded.'});
+        return;
+    };
+
+    startProcessing(async () => {
+      if (!(await handleBiometricVerification())) {
+        return;
+      }
+
+      let newDocRef;
+      const newRecordData = {
+          employeeId: user.uid,
+          storeId: employeeProfile.storeId,
+          workDate: format(new Date(), 'yyyy-MM-dd'),
+          punchInTime: serverTimestamp(),
+          punchOutTime: null,
+          workHours: 0,
+          status: 'present' as 'present'
+      };
+      try {
         const attendanceCollection = collection(firestore, `stores/${employeeProfile.storeId}/attendance`);
         newDocRef = await addDoc(attendanceCollection, newRecordData);
         
@@ -200,7 +232,7 @@ export default function AttendancePage() {
         toast({ title: 'Punched In!', description: 'Your shift has started.' });
 
       } catch (error: any) {
-        if(newDocRef) {
+        if (newDocRef) {
           const permissionError = new FirestorePermissionError({
             path: newDocRef.path,
             operation: 'create',
@@ -208,8 +240,8 @@ export default function AttendancePage() {
           });
           errorEmitter.emit('permission-error', permissionError);
         } else {
-          console.error('Punch-in failed:', error);
-          toast({ variant: 'destructive', title: 'Punch-in Failed', description: error.message || 'Could not save your attendance record.' });
+            console.error('Punch-in failed:', error);
+            toast({ variant: 'destructive', title: 'Punch-in Failed', description: error.message || 'Could not save your attendance record.' });
         }
       }
     });
@@ -219,6 +251,10 @@ export default function AttendancePage() {
     if (!activePunchIn || !user || !employeeProfile) return;
     
     startProcessing(async () => {
+      if (!(await handleBiometricVerification())) {
+        return;
+      }
+      
       const punchInTime = (activePunchIn.punchInTime as any).toDate();
       const punchOutTime = new Date();
       const workHours = (punchOutTime.getTime() - punchInTime.getTime()) / (1000 * 60 * 60);
@@ -301,12 +337,12 @@ export default function AttendancePage() {
       <Card className="max-w-4xl mx-auto">
         <CardHeader>
             <CardTitle className="flex items-center gap-2"><CalendarIcon className="h-5 w-5" /> This Month's Attendance</CardTitle>
-            <CardDescription>A complete log of your attendance for {format(today, 'MMMM yyyy')}.</CardDescription>
+            <CardDescription>A complete log of your attendance for {format(today, 'MMMM yyyy')}. Click on an "Absent" day to request approval.</CardDescription>
         </CardHeader>
         <CardContent>
-             <div className="grid grid-cols-7 gap-2">
+             <div className="grid grid-cols-7 gap-1 md:gap-2">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                    <div key={day} className="font-bold text-center text-muted-foreground text-sm">{day}</div>
+                    <div key={day} className="font-bold text-center text-muted-foreground text-xs md:text-sm">{day}</div>
                 ))}
                 {daysInMonth.map(day => {
                     const record = monthlyRecords.find(r => isSameDay(new Date(r.workDate), day));
