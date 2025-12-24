@@ -114,8 +114,7 @@ service cloud.firestore {
       // UPDATE LOGIC (IMPORTANT)
       allow update: if
         (
-          // Employee can edit their own record (e.g., to punch out), but cannot approve it.
-          // They can only update if the status is not already finalized.
+          // Employee can edit only BEFORE approval
           isOwner(resource.data.employeeId)
           && resource.data.status != 'approved'
           && resource.data.status != 'rejected'
@@ -124,7 +123,7 @@ service cloud.firestore {
         )
         ||
         (
-          // Store owner can approve, reject, or correct attendance at any time.
+          // Store owner can approve / correct attendance
           isStoreOwner(storeId)
         );
 
