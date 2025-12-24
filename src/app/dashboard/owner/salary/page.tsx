@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useTransition, useCallback, useEffect } from 'react';
@@ -46,7 +47,7 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
             try {
               await updateDoc(recordRef, updateData);
               toast({ title: 'Request Updated', description: `The attendance request has been ${newStatus}.` });
-              refetch(); // Manually refetch the data after update
+              if (refetch) refetch();
             } catch(error) {
               const permissionError = new FirestorePermissionError({
                   path: recordRef.path,
@@ -71,7 +72,7 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
             try {
               await batch.commit();
               toast({ title: 'All Requests Approved', description: `${requests.length} requests have been approved.` });
-              refetch(); // Manually refetch after batch update
+              if (refetch) refetch();
             } catch(error) {
               const firstReq = requests[0];
               const permissionError = new FirestorePermissionError({
@@ -201,11 +202,17 @@ export default function SalaryReportsPage() {
                 return;
             }
 
+            // CRITICAL FIX: Only generate if there is a salary to be paid.
+            if (reportData.baseSalary <= 0) {
+                console.log(`Skipping salary slip for ${selectedEmployee.userId} as base salary is zero.`);
+                return;
+            }
+
             const slipData: Omit<SalarySlip, 'id'> = {
                 employeeId: selectedEmployee.userId,
                 storeId: myStore.id,
-                periodStart: format(dateRange.from!, 'yyyy-MM-dd'),
-                periodEnd: format(dateRange.to!, 'yyyy-MM-dd'),
+                periodStart: format(dateRange.from, 'yyyy-MM-dd'),
+                periodEnd: format(dateRange.to, 'yyyy-MM-dd'),
                 baseSalary: reportData.baseSalary,
                 overtimeHours: 0,
                 overtimePay: 0,
@@ -214,14 +221,12 @@ export default function SalaryReportsPage() {
                 generatedAt: serverTimestamp(),
             };
             
-            // Generate a consistent ID for the slip based on employee and period
             const slipId = `${selectedEmployee.userId}_${format(dateRange.from, 'yyyy-MM')}`;
             const slipRef = doc(firestore, `stores/${myStore.id}/salarySlips`, slipId);
 
             try {
-                // Use setDoc with merge to create or update the slip for the month
                 await setDoc(slipRef, slipData, { merge: true });
-                console.log(`Salary slip for ${selectedEmployee.role} for ${format(dateRange.from, 'MMMM yyyy')} was automatically saved.`);
+                console.log(`Salary slip for ${selectedEmployee.userId} for ${format(dateRange.from, 'MMMM yyyy')} was automatically saved.`);
             } catch (error) {
                 console.error("Auto-generation of salary slip failed:", error);
                  const permissionError = new FirestorePermissionError({
@@ -324,7 +329,7 @@ export default function SalaryReportsPage() {
                         </Card>
                     )}
 
-                    {reportData && (
+                    {reportData && reportData.baseSalary > 0 && (
                         <Card className="bg-primary/5 border-primary/20">
                             <CardHeader><CardTitle>Salary Calculation</CardTitle></CardHeader>
                             <CardContent className="space-y-4">

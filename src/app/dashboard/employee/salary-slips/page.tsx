@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 import type { SalarySlip, EmployeeProfile } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FileText, Download } from 'lucide-react';
@@ -16,20 +16,30 @@ import Link from 'next/link';
 function SalarySlipCard({ slip }: { slip: SalarySlip }) {
     const handleDownload = () => {
         const content = `
-Salary Slip
----------------------------------
-Employee ID: ${slip.employeeId.slice(0, 8)}...
-Pay Period: ${format(new Date(slip.periodStart), 'PPP')} to ${format(new Date(slip.periodEnd), 'PPP')}
-Generated On: ${format(new Date(slip.generatedAt.toDate()), 'PPP p')}
----------------------------------
+=========================================
+      SALARY SLIP
+=========================================
+Employee ID:      ${slip.employeeId.slice(0, 15)}...
+Pay Period:       ${format(new Date(slip.periodStart), 'PPP')} to ${format(new Date(slip.periodEnd), 'PPP')}
+Generated On:     ${slip.generatedAt ? format(slip.generatedAt.toDate(), 'PPP p') : 'N/A'}
+-----------------------------------------
+            EARNINGS
+-----------------------------------------
 Base Salary:      ₹${slip.baseSalary.toFixed(2)}
 Overtime Pay:     ₹${slip.overtimePay.toFixed(2)}
-Deductions:       - ₹${slip.deductions.toFixed(2)}
----------------------------------
-Net Pay:          ₹${slip.netPay.toFixed(2)}
----------------------------------
+-----------------------------------------
+Gross Earnings:   ₹${(slip.baseSalary + slip.overtimePay).toFixed(2)}
+-----------------------------------------
+            DEDUCTIONS
+-----------------------------------------
+Standard Tax:     ₹${slip.deductions.toFixed(2)}
+-----------------------------------------
+Total Deductions: ₹${slip.deductions.toFixed(2)}
+-----------------------------------------
+NET PAYABLE:      ₹${slip.netPay.toFixed(2)}
+=========================================
         `;
-        const blob = new Blob([content], { type: 'text/plain' });
+        const blob = new Blob([content.trim()], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -44,7 +54,7 @@ Net Pay:          ₹${slip.netPay.toFixed(2)}
         <Card>
             <CardHeader>
                 <CardTitle>Pay Period: {format(new Date(slip.periodStart), 'MMMM yyyy')}</CardTitle>
-                <CardDescription>Generated on {format(slip.generatedAt.toDate(), 'PPP')}</CardDescription>
+                <CardDescription>Generated on {slip.generatedAt ? format(slip.generatedAt.toDate(), 'PPP') : 'N/A'}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
                 <div className="flex justify-between">
