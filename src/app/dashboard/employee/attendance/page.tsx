@@ -189,7 +189,7 @@ export default function AttendancePage() {
         await addDoc(attendanceCollection, newRecord);
         toast({ title: 'Request Sent', description: 'Your request for a missed punch-in has been sent to the owner.' });
         fetchRecords();
-      } catch (error: any) {
+      } catch (error) {
         const permissionError = new FirestorePermissionError({
           path: attendanceCollection.path,
           operation: 'create',
@@ -211,7 +211,7 @@ export default function AttendancePage() {
         return;
       }
 
-      let newDocRef;
+      const attendanceCollection = collection(firestore, `stores/${employeeProfile.storeId}/attendance`);
       const newRecordData = {
           employeeId: user.uid,
           storeId: employeeProfile.storeId,
@@ -221,28 +221,20 @@ export default function AttendancePage() {
           workHours: 0,
           status: 'present' as 'present'
       };
+      
       try {
-        const attendanceCollection = collection(firestore, `stores/${employeeProfile.storeId}/attendance`);
-        newDocRef = await addDoc(attendanceCollection, newRecordData);
-        
+        const newDocRef = await addDoc(attendanceCollection, newRecordData);
         const newRecordForState = { ...newRecordData, id: newDocRef.id, punchInTime: new Date() };
         setActivePunchIn(newRecordForState);
         setMonthlyRecords(prev => [...prev.filter(r => r.workDate !== newRecordData.workDate), newRecordForState]);
-        
         toast({ title: 'Punched In!', description: 'Your shift has started.' });
-
-      } catch (error: any) {
-        if (newDocRef) {
+      } catch (error) {
           const permissionError = new FirestorePermissionError({
-            path: newDocRef.path,
+            path: attendanceCollection.path,
             operation: 'create',
             requestResourceData: newRecordData,
           });
           errorEmitter.emit('permission-error', permissionError);
-        } else {
-            console.error('Punch-in failed:', error);
-            toast({ variant: 'destructive', title: 'Punch-in Failed', description: error.message || 'Could not save your attendance record.' });
-        }
       }
     });
   };
