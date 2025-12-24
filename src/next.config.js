@@ -36,7 +36,6 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '4.5mb',
     },
-    esmExternals: 'loose',
   },
 
   webpack: (
@@ -52,22 +51,20 @@ const nextConfig = {
             tls: false,
             fs: false,
             child_process: false,
-            http2: false, // Add http2 to the list of excluded modules
+            http2: false,
         };
     }
     return config
   },
 
   transpilePackages: ['firebase', '@firebase/auth', '@firebase/firestore'],
+  
   typescript: {
     // !! WARN !!
     // Dangerously allow production builds to successfully complete even if
     // your project has type errors.
     // !! WARN !!
     ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
   },
 };
 
