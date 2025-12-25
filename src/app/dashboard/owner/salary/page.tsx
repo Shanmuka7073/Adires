@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useTransition, useCallback, useEffect } from 'react';
 import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc, getDocs } from 'firebase/firestore';
 import type { Store, EmployeeProfile, AttendanceRecord, SalarySlip } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Calendar as CalendarIcon, Loader2, FileText, CheckCircle, XCircle, Eye } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -218,6 +218,8 @@ export default function SalaryReportsPage() {
         to: endOfMonth(new Date()),
     });
     const [isGenerating, startGeneration] = useTransition();
+    const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[] | null>(null);
+    const [attendanceLoading, setAttendanceLoading] = useState(false);
 
     const storeQuery = useMemoFirebase(() => (user ? query(collection(firestore, 'stores'), where('ownerId', '==', user.uid)) : null), [user, firestore]);
     const { data: stores, isLoading: storeLoading } = useCollection<Store>(storeQuery);
@@ -226,20 +228,41 @@ export default function SalaryReportsPage() {
     const employeesQuery = useMemoFirebase(() => (myStore ? query(collection(firestore, 'employeeProfiles'), where('storeId', '==', myStore.id)) : null), [myStore, firestore]);
     const { data: employees, isLoading: employeesLoading } = useCollection<EmployeeProfile>(employeesQuery);
 
-    const attendanceQuery = useMemoFirebase(() => {
-        if (!myStore || !selectedEmployeeId || !dateRange?.from || !dateRange?.to) return null;
-        return query(
-            collection(firestore, `stores/${myStore.id}/attendance`),
-            where('employeeId', '==', selectedEmployeeId),
-            where('workDate', '>=', format(dateRange.from, 'yyyy-MM-dd')),
-            where('workDate', '<=', format(dateRange.to, 'yyyy-MM-dd')),
-            orderBy('workDate', 'desc')
-        );
-    }, [myStore, selectedEmployeeId, dateRange, firestore]);
-
-    const { data: attendanceRecords, isLoading: attendanceLoading } = useCollection<AttendanceRecord>(attendanceQuery);
-
     const selectedEmployee = useMemo(() => employees?.find(e => e.userId === selectedEmployeeId), [employees, selectedEmployeeId]);
+
+    // Manual fetch for attendance to avoid collectionGroup issues
+    useEffect(() => {
+        const fetchAttendance = async () => {
+            if (!myStore || !selectedEmployeeId || !dateRange?.from || !dateRange?.to || !firestore) {
+                setAttendanceRecords([]);
+                return;
+            }
+            setAttendanceLoading(true);
+            try {
+                const q = query(
+                    collection(firestore, `stores/${myStore.id}/attendance`),
+                    where('employeeId', '==', selectedEmployeeId),
+                    where('workDate', '>=', format(dateRange.from, 'yyyy-MM-dd')),
+                    where('workDate', '<=', format(dateRange.to, 'yyyy-MM-dd')),
+                    orderBy('workDate', 'desc')
+                );
+                const querySnapshot = await getDocs(q);
+                const records = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+                setAttendanceRecords(records);
+            } catch (error) {
+                console.error("Failed to fetch attendance:", error);
+                toast({ variant: 'destructive', title: "Error", description: "Could not load attendance records." });
+                setAttendanceRecords(null);
+            } finally {
+                setAttendanceLoading(false);
+            }
+        };
+
+        if (selectedEmployeeId) {
+            fetchAttendance();
+        }
+    }, [myStore, selectedEmployeeId, dateRange, firestore, toast]);
+
 
     const reportData = useMemo(() => {
         if (!attendanceRecords || !selectedEmployee) return null;
@@ -414,3 +437,5 @@ export default function SalaryReportsPage() {
         </div>
     );
 }
+
+    
