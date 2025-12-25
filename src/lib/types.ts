@@ -384,8 +384,8 @@ export type AttendanceRecord = {
     punchInTime: Timestamp | Date | string | null;
     punchOutTime: Timestamp | Date | string | null;
     workHours: number;
-    status: 'present' | 'absent' | 'pending_approval' | 'approved' | 'rejected';
     reason?: string; // Reason for a missed punch-in request
+    status: 'present' | 'absent' | 'pending_approval' | 'approved' | 'rejected' | 'partially_present';
 };
 
 export type SalarySlip = {

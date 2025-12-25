@@ -859,13 +859,14 @@
         "punchInTime": { "type": "string", "format": "date-time", "description": "The timestamp for punching in." },
         "punchOutTime": { "type": "string", "format": "date-time", "description": "The timestamp for punching out." },
         "workHours": { "type": "number", "description": "Total calculated work hours for the shift." },
+        "reason": { "type": "string", "description": "Reason provided by the employee for a missed punch-in request." },
         "status": {
           "type": "string",
-          "enum": ["present", "absent", "pending_approval", "approved", "rejected"],
+          "enum": ["present", "absent", "pending_approval", "approved", "rejected", "partially_present"],
           "description": "The status of the attendance record."
         }
       },
-      "required": ["id", "employeeId", "storeId", "workDate", "punchInTime", "status"]
+      "required": ["id", "employeeId", "storeId", "workDate", "status"]
     },
     "SalarySlip": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -1260,4 +1261,3 @@
     ]
   }
 }
-
