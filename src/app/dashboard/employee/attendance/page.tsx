@@ -3,26 +3,28 @@
 
 import { useEffect, useState, useMemo, useTransition } from 'react';
 import { collection, query, where, addDoc, serverTimestamp, getDocs, orderBy, updateDoc, doc } from 'firebase/firestore';
-import { useFirebase, useCollection, useMemoFirebase, useDoc, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { format, differenceInHours, differenceInMinutes, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
+import { useFirebase, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { format, differenceInHours, differenceInMinutes, startOfMonth, endOfMonth, isSameDay, isPast, isToday } from 'date-fns';
 import type { AttendanceRecord, EmployeeProfile, Store } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, AlertCircle, Calendar as CalendarIcon, Check, Circle } from 'lucide-react';
+import { Loader2, AlertCircle, Calendar as CalendarIcon, Check, Circle, CheckCircle, Info } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Calendar } from '@/components/ui/calendar';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
+
 
 export default function EmployeeAttendancePage() {
   const { user, firestore, isUserLoading } = useFirebase();
   const { toast } = useToast();
   const [isProcessing, startProcessing] = useTransition();
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  
   // 1. Fetch the employee's profile to get their storeId
   const employeeProfileRef = useMemoFirebase(() => (user ? doc(firestore, 'employeeProfiles', user.uid) : null), [user, firestore]);
   const { data: employeeProfile, isLoading: profileLoading } = useDoc<EmployeeProfile>(employeeProfileRef);
@@ -30,19 +32,15 @@ export default function EmployeeAttendancePage() {
   const storeId = employeeProfile?.storeId;
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
-  // 2. Fetch attendance records for this employee for the current month
+  // 2. Fetch attendance records for this employee
   const attendanceQuery = useMemoFirebase(() => {
     if (!user || !storeId) return null;
-    const start = startOfMonth(currentMonth);
-    const end = endOfMonth(currentMonth);
     
     return query(
       collection(firestore, 'stores', storeId, 'attendance'),
-      where('employeeId', '==', user.uid),
-      where('workDate', '>=', format(start, 'yyyy-MM-dd')),
-      where('workDate', '<=', format(end, 'yyyy-MM-dd'))
+      where('employeeId', '==', user.uid)
     );
-  }, [user, storeId, firestore, currentMonth]);
+  }, [user, storeId, firestore]);
 
   const { data: records, isLoading: recordsLoading, refetch } = useCollection<AttendanceRecord>(attendanceQuery);
 
@@ -100,14 +98,14 @@ export default function EmployeeAttendancePage() {
       }
     });
   };
-
+  
   const requestApproval = (date: Date) => {
     if (!user || !storeId) return;
     const dateStr = format(date, 'yyyy-MM-dd');
     
     startProcessing(async() => {
         try {
-            await addDoc(collection(firestore, 'stores', storeId, 'attendance'), {
+            await addDoc(collection(firestore, `stores/${storeId}/attendance`), {
                 employeeId: user.uid,
                 storeId,
                 workDate: dateStr,
@@ -118,6 +116,7 @@ export default function EmployeeAttendancePage() {
             });
             if (refetch) refetch();
             toast({ title: 'Request Sent', description: 'Your manager has been notified to approve your attendance for ' + dateStr });
+            setSelectedDate(undefined);
         } catch(e) {
             toast({ variant: 'destructive', title: 'Request Failed', description: 'Could not send the approval request.' });
         }
@@ -147,57 +146,21 @@ export default function EmployeeAttendancePage() {
         </div>
     );
   }
-
-  const DayWithStatus = ({ date }: { date: Date }) => {
-    const record = records?.find(r => isSameDay(new Date(r.workDate), date));
-    const status = record?.status;
-
-    let statusIndicator = null;
-    let tooltipContent = format(date, "PPP");
-    
-    if (status === 'present' || status === 'approved') {
-      statusIndicator = <Circle className="h-2 w-2 text-green-500 fill-green-500" />;
-      tooltipContent = `Present. In: ${record?.punchInTime ? format((record.punchInTime as any).toDate(), 'p') : 'N/A'}, Out: ${record?.punchOutTime ? format((record.punchOutTime as any).toDate(), 'p') : 'N/A'}`;
-    } else if (status === 'pending_approval') {
-      statusIndicator = <Circle className="h-2 w-2 text-yellow-500 fill-yellow-500" />;
-      tooltipContent = "Pending Approval";
-    } else if (status === 'rejected' || status === 'absent') {
-      statusIndicator = <Circle className="h-2 w-2 text-red-500 fill-red-500" />;
-       tooltipContent = "Absent";
-    }
-
-    // Missed punch-in for past days
-    const isPast = date < new Date() && !isSameDay(date, new Date());
-    const showRequestButton = isPast && !record;
-
-    return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="relative">
-                {statusIndicator && <div className="absolute top-1 right-1">{statusIndicator}</div>}
-                 {showRequestButton ? (
-                    <Button variant="ghost" size="sm" className="h-auto w-full text-xs text-blue-600" onClick={() => requestApproval(date)}>
-                        Request
-                    </Button>
-                ) : (
-                    format(date, 'd')
-                )}
-            </div>
-          </TooltipTrigger>
-          <TooltipContent><p>{tooltipContent}</p></TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  };
   
+  const selectedRecord = useMemo(() => {
+    if (!selectedDate || !records) return null;
+    return records.find(r => isSameDay(new Date(r.workDate), selectedDate));
+  }, [selectedDate, records]);
+
+  const canRequestApproval = selectedDate && isPast(selectedDate) && !isToday(selectedDate) && !selectedRecord;
+
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
       <Card>
           <CardHeader>
             <CardTitle className="text-2xl font-bold mb-2">Employee Attendance</CardTitle>
             <CardDescription>
-                Punch in daily and track your monthly attendance. For missed days, click "Request" on the calendar date.
+                Punch in daily and track your monthly attendance. For missed days, click the date on the calendar to request approval.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -222,69 +185,58 @@ export default function EmployeeAttendancePage() {
                   </Button>
               </div>
 
-              <div className="flex justify-center">
-                  <Calendar
-                    mode="single"
-                    month={currentMonth}
-                    onMonthChange={setCurrentMonth}
-                    components={{
-                        Day: ({ date }) => <DayWithStatus date={date} />,
-                    }}
-                    className="rounded-md border"
+              <div className="grid md:grid-cols-2 gap-8 items-start">
+                 <div className="flex justify-center">
+                    <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        disabled={date => date > new Date()}
+                        modifiers={{
+                            present: date => records?.some(r => isSameDay(new Date(r.workDate), date) && r.status === 'present') || false,
+                            approved: date => records?.some(r => isSameDay(new Date(r.workDate), date) && r.status === 'approved') || false,
+                            pending: date => records?.some(r => isSameDay(new Date(r.workDate), date) && r.status === 'pending_approval') || false,
+                            absent: date => records?.some(r => isSameDay(new Date(r.workDate), date) && r.status === 'absent') || false,
+                            rejected: date => records?.some(r => isSameDay(new Date(r.workDate), date) && r.status === 'rejected') || false,
+                        }}
+                        modifiersClassNames={{
+                            present: 'bg-green-100 text-green-800',
+                            approved: 'bg-green-100 text-green-800',
+                            pending: 'bg-yellow-100 text-yellow-800',
+                            absent: 'bg-red-100 text-red-800',
+                            rejected: 'bg-red-100 text-red-800',
+                        }}
+                        className="rounded-md border"
                     />
-              </div>
-
-              <div>
-                <h2 className="text-lg font-semibold mb-4">This Month's Records</h2>
-                 {recordsLoading ? (
-                    <div className="space-y-2">
-                        <Skeleton className="h-12 w-full" />
-                        <Skeleton className="h-12 w-full" />
-                    </div>
-                ) : (
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Date</TableHead>
-                                <TableHead>Punch In</TableHead>
-                                <TableHead>Punch Out</TableHead>
-                                <TableHead>Work Hours</TableHead>
-                                <TableHead className="text-right">Status</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {records && records.length > 0 ? records.map(record => (
-                                <TableRow key={record.id}>
-                                    <TableCell className="font-medium">{record.workDate}</TableCell>
-                                    <TableCell>
-                                        {record.punchInTime ? format((record.punchInTime as any).toDate ? (record.punchInTime as any).toDate() : new Date(record.punchInTime), 'p') : '—'}
-                                    </TableCell>
-                                    <TableCell>
-                                        {record.punchOutTime ? format((record.punchOutTime as any).toDate ? (record.punchOutTime as any).toDate() : new Date(record.punchOutTime), 'p') : '—'}
-                                    </TableCell>
-                                    <TableCell>
-                                        {record.workHours > 0 ? record.workHours.toFixed(2) : '—'}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <Badge variant={(record.status === 'present' || record.status === 'approved') ? 'default' : record.status === 'pending_approval' ? 'secondary' : 'destructive'}>
-                                            {record.status.replace('_', ' ')}
-                                        </Badge>
-                                    </TableCell>
-                                </TableRow>
-                            )) : (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center text-muted-foreground">
-                                        No attendance records found for this month.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                )}
+                 </div>
+                 
+                  <div className="p-4 rounded-lg bg-muted/50 h-full">
+                    <h3 className="font-semibold text-lg mb-2">Details for {selectedDate ? format(selectedDate, "PPP") : "Today"}</h3>
+                     {selectedRecord ? (
+                        <div className="space-y-3">
+                            <p><strong>Status:</strong> <Badge variant={selectedRecord.status === 'present' || selectedRecord.status === 'approved' ? 'default' : 'destructive'}>{selectedRecord.status.replace('_', ' ')}</Badge></p>
+                            <p><strong>Punch In:</strong> {selectedRecord.punchInTime ? format((selectedRecord.punchInTime as any).toDate(), 'p') : '—'}</p>
+                            <p><strong>Punch Out:</strong> {selectedRecord.punchOutTime ? format((selectedRecord.punchOutTime as any).toDate(), 'p') : '—'}</p>
+                            <p><strong>Work Hours:</strong> {selectedRecord.workHours > 0 ? selectedRecord.workHours.toFixed(2) : '—'}</p>
+                        </div>
+                     ) : canRequestApproval ? (
+                         <div className="space-y-3">
+                            <Alert>
+                               <Info className="h-4 w-4" />
+                                <AlertTitle>Missed Punch-in?</AlertTitle>
+                                <AlertDescription>You did not record attendance for this day.</AlertDescription>
+                            </Alert>
+                             <Button onClick={() => requestApproval(selectedDate!)} disabled={isProcessing} className="w-full">
+                                Request Approval for this Day
+                             </Button>
+                         </div>
+                     ) : (
+                        <p className="text-sm text-muted-foreground mt-4">No record for this day.</p>
+                     )}
+                 </div>
               </div>
           </CardContent>
       </Card>
     </div>
   );
 }
-
