@@ -105,7 +105,8 @@ service cloud.firestore {
     match /stores/{storeId}/attendance/{recordId} {
       
       // A store owner can read any record in their store.
-      allow get, list: if isStoreOwner(storeId);
+      // An employee can read their own records (needed for their view).
+      allow get, list: if isStoreOwner(storeId) || (request.auth != null && request.query.where[0][2] == request.auth.uid);
       
       // Employee creates their own attendance record
       allow create: if
@@ -129,7 +130,7 @@ service cloud.firestore {
       allow delete: if false;
     }
     
-    // Employee can read ONLY their own attendance records across all stores.
+    // Employee can read ONLY their own attendance records across all stores via collectionGroup
     match /{path=**}/attendance/{recordId} {
        allow read: if request.auth != null && resource.data.employeeId == request.auth.uid;
     }
@@ -270,5 +271,3 @@ service cloud.firestore {
     }
   }
 }
-
-    

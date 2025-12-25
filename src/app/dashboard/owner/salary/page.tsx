@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Calendar as CalendarIcon, Loader2, FileText, CheckCircle, XCircle, Eye } from 'lucide-react';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth, differenceInCalendarDays } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -437,5 +437,3 @@ export default function SalaryReportsPage() {
         </div>
     );
 }
-
-    
