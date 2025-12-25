@@ -28,7 +28,7 @@ export default function EmployeeAttendancePage() {
   const [isProcessing, startProcessing] = useTransition();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   
-  const employeeProfileRef = useMemoFirebase(() => (user ? doc(firestore, 'employeeProfiles', user.uid) : null), [user?.uid, firestore]);
+  const employeeProfileRef = useMemoFirebase(() => (user ? doc(firestore, 'employeeProfiles', user.uid) : undefined), [user, firestore]);
   const { data: employeeProfile, isLoading: profileLoading } = useDoc<EmployeeProfile>(employeeProfileRef);
   
   const storeId = employeeProfile?.storeId;
@@ -260,8 +260,8 @@ export default function EmployeeAttendancePage() {
                         modifiersClassNames={{
                             present: 'day-present',
                             partially_present: 'bg-yellow-100 text-yellow-800',
-                            approved: 'bg-green-100 text-green-800',
                             pending: 'bg-yellow-100 text-yellow-800',
+                            approved: 'bg-green-100 text-green-800',
                             rejected: 'bg-red-100 text-red-800',
                         }}
                         className="rounded-md border"
