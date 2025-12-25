@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -107,6 +108,10 @@ service cloud.firestore {
       // and allow a store owner to read any record in their store.
       allow get: if isOwner(resource.data.employeeId) || isStoreOwner(storeId);
 
+      // Allow a store owner to list all attendance records for their store.
+      // An employee can only list their own records.
+      allow list: if isStoreOwner(storeId) || request.auth.uid == request.query.where.value[2];
+
       // Employee creates their own attendance record
       allow create: if
         isOwner(request.resource.data.employeeId)
@@ -131,16 +136,8 @@ service cloud.firestore {
       allow delete: if false;
     }
     
-    // 🔥 NEW RULE for Collection Group Query
-    // This allows collectionGroup queries to work securely.
-    // It verifies that any document returned either belongs to the
-    // employee making the request OR belongs to a store owned by the requester.
-    match /{path=**}/attendance/{recordId} {
-      allow read: if request.auth != null && (
-        resource.data.employeeId == request.auth.uid ||
-        isStoreOwner(resource.data.storeId)
-      );
-    }
+    // 🔥 REMOVED Collection Group Query Rule, as it's no longer needed
+    // and was causing issues. The more specific rule above is safer.
 
 
     /* ======================

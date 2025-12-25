@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useTransition, useCallback } from 'react';
-import { collection, query, where, addDoc, serverTimestamp, getDocs, orderBy, updateDoc, doc, Timestamp, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, addDoc, serverTimestamp, getDocs, orderBy, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { format, differenceInMinutes, startOfMonth, endOfMonth, isSameDay, isPast, isToday } from 'date-fns';
 import type { AttendanceRecord, EmployeeProfile, Store } from '@/lib/types';
@@ -35,13 +35,13 @@ export default function EmployeeAttendancePage() {
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   const attendanceQuery = useMemoFirebase(() => {
-    if (!user || !firestore) return null;
+    if (!user || !firestore || !storeId) return null;
     return query(
-      collectionGroup(firestore, 'attendance'),
+      collection(firestore, `stores/${storeId}/attendance`),
       where('employeeId', '==', user.uid),
       orderBy('workDate', 'desc')
     );
-  }, [user, firestore]);
+  }, [user, firestore, storeId]);
 
   const { data: records, setData: setRecords, isLoading: recordsLoading } = useCollection<AttendanceRecord>(attendanceQuery);
   const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
