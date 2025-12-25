@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useEffect, useState, useMemo, useTransition } from 'react';
@@ -36,11 +35,12 @@ export default function EmployeeAttendancePage() {
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   const attendanceQuery = useMemoFirebase(() => {
-    if (!user || !storeId) return null;
+    if (!user || !storeId || !firestore) return null;
     
     return query(
       collection(firestore, 'stores', storeId, 'attendance'),
-      where('employeeId', '==', user.uid)
+      where('employeeId', '==', user.uid),
+      orderBy('workDate', 'desc')
     );
   }, [user, storeId, firestore]);
 
@@ -61,7 +61,7 @@ export default function EmployeeAttendancePage() {
   const canRequestApproval = selectedDate && isPast(selectedDate) && !isToday(selectedDate) && !selectedRecord;
 
   const punchIn = async () => {
-    if (!user || !storeId) return;
+    if (!user || !storeId || !firestore) return;
 
     startProcessing(async () => {
         const newRecordData = {
@@ -111,7 +111,7 @@ export default function EmployeeAttendancePage() {
   };
   
   const requestApproval = () => {
-    if (!user || !storeId || !selectedDate || !approvalReason.trim()) {
+    if (!user || !storeId || !selectedDate || !approvalReason.trim() || !firestore) {
         toast({ variant: 'destructive', title: 'Reason Required', description: 'Please provide a reason for your absence.' });
         return;
     };

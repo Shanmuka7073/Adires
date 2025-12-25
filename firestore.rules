@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -103,16 +104,16 @@ service cloud.firestore {
 
     match /stores/{storeId}/attendance/{recordId} {
 
-      // CORRECTED RULE: Split get and list.
-      // `get` can use resource.data.
+      // CORRECTED RULE: An employee can get their own record. A store owner can see all.
       allow get: if
         isStoreOwner(storeId)
-        || request.auth.uid == resource.data.employeeId;
+        || isOwner(resource.data.employeeId);
 
-      // `list` MUST use request.query to be secure.
+      // CORRECTED RULE: An employee can query for their own records.
+      // The client query must include `where('employeeId', '==', user.uid)`.
       allow list: if
         isStoreOwner(storeId)
-        || (request.query.employeeId is string && request.auth.uid == request.query.employeeId);
+        || isOwner(request.query.employeeId);
 
       // Employee creates their own attendance
       allow create: if
