@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Calendar as CalendarIcon, Loader2, FileText, CheckCircle, XCircle, Eye } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, differenceInCalendarDays, getDaysInMonth, isSameDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, differenceInCalendarDays, getDaysInMonth, isSameDay, isPast, isToday } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -198,7 +198,7 @@ function GeneratedSlipsList({ employee, myStore }: { employee: EmployeeProfile, 
                                     <TableCell className="font-bold">₹{slip.netPay.toFixed(2)}</TableCell>
                                     <TableCell className="text-right">
                                         <Button asChild variant="outline" size="sm">
-                                            <Link href={`/dashboard/salary-slip/${slip.id}`}>
+                                            <Link href={`/dashboard/salary-slip/${slip.id}`} target="_blank">
                                                 <Eye className="mr-2 h-4 w-4" />
                                                 View Slip
                                             </Link>
@@ -283,8 +283,7 @@ export default function SalaryReportsPage() {
             const perDaySalary = selectedEmployee.salaryRate / workingDaysInMonth;
             const payableDays = presentOrApprovedRecords.length;
             baseSalary = perDaySalary * payableDays;
-            // For monthly salary, total hours might be less relevant, but we can still sum it
-            totalHours = presentOrApprovedRecords.reduce((acc, record) => acc + (record.workHours || 0), 0);
+            totalHours = presentOrApprovedRecords.reduce((acc, record) => acc + (record.workHours || 8), 0); // Default to 8 for approved absences
         } else { // hourly
             totalHours = presentOrApprovedRecords.reduce((acc, record) => acc + (record.workHours || 0), 0);
             baseSalary = totalHours * selectedEmployee.salaryRate;
@@ -306,6 +305,8 @@ export default function SalaryReportsPage() {
         }
         
         startGeneration(async () => {
+            const slipId = `${selectedEmployee.userId}_${format(dateRange.from!, 'yyyy-MM')}`;
+            const slipRef = doc(firestore, `stores/${myStore.id}/salarySlips`, slipId);
             const slipData: Omit<SalarySlip, 'id' | 'generatedAt'> & { generatedAt: any } = {
                 employeeId: selectedEmployee.userId,
                 storeId: myStore.id,
@@ -318,13 +319,14 @@ export default function SalaryReportsPage() {
                 netPay: reportData.netPay,
                 generatedAt: serverTimestamp(),
             };
-            
-            const slipId = `${selectedEmployee.userId}_${format(dateRange.from!, 'yyyy-MM')}`;
-            const slipRef = doc(firestore, `stores/${myStore.id}/salarySlips`, slipId);
 
             try {
-                await setDoc(slipRef, slipData, { merge: true });
+                await setDoc(slipRef, { ...slipData, id: slipId }, { merge: true });
                 toast({ title: 'Salary Slip Generated!', description: `A slip for ${selectedEmployee.role} for ${format(dateRange.from!, 'MMMM yyyy')} has been saved.` });
+                
+                // Open the new slip in a new tab for printing/downloading
+                window.open(`/dashboard/salary-slip/${slipId}`, '_blank');
+                
             } catch (error) {
                 console.error("Manual generation of salary slip failed:", error);
                  const permissionError = new FirestorePermissionError({
@@ -444,7 +446,7 @@ export default function SalaryReportsPage() {
                             <CardFooter>
                                 <Button className="w-full" onClick={handleGenerateSlip} disabled={isGenerating}>
                                     {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                                    Generate & Save Salary Slip
+                                    Generate & Download Slip
                                 </Button>
                             </CardFooter>
                         </Card>
@@ -454,4 +456,3 @@ export default function SalaryReportsPage() {
         </div>
     );
 }
-

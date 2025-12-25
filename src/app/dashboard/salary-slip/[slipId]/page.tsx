@@ -4,7 +4,7 @@
 import { useMemo, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, getDoc, collection, query, where } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import type { SalarySlip, EmployeeProfile, Store, AttendanceRecord } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import QRCode from 'qrcode.react';
@@ -12,6 +12,16 @@ import { format, getDaysInMonth } from 'date-fns';
 
 function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: SalarySlip, employee: EmployeeProfile, store: Store, attendance: any }) {
     
+    // Auto-print on mount
+    useEffect(() => {
+        // A short delay ensures the content is rendered before printing
+        const timeoutId = setTimeout(() => {
+            window.print();
+        }, 500);
+
+        return () => clearTimeout(timeoutId);
+    }, []);
+
     const gross = slip.baseSalary + slip.overtimePay;
     const totalDeduction = slip.deductions;
     const netPay = slip.netPay;
@@ -64,7 +74,7 @@ function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: Salary
             {/* EMPLOYEE INFO */}
             <div className="grid grid-cols-2 gap-4 mb-6">
                 <div>
-                <p><b>Employee Name:</b> {employee.firstName} {employee.lastName}</p>
+                <p><b>Employee Name:</b> {employee.role} ({employee.employeeId})</p>
                 <p><b>Employee ID:</b> {employee.employeeId}</p>
                 <p><b>Designation:</b> {employee.role}</p>
                 </div>
@@ -157,13 +167,6 @@ export default function SalarySlipPage() {
     const { slipId } = useParams<{ slipId: string }>();
     const { user, firestore } = useFirebase();
 
-    const slipDocRef = useMemoFirebase(() => {
-        if (!firestore || !slipId) return null;
-        // This query is a bit tricky, as we don't know the storeId from the URL.
-        // For now, we assume the user is an employee and use their profile to find the store.
-        return doc(firestore, `stores/${user?.uid}/salarySlips/${slipId}`); // This path might be wrong.
-    }, [firestore, slipId, user]);
-    
     const [slip, setSlip] = useState<SalarySlip | null>(null);
     const [employee, setEmployee] = useState<EmployeeProfile | null>(null);
     const [store, setStore] = useState<Store | null>(null);
@@ -172,19 +175,27 @@ export default function SalarySlipPage() {
 
     useEffect(() => {
         async function fetchData() {
-            if (!firestore || !user) return;
+            if (!firestore || !user || !slipId) {
+                setIsLoading(false);
+                return;
+            }
             setIsLoading(true);
 
-            // 1. Get employee profile
+            // Since we don't know the storeId from the URL and need it for the path,
+            // we first fetch the employee's profile to find their store.
             const empProfileSnap = await getDoc(doc(firestore, 'employeeProfiles', user.uid));
             if (!empProfileSnap.exists()) {
+                // If the current user isn't an employee, check if they are a store owner
+                // trying to view a slip. This logic would be more complex and require
+                // a collectionGroup query on salarySlips, which we avoid for stability.
+                // For now, we assume only employees can view their own slips this way.
                 setIsLoading(false);
                 return;
             }
             const empData = empProfileSnap.data() as EmployeeProfile;
             setEmployee(empData);
             
-            // 2. Use storeId from profile to find the slip
+            // Now we have the storeId to build the correct path to the salary slip.
             const correctSlipRef = doc(firestore, `stores/${empData.storeId}/salarySlips`, slipId);
             const slipSnap = await getDoc(correctSlipRef);
             if (!slipSnap.exists()) {
@@ -194,16 +205,16 @@ export default function SalarySlipPage() {
             const slipData = slipSnap.data() as SalarySlip;
             setSlip(slipData);
             
-            // 3. Get Store data
+            // Fetch Store data using the storeId from the employee's profile.
             const storeSnap = await getDoc(doc(firestore, 'stores', empData.storeId));
             if (storeSnap.exists()) {
                 setStore(storeSnap.data() as Store);
             }
 
-            // 4. Get attendance summary for the period
+            // Fetch the attendance summary for the slip's period.
             const attendanceQuery = query(
                 collection(firestore, `stores/${empData.storeId}/attendance`),
-                where('employeeId', '==', user.uid),
+                where('employeeId', '==', slipData.employeeId), // Use employeeId from slip for correctness
                 where('workDate', '>=', slipData.periodStart),
                 where('workDate', '<=', slipData.periodEnd)
             );
