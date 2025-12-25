@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useTransition, useCallback, useEffect } from 'react';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc, collectionGroup } from 'firebase/firestore';
 import type { Store, EmployeeProfile, AttendanceRecord, SalarySlip } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -166,13 +166,14 @@ export default function SalaryReportsPage() {
     const attendanceQuery = useMemoFirebase(() => {
         if (!myStore || !selectedEmployeeId || !dateRange?.from || !dateRange?.to) return null;
         return query(
-            collection(firestore, `stores/${myStore.id}/attendance`),
+            collectionGroup(firestore, `attendance`),
             where('employeeId', '==', selectedEmployeeId),
             where('workDate', '>=', format(dateRange.from, 'yyyy-MM-dd')),
             where('workDate', '<=', format(dateRange.to, 'yyyy-MM-dd')),
             orderBy('workDate', 'desc')
         );
-    }, [myStore, selectedEmployeeId, dateRange]);
+    }, [myStore, selectedEmployeeId, dateRange, firestore]);
+
     const { data: attendanceRecords, isLoading: attendanceLoading } = useCollection<AttendanceRecord>(attendanceQuery);
 
     const selectedEmployee = useMemo(() => employees?.find(e => e.userId === selectedEmployeeId), [employees, selectedEmployeeId]);
@@ -202,8 +203,6 @@ export default function SalaryReportsPage() {
             if (!myStore || !selectedEmployee || !reportData || !dateRange?.from || !dateRange?.to || !firestore) {
                 return;
             }
-
-            // CRITICAL FIX: Only generate a slip if there is a salary to be paid.
             if (reportData.baseSalary <= 0) {
                 console.log(`Skipping salary slip for ${selectedEmployee.userId} as base salary is zero.`);
                 return;
@@ -313,13 +312,14 @@ export default function SalaryReportsPage() {
                                     <p className="text-muted-foreground">No attendance records found for this period.</p>
                                 ) : (
                                     <Table>
-                                        <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Punch In</TableHead><TableHead>Punch Out</TableHead><TableHead className="text-right">Status</TableHead></TableRow></TableHeader>
+                                        <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Punch In</TableHead><TableHead>Punch Out</TableHead><TableHead>Work Hours</TableHead><TableHead className="text-right">Status</TableHead></TableRow></TableHeader>
                                         <TableBody>
                                             {reportData.records.map(rec => (
                                                 <TableRow key={rec.id}>
                                                     <TableCell>{format(new Date(rec.workDate), 'PPP')}</TableCell>
                                                     <TableCell>{rec.punchInTime ? format((rec.punchInTime as any).toDate(), 'p') : 'N/A'}</TableCell>
                                                     <TableCell>{rec.punchOutTime ? format((rec.punchOutTime as any).toDate(), 'p') : 'N/A'}</TableCell>
+                                                    <TableCell>{rec.workHours > 0 ? rec.workHours.toFixed(2) : '-'}</TableCell>
                                                     <TableCell className="text-right font-mono capitalize">{rec.status.replace('_', ' ')}</TableCell>
                                                 </TableRow>
                                             ))}

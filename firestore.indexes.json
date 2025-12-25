@@ -127,10 +127,7 @@
       "collectionGroup": "attendance",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        }
+        { "fieldPath": "status", "order": "ASCENDING" }
       ]
     }
   ],
