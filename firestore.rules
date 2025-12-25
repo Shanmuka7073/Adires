@@ -102,12 +102,10 @@ service cloud.firestore {
        ====================== */
 
     match /stores/{storeId}/attendance/{recordId} {
-
-      // An employee can read/get their own specific record
-      allow get: if isOwner(resource.data.employeeId);
       
-      // Store owner can see all attendance for their store
-      allow list: if isStoreOwner(storeId);
+      // Allow an employee to read their own specific record,
+      // and allow a store owner to read any record in their store.
+      allow get: if isOwner(resource.data.employeeId) || isStoreOwner(storeId);
 
       // Employee creates their own attendance record
       allow create: if
@@ -134,9 +132,14 @@ service cloud.firestore {
     }
     
     // 🔥 NEW RULE for Collection Group Query
+    // This allows collectionGroup queries to work securely.
+    // It verifies that any document returned either belongs to the
+    // employee making the request OR belongs to a store owned by the requester.
     match /{path=**}/attendance/{recordId} {
-      // Employees can query for their own attendance records across all stores.
-      allow list: if request.query.limit <= 31 && request.auth.uid == request.query.employeeId;
+      allow read: if request.auth != null && (
+        resource.data.employeeId == request.auth.uid ||
+        isStoreOwner(resource.data.storeId)
+      );
     }
 
 
