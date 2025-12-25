@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Dispatch, SetStateAction } from 'react';
 import {
   Query,
   onSnapshot,
@@ -24,6 +24,7 @@ export type WithId<T> = T & { id: string };
  */
 export interface UseCollectionResult<T> {
   data: WithId<T>[] | null; // Document data with ID, or null.
+  setData: Dispatch<SetStateAction<WithId<T>[] | null>>; // Expose setData
   isLoading: boolean;       // True if loading.
   error: FirestoreError | Error | null; // Error object, or null.
   refetch: () => void; // Function to manually trigger a re-fetch
@@ -143,5 +144,5 @@ export function useCollection<T = any>(
     throw new Error(memoizedTargetRefOrQuery + ' was not properly memoized using useMemoFirebase');
   }
 
-  return { data, isLoading, error, refetch };
+  return { data, setData, isLoading, error, refetch };
 }

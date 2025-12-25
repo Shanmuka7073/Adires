@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo, useTransition } from 'react';
 import { collection, query, where, addDoc, serverTimestamp, getDocs, orderBy, updateDoc, doc, limit } from 'firebase/firestore';
-import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { format } from 'date-fns';
 import type { AttendanceRecord, EmployeeProfile, Store } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -37,7 +37,7 @@ export default function EmployeeAttendancePage() {
     );
   }, [user, storeId, firestore]);
 
-  const { data: records, isLoading: recordsLoading, refetch: refetchAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
+  const { data: records, setData: setRecords, isLoading: recordsLoading, refetch: refetchAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
 
   const todaysRecord = useMemo(() => {
     return records?.find(record => record.workDate === todayStr);
@@ -48,17 +48,26 @@ export default function EmployeeAttendancePage() {
 
     startProcessing(async () => {
         try {
-            await addDoc(collection(firestore, 'stores', storeId, 'attendance'), {
+            const newRecordData = {
                 employeeId: user.uid,
                 storeId,
                 workDate: todayStr,
                 punchInTime: serverTimestamp(),
                 punchOutTime: null,
                 status: 'present',
-                workHours: 0
-            });
+                workHours: 0,
+            };
+            const newDocRef = await addDoc(collection(firestore, 'stores', storeId, 'attendance'), newRecordData);
+            
+            // Immediately update local state
+            const optimisticRecord: AttendanceRecord = {
+                ...newRecordData,
+                id: newDocRef.id,
+                punchInTime: new Date(), // Use client time for immediate UI update
+            };
+            setRecords(prevRecords => [optimisticRecord, ...(prevRecords || [])]);
+
             toast({ title: 'Punched In!', description: 'Your shift has started.' });
-            refetchAttendance(); // Manually trigger a refetch
         } catch(e) {
             console.error("Punch in failed: ", e);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not punch in.' });
@@ -75,8 +84,13 @@ export default function EmployeeAttendancePage() {
         await updateDoc(recordRef, {
             punchOutTime: serverTimestamp()
         });
+        
+         // Immediately update local state
+        setRecords(prevRecords => prevRecords?.map(rec => 
+            rec.id === todaysRecord.id ? { ...rec, punchOutTime: new Date() } : rec
+        ) || null);
+        
         toast({ title: 'Punched Out!', description: 'Your shift has ended.' });
-        refetchAttendance(); // Manually trigger a refetch
       } catch (e) {
         console.error("Punch out failed: ", e);
         toast({ variant: 'destructive', title: 'Error', description: 'Could not punch out.' });
@@ -86,7 +100,7 @@ export default function EmployeeAttendancePage() {
 
   const isLoading = isUserLoading || profileLoading || recordsLoading;
 
-  if (isLoading) {
+  if (isLoading && !records) {
     return (
         <div className="p-6 max-w-4xl mx-auto space-y-6">
             <Skeleton className="h-10 w-1/3" />
@@ -156,10 +170,10 @@ export default function EmployeeAttendancePage() {
                             <TableRow key={record.id}>
                                 <TableCell className="font-medium">{record.workDate}</TableCell>
                                 <TableCell>
-                                    {record.punchInTime ? format(record.punchInTime.toDate(), 'p') : '—'}
+                                    {record.punchInTime ? format((record.punchInTime as any).toDate ? (record.punchInTime as any).toDate() : record.punchInTime, 'p') : '—'}
                                 </TableCell>
                                 <TableCell>
-                                    {record.punchOutTime ? format(record.punchOutTime.toDate(), 'p') : '—'}
+                                    {record.punchOutTime ? format((record.punchOutTime as any).toDate ? (record.punchOutTime as any).toDate() : record.punchOutTime, 'p') : '—'}
                                 </TableCell>
                                 <TableCell className="text-right">
                                      <Badge variant={record.status === 'present' || record.status === 'approved' ? 'default' : 'destructive'}>
