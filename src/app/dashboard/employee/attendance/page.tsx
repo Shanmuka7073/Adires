@@ -28,20 +28,20 @@ export default function EmployeeAttendancePage() {
   const [isProcessing, startProcessing] = useTransition();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   
-  const employeeProfileRef = useMemoFirebase(() => (user ? doc(firestore, 'employeeProfiles', user.uid) : null), [user, firestore]);
+  const employeeProfileRef = useMemoFirebase(() => (user ? doc(firestore, 'employeeProfiles', user.uid) : null), [user?.uid, firestore]);
   const { data: employeeProfile, isLoading: profileLoading } = useDoc<EmployeeProfile>(employeeProfileRef);
   
   const storeId = employeeProfile?.storeId;
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   const attendanceQuery = useMemoFirebase(() => {
-    if (!user || !firestore) return null;
+    if (!user?.uid || !firestore) return undefined;
     return query(
       collectionGroup(firestore, `attendance`),
       where('employeeId', '==', user.uid),
       orderBy('workDate', 'desc')
     );
-  }, [user, firestore]);
+  }, [user?.uid, firestore]);
 
   const { data: records, setData: setRecords, isLoading: recordsLoading } = useCollection<AttendanceRecord>(attendanceQuery);
   const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
@@ -277,7 +277,7 @@ export default function EmployeeAttendancePage() {
                             <p><strong>Punch Out:</strong> {selectedRecord.punchOutTime ? format((selectedRecord.punchOutTime as any).toDate ? (selectedRecord.punchOutTime as any).toDate() : new Date(selectedRecord.punchOutTime as any), 'p') : '—'}</p>
                             <p><strong>Work Hours:</strong> {selectedRecord.workHours > 0 ? selectedRecord.workHours.toFixed(2) : '—'}</p>
                              {selectedRecord.reason && <p><strong>Reason:</strong> {selectedRecord.reason}</p>}
-                             {selectedRecord.status === 'partially_present' && !selectedRecord.reason && (
+                             {selectedRecord.status === 'partially_present' && !selectedRecord.reason && selectedRecord.workHours > 0 && (
                                 <Button onClick={() => openRequestDialog(true)} disabled={isProcessing} className="w-full mt-2">
                                     Request Regularization
                                 </Button>

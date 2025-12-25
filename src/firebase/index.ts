@@ -3,7 +3,7 @@
 import { getClientFirebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 // Keep a client-side cache of the initialized app
@@ -30,7 +30,10 @@ export function getSdks(firebaseApp: FirebaseApp) {
   return {
     firebaseApp,
     auth: getAuth(firebaseApp),
-    firestore: getFirestore(firebaseApp),
+    firestore: initializeFirestore(firebaseApp, {
+        ignoreUndefinedProperties: true,
+        experimentalForceLongPolling: true,
+    }),
     storage: getStorage(firebaseApp), // Initialize and export storage
   };
 }
