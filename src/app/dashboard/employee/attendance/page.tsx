@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo, useTransition, useCallback } from 'react';
 import { collection, query, where, addDoc, serverTimestamp, getDocs, orderBy, updateDoc, doc, Timestamp, collectionGroup } from 'firebase/firestore';
-import { useFirebase, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { format, differenceInMinutes, startOfMonth, endOfMonth, isSameDay, isPast, isToday } from 'date-fns';
 import type { AttendanceRecord, EmployeeProfile, Store } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -72,6 +72,7 @@ export default function EmployeeAttendancePage() {
             punchOutTime: null,
             status: 'partially_present',
             workHours: 0,
+            reason: ''
         };
         try {
             const docRef = await addDoc(collection(firestore, 'stores', storeId, 'attendance'), newRecordData);
@@ -137,10 +138,10 @@ export default function EmployeeAttendancePage() {
                 setRecords(prev => prev?.map(r => r.id === selectedRecord.id ? { ...r, status: 'pending_approval', reason: approvalReason.trim() } : r) || null);
                 toast({ title: 'Regularization Requested', description: 'Your request has been sent to your manager.' });
             } else {
-                const newRequestData = {
+                const newRequestData: Omit<AttendanceRecord, 'id'> = {
                     employeeId: user.uid, storeId, workDate: dateStr,
                     punchInTime: null, punchOutTime: null,
-                    status: 'pending_approval' as const, workHours: 0,
+                    status: 'pending_approval', workHours: 0,
                     reason: approvalReason.trim(),
                 };
                 const docRef = await addDoc(collection(firestore, `stores/${storeId}/attendance`), newRequestData);
