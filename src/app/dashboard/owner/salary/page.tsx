@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, useTransition, useCallback, useEffect } from 'react';
-import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc } from 'firebase/firestore';
 import type { Store, EmployeeProfile, AttendanceRecord, SalarySlip } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Calendar as CalendarIcon, Loader2, FileText, CheckCircle, XCircle } from 'lucide-react';
+import { Calendar as CalendarIcon, Loader2, FileText, CheckCircle, XCircle, Eye } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
@@ -19,6 +19,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { FirestorePermissionError, errorEmitter } from '@/firebase';
+import Link from 'next/link';
 
 
 function ApprovalRequests({ storeId }: { storeId: string }) {
@@ -147,6 +149,65 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
     );
 }
 
+function GeneratedSlipsList({ employee, myStore, dateRange }: { employee: EmployeeProfile, myStore: Store, dateRange?: DateRange }) {
+    const { firestore } = useFirebase();
+    
+    const slipsQuery = useMemoFirebase(() => {
+        if (!firestore || !myStore || !employee || !dateRange?.from) return null;
+        return query(
+            collection(firestore, `stores/${myStore.id}/salarySlips`),
+            where('employeeId', '==', employee.userId),
+            orderBy('periodStart', 'desc')
+        );
+    }, [firestore, myStore, employee, dateRange]);
+
+    const { data: slips, isLoading } = useCollection<SalarySlip>(slipsQuery);
+
+    return (
+         <Card>
+            <CardHeader>
+                <CardTitle>Generated Salary Slips</CardTitle>
+                <CardDescription>A list of all salary slips generated for {employee.role}.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                 {isLoading ? (
+                    <div className="space-y-2">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                ) : slips && slips.length > 0 ? (
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Pay Period</TableHead>
+                                <TableHead>Net Pay</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                         <TableBody>
+                            {slips.map(slip => (
+                                <TableRow key={slip.id}>
+                                    <TableCell>{format(new Date(slip.periodStart), 'MMMM yyyy')}</TableCell>
+                                    <TableCell className="font-bold">₹{slip.netPay.toFixed(2)}</TableCell>
+                                    <TableCell className="text-right">
+                                        <Button asChild variant="outline" size="sm">
+                                            <Link href={`/dashboard/salary-slip/${slip.id}`}>
+                                                <Eye className="mr-2 h-4 w-4" />
+                                                View Slip
+                                            </Link>
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                ) : (
+                    <p className="text-muted-foreground text-center">No salary slips have been generated for this employee yet.</p>
+                )}
+            </CardContent>
+        </Card>
+    )
+}
 
 export default function SalaryReportsPage() {
     const { user, firestore } = useFirebase();
@@ -307,8 +368,10 @@ export default function SalaryReportsPage() {
                     </div>
 
                     {selectedEmployeeId && (
+                        <>
+                        <GeneratedSlipsList employee={selectedEmployee!} myStore={myStore} dateRange={dateRange} />
                         <Card>
-                            <CardHeader><CardTitle>Attendance Details</CardTitle></CardHeader>
+                            <CardHeader><CardTitle>Attendance Details for Period</CardTitle></CardHeader>
                             <CardContent>
                                 {attendanceLoading ? <p>Loading attendance...</p> : !reportData?.records || reportData.records.length === 0 ? (
                                     <p className="text-muted-foreground">No attendance records found for this period.</p>
@@ -330,6 +393,7 @@ export default function SalaryReportsPage() {
                                 )}
                             </CardContent>
                         </Card>
+                        </>
                     )}
 
                     {reportData && reportData.baseSalary > 0 && (
@@ -350,5 +414,3 @@ export default function SalaryReportsPage() {
         </div>
     );
 }
-
-    
