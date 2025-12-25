@@ -38,14 +38,20 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
 
     const { data: requests, isLoading, refetch } = useCollection<AttendanceRecord>(requestsQuery);
 
-    const handleApproval = (recordId: string, isApproved: boolean) => {
+    const handleApproval = (record: AttendanceRecord, isApproved: boolean) => {
         if (!firestore || !storeId) return;
         
         startUpdate(async () => {
             const newStatus = isApproved ? 'approved' : 'rejected';
-            const recordRef = doc(firestore, `stores/${storeId}/attendance`, recordId);
+            const recordRef = doc(firestore, `stores/${storeId}/attendance`, record.id);
             // If approved, grant 8 hours. If rejected, it's 0.
-            const updateData = { status: newStatus, workHours: isApproved ? 8 : 0 };
+            const updateData: Partial<AttendanceRecord> = { status: newStatus };
+            if (isApproved) {
+                // If it's a regularization for a partially_present day, keep existing hours. Otherwise, grant 8.
+                updateData.workHours = record.workHours > 0 ? record.workHours : 8;
+            } else {
+                 updateData.workHours = 0;
+            }
 
             try {
               await updateDoc(recordRef, updateData);
@@ -134,10 +140,10 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
                                 <TableCell>{format(new Date(req.workDate), 'PPP')}</TableCell>
                                 <TableCell className="text-sm italic text-muted-foreground">{req.reason || "No reason given"}</TableCell>
                                 <TableCell className="text-right space-x-2">
-                                    <Button size="sm" variant="ghost" onClick={() => handleApproval(req.id, false)} disabled={isUpdating}>
+                                    <Button size="sm" variant="ghost" onClick={() => handleApproval(req, false)} disabled={isUpdating}>
                                         <XCircle className="mr-2 h-4 w-4 text-destructive" /> Reject
                                     </Button>
-                                    <Button size="sm" onClick={() => handleApproval(req.id, true)} disabled={isUpdating}>
+                                    <Button size="sm" onClick={() => handleApproval(req, true)} disabled={isUpdating}>
                                         <CheckCircle className="mr-2 h-4 w-4" /> Approve
                                     </Button>
                                 </TableCell>
@@ -268,19 +274,23 @@ export default function SalaryReportsPage() {
         if (!attendanceRecords || !selectedEmployee || !dateRange?.from) return null;
 
         const presentOrApprovedRecords = attendanceRecords.filter(r => r.status === 'present' || r.status === 'approved');
-
-        const totalHours = presentOrApprovedRecords.reduce((acc, record) => acc + (record.workHours || 0), 0);
+        
+        let totalHours = 0;
         let baseSalary = 0;
-
+        
         if (selectedEmployee.salaryType === 'monthly') {
             const workingDaysInMonth = getDaysInMonth(dateRange.from);
             const perDaySalary = selectedEmployee.salaryRate / workingDaysInMonth;
-            const workedDays = presentOrApprovedRecords.length;
-            baseSalary = perDaySalary * workedDays;
-        } else {
+            const payableDays = presentOrApprovedRecords.length;
+            baseSalary = perDaySalary * payableDays;
+            // For monthly salary, total hours might be less relevant, but we can still sum it
+            totalHours = presentOrApprovedRecords.reduce((acc, record) => acc + (record.workHours || 0), 0);
+        } else { // hourly
+            totalHours = presentOrApprovedRecords.reduce((acc, record) => acc + (record.workHours || 0), 0);
             baseSalary = totalHours * selectedEmployee.salaryRate;
         }
-        const netPay = baseSalary; // Add deductions/bonuses logic here in future
+
+        const netPay = baseSalary; // Future logic for deductions can go here
 
         return { totalHours, baseSalary, netPay, records: attendanceRecords };
     }, [attendanceRecords, selectedEmployee, dateRange]);
@@ -444,3 +454,4 @@ export default function SalaryReportsPage() {
         </div>
     );
 }
+
