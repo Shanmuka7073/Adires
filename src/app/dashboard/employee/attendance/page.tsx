@@ -4,7 +4,7 @@
 import { useEffect, useState, useMemo, useTransition } from 'react';
 import { collection, query, where, addDoc, serverTimestamp, getDocs, orderBy, updateDoc, doc } from 'firebase/firestore';
 import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { format } from 'date-fns';
+import { format, differenceInHours, differenceInMinutes } from 'date-fns';
 import type { AttendanceRecord, EmployeeProfile, Store } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,7 +37,7 @@ export default function EmployeeAttendancePage() {
     );
   }, [user, storeId, firestore]);
 
-  const { data: records, setData: setRecords, isLoading: recordsLoading, refetch: refetchAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
+  const { data: records, setData: setRecords, isLoading: recordsLoading } = useCollection<AttendanceRecord>(attendanceQuery);
 
   const todaysRecord = useMemo(() => {
     return records?.find(record => record.workDate === todayStr);
@@ -76,18 +76,26 @@ export default function EmployeeAttendancePage() {
   };
 
   const punchOut = async () => {
-    if (!user || !storeId || !todaysRecord) return;
+    if (!user || !storeId || !todaysRecord || !todaysRecord.punchInTime) return;
 
     startProcessing(async () => {
       const recordRef = doc(firestore, 'stores', storeId, 'attendance', todaysRecord.id);
+      
+      const punchInTime = (todaysRecord.punchInTime as any).toDate ? (todaysRecord.punchInTime as any).toDate() : new Date(todaysRecord.punchInTime);
+      const punchOutTime = new Date();
+      const hours = differenceInHours(punchOutTime, punchInTime);
+      const minutes = (differenceInMinutes(punchOutTime, punchInTime) % 60) / 60;
+      const workHours = hours + minutes;
+      
       try {
         await updateDoc(recordRef, {
-            punchOutTime: serverTimestamp()
+            punchOutTime: serverTimestamp(),
+            workHours: workHours
         });
         
          // Immediately update local state
         setRecords(prevRecords => prevRecords?.map(rec => 
-            rec.id === todaysRecord.id ? { ...rec, punchOutTime: new Date() } : rec
+            rec.id === todaysRecord.id ? { ...rec, punchOutTime: punchOutTime, workHours } : rec
         ) || null);
         
         toast({ title: 'Punched Out!', description: 'Your shift has ended.' });
@@ -162,6 +170,7 @@ export default function EmployeeAttendancePage() {
                             <TableHead>Date</TableHead>
                             <TableHead>Punch In</TableHead>
                             <TableHead>Punch Out</TableHead>
+                            <TableHead>Work Hours</TableHead>
                             <TableHead className="text-right">Status</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -170,10 +179,13 @@ export default function EmployeeAttendancePage() {
                             <TableRow key={record.id}>
                                 <TableCell className="font-medium">{record.workDate}</TableCell>
                                 <TableCell>
-                                    {record.punchInTime ? format((record.punchInTime as any).toDate ? (record.punchInTime as any).toDate() : record.punchInTime, 'p') : '—'}
+                                    {record.punchInTime ? format((record.punchInTime as any).toDate ? (record.punchInTime as any).toDate() : new Date(record.punchInTime), 'p') : '—'}
                                 </TableCell>
                                 <TableCell>
-                                    {record.punchOutTime ? format((record.punchOutTime as any).toDate ? (record.punchOutTime as any).toDate() : record.punchOutTime, 'p') : '—'}
+                                    {record.punchOutTime ? format((record.punchOutTime as any).toDate ? (record.punchOutTime as any).toDate() : new Date(record.punchOutTime), 'p') : '—'}
+                                </TableCell>
+                                <TableCell>
+                                    {record.workHours > 0 ? record.workHours.toFixed(2) : '—'}
                                 </TableCell>
                                 <TableCell className="text-right">
                                      <Badge variant={record.status === 'present' || record.status === 'approved' ? 'default' : 'destructive'}>
@@ -183,7 +195,7 @@ export default function EmployeeAttendancePage() {
                             </TableRow>
                         )) : (
                             <TableRow>
-                                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                                <TableCell colSpan={5} className="text-center text-muted-foreground">
                                     No attendance records found for this month.
                                 </TableCell>
                             </TableRow>
