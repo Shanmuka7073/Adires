@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Calendar as CalendarIcon, Loader2, FileText, CheckCircle, XCircle, Eye } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, differenceInCalendarDays } from 'date-fns';
+import { format, startOfMonth, endOfMonth, differenceInCalendarDays, getDaysInMonth } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -230,7 +230,6 @@ export default function SalaryReportsPage() {
 
     const selectedEmployee = useMemo(() => employees?.find(e => e.userId === selectedEmployeeId), [employees, selectedEmployeeId]);
 
-    // Manual fetch for attendance to avoid collectionGroup issues
     useEffect(() => {
         const fetchAttendance = async () => {
             if (!myStore || !selectedEmployeeId || !dateRange?.from || !dateRange?.to || !firestore) {
@@ -265,7 +264,7 @@ export default function SalaryReportsPage() {
 
 
     const reportData = useMemo(() => {
-        if (!attendanceRecords || !selectedEmployee) return null;
+        if (!attendanceRecords || !selectedEmployee || !dateRange?.from) return null;
 
         const presentOrApprovedRecords = attendanceRecords.filter(r => r.status === 'present' || r.status === 'approved');
 
@@ -273,9 +272,10 @@ export default function SalaryReportsPage() {
         let baseSalary = 0;
 
         if (selectedEmployee.salaryType === 'monthly') {
-            const workingDaysInMonth = new Date(dateRange?.to?.getFullYear() || new Date().getFullYear(), dateRange?.to?.getMonth() || new Date().getMonth() + 1, 0).getDate();
+            const workingDaysInMonth = getDaysInMonth(dateRange.from);
+            const perDaySalary = selectedEmployee.salaryRate / workingDaysInMonth;
             const workedDays = presentOrApprovedRecords.length;
-            baseSalary = (selectedEmployee.salaryRate / workingDaysInMonth) * workedDays;
+            baseSalary = perDaySalary * workedDays;
         } else {
             baseSalary = totalHours * selectedEmployee.salaryRate;
         }
@@ -294,7 +294,7 @@ export default function SalaryReportsPage() {
                 return;
             }
 
-            const slipData: Omit<SalarySlip, 'id'> = {
+            const slipData: Omit<SalarySlip, 'id' | 'generatedAt'> & { generatedAt: any } = {
                 employeeId: selectedEmployee.userId,
                 storeId: myStore.id,
                 periodStart: format(dateRange.from, 'yyyy-MM-dd'),
@@ -331,6 +331,12 @@ export default function SalaryReportsPage() {
     
     if (storeLoading) return <div className="container mx-auto py-12">Loading store information...</div>
     if (!myStore) return <div className="container mx-auto py-12">You must have a store to access this page.</div>
+
+    const formatDateSafe = (date: any) => {
+        if (!date) return 'N/A';
+        const jsDate = date.seconds ? new Date(date.seconds * 1000) : new Date(date);
+        return format(jsDate, 'p');
+    }
 
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
@@ -405,8 +411,8 @@ export default function SalaryReportsPage() {
                                             {reportData.records.map(rec => (
                                                 <TableRow key={rec.id}>
                                                     <TableCell>{format(new Date(rec.workDate), 'PPP')}</TableCell>
-                                                    <TableCell>{rec.punchInTime ? format((rec.punchInTime as any).toDate(), 'p') : 'N/A'}</TableCell>
-                                                    <TableCell>{rec.punchOutTime ? format((rec.punchOutTime as any).toDate(), 'p') : 'N/A'}</TableCell>
+                                                    <TableCell>{formatDateSafe(rec.punchInTime)}</TableCell>
+                                                    <TableCell>{formatDateSafe(rec.punchOutTime)}</TableCell>
                                                     <TableCell>{rec.workHours > 0 ? rec.workHours.toFixed(2) : '-'}</TableCell>
                                                     <TableCell className="text-right font-mono capitalize">{rec.status.replace('_', ' ')}</TableCell>
                                                 </TableRow>
