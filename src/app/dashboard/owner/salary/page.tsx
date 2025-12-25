@@ -1,9 +1,8 @@
-
 'use client';
 
 import { useState, useMemo, useTransition, useCallback, useEffect } from 'react';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc, collectionGroup, getDocs } from 'firebase/firestore';
 import type { Store, EmployeeProfile, AttendanceRecord, SalarySlip } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -166,7 +165,7 @@ export default function SalaryReportsPage() {
     const attendanceQuery = useMemoFirebase(() => {
         if (!myStore || !selectedEmployeeId || !dateRange?.from || !dateRange?.to) return null;
         return query(
-            collectionGroup(firestore, `attendance`),
+            collection(firestore, `stores/${myStore.id}/attendance`),
             where('employeeId', '==', selectedEmployeeId),
             where('workDate', '>=', format(dateRange.from, 'yyyy-MM-dd')),
             where('workDate', '<=', format(dateRange.to, 'yyyy-MM-dd')),

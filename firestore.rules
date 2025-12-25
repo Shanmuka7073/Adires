@@ -1,4 +1,3 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -99,17 +98,13 @@ service cloud.firestore {
     }
 
     /* ======================
-       ATTENDANCE (🔥 FIXED)
+       ATTENDANCE
        ====================== */
 
     match /stores/{storeId}/attendance/{recordId} {
       
-      // Allow an employee to read their own specific record,
-      // and allow a store owner to read any record in their store.
-      allow get: if isOwner(resource.data.employeeId) || isStoreOwner(storeId);
-
-      // Store owner can list all records. Employee cannot list directly (must use group query).
-      allow list: if isStoreOwner(storeId);
+      // A store owner can read any record in their store.
+      allow get, list: if isStoreOwner(storeId);
       
       // Employee creates their own attendance record
       allow create: if
@@ -133,7 +128,7 @@ service cloud.firestore {
       allow delete: if false;
     }
     
-    // 🔥 NEW COLLECTION GROUP RULE
+    // Employee can read ONLY their own attendance records across all stores.
     match /{path=**}/attendance/{recordId} {
        allow read: if request.auth != null && resource.data.employeeId == request.auth.uid;
     }
