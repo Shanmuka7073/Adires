@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useTransition } from 'react';
-import { collection, query, where, addDoc, serverTimestamp, getDocs, orderBy, updateDoc, doc } from 'firebase/firestore';
+import { collection, query, where, addDoc, serverTimestamp, getDocs, orderBy, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { format, differenceInHours, differenceInMinutes, startOfMonth, endOfMonth, isSameDay, isPast, isToday } from 'date-fns';
 import type { AttendanceRecord, EmployeeProfile, Store } from '@/lib/types';
@@ -25,7 +25,6 @@ export default function EmployeeAttendancePage() {
   const [isProcessing, startProcessing] = useTransition();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   
-  // Hooks are now at the top level
   const employeeProfileRef = useMemoFirebase(() => (user ? doc(firestore, 'employeeProfiles', user.uid) : null), [user, firestore]);
   const { data: employeeProfile, isLoading: profileLoading } = useDoc<EmployeeProfile>(employeeProfileRef);
   
@@ -41,7 +40,7 @@ export default function EmployeeAttendancePage() {
     );
   }, [user, storeId, firestore]);
 
-  const { data: records, isLoading: recordsLoading, refetch } = useCollection<AttendanceRecord>(attendanceQuery);
+  const { data: records, setData: setRecords, isLoading: recordsLoading } = useCollection<AttendanceRecord>(attendanceQuery);
 
   const todaysRecord = useMemo(() => {
     return records?.find(record => record.workDate === todayStr);
@@ -58,20 +57,24 @@ export default function EmployeeAttendancePage() {
     if (!user || !storeId) return;
 
     startProcessing(async () => {
+        const newRecordData = {
+            employeeId: user.uid,
+            storeId,
+            workDate: todayStr,
+            punchInTime: Timestamp.now(),
+            punchOutTime: null,
+            status: 'present',
+            workHours: 0,
+        };
         try {
-            await addDoc(collection(firestore, 'stores', storeId, 'attendance'), {
-                employeeId: user.uid,
-                storeId,
-                workDate: todayStr,
-                punchInTime: serverTimestamp(),
-                punchOutTime: null,
-                status: 'present',
-                workHours: 0,
-            });
-            if (refetch) refetch();
+            const docRef = await addDoc(collection(firestore, 'stores', storeId, 'attendance'), newRecordData);
+            
+            // Manually update the local state for immediate UI feedback
+            setRecords(prevRecords => [...(prevRecords || []), { id: docRef.id, ...newRecordData }]);
+            
             toast({ title: 'Punched In!', description: 'Your shift has started.' });
         } catch(e: any) {
-            const permissionError = new FirestorePermissionError({ path: `stores/${storeId}/attendance`, operation: 'create', requestResourceData: { employeeId: user.uid } });
+            const permissionError = new FirestorePermissionError({ path: `stores/${storeId}/attendance`, operation: 'create', requestResourceData: newRecordData });
             errorEmitter.emit('permission-error', permissionError);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not punch in.' });
         }
@@ -89,13 +92,14 @@ export default function EmployeeAttendancePage() {
       const hours = differenceInHours(punchOutTime, punchInTime);
       const minutes = (differenceInMinutes(punchOutTime, punchInTime) % 60) / 60;
       const workHours = parseFloat((hours + minutes).toFixed(2));
+      const updateData = { punchOutTime: Timestamp.fromDate(punchOutTime), workHours };
       
       try {
-        await updateDoc(recordRef, {
-            punchOutTime: serverTimestamp(),
-            workHours: workHours
-        });
-        if (refetch) refetch();
+        await updateDoc(recordRef, updateData);
+
+        // Manually update the local state for immediate UI feedback
+        setRecords(prevRecords => prevRecords?.map(rec => rec.id === todaysRecord.id ? { ...rec, ...updateData, punchOutTime: punchOutTime } : rec) || null);
+
         toast({ title: 'Punched Out!', description: 'Your shift has ended.' });
       } catch (e) {
         const permissionError = new FirestorePermissionError({ path: recordRef.path, operation: 'update', requestResourceData: { workHours } });
@@ -110,17 +114,18 @@ export default function EmployeeAttendancePage() {
     const dateStr = format(date, 'yyyy-MM-dd');
     
     startProcessing(async() => {
+        const newRequestData = {
+            employeeId: user.uid,
+            storeId,
+            workDate: dateStr,
+            punchInTime: null,
+            punchOutTime: null,
+            status: 'pending_approval' as const,
+            workHours: 0,
+        };
         try {
-            await addDoc(collection(firestore, `stores/${storeId}/attendance`), {
-                employeeId: user.uid,
-                storeId,
-                workDate: dateStr,
-                punchInTime: null,
-                punchOutTime: null,
-                status: 'pending_approval',
-                workHours: 0,
-            });
-            if (refetch) refetch();
+            const docRef = await addDoc(collection(firestore, `stores/${storeId}/attendance`), newRequestData);
+            setRecords(prev => [...(prev || []), { id: docRef.id, ...newRequestData }]);
             toast({ title: 'Request Sent', description: 'Your manager has been notified to approve your attendance for ' + dateStr });
             setSelectedDate(undefined);
         } catch(e) {
@@ -214,8 +219,8 @@ export default function EmployeeAttendancePage() {
                      {selectedRecord ? (
                         <div className="space-y-3">
                             <p><strong>Status:</strong> <Badge variant={selectedRecord.status === 'present' || selectedRecord.status === 'approved' ? 'default' : 'destructive'}>{selectedRecord.status.replace('_', ' ')}</Badge></p>
-                            <p><strong>Punch In:</strong> {selectedRecord.punchInTime ? format((selectedRecord.punchInTime as any).toDate(), 'p') : '—'}</p>
-                            <p><strong>Punch Out:</strong> {selectedRecord.punchOutTime ? format((selectedRecord.punchOutTime as any).toDate(), 'p') : '—'}</p>
+                            <p><strong>Punch In:</strong> {selectedRecord.punchInTime ? format((selectedRecord.punchInTime as any).toDate ? (selectedRecord.punchInTime as any).toDate() : new Date(selectedRecord.punchInTime as any), 'p') : '—'}</p>
+                            <p><strong>Punch Out:</strong> {selectedRecord.punchOutTime ? format((selectedRecord.punchOutTime as any).toDate ? (selectedRecord.punchOutTime as any).toDate() : new Date(selectedRecord.punchOutTime as any), 'p') : '—'}</p>
                             <p><strong>Work Hours:</strong> {selectedRecord.workHours > 0 ? selectedRecord.workHours.toFixed(2) : '—'}</p>
                         </div>
                      ) : canRequestApproval ? (
