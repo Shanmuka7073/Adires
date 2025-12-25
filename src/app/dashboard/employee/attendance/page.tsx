@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useTransition } from 'react';
-import { collection, query, where, addDoc, serverTimestamp, getDocs, orderBy, updateDoc, doc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, addDoc, serverTimestamp, getDocs, orderBy, updateDoc, doc, Timestamp, collectionGroup } from 'firebase/firestore';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { format, differenceInHours, differenceInMinutes, startOfMonth, endOfMonth, isSameDay, isPast, isToday } from 'date-fns';
 import type { AttendanceRecord, EmployeeProfile, Store } from '@/lib/types';
@@ -35,14 +35,15 @@ export default function EmployeeAttendancePage() {
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   const attendanceQuery = useMemoFirebase(() => {
-    if (!user || !storeId || !firestore) return null;
+    if (!user || !firestore) return null;
     
+    // Use a collection group query to get attendance across all stores for this user
     return query(
-      collection(firestore, 'stores', storeId, 'attendance'),
+      collectionGroup(firestore, 'attendance'),
       where('employeeId', '==', user.uid),
       orderBy('workDate', 'desc')
     );
-  }, [user, storeId, firestore]);
+  }, [user, firestore]);
 
   const { data: records, setData: setRecords, isLoading: recordsLoading } = useCollection<AttendanceRecord>(attendanceQuery);
   const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
@@ -75,7 +76,13 @@ export default function EmployeeAttendancePage() {
         };
         try {
             const docRef = await addDoc(collection(firestore, 'stores', storeId, 'attendance'), newRecordData);
-            setRecords(prevRecords => [...(prevRecords || []), { id: docRef.id, ...newRecordData }]);
+            // Manually update local state for immediate UI feedback
+            const newRecordForState = {
+                id: docRef.id,
+                ...newRecordData,
+                punchInTime: new Date() // Use local Date for immediate display
+            };
+            setRecords(prevRecords => [newRecordForState, ...(prevRecords || [])]);
             toast({ title: 'Punched In!', description: 'Your shift has started.' });
         } catch(e: any) {
             const permissionError = new FirestorePermissionError({ path: `stores/${storeId}/attendance`, operation: 'create', requestResourceData: newRecordData });
@@ -100,7 +107,8 @@ export default function EmployeeAttendancePage() {
       
       try {
         await updateDoc(recordRef, updateData);
-        setRecords(prevRecords => prevRecords?.map(rec => rec.id === todaysRecord.id ? { ...rec, ...updateData, punchOutTime: punchOutTime } : rec) || null);
+        // Manually update local state for immediate UI feedback
+        setRecords(prevRecords => prevRecords?.map(rec => rec.id === todaysRecord.id ? { ...rec, punchOutTime, workHours } : rec) || null);
         toast({ title: 'Punched Out!', description: 'Your shift has ended.' });
       } catch (e) {
         const permissionError = new FirestorePermissionError({ path: recordRef.path, operation: 'update', requestResourceData: { workHours } });
