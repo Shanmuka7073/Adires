@@ -82,20 +82,25 @@
   body {
     @apply bg-gradient-to-br from-[#f0fff4] to-[#e8f5e9] text-foreground;
   }
-  
+
   /* Custom styles for the calendar day with a 'present' dot */
   .day-present {
     position: relative;
   }
-  .day-present::after {
+
+  .day-present .rdp-day_button {
+    position: relative;
+  }
+
+  .day-present .rdp-day_button::after {
     content: '';
     position: absolute;
-    bottom: 6px;
+    bottom: 4px;
     left: 50%;
     transform: translateX(-50%);
     width: 6px;
     height: 6px;
-    border-radius: 50%;
-    background-color: hsl(var(--primary)); /* Green dot */
+    border-radius: 9999px;
+    background-color: #2563eb; /* Tailwind blue-600 */
   }
 }

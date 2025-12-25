@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useEffect, useState, useMemo, useTransition } from 'react';
+import { useEffect, useState, useMemo, useTransition, useCallback } from 'react';
 import { collection, query, where, addDoc, serverTimestamp, getDocs, orderBy, updateDoc, doc, Timestamp, collectionGroup } from 'firebase/firestore';
-import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { format, differenceInMinutes, startOfMonth, endOfMonth, isSameDay, isPast, isToday } from 'date-fns';
 import type { AttendanceRecord, EmployeeProfile, Store } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -70,7 +70,7 @@ export default function EmployeeAttendancePage() {
             workDate: todayStr,
             punchInTime: Timestamp.now(),
             punchOutTime: null,
-            status: 'partially_present', // Start as partially present
+            status: 'partially_present',
             workHours: 0,
         };
         try {
@@ -101,7 +101,6 @@ export default function EmployeeAttendancePage() {
       const minutesDiff = differenceInMinutes(punchOutTime, punchInTime);
       const workHours = parseFloat((minutesDiff / 60).toFixed(2));
       
-      // Determine status based on work hours
       const newStatus = workHours >= 8 ? 'present' : 'partially_present';
 
       const updateData = { 
@@ -133,13 +132,11 @@ export default function EmployeeAttendancePage() {
     startProcessing(async() => {
         try {
             if (isRegularization && selectedRecord) {
-                // Update existing record for regularization
                 const recordRef = doc(firestore, `stores/${storeId}/attendance`, selectedRecord.id);
                 await updateDoc(recordRef, { status: 'pending_approval', reason: approvalReason.trim() });
                 setRecords(prev => prev?.map(r => r.id === selectedRecord.id ? { ...r, status: 'pending_approval', reason: approvalReason.trim() } : r) || null);
                 toast({ title: 'Regularization Requested', description: 'Your request has been sent to your manager.' });
             } else {
-                // Create new request for missed day
                 const newRequestData = {
                     employeeId: user.uid, storeId, workDate: dateStr,
                     punchInTime: null, punchOutTime: null,
@@ -260,7 +257,7 @@ export default function EmployeeAttendancePage() {
                             rejected: date => records?.some(r => isSameDay(new Date(r.workDate), date) && r.status === 'rejected') || false,
                         }}
                         modifiersClassNames={{
-                            present: 'day-present', // Custom class for dot
+                            present: 'day-present',
                             partially_present: 'bg-yellow-100 text-yellow-800',
                             approved: 'bg-green-100 text-green-800',
                             pending: 'bg-yellow-100 text-yellow-800',
@@ -279,7 +276,7 @@ export default function EmployeeAttendancePage() {
                             <p><strong>Punch Out:</strong> {selectedRecord.punchOutTime ? format((selectedRecord.punchOutTime as any).toDate ? (selectedRecord.punchOutTime as any).toDate() : new Date(selectedRecord.punchOutTime as any), 'p') : '—'}</p>
                             <p><strong>Work Hours:</strong> {selectedRecord.workHours > 0 ? selectedRecord.workHours.toFixed(2) : '—'}</p>
                              {selectedRecord.reason && <p><strong>Reason:</strong> {selectedRecord.reason}</p>}
-                             {selectedRecord.status === 'partially_present' && (
+                             {selectedRecord.status === 'partially_present' && !selectedRecord.reason && (
                                 <Button onClick={() => openRequestDialog(true)} disabled={isProcessing} className="w-full mt-2">
                                     Request Regularization
                                 </Button>
