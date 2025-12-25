@@ -8,48 +8,13 @@ import type { SalarySlip, EmployeeProfile } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { FileText, Download } from 'lucide-react';
+import { FileText, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 
 function SalarySlipCard({ slip }: { slip: SalarySlip }) {
-    const handleDownload = () => {
-        const content = `
-=========================================
-      SALARY SLIP
-=========================================
-Employee ID:      ${slip.employeeId.slice(0, 15)}...
-Pay Period:       ${format(new Date(slip.periodStart), 'PPP')} to ${format(new Date(slip.periodEnd), 'PPP')}
-Generated On:     ${slip.generatedAt ? format(slip.generatedAt.toDate(), 'PPP p') : 'N/A'}
------------------------------------------
-            EARNINGS
------------------------------------------
-Base Salary:      ₹${slip.baseSalary.toFixed(2)}
-Overtime Pay:     ₹${slip.overtimePay.toFixed(2)}
------------------------------------------
-Gross Earnings:   ₹${(slip.baseSalary + slip.overtimePay).toFixed(2)}
------------------------------------------
-            DEDUCTIONS
------------------------------------------
-Standard Tax:     ₹${slip.deductions.toFixed(2)}
------------------------------------------
-Total Deductions: ₹${slip.deductions.toFixed(2)}
------------------------------------------
-NET PAYABLE:      ₹${slip.netPay.toFixed(2)}
-=========================================
-        `;
-        const blob = new Blob([content.trim()], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `salary_slip_${slip.periodStart}_to_${slip.periodEnd}.txt`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    };
-
+    
     return (
         <Card>
             <CardHeader>
@@ -67,8 +32,10 @@ NET PAYABLE:      ₹${slip.netPay.toFixed(2)}
                 </div>
             </CardContent>
             <CardFooter>
-                <Button onClick={handleDownload} className="w-full">
-                    <Download className="mr-2 h-4 w-4" /> Download Slip
+                 <Button asChild className="w-full">
+                    <Link href={`/dashboard/salary-slip/${slip.id}`}>
+                        <Eye className="mr-2 h-4 w-4" /> View Detailed Slip
+                    </Link>
                 </Button>
             </CardFooter>
         </Card>
