@@ -10,28 +10,14 @@ const withPWA = require('next-pwa')({
 const nextConfig = {
   images: {
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'placehold.co',
-      },
-      {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'picsum.photos',
-      },
-      {
-        protocol: 'https',
-        hostname: 'i.ibb.co',
-      },
-      {
-        protocol: 'https',
-        hostname: 'storage.googleapis.com',
-      }
+      { protocol: 'https', hostname: 'placehold.co' },
+      { protocol: 'https', hostname: 'images.unsplash.com' },
+      { protocol: 'https', hostname: 'picsum.photos' },
+      { protocol: 'https', hostname: 'i.ibb.co' },
+      { protocol: 'https', hostname: 'storage.googleapis.com' },
     ],
   },
+
   experimental: {
     serverActions: {
       bodySizeLimit: '4.5mb',
@@ -51,20 +37,29 @@ const nextConfig = {
             tls: false,
             fs: false,
             child_process: false,
-            http2: false,
         };
     }
+    if (isServer) {
+        config.externals.push('@genkit-ai/google-genai', 'genkit', '@opentelemetry/api');
+    }
+    
+    // Rule to handle raw file imports for .rules files
+    config.module.rules.push({
+      test: /\.rules$/,
+      type: 'asset/source',
+    });
+
     return config
   },
 
-  transpilePackages: ['firebase', '@firebase/auth', '@firebase/firestore'],
-  
   typescript: {
-    // !! WARN !!
-    // Dangerously allow production builds to successfully complete even if
-    // your project has type errors.
-    // !! WARN !!
-    ignoreBuildErrors: true,
+    // Re-enabling build errors is a good practice for production.
+    ignoreBuildErrors: false,
+  },
+
+  eslint: {
+    // Re-enabling linting during builds is a good practice.
+    ignoreDuringBuilds: false,
   },
 };
 
