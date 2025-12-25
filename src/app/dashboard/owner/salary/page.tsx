@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Calendar as CalendarIcon, Loader2, FileText, CheckCircle, XCircle, Eye } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, differenceInCalendarDays, getDaysInMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth, differenceInCalendarDays, getDaysInMonth, isSameDay } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -44,6 +44,7 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
         startUpdate(async () => {
             const newStatus = isApproved ? 'approved' : 'rejected';
             const recordRef = doc(firestore, `stores/${storeId}/attendance`, recordId);
+            // If approved, grant 8 hours. If rejected, it's 0.
             const updateData = { status: newStatus, workHours: isApproved ? 8 : 0 };
 
             try {
@@ -149,17 +150,17 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
     );
 }
 
-function GeneratedSlipsList({ employee, myStore, dateRange }: { employee: EmployeeProfile, myStore: Store, dateRange?: DateRange }) {
+function GeneratedSlipsList({ employee, myStore }: { employee: EmployeeProfile, myStore: Store }) {
     const { firestore } = useFirebase();
     
     const slipsQuery = useMemoFirebase(() => {
-        if (!firestore || !myStore || !employee || !dateRange?.from) return null;
+        if (!firestore || !myStore || !employee) return null;
         return query(
             collection(firestore, `stores/${myStore.id}/salarySlips`),
             where('employeeId', '==', employee.userId),
             orderBy('periodStart', 'desc')
         );
-    }, [firestore, myStore, employee, dateRange]);
+    }, [firestore, myStore, employee]);
 
     const { data: slips, isLoading } = useCollection<SalarySlip>(slipsQuery);
 
@@ -230,37 +231,37 @@ export default function SalaryReportsPage() {
 
     const selectedEmployee = useMemo(() => employees?.find(e => e.userId === selectedEmployeeId), [employees, selectedEmployeeId]);
 
-    useEffect(() => {
-        const fetchAttendance = async () => {
-            if (!myStore || !selectedEmployeeId || !dateRange?.from || !dateRange?.to || !firestore) {
-                setAttendanceRecords([]);
-                return;
-            }
-            setAttendanceLoading(true);
-            try {
-                const q = query(
-                    collection(firestore, `stores/${myStore.id}/attendance`),
-                    where('employeeId', '==', selectedEmployeeId),
-                    where('workDate', '>=', format(dateRange.from, 'yyyy-MM-dd')),
-                    where('workDate', '<=', format(dateRange.to, 'yyyy-MM-dd')),
-                    orderBy('workDate', 'desc')
-                );
-                const querySnapshot = await getDocs(q);
-                const records = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
-                setAttendanceRecords(records);
-            } catch (error) {
-                console.error("Failed to fetch attendance:", error);
-                toast({ variant: 'destructive', title: "Error", description: "Could not load attendance records." });
-                setAttendanceRecords(null);
-            } finally {
-                setAttendanceLoading(false);
-            }
-        };
+    const fetchAttendance = useCallback(async () => {
+        if (!myStore || !selectedEmployeeId || !dateRange?.from || !dateRange?.to || !firestore) {
+            setAttendanceRecords([]);
+            return;
+        }
+        setAttendanceLoading(true);
+        try {
+            const q = query(
+                collection(firestore, 'stores', myStore.id, 'attendance'),
+                where('employeeId', '==', selectedEmployeeId),
+                where('workDate', '>=', format(dateRange.from, 'yyyy-MM-dd')),
+                where('workDate', '<=', format(dateRange.to, 'yyyy-MM-dd')),
+                orderBy('workDate', 'desc')
+            );
+            const querySnapshot = await getDocs(q);
+            const records = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+            setAttendanceRecords(records);
+        } catch (error) {
+            console.error("Failed to fetch attendance:", error);
+            toast({ variant: 'destructive', title: "Error", description: "Could not load attendance records." });
+            setAttendanceRecords(null);
+        } finally {
+            setAttendanceLoading(false);
+        }
+    }, [myStore, selectedEmployeeId, dateRange, firestore, toast]);
 
+    useEffect(() => {
         if (selectedEmployeeId) {
             fetchAttendance();
         }
-    }, [myStore, selectedEmployeeId, dateRange, firestore, toast]);
+    }, [selectedEmployeeId, dateRange, fetchAttendance]);
 
 
     const reportData = useMemo(() => {
@@ -284,21 +285,22 @@ export default function SalaryReportsPage() {
         return { totalHours, baseSalary, netPay, records: attendanceRecords };
     }, [attendanceRecords, selectedEmployee, dateRange]);
 
-    useEffect(() => {
-        const generateAndSaveSlip = async () => {
-            if (!myStore || !selectedEmployee || !reportData || !dateRange?.from || !dateRange?.to || !firestore) {
-                return;
-            }
-            if (reportData.baseSalary <= 0) {
-                console.log(`Skipping salary slip for ${selectedEmployee.userId} as base salary is zero.`);
-                return;
-            }
-
+    const handleGenerateSlip = () => {
+        if (!myStore || !selectedEmployee || !reportData || !dateRange?.from || !dateRange?.to || !firestore) {
+            toast({ variant: 'destructive', title: 'Cannot Generate', description: 'Missing required data.' });
+            return;
+        }
+        if (reportData.baseSalary <= 0) {
+            toast({ variant: 'destructive', title: 'Cannot Generate', description: 'Calculated salary is zero.' });
+            return;
+        }
+        
+        startGeneration(async () => {
             const slipData: Omit<SalarySlip, 'id' | 'generatedAt'> & { generatedAt: any } = {
                 employeeId: selectedEmployee.userId,
                 storeId: myStore.id,
-                periodStart: format(dateRange.from, 'yyyy-MM-dd'),
-                periodEnd: format(dateRange.to, 'yyyy-MM-dd'),
+                periodStart: format(dateRange.from!, 'yyyy-MM-dd'),
+                periodEnd: format(dateRange.to!, 'yyyy-MM-dd'),
                 baseSalary: reportData.baseSalary,
                 overtimeHours: 0,
                 overtimePay: 0,
@@ -307,14 +309,14 @@ export default function SalaryReportsPage() {
                 generatedAt: serverTimestamp(),
             };
             
-            const slipId = `${selectedEmployee.userId}_${format(dateRange.from, 'yyyy-MM')}`;
+            const slipId = `${selectedEmployee.userId}_${format(dateRange.from!, 'yyyy-MM')}`;
             const slipRef = doc(firestore, `stores/${myStore.id}/salarySlips`, slipId);
 
             try {
                 await setDoc(slipRef, slipData, { merge: true });
-                console.log(`Salary slip for ${selectedEmployee.userId} for ${format(dateRange.from, 'MMMM yyyy')} was automatically saved.`);
+                toast({ title: 'Salary Slip Generated!', description: `A slip for ${selectedEmployee.role} for ${format(dateRange.from!, 'MMMM yyyy')} has been saved.` });
             } catch (error) {
-                console.error("Auto-generation of salary slip failed:", error);
+                console.error("Manual generation of salary slip failed:", error);
                  const permissionError = new FirestorePermissionError({
                     path: slipRef.path,
                     operation: 'write',
@@ -322,12 +324,8 @@ export default function SalaryReportsPage() {
                 });
                 errorEmitter.emit('permission-error', permissionError);
             }
-        };
-
-        if (reportData && !attendanceLoading) {
-            generateAndSaveSlip();
-        }
-    }, [reportData, attendanceLoading, myStore, selectedEmployee, dateRange, firestore]);
+        });
+    };
     
     if (storeLoading) return <div className="container mx-auto py-12">Loading store information...</div>
     if (!myStore) return <div className="container mx-auto py-12">You must have a store to access this page.</div>
@@ -398,7 +396,7 @@ export default function SalaryReportsPage() {
 
                     {selectedEmployeeId && (
                         <>
-                        <GeneratedSlipsList employee={selectedEmployee!} myStore={myStore} dateRange={dateRange} />
+                        <GeneratedSlipsList employee={selectedEmployee!} myStore={myStore} />
                         <Card>
                             <CardHeader><CardTitle>Attendance Details for Period</CardTitle></CardHeader>
                             <CardContent>
@@ -434,7 +432,10 @@ export default function SalaryReportsPage() {
                                 <div className="flex justify-between text-lg font-bold text-primary border-t pt-2"><span>Net Payable:</span><span>₹{reportData.netPay.toFixed(2)}</span></div>
                             </CardContent>
                             <CardFooter>
-                                <p className="text-xs text-muted-foreground">A salary slip for this period has been automatically saved.</p>
+                                <Button className="w-full" onClick={handleGenerateSlip} disabled={isGenerating}>
+                                    {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                                    Generate & Save Salary Slip
+                                </Button>
                             </CardFooter>
                         </Card>
                     )}
