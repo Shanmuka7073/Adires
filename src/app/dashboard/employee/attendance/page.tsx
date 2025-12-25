@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState, useMemo, useTransition } from 'react';
@@ -17,6 +18,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 
 export default function EmployeeAttendancePage() {
@@ -41,6 +45,9 @@ export default function EmployeeAttendancePage() {
   }, [user, storeId, firestore]);
 
   const { data: records, setData: setRecords, isLoading: recordsLoading } = useCollection<AttendanceRecord>(attendanceQuery);
+  const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
+  const [approvalReason, setApprovalReason] = useState("");
+
 
   const todaysRecord = useMemo(() => {
     return records?.find(record => record.workDate === todayStr);
@@ -63,15 +70,12 @@ export default function EmployeeAttendancePage() {
             workDate: todayStr,
             punchInTime: Timestamp.now(),
             punchOutTime: null,
-            status: 'present',
+            status: 'present' as 'present',
             workHours: 0,
         };
         try {
             const docRef = await addDoc(collection(firestore, 'stores', storeId, 'attendance'), newRecordData);
-            
-            // Manually update the local state for immediate UI feedback
             setRecords(prevRecords => [...(prevRecords || []), { id: docRef.id, ...newRecordData }]);
-            
             toast({ title: 'Punched In!', description: 'Your shift has started.' });
         } catch(e: any) {
             const permissionError = new FirestorePermissionError({ path: `stores/${storeId}/attendance`, operation: 'create', requestResourceData: newRecordData });
@@ -87,7 +91,7 @@ export default function EmployeeAttendancePage() {
     startProcessing(async () => {
       const recordRef = doc(firestore, 'stores', storeId, 'attendance', todaysRecord.id);
       
-      const punchInTime = (todaysRecord.punchInTime as any).toDate ? (todaysRecord.punchInTime as any).toDate() : new Date(todaysRecord.punchInTime);
+      const punchInTime = (todaysRecord.punchInTime as any).toDate ? (todaysRecord.punchInTime as any).toDate() : new Date(todaysRecord.punchInTime as any);
       const punchOutTime = new Date();
       const hours = differenceInHours(punchOutTime, punchInTime);
       const minutes = (differenceInMinutes(punchOutTime, punchInTime) % 60) / 60;
@@ -96,10 +100,7 @@ export default function EmployeeAttendancePage() {
       
       try {
         await updateDoc(recordRef, updateData);
-
-        // Manually update the local state for immediate UI feedback
         setRecords(prevRecords => prevRecords?.map(rec => rec.id === todaysRecord.id ? { ...rec, ...updateData, punchOutTime: punchOutTime } : rec) || null);
-
         toast({ title: 'Punched Out!', description: 'Your shift has ended.' });
       } catch (e) {
         const permissionError = new FirestorePermissionError({ path: recordRef.path, operation: 'update', requestResourceData: { workHours } });
@@ -109,9 +110,13 @@ export default function EmployeeAttendancePage() {
     });
   };
   
-  const requestApproval = (date: Date) => {
-    if (!user || !storeId) return;
-    const dateStr = format(date, 'yyyy-MM-dd');
+  const requestApproval = () => {
+    if (!user || !storeId || !selectedDate || !approvalReason.trim()) {
+        toast({ variant: 'destructive', title: 'Reason Required', description: 'Please provide a reason for your absence.' });
+        return;
+    };
+    
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
     
     startProcessing(async() => {
         const newRequestData = {
@@ -122,12 +127,14 @@ export default function EmployeeAttendancePage() {
             punchOutTime: null,
             status: 'pending_approval' as const,
             workHours: 0,
+            reason: approvalReason.trim(),
         };
         try {
             const docRef = await addDoc(collection(firestore, `stores/${storeId}/attendance`), newRequestData);
             setRecords(prev => [...(prev || []), { id: docRef.id, ...newRequestData }]);
             toast({ title: 'Request Sent', description: 'Your manager has been notified to approve your attendance for ' + dateStr });
-            setSelectedDate(undefined);
+            setIsRequestDialogOpen(false);
+            setApprovalReason('');
         } catch(e) {
             toast({ variant: 'destructive', title: 'Request Failed', description: 'Could not send the approval request.' });
         }
@@ -160,6 +167,33 @@ export default function EmployeeAttendancePage() {
   
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
+      <Dialog open={isRequestDialogOpen} onOpenChange={setIsRequestDialogOpen}>
+          <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Request Approval for Missed Day</DialogTitle>
+                    <DialogDescription>
+                        Please provide a reason for missing your punch-in on {selectedDate ? format(selectedDate, "PPP") : ""}.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                    <Label htmlFor="reason">Reason for Absence</Label>
+                    <Textarea
+                        id="reason"
+                        placeholder="e.g., Doctor's appointment, family emergency..."
+                        value={approvalReason}
+                        onChange={(e) => setApprovalReason(e.target.value)}
+                    />
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsRequestDialogOpen(false)}>Cancel</Button>
+                    <Button onClick={requestApproval} disabled={isProcessing || !approvalReason.trim()}>
+                        {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                        Submit Request
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+      </Dialog>
+
       <Card>
           <CardHeader>
             <CardTitle className="text-2xl font-bold mb-2">Employee Attendance</CardTitle>
@@ -222,6 +256,7 @@ export default function EmployeeAttendancePage() {
                             <p><strong>Punch In:</strong> {selectedRecord.punchInTime ? format((selectedRecord.punchInTime as any).toDate ? (selectedRecord.punchInTime as any).toDate() : new Date(selectedRecord.punchInTime as any), 'p') : '—'}</p>
                             <p><strong>Punch Out:</strong> {selectedRecord.punchOutTime ? format((selectedRecord.punchOutTime as any).toDate ? (selectedRecord.punchOutTime as any).toDate() : new Date(selectedRecord.punchOutTime as any), 'p') : '—'}</p>
                             <p><strong>Work Hours:</strong> {selectedRecord.workHours > 0 ? selectedRecord.workHours.toFixed(2) : '—'}</p>
+                             {selectedRecord.reason && <p><strong>Reason:</strong> {selectedRecord.reason}</p>}
                         </div>
                      ) : canRequestApproval ? (
                          <div className="space-y-3">
@@ -230,7 +265,7 @@ export default function EmployeeAttendancePage() {
                                 <AlertTitle>Missed Punch-in?</AlertTitle>
                                 <AlertDescription>You did not record attendance for this day.</AlertDescription>
                             </Alert>
-                             <Button onClick={() => requestApproval(selectedDate!)} disabled={isProcessing} className="w-full">
+                             <Button onClick={() => setIsRequestDialogOpen(true)} disabled={isProcessing} className="w-full">
                                 Request Approval for this Day
                              </Button>
                          </div>

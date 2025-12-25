@@ -1,4 +1,5 @@
 
+
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -384,6 +385,7 @@ export type AttendanceRecord = {
     punchOutTime: Timestamp | Date | string | null;
     workHours: number;
     status: 'present' | 'absent' | 'pending_approval' | 'approved' | 'rejected';
+    reason?: string; // Reason for a missed punch-in request
 };
 
 export type SalarySlip = {
