@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useState, useMemo, useTransition, useCallback, useEffect } from 'react';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc, collectionGroup, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc } from 'firebase/firestore';
 import type { Store, EmployeeProfile, AttendanceRecord, SalarySlip } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -119,6 +120,7 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
                         <TableRow>
                             <TableHead>Employee ID</TableHead>
                             <TableHead>Date Requested</TableHead>
+                            <TableHead>Reason Provided</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -127,6 +129,7 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
                             <TableRow key={req.id}>
                                 <TableCell className="font-mono">{req.employeeId.slice(0, 8)}...</TableCell>
                                 <TableCell>{format(new Date(req.workDate), 'PPP')}</TableCell>
+                                <TableCell className="text-sm italic text-muted-foreground">{req.reason || "No reason given"}</TableCell>
                                 <TableCell className="text-right space-x-2">
                                     <Button size="sm" variant="ghost" onClick={() => handleApproval(req.id, false)} disabled={isUpdating}>
                                         <XCircle className="mr-2 h-4 w-4 text-destructive" /> Reject
@@ -347,3 +350,5 @@ export default function SalaryReportsPage() {
         </div>
     );
 }
+
+    
