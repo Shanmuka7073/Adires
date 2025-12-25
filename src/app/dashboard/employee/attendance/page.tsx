@@ -25,14 +25,13 @@ export default function EmployeeAttendancePage() {
   const [isProcessing, startProcessing] = useTransition();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   
-  // 1. Fetch the employee's profile to get their storeId
+  // Hooks are now at the top level
   const employeeProfileRef = useMemoFirebase(() => (user ? doc(firestore, 'employeeProfiles', user.uid) : null), [user, firestore]);
   const { data: employeeProfile, isLoading: profileLoading } = useDoc<EmployeeProfile>(employeeProfileRef);
-
+  
   const storeId = employeeProfile?.storeId;
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
-  // 2. Fetch attendance records for this employee
   const attendanceQuery = useMemoFirebase(() => {
     if (!user || !storeId) return null;
     
@@ -47,6 +46,13 @@ export default function EmployeeAttendancePage() {
   const todaysRecord = useMemo(() => {
     return records?.find(record => record.workDate === todayStr);
   }, [records, todayStr]);
+
+  const selectedRecord = useMemo(() => {
+    if (!selectedDate || !records) return null;
+    return records.find(r => isSameDay(new Date(r.workDate), selectedDate));
+  }, [selectedDate, records]);
+
+  const canRequestApproval = selectedDate && isPast(selectedDate) && !isToday(selectedDate) && !selectedRecord;
 
   const punchIn = async () => {
     if (!user || !storeId) return;
@@ -147,13 +153,6 @@ export default function EmployeeAttendancePage() {
     );
   }
   
-  const selectedRecord = useMemo(() => {
-    if (!selectedDate || !records) return null;
-    return records.find(r => isSameDay(new Date(r.workDate), selectedDate));
-  }, [selectedDate, records]);
-
-  const canRequestApproval = selectedDate && isPast(selectedDate) && !isToday(selectedDate) && !selectedRecord;
-
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
       <Card>
