@@ -24,7 +24,6 @@
     --border: 120 20% 88%;
     --input: 120 20% 88%;
     --ring: 120 73% 45%;
-    --radius: 0.5rem;
     --chart-1: 120 73% 45%;
     --chart-2: 33 100% 64%;
     --chart-3: 180 55% 65%;
@@ -82,5 +81,21 @@
   }
   body {
     @apply bg-gradient-to-br from-[#f0fff4] to-[#e8f5e9] text-foreground;
+  }
+  
+  /* Custom styles for the calendar day with a 'present' dot */
+  .day-present {
+    position: relative;
+  }
+  .day-present::after {
+    content: '';
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: hsl(var(--primary)); /* Green dot */
   }
 }
