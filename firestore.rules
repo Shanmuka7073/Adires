@@ -106,7 +106,7 @@ service cloud.firestore {
       
       // A store owner can read any record in their store.
       // An employee can read their own records (needed for their view).
-      allow get, list: if isStoreOwner(storeId) || (request.auth != null && request.query.where[0][2] == request.auth.uid);
+      allow get, list: if isStoreOwner(storeId) || request.auth.uid == request.query.where[0][2];
       
       // Employee creates their own attendance record
       allow create: if
@@ -146,7 +146,9 @@ service cloud.firestore {
         isStoreOwner(storeId)
         || isOwner(resource.data.employeeId);
 
-      allow list: if isStoreOwner(storeId);
+      allow list: if 
+        isStoreOwner(storeId) 
+        || (request.auth != null && request.query.where[0][2] == request.auth.uid);
 
       allow create, update, delete: if isStoreOwner(storeId);
     }
