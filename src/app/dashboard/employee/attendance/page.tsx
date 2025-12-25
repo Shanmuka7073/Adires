@@ -2,8 +2,8 @@
 'use client';
 
 import { useEffect, useState, useMemo, useTransition } from 'react';
-import { collection, query, where, addDoc, serverTimestamp, getDocs, orderBy, updateDoc, doc, limit } from 'firebase/firestore';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, addDoc, serverTimestamp, getDocs, orderBy, updateDoc, doc } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { format } from 'date-fns';
 import type { AttendanceRecord, EmployeeProfile, Store } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
