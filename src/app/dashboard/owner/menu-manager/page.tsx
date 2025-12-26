@@ -48,28 +48,33 @@ function EditMenuDialog({
 }: {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (item: MenuItem, isNew: boolean) => void;
+  onSave: (item: MenuItem, isNew: boolean) => Promise<void>;
   existingItem?: MenuItem | null;
-  onDeleteItem?: (itemToDelete: MenuItem) => void;
+  onDeleteItem?: (itemToDelete: MenuItem) => Promise<void>;
 }) {
   const form = useForm<MenuItemFormValues>({
     resolver: zodResolver(menuItemSchema),
     defaultValues: existingItem || { name: '', price: 0, category: '', description: '' },
   });
+  const [isSaving, startSave] = useTransition();
 
   useEffect(() => {
     form.reset(existingItem || { name: '', price: 0, category: '', description: '' });
   }, [existingItem, form]);
 
   const handleSubmit = (data: MenuItemFormValues) => {
-    onSave(data as MenuItem, !existingItem);
-    onOpenChange(false);
+    startSave(async () => {
+        await onSave(data as MenuItem, !existingItem);
+        onOpenChange(false);
+    });
   };
   
   const handleDelete = () => {
     if (existingItem && onDeleteItem) {
-        onDeleteItem(existingItem);
-        onOpenChange(false);
+        startSave(async () => {
+            await onDeleteItem(existingItem);
+            onOpenChange(false);
+        });
     }
   }
 
@@ -116,7 +121,7 @@ function EditMenuDialog({
                    {existingItem && onDeleteItem && (
                      <AlertDialog>
                         <AlertDialogTrigger asChild>
-                             <Button type="button" variant="destructive" className="mr-auto">Delete Item</Button>
+                             <Button type="button" variant="destructive" className="mr-auto" disabled={isSaving}>Delete Item</Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                             <AlertDialogHeader>
@@ -130,8 +135,11 @@ function EditMenuDialog({
                         </AlertDialogContent>
                     </AlertDialog>
                    )}
-                    <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-                    <Button type="submit">Save Item</Button>
+                    <DialogClose asChild><Button type="button" variant="outline" disabled={isSaving}>Cancel</Button></DialogClose>
+                    <Button type="submit" disabled={isSaving}>
+                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Save Item
+                    </Button>
                 </DialogFooter>
             </form>
         </Form>
@@ -269,7 +277,6 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
     const { toast } = useToast();
     const { firestore } = useFirebase();
     const [isGenerating, startGeneration] = useTransition();
-    const [isSaving, startSave] = useTransition();
     const [menu, setMenu] = useState(initialMenu);
     
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -309,40 +316,53 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
         setEditingItem(null);
         setIsEditDialogOpen(true);
     }
+    
+    const persistMenu = async (updatedMenu: Menu) => {
+        if (!firestore || !store) return false;
+        try {
+            const menuRef = doc(firestore, `stores/${store.id}/menus`, updatedMenu.id);
+            await setDoc(menuRef, updatedMenu, { merge: true });
+            return true;
+        } catch (error) {
+            console.error("Failed to save menu:", error);
+            toast({ variant: 'destructive', title: "Save Failed", description: "Could not save menu changes to the database." });
+            return false;
+        }
+    };
 
-    const handleSaveItem = (itemData: MenuItem, isNew: boolean) => {
+    const handleSaveItem = async (itemData: MenuItem, isNew: boolean) => {
         let updatedItems;
         if (isNew) {
-            const maxId = Math.max(0, ...menu.items.map(i => parseInt((i.id || '0').split('-')[1] || '0')));
-            const newItem = { ...itemData, id: `item-${Date.now()}-${maxId + 1}` };
+            const newItem = { ...itemData, id: `item-${Date.now()}` };
             updatedItems = [...menu.items, newItem];
         } else {
             updatedItems = menu.items.map(item => item.id === editingItem?.id ? { ...item, ...itemData } : item);
         }
+        
         const updatedMenu = { ...menu, items: updatedItems };
-        setMenu(updatedMenu);
+        setMenu(updatedMenu); // Optimistic UI update
+        
+        const success = await persistMenu(updatedMenu);
+        if (success) {
+            toast({ title: isNew ? "Item Added" : "Item Updated", description: `"${itemData.name}" has been saved.` });
+        } else {
+            setMenu(menu); // Revert on failure
+        }
     };
 
-    const handleDeleteItem = (itemToDelete: MenuItem) => {
+    const handleDeleteItem = async (itemToDelete: MenuItem) => {
          const updatedItems = menu.items.filter(item => item.id !== itemToDelete.id);
          const updatedMenu = { ...menu, items: updatedItems };
-         setMenu(updatedMenu);
+         setMenu(updatedMenu); // Optimistic UI update
+
+         const success = await persistMenu(updatedMenu);
+         if (success) {
+            toast({ title: "Item Deleted", description: `"${itemToDelete.name}" has been removed.` });
+         } else {
+            setMenu(menu); // Revert on failure
+         }
     }
 
-    const handleSaveMenu = async () => {
-        if (!firestore || !store) return;
-        startSave(async () => {
-            const menuRef = doc(firestore, `stores/${store.id}/menus`, menu.id);
-            try {
-                // Save the entire local `menu` object to Firestore
-                await setDoc(menuRef, menu, { merge: true });
-                toast({ title: "Menu Saved!", description: "Your changes have been saved." });
-            } catch (error) {
-                 toast({ variant: 'destructive', title: "Save Failed", description: "Could not save menu changes." });
-                 console.error("Menu save failed:", error);
-            }
-        });
-    }
 
     const handleGenerateIngredients = async (item: MenuItem) => {
         startGeneration(async () => {
@@ -382,12 +402,8 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <CardTitle>Your Digital Menu</CardTitle>
-                         <Button onClick={handleSaveMenu} disabled={isSaving}>
-                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                            Save All Changes
-                        </Button>
                     </div>
-                    <CardDescription>This is your currently active menu. You can add, edit, or remove items below.</CardDescription>
+                    <CardDescription>This is your currently active menu. Changes are saved automatically.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <Button onClick={handleAddNewItem} variant="outline" className="w-full">
