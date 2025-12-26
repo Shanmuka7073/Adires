@@ -22,26 +22,25 @@ function useInitializeApp() {
         isInitialized,
         loading,
         setAppReady,
+        stores, // Use a core data array to check for rehydration
     } = useAppStore();
 
     useEffect(() => {
-        // If data is already initialized from a previous session (persisted state),
-        // we can mark the app as ready immediately. We might still want to fetch
-        // in the background for updates, but the UI can render.
-        if (isInitialized) {
+        // If data is already in the store (from persisted state), the app is ready.
+        if (stores.length > 0 && isInitialized) {
             setAppReady(true);
+            // Optionally, you can still fetch data in the background to get updates
             if (firestore) {
-              // Optional: fetch in the background if needed
-              // fetchInitialData(firestore); 
+                fetchInitialData(firestore);
             }
             return;
         }
 
         // If not initialized and not already loading, start the data fetch.
-        if (firestore && !loading) {
+        if (firestore && !isInitialized && !loading) {
             fetchInitialData(firestore);
         }
-    }, [firestore, isInitialized, loading, fetchInitialData, setAppReady]);
+    }, [firestore, isInitialized, loading, fetchInitialData, setAppReady, stores.length]);
 }
 
 
