@@ -43,15 +43,14 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
         startUpdate(async () => {
             const newStatus = isApproved ? 'approved' : 'rejected';
             const recordRef = doc(firestore, `stores/${storeId}/attendance`, record.id);
-            const updateData: Partial<AttendanceRecord> = { status: newStatus };
             
-            // If approved, grant 8 hours. If rejected, it's 0.
+            const updateData: Partial<AttendanceRecord> = { status: newStatus };
             if (isApproved) {
+                // If the employee forgot to punch out, they get a full day. 
+                // If it was a missed punch-in, it also becomes a full day.
                 updateData.workHours = record.workHours > 0 ? record.workHours : 8;
             } else {
-                 updateData.workHours = 0;
-                 // Increment rejectionCount on rejection
-                 updateData.rejectionCount = (record.rejectionCount || 0) + 1;
+                 updateData.workHours = 0; // Rejected requests mean no pay for that day.
             }
 
             try {
@@ -218,90 +217,108 @@ function GeneratedSlipsList({ employee, myStore }: { employee: EmployeeProfile, 
 }
 
 function generatePayslipHtml(slip: SalarySlip, employee: EmployeeProfile, store: Store, attendance: any) {
-  const gross = slip.baseSalary + slip.overtimePay;
-  const totalDeduction = slip.deductions;
-  const netPay = slip.netPay;
+    const gross = slip.baseSalary + slip.overtimePay;
+    const totalDeduction = slip.deductions;
+    const netPay = slip.netPay;
 
-  const numberToWords = (num: number): string => {
-    // Simplified version
-    if (num === 0) return 'Zero';
-    const a = ['', 'one ', 'two ', 'three ', 'four ', 'five ', 'six ', 'seven ', 'eight ', 'nine ', 'ten ', 'eleven ', 'twelve ', 'thirteen ', 'fourteen ', 'fifteen ', 'sixteen ', 'seventeen ', 'eighteen ', 'nineteen '];
-    const b = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
-    let n = ('000000000' + num).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
-    if (!n) return '';
-    let str = '';
-    str += (parseInt(n[1]) !== 0) ? (a[Number(n[1])] || b[n[1][0]] + ' ' + a[n[1][1]]) + 'crore ' : '';
-    str += (parseInt(n[2]) !== 0) ? (a[Number(n[2])] || b[n[2][0]] + ' ' + a[n[2][1]]) + 'lakh ' : '';
-    str += (parseInt(n[3]) !== 0) ? (a[Number(n[3])] || b[n[3][0]] + ' ' + a[n[3][1]]) + 'thousand ' : '';
-    str += (parseInt(n[4]) !== 0) ? (a[Number(n[4])] || b[n[4][0]] + ' ' + a[n[4][1]]) + 'hundred ' : '';
-    str += (parseInt(n[5]) !== 0) ? ((str !== '') ? 'and ' : '') + (a[Number(n[5])] || b[n[5][0]] + ' ' + a[n[5][1]]) : '';
-    return str.trim().split(' ').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ') + ' Only';
-  };
+    const numberToWords = (num: number): string => {
+        const a = ['', 'one ', 'two ', 'three ', 'four ', 'five ', 'six ', 'seven ', 'eight ', 'nine ', 'ten ', 'eleven ', 'twelve ', 'thirteen ', 'fourteen ', 'fifteen ', 'sixteen ', 'seventeen ', 'eighteen ', 'nineteen '];
+        const b = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+        
+        function toWords(n: number): string {
+             if (n < 20) return a[n];
+             let digit = n % 10;
+             return b[Math.floor(n / 10)] + (digit ? ' ' + a[digit] : '');
+        }
 
-  return `
-    <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-      <head><meta charset='utf-8'><title>Salary Slip</title></head>
-      <body>
-        <div style="width: 800px; margin: auto; padding: 20px; font-family: sans-serif;">
-          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; padding-bottom: 10px; margin-bottom: 20px;">
-            <div>
-              <h1 style="font-size: 24px; font-weight: bold;">${store.name}</h1>
-              <p style="font-size: 12px; color: #666;">${store.address}</p>
+        if (num === 0) return 'Zero';
+        let words = '';
+        if (num >= 10000000) { words += toWords(Math.floor(num / 10000000)) + 'crore '; num %= 10000000; }
+        if (num >= 100000) { words += toWords(Math.floor(num / 100000)) + 'lakh '; num %= 100000; }
+        if (num >= 1000) { words += toWords(Math.floor(num / 1000)) + 'thousand '; num %= 1000; }
+        if (num >= 100) { words += toWords(Math.floor(num / 100)) + 'hundred '; num %= 100; }
+        if (num > 0) { if (words !== '') words += 'and '; words += toWords(num); }
+
+        const rupeePart = words.trim().replace(/\s+/g, ' ').split(' ').map(s=>s.charAt(0).toUpperCase() + s.slice(1)).join(' ') + ' Rupees';
+        const paise = Math.round((slip.netPay % 1) * 100);
+        
+        if (paise > 0) {
+            return `${rupeePart} and ${toWords(paise)} Paise Only`;
+        }
+        return `${rupeePart} Only`;
+    };
+
+    return `
+      <html>
+        <head><meta charset='utf-8'><title>Salary Slip for ${format(new Date(slip.periodStart), 'MMMM yyyy')}</title></head>
+        <body style="font-family: Arial, sans-serif; margin: 0; padding: 20px;">
+          <div style="width: 800px; margin: auto; padding: 20px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px;">
+              <div>
+                <h1 style="font-size: 24px; font-weight: bold; margin: 0;">${store.name}</h1>
+                <p style="font-size: 12px; color: #666; margin: 5px 0 0;">${store.address}</p>
+              </div>
+              <div style="text-align: right;">
+                <h2 style="font-size: 20px; font-weight: 600; margin: 0;">Salary Slip</h2>
+                <p style="font-size: 12px; margin: 5px 0 0;">For the Month of ${format(new Date(slip.periodStart), 'MMMM yyyy')}</p>
+              </div>
             </div>
-            <div style="text-align: right;">
-              <h2 style="font-size: 20px; font-weight: 600;">Salary Slip</h2>
-              <p style="font-size: 12px;">Payslip No: ${slip.id.toUpperCase().slice(0, 15)}</p>
-              <p style="font-size: 12px;">${format(new Date(slip.periodStart), 'MMMM yyyy')}</p>
+            <table style="width: 100%; margin-bottom: 20px; font-size: 14px;">
+              <tr>
+                <td style="padding: 5px;"><b>Employee Name:</b> ${employee.firstName} ${employee.lastName}</td>
+                <td style="padding: 5px;"><b>Employee ID:</b> ${employee.employeeId}</td>
+              </tr>
+              <tr>
+                <td style="padding: 5px;"><b>Designation:</b> ${employee.role}</td>
+                <td style="padding: 5px;"><b>Date of Joining:</b> ${format(new Date(employee.hireDate), 'dd MMM yyyy')}</td>
+              </tr>
+              <tr>
+                <td style="padding: 5px;"><b>Payment Mode:</b> Bank Transfer</td>
+                <td style="padding: 5px;"><b>Payslip No:</b> ${slip.id.toUpperCase().slice(0, 15)}</td>
+              </tr>
+            </table>
+            <div style="display: flex; justify-content: space-between; text-align: center; margin-bottom: 20px; font-size: 12px; background: #f9f9f9; padding: 10px; border-radius: 5px;">
+                <div><b>Total Days:</b> ${attendance.totalDays}</div>
+                <div><b>Present:</b> ${attendance.presentDays}</div>
+                <div><b>Partial Days:</b> ${attendance.partialDays}</div>
+                <div><b>Absent/Rejected:</b> ${attendance.absentDays}</div>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px;">
+              <tr style="background-color: #f2f2f2;">
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Earnings</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Amount (₹)</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Deductions</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Amount (₹)</th>
+              </tr>
+              <tr>
+                <td style="border: 1px solid #ddd; padding: 8px;">Base Salary (${attendance.presentDays} payable days)</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${slip.baseSalary.toFixed(2)}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">Standard Deductions</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${slip.deductions.toFixed(2)}</td>
+              </tr>
+              <tr style="font-weight: bold;">
+                <td style="border: 1px solid #ddd; padding: 8px;">Gross Earnings</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${gross.toFixed(2)}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">Total Deductions</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${totalDeduction.toFixed(2)}</td>
+              </tr>
+            </table>
+            <div style="text-align: right; font-size: 18px; font-weight: bold; margin-top: 20px;">
+              Net Pay: ₹${netPay.toFixed(2)}
+            </div>
+            <div style="margin-top: 10px; font-size: 14px;">
+              <p><b>Amount in Words:</b> ${numberToWords(netPay)}</p>
+            </div>
+            <div style="margin-top: 50px; font-size: 12px; color: #666; display: flex; justify-content: space-between;">
+              <p><i>This is a system-generated payslip.</i></p>
+              <p><b>Authorized Signatory</b></p>
             </div>
           </div>
-          <table style="width: 100%; margin-bottom: 20px;">
-            <tr>
-              <td><b>Employee Name:</b> ${employee.role} (${employee.employeeId})</td>
-              <td><b>Store:</b> ${store.name}</td>
-            </tr>
-            <tr>
-              <td><b>Employee ID:</b> ${employee.employeeId}</td>
-              <td><b>Pay Period:</b> ${format(new Date(slip.periodStart), 'dd MMM yyyy')} – ${format(new Date(slip.periodEnd), 'dd MMM yyyy')}</td>
-            </tr>
-            <tr>
-              <td><b>Designation:</b> ${employee.role}</td>
-              <td><b>Date of Joining:</b> ${format(new Date(employee.hireDate), 'dd MMM yyyy')}</td>
-            </tr>
-          </table>
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-            <tr style="background-color: #f2f2f2;">
-              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Earnings</th>
-              <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Amount (₹)</th>
-              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Deductions</th>
-              <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Amount (₹)</th>
-            </tr>
-            <tr>
-              <td style="border: 1px solid #ddd; padding: 8px;">Base Salary (${attendance.presentDays} days)</td>
-              <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${slip.baseSalary.toFixed(2)}</td>
-              <td style="border: 1px solid #ddd; padding: 8px;">Standard Deductions</td>
-              <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${slip.deductions.toFixed(2)}</td>
-            </tr>
-            <tr style="font-weight: bold;">
-              <td style="border: 1px solid #ddd; padding: 8px;">Gross Earnings</td>
-              <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${gross.toFixed(2)}</td>
-              <td style="border: 1px solid #ddd; padding: 8px;">Total Deductions</td>
-              <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${totalDeduction.toFixed(2)}</td>
-            </tr>
-          </table>
-          <div style="text-align: right; font-size: 18px; font-weight: bold; margin-top: 20px;">
-            Net Pay: ₹${netPay.toFixed(2)}
-          </div>
-          <div style="margin-top: 10px;">
-            <p><b>Amount in Words:</b> ${numberToWords(netPay)}</p>
-          </div>
-          <div style="margin-top: 50px; font-size: 12px; color: #666;">
-            <p>This is a system-generated payslip.</p>
-          </div>
-        </div>
-      </body>
-    </html>
-  `;
+        </body>
+      </html>
+    `;
 }
+
 
 
 export default function SalaryReportsPage() {
@@ -400,38 +417,35 @@ export default function SalaryReportsPage() {
         startGeneration(async () => {
             const slipId = `${selectedEmployee.userId}_${format(dateRange.from!, 'yyyy-MM')}`;
             const slipRef = doc(firestore, `stores/${myStore.id}/salarySlips`, slipId);
-            const slipData: Omit<SalarySlip, 'id' | 'generatedAt'> & { generatedAt: any } = {
+            const slipData: Omit<SalarySlip, 'id'> = {
                 employeeId: selectedEmployee.userId,
                 storeId: myStore.id,
-                periodStart: dateRange.from!, // Use Date object
-                periodEnd: dateRange.to!,     // Use Date object
+                periodStart: dateRange.from!.toISOString(),
+                periodEnd: dateRange.to!.toISOString(),
                 baseSalary: reportData.baseSalary,
                 overtimeHours: 0,
                 overtimePay: 0,
                 deductions: 0,
                 netPay: reportData.netPay,
-                generatedAt: serverTimestamp(),
+                generatedAt: new Date() as any, // Will be converted by Firestore
             };
 
             try {
                 await setDoc(slipRef, { ...slipData, id: slipId }, { merge: true });
-                toast({ title: 'Salary Slip Generated!', description: `A slip for ${selectedEmployee.role} for ${format(dateRange.from!, 'MMMM yyyy')} has been saved.` });
+                toast({ title: 'Salary Slip Generated & Saved!', description: `A slip for ${selectedEmployee.role} for ${format(dateRange.from!, 'MMMM yyyy')} is being downloaded.` });
                 
                 // Construct the full slip data on the client to generate the HTML
-                const fullSlipForDownload: SalarySlip = {
+                 const fullSlipForDownload: SalarySlip = {
                     ...slipData,
                     id: slipId,
-                    generatedAt: new Date(), // Use current date for immediate generation
-                    // Ensure dates are strings for the HTML function if it expects them
-                    periodStart: format(dateRange.from!, 'yyyy-MM-dd'),
-                    periodEnd: format(dateRange.to!, 'yyyy-MM-dd'),
+                    generatedAt: new Date() as any,
                 };
                 
                 const attendanceSummary = {
                     totalDays: getDaysInMonth(dateRange.from),
                     presentDays: reportData.presentDays,
                     partialDays: reportData.records.filter(r => r.status === 'partially_present').length,
-                    absentDays: reportData.records.filter(r => r.status === 'absent' || r.status === 'rejected').length,
+                    absentDays: getDaysInMonth(dateRange.from) - reportData.presentDays,
                 };
                 
                 const htmlContent = generatePayslipHtml(fullSlipForDownload, selectedEmployee, myStore, attendanceSummary);
