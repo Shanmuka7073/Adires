@@ -375,6 +375,13 @@ export type EmployeeProfile = {
     salaryType: 'hourly' | 'monthly';
 };
 
+export type ReasonEntry = {
+    text: string;
+    timestamp: any;
+    status: 'submitted' | 'rejected' | 'approved';
+    rejectionReason?: string;
+};
+
 export type AttendanceRecord = {
     id: string;
     employeeId: string;
@@ -383,7 +390,8 @@ export type AttendanceRecord = {
     punchInTime: Timestamp | Date | string | null;
     punchOutTime: Timestamp | Date | string | null;
     workHours: number;
-    reason?: string; // Reason for a missed punch-in request
+    reasonHistory?: ReasonEntry[];
+    rejectionCount: number;
     status: 'present' | 'absent' | 'pending_approval' | 'approved' | 'rejected' | 'partially_present';
 };
 

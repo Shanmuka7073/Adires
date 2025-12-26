@@ -2,15 +2,15 @@
 'use client';
 
 import { useEffect, useState, useMemo, useTransition, useCallback } from 'react';
-import { collection, query, where, addDoc, serverTimestamp, getDocs, orderBy, updateDoc, doc, Timestamp, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, addDoc, serverTimestamp, getDocs, orderBy, updateDoc, doc, Timestamp, collectionGroup, arrayUnion } from 'firebase/firestore';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { format, differenceInMinutes, startOfMonth, endOfMonth, isSameDay, isPast, isToday } from 'date-fns';
-import type { AttendanceRecord, EmployeeProfile, Store } from '@/lib/types';
+import type { AttendanceRecord, EmployeeProfile, Store, ReasonEntry } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, AlertCircle, Calendar as CalendarIcon, Check, Circle, CheckCircle, Info } from 'lucide-react';
+import { Loader2, AlertCircle, Calendar as CalendarIcon, Check, Circle, CheckCircle, Info, MessageSquare } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -59,6 +59,8 @@ export default function EmployeeAttendancePage() {
   }, [selectedDate, records]);
 
   const canRequestApproval = selectedDate && isPast(selectedDate) && !isToday(selectedDate) && !selectedRecord;
+  const canResubmit = selectedRecord && selectedRecord.status === 'rejected' && (selectedRecord.rejectionCount || 0) < 3;
+
 
   const punchIn = async () => {
     if (!user || !storeId || !firestore) return;
@@ -72,7 +74,8 @@ export default function EmployeeAttendancePage() {
             punchOutTime: null,
             status: 'partially_present',
             workHours: 0,
-            reason: ''
+            rejectionCount: 0,
+            reasonHistory: []
         };
         try {
             const docRef = await addDoc(collection(firestore, 'stores', storeId, 'attendance'), newRecordData);
@@ -132,17 +135,31 @@ export default function EmployeeAttendancePage() {
     
     startProcessing(async() => {
         try {
-            if (isRegularization && selectedRecord) {
-                const recordRef = doc(firestore, `stores/${storeId}/attendance`, selectedRecord.id);
-                await updateDoc(recordRef, { status: 'pending_approval', reason: approvalReason.trim() });
-                setRecords(prev => prev?.map(r => r.id === selectedRecord.id ? { ...r, status: 'pending_approval', reason: approvalReason.trim() } : r) || null);
-                toast({ title: 'Regularization Requested', description: 'Your request has been sent to your manager.' });
-            } else {
+            const newReasonEntry: ReasonEntry = {
+                text: approvalReason.trim(),
+                timestamp: serverTimestamp(),
+                status: 'submitted',
+            };
+
+            if ((isRegularization || canResubmit) && selectedRecord) {
+                 const recordRef = doc(firestore, `stores/${storeId}/attendance`, selectedRecord.id);
+                 await updateDoc(recordRef, {
+                    status: 'pending_approval',
+                    reasonHistory: arrayUnion(newReasonEntry)
+                 });
+
+                 // Manually update local state to avoid waiting for listener
+                setRecords(prev => prev?.map(r => r.id === selectedRecord.id ? { ...r, status: 'pending_approval', reasonHistory: [...(r.reasonHistory || []), newReasonEntry] } : r) || null);
+                
+                toast({ title: 'Request Submitted', description: 'Your request has been sent to your manager for approval.' });
+
+            } else { // New request for a missed day
                 const newRequestData: Omit<AttendanceRecord, 'id'> = {
                     employeeId: user.uid, storeId, workDate: dateStr,
                     punchInTime: null, punchOutTime: null,
                     status: 'pending_approval', workHours: 0,
-                    reason: approvalReason.trim(),
+                    rejectionCount: 0,
+                    reasonHistory: [newReasonEntry],
                 };
                 const docRef = await addDoc(collection(firestore, `stores/${storeId}/attendance`), newRequestData);
                 setRecords(prev => [...(prev || []), { id: docRef.id, ...newRequestData }]);
@@ -151,7 +168,8 @@ export default function EmployeeAttendancePage() {
             setIsRequestDialogOpen(false);
             setApprovalReason('');
         } catch(e) {
-            toast({ variant: 'destructive', title: 'Request Failed', description: 'Could not send the request.' });
+            toast({ variant: 'destructive', title: 'Request Failed', description: 'Could not send the request. Please check security rules.' });
+            console.error("Request approval error:", e);
         }
     });
   }
@@ -272,22 +290,47 @@ export default function EmployeeAttendancePage() {
                     <h3 className="font-semibold text-lg mb-2">Details for {selectedDate ? format(selectedDate, "PPP") : "Today"}</h3>
                      {selectedRecord ? (
                         <div className="space-y-3">
-                            <p><strong>Status:</strong> <Badge variant={selectedRecord.status === 'present' || selectedRecord.status === 'approved' ? 'default' : 'destructive'}>{selectedRecord.status.replace('_', ' ')}</Badge></p>
+                            <p><strong>Status:</strong> <Badge variant={selectedRecord.status === 'present' || selectedRecord.status === 'approved' ? 'default' : 'destructive'}>{selectedRecord.status.replace(/_/g, ' ')}</Badge></p>
                             <p><strong>Punch In:</strong> {selectedRecord.punchInTime ? format((selectedRecord.punchInTime as any).toDate ? (selectedRecord.punchInTime as any).toDate() : new Date(selectedRecord.punchInTime as any), 'p') : '—'}</p>
                             <p><strong>Punch Out:</strong> {selectedRecord.punchOutTime ? format((selectedRecord.punchOutTime as any).toDate ? (selectedRecord.punchOutTime as any).toDate() : new Date(selectedRecord.punchOutTime as any), 'p') : '—'}</p>
                             <p><strong>Work Hours:</strong> {selectedRecord.workHours > 0 ? `${selectedRecord.workHours.toFixed(2)} hours` : '—'}</p>
-                             {selectedRecord.reason && <p><strong>Reason:</strong> {selectedRecord.reason}</p>}
+                            
+                             {selectedRecord.reasonHistory && selectedRecord.reasonHistory.length > 0 && (
+                                 <div className="space-y-2 pt-2 border-t">
+                                     <h4 className="text-sm font-semibold flex items-center gap-1.5"><MessageSquare className="h-4 w-4"/> Reason History</h4>
+                                     {selectedRecord.reasonHistory.map((entry, index) => (
+                                         <div key={index} className="text-xs p-2 bg-background/50 rounded-md">
+                                             <p className="italic">"{entry.text}"</p>
+                                             <p className="text-muted-foreground mt-1">
+                                                 {format((entry.timestamp as any)?.toDate() || new Date(), 'Pp')} - <span className="capitalize font-medium">{entry.status}</span>
+                                                 {entry.status === 'rejected' && entry.rejectionReason && `: ${entry.rejectionReason}`}
+                                             </p>
+                                         </div>
+                                     ))}
+                                 </div>
+                             )}
                              
                              {selectedRecord.status === 'partially_present' && selectedRecord.workHours > 0 && (
-                                <Alert className="bg-yellow-100 border-yellow-300 text-yellow-900">
+                                <Alert className="bg-orange-100 border-orange-300 text-orange-900">
                                     <AlertDescription>
-                                        You worked {selectedRecord.workHours.toFixed(2)} hours, which is less than the required shift. You can request regularization if needed.
+                                        You worked {selectedRecord.workHours.toFixed(2)} hours, which is less than a full shift. You can request regularization if this was due to an issue.
                                     </AlertDescription>
-                                     <Button onClick={() => openRequestDialog(true)} disabled={isProcessing} className="w-full mt-2 bg-yellow-400 hover:bg-yellow-500 text-yellow-900">
+                                     <Button onClick={() => openRequestDialog(true)} disabled={isProcessing} className="w-full mt-2 bg-orange-400 hover:bg-orange-500 text-orange-900">
                                         Request Regularization
                                     </Button>
                                 </Alert>
                              )}
+                              {canResubmit && (
+                                <Alert className="bg-yellow-100 border-yellow-300 text-yellow-900">
+                                    <AlertTitle>Request Rejected</AlertTitle>
+                                    <AlertDescription>
+                                        Your last request was rejected. You have {3 - (selectedRecord.rejectionCount || 0)} attempts remaining.
+                                    </AlertDescription>
+                                     <Button onClick={() => openRequestDialog(true)} disabled={isProcessing} className="w-full mt-2 bg-yellow-400 hover:bg-yellow-500 text-yellow-900">
+                                        Re-submit Request
+                                    </Button>
+                                </Alert>
+                            )}
                         </div>
                      ) : canRequestApproval ? (
                          <div className="space-y-3">
