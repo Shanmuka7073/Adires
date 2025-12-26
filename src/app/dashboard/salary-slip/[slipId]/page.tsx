@@ -4,7 +4,7 @@
 import { useMemo, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, getDoc, collection, query, where, getDocs, CollectionReference } from 'firebase/firestore';
+import { getSalarySlipData } from '@/app/actions';
 import type { SalarySlip, EmployeeProfile, Store, AttendanceRecord } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import QRCode from 'qrcode.react';
@@ -163,90 +163,47 @@ function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: Salary
     );
 }
 
+interface SalaryData {
+    slip: SalarySlip;
+    employee: EmployeeProfile;
+    store: Store;
+    attendance: any;
+}
+
 export default function SalarySlipPage() {
     const { slipId } = useParams<{ slipId: string }>();
-    const { user, firestore } = useFirebase();
+    const { user } = useFirebase();
 
-    const [slip, setSlip] = useState<SalarySlip | null>(null);
-    const [employee, setEmployee] = useState<EmployeeProfile | null>(null);
-    const [store, setStore] = useState<Store | null>(null);
-    const [attendance, setAttendance] = useState<any>(null);
+    const [data, setData] = useState<SalaryData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         async function fetchData() {
-            if (!firestore || !user || !slipId) {
+            if (!user || !slipId) {
                 setIsLoading(false);
                 return;
             }
             setIsLoading(true);
+            setError(null);
 
             try {
-                // Find the store ID. If owner, query stores. If employee, query profile.
-                let storeId: string | null = null;
-                const ownerQuery = query(collection(firestore, 'stores'), where('ownerId', '==', user.uid));
-                const ownerSnap = await getDocs(ownerQuery);
-
-                if (!ownerSnap.empty) {
-                    storeId = ownerSnap.docs[0].id;
+                const result = await getSalarySlipData(slipId, user.uid);
+                if (result) {
+                    setData(result);
                 } else {
-                    const empProfileSnap = await getDoc(doc(firestore, 'employeeProfiles', user.uid));
-                    if (empProfileSnap.exists()) {
-                        storeId = (empProfileSnap.data() as EmployeeProfile).storeId;
-                    }
+                    setError("Salary slip not found or you do not have permission to view it.");
                 }
-
-                if (!storeId) {
-                    throw new Error("Could not determine the store for the current user.");
-                }
-
-                // Now that we have a storeId, we can fetch the slip directly.
-                const slipRef = doc(firestore, `stores/${storeId}/salarySlips`, slipId);
-                const slipSnap = await getDoc(slipRef);
-
-                if (!slipSnap.exists()) {
-                    throw new Error("Salary slip not found.");
-                }
-                const slipData = slipSnap.data() as SalarySlip;
-                setSlip(slipData);
-                
-                // Fetch related data in parallel
-                const [employeeSnap, storeSnap] = await Promise.all([
-                    getDoc(doc(firestore, 'employeeProfiles', slipData.employeeId)),
-                    getDoc(doc(firestore, 'stores', slipData.storeId))
-                ]);
-
-                if (employeeSnap.exists()) setEmployee(employeeSnap.data() as EmployeeProfile);
-                if (storeSnap.exists()) setStore(storeSnap.data() as Store);
-
-                // Fetch attendance summary
-                const attendanceQuery = query(
-                    collection(firestore, `stores/${slipData.storeId}/attendance`),
-                    where('employeeId', '==', slipData.employeeId),
-                    where('workDate', '>=', slipData.periodStart),
-                    where('workDate', '<=', slipData.periodEnd)
-                );
-                const attendanceSnap = await getDocs(attendanceQuery);
-                const records = attendanceSnap.docs.map(d => d.data() as AttendanceRecord);
-                
-                const attendanceSummary = {
-                    totalDays: getDaysInMonth(new Date(slipData.periodStart)),
-                    presentDays: records.filter(r => r.status === 'present' || r.status === 'approved').length,
-                    partialDays: records.filter(r => r.status === 'partially_present').length,
-                    absentDays: records.filter(r => r.status === 'absent' || r.status === 'rejected').length,
-                };
-                setAttendance(attendanceSummary);
-
-            } catch (error) {
+            } catch (error: any) {
                 console.error("Error fetching salary slip data:", error);
-                setSlip(null);
+                setError(error.message || "An unexpected error occurred.");
             } finally {
                 setIsLoading(false);
             }
         }
 
         fetchData();
-    }, [firestore, user, slipId]);
+    }, [user, slipId]);
 
     if (isLoading) {
         return (
@@ -256,9 +213,9 @@ export default function SalarySlipPage() {
         );
     }
     
-    if (!slip || !employee || !store || !attendance) {
-        return <div className="p-8 text-center">Salary Slip not found or you do not have permission to view it.</div>;
+    if (error || !data) {
+        return <div className="p-8 text-center">{error || "Salary Slip not found."}</div>;
     }
 
-    return <SalarySlipDisplay slip={slip} employee={employee} store={store} attendance={attendance} />;
+    return <SalarySlipDisplay {...data} />;
 }

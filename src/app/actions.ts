@@ -5,7 +5,7 @@ import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient, EmployeeProfile } from '@/lib/types';
+import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient, EmployeeProfile, SalarySlip, Store, AttendanceRecord } from '@/lib/types';
 import { headers } from 'next/headers';
 import { getApp, getApps } from 'firebase-admin/app';
 import * as pdfjs from 'pdfjs-dist';
@@ -717,4 +717,72 @@ export async function addIngredientsToCatalog(ingredients: Omit<RestaurantIngred
     console.error("Failed to add ingredients to catalog:", error);
     return { success: false, count: 0, error: error.message };
   }
+}
+
+export async function getSalarySlipData(slipId: string, userId: string): Promise<{ slip: SalarySlip; employee: EmployeeProfile; store: Store; attendance: any; } | null> {
+    const { db } = await getAdminServices();
+
+    try {
+        const slipQuery = db.collectionGroup('salarySlips').where('id', '==', slipId).limit(1);
+        const slipSnapshot = await slipQuery.get();
+
+        if (slipSnapshot.empty) {
+            throw new Error("Salary slip not found.");
+        }
+
+        const slipDoc = slipSnapshot.docs[0];
+        const slipData = slipDoc.data() as SalarySlip;
+
+        // Security Check: Is the current user either the employee themselves or the owner of the store?
+        const storeDoc = await db.collection('stores').doc(slipData.storeId).get();
+        if (!storeDoc.exists) {
+            throw new Error("Store associated with salary slip not found.");
+        }
+        const storeData = storeDoc.data() as Store;
+
+        if (userId !== slipData.employeeId && userId !== storeData.ownerId) {
+            throw new Error("You do not have permission to view this salary slip.");
+        }
+
+        // Fetch related data
+        const [employeeSnap, attendanceSnap] = await Promise.all([
+            db.collection('employeeProfiles').doc(slipData.employeeId).get(),
+            db.collection(`stores/${slipData.storeId}/attendance`)
+                .where('employeeId', '==', slipData.employeeId)
+                .where('workDate', '>=', slipData.periodStart)
+                .where('workDate', '<=', slipData.periodEnd)
+                .get()
+        ]);
+        
+        if (!employeeSnap.exists) {
+            throw new Error("Employee profile not found for this slip.");
+        }
+        const employeeData = employeeSnap.data() as EmployeeProfile;
+        
+        const attendanceRecords = attendanceSnap.docs.map(d => d.data());
+        const attendanceSummary = {
+            totalDays: new Date(slipData.periodEnd).getDate() - new Date(slipData.periodStart).getDate() + 1,
+            presentDays: attendanceRecords.filter(r => r.status === 'present' || r.status === 'approved').length,
+            partialDays: attendanceRecords.filter(r => r.status === 'partially_present').length,
+            absentDays: attendanceRecords.filter(r => r.status === 'absent' || r.status === 'rejected').length,
+        };
+
+        // Convert Timestamps to serializable format (ISO strings)
+        const serializableSlip = {
+            ...slipData,
+            generatedAt: slipData.generatedAt.toDate().toISOString(),
+        };
+
+        return {
+            slip: serializableSlip as any,
+            employee: employeeData,
+            store: storeData,
+            attendance: attendanceSummary,
+        };
+
+    } catch (error: any) {
+        console.error("Error in getSalarySlipData:", error);
+        // Don't leak detailed server errors to the client
+        return null;
+    }
 }
