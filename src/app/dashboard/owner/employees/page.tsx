@@ -20,6 +20,7 @@ import { Loader2, PlusCircle, Trash2, Users } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
 import { initializeApp, deleteApp } from 'firebase/app';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const employeeSchema = z.object({
   firstName: z.string().min(2, 'First name is required.'),
@@ -31,7 +32,20 @@ const employeeSchema = z.object({
   role: z.string().min(2, 'Role is required.'),
   salaryRate: z.coerce.number().positive('Salary must be a positive number.'),
   salaryType: z.enum(['hourly', 'monthly']),
+  payoutMethod: z.enum(['bank', 'upi']),
+  upiId: z.string().optional(),
+  accountHolderName: z.string().optional(),
+  accountNumber: z.string().optional(),
+  ifscCode: z.string().optional(),
+}).refine(data => {
+    if (data.payoutMethod === 'upi') return !!data.upiId;
+    if (data.payoutMethod === 'bank') return !!data.accountHolderName && !!data.accountNumber && !!data.ifscCode;
+    return true;
+}, {
+    message: "Please fill in the required payment details for the selected method.",
+    path: ["payoutMethod"],
 });
+
 
 type EmployeeFormValues = z.infer<typeof employeeSchema>;
 
@@ -49,8 +63,25 @@ export default function ManageEmployeesPage() {
 
   const form = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeSchema),
-    defaultValues: { firstName: '', lastName: '', email: '', password: '', phone: '', address: '', role: '', salaryRate: 0, salaryType: 'monthly' },
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+      email: '',
+      password: '',
+      phone: '',
+      address: '',
+      role: '',
+      salaryRate: 0,
+      salaryType: 'monthly',
+      payoutMethod: 'bank',
+      upiId: '',
+      accountHolderName: '',
+      accountNumber: '',
+      ifscCode: '',
+    },
   });
+
+  const watchPayoutMethod = form.watch('payoutMethod');
 
   const onSubmit = (data: EmployeeFormValues) => {
     if (!myStore || !firestore || !firebaseApp) {
@@ -90,6 +121,13 @@ export default function ManageEmployeesPage() {
             hireDate: new Date().toISOString().split('T')[0],
             salaryRate: data.salaryRate,
             salaryType: data.salaryType,
+            payoutMethod: data.payoutMethod,
+            upiId: data.payoutMethod === 'upi' ? data.upiId : null,
+            bankDetails: data.payoutMethod === 'bank' ? {
+                accountHolderName: data.accountHolderName,
+                accountNumber: data.accountNumber,
+                ifscCode: data.ifscCode,
+            } : null,
         });
         
         await batch.commit();
@@ -187,6 +225,47 @@ export default function ManageEmployeesPage() {
                                     </FormItem>
                                 )} />
                             </div>
+                            <FormField
+                                control={form.control}
+                                name="payoutMethod"
+                                render={({ field }) => (
+                                    <FormItem className="space-y-3 rounded-lg border p-4">
+                                        <FormLabel>Payout Method</FormLabel>
+                                        <FormControl>
+                                            <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4">
+                                                <FormItem className="flex items-center space-x-3 space-y-0">
+                                                    <FormControl><RadioGroupItem value="bank" /></FormControl>
+                                                    <FormLabel className="font-normal">Bank Account</FormLabel>
+                                                </FormItem>
+                                                <FormItem className="flex items-center space-x-3 space-y-0">
+                                                    <FormControl><RadioGroupItem value="upi" /></FormControl>
+                                                    <FormLabel className="font-normal">UPI</FormLabel>
+                                                </FormItem>
+                                            </RadioGroup>
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+                             {watchPayoutMethod === 'upi' && (
+                                <FormField control={form.control} name="upiId" render={({ field }) => (
+                                    <FormItem><FormLabel>UPI ID</FormLabel><FormControl><Input placeholder="your-id@okhdfcbank" {...field} /></FormControl><FormMessage /></FormItem>
+                                )} />
+                            )}
+                             {watchPayoutMethod === 'bank' && (
+                                <div className="space-y-4 rounded-lg border p-4">
+                                    <h4 className="font-medium">Bank Account Details</h4>
+                                    <FormField control={form.control} name="accountHolderName" render={({ field }) => (
+                                        <FormItem><FormLabel>Account Holder Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>
+                                    )} />
+                                    <FormField control={form.control} name="accountNumber" render={({ field }) => (
+                                        <FormItem><FormLabel>Account Number</FormLabel><FormControl><Input placeholder="1234567890" {...field} /></FormControl><FormMessage /></FormItem>
+                                    )} />
+                                    <FormField control={form.control} name="ifscCode" render={({ field }) => (
+                                        <FormItem><FormLabel>IFSC Code</FormLabel><FormControl><Input placeholder="SBIN0001234" {...field} /></FormControl><FormMessage /></FormItem>
+                                    )} />
+                                </div>
+                            )}
+
                             <Button type="submit" disabled={isProcessing}>
                                 {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
                                 Add Employee

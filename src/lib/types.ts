@@ -1,4 +1,5 @@
 
+
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -373,6 +374,13 @@ export type EmployeeProfile = {
     hireDate: string;
     salaryRate: number;
     salaryType: 'hourly' | 'monthly';
+    payoutMethod: 'bank' | 'upi';
+    upiId?: string;
+    bankDetails?: {
+        accountHolderName: string;
+        accountNumber: string;
+        ifscCode: string;
+    };
 };
 
 export type ReasonEntry = {
