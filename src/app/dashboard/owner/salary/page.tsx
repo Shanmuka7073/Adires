@@ -247,42 +247,27 @@ function generatePayslipHtml(slip: SalarySlip, employee: EmployeeProfile, store:
     function numberToWords(num: number): string {
         const a = ['','one ','two ','three ','four ', 'five ','six ','seven ','eight ','nine ','ten ','eleven ','twelve ','thirteen ','fourteen ','fifteen ','sixteen ','seventeen ','eighteen ','nineteen '];
         const b = ['', '', 'twenty','thirty','forty','fifty', 'sixty','seventy','eighty','ninety'];
-
-        function inWords(n: number): string {
-            let str = '';
-            if (n > 99) {
-                str += a[Math.floor(n / 100)] + 'hundred ';
-                n %= 100;
-            }
-            if (n > 19) {
-                str += b[Math.floor(n / 10)] + ' ' + a[n % 10];
-            } else {
-                str += a[n];
-            }
-            return str.trim();
+        const g = ['', 'thousand', 'million', 'billion', 'trillion'];
+    
+        function inWords(n: number) {
+            if (n < 20) return a[n];
+            if (n < 100) return b[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' : '') + a[n % 10];
+            if (n < 1000) return a[Math.floor(n / 100)] + 'hundred' + (n % 100 !== 0 ? ' ' : '') + inWords(n % 100);
+            return '';
         }
 
         if (num === 0) return 'Zero';
-        let words = '';
-        const crore = Math.floor(num / 10000000);
-        if (crore > 0) {
-            words += inWords(crore) + ' Crore ';
-            num %= 10000000;
+        let str = '';
+        let i = 0;
+        while(num > 0) {
+            let chunk = num % 1000;
+            if (chunk > 0) {
+                str = inWords(chunk) + (g[i] ? ' ' + g[i] : '') + ' ' + str;
+            }
+            num = Math.floor(num / 1000);
+            i++;
         }
-        const lakh = Math.floor(num / 100000);
-        if (lakh > 0) {
-            words += inWords(lakh) + ' Lakh ';
-            num %= 100000;
-        }
-        const thousand = Math.floor(num / 1000);
-        if (thousand > 0) {
-            words += inWords(thousand) + ' Thousand ';
-            num %= 1000;
-        }
-        if (num > 0) {
-            words += inWords(num);
-        }
-        return words.trim().split(' ').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+        return str.trim().split(' ').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
     }
 
     const netPayInWords = () => {
@@ -439,8 +424,17 @@ export default function SalaryReportsPage() {
     const reportData = useMemo(() => {
         if (!attendanceRecords || !selectedEmployee || !dateRange?.from || !dateRange.to) return null;
 
-        const presentOrApprovedRecords = attendanceRecords.filter(r => r.status === 'present' || r.status === 'approved' || r.status === 'partially_present');
-        const partialDaysRecords = attendanceRecords.filter(r => r.status === 'partially_present');
+        const uniqueDates = new Set<string>();
+        const presentOrApprovedRecords = attendanceRecords.filter(r => {
+            const isCountable = (r.status === 'present' || r.status === 'approved' || r.status === 'partially_present');
+            if (isCountable && !uniqueDates.has(r.workDate)) {
+                uniqueDates.add(r.workDate);
+                return true;
+            }
+            return false;
+        });
+
+        const partialDaysRecords = presentOrApprovedRecords.filter(r => r.status === 'partially_present');
         
         let totalHours = 0;
         let baseSalary = 0;
@@ -470,10 +464,10 @@ export default function SalaryReportsPage() {
             baseSalary, 
             netPay, 
             records: attendanceRecords, 
-            presentDays: presentOrApprovedRecords.length,
+            presentDays: uniqueDates.size,
             totalDays: totalDaysInPeriod,
             partialDays: partialDaysRecords.length,
-            absentDays: totalDaysInPeriod - presentOrApprovedRecords.length,
+            absentDays: totalDaysInPeriod - uniqueDates.size,
         };
     }, [attendanceRecords, selectedEmployee, dateRange]);
 
@@ -493,8 +487,8 @@ export default function SalaryReportsPage() {
             const slipData: Omit<SalarySlip, 'id'|'generatedAt'> = {
                 employeeId: selectedEmployee.userId,
                 storeId: myStore.id,
-                periodStart: dateRange.from!.toISOString(),
-                periodEnd: dateRange.to!.toISOString(),
+                periodStart: dateRange.from.toISOString(),
+                periodEnd: dateRange.to.toISOString(),
                 baseSalary: reportData.baseSalary,
                 overtimeHours: 0,
                 overtimePay: 0,
@@ -503,17 +497,14 @@ export default function SalaryReportsPage() {
             };
 
             try {
-                // First, save the data to Firestore.
                 await setDoc(slipRef, { ...slipData, id: slipId, generatedAt: serverTimestamp() }, { merge: true });
-
-                // Construct the full object for HTML generation *on the client*
+                
                  const fullSlipForDownload: SalarySlip = {
                     ...slipData,
                     id: slipId,
                     generatedAt: new Date() as any,
                 };
                 
-                // Now generate HTML from local data
                 const htmlContent = generatePayslipHtml(fullSlipForDownload, selectedEmployee, myStore, reportData);
                 const blob = new Blob([htmlContent], { type: 'application/msword' });
                 const link = document.createElement('a');
@@ -655,5 +646,3 @@ export default function SalaryReportsPage() {
         </div>
     );
 }
-
-    
