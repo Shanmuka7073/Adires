@@ -48,8 +48,18 @@ const employeeSchema = z.object({
     path: ["payoutMethod"],
 });
 
+const editEmployeeSchema = employeeSchema.omit({ 
+    firstName: true, 
+    lastName: true, 
+    email: true, 
+    password: true, 
+    phone: true, 
+    address: true 
+}).partial();
+
 
 type EmployeeFormValues = z.infer<typeof employeeSchema>;
+type EditEmployeeFormValues = z.infer<typeof editEmployeeSchema>;
 
 // Edit Dialog for Existing Employees
 function EditEmployeeDialog({ employee, isOpen, onOpenChange }: { employee: EmployeeProfile, isOpen: boolean, onOpenChange: (open: boolean) => void }) {
@@ -57,8 +67,8 @@ function EditEmployeeDialog({ employee, isOpen, onOpenChange }: { employee: Empl
     const { toast } = useToast();
     const [isSaving, startSave] = useTransition();
 
-    const form = useForm<Partial<EmployeeFormValues>>({
-        resolver: zodResolver(employeeSchema.partial()),
+    const form = useForm<EditEmployeeFormValues>({
+        resolver: zodResolver(editEmployeeSchema),
         defaultValues: {
             role: employee.role,
             salaryRate: employee.salaryRate,
@@ -73,7 +83,7 @@ function EditEmployeeDialog({ employee, isOpen, onOpenChange }: { employee: Empl
 
     const watchPayoutMethod = form.watch('payoutMethod');
 
-    const handleSave = async (data: Partial<EmployeeFormValues>) => {
+    const handleSave = async (data: EditEmployeeFormValues) => {
         if (!firestore) return;
         startSave(async () => {
             const profileRef = doc(firestore, 'employeeProfiles', employee.userId);
