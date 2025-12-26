@@ -143,13 +143,23 @@ export default function EmployeeAttendancePage() {
 
             if ((isRegularization || canResubmit) && selectedRecord) {
                  const recordRef = doc(firestore, `stores/${storeId}/attendance`, selectedRecord.id);
+                 
+                 // FIX: Construct the full update payload as required by security rules
+                 const existing = records?.find(r => r.id === selectedRecord.id);
+                 if (!existing) {
+                    throw new Error("Could not find the record to update locally.");
+                 }
+
+                 const updatedHistory = [...(existing.reasonHistory || []), newReasonEntry];
+
                  await updateDoc(recordRef, {
                     status: 'pending_approval',
-                    reasonHistory: arrayUnion(newReasonEntry)
+                    rejectionCount: existing.rejectionCount, // Keep the rejectionCount the same
+                    reasonHistory: updatedHistory,
                  });
 
                  // Manually update local state to avoid waiting for listener
-                setRecords(prev => prev?.map(r => r.id === selectedRecord.id ? { ...r, status: 'pending_approval', reasonHistory: [...(r.reasonHistory || []), newReasonEntry] } : r) || null);
+                setRecords(prev => prev?.map(r => r.id === selectedRecord.id ? { ...r, status: 'pending_approval', reasonHistory: updatedHistory } : r) || null);
                 
                 toast({ title: 'Request Submitted', description: 'Your request has been sent to your manager for approval.' });
 

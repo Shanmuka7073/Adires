@@ -118,14 +118,16 @@ service cloud.firestore {
           resource.data.punchOutTime == null &&
           request.resource.data.punchOutTime != null
         ) ||
-        // Employee requesting regularization for a partially present day or re-submitting a rejected one
+        // Employee requesting / re-submitting regularization
         (
           isOwner(resource.data.employeeId) &&
           (resource.data.status == 'partially_present' || resource.data.status == 'rejected') &&
           request.resource.data.status == 'pending_approval' &&
+          request.resource.data.rejectionCount == resource.data.rejectionCount &&
+          request.resource.data.reasonHistory.size() == resource.data.reasonHistory.size() + 1 &&
           resource.data.rejectionCount < 3
         ) ||
-        // Store owner has full control to approve/reject/correct.
+        // Store owner has full control
         isStoreOwner(storeId);
 
       allow delete: if false;
