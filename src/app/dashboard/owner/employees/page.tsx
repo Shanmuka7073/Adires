@@ -21,12 +21,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
 import { initializeApp, deleteApp } from 'firebase/app';
 
-
 const employeeSchema = z.object({
   firstName: z.string().min(2, 'First name is required.'),
   lastName: z.string().min(1, 'Last name is required.'),
   email: z.string().email('Invalid email address.'),
   password: z.string().min(6, 'Password must be at least 6 characters.'),
+  phone: z.string().min(10, 'A valid 10-digit phone number is required.'),
+  address: z.string().min(10, 'A complete address is required.'),
   role: z.string().min(2, 'Role is required.'),
   salaryRate: z.coerce.number().positive('Salary must be a positive number.'),
   salaryType: z.enum(['hourly', 'monthly']),
@@ -48,7 +49,7 @@ export default function ManageEmployeesPage() {
 
   const form = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeSchema),
-    defaultValues: { firstName: '', lastName: '', email: '', password: '', role: '', salaryRate: 0, salaryType: 'monthly' },
+    defaultValues: { firstName: '', lastName: '', email: '', password: '', phone: '', address: '', role: '', salaryRate: 0, salaryType: 'monthly' },
   });
 
   const onSubmit = (data: EmployeeFormValues) => {
@@ -69,14 +70,15 @@ export default function ManageEmployeesPage() {
         const batch = writeBatch(firestore);
 
         const userDocRef = doc(firestore, 'users', uid);
-        // Include storeId for the security rule to validate the request
         batch.set(userDocRef, {
             id: uid,
             email: data.email,
             firstName: data.firstName,
             lastName: data.lastName,
+            phoneNumber: data.phone,
+            address: data.address,
             accountType: 'employee',
-            storeId: myStore.id, // This is the crucial addition for the security rule
+            storeId: myStore.id,
         });
 
         const employeeProfileRef = doc(firestore, 'employeeProfiles', uid);
@@ -154,6 +156,12 @@ export default function ManageEmployeesPage() {
                                 )} />
                                 <FormField control={form.control} name="password" render={({ field }) => (
                                     <FormItem><FormLabel>Password</FormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>
+                                )} />
+                                <FormField control={form.control} name="phone" render={({ field }) => (
+                                    <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input type="tel" placeholder="9876543210" {...field} /></FormControl><FormMessage /></FormItem>
+                                )} />
+                                 <FormField control={form.control} name="address" render={({ field }) => (
+                                    <FormItem><FormLabel>Address</FormLabel><FormControl><Input placeholder="Full residential address" {...field} /></FormControl><FormMessage /></FormItem>
                                 )} />
                                 <FormField control={form.control} name="role" render={({ field }) => (
                                     <FormItem><FormLabel>Role</FormLabel><FormControl><Input placeholder="e.g., Cashier, Delivery Staff" {...field} /></FormControl><FormMessage /></FormItem>
