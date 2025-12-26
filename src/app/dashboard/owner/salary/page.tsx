@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useTransition, useCallback, useEffect } from 'react';
 import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc, getDocs } from 'firebase/firestore';
+import { collection, query, where, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc, getDocs } from 'firebase/firestore';
 import type { Store, EmployeeProfile, AttendanceRecord, SalarySlip } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -383,7 +383,7 @@ export default function SalaryReportsPage() {
     }, [attendanceRecords, selectedEmployee, dateRange]);
 
     const handleGenerateSlip = () => {
-        if (!myStore || !selectedEmployee || !reportData || !dateRange?.from || !dateRange?.to || !firestore) {
+        if (!myStore || !selectedEmployee || !reportData || !dateRange?.from || !dateRange?.to || !firestore || !user) {
             toast({ variant: 'destructive', title: 'Cannot Generate', description: 'Missing required data.' });
             return;
         }
@@ -412,8 +412,7 @@ export default function SalaryReportsPage() {
                 await setDoc(slipRef, { ...slipData, id: slipId }, { merge: true });
                 toast({ title: 'Salary Slip Generated!', description: `A slip for ${selectedEmployee.role} for ${format(dateRange.from!, 'MMMM yyyy')} has been saved.` });
                 
-                // Now, fetch all data and trigger download
-                const fullSlipData = await getSalarySlipData(slipId, user!.uid);
+                const fullSlipData = await getSalarySlipData(slipId, user.uid);
 
                 if (fullSlipData) {
                     const htmlContent = generatePayslipHtml(fullSlipData.slip, fullSlipData.employee, fullSlipData.store, fullSlipData.attendance);

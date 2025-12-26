@@ -723,19 +723,37 @@ export async function getSalarySlipData(slipId: string, userId: string): Promise
     const { db } = await getAdminServices();
 
     try {
-        const slipQuery = db.collectionGroup('salarySlips').where('id', '==', slipId).limit(1);
-        const slipSnapshot = await slipQuery.get();
+        // This is a more direct and reliable way to get the document
+        const slipDocRef = doc(db, `stores/${slipId.split('_')[1]}/salarySlips/${slipId}`);
+        const slipDoc = await slipDocRef.get();
+        
+        if (!slipDoc.exists()) {
+            // Fallback for older slip IDs that might not follow the storeId_userId_date pattern
+            const slipQuery = db.collectionGroup('salarySlips').where('id', '==', slipId).limit(1);
+            const slipSnapshot = await slipQuery.get();
 
-        if (slipSnapshot.empty) {
-            throw new Error("Salary slip not found.");
+            if (slipSnapshot.empty) {
+                throw new Error("Salary slip not found.");
+            }
+            const slipDocFromQuery = slipSnapshot.docs[0];
+            const slipData = slipDocFromQuery.data() as SalarySlip;
+            
+            // Security Check is still necessary
+            const storeDoc = await db.collection('stores').doc(slipData.storeId).get();
+            if (!storeDoc.exists()) throw new Error("Store not found.");
+            if (userId !== slipData.employeeId && userId !== (storeDoc.data() as Store).ownerId) {
+                throw new Error("You do not have permission to view this salary slip.");
+            }
+            // If we found it via query, we can proceed with that data.
+            return getFullSlipDetails(slipData, db);
+
         }
 
-        const slipDoc = slipSnapshot.docs[0];
         const slipData = slipDoc.data() as SalarySlip;
 
         // Security Check: Is the current user either the employee themselves or the owner of the store?
         const storeDoc = await db.collection('stores').doc(slipData.storeId).get();
-        if (!storeDoc.exists) {
+        if (!storeDoc.exists()) {
             throw new Error("Store associated with salary slip not found.");
         }
         const storeData = storeDoc.data() as Store;
@@ -744,45 +762,50 @@ export async function getSalarySlipData(slipId: string, userId: string): Promise
             throw new Error("You do not have permission to view this salary slip.");
         }
 
-        // Fetch related data
-        const [employeeSnap, attendanceSnap] = await Promise.all([
-            db.collection('employeeProfiles').doc(slipData.employeeId).get(),
-            db.collection(`stores/${slipData.storeId}/attendance`)
-                .where('employeeId', '==', slipData.employeeId)
-                .where('workDate', '>=', slipData.periodStart)
-                .where('workDate', '<=', slipData.periodEnd)
-                .get()
-        ]);
-        
-        if (!employeeSnap.exists) {
-            throw new Error("Employee profile not found for this slip.");
-        }
-        const employeeData = employeeSnap.data() as EmployeeProfile;
-        
-        const attendanceRecords = attendanceSnap.docs.map(d => d.data());
-        const attendanceSummary = {
-            totalDays: new Date(slipData.periodEnd).getDate() - new Date(slipData.periodStart).getDate() + 1,
-            presentDays: attendanceRecords.filter(r => r.status === 'present' || r.status === 'approved').length,
-            partialDays: attendanceRecords.filter(r => r.status === 'partially_present').length,
-            absentDays: attendanceRecords.filter(r => r.status === 'absent' || r.status === 'rejected').length,
-        };
+        return getFullSlipDetails(slipData, db);
 
-        // Convert Timestamps to serializable format (ISO strings)
-        const serializableSlip = {
-            ...slipData,
-            generatedAt: slipData.generatedAt.toDate().toISOString(),
-        };
-
-        return {
-            slip: serializableSlip as any,
-            employee: employeeData,
-            store: storeData,
-            attendance: attendanceSummary,
-        };
 
     } catch (error: any) {
         console.error("Error in getSalarySlipData:", error);
-        // Don't leak detailed server errors to the client
         return null;
     }
+}
+
+async function getFullSlipDetails(slipData: SalarySlip, db: Firestore) {
+     // Fetch related data
+    const [employeeSnap, attendanceSnap, storeSnap] = await Promise.all([
+        db.collection('employeeProfiles').doc(slipData.employeeId).get(),
+        db.collection(`stores/${slipData.storeId}/attendance`)
+            .where('employeeId', '==', slipData.employeeId)
+            .where('workDate', '>=', slipData.periodStart)
+            .where('workDate', '<=', slipData.periodEnd)
+            .get(),
+        db.collection('stores').doc(slipData.storeId).get()
+    ]);
+    
+    if (!employeeSnap.exists || !storeSnap.exists) {
+        throw new Error("Employee profile or store not found for this slip.");
+    }
+    const employeeData = employeeSnap.data() as EmployeeProfile;
+    const storeData = storeSnap.data() as Store;
+    
+    const attendanceRecords = attendanceSnap.docs.map(d => d.data());
+    const attendanceSummary = {
+        totalDays: new Date(slipData.periodEnd).getDate() - new Date(slipData.periodStart).getDate() + 1,
+        presentDays: attendanceRecords.filter(r => r.status === 'present' || r.status === 'approved').length,
+        partialDays: attendanceRecords.filter(r => r.status === 'partially_present').length,
+        absentDays: attendanceRecords.filter(r => r.status === 'absent' || r.status === 'rejected').length,
+    };
+
+    const serializableSlip = {
+        ...slipData,
+        generatedAt: slipData.generatedAt,
+    };
+
+    return {
+        slip: serializableSlip,
+        employee: employeeData,
+        store: storeData,
+        attendance: attendanceSummary,
+    };
 }
