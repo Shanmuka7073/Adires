@@ -21,6 +21,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { FirestorePermissionError, errorEmitter } from '@/firebase';
 import Link from 'next/link';
+import { getSalarySlipData } from '@/app/actions';
 
 
 function ApprovalRequests({ storeId }: { storeId: string }) {
@@ -138,7 +139,7 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
                             <TableRow key={req.id}>
                                 <TableCell className="font-mono">{req.employeeId.slice(0, 8)}...</TableCell>
                                 <TableCell>{format(new Date(req.workDate), 'PPP')}</TableCell>
-                                <TableCell className="text-sm italic text-muted-foreground">{req.reason || "No reason given"}</TableCell>
+                                <TableCell className="text-sm italic text-muted-foreground">{req.reasonHistory && req.reasonHistory.length > 0 ? req.reasonHistory[req.reasonHistory.length - 1].text : "No reason given"}</TableCell>
                                 <TableCell className="text-right space-x-2">
                                     <Button size="sm" variant="ghost" onClick={() => handleApproval(req, false)} disabled={isUpdating}>
                                         <XCircle className="mr-2 h-4 w-4 text-destructive" /> Reject
@@ -216,6 +217,93 @@ function GeneratedSlipsList({ employee, myStore }: { employee: EmployeeProfile, 
     )
 }
 
+function generatePayslipHtml(slip: SalarySlip, employee: EmployeeProfile, store: Store, attendance: any) {
+  const gross = slip.baseSalary + slip.overtimePay;
+  const totalDeduction = slip.deductions;
+  const netPay = slip.netPay;
+
+  const numberToWords = (num: number): string => {
+    // Simplified version
+    if (num === 0) return 'Zero';
+    const a = ['', 'one ', 'two ', 'three ', 'four ', 'five ', 'six ', 'seven ', 'eight ', 'nine ', 'ten ', 'eleven ', 'twelve ', 'thirteen ', 'fourteen ', 'fifteen ', 'sixteen ', 'seventeen ', 'eighteen ', 'nineteen '];
+    const b = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+    let n = ('000000000' + num).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
+    if (!n) return '';
+    let str = '';
+    str += (parseInt(n[1]) !== 0) ? (a[Number(n[1])] || b[n[1][0]] + ' ' + a[n[1][1]]) + 'crore ' : '';
+    str += (parseInt(n[2]) !== 0) ? (a[Number(n[2])] || b[n[2][0]] + ' ' + a[n[2][1]]) + 'lakh ' : '';
+    str += (parseInt(n[3]) !== 0) ? (a[Number(n[3])] || b[n[3][0]] + ' ' + a[n[3][1]]) + 'thousand ' : '';
+    str += (parseInt(n[4]) !== 0) ? (a[Number(n[4])] || b[n[4][0]] + ' ' + a[n[4][1]]) + 'hundred ' : '';
+    str += (parseInt(n[5]) !== 0) ? ((str !== '') ? 'and ' : '') + (a[Number(n[5])] || b[n[5][0]] + ' ' + a[n[5][1]]) : '';
+    return str.trim().split(' ').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ') + ' Only';
+  };
+
+  return `
+    <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head><meta charset='utf-8'><title>Salary Slip</title></head>
+      <body>
+        <div style="width: 800px; margin: auto; padding: 20px; font-family: sans-serif;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; padding-bottom: 10px; margin-bottom: 20px;">
+            <div>
+              <h1 style="font-size: 24px; font-weight: bold;">${store.name}</h1>
+              <p style="font-size: 12px; color: #666;">${store.address}</p>
+            </div>
+            <div style="text-align: right;">
+              <h2 style="font-size: 20px; font-weight: 600;">Salary Slip</h2>
+              <p style="font-size: 12px;">Payslip No: ${slip.id.toUpperCase().slice(0, 15)}</p>
+              <p style="font-size: 12px;">${format(new Date(slip.periodStart), 'MMMM yyyy')}</p>
+            </div>
+          </div>
+          <table style="width: 100%; margin-bottom: 20px;">
+            <tr>
+              <td><b>Employee Name:</b> ${employee.role} (${employee.employeeId})</td>
+              <td><b>Store:</b> ${store.name}</td>
+            </tr>
+            <tr>
+              <td><b>Employee ID:</b> ${employee.employeeId}</td>
+              <td><b>Pay Period:</b> ${format(new Date(slip.periodStart), 'dd MMM yyyy')} – ${format(new Date(slip.periodEnd), 'dd MMM yyyy')}</td>
+            </tr>
+            <tr>
+              <td><b>Designation:</b> ${employee.role}</td>
+              <td><b>Date of Joining:</b> ${format(new Date(employee.hireDate), 'dd MMM yyyy')}</td>
+            </tr>
+          </table>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <tr style="background-color: #f2f2f2;">
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Earnings</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Amount (₹)</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Deductions</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Amount (₹)</th>
+            </tr>
+            <tr>
+              <td style="border: 1px solid #ddd; padding: 8px;">Base Salary (${attendance.presentDays} days)</td>
+              <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${slip.baseSalary.toFixed(2)}</td>
+              <td style="border: 1px solid #ddd; padding: 8px;">Standard Deductions</td>
+              <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${slip.deductions.toFixed(2)}</td>
+            </tr>
+            <tr style="font-weight: bold;">
+              <td style="border: 1px solid #ddd; padding: 8px;">Gross Earnings</td>
+              <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${gross.toFixed(2)}</td>
+              <td style="border: 1px solid #ddd; padding: 8px;">Total Deductions</td>
+              <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${totalDeduction.toFixed(2)}</td>
+            </tr>
+          </table>
+          <div style="text-align: right; font-size: 18px; font-weight: bold; margin-top: 20px;">
+            Net Pay: ₹${netPay.toFixed(2)}
+          </div>
+          <div style="margin-top: 10px;">
+            <p><b>Amount in Words:</b> ${numberToWords(netPay)}</p>
+          </div>
+          <div style="margin-top: 50px; font-size: 12px; color: #666;">
+            <p>This is a system-generated payslip.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+}
+
+
 export default function SalaryReportsPage() {
     const { user, firestore } = useFirebase();
     const { toast } = useToast();
@@ -291,7 +379,7 @@ export default function SalaryReportsPage() {
 
         const netPay = baseSalary; // Future logic for deductions can go here
 
-        return { totalHours, baseSalary, netPay, records: attendanceRecords };
+        return { totalHours, baseSalary, netPay, records: attendanceRecords, presentDays: presentOrApprovedRecords.length };
     }, [attendanceRecords, selectedEmployee, dateRange]);
 
     const handleGenerateSlip = () => {
@@ -324,17 +412,31 @@ export default function SalaryReportsPage() {
                 await setDoc(slipRef, { ...slipData, id: slipId }, { merge: true });
                 toast({ title: 'Salary Slip Generated!', description: `A slip for ${selectedEmployee.role} for ${format(dateRange.from!, 'MMMM yyyy')} has been saved.` });
                 
-                // Open the new slip in a new tab for printing/downloading
-                window.open(`/dashboard/salary-slip/${slipId}`, '_blank');
-                
-            } catch (error) {
-                console.error("Manual generation of salary slip failed:", error);
+                // Now, fetch all data and trigger download
+                const fullSlipData = await getSalarySlipData(slipId, user!.uid);
+
+                if (fullSlipData) {
+                    const htmlContent = generatePayslipHtml(fullSlipData.slip, fullSlipData.employee, fullSlipData.store, fullSlipData.attendance);
+                    const blob = new Blob([htmlContent], { type: 'application/msword' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `Salary_Slip_${selectedEmployee.employeeId}_${format(new Date(fullSlipData.slip.periodStart), 'MMM_yyyy')}.doc`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } else {
+                    throw new Error("Could not fetch newly created slip data for download.");
+                }
+
+            } catch (error: any) {
+                console.error("Failed to generate or download salary slip:", error);
                  const permissionError = new FirestorePermissionError({
                     path: slipRef.path,
                     operation: 'write',
                     requestResourceData: slipData,
                 });
                 errorEmitter.emit('permission-error', permissionError);
+                toast({ variant: 'destructive', title: 'Error', description: error.message });
             }
         });
     };
