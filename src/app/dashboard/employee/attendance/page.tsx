@@ -259,8 +259,8 @@ export default function EmployeeAttendancePage() {
                         }}
                         modifiersClassNames={{
                             present: 'day-present',
-                            partially_present: 'bg-yellow-100 text-yellow-800',
-                            pending: 'bg-yellow-100 text-yellow-800',
+                            partially_present: 'bg-orange-100 text-orange-800',
+                            pending: 'bg-yellow-200 text-yellow-900',
                             approved: 'bg-green-100 text-green-800',
                             rejected: 'bg-red-100 text-red-800',
                         }}
@@ -275,12 +275,18 @@ export default function EmployeeAttendancePage() {
                             <p><strong>Status:</strong> <Badge variant={selectedRecord.status === 'present' || selectedRecord.status === 'approved' ? 'default' : 'destructive'}>{selectedRecord.status.replace('_', ' ')}</Badge></p>
                             <p><strong>Punch In:</strong> {selectedRecord.punchInTime ? format((selectedRecord.punchInTime as any).toDate ? (selectedRecord.punchInTime as any).toDate() : new Date(selectedRecord.punchInTime as any), 'p') : '—'}</p>
                             <p><strong>Punch Out:</strong> {selectedRecord.punchOutTime ? format((selectedRecord.punchOutTime as any).toDate ? (selectedRecord.punchOutTime as any).toDate() : new Date(selectedRecord.punchOutTime as any), 'p') : '—'}</p>
-                            <p><strong>Work Hours:</strong> {selectedRecord.workHours > 0 ? selectedRecord.workHours.toFixed(2) : '—'}</p>
+                            <p><strong>Work Hours:</strong> {selectedRecord.workHours > 0 ? `${selectedRecord.workHours.toFixed(2)} hours` : '—'}</p>
                              {selectedRecord.reason && <p><strong>Reason:</strong> {selectedRecord.reason}</p>}
-                             {selectedRecord.status === 'partially_present' && !selectedRecord.reason && selectedRecord.workHours > 0 && (
-                                <Button onClick={() => openRequestDialog(true)} disabled={isProcessing} className="w-full mt-2">
-                                    Request Regularization
-                                </Button>
+                             
+                             {selectedRecord.status === 'partially_present' && selectedRecord.workHours > 0 && (
+                                <Alert className="bg-yellow-100 border-yellow-300 text-yellow-900">
+                                    <AlertDescription>
+                                        You worked {selectedRecord.workHours.toFixed(2)} hours, which is less than the required shift. You can request regularization if needed.
+                                    </AlertDescription>
+                                     <Button onClick={() => openRequestDialog(true)} disabled={isProcessing} className="w-full mt-2 bg-yellow-400 hover:bg-yellow-500 text-yellow-900">
+                                        Request Regularization
+                                    </Button>
+                                </Alert>
                              )}
                         </div>
                      ) : canRequestApproval ? (
