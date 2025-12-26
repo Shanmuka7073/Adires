@@ -2,8 +2,8 @@
 'use client';
 
 import { useState, useMemo, useTransition, useCallback, useEffect } from 'react';
-import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, where, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc, getDocs } from 'firebase/firestore';
+import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
+import { collection, query, where, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc, getDocs, orderBy } from 'firebase/firestore';
 import type { Store, EmployeeProfile, AttendanceRecord, SalarySlip } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Calendar as CalendarIcon, Loader2, FileText, CheckCircle, XCircle, Eye } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, differenceInCalendarDays, getDaysInMonth, isSameDay, isPast, isToday } from 'date-fns';
+import { format, startOfMonth, endOfMonth, getDaysInMonth } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -19,7 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { FirestorePermissionError, errorEmitter } from '@/firebase';
+import { FirestorePermissionError } from '@/firebase/errors';
 import Link from 'next/link';
 import { getSalarySlipData } from '@/app/actions';
 
@@ -382,7 +382,7 @@ export default function SalaryReportsPage() {
         return { totalHours, baseSalary, netPay, records: attendanceRecords, presentDays: presentOrApprovedRecords.length };
     }, [attendanceRecords, selectedEmployee, dateRange]);
 
-    const handleGenerateSlip = () => {
+    const handleGenerateSlip = async () => {
         if (!myStore || !selectedEmployee || !reportData || !dateRange?.from || !dateRange?.to || !firestore || !user) {
             toast({ variant: 'destructive', title: 'Cannot Generate', description: 'Missing required data.' });
             return;
