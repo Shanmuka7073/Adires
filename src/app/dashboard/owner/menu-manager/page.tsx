@@ -3,7 +3,7 @@
 
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, setDoc, limit } from 'firebase/firestore';
+import { collection, query, where, doc, setDoc, limit, updateDoc } from 'firebase/firestore';
 import type { Store, Menu, MenuItem, MenuTheme } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -314,7 +314,7 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
         let updatedItems;
         if (isNew) {
             const maxId = Math.max(0, ...menu.items.map(i => parseInt((i.id || '0').split('-')[1] || '0')));
-            const newItem = { ...itemData, id: `temp-${maxId + 1}` };
+            const newItem = { ...itemData, id: `item-${Date.now()}-${maxId + 1}` };
             updatedItems = [...menu.items, newItem];
         } else {
             updatedItems = menu.items.map(item => item.id === editingItem?.id ? { ...item, ...itemData } : item);
@@ -334,7 +334,8 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
         startSave(async () => {
             const menuRef = doc(firestore, `stores/${store.id}/menus`, menu.id);
             try {
-                await setDoc(menuRef, { ...menu }, { merge: true });
+                // Save the entire local `menu` object to Firestore
+                await setDoc(menuRef, menu, { merge: true });
                 toast({ title: "Menu Saved!", description: "Your changes have been saved." });
             } catch (error) {
                  toast({ variant: 'destructive', title: "Save Failed", description: "Could not save menu changes." });
