@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useTransition, useCallback } from 'react';
-import { collection, query, where, addDoc, serverTimestamp, getDocs, orderBy, updateDoc, doc, Timestamp, collectionGroup, arrayUnion } from 'firebase/firestore';
+import { collection, query, where, addDoc, serverTimestamp, getDocs, orderBy, updateDoc, doc, Timestamp, collectionGroup, arrayUnion, setDoc } from 'firebase/firestore';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { format, differenceInMinutes, startOfMonth, endOfMonth, isSameDay, isPast, isToday } from 'date-fns';
 import type { AttendanceRecord, EmployeeProfile, Store, ReasonEntry } from '@/lib/types';
@@ -115,7 +115,7 @@ export default function EmployeeAttendancePage() {
       
       try {
         await updateDoc(recordRef, updateData);
-        setRecords(prevRecords => prevRecords?.map(rec => rec.id === todaysRecord.id ? { ...rec, punchOutTime, workHours, status: newStatus } : rec) || null);
+        setRecords(prevRecords => prevRecords?.map(rec => rec.id === todaysRecord.id ? { ...rec, ...updateData, punchOutTime } : rec) || null);
         toast({ title: 'Punched Out!', description: `Your shift has ended. Total hours: ${workHours.toFixed(2)}.` });
       } catch (e) {
         const permissionError = new FirestorePermissionError({ path: recordRef.path, operation: 'update', requestResourceData: { workHours, status: newStatus } });
@@ -135,7 +135,7 @@ export default function EmployeeAttendancePage() {
     
     startProcessing(async() => {
         try {
-            const newReasonEntry: ReasonEntry = {
+            const newReasonEntry = {
                 text: approvalReason.trim(),
                 timestamp: serverTimestamp(),
                 status: 'submitted',
@@ -143,23 +143,17 @@ export default function EmployeeAttendancePage() {
 
             if ((isRegularization || canResubmit) && selectedRecord) {
                  const recordRef = doc(firestore, `stores/${storeId}/attendance`, selectedRecord.id);
-                 
-                 // FIX: Construct the full update payload as required by security rules
                  const existing = records?.find(r => r.id === selectedRecord.id);
-                 if (!existing) {
-                    throw new Error("Could not find the record to update locally.");
-                 }
+                 if (!existing) throw new Error("Could not find record to update.");
 
-                 const updatedHistory = [...(existing.reasonHistory || []), newReasonEntry];
-
-                 await updateDoc(recordRef, {
+                 // This is the key fix: use setDoc with merge instead of updateDoc
+                 await setDoc(recordRef, {
                     status: 'pending_approval',
-                    rejectionCount: existing.rejectionCount, // Keep the rejectionCount the same
-                    reasonHistory: updatedHistory,
-                 });
+                    reasonHistory: [...(existing.reasonHistory || []), newReasonEntry],
+                 }, { merge: true });
 
                  // Manually update local state to avoid waiting for listener
-                setRecords(prev => prev?.map(r => r.id === selectedRecord.id ? { ...r, status: 'pending_approval', reasonHistory: updatedHistory } : r) || null);
+                setRecords(prev => prev?.map(r => r.id === selectedRecord.id ? { ...r, status: 'pending_approval', reasonHistory: [...(r.reasonHistory || []), newReasonEntry] } : r) || null);
                 
                 toast({ title: 'Request Submitted', description: 'Your request has been sent to your manager for approval.' });
 
@@ -320,7 +314,7 @@ export default function EmployeeAttendancePage() {
                                  </div>
                              )}
                              
-                             {selectedRecord.status === 'partially_present' && selectedRecord.workHours > 0 && (
+                             {selectedRecord.status === 'partially_present' && selectedRecord.workHours >= 0 && (
                                 <Alert className="bg-orange-100 border-orange-300 text-orange-900">
                                     <AlertDescription>
                                         You worked {selectedRecord.workHours.toFixed(2)} hours, which is less than a full shift. You can request regularization if this was due to an issue.
