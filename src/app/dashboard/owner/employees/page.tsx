@@ -24,7 +24,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 
-const employeeSchema = z.object({
+const baseEmployeeSchema = z.object({
   firstName: z.string().min(2, 'First name is required.'),
   lastName: z.string().min(1, 'Last name is required.'),
   email: z.string().email('Invalid email address.'),
@@ -39,23 +39,30 @@ const employeeSchema = z.object({
   accountHolderName: z.string().optional(),
   accountNumber: z.string().optional(),
   ifscCode: z.string().optional(),
-}).refine(data => {
-    if (data.payoutMethod === 'upi') return !!data.upiId;
+});
+
+const refinedSchemaCheck = (data: any) => {
+    if (data.payoutMethod === 'upi') return !!data.upiId && data.upiId.includes('@');
     if (data.payoutMethod === 'bank') return !!data.accountHolderName && !!data.accountNumber && !!data.ifscCode;
     return true;
-}, {
+};
+
+const employeeSchema = baseEmployeeSchema.refine(refinedSchemaCheck, {
     message: "Please fill in the required payment details for the selected method.",
     path: ["payoutMethod"],
 });
 
-const editEmployeeSchema = employeeSchema.omit({ 
+const editEmployeeSchema = baseEmployeeSchema.omit({ 
     firstName: true, 
     lastName: true, 
     email: true, 
     password: true, 
     phone: true, 
     address: true 
-}).partial();
+}).refine(refinedSchemaCheck, {
+    message: "Please fill in the required payment details for the selected method.",
+    path: ["payoutMethod"],
+});
 
 
 type EmployeeFormValues = z.infer<typeof employeeSchema>;
@@ -446,3 +453,4 @@ export default function ManageEmployeesPage() {
     </>
   );
 }
+
