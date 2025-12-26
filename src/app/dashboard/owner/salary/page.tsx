@@ -21,8 +21,6 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { FirestorePermissionError } from '@/firebase/errors';
 import Link from 'next/link';
-import { getSalarySlipData } from '@/app/actions';
-
 
 function ApprovalRequests({ storeId }: { storeId: string }) {
     const { firestore } = useFirebase();
@@ -45,13 +43,15 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
         startUpdate(async () => {
             const newStatus = isApproved ? 'approved' : 'rejected';
             const recordRef = doc(firestore, `stores/${storeId}/attendance`, record.id);
-            // If approved, grant 8 hours. If rejected, it's 0.
             const updateData: Partial<AttendanceRecord> = { status: newStatus };
+            
+            // If approved, grant 8 hours. If rejected, it's 0.
             if (isApproved) {
-                // If it's a regularization for a partially_present day, keep existing hours. Otherwise, grant 8.
                 updateData.workHours = record.workHours > 0 ? record.workHours : 8;
             } else {
                  updateData.workHours = 0;
+                 // Increment rejectionCount on rejection
+                 updateData.rejectionCount = (record.rejectionCount || 0) + 1;
             }
 
             try {
@@ -361,7 +361,7 @@ export default function SalaryReportsPage() {
     const reportData = useMemo(() => {
         if (!attendanceRecords || !selectedEmployee || !dateRange?.from) return null;
 
-        const presentOrApprovedRecords = attendanceRecords.filter(r => r.status === 'present' || r.status === 'approved');
+        const presentOrApprovedRecords = attendanceRecords.filter(r => r.status === 'present' || r.status === 'approved' || r.status === 'partially_present');
         
         let totalHours = 0;
         let baseSalary = 0;
@@ -369,7 +369,12 @@ export default function SalaryReportsPage() {
         if (selectedEmployee.salaryType === 'monthly') {
             const workingDaysInMonth = getDaysInMonth(dateRange.from);
             const perDaySalary = selectedEmployee.salaryRate / workingDaysInMonth;
-            const payableDays = presentOrApprovedRecords.length;
+            const payableDays = presentOrApprovedRecords.reduce((acc, record) => {
+                if (record.status === 'partially_present') {
+                    return acc + (record.workHours / 8); // Prorate for partial days
+                }
+                return acc + 1;
+            }, 0);
             baseSalary = perDaySalary * payableDays;
             totalHours = presentOrApprovedRecords.reduce((acc, record) => acc + (record.workHours || 8), 0); // Default to 8 for approved absences
         } else { // hourly
@@ -383,7 +388,7 @@ export default function SalaryReportsPage() {
     }, [attendanceRecords, selectedEmployee, dateRange]);
 
     const handleGenerateSlip = async () => {
-        if (!myStore || !selectedEmployee || !reportData || !dateRange?.from || !dateRange?.to || !firestore || !user) {
+        if (!myStore || !selectedEmployee || !reportData || !dateRange?.from || !dateRange?.to || !firestore) {
             toast({ variant: 'destructive', title: 'Cannot Generate', description: 'Missing required data.' });
             return;
         }
@@ -398,8 +403,8 @@ export default function SalaryReportsPage() {
             const slipData: Omit<SalarySlip, 'id' | 'generatedAt'> & { generatedAt: any } = {
                 employeeId: selectedEmployee.userId,
                 storeId: myStore.id,
-                periodStart: format(dateRange.from!, 'yyyy-MM-dd'),
-                periodEnd: format(dateRange.to!, 'yyyy-MM-dd'),
+                periodStart: dateRange.from!, // Use Date object
+                periodEnd: dateRange.to!,     // Use Date object
                 baseSalary: reportData.baseSalary,
                 overtimeHours: 0,
                 overtimePay: 0,
@@ -412,20 +417,32 @@ export default function SalaryReportsPage() {
                 await setDoc(slipRef, { ...slipData, id: slipId }, { merge: true });
                 toast({ title: 'Salary Slip Generated!', description: `A slip for ${selectedEmployee.role} for ${format(dateRange.from!, 'MMMM yyyy')} has been saved.` });
                 
-                const fullSlipData = await getSalarySlipData(slipId, user.uid);
-
-                if (fullSlipData) {
-                    const htmlContent = generatePayslipHtml(fullSlipData.slip, fullSlipData.employee, fullSlipData.store, fullSlipData.attendance);
-                    const blob = new Blob([htmlContent], { type: 'application/msword' });
-                    const link = document.createElement('a');
-                    link.href = URL.createObjectURL(blob);
-                    link.download = `Salary_Slip_${selectedEmployee.employeeId}_${format(new Date(fullSlipData.slip.periodStart), 'MMM_yyyy')}.doc`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                } else {
-                    throw new Error("Could not fetch newly created slip data for download.");
-                }
+                // Construct the full slip data on the client to generate the HTML
+                const fullSlipForDownload: SalarySlip = {
+                    ...slipData,
+                    id: slipId,
+                    generatedAt: new Date(), // Use current date for immediate generation
+                    // Ensure dates are strings for the HTML function if it expects them
+                    periodStart: format(dateRange.from!, 'yyyy-MM-dd'),
+                    periodEnd: format(dateRange.to!, 'yyyy-MM-dd'),
+                };
+                
+                const attendanceSummary = {
+                    totalDays: getDaysInMonth(dateRange.from),
+                    presentDays: reportData.presentDays,
+                    partialDays: reportData.records.filter(r => r.status === 'partially_present').length,
+                    absentDays: reportData.records.filter(r => r.status === 'absent' || r.status === 'rejected').length,
+                };
+                
+                const htmlContent = generatePayslipHtml(fullSlipForDownload, selectedEmployee, myStore, attendanceSummary);
+                const blob = new Blob([htmlContent], { type: 'application/msword' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `Salary_Slip_${selectedEmployee.employeeId}_${format(new Date(fullSlipForDownload.periodStart), 'MMM_yyyy')}.doc`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
 
             } catch (error: any) {
                 console.error("Failed to generate or download salary slip:", error);
