@@ -3,15 +3,15 @@
 
 import { useState, useMemo, useTransition, useCallback, useEffect } from 'react';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
-import { collection, query, where, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc, getDocs, orderBy } from 'firebase/firestore';
-import type { Store, EmployeeProfile, AttendanceRecord, SalarySlip } from '@/lib/types';
+import { collection, query, where, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import type { Store, EmployeeProfile, AttendanceRecord, SalarySlip, ReasonEntry } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Calendar as CalendarIcon, Loader2, FileText, CheckCircle, XCircle, Eye } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, getDaysInMonth } from 'date-fns';
+import { Calendar as CalendarIcon, Loader2, FileText, CheckCircle, XCircle, Eye, Info, MessageSquare } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, getDaysInMonth, isSameDay, isPast, isToday, differenceInMinutes } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -21,6 +21,10 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { FirestorePermissionError } from '@/firebase/errors';
 import Link from 'next/link';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+
 
 function ApprovalRequests({ storeId }: { storeId: string }) {
     const { firestore } = useFirebase();
@@ -247,6 +251,17 @@ function generatePayslipHtml(slip: SalarySlip, employee: EmployeeProfile, store:
         }
         return `${rupeePart} Only`;
     };
+    
+    let paymentDetailsHtml = `<p><b>Payment Mode:</b> ${employee.payoutMethod === 'upi' ? 'UPI' : 'Bank Transfer'}</p>`;
+    if (employee.payoutMethod === 'upi' && employee.upiId) {
+        paymentDetailsHtml += `<p><b>UPI ID:</b> ${employee.upiId}</p>`;
+    } else if (employee.payoutMethod === 'bank' && employee.bankDetails) {
+        paymentDetailsHtml += `
+            <p><b>A/C Holder:</b> ${employee.bankDetails.accountHolderName}</p>
+            <p><b>A/C No:</b> ${employee.bankDetails.accountNumber}</p>
+            <p><b>IFSC:</b> ${employee.bankDetails.ifscCode}</p>
+        `;
+    }
 
     return `
       <html>
@@ -272,8 +287,12 @@ function generatePayslipHtml(slip: SalarySlip, employee: EmployeeProfile, store:
                 <td style="padding: 5px;"><b>Designation:</b> ${employee.role}</td>
                 <td style="padding: 5px;"><b>Date of Joining:</b> ${format(new Date(employee.hireDate), 'dd MMM yyyy')}</td>
               </tr>
+               <tr>
+                <td style="padding: 5px;" colspan="2">
+                   ${paymentDetailsHtml}
+                </td>
+              </tr>
               <tr>
-                <td style="padding: 5px;"><b>Payment Mode:</b> Bank Transfer</td>
                 <td style="padding: 5px;"><b>Payslip No:</b> ${slip.id.toUpperCase().slice(0, 15)}</td>
               </tr>
             </table>
@@ -415,9 +434,9 @@ export default function SalaryReportsPage() {
         }
         
         startGeneration(async () => {
-            const slipId = `${selectedEmployee.userId}_${format(dateRange.from!, 'yyyy-MM')}`;
+            const slipId = `${myStore.id}_${selectedEmployee.userId}_${format(dateRange.from!, 'yyyy-MM')}`;
             const slipRef = doc(firestore, `stores/${myStore.id}/salarySlips`, slipId);
-            const slipData: Omit<SalarySlip, 'id'> = {
+            const slipData: Omit<SalarySlip, 'id'|'generatedAt'> = {
                 employeeId: selectedEmployee.userId,
                 storeId: myStore.id,
                 periodStart: dateRange.from!.toISOString(),
@@ -427,18 +446,15 @@ export default function SalaryReportsPage() {
                 overtimePay: 0,
                 deductions: 0,
                 netPay: reportData.netPay,
-                generatedAt: new Date() as any, // Will be converted by Firestore
             };
 
             try {
-                await setDoc(slipRef, { ...slipData, id: slipId }, { merge: true });
-                toast({ title: 'Salary Slip Generated & Saved!', description: `A slip for ${selectedEmployee.role} for ${format(dateRange.from!, 'MMMM yyyy')} is being downloaded.` });
-                
-                // Construct the full slip data on the client to generate the HTML
-                 const fullSlipForDownload: SalarySlip = {
+                await setDoc(slipRef, { ...slipData, id: slipId, generatedAt: serverTimestamp() }, { merge: true });
+
+                const fullSlipForDownload: SalarySlip = {
                     ...slipData,
                     id: slipId,
-                    generatedAt: new Date() as any,
+                    generatedAt: new Date() as any, // Use client date for immediate download generation
                 };
                 
                 const attendanceSummary = {
@@ -457,6 +473,7 @@ export default function SalaryReportsPage() {
                 link.click();
                 document.body.removeChild(link);
                 
+                toast({ title: 'Salary Slip Generated & Downloaded!', description: `A slip for ${selectedEmployee.role} for ${format(dateRange.from!, 'MMMM yyyy')} has been generated.` });
 
             } catch (error: any) {
                 console.error("Failed to generate or download salary slip:", error);
