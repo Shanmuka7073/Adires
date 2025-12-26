@@ -105,27 +105,30 @@ service cloud.firestore {
     match /stores/{storeId}/attendance/{recordId} {
       
       // A store owner can read any record in their store.
-      // An employee can read their own records (needed for their view).
-      allow get, list: if isStoreOwner(storeId) || request.auth.uid == request.query.where[0][2];
+      allow list: if isStoreOwner(storeId);
+      allow get: if isStoreOwner(storeId) || isOwner(resource.data.employeeId);
       
       // Employee creates their own attendance record
       allow create: if
         isOwner(request.resource.data.employeeId)
         && request.resource.data.storeId == storeId;
 
-      // UPDATE LOGIC (KEY FIX)
       allow update: if
+        // Employee punching out
         (
-          // Employee can update their own record to request regularization
-          isOwner(resource.data.employeeId)
-          && resource.data.status == 'partially_present'
-          && request.resource.data.status == 'pending_approval'
-        )
-        ||
+          isOwner(resource.data.employeeId) &&
+          resource.data.punchOutTime == null &&
+          request.resource.data.punchOutTime != null
+        ) ||
+        // Employee requesting regularization for a partially present day
         (
-          // Store owner has full control to approve/reject/correct.
-          isStoreOwner(storeId)
-        );
+          isOwner(resource.data.employeeId) &&
+          resource.data.status == 'partially_present' &&
+          request.resource.data.status == 'pending_approval' &&
+          request.resource.data.workHours == resource.data.workHours
+        ) ||
+        // Store owner has full control to approve/reject/correct.
+        isStoreOwner(storeId);
 
       allow delete: if false;
     }
