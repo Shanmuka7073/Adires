@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Calendar as CalendarIcon, Loader2, FileText, CheckCircle, XCircle, Eye, Info, MessageSquare } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, getDaysInMonth, isSameDay, isPast, isToday, differenceInMinutes } from 'date-fns';
+import { format, startOfMonth, endOfMonth, getDaysInMonth, isSameDay, isPast, isToday, differenceInMinutes, differenceInDays } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -41,18 +41,39 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
 
     const { data: requests, isLoading, refetch } = useCollection<AttendanceRecord>(requestsQuery);
 
-    const handleApproval = (record: AttendanceRecord, isApproved: boolean) => {
+    const handleApproval = async (record: AttendanceRecord, isApproved: boolean) => {
         if (!firestore || !storeId) return;
+
+        let rejectionReason = "";
+        if (!isApproved) {
+            rejectionReason = prompt("Please provide a reason for rejection:") || "Rejected without reason.";
+        }
         
         startUpdate(async () => {
             const newStatus = isApproved ? 'approved' : 'rejected';
             const recordRef = doc(firestore, `stores/${storeId}/attendance`, record.id);
             
-            const updateData: Partial<AttendanceRecord> = { status: newStatus };
+            const lastReasonIndex = (record.reasonHistory?.length || 0) - 1;
+            const updatedReasonHistory = record.reasonHistory ? [...record.reasonHistory] : [];
+
+            if (lastReasonIndex >= 0) {
+                updatedReasonHistory[lastReasonIndex] = {
+                    ...updatedReasonHistory[lastReasonIndex],
+                    status: newStatus,
+                    rejectionReason: !isApproved ? rejectionReason : undefined,
+                };
+            }
+
+            const updateData: Partial<AttendanceRecord> = { 
+                status: newStatus,
+                rejectionCount: newStatus === 'rejected' ? (record.rejectionCount || 0) + 1 : record.rejectionCount,
+                reasonHistory: updatedReasonHistory,
+            };
+
             if (isApproved) {
-                updateData.workHours = record.workHours > 0 ? record.workHours : 8;
+                updateData.workHours = record.workHours > 0 ? record.workHours : 8; // Grant 8 hours if it was a missed day
             } else {
-                 updateData.workHours = 0;
+                updateData.workHours = 0;
             }
 
             try {
@@ -129,9 +150,9 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Employee ID</TableHead>
-                            <TableHead>Date Requested</TableHead>
-                            <TableHead>Reason Provided</TableHead>
+                            <TableHead>Employee</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Reason</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -218,51 +239,51 @@ function GeneratedSlipsList({ employee, myStore }: { employee: EmployeeProfile, 
     )
 }
 
-function numberToWords(num: number): string {
-    const a = ['', 'one ', 'two ', 'three ', 'four ', 'five ', 'six ', 'seven ', 'eight ', 'nine ', 'ten ', 'eleven ', 'twelve ', 'thirteen ', 'fourteen ', 'fifteen ', 'sixteen ', 'seventeen ', 'eighteen ', 'nineteen '];
-    const b = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
-
-    function inWords(n: number): string {
-        if (n < 20) return a[n];
-        let digit = n % 10;
-        return b[Math.floor(n / 10)] + (digit ? '-' + a[digit] : '');
-    }
-
-    if (num === 0) return 'Zero';
-    let words = '';
-    const crore = Math.floor(num / 10000000);
-    if (crore > 0) {
-        words += inWords(crore) + 'Crore ';
-        num %= 10000000;
-    }
-    const lakh = Math.floor(num / 100000);
-    if (lakh > 0) {
-        words += inWords(lakh) + 'Lakh ';
-        num %= 100000;
-    }
-    const thousand = Math.floor(num / 1000);
-    if (thousand > 0) {
-        words += inWords(thousand) + 'Thousand ';
-        num %= 1000;
-    }
-    const hundred = Math.floor(num / 100);
-    if (hundred > 0) {
-        words += inWords(hundred) + 'Hundred ';
-        num %= 100;
-    }
-    if (num > 0) {
-        if (words !== '') words += 'and ';
-        words += inWords(num);
-    }
-    
-    return words.trim().replace(/\s+/g, ' ').split(' ').map(s=>s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
-}
-
-
 function generatePayslipHtml(slip: SalarySlip, employee: EmployeeProfile, store: Store, attendance: any) {
     const gross = slip.baseSalary + slip.overtimePay;
     const totalDeduction = slip.deductions;
     const netPay = slip.netPay;
+
+    function numberToWords(num: number): string {
+        const a = ['','one ','two ','three ','four ', 'five ','six ','seven ','eight ','nine ','ten ','eleven ','twelve ','thirteen ','fourteen ','fifteen ','sixteen ','seventeen ','eighteen ','nineteen '];
+        const b = ['', '', 'twenty','thirty','forty','fifty', 'sixty','seventy','eighty','ninety'];
+
+        function inWords(n: number): string {
+            let str = '';
+            if (n > 99) {
+                str += a[Math.floor(n / 100)] + 'hundred ';
+                n %= 100;
+            }
+            if (n > 19) {
+                str += b[Math.floor(n / 10)] + ' ' + a[n % 10];
+            } else {
+                str += a[n];
+            }
+            return str.trim();
+        }
+
+        if (num === 0) return 'Zero';
+        let words = '';
+        const crore = Math.floor(num / 10000000);
+        if (crore > 0) {
+            words += inWords(crore) + ' Crore ';
+            num %= 10000000;
+        }
+        const lakh = Math.floor(num / 100000);
+        if (lakh > 0) {
+            words += inWords(lakh) + ' Lakh ';
+            num %= 100000;
+        }
+        const thousand = Math.floor(num / 1000);
+        if (thousand > 0) {
+            words += inWords(thousand) + ' Thousand ';
+            num %= 1000;
+        }
+        if (num > 0) {
+            words += inWords(num);
+        }
+        return words.trim().split(' ').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+    }
 
     const netPayInWords = () => {
         const rupees = Math.floor(netPay);
@@ -416,7 +437,7 @@ export default function SalaryReportsPage() {
 
 
     const reportData = useMemo(() => {
-        if (!attendanceRecords || !selectedEmployee || !dateRange?.from) return null;
+        if (!attendanceRecords || !selectedEmployee || !dateRange?.from || !dateRange.to) return null;
 
         const presentOrApprovedRecords = attendanceRecords.filter(r => r.status === 'present' || r.status === 'approved' || r.status === 'partially_present');
         const partialDaysRecords = attendanceRecords.filter(r => r.status === 'partially_present');
@@ -424,12 +445,13 @@ export default function SalaryReportsPage() {
         let totalHours = 0;
         let baseSalary = 0;
         
-        const totalDaysInMonth = getDaysInMonth(dateRange.from);
+        const totalDaysInPeriod = differenceInDays(dateRange.to, dateRange.from) + 1;
 
         if (selectedEmployee.salaryType === 'monthly') {
-            const perDaySalary = selectedEmployee.salaryRate / totalDaysInMonth;
+            const daysInMonthOfSalary = getDaysInMonth(dateRange.from);
+            const perDaySalary = selectedEmployee.salaryRate / daysInMonthOfSalary;
             const payableDays = presentOrApprovedRecords.reduce((acc, record) => {
-                if (record.status === 'partially_present') {
+                if (record.status === 'partially_present' && record.workHours > 0) {
                     return acc + (record.workHours / 8); 
                 }
                 return acc + 1;
@@ -449,9 +471,9 @@ export default function SalaryReportsPage() {
             netPay, 
             records: attendanceRecords, 
             presentDays: presentOrApprovedRecords.length,
-            totalDays: totalDaysInMonth,
+            totalDays: totalDaysInPeriod,
             partialDays: partialDaysRecords.length,
-            absentDays: totalDaysInMonth - presentOrApprovedRecords.length,
+            absentDays: totalDaysInPeriod - presentOrApprovedRecords.length,
         };
     }, [attendanceRecords, selectedEmployee, dateRange]);
 
@@ -481,14 +503,17 @@ export default function SalaryReportsPage() {
             };
 
             try {
+                // First, save the data to Firestore.
                 await setDoc(slipRef, { ...slipData, id: slipId, generatedAt: serverTimestamp() }, { merge: true });
 
-                const fullSlipForDownload: SalarySlip = {
+                // Construct the full object for HTML generation *on the client*
+                 const fullSlipForDownload: SalarySlip = {
                     ...slipData,
                     id: slipId,
-                    generatedAt: new Date() as any, // Use client date for immediate download generation
+                    generatedAt: new Date() as any,
                 };
                 
+                // Now generate HTML from local data
                 const htmlContent = generatePayslipHtml(fullSlipForDownload, selectedEmployee, myStore, reportData);
                 const blob = new Blob([htmlContent], { type: 'application/msword' });
                 const link = document.createElement('a');
@@ -630,3 +655,5 @@ export default function SalaryReportsPage() {
         </div>
     );
 }
+
+    
