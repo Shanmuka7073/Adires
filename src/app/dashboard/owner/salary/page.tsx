@@ -270,11 +270,14 @@ export default function SalaryReportsPage() {
         }
         setAttendanceLoading(true);
         try {
+            const startTimestamp = Timestamp.fromDate(new Date(dateRange.from.setHours(0, 0, 0, 0)));
+            const endTimestamp = Timestamp.fromDate(new Date(dateRange.to.setHours(23, 59, 59, 999)));
+
             const q = query(
                 collectionGroup(firestore, 'attendance'),
                 where('employeeId', '==', selectedEmployeeId),
-                where('workDate', '>=', Timestamp.fromDate(dateRange.from)),
-                where('workDate', '<=', Timestamp.fromDate(dateRange.to)),
+                where('workDate', '>=', startTimestamp),
+                where('workDate', '<=', endTimestamp),
                 orderBy('workDate', 'desc')
             );
             const querySnapshot = await getDocs(q);
