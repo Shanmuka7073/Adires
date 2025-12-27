@@ -106,58 +106,6 @@ service cloud.firestore {
     }
 
     /* ======================
-       ATTENDANCE
-       ====================== */
-
-    match /stores/{storeId}/attendance/{recordId} {
-      
-      allow get: if
-        isSignedIn() &&
-        (
-          resource.data.employeeId == request.auth.uid
-          || isStoreOwner(storeId)
-          || isManager(resource.data.employeeId, storeId)
-        );
-
-      allow list: if
-        isSignedIn() &&
-        (
-          isStoreOwner(storeId)
-          || isManager(resource.data.employeeId, storeId)
-          || resource.data.employeeId == request.auth.uid
-        );
-
-      allow create: if
-        isSignedIn() &&
-        request.resource.data.employeeId == request.auth.uid &&
-        request.resource.data.storeId == storeId;
-
-      allow update: if
-        (
-          // punch out
-          isSignedIn() &&
-          resource.data.employeeId == request.auth.uid &&
-          resource.data.punchOutTime == null &&
-          request.writeFields.hasOnly(['punchOutTime', 'workHours', 'status'])
-        )
-        ||
-        (
-          // regularization request
-          isSignedIn() &&
-          resource.data.employeeId == request.auth.uid &&
-          request.resource.data.status == 'pending_approval'
-        )
-        ||
-        (
-          // manager / owner approval
-          isManager(resource.data.employeeId, storeId)
-        );
-
-      allow delete: if false;
-    }
-
-
-    /* ======================
        SALARY SLIPS
        ====================== */
 
@@ -180,6 +128,69 @@ service cloud.firestore {
         || resource.data.employeeId == request.auth.uid;
        allow list: if isStoreOwner(resource.data.storeId);
     }
+
+    /* ======================
+       ATTENDANCE
+       ====================== */
+    
+    match /{path=**}/attendance/{recordId} {
+        
+      // READ single attendance doc
+      allow get: if
+        isSignedIn() &&
+        (
+          // employee can read own record
+          resource.data.employeeId == request.auth.uid
+          ||
+          // store owner can read any record of their store
+          isStoreOwner(resource.data.storeId)
+          ||
+          // manager can read their employees
+          isManager(resource.data.employeeId, resource.data.storeId)
+        );
+
+      // LIST / QUERY attendance (collectionGroup)
+      allow list: if
+        isSignedIn() &&
+        (
+          // store owner querying attendance
+          isStoreOwner(resource.data.storeId)
+          ||
+          // manager querying attendance
+          isManager(resource.data.employeeId, resource.data.storeId)
+          ||
+          // employee querying own attendance
+          resource.data.employeeId == request.auth.uid
+        );
+        
+      allow create: if
+        isSignedIn() &&
+        request.resource.data.employeeId == request.auth.uid;
+
+      allow update: if
+        (
+          // punch out
+          isSignedIn() &&
+          resource.data.employeeId == request.auth.uid &&
+          resource.data.punchOutTime == null &&
+          request.writeFields.hasOnly(['punchOutTime', 'workHours', 'status'])
+        )
+        ||
+        (
+          // regularization request
+          isSignedIn() &&
+          resource.data.employeeId == request.auth.uid &&
+          request.resource.data.status == 'pending_approval'
+        )
+        ||
+        (
+          // manager / owner approval
+          isManager(resource.data.employeeId, resource.data.storeId)
+        );
+
+      allow delete: if false;
+    }
+
 
     /* ======================
        ORDERS (GROCERY / RESTAURANT)
@@ -298,14 +309,5 @@ service cloud.firestore {
      match /nlu_extracted_sentences/{sentenceId} {
       allow read, write: if isAdmin();
     }
-    
-    match /{path=**}/attendance/{recordId} {
-      allow list: if isStoreOwner(get(/databases/$(database)/documents/$(path.split('/')[1])
-      /$(path.split('/')[2])).data.storeId);
-      allow read: if isStoreOwner(get(/databases/$(database)/documents/$(path.split('/')[1])
-      /$(path.split('/')[2])).data.storeId) || request.auth.uid == resource.data.employeeId;
-    }
   }
 }
-
-    
