@@ -150,15 +150,17 @@ export default function EmployeeAttendancePage() {
   const employeeProfileRef = useMemoFirebase(() => (user ? doc(firestore, 'employeeProfiles', user.uid) : undefined), [user, firestore]);
   const { data: employeeProfile, isLoading: profileLoading } = useDoc<EmployeeProfile>(employeeProfileRef);
   
-  const storeId = employeeProfile?.storeId;
-
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [recordsLoading, setRecordsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user?.uid || !firestore || !storeId) return;
-
+    if (isUserLoading || profileLoading || !user?.uid || !firestore || !employeeProfile?.storeId) {
+        return;
+    }
+    
+    const storeId = employeeProfile.storeId;
     setRecordsLoading(true);
+
     const q = query(
       collection(firestore, `stores/${storeId}/attendance`),
       where('employeeId', '==', user.uid)
@@ -171,6 +173,7 @@ export default function EmployeeAttendancePage() {
           id: d.id,
           ...d.data(),
         })) as AttendanceRecord[];
+
         setRecords(data);
         setRecordsLoading(false);
       },
@@ -181,32 +184,33 @@ export default function EmployeeAttendancePage() {
     );
 
     return () => unsubscribe();
-  }, [user?.uid, firestore, storeId]);
+  }, [isUserLoading, profileLoading, user?.uid, firestore, employeeProfile?.storeId]);
+
 
   const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
   const [approvalReason, setApprovalReason] = useState("");
   
+  const toDateSafe = (d: any): Date => d instanceof Timestamp ? d.toDate() : new Date(d);
+
   const todaysRecord = useMemo(() => {
-    return records.find(r =>
-      isSameDay((r.workDate as any)?.toDate() ?? new Date(r.workDate as any), new Date())
-    ) ?? null;
+    return records.find(r => isSameDay(toDateSafe(r.workDate), new Date())) ?? null;
   }, [records]);
   
   const selectedRecord = useMemo(() => {
     if (!selectedDate || !records) return null;
-    return records.find(r =>
-      isSameDay((r.workDate as any)?.toDate() ?? new Date(r.workDate as any), selectedDate)
-    ) ?? null;
+    return records.find(r => isSameDay(toDateSafe(r.workDate), selectedDate)) ?? null;
   }, [records, selectedDate]);
   
   const recordToShow = useMemo(() => {
     if (recordsLoading) return null;
+    if (!records) return null;
     if (selectedRecord) return selectedRecord;
+
     if (selectedDate && isSameDay(selectedDate, new Date())) {
-        return todaysRecord;
+        return todaysRecord ?? null;
     }
     return null;
-  }, [recordsLoading, selectedRecord, selectedDate, todaysRecord]);
+  }, [recordsLoading, records, selectedRecord, selectedDate, todaysRecord]);
 
 
   const selectedDateIsPast = selectedDate && startOfDay(selectedDate) < startOfDay(new Date());
@@ -214,7 +218,7 @@ export default function EmployeeAttendancePage() {
   const canResubmit = selectedRecord && selectedRecord.status === 'rejected' && (selectedRecord.rejectionCount || 0) < 3;
 
   const punchIn = async () => {
-    if (!user || !storeId || !firestore) return;
+    if (!user || !employeeProfile?.storeId || !firestore) return;
     
     if (todaysRecord) {
         toast({ variant: 'destructive', title: 'Already Punched In' });
@@ -225,7 +229,7 @@ export default function EmployeeAttendancePage() {
         const today = startOfDay(new Date());
         const todayStr = format(today, 'yyyy-MM-dd');
         const newRecordData: Omit<AttendanceRecord, 'id'> = {
-            employeeId: user.uid, storeId,
+            employeeId: user.uid, storeId: employeeProfile.storeId,
             workDate: Timestamp.fromDate(today),
             workDateStr: todayStr,
             punchInTime: Timestamp.now(), punchOutTime: null,
@@ -233,25 +237,25 @@ export default function EmployeeAttendancePage() {
             rejectionCount: 0, reasonHistory: []
         };
         try {
-            await addDoc(collection(firestore, 'stores', storeId, 'attendance'), newRecordData);
+            await addDoc(collection(firestore, 'stores', employeeProfile.storeId, 'attendance'), newRecordData);
             toast({ title: 'Punched In!', description: 'Your shift has started.' });
         } catch(e: any) {
-            const permissionError = new FirestorePermissionError({ path: `stores/${storeId}/attendance`, operation: 'create', requestResourceData: newRecordData });
+            const permissionError = new FirestorePermissionError({ path: `stores/${employeeProfile.storeId}/attendance`, operation: 'create', requestResourceData: newRecordData });
             errorEmitter.emit('permission-error', permissionError);
         }
     });
   };
 
   const punchOut = async () => {
-    if (!user || !storeId || !todaysRecord || !todaysRecord.punchInTime) return;
+    if (!user || !employeeProfile?.storeId || !todaysRecord || !todaysRecord.punchInTime) return;
     if (todaysRecord.status !== 'partially_present') {
         toast({ title: 'Already Punched Out', description: `Your status is already '${todaysRecord.status}'.` });
         return;
     }
 
     startProcessing(async () => {
-      const recordRef = doc(firestore, 'stores', storeId, 'attendance', todaysRecord.id);
-      const punchInTime = (todaysRecord.punchInTime as any).toDate ? (todaysRecord.punchInTime as any).toDate() : new Date(todaysRecord.punchInTime as any);
+      const recordRef = doc(firestore, 'stores', employeeProfile.storeId, 'attendance', todaysRecord.id);
+      const punchInTime = toDateSafe(todaysRecord.punchInTime);
       const punchOutTime = new Date();
       const minutesDiff = differenceInMinutes(punchOutTime, punchInTime);
       const workHours = parseFloat((minutesDiff / 60).toFixed(2));
@@ -268,12 +272,12 @@ export default function EmployeeAttendancePage() {
   };
   
   const requestApproval = () => {
-    if (!user || !storeId || !selectedDate || !approvalReason.trim() || !firestore) {
+    if (!user || !employeeProfile?.storeId || !selectedDate || !approvalReason.trim() || !firestore) {
         toast({ variant: 'destructive', title: 'Reason Required', description: 'Please provide a reason.' });
         return;
     };
     
-    const existing = records?.find(r => isSameDay((r.workDate as any).toDate(), selectedDate));
+    const existing = records?.find(r => isSameDay(toDateSafe(r.workDate), selectedDate));
     if (existing) {
         toast({ variant: 'destructive', title: 'Request already exists', description: 'An attendance record already exists for this day.' });
         return;
@@ -283,14 +287,14 @@ export default function EmployeeAttendancePage() {
         try {
             const selectedDayStart = startOfDay(selectedDate);
             const newRequestData: Omit<AttendanceRecord, 'id'> = {
-                employeeId: user.uid, storeId,
+                employeeId: user.uid, storeId: employeeProfile.storeId,
                 workDate: Timestamp.fromDate(selectedDayStart),
                 workDateStr: format(selectedDate, 'yyyy-MM-dd'),
                 punchInTime: null, punchOutTime: null,
                 status: 'pending_approval', workHours: 0, rejectionCount: 0,
                 reasonHistory: [{ text: approvalReason.trim(), timestamp: new Date(), status: 'submitted' }],
             };
-            await addDoc(collection(firestore, `stores/${storeId}/attendance`), newRequestData);
+            await addDoc(collection(firestore, `stores/${employeeProfile.storeId}/attendance`), newRequestData);
             toast({ title: 'Request Sent', description: 'Your manager has been notified.' });
             
             setIsRequestDialogOpen(false);
@@ -304,7 +308,7 @@ export default function EmployeeAttendancePage() {
 
   const isLoading = isUserLoading || profileLoading;
 
-  if (isLoading) {
+  if (isLoading || recordsLoading) {
     return (
         <div className="p-6 max-w-4xl mx-auto space-y-6">
             <Skeleton className="h-10 w-1/3" />
@@ -392,11 +396,11 @@ export default function EmployeeAttendancePage() {
                         onSelect={(date) => { if (date) setSelectedDate(date)}}
                         disabled={(date) => date > new Date()}
                         modifiers={{
-                          present: date => records?.some(r => isSameDay((r.workDate as any).toDate(), date) && r.status === 'present') || false,
-                          partially_present: date => records?.some(r => isSameDay((r.workDate as any).toDate(), date) && r.status === 'partially_present') || false,
-                          approved: date => records?.some(r => isSameDay((r.workDate as any).toDate(), date) && r.status === 'approved') || false,
-                          pending: date => records?.some(r => isSameDay((r.workDate as any).toDate(), date) && r.status === 'pending_approval') || false,
-                          rejected: date => records?.some(r => isSameDay((r.workDate as any).toDate(), date) && r.status === 'rejected') || false,
+                          present: date => records?.some(r => isSameDay(toDateSafe(r.workDate), date) && r.status === 'present') || false,
+                          partially_present: date => records?.some(r => isSameDay(toDateSafe(r.workDate), date) && r.status === 'partially_present') || false,
+                          approved: date => records?.some(r => isSameDay(toDateSafe(r.workDate), date) && r.status === 'approved') || false,
+                          pending: date => records?.some(r => isSameDay(toDateSafe(r.workDate), date) && r.status === 'pending_approval') || false,
+                          rejected: date => records?.some(r => isSameDay(toDateSafe(r.workDate), date) && r.status === 'rejected') || false,
                         }}
                         modifiersClassNames={{
                             present: 'day-present',
@@ -429,5 +433,3 @@ export default function EmployeeAttendancePage() {
     </div>
   );
 }
-
-    
