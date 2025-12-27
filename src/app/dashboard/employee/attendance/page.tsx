@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo, useTransition, useCallback } from 'react';
 import { collection, query, where, addDoc, serverTimestamp, getDocs, orderBy, updateDoc, doc, Timestamp, collectionGroup, arrayUnion, setDoc } from 'firebase/firestore';
-import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
 import { format, differenceInMinutes, startOfMonth, endOfMonth, isSameDay, isPast, isToday } from 'date-fns';
 import type { AttendanceRecord, EmployeeProfile, Store, ReasonEntry } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -291,7 +291,7 @@ export default function EmployeeAttendancePage() {
                     <h3 className="font-semibold text-lg mb-2">Details for {selectedDate ? format(selectedDate, "PPP") : "Today"}</h3>
                      {selectedRecord ? (
                         <div className="space-y-3">
-                            <p><strong>Status:</strong> <Badge variant={selectedRecord.status === 'present' || selectedRecord.status === 'approved' ? 'default' : 'destructive'}>{selectedRecord.status.replace(/_/g, ' ')}</Badge></p>
+                            <div className="flex items-center gap-2"><strong>Status:</strong> <Badge variant={selectedRecord.status === 'present' || selectedRecord.status === 'approved' ? 'default' : 'destructive'}>{selectedRecord.status.replace(/_/g, ' ')}</Badge></div>
                             <p><strong>Punch In:</strong> {selectedRecord.punchInTime ? format((selectedRecord.punchInTime as any).toDate ? (selectedRecord.punchInTime as any).toDate() : new Date(selectedRecord.punchInTime as any), 'p') : '—'}</p>
                             <p><strong>Punch Out:</strong> {selectedRecord.punchOutTime ? format((selectedRecord.punchOutTime as any).toDate ? (selectedRecord.punchOutTime as any).toDate() : new Date(selectedRecord.punchOutTime as any), 'p') : '—'}</p>
                             <p><strong>Work Hours:</strong> {selectedRecord.workHours > 0 ? `${selectedRecord.workHours.toFixed(2)} hours` : '—'}</p>
