@@ -280,8 +280,7 @@ export default function SalaryReportsPage() {
             const endTimestamp = Timestamp.fromDate(end);
             
             const q = query(
-                collectionGroup(firestore, 'attendance'),
-                where('storeId', '==', myStore.id),
+                collection(firestore, `stores/${myStore.id}/attendance`),
                 where('employeeId', '==', selectedEmployeeId),
                 where('workDate', '>=', startTimestamp),
                 where('workDate', '<=', endTimestamp),
@@ -348,7 +347,7 @@ export default function SalaryReportsPage() {
             totalHours, 
             baseSalary, 
             netPay, 
-            records: presentOrApprovedRecords, // Use the de-duplicated list for display
+            records: presentOrApprovedRecords,
             presentDays: uniqueDates.size,
             totalDays: totalDaysInPeriod,
             partialDays: partialDaysRecords.length,
