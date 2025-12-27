@@ -38,27 +38,27 @@ function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: Salary
 
         if (num === 0) return 'Zero';
         let words = '';
-        let i = 0;
-        while (num > 0) {
-            let chunk = num % 100;
-            if (i > 0) {
-              chunk = num % 1000;
-              num = Math.floor(num / 1000);
-            } else {
-               num = Math.floor(num / 100);
-            }
-            if (chunk > 0) {
-                let s = '';
-                if(i===0) { // hundreds place
-                    s = inWords(chunk);
-                } else {
-                    s = inWords(chunk);
-                }
-                words = s + ' ' + g[i] + ' ' + words;
-            }
-            i++;
+        if (num >= 10000000) {
+            words += inWords(Math.floor(num / 10000000)) + ' Crore ';
+            num %= 10000000;
         }
-        return words.trim().replace(/\s+/g, ' ').split(' ').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+        if (num >= 100000) {
+            words += inWords(Math.floor(num / 100000)) + ' Lakh ';
+            num %= 100000;
+        }
+        if (num >= 1000) {
+            words += inWords(Math.floor(num / 1000)) + ' Thousand ';
+            num %= 1000;
+        }
+        if (num >= 100) {
+            words += inWords(Math.floor(num / 100)) + ' Hundred ';
+            num %= 100;
+        }
+        if (num > 0) {
+            if (words) words += 'and ';
+            words += inWords(num);
+        }
+        return words.trim().split(' ').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
     }
 
 
@@ -83,7 +83,7 @@ function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: Salary
         `;
     }
 
-    return `
+    const htmlContent = `
       <html>
         <head><meta charset='utf-8'><title>Salary Slip for ${format(new Date(slip.periodStart), 'MMMM yyyy')}</title></head>
         <body style="font-family: Arial, sans-serif; margin: 0; padding: 20px; font-size: 14px;">
@@ -116,7 +116,7 @@ function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: Salary
               </tr>
             </table>
             <div style="display: flex; justify-content: space-between; text-align: center; margin-bottom: 20px; font-size: 12px; background: #f9f9f9; padding: 10px; border-radius: 5px;">
-                <div><b>Total Days in Month:</b> ${attendance.totalDays}</div>
+                <div><b>Total Days in Period:</b> ${attendance.totalDays}</div>
                 <div><b>Present Days:</b> ${attendance.presentDays}</div>
                 <div><b>Partial Days:</b> ${attendance.partialDays}</div>
                 <div><b>Absent/Rejected:</b> ${attendance.absentDays}</div>
@@ -155,6 +155,8 @@ function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: Salary
         </body>
       </html>
     `;
+
+    return <div dangerouslySetInnerHTML={{ __html: htmlContent }} />;
 }
 
 interface SalaryData {
@@ -211,7 +213,5 @@ export default function SalarySlipPage() {
         return <div className="p-8 text-center">{error || "Salary Slip not found."}</div>;
     }
     
-    const htmlContent = SalarySlipDisplay(data);
-
-    return <div dangerouslySetInnerHTML={{ __html: htmlContent }} />;
+    return <SalarySlipDisplay {...data} />;
 }
