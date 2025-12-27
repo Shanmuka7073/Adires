@@ -133,7 +133,7 @@ service cloud.firestore {
        ATTENDANCE (FINAL)
        ====================== */
     
-    match /{path=**}/attendance/{recordId} {
+    match /stores/{storeId}/attendance/{recordId} {
         
       // READ single doc
       allow get: if
@@ -143,46 +143,33 @@ service cloud.firestore {
           resource.data.employeeId == request.auth.uid
           ||
           // store owner can read any record of their store
-          isStoreOwner(resource.data.storeId)
+          isStoreOwner(storeId)
           ||
           // manager can read their employees
-          isManager(resource.data.employeeId, resource.data.storeId)
+          isManager(resource.data.employeeId, storeId)
         );
 
-      // LIST / QUERY (collectionGroup SAFE)
+      // LIST / QUERY
       allow list: if
         isSignedIn() &&
         (
-          // employee querying their own attendance
-          request.query.where('employeeId', '==', request.auth.uid)
-
-          // OR store owner querying employees (salary page)
-          || isStoreOwner(request.query.where('storeId').value)
+          isStoreOwner(storeId)
+          || request.query.where('employeeId', '==', request.auth.uid)
         );
         
       allow create: if
         isSignedIn() &&
-        request.resource.data.employeeId == request.auth.uid;
+        request.resource.data.employeeId == request.auth.uid &&
+        request.resource.data.storeId == storeId;
 
       allow update: if
+        isSignedIn() &&
         (
-          // punch out
-          isSignedIn() &&
-          resource.data.employeeId == request.auth.uid &&
-          resource.data.punchOutTime == null &&
-          request.writeFields.hasOnly(['punchOutTime', 'workHours', 'status'])
-        )
-        ||
-        (
-          // regularization request
-          isSignedIn() &&
-          resource.data.employeeId == request.auth.uid &&
-          request.resource.data.status == 'pending_approval'
-        )
-        ||
-        (
-          // manager / owner approval
-          isManager(resource.data.employeeId, resource.data.storeId)
+          isManager(resource.data.employeeId, storeId)
+          || (
+            resource.data.employeeId == request.auth.uid &&
+            resource.data.punchOutTime == null
+          )
         );
 
       allow delete: if false;
