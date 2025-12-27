@@ -106,65 +106,6 @@ service cloud.firestore {
     }
 
     /* ======================
-       ATTENDANCE
-       ====================== */
-
-    match /stores/{storeId}/attendance/{recordId} {
-      
-      allow list: if isStoreOwner(storeId);
-      allow get: if isStoreOwner(storeId) || isOwner(resource.data.employeeId);
-      
-      allow create: if
-        isOwner(request.resource.data.employeeId)
-        && request.resource.data.storeId == storeId;
-
-      allow update: if
-        // Employee punching out
-        (
-          isOwner(resource.data.employeeId) &&
-          resource.data.punchOutTime == null &&
-          request.resource.data.punchOutTime != null
-        ) ||
-        // Employee requesting regularization for a partial or rejected day
-        (
-          isOwner(resource.data.employeeId) &&
-          (resource.data.status == 'partially_present' || resource.data.status == 'rejected') &&
-          resource.data.rejectionCount < 3 &&
-          request.resource.data.status == 'pending_approval' &&
-          request.writeFields.hasOnly(['status', 'reasonHistory'])
-        ) ||
-        // Manager or Store Owner approving/rejecting a pending request
-        (
-          isManager(resource.data.employeeId, storeId) &&
-          resource.data.status == 'pending_approval'
-        ) ||
-        // Store owner has full control to edit any field
-        isStoreOwner(storeId);
-
-      allow delete: if false;
-    }
-    
-    // SAFE collectionGroup rule for attendance
-    match /{path=**}/attendance/{recordId} {
-       allow get: if
-        isSignedIn() &&
-        (
-          resource.data.employeeId == request.auth.uid
-          || isStoreOwner(resource.data.storeId)
-        );
-
-      allow list: if
-        isSignedIn() &&
-        (
-          // employee querying own records
-          request.query.where('employeeId', '==', request.auth.uid)
-          // OR store owner querying store attendance
-          || isStoreOwner(resource.data.storeId)
-        );
-    }
-
-
-    /* ======================
        SALARY SLIPS
        ====================== */
 
@@ -187,6 +128,69 @@ service cloud.firestore {
         || resource.data.employeeId == request.auth.uid;
        allow list: if isStoreOwner(resource.data.storeId);
     }
+
+    /* ======================
+       ATTENDANCE
+       ====================== */
+    
+    match /{path=**}/attendance/{recordId} {
+        
+      // READ single attendance doc
+      allow get: if
+        isSignedIn() &&
+        (
+          // employee can read own record
+          resource.data.employeeId == request.auth.uid
+          ||
+          // store owner can read any record of their store
+          isStoreOwner(resource.data.storeId)
+          ||
+          // manager can read their employees
+          isManager(resource.data.employeeId, resource.data.storeId)
+        );
+
+      // LIST / QUERY attendance (collectionGroup)
+      allow list: if
+        isSignedIn() &&
+        (
+          // store owner querying attendance
+          isStoreOwner(resource.data.storeId)
+          ||
+          // manager querying attendance
+          isManager(resource.data.employeeId, resource.data.storeId)
+          ||
+          // employee querying own attendance
+          resource.data.employeeId == request.auth.uid
+        );
+        
+      allow create: if
+        isSignedIn() &&
+        request.resource.data.employeeId == request.auth.uid;
+
+      allow update: if
+        (
+          // punch out
+          isSignedIn() &&
+          resource.data.employeeId == request.auth.uid &&
+          resource.data.punchOutTime == null &&
+          request.writeFields.hasOnly(['punchOutTime', 'workHours', 'status'])
+        )
+        ||
+        (
+          // regularization request
+          isSignedIn() &&
+          resource.data.employeeId == request.auth.uid &&
+          request.resource.data.status == 'pending_approval'
+        )
+        ||
+        (
+          // manager / owner approval
+          isManager(resource.data.employeeId, resource.data.storeId)
+        );
+
+      allow delete: if false;
+    }
+
 
     /* ======================
        ORDERS (GROCERY / RESTAURANT)
