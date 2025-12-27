@@ -111,58 +111,49 @@ service cloud.firestore {
 
     match /stores/{storeId}/attendance/{recordId} {
       
-      // Allow list if the query is for the user's own records, or if the requester is the store owner.
-      allow list: if (request.query.where.employeeId == request.auth.uid) || isStoreOwner(storeId);
-      
-      allow get: if isStoreOwner(storeId) || isOwner(resource.data.employeeId);
-      
-      allow create: if
-        isOwner(request.resource.data.employeeId)
-        && request.resource.data.storeId == storeId;
-
-      allow update: if
-        // Employee punching out
-        (
-          isOwner(resource.data.employeeId) &&
-          resource.data.punchOutTime == null &&
-          request.writeFields.hasOnly(['punchOutTime', 'workHours', 'status'])
-        ) ||
-        // Employee requesting regularization for a partial or rejected day
-        (
-          isOwner(resource.data.employeeId) &&
-          (resource.data.status == 'partially_present' || resource.data.status == 'rejected') &&
-          (resource.data.rejectionCount == null || resource.data.rejectionCount < 3) &&
-          request.resource.data.status == 'pending_approval' &&
-          request.writeFields.hasOnly(['status', 'reasonHistory'])
-        ) ||
-        // Manager or Store Owner approving/rejecting a pending request
-        (
-          isManager(resource.data.employeeId, storeId) &&
-          resource.data.status == 'pending_approval'
-        ) ||
-        // Store owner has full control to edit any field
-        isStoreOwner(storeId);
-
-      allow delete: if false;
-    }
-    
-    // SAFE collectionGroup rule for attendance
-    match /{path=**}/attendance/{recordId} {
-       allow get: if
+      allow get: if
         isSignedIn() &&
         (
           resource.data.employeeId == request.auth.uid
-          || isStoreOwner(resource.data.storeId)
+          || isStoreOwner(storeId)
+          || isManager(resource.data.employeeId, storeId)
         );
 
       allow list: if
         isSignedIn() &&
         (
-          // employee querying own records
-          request.query.where('employeeId', '==', request.auth.uid)
-          // OR store owner querying store attendance
-          || isStoreOwner(resource.data.storeId)
+          isStoreOwner(storeId)
+          || isManager(resource.data.employeeId, storeId)
+          || resource.data.employeeId == request.auth.uid
         );
+
+      allow create: if
+        isSignedIn() &&
+        request.resource.data.employeeId == request.auth.uid &&
+        request.resource.data.storeId == storeId;
+
+      allow update: if
+        (
+          // punch out
+          isSignedIn() &&
+          resource.data.employeeId == request.auth.uid &&
+          resource.data.punchOutTime == null &&
+          request.writeFields.hasOnly(['punchOutTime', 'workHours', 'status'])
+        )
+        ||
+        (
+          // regularization request
+          isSignedIn() &&
+          resource.data.employeeId == request.auth.uid &&
+          request.resource.data.status == 'pending_approval'
+        )
+        ||
+        (
+          // manager / owner approval
+          isManager(resource.data.employeeId, storeId)
+        );
+
+      allow delete: if false;
     }
 
 
