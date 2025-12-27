@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 
 export default function EmployeeAttendancePage() {
@@ -136,9 +137,10 @@ export default function EmployeeAttendancePage() {
     
     startProcessing(async() => {
         try {
+            // FIX: Use a client-side timestamp instead of serverTimestamp() inside arrayUnion.
             const newReasonEntry: ReasonEntry = {
                 text: approvalReason.trim(),
-                timestamp: serverTimestamp(),
+                timestamp: new Date(),
                 status: 'submitted',
             };
 
@@ -168,9 +170,9 @@ export default function EmployeeAttendancePage() {
             }
             setIsRequestDialogOpen(false);
             setApprovalReason('');
-        } catch(e) {
-            toast({ variant: 'destructive', title: 'Request Failed', description: 'Could not send the request. Please check security rules.' });
+        } catch(e: any) {
             console.error("Request approval error:", e);
+            toast({ variant: 'destructive', title: 'Request Failed', description: 'Could not send the request. Please check security rules.' });
         }
     });
   }
@@ -303,7 +305,7 @@ export default function EmployeeAttendancePage() {
                                          <div key={index} className="text-xs p-2 bg-background/50 rounded-md">
                                              <p className="italic">"{entry.text}"</p>
                                              <p className="text-muted-foreground mt-1">
-                                                 {format((entry.timestamp as any)?.toDate() || new Date(), 'Pp')} - <span className="capitalize font-medium">{entry.status}</span>
+                                                 {format((entry.timestamp as any)?.toDate ? (entry.timestamp as any).toDate() : new Date(entry.timestamp as any), 'Pp')} - <span className="capitalize font-medium">{entry.status}</span>
                                                  {entry.status === 'rejected' && entry.rejectionReason && `: ${entry.rejectionReason}`}
                                              </p>
                                          </div>
