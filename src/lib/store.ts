@@ -30,12 +30,11 @@ export interface AppState {
   commands: Record<string, CommandGroup>;
   loading: boolean;
   isInitialized: boolean;
-  appReady: boolean; // Flag to indicate if the app is ready to be shown
   error: Error | null;
   language: string;
   activeStoreId: string | null;
-  readCount: number; // For Firestore reads
-  writeCount: number; // For Firestore writes
+  readCount: number;
+  writeCount: number;
   incrementReadCount: (count?: number) => void;
   incrementWriteCount: (count?: number) => void;
   setLanguage: (lang: string) => void;
@@ -46,7 +45,6 @@ export interface AppState {
   getAllAliases: (key: string) => Record<string, string[]>;
   setLocales: (newLocales: Locales) => void;
   setCommands: (newCommands: Record<string, CommandGroup>) => void;
-  setAppReady: (isReady: boolean) => void; // Setter for the app ready flag
 }
 
 const getInitialLanguage = (): string => {
@@ -67,8 +65,7 @@ export const useAppStore = create<AppState>()(
       locales: {},
       commands: {},
       loading: false,
-      isInitialized: false,
-      appReady: false, // This is a transient state, should not be persisted.
+      isInitialized: false, // This will no longer be persisted
       error: null,
       language: getInitialLanguage(),
       activeStoreId: null,
@@ -91,17 +88,11 @@ export const useAppStore = create<AppState>()(
       setActiveStoreId: (storeId: string | null) => {
         set({ activeStoreId: storeId });
       },
-      
-      setAppReady: (isReady: boolean) => {
-        if (get().appReady !== isReady) {
-            set({ appReady: isReady });
-        }
-      },
 
       fetchInitialData: async (db: Firestore) => {
         if (get().loading) return;
 
-        set({ loading: true, error: null, readCount: 0, writeCount: 0 }); // Reset counters on fetch
+        set({ loading: true, error: null, readCount: 0, writeCount: 0 });
         
         try {
           const [stores, masterProducts, aliasDocs, commandDocs] = await Promise.all([
@@ -112,8 +103,6 @@ export const useAppStore = create<AppState>()(
           ]);
           set(state => ({ readCount: state.readCount + 2 + aliasDocs.size + commandDocs.size }));
 
-
-          // Fetch menus efficiently
           const menuPromises = stores.map(store => getDocs(query(collection(db, `stores/${store.id}/menus`))));
           const menuSnapshots = await Promise.all(menuPromises);
           set(state => ({ readCount: state.readCount + menuSnapshots.length }));
@@ -139,7 +128,6 @@ export const useAppStore = create<AppState>()(
             commands: enrichedCommands,
             isInitialized: true,
             loading: false,
-            appReady: true,
           });
 
           if (masterProducts.length > 0) {
@@ -148,7 +136,7 @@ export const useAppStore = create<AppState>()(
           
         } catch (error) {
           console.error("Failed to fetch initial app data:", error);
-          set({ error: error as Error, loading: false, appReady: true });
+          set({ error: error as Error, loading: false, isInitialized: true });
         }
       },
       
@@ -200,8 +188,6 @@ export const useAppStore = create<AppState>()(
     {
       name: 'localbasket-app-storage',
       storage: createJSONStorage(() => localStorage),
-      // Only persist data that is safe and useful to restore on next visit.
-      // Transient state like 'loading' or 'appReady' should NOT be persisted.
       partialize: (state) => ({ 
           stores: state.stores,
           masterProducts: state.masterProducts,
@@ -210,10 +196,7 @@ export const useAppStore = create<AppState>()(
           locales: state.locales,
           commands: state.commands,
           language: state.language,
-          isInitialized: state.isInitialized,
           activeStoreId: state.activeStoreId,
-          readCount: state.readCount,
-          writeCount: state.writeCount,
       }),
     }
   )

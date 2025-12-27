@@ -12,8 +12,8 @@ import { InstallProvider } from '@/components/install-provider';
 
 /**
  * This hook is responsible for making sure the application's essential
- * data is loaded before the UI is shown to the user. It handles both
- * the initial data fetch and rehydration from persisted local storage.
+ * data is loaded before the UI is shown to the user. It now ensures a fresh
+ * fetch on every cold load, preventing race conditions.
  */
 function useInitializeApp() {
     const { firestore } = useFirebase();
@@ -21,35 +21,26 @@ function useInitializeApp() {
         fetchInitialData,
         isInitialized,
         loading,
-        setAppReady,
-        stores, // Use a core data array to check for rehydration
     } = useAppStore();
 
     useEffect(() => {
-        // If data is already in the store (from persisted state), the app is ready.
-        if (stores.length > 0 && isInitialized) {
-            setAppReady(true);
-            // Optionally, you can still fetch data in the background to get updates
-            if (firestore) {
-                // No need to await, let it run in the background
-                fetchInitialData(firestore);
-            }
-            return;
-        }
-
-        // If not initialized and not already loading, start the data fetch.
+        // Only fetch if firestore is available and we haven't initialized yet.
+        // This runs once per application load.
         if (firestore && !isInitialized && !loading) {
             fetchInitialData(firestore);
         }
-    }, [firestore, isInitialized, loading, fetchInitialData, setAppReady, stores.length]);
+    }, [firestore, isInitialized, loading, fetchInitialData]);
 }
 
 
 function AppContent({ children }: { children: React.ReactNode }) {
     useInitializeApp();
-    const { appReady } = useAppStore();
+    // We now rely solely on isInitialized, which is only set to true after the
+    // initial data fetch is complete. This prevents the UI from rendering
+    // with stale or incomplete data from localStorage.
+    const { isInitialized } = useAppStore();
 
-    if (!appReady) {
+    if (!isInitialized) {
         return <GlobalLoader />;
     }
 

@@ -289,7 +289,7 @@ function VoiceInstructions() {
 /* ---------------- MAIN PAGE ---------------- */
 export default function LocalBasketHomepage() {
   const { firestore, user } = useFirebase();
-  const { masterProducts, productPrices, loading: isAppLoading, fetchInitialData, isInitialized, setActiveStoreId, stores } = useAppStore();
+  const { masterProducts, productPrices, loading: isAppLoading, isInitialized, setActiveStoreId, stores } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const { onToggleVoice } = useVoiceCommanderContext();
   
@@ -300,14 +300,6 @@ export default function LocalBasketHomepage() {
   const { data: userData } = useDoc<User>(userDocRef);
   
   const masterStoreId = useMemo(() => stores.find(s => s.name === 'LocalBasket')?.id, [stores]);
-
-
-  // Load initial data on mount
-  useEffect(() => {
-    if (firestore && !isInitialized) {
-      fetchInitialData(firestore);
-    }
-  }, [firestore, isInitialized, fetchInitialData]);
 
   // Set the active store to the master store when on the homepage
   useEffect(() => {
