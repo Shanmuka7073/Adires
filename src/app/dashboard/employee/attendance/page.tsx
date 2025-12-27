@@ -4,7 +4,7 @@
 import { useEffect, useState, useMemo, useTransition, useCallback } from 'react';
 import { collection, query, where, addDoc, getDocs, orderBy, updateDoc, doc, Timestamp, arrayUnion, onSnapshot } from 'firebase/firestore';
 import { useFirebase, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
-import { format, isSameDay, startOfDay, differenceInMinutes } from 'date-fns';
+import { format, isSameDay, startOfDay, differenceInMinutes, isPast } from 'date-fns';
 import type { AttendanceRecord, EmployeeProfile, Store, ReasonEntry } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -59,6 +59,8 @@ function AttendanceDetails({ record }: { record: AttendanceRecord }) {
         });
     }
 
+    const toDateSafe = (d: any): Date => d instanceof Timestamp ? d.toDate() : new Date(d);
+
     return (
         <>
              <Dialog open={isRegularizationDialogOpen} onOpenChange={setIsRegularizationDialogOpen}>
@@ -82,8 +84,8 @@ function AttendanceDetails({ record }: { record: AttendanceRecord }) {
 
             <div className="space-y-3">
                 <div className="flex items-center gap-2"><strong>Status:</strong> <Badge variant={record.status === 'present' || record.status === 'approved' ? 'default' : 'destructive'}>{record.status.replace(/_/g, ' ')}</Badge></div>
-                <p><strong>Punch In:</strong> {record.punchInTime ? format((record.punchInTime as any).toDate ? (record.punchInTime as any).toDate() : new Date(record.punchInTime as any), 'p') : '—'}</p>
-                <p><strong>Punch Out:</strong> {record.punchOutTime ? format((record.punchOutTime as any).toDate ? (record.punchOutTime as any).toDate() : new Date(record.punchOutTime as any), 'p') : '—'}</p>
+                <p><strong>Punch In:</strong> {record.punchInTime ? format(toDateSafe(record.punchInTime), 'p') : '—'}</p>
+                <p><strong>Punch Out:</strong> {record.punchOutTime ? format(toDateSafe(record.punchOutTime), 'p') : '—'}</p>
                 <p><strong>Work Hours:</strong> {record.workHours > 0 ? `${record.workHours.toFixed(2)} hours` : '—'}</p>
                 
                 {record.reasonHistory && record.reasonHistory.length > 0 && (
@@ -93,7 +95,7 @@ function AttendanceDetails({ record }: { record: AttendanceRecord }) {
                             <div key={index} className="text-xs p-2 bg-background/50 rounded-md">
                                 <p className="italic">"{entry.text}"</p>
                                 <div className="text-muted-foreground mt-1">
-                                    {format((entry.timestamp as any)?.toDate ? (entry.timestamp as any).toDate() : new Date(entry.timestamp as any), 'Pp')} - <span className="capitalize font-medium">{entry.status}</span>
+                                    {format(toDateSafe(entry.timestamp), 'Pp')} - <span className="capitalize font-medium">{entry.status}</span>
                                     {entry.status === 'rejected' && entry.rejectionReason && `: ${entry.rejectionReason}`}
                                 </div>
                             </div>
@@ -147,7 +149,7 @@ export default function EmployeeAttendancePage() {
   const [isProcessing, startProcessing] = useTransition();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   
-  const employeeProfileRef = useMemoFirebase(() => (user ? doc(firestore, 'employeeProfiles', user.uid) : undefined), [user, firestore]);
+  const employeeProfileRef = useMemoFirebase(() => (user ? doc(firestore, 'employeeProfiles', user.uid) : null), [user, firestore]);
   const { data: employeeProfile, isLoading: profileLoading } = useDoc<EmployeeProfile>(employeeProfileRef);
   
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
@@ -204,16 +206,21 @@ export default function EmployeeAttendancePage() {
   const recordToShow = useMemo(() => {
     if (recordsLoading) return null;
     if (!records) return null;
+
     if (selectedRecord) return selectedRecord;
 
-    if (selectedDate && isSameDay(selectedDate, new Date())) {
+    if (
+        selectedDate &&
+        isSameDay(selectedDate, new Date())
+    ) {
         return todaysRecord ?? null;
     }
+
     return null;
   }, [recordsLoading, records, selectedRecord, selectedDate, todaysRecord]);
 
 
-  const selectedDateIsPast = selectedDate && startOfDay(selectedDate) < startOfDay(new Date());
+  const selectedDateIsPast = selectedDate && !isSameDay(selectedDate, new Date()) && selectedDate < startOfDay(new Date());
   const canRequestApproval = !recordsLoading && selectedDateIsPast && !selectedRecord;
   const canResubmit = selectedRecord && selectedRecord.status === 'rejected' && (selectedRecord.rejectionCount || 0) < 3;
 
@@ -226,7 +233,8 @@ export default function EmployeeAttendancePage() {
     }
 
     startProcessing(async () => {
-        const today = startOfDay(new Date());
+        const today = new Date();
+        today.setHours(0,0,0,0);
         const todayStr = format(today, 'yyyy-MM-dd');
         const newRecordData: Omit<AttendanceRecord, 'id'> = {
             employeeId: user.uid, storeId: employeeProfile.storeId,
@@ -433,3 +441,4 @@ export default function EmployeeAttendancePage() {
     </div>
   );
 }
+
