@@ -2,10 +2,10 @@
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
-import { Timestamp, FieldValue, Firestore, DocumentReference, doc, getDoc, collection, query, where, getDocs, writeBatch } from 'firebase-admin/firestore';
+import { Timestamp, FieldValue, Firestore, DocumentReference, doc, getDoc, collection, query, where, getDocs, writeBatch, createUser, initializeApp, deleteApp } from 'firebase-admin/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient, EmployeeProfile, SalarySlip, Store, AttendanceRecord } from '@/lib/types';
+import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient, EmployeeProfile, SalarySlip, Store, AttendanceRecord, ReasonEntry, User } from '@/lib/types';
 import { headers } from 'next/headers';
 import { getApp, getApps } from 'firebase-admin/app';
 import * as pdfjs from 'pdfjs-dist';
@@ -14,6 +14,7 @@ import { ai } from '@/ai/genkit';
 import { GetIngredientsInputSchema, GetIngredientsOutputSchema } from '@/ai/flows/recipe-ingredients-types';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { googleAI } from '@genkit-ai/google-genai';
+import { getAuth } from 'firebase-admin/auth';
 
 
 export async function getFirebaseConfig() {
@@ -719,29 +720,32 @@ export async function addIngredientsToCatalog(ingredients: Omit<RestaurantIngred
   }
 }
 
-async function getFullSlipDetails(slipData: SalarySlip, db: Firestore) {
-    const [employeeSnap, attendanceSnap, storeSnap, userSnap] = await Promise.all([
+async function getFullSlipDetails(slipData: SalarySlip, db: Firestore): Promise<{ slip: SalarySlip; employee: EmployeeProfile & User; store: Store; attendance: any } | null> {
+    const [employeeSnap, userSnap, storeSnap] = await Promise.all([
         db.collection('employeeProfiles').doc(slipData.employeeId).get(),
-        db.collectionGroup('attendance')
-          .where('employeeId', '==', slipData.employeeId)
-          .where('workDate', '>=', slipData.periodStart)
-          .where('workDate', '<=', slipData.periodEnd)
-          .get(),
-        db.collection('stores').doc(slipData.storeId).get(),
         db.collection('users').doc(slipData.employeeId).get(),
+        db.collection('stores').doc(slipData.storeId).get(),
     ]);
 
-    if (!employeeSnap.exists() || !storeSnap.exists() || !userSnap.exists()) {
-        throw new Error('Employee profile, user data, or store not found for this slip.');
+    if (!employeeSnap.exists() || !userSnap.exists() || !storeSnap.exists()) {
+        console.error(`Data missing for slip ${slipData.id}. Employee: ${employeeSnap.exists()}, User: ${userSnap.exists()}, Store: ${storeSnap.exists()}`);
+        return null;
     }
+
+    const attendanceSnap = await db.collectionGroup('attendance')
+        .where('employeeId', '==', slipData.employeeId)
+        .where('workDate', '>=', slipData.periodStart)
+        .where('workDate', '<=', slipData.periodEnd)
+        .get();
+
     const employeeData = employeeSnap.data() as EmployeeProfile;
-    // Combine base user data with employee-specific data
-    const fullEmployeeProfile = { ...userSnap.data(), ...employeeData } as EmployeeProfile;
+    const userData = userSnap.data() as User;
+    const fullEmployeeProfile = { ...userData, ...employeeData };
     const storeData = storeSnap.data() as Store;
 
     const attendanceRecords = attendanceSnap.docs.map(d => d.data() as AttendanceRecord);
     const totalDaysInPeriod = Math.round((new Date(slipData.periodEnd).getTime() - new Date(slipData.periodStart).getTime()) / (1000 * 3600 * 24)) + 1;
-    const presentDays = new Set(attendanceRecords.filter(r => r.status === 'present' || r.status === 'approved' || r.status === 'partially_present').map(r => r.workDate)).size;
+    const presentDays = new Set(attendanceRecords.filter(r => ['present', 'approved', 'partially_present'].includes(r.status)).map(r => r.workDate)).size;
 
     const attendanceSummary = {
         totalDays: totalDaysInPeriod,
@@ -784,8 +788,12 @@ export async function getSalarySlipData(slipId: string, userId: string): Promise
         if (!storeDoc.exists()) {
             throw new Error("Store not found for this salary slip.");
         }
+        
+        const storeOwnerId = (storeDoc.data() as Store).ownerId;
+        const employeeId = slipData.employeeId;
 
-        if (userId !== slipData.employeeId && userId !== (storeDoc.data() as Store).ownerId) {
+        // Security check: ensure the requester is either the employee or the store owner.
+        if (userId !== employeeId && userId !== storeOwnerId) {
             throw new Error("You do not have permission to view this salary slip.");
         }
 
@@ -796,5 +804,264 @@ export async function getSalarySlipData(slipId: string, userId: string): Promise
         return null;
     }
 }
-
     
+export async function createRestaurantUserAndStore(email: string, password: string, restaurantName: string): Promise<{ success: boolean, userId?: string, storeId?: string, error?: string }> {
+    const { auth, db } = await getAdminServices();
+    
+    try {
+        // 1. Create the user
+        const userRecord = await auth.createUser({
+            email: email,
+            password: password,
+            displayName: restaurantName,
+        });
+        const userId = userRecord.uid;
+
+        // 2. Create the user profile document
+        const userProfile: Partial<User> = {
+            id: userId,
+            email: email,
+            firstName: restaurantName,
+            lastName: 'Owner',
+            accountType: 'restaurant',
+            address: '',
+            phoneNumber: '',
+        };
+        await db.collection('users').doc(userId).set(userProfile);
+        
+        // 3. Create the store document
+        const storeRef = db.collection('stores').doc(); // Auto-generate ID
+        const storeData: Omit<Store, 'id'> = {
+            name: restaurantName,
+            ownerId: userId,
+            description: `Welcome to ${restaurantName}`,
+            address: 'To be updated',
+            latitude: 0,
+            longitude: 0,
+            imageId: 'store-1', // Default image
+            isClosed: false,
+        };
+        await storeRef.set(storeData);
+
+        return { success: true, userId: userId, storeId: storeRef.id };
+
+    } catch (error: any) {
+        console.error("Failed to create restaurant user and store:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function approveRule(sentenceId: string, rawText: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        const { db } = await getAdminServices();
+        const sentenceRef = db.collection('nlu_extracted_sentences').doc(sentenceId);
+        
+        // In a real app, you would generate a proper grammar rule here.
+        // For this demo, we'll just mark it as approved and log it.
+        const learnedRule = `LEARNED: "${rawText}"`;
+        console.log("Adding new learned rule:", learnedRule);
+        
+        // Here you would append to a "learned-rules.json" file or similar.
+        // For simplicity, we just update the status in Firestore.
+        
+        await sentenceRef.update({ status: 'approved' });
+
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
+export async function rejectRule(sentenceId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        const { db } = await getAdminServices();
+        const sentenceRef = db.collection('nlu_extracted_sentences').doc(sentenceId);
+        await sentenceRef.update({ status: 'rejected' });
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
+export async function processPdfAndExtractRules(formData: FormData): Promise<{ success: boolean; sentenceCount?: number; error?: string }> {
+    try {
+        const pdfFile = formData.get('pdf') as File;
+        if (!pdfFile) {
+            return { success: false, error: 'No PDF file found in form data.' };
+        }
+        
+        const fileBuffer = Buffer.from(await pdfFile.arrayBuffer());
+        const data = await pdfjs.getDocument({ data: fileBuffer }).promise;
+        const numPages = data.numPages;
+        let fullText = '';
+
+        for (let i = 1; i <= numPages; i++) {
+            const page = await data.getPage(i);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items.map(item => ('str' in item ? item.str : '')).join(' ');
+            fullText += pageText + ' ';
+        }
+
+        const sentences = fullText.match(/[^.!?]+[.!?]+/g) || [];
+        const { db } = await getAdminServices();
+        const batch = db.batch();
+        let sentenceCount = 0;
+
+        for (const sentence of sentences) {
+            const trimmed = sentence.trim();
+            if (trimmed.length > 10) { // Basic filter for meaningful sentences
+                // In a real app, run NLU here to get extractedNumbers and confidence
+                const docRef = db.collection('nlu_extracted_sentences').doc();
+                batch.set(docRef, {
+                    id: docRef.id,
+                    rawText: trimmed,
+                    extractedNumbers: [], // Placeholder
+                    confidence: Math.random(), // Placeholder
+                    status: 'pending',
+                    createdAt: FieldValue.serverTimestamp(),
+                });
+                sentenceCount++;
+            }
+        }
+        
+        if (sentenceCount > 0) {
+            await batch.commit();
+        }
+
+        return { success: true, sentenceCount };
+
+    } catch (e: any) {
+        console.error("PDF Processing Error:", e);
+        return { success: false, error: e.message };
+    }
+}
+
+export async function placeRestaurantOrder(cartItems: CartItem[], cartTotal: number, guestInfo: {name: string, phone: string, tableNumber: string}, idToken: string): Promise<{ success: boolean, orderId?: string, error?: string }> {
+    const { auth, db } = await getAdminServices();
+    
+    try {
+        const decodedToken = await auth.verifyIdToken(idToken);
+        const userId = decodedToken.uid;
+        
+        const storeId = cartItems[0]?.product.storeId;
+        if (!storeId) {
+            throw new Error("Cannot place order: store ID is missing from cart items.");
+        }
+
+        const orderRef = doc(collection(db, 'orders'));
+        const orderData = {
+            id: orderRef.id,
+            userId,
+            storeId,
+            customerName: guestInfo.name,
+            phone: guestInfo.phone,
+            tableNumber: guestInfo.tableNumber,
+            totalAmount: cartTotal,
+            status: 'Pending' as 'Pending',
+            orderDate: serverTimestamp(),
+            items: cartItems.map(item => ({
+                productId: item.product.id,
+                productName: item.product.name,
+                variantSku: item.variant.sku,
+                variantWeight: item.variant.weight,
+                quantity: item.quantity,
+                price: item.variant.price,
+            })),
+        };
+
+        await setDoc(orderRef, orderData);
+
+        return { success: true, orderId: orderRef.id };
+    } catch (error: any) {
+        console.error('Error placing restaurant order:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function bulkUploadRecipes(csvText: string): Promise<{ success: boolean; count?: number; error?: string; }> {
+    if (!csvText) {
+        return { success: false, error: 'CSV text cannot be empty.' };
+    }
+
+    try {
+        const { db } = await getAdminServices();
+        const batch = db.batch();
+        const rows = csvText.split('\n').slice(1);
+        let processedCount = 0;
+
+        for (const row of rows) {
+            if (!row.trim()) continue;
+            
+            const [dishName, ingredientsStr] = row.split(',').map(s => s.trim());
+            
+            if (!dishName || !ingredientsStr) {
+                console.warn(`Skipping invalid recipe row: ${row}`);
+                continue;
+            }
+
+            const ingredients = ingredientsStr.split('|').map(name => ({ name: name.trim(), quantity: 'as needed', baseQuantity: 1, unit: 'pcs' }));
+            
+            const docId = `${createSlug(dishName)}_en`; // Assuming English for now
+            const recipeRef = db.collection('cachedRecipes').doc(docId);
+            
+            const recipeData: CachedRecipe = {
+                id: docId,
+                dishName,
+                ingredients,
+                instructions: [], // Not provided in this simple CSV
+                nutrition: { calories: 0, protein: 0 },
+                createdAt: FieldValue.serverTimestamp(),
+            };
+
+            batch.set(recipeRef, recipeData, { merge: true });
+            processedCount++;
+        }
+
+        if (processedCount > 0) {
+            await batch.commit();
+        }
+
+        return { success: true, count: processedCount };
+
+    } catch (error: any) {
+        console.error('Recipe bulk upload failed:', error);
+        return { success: false, error: error.message || 'An unknown server error occurred.' };
+    }
+}
+
+
+export async function approveRegularization(recordId: string, storeId: string, rejectionReason?: string, isApproved: boolean = true) {
+    const { db } = await getAdminServices();
+    const recordRef = doc(db, 'stores', storeId, 'attendance', recordId);
+
+    const recordSnap = await recordRef.get();
+    if (!recordSnap.exists()) {
+        throw new Error("Attendance record not found.");
+    }
+    const record = recordSnap.data() as AttendanceRecord;
+    
+    const newStatus = isApproved ? 'approved' : 'rejected';
+    const lastReasonIndex = (record.reasonHistory?.length || 0) - 1;
+    const updatedReasonHistory = record.reasonHistory ? [...record.reasonHistory] : [];
+    if (lastReasonIndex >= 0) {
+        updatedReasonHistory[lastReasonIndex].status = newStatus;
+        if (!isApproved) {
+            updatedReasonHistory[lastReasonIndex].rejectionReason = rejectionReason;
+        }
+    }
+
+    const updateData: Partial<AttendanceRecord> = {
+        status: newStatus,
+        reasonHistory: updatedReasonHistory,
+    };
+    
+    if (isApproved && record.workHours === 0) {
+        updateData.workHours = 8;
+    }
+
+    await updateDoc(recordRef, updateData);
+}
+
+export async function rejectRegularization(recordId: string, storeId: string, reason: string) {
+    return await approveRegularization(recordId, storeId, reason, false);
+}

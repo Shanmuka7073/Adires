@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useTransition, useCallback, useEffect } from 'react';
@@ -469,7 +470,7 @@ export default function SalaryReportsPage() {
                                         <TableBody>
                                             {reportData.records.map(rec => (
                                                 <TableRow key={rec.id}>
-                                                    <TableCell>{format(new Date(rec.workDate + 'T00:00:00'), 'PPP')}</TableCell>
+                                                    <TableCell>{format(new Date(rec.workDate.replace(/-/g, '/')), 'PPP')}</TableCell>
                                                     <TableCell>{formatDateSafe(rec.punchInTime)}</TableCell>
                                                     <TableCell>{formatDateSafe(rec.punchOutTime)}</TableCell>
                                                     <TableCell>{rec.workHours > 0 ? rec.workHours.toFixed(2) : '-'}</TableCell>
@@ -495,7 +496,7 @@ export default function SalaryReportsPage() {
                             <CardFooter>
                                 <Button className="w-full" onClick={handleGenerateSlip} disabled={isGenerating}>
                                     {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                                    Generate &amp; Download Slip
+                                    Generate & Download Slip
                                 </Button>
                             </CardFooter>
                         </Card>

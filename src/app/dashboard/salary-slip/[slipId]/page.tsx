@@ -5,12 +5,12 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useFirebase } from '@/firebase';
 import { getSalarySlipData } from '@/app/actions';
-import type { SalarySlip, EmployeeProfile, Store } from '@/lib/types';
+import type { SalarySlip, EmployeeProfile, Store, User } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 
-function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: SalarySlip, employee: EmployeeProfile, store: Store, attendance: any }) {
+function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: SalarySlip, employee: EmployeeProfile & User, store: Store, attendance: any }) {
     
     const gross = slip.baseSalary + slip.overtimePay;
     const totalDeduction = slip.deductions;
@@ -145,35 +145,13 @@ function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: Salary
           </div>
     `;
 
-    const htmlContentForFile = `
-        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-        <head><meta charset='utf-8'><title>Salary Slip</title></head><body>
-          ${slipHtmlContent}
-        </body></html>
-    `;
-
-    const handlePrint = () => {
-        window.print();
-    };
-
-    const handleWordDownload = () => {
-        const blob = new Blob([htmlContentForFile], { type: 'application/octet-stream' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `salary-slip-${slip.id}.doc`;
-        document.body.appendChild(link);
-        link.click();
-        URL.revokeObjectURL(link.href);
-        document.body.removeChild(link);
-    };
-
     return (
         <div>
             <div className="no-print max-w-[800px] mx-auto mb-4 flex justify-end gap-2">
-                <Button onClick={handlePrint}>Print / Save as PDF</Button>
-                <Button onClick={handleWordDownload} variant="outline">Download as Word</Button>
+                <Button id="print-btn">Print / Save as PDF</Button>
+                <Button id="word-btn" variant="outline">Download as Word</Button>
             </div>
-            <div className="payslip-container w-[800px] mx-auto p-5 border shadow-lg bg-white" dangerouslySetInnerHTML={{ __html: slipHtmlContent }} />
+            <div id="payslip-container" className="w-[800px] mx-auto p-5 border shadow-lg bg-white" dangerouslySetInnerHTML={{ __html: slipHtmlContent }} />
             <style jsx global>{`
                 @media print {
                     body { background: white; -webkit-print-color-adjust: exact; }
@@ -181,13 +159,35 @@ function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: Salary
                     .payslip-container { box-shadow: none !important; border: none !important; margin: 0 !important; padding: 0 !important; }
                 }
             `}</style>
+            <script
+                dangerouslySetInnerHTML={{
+                  __html: `
+                    const htmlContentForFile = \`<!DOCTYPE html>${slipHtmlContent.replace(/`/g, "\\`")}\`;
+                    
+                    document.getElementById('print-btn').addEventListener('click', () => {
+                      window.print();
+                    });
+
+                    document.getElementById('word-btn').addEventListener('click', () => {
+                      const blob = new Blob([htmlContentForFile], { type: 'application/octet-stream' });
+                      const link = document.createElement('a');
+                      link.href = URL.createObjectURL(blob);
+                      link.download = 'salary-slip-${slip.id}.doc';
+                      document.body.appendChild(link);
+                      link.click();
+                      URL.revokeObjectURL(link.href);
+                      document.body.removeChild(link);
+                    });
+                  `,
+                }}
+            />
         </div>
     );
 }
 
 interface SalaryData {
     slip: SalarySlip;
-    employee: EmployeeProfile;
+    employee: EmployeeProfile & User;
     store: Store;
     attendance: any;
 }
@@ -212,7 +212,7 @@ export default function SalarySlipPage() {
             try {
                 const result = await getSalarySlipData(slipId, user.uid);
                 if (result) {
-                    setData(result);
+                    setData(result as SalaryData);
                 } else {
                     setError("Salary slip not found or you do not have permission to view it.");
                 }
