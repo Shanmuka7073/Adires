@@ -392,7 +392,7 @@ export default function SalaryReportsPage() {
                     pf: 500, // Placeholder
                     esi: 200, // Placeholder
                     netPay: reportData.netPay,
-                    logoUrl: myStore.imageUrl || 'https://i.ibb.co/WpfhKqjW/android-launchericon-512-512.png',
+                    logoUrl: myStore.imageUrl || 'https://i.ibb.co/WpfhKqj/android-launchericon-512-512.png',
                     signatureUrl: "https://i.ibb.co/7Qr0T4k/signature.png",
                 });
             } catch (error: any) {
@@ -481,7 +481,7 @@ export default function SalaryReportsPage() {
                                                     <TableCell>{rec.punchInTime ? format(rec.punchInTime instanceof Timestamp ? rec.punchInTime.toDate() : new Date(rec.punchInTime), 'p') : '—'}</TableCell>
                                                     <TableCell>{rec.punchOutTime ? format(rec.punchOutTime instanceof Timestamp ? rec.punchOutTime.toDate() : new Date(rec.punchOutTime), 'p') : '—'}</TableCell>
                                                     <TableCell>{rec.workHours > 0 ? rec.workHours.toFixed(2) : '-'}</TableCell>
-                                                    <TableCell className="text-right font-mono capitalize">{rec.status.replace('_', ' ')}</TableCell>
+                                                    <TableCell className="text-right font-mono capitalize">{rec.status.replace(/_/g, ' ')}</TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
