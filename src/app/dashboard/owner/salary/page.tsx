@@ -1,9 +1,8 @@
-
 'use client';
 
 import { useState, useMemo, useTransition, useCallback, useEffect } from 'react';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
-import { collection, query, where, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, query, where, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc, getDocs, orderBy, Timestamp, collectionGroup, arrayUnion } from 'firebase/firestore';
 import type { Store, EmployeeProfile, AttendanceRecord, SalarySlip, ReasonEntry } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -153,7 +152,6 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
                             <TableHead>Employee</TableHead>
                             <TableHead>Date</TableHead>
                             <TableHead>Reason</TableHead>
-                            <TableHead>Manager</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -163,7 +161,6 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
                                 <TableCell className="font-mono">{req.employeeId.slice(0, 8)}...</TableCell>
                                 <TableCell>{format(new Date(req.workDate), 'PPP')}</TableCell>
                                 <TableCell className="text-sm italic text-muted-foreground">{req.reasonHistory && req.reasonHistory.length > 0 ? req.reasonHistory[req.reasonHistory.length - 1].text : "No reason given"}</TableCell>
-                                <TableCell className="font-medium">{req.managerName || 'Store Owner'}</TableCell>
                                 <TableCell className="text-right space-x-2">
                                     <Button size="sm" variant="ghost" onClick={() => handleApproval(req, false)} disabled={isUpdating}>
                                         <XCircle className="mr-2 h-4 w-4 text-destructive" /> Reject
@@ -374,6 +371,9 @@ export default function SalaryReportsPage() {
             try {
                 await setDoc(slipRef, { ...slipData, id: slipId, generatedAt: serverTimestamp() }, { merge: true });
                 toast({ title: 'Salary Slip Generated!', description: `A slip for ${selectedEmployee.role} for ${format(dateRange.from!, 'MMMM yyyy')} has been generated.` });
+                
+                // Open the new page for printing
+                window.open(`/dashboard/salary-slip/${slipId}`, '_blank');
 
             } catch (error: any) {
                 console.error("Failed to generate salary slip:", error);
@@ -495,7 +495,7 @@ export default function SalaryReportsPage() {
                             <CardFooter>
                                 <Button className="w-full" onClick={handleGenerateSlip} disabled={isGenerating}>
                                     {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                                    Generate & Download Slip
+                                    Generate &amp; Download Slip
                                 </Button>
                             </CardFooter>
                         </Card>

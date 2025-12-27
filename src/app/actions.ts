@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -658,7 +657,7 @@ export async function getIngredientsForDish(input: { dishName: string; language:
           You have been provided with an existing recipe for a single serving. Your main goal is to accurately translate its ingredients and instructions into the desired language ({{{language}}}). Do not change the quantities. You do not need to re-estimate the cost.
           {{else}}
           **Generate New Recipe (Single Serving)**:
-          1.  **Analyze the Dish**: Identify the core components of "{{dishName}}". If the name is generic like "Juice" or "Salad", create a recipe for a common, popular version (e.g., "Fresh Orange Juice", "Garden Salad").
+          1.  **Analyze the Dish**: Identify the core components of "{{{dishName}}}". If the name is generic like "Juice" or "Salad", create a recipe for a common, popular version (e.g., "Fresh Orange Juice", "Garden Salad").
           2.  **Generate Ingredients**: Create a list of ingredients for a SINGLE serving. For each, provide:
               *   \`name\`: Common name of the ingredient.
               *   \`quantity\`: User-friendly quantity (e.g., "150g", "1/2 cup").
@@ -767,6 +766,7 @@ export async function getSalarySlipData(slipId: string, userId: string): Promise
     const { db } = await getAdminServices();
 
     try {
+        // Since slipId is now unique, we can do a collectionGroup query to find it directly
         const slipQuery = db.collectionGroup('salarySlips').where('id', '==', slipId).limit(1);
         const slipSnapshot = await slipQuery.get();
 
@@ -777,13 +777,17 @@ export async function getSalarySlipData(slipId: string, userId: string): Promise
         const slipDocFromQuery = slipSnapshot.docs[0];
         const slipData = slipDocFromQuery.data() as SalarySlip;
 
+        // Check permissions: either the employee themselves or the owner of the store
         const storeDoc = await db.collection('stores').doc(slipData.storeId).get();
-        if (!storeDoc.exists()) throw new Error("Store not found.");
+        if (!storeDoc.exists()) {
+            throw new Error("Store not found for this salary slip.");
+        }
 
         if (userId !== slipData.employeeId && userId !== (storeDoc.data() as Store).ownerId) {
             throw new Error("You do not have permission to view this salary slip.");
         }
 
+        // Now that we have the slip data and validated permissions, fetch the full details
         return await getFullSlipDetails(slipData, db);
 
     } catch (error: any) {
