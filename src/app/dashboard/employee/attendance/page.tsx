@@ -45,7 +45,7 @@ export default function EmployeeAttendancePage() {
     );
   }, [user?.uid, firestore]);
 
-  const { data: records, setData: setRecords, isLoading: recordsLoading } = useCollection<AttendanceRecord>(attendanceQuery);
+  const { data: records, isLoading: recordsLoading } = useCollection<AttendanceRecord>(attendanceQuery);
   const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
   const [approvalReason, setApprovalReason] = useState("");
   const [isRegularization, setIsRegularization] = useState(false);
@@ -57,7 +57,8 @@ export default function EmployeeAttendancePage() {
 
   const selectedRecord = useMemo(() => {
     if (!selectedDate || !records) return null;
-    return records.find(r => isSameDay(new Date(r.workDate), selectedDate));
+    const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+    return records.find(r => r.workDate === selectedDateStr);
   }, [selectedDate, records]);
 
   const canRequestApproval = selectedDate && isPast(selectedDate) && !isToday(selectedDate) && !selectedRecord;
@@ -80,13 +81,7 @@ export default function EmployeeAttendancePage() {
             reasonHistory: []
         };
         try {
-            const docRef = await addDoc(collection(firestore, 'stores', storeId, 'attendance'), newRecordData);
-            const newRecordForState: AttendanceRecord = {
-                id: docRef.id,
-                ...newRecordData,
-                punchInTime: new Date()
-            };
-            setRecords(prevRecords => [newRecordForState, ...(prevRecords || [])]);
+            await addDoc(collection(firestore, 'stores', storeId, 'attendance'), newRecordData);
             toast({ title: 'Punched In!', description: 'Your shift has started.' });
         } catch(e: any) {
             const permissionError = new FirestorePermissionError({ path: `stores/${storeId}/attendance`, operation: 'create', requestResourceData: newRecordData });
@@ -117,7 +112,6 @@ export default function EmployeeAttendancePage() {
       
       try {
         await updateDoc(recordRef, updateData);
-        setRecords(prevRecords => prevRecords?.map(rec => rec.id === todaysRecord.id ? { ...rec, ...updateData, punchOutTime } : rec) || null);
         toast({ title: 'Punched Out!', description: `Your shift has ended. Total hours: ${workHours.toFixed(2)}.` });
       } catch (e) {
         const permissionError = new FirestorePermissionError({ path: recordRef.path, operation: 'update', requestResourceData: { workHours, status: newStatus } });
@@ -137,7 +131,6 @@ export default function EmployeeAttendancePage() {
     
     startProcessing(async() => {
         try {
-            // FIX: Use a client-side timestamp instead of serverTimestamp() inside arrayUnion.
             const newReasonEntry: ReasonEntry = {
                 text: approvalReason.trim(),
                 timestamp: new Date(),
@@ -150,9 +143,6 @@ export default function EmployeeAttendancePage() {
                     status: 'pending_approval',
                     reasonHistory: arrayUnion(newReasonEntry),
                  });
-
-                 // Manually update local state to avoid waiting for listener
-                 setRecords(prev => prev?.map(r => r.id === selectedRecord.id ? { ...r, status: 'pending_approval', reasonHistory: [...(r.reasonHistory || []), newReasonEntry] } : r) || null);
                 
                 toast({ title: 'Request Submitted', description: 'Your request has been sent to your manager for approval.' });
 
@@ -164,8 +154,7 @@ export default function EmployeeAttendancePage() {
                     rejectionCount: 0,
                     reasonHistory: [newReasonEntry],
                 };
-                const docRef = await addDoc(collection(firestore, `stores/${storeId}/attendance`), newRequestData);
-                setRecords(prev => [...(prev || []), { id: docRef.id, ...newRequestData }]);
+                await addDoc(collection(firestore, `stores/${storeId}/attendance`), newRequestData);
                 toast({ title: 'Request Sent', description: 'Your manager has been notified.' });
             }
             setIsRequestDialogOpen(false);
