@@ -270,8 +270,14 @@ export default function SalaryReportsPage() {
         }
         setAttendanceLoading(true);
         try {
-            const startTimestamp = Timestamp.fromDate(new Date(dateRange.from.setHours(0, 0, 0, 0)));
-            const endTimestamp = Timestamp.fromDate(new Date(dateRange.to.setHours(23, 59, 59, 999)));
+            const start = new Date(dateRange.from);
+            start.setHours(0, 0, 0, 0);
+
+            const end = new Date(dateRange.to);
+            end.setHours(23, 59, 59, 999);
+
+            const startTimestamp = Timestamp.fromDate(start);
+            const endTimestamp = Timestamp.fromDate(end);
 
             const q = query(
                 collectionGroup(firestore, 'attendance'),
@@ -397,12 +403,6 @@ export default function SalaryReportsPage() {
     if (storeLoading) return <div className="container mx-auto py-12">Loading store information...</div>
     if (!myStore) return <div className="container mx-auto py-12">You must have a store to access this page.</div>
 
-    const formatDateSafe = (date: any) => {
-        if (!date) return 'N/A';
-        const jsDate = date.seconds ? new Date(date.seconds * 1000) : new Date(date);
-        return format(jsDate, 'p');
-    }
-
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
             <Card>
@@ -475,9 +475,9 @@ export default function SalaryReportsPage() {
                                         <TableBody>
                                             {reportData.records.map(rec => (
                                                 <TableRow key={rec.id}>
-                                                    <TableCell>{format(new Date(rec.workDateStr.replace(/-/g, '/')), 'PPP')}</TableCell>
-                                                    <TableCell>{formatDateSafe(rec.punchInTime)}</TableCell>
-                                                    <TableCell>{formatDateSafe(rec.punchOutTime)}</TableCell>
+                                                    <TableCell>{format(rec.workDate instanceof Timestamp ? rec.workDate.toDate() : new Date(rec.workDate), 'PPP')}</TableCell>
+                                                    <TableCell>{rec.punchInTime ? format(rec.punchInTime instanceof Timestamp ? rec.punchInTime.toDate() : new Date(rec.punchInTime), 'p') : '—'}</TableCell>
+                                                    <TableCell>{rec.punchOutTime ? format(rec.punchOutTime instanceof Timestamp ? rec.punchOutTime.toDate() : new Date(rec.punchOutTime), 'p') : '—'}</TableCell>
                                                     <TableCell>{rec.workHours > 0 ? rec.workHours.toFixed(2) : '-'}</TableCell>
                                                     <TableCell className="text-right font-mono capitalize">{rec.status.replace('_', ' ')}</TableCell>
                                                 </TableRow>
@@ -511,3 +511,4 @@ export default function SalaryReportsPage() {
         </div>
     );
 }
+
