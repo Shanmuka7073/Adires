@@ -1,5 +1,4 @@
 
-
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -395,7 +394,8 @@ export type AttendanceRecord = {
     id: string;
     employeeId: string;
     storeId: string;
-    workDate: string;
+    workDate: Timestamp; // Using Timestamp for correct sorting
+    workDateStr: string; // Keep string for easy comparison
     punchInTime: Timestamp | Date | string | null;
     punchOutTime: Timestamp | Date | string | null;
     workHours: number;
@@ -431,5 +431,3 @@ declare global {
     export default content;
   }
 }
-
-    

@@ -4,7 +4,7 @@
 import { useEffect, useState, useMemo, useTransition, useCallback } from 'react';
 import { collection, query, where, addDoc, getDocs, orderBy, updateDoc, doc, Timestamp, collectionGroup, arrayUnion, setDoc } from 'firebase/firestore';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
-import { format, differenceInMinutes, startOfMonth, endOfMonth, isSameDay, isPast, isToday } from 'date-fns';
+import { format, differenceInMinutes, startOfDay, isSameDay } from 'date-fns';
 import type { AttendanceRecord, EmployeeProfile, Store, ReasonEntry } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,15 +35,15 @@ export default function EmployeeAttendancePage() {
   const storeId = employeeProfile?.storeId;
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
-  // This query is now compatible with our new security rules
+  // ✅ FIX #1: Use a direct collection query, not collectionGroup
   const attendanceQuery = useMemoFirebase(() => {
-    if (!user?.uid || !firestore) return undefined;
+    if (!user?.uid || !firestore || !storeId) return undefined;
     return query(
-      collectionGroup(firestore, `attendance`),
+      collection(firestore, `stores/${storeId}/attendance`),
       where('employeeId', '==', user.uid),
       orderBy('workDate', 'desc')
     );
-  }, [user?.uid, firestore]);
+  }, [user?.uid, firestore, storeId]);
 
   const { data: records, isLoading: recordsLoading, refetch } = useCollection<AttendanceRecord>(attendanceQuery);
   const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
@@ -51,19 +51,21 @@ export default function EmployeeAttendancePage() {
   const [isRegularization, setIsRegularization] = useState(false);
 
 
+  // ✅ FIX #3: Update todaysRecord logic to use the new string field
   const todaysRecord = useMemo(() => {
-    return records?.find(record => record.workDate === todayStr);
+    return records?.find(record => record.workDateStr === todayStr);
   }, [records, todayStr]);
 
   const selectedRecord = useMemo(() => {
     if (!selectedDate || !records) return null;
     const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
-    return records.find(r => r.workDate === selectedDateStr);
+    return records.find(r => r.workDateStr === selectedDateStr);
   }, [selectedDate, records]);
   
   const recordToShow = selectedRecord || todaysRecord;
-
-  const canRequestApproval = selectedDate && isPast(selectedDate) && !isToday(selectedDate) && !selectedRecord;
+  
+  const selectedDateIsPast = selectedDate && isPast(selectedDate) && !isSameDay(selectedDate, new Date());
+  const canRequestApproval = selectedDateIsPast && !selectedRecord;
   const canResubmit = selectedRecord && selectedRecord.status === 'rejected' && (selectedRecord.rejectionCount || 0) < 3;
 
 
@@ -71,10 +73,12 @@ export default function EmployeeAttendancePage() {
     if (!user || !storeId || !firestore) return;
 
     startProcessing(async () => {
+        // ✅ FIX #2: Use Firestore Timestamp for date field
         const newRecordData: Omit<AttendanceRecord, 'id'> = {
             employeeId: user.uid,
             storeId,
-            workDate: todayStr,
+            workDate: Timestamp.fromDate(startOfDay(new Date())),
+            workDateStr: todayStr,
             punchInTime: Timestamp.now(),
             punchOutTime: null,
             status: 'partially_present',
@@ -85,6 +89,8 @@ export default function EmployeeAttendancePage() {
         try {
             await addDoc(collection(firestore, 'stores', storeId, 'attendance'), newRecordData);
             toast({ title: 'Punched In!', description: 'Your shift has started.' });
+            // ✅ FIX #4: Force refetch after write
+            if (refetch) await refetch();
         } catch(e: any) {
             const permissionError = new FirestorePermissionError({ path: `stores/${storeId}/attendance`, operation: 'create', requestResourceData: newRecordData });
             errorEmitter.emit('permission-error', permissionError);
@@ -115,6 +121,8 @@ export default function EmployeeAttendancePage() {
       try {
         await updateDoc(recordRef, updateData);
         toast({ title: 'Punched Out!', description: `Your shift has ended. Total hours: ${workHours.toFixed(2)}.` });
+        // ✅ FIX #4: Force refetch after write
+        if (refetch) await refetch();
       } catch (e) {
         const permissionError = new FirestorePermissionError({ path: recordRef.path, operation: 'update', requestResourceData: { workHours, status: newStatus } });
         errorEmitter.emit('permission-error', permissionError);
@@ -129,36 +137,42 @@ export default function EmployeeAttendancePage() {
         return;
     };
     
-    const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    
     startProcessing(async() => {
         try {
-            const newReasonEntry: ReasonEntry = {
-                text: approvalReason.trim(),
-                timestamp: new Date(),
-                status: 'submitted',
-            };
-
             if ((isRegularization || canResubmit) && selectedRecord) {
                  const recordRef = doc(firestore, `stores/${storeId}/attendance`, selectedRecord.id);
+                 const newReasonEntry: ReasonEntry = {
+                    text: approvalReason.trim(),
+                    timestamp: new Date(), // Use client-side date
+                    status: 'submitted',
+                 };
                  await updateDoc(recordRef, {
                     status: 'pending_approval',
                     reasonHistory: arrayUnion(newReasonEntry),
                  });
-                
                 toast({ title: 'Request Submitted', description: 'Your request has been sent to your manager for approval.' });
 
             } else { // New request for a missed day
                 const newRequestData: Omit<AttendanceRecord, 'id'> = {
-                    employeeId: user.uid, storeId, workDate: dateStr,
+                    employeeId: user.uid, storeId,
+                    workDate: Timestamp.fromDate(startOfDay(selectedDate)), // ✅ FIX #2
+                    workDateStr: format(selectedDate, 'yyyy-MM-dd'), // ✅ FIX #2
                     punchInTime: null, punchOutTime: null,
                     status: 'pending_approval', workHours: 0,
                     rejectionCount: 0,
-                    reasonHistory: [newReasonEntry],
+                    reasonHistory: [{
+                        text: approvalReason.trim(),
+                        timestamp: new Date(), // Use client-side date
+                        status: 'submitted',
+                    }],
                 };
                 await addDoc(collection(firestore, `stores/${storeId}/attendance`), newRequestData);
                 toast({ title: 'Request Sent', description: 'Your manager has been notified.' });
             }
+            
+            // ✅ FIX #4: Force refetch after write
+            if (refetch) await refetch();
+
             setIsRequestDialogOpen(false);
             setApprovalReason('');
         } catch(e: any) {
@@ -263,11 +277,11 @@ export default function EmployeeAttendancePage() {
                         onSelect={setSelectedDate}
                         disabled={date => date > new Date()}
                         modifiers={{
-                            present: date => records?.some(r => format(date, 'yyyy-MM-dd') === r.workDate && r.status === 'present') || false,
-                            partially_present: date => records?.some(r => format(date, 'yyyy-MM-dd') === r.workDate && r.status === 'partially_present') || false,
-                            approved: date => records?.some(r => format(date, 'yyyy-MM-dd') === r.workDate && r.status === 'approved') || false,
-                            pending: date => records?.some(r => format(date, 'yyyy-MM-dd') === r.workDate && r.status === 'pending_approval') || false,
-                            rejected: date => records?.some(r => format(date, 'yyyy-MM-dd') === r.workDate && r.status === 'rejected') || false,
+                          present: date => records?.some(r => r.workDateStr === format(date, 'yyyy-MM-dd') && r.status === 'present') || false,
+                          partially_present: date => records?.some(r => r.workDateStr === format(date, 'yyyy-MM-dd') && r.status === 'partially_present') || false,
+                          approved: date => records?.some(r => r.workDateStr === format(date, 'yyyy-MM-dd') && r.status === 'approved') || false,
+                          pending: date => records?.some(r => r.workDateStr === format(date, 'yyyy-MM-dd') && r.status === 'pending_approval') || false,
+                          rejected: date => records?.some(r => r.workDateStr === format(date, 'yyyy-MM-dd') && r.status === 'rejected') || false,
                         }}
                         modifiersClassNames={{
                             present: 'day-present',
