@@ -3,14 +3,11 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
+import { useFirebase } from '@/firebase';
 import { getSalarySlipData } from '@/app/actions';
-import type { SalarySlip, EmployeeProfile, Store, AttendanceRecord } from '@/lib/types';
+import type { SalarySlip, EmployeeProfile, Store } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import QRCode from 'qrcode.react';
 import { format } from 'date-fns';
-import { Button } from '@/components/ui/button';
-import { Download } from 'lucide-react';
 
 function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: SalarySlip, employee: EmployeeProfile, store: Store, attendance: any }) {
     
@@ -79,31 +76,10 @@ function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: Salary
         `;
     }
 
-    const htmlContent = `
-      <style>
-        @media print {
-            body {
-                background: white;
-                font-size: 12pt;
-            }
-            .no-print {
-                display: none !important;
-            }
-            .payslip-container {
-                box-shadow: none !important;
-                border: none !important;
-                margin: 0 !important;
-                padding: 0 !important;
-            }
-        }
-      </style>
-      <div style="font-family: Arial, sans-serif; margin: 0; padding: 20px; font-size: 14px; background-color: #f9fafb;">
-          <div class="no-print" style="max-width: 800px; margin: auto; margin-bottom: 20px; display: flex; justify-content: flex-end;">
-            <button onclick="window.print()" style="padding: 8px 16px; background-color: #16a34a; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                Download / Print
-            </button>
-          </div>
-          <div class="payslip-container" style="width: 800px; margin: auto; padding: 20px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0,0,0,0.1); background: white;">
+    const htmlContentForFile = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head><meta charset='utf-8'><title>Salary Slip</title></head><body>
+          <div style="font-family: Arial, sans-serif; margin: 0; padding: 20px; font-size: 14px; background-color: #ffffff; width: 800px; margin: auto; border: 1px solid #ddd;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px;">
               <div>
                 <h1 style="font-size: 24px; font-weight: bold; margin: 0;">${store.name}</h1>
@@ -168,10 +144,40 @@ function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: Salary
               <p><b>Authorized Signatory</b></p>
             </div>
           </div>
-      </div>
+        </body></html>
     `;
 
-    return <div dangerouslySetInnerHTML={{ __html: htmlContent }} />;
+    const htmlContentForBrowser = `
+      <style>
+        @media print {
+            body { background: white; font-size: 12pt; }
+            .no-print { display: none !important; }
+            .payslip-container { box-shadow: none !important; border: none !important; margin: 0 !important; padding: 0 !important; }
+        }
+      </style>
+      <div class="no-print" id="button-container" style="max-width: 800px; margin: auto; margin-bottom: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+        <button id="print-btn" style="padding: 8px 16px; background-color: #16a34a; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;">Print / Save as PDF</button>
+        <button id="word-btn" style="padding: 8px 16px; background-color: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;">Download as Word</button>
+      </div>
+      <div class="payslip-container" style="width: 800px; margin: auto; padding: 20px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0,0,0,0.1); background: white;">
+          ${htmlContentForFile.substring(htmlContentForFile.indexOf('<body>') + 6, htmlContentForFile.lastIndexOf('</body>'))}
+      </div>
+      <script>
+        document.getElementById('print-btn').addEventListener('click', () => window.print());
+        document.getElementById('word-btn').addEventListener('click', () => {
+          const content = \`${htmlContentForFile}\`;
+          const blob = new Blob([content], { type: 'application/msword' });
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = 'salary-slip.doc';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        });
+      </script>
+    `;
+
+    return <div dangerouslySetInnerHTML={{ __html: htmlContentForBrowser }} />;
 }
 
 interface SalaryData {
