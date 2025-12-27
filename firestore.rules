@@ -25,7 +25,7 @@ service cloud.firestore {
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-
+    
     function getStoreOwnerId(storeId) {
         return get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId;
     }
@@ -129,8 +129,8 @@ service cloud.firestore {
         (
           isOwner(resource.data.employeeId) &&
           (resource.data.status == 'partially_present' || resource.data.status == 'rejected') &&
-          request.resource.data.status == 'pending_approval' &&
           resource.data.rejectionCount < 3 &&
+          request.resource.data.status == 'pending_approval' &&
           request.writeFields.hasOnly(['status', 'reasonHistory'])
         ) ||
         // Manager or Store Owner approving/rejecting a pending request
@@ -144,8 +144,23 @@ service cloud.firestore {
       allow delete: if false;
     }
     
+    // SAFE collectionGroup rule for attendance
     match /{path=**}/attendance/{recordId} {
-       allow read: if request.auth != null && resource.data.employeeId == request.auth.uid;
+       allow get: if
+        isSignedIn() &&
+        (
+          resource.data.employeeId == request.auth.uid
+          || isStoreOwner(resource.data.storeId)
+        );
+
+      allow list: if
+        isSignedIn() &&
+        (
+          // employee querying own records
+          request.query.where('employeeId', '==', request.auth.uid)
+          // OR store owner querying store attendance
+          || isStoreOwner(resource.data.storeId)
+        );
     }
 
 
@@ -160,14 +175,17 @@ service cloud.firestore {
         || isOwner(resource.data.employeeId);
 
       allow list: if 
-        isStoreOwner(storeId) 
-        || (request.auth != null && request.query.where[0][2] == request.auth.uid);
+        isStoreOwner(storeId); 
 
       allow create, update, delete: if isStoreOwner(storeId);
     }
     
+     // SAFE collectionGroup rule for salary slips
      match /{path=**}/salarySlips/{slipId} {
-       allow get: if isSignedIn();
+       allow get: if
+        isStoreOwner(resource.data.storeId)
+        || resource.data.employeeId == request.auth.uid;
+       allow list: if isStoreOwner(resource.data.storeId);
     }
 
     /* ======================
@@ -193,6 +211,14 @@ service cloud.firestore {
         || (resource.data.deliveryPartnerId == null && request.resource.data.deliveryPartnerId == request.auth.uid);
 
       allow delete: if false;
+    }
+    
+    // SAFE collectionGroup rule for orders
+    match /{path=**}/orders/{orderId} {
+        allow get: if true;
+        allow list: if 
+            request.query.where('storeId', '==', resource.data.storeId)
+            || request.query.where('userId', '==', request.auth.uid);
     }
     
     match /orders/{orderId}/orderItems/{orderItemId} {

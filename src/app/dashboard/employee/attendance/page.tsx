@@ -34,6 +34,7 @@ export default function EmployeeAttendancePage() {
   const storeId = employeeProfile?.storeId;
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
+  // This query is now compatible with our new security rules
   const attendanceQuery = useMemoFirebase(() => {
     if (!user?.uid || !firestore) return undefined;
     return query(
