@@ -33,14 +33,13 @@ export default function EmployeeAttendancePage() {
   const { data: employeeProfile, isLoading: profileLoading } = useDoc<EmployeeProfile>(employeeProfileRef);
   
   const storeId = employeeProfile?.storeId;
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayStr = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
 
   const attendanceQuery = useMemoFirebase(() => {
     if (!user?.uid || !firestore || !storeId) return undefined;
     return query(
       collection(firestore, `stores/${storeId}/attendance`),
       where('employeeId', '==', user.uid)
-      // Removed orderBy to avoid composite index requirement
     );
   }, [user?.uid, firestore, storeId]);
 
@@ -61,7 +60,7 @@ export default function EmployeeAttendancePage() {
   
   const recordToShow = selectedRecord || todaysRecord;
   
-  const selectedDateIsPast = selectedDate && isPast(selectedDate) && !isSameDay(selectedDate, new Date());
+  const selectedDateIsPast = selectedDate && !isSameDay(selectedDate, new Date()) && selectedDate < startOfDay(new Date());
   const canRequestApproval = selectedDateIsPast && !selectedRecord;
   const canResubmit = selectedRecord && selectedRecord.status === 'rejected' && (selectedRecord.rejectionCount || 0) < 3;
 
@@ -69,7 +68,6 @@ export default function EmployeeAttendancePage() {
   const punchIn = async () => {
     if (!user || !storeId || !firestore) return;
     
-    // Prevent duplicate punch-ins
     if (todaysRecord) {
         toast({
             variant: 'destructive',
@@ -160,6 +158,16 @@ export default function EmployeeAttendancePage() {
                 toast({ title: 'Request Submitted', description: 'Your request has been sent to your manager for approval.' });
 
             } else { 
+                 const existingRecordForDate = records?.find(r => r.workDateStr === format(selectedDate, 'yyyy-MM-dd'));
+                 if (existingRecordForDate) {
+                     toast({
+                         variant: 'destructive',
+                         title: 'Request already exists',
+                         description: 'An attendance request already exists for this day.',
+                     });
+                     return;
+                 }
+
                 const selectedDayStart = new Date(selectedDate);
                 selectedDayStart.setHours(0, 0, 0, 0);
 
@@ -370,4 +378,3 @@ export default function EmployeeAttendancePage() {
     </div>
   );
 }
-
