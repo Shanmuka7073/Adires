@@ -2,22 +2,22 @@
 'use client';
 
 import { useEffect, useState, useMemo, useTransition, useCallback } from 'react';
-import { collection, query, where, addDoc, getDocs, orderBy, updateDoc, doc, Timestamp, collectionGroup, arrayUnion, setDoc } from 'firebase/firestore';
-import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
+import { collection, query, where, addDoc, getDocs, orderBy, updateDoc, doc, Timestamp, arrayUnion, onSnapshot } from 'firebase/firestore';
+import { useFirebase, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
 import { format, isSameDay, startOfDay, differenceInMinutes } from 'date-fns';
 import type { AttendanceRecord, EmployeeProfile, Store, ReasonEntry } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, AlertCircle, Calendar as CalendarIcon, Check, Circle, CheckCircle, Info, MessageSquare } from 'lucide-react';
+import { Loader2, AlertCircle, Calendar as CalendarIcon, CheckCircle, Info, MessageSquare } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -65,7 +65,7 @@ function AttendanceDetails({ record }: { record: AttendanceRecord }) {
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Request Regularization</DialogTitle>
-                        <DialogDescription>Please provide a reason for the partial hours on {format(new Date(record.workDate as any), "PPP")}.</DialogDescription>
+                        <DialogDescription>Please provide a reason for the partial hours on {record.workDate instanceof Timestamp ? format(record.workDate.toDate(), "PPP") : format(new Date(record.workDate), "PPP")}.</DialogDescription>
                     </DialogHeader>
                      <div className="py-4">
                         <Label htmlFor="reason">Reason</Label>
@@ -146,60 +146,72 @@ export default function EmployeeAttendancePage() {
   const { toast } = useToast();
   const [isProcessing, startProcessing] = useTransition();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [stableRecords, setStableRecords] = useState<AttendanceRecord[] | null>(null);
-
   
   const employeeProfileRef = useMemoFirebase(() => (user ? doc(firestore, 'employeeProfiles', user.uid) : undefined), [user, firestore]);
   const { data: employeeProfile, isLoading: profileLoading } = useDoc<EmployeeProfile>(employeeProfileRef);
   
   const storeId = employeeProfile?.storeId;
 
-  const attendanceQuery = useMemoFirebase(() => {
-    if (!user?.uid || !firestore || !storeId) return undefined;
-    return query(
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [recordsLoading, setRecordsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user?.uid || !firestore || !storeId) return;
+
+    setRecordsLoading(true);
+    const q = query(
       collection(firestore, `stores/${storeId}/attendance`),
       where('employeeId', '==', user.uid)
     );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const data = snapshot.docs.map(d => ({
+          id: d.id,
+          ...d.data(),
+        })) as AttendanceRecord[];
+        setRecords(data);
+        setRecordsLoading(false);
+      },
+      (error) => {
+        console.error('Attendance listener error:', error);
+        setRecordsLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
   }, [user?.uid, firestore, storeId]);
 
-  const { data: records, isLoading: recordsLoading, refetch } = useCollection<AttendanceRecord>(attendanceQuery);
   const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
   const [approvalReason, setApprovalReason] = useState("");
-  const [isRegularization, setIsRegularization] = useState(false);
   
-  useEffect(() => {
-    if (!recordsLoading && records && records.length > 0) {
-        setStableRecords(records);
-    }
-  }, [recordsLoading, records]);
-
-  const effectiveRecords = useMemo(() => stableRecords ?? [], [stableRecords]);
-
   const todaysRecord = useMemo(() => {
-    if (!effectiveRecords) return null;
-    return effectiveRecords.find(r =>
-      isSameDay((r.workDate as any)?.toDate ? (r.workDate as any).toDate() : new Date(r.workDate as any), new Date())
+    return records.find(r =>
+      isSameDay((r.workDate as any)?.toDate() ?? new Date(r.workDate as any), new Date())
     ) ?? null;
-  }, [effectiveRecords]);
+  }, [records]);
   
   const selectedRecord = useMemo(() => {
-    if (!selectedDate || !effectiveRecords) return null;
-    return effectiveRecords.find(r =>
-      isSameDay((r.workDate as any)?.toDate ? (r.workDate as any).toDate() : new Date(r.workDate as any), selectedDate)
+    if (!selectedDate || !records) return null;
+    return records.find(r =>
+      isSameDay((r.workDate as any)?.toDate() ?? new Date(r.workDate as any), selectedDate)
     ) ?? null;
-  }, [effectiveRecords, selectedDate]);
+  }, [records, selectedDate]);
   
   const recordToShow = useMemo(() => {
-      if (recordsLoading && !stableRecords) return null;
-      if (selectedRecord) return selectedRecord;
-      if (selectedDate && isSameDay(selectedDate, new Date())) {
+    if (recordsLoading) return null;
+    if (selectedRecord) return selectedRecord;
+    if (selectedDate && isSameDay(selectedDate, new Date())) {
         return todaysRecord;
-      }
-      return null;
-  }, [recordsLoading, stableRecords, selectedRecord, selectedDate, todaysRecord]);
+    }
+    return null;
+  }, [recordsLoading, selectedRecord, selectedDate, todaysRecord]);
+
 
   const selectedDateIsPast = selectedDate && startOfDay(selectedDate) < startOfDay(new Date());
   const canRequestApproval = !recordsLoading && selectedDateIsPast && !selectedRecord;
+  const canResubmit = selectedRecord && selectedRecord.status === 'rejected' && (selectedRecord.rejectionCount || 0) < 3;
 
   const punchIn = async () => {
     if (!user || !storeId || !firestore) return;
@@ -211,10 +223,11 @@ export default function EmployeeAttendancePage() {
 
     startProcessing(async () => {
         const today = startOfDay(new Date());
+        const todayStr = format(today, 'yyyy-MM-dd');
         const newRecordData: Omit<AttendanceRecord, 'id'> = {
             employeeId: user.uid, storeId,
             workDate: Timestamp.fromDate(today),
-            workDateStr: format(today, 'yyyy-MM-dd'),
+            workDateStr: todayStr,
             punchInTime: Timestamp.now(), punchOutTime: null,
             status: 'partially_present', workHours: 0,
             rejectionCount: 0, reasonHistory: []
@@ -222,7 +235,6 @@ export default function EmployeeAttendancePage() {
         try {
             await addDoc(collection(firestore, 'stores', storeId, 'attendance'), newRecordData);
             toast({ title: 'Punched In!', description: 'Your shift has started.' });
-            if (refetch) refetch();
         } catch(e: any) {
             const permissionError = new FirestorePermissionError({ path: `stores/${storeId}/attendance`, operation: 'create', requestResourceData: newRecordData });
             errorEmitter.emit('permission-error', permissionError);
@@ -248,7 +260,6 @@ export default function EmployeeAttendancePage() {
       try {
         await updateDoc(recordRef, { punchOutTime: Timestamp.fromDate(punchOutTime), workHours, status: newStatus });
         toast({ title: 'Punched Out!', description: `Your shift has ended. Total hours: ${workHours.toFixed(2)}.` });
-        if (refetch) refetch();
       } catch (e) {
         const permissionError = new FirestorePermissionError({ path: recordRef.path, operation: 'update', requestResourceData: { workHours, status: newStatus } });
         errorEmitter.emit('permission-error', permissionError);
@@ -262,8 +273,7 @@ export default function EmployeeAttendancePage() {
         return;
     };
     
-    const existing = effectiveRecords?.find(r => isSameDay((r.workDate as any).toDate(), selectedDate));
-
+    const existing = records?.find(r => isSameDay((r.workDate as any).toDate(), selectedDate));
     if (existing) {
         toast({ variant: 'destructive', title: 'Request already exists', description: 'An attendance record already exists for this day.' });
         return;
@@ -283,7 +293,6 @@ export default function EmployeeAttendancePage() {
             await addDoc(collection(firestore, `stores/${storeId}/attendance`), newRequestData);
             toast({ title: 'Request Sent', description: 'Your manager has been notified.' });
             
-            if (refetch) refetch();
             setIsRequestDialogOpen(false);
             setApprovalReason('');
         } catch(e: any) {
@@ -291,11 +300,6 @@ export default function EmployeeAttendancePage() {
             toast({ variant: 'destructive', title: 'Request Failed', description: 'Could not send the request.' });
         }
     });
-  }
-
-  const openRequestDialog = (regularize: boolean) => {
-    setIsRegularization(regularize);
-    setIsRequestDialogOpen(true);
   }
 
   const isLoading = isUserLoading || profileLoading;
@@ -385,14 +389,14 @@ export default function EmployeeAttendancePage() {
                     <Calendar
                         mode="single"
                         selected={selectedDate}
-                        onSelect={(date) => { if(date) setSelectedDate(date)}}
+                        onSelect={(date) => { if (date) setSelectedDate(date)}}
                         disabled={(date) => date > new Date()}
                         modifiers={{
-                          present: date => effectiveRecords?.some(r => isSameDay((r.workDate as any).toDate(), date) && r.status === 'present') || false,
-                          partially_present: date => effectiveRecords?.some(r => isSameDay((r.workDate as any).toDate(), date) && r.status === 'partially_present') || false,
-                          approved: date => effectiveRecords?.some(r => isSameDay((r.workDate as any).toDate(), date) && r.status === 'approved') || false,
-                          pending: date => effectiveRecords?.some(r => isSameDay((r.workDate as any).toDate(), date) && r.status === 'pending_approval') || false,
-                          rejected: date => effectiveRecords?.some(r => isSameDay((r.workDate as any).toDate(), date) && r.status === 'rejected') || false,
+                          present: date => records?.some(r => isSameDay((r.workDate as any).toDate(), date) && r.status === 'present') || false,
+                          partially_present: date => records?.some(r => isSameDay((r.workDate as any).toDate(), date) && r.status === 'partially_present') || false,
+                          approved: date => records?.some(r => isSameDay((r.workDate as any).toDate(), date) && r.status === 'approved') || false,
+                          pending: date => records?.some(r => isSameDay((r.workDate as any).toDate(), date) && r.status === 'pending_approval') || false,
+                          rejected: date => records?.some(r => isSameDay((r.workDate as any).toDate(), date) && r.status === 'rejected') || false,
                         }}
                         modifiersClassNames={{
                             present: 'day-present',
@@ -407,12 +411,12 @@ export default function EmployeeAttendancePage() {
                  
                   <div className="p-4 rounded-lg bg-muted/50 h-full">
                     <h3 className="font-semibold text-lg mb-2">Details for {format(selectedDate ?? new Date(), "PPP")}</h3>
-                    {recordsLoading && !stableRecords ? (
+                    {recordsLoading ? (
                         <Skeleton className="h-40 w-full" />
                     ) : recordToShow ? (
                         <AttendanceDetails record={recordToShow} />
                     ) : canRequestApproval ? (
-                        <RequestApprovalUI onOpenDialog={() => openRequestDialog(false)} />
+                        <RequestApprovalUI onOpenDialog={() => setIsRequestDialogOpen(true)} />
                     ) : (
                         <p className="text-sm text-muted-foreground mt-4">
                             No record for this day.
@@ -425,3 +429,5 @@ export default function EmployeeAttendancePage() {
     </div>
   );
 }
+
+    
