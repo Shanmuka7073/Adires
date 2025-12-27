@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useTransition, useCallback } from 'react';
-import { collection, query, where, addDoc, serverTimestamp, getDocs, orderBy, updateDoc, doc, Timestamp, collectionGroup, arrayUnion, setDoc } from 'firebase/firestore';
+import { collection, query, where, addDoc, getDocs, orderBy, updateDoc, doc, Timestamp, collectionGroup, arrayUnion, setDoc } from 'firebase/firestore';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
 import { format, differenceInMinutes, startOfMonth, endOfMonth, isSameDay, isPast, isToday } from 'date-fns';
 import type { AttendanceRecord, EmployeeProfile, Store, ReasonEntry } from '@/lib/types';
@@ -45,7 +45,7 @@ export default function EmployeeAttendancePage() {
     );
   }, [user?.uid, firestore]);
 
-  const { data: records, isLoading: recordsLoading } = useCollection<AttendanceRecord>(attendanceQuery);
+  const { data: records, isLoading: recordsLoading, refetch } = useCollection<AttendanceRecord>(attendanceQuery);
   const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
   const [approvalReason, setApprovalReason] = useState("");
   const [isRegularization, setIsRegularization] = useState(false);
@@ -60,6 +60,8 @@ export default function EmployeeAttendancePage() {
     const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
     return records.find(r => r.workDate === selectedDateStr);
   }, [selectedDate, records]);
+  
+  const recordToShow = selectedRecord || todaysRecord;
 
   const canRequestApproval = selectedDate && isPast(selectedDate) && !isToday(selectedDate) && !selectedRecord;
   const canResubmit = selectedRecord && selectedRecord.status === 'rejected' && (selectedRecord.rejectionCount || 0) < 3;
@@ -261,11 +263,11 @@ export default function EmployeeAttendancePage() {
                         onSelect={setSelectedDate}
                         disabled={date => date > new Date()}
                         modifiers={{
-                            present: date => records?.some(r => r.workDate === format(date, 'yyyy-MM-dd') && r.status === 'present') || false,
-                            partially_present: date => records?.some(r => r.workDate === format(date, 'yyyy-MM-dd') && r.status === 'partially_present') || false,
-                            approved: date => records?.some(r => r.workDate === format(date, 'yyyy-MM-dd') && r.status === 'approved') || false,
-                            pending: date => records?.some(r => r.workDate === format(date, 'yyyy-MM-dd') && r.status === 'pending_approval') || false,
-                            rejected: date => records?.some(r => r.workDate === format(date, 'yyyy-MM-dd') && r.status === 'rejected') || false,
+                            present: date => records?.some(r => format(date, 'yyyy-MM-dd') === r.workDate && r.status === 'present') || false,
+                            partially_present: date => records?.some(r => format(date, 'yyyy-MM-dd') === r.workDate && r.status === 'partially_present') || false,
+                            approved: date => records?.some(r => format(date, 'yyyy-MM-dd') === r.workDate && r.status === 'approved') || false,
+                            pending: date => records?.some(r => format(date, 'yyyy-MM-dd') === r.workDate && r.status === 'pending_approval') || false,
+                            rejected: date => records?.some(r => format(date, 'yyyy-MM-dd') === r.workDate && r.status === 'rejected') || false,
                         }}
                         modifiersClassNames={{
                             present: 'day-present',
@@ -280,32 +282,32 @@ export default function EmployeeAttendancePage() {
                  
                   <div className="p-4 rounded-lg bg-muted/50 h-full">
                     <h3 className="font-semibold text-lg mb-2">Details for {selectedDate ? format(selectedDate, "PPP") : "Today"}</h3>
-                     {selectedRecord ? (
+                     {recordToShow ? (
                         <div className="space-y-3">
-                            <div className="flex items-center gap-2"><strong>Status:</strong> <Badge variant={selectedRecord.status === 'present' || selectedRecord.status === 'approved' ? 'default' : 'destructive'}>{selectedRecord.status.replace(/_/g, ' ')}</Badge></div>
-                            <p><strong>Punch In:</strong> {selectedRecord.punchInTime ? format((selectedRecord.punchInTime as any).toDate ? (selectedRecord.punchInTime as any).toDate() : new Date(selectedRecord.punchInTime as any), 'p') : '—'}</p>
-                            <p><strong>Punch Out:</strong> {selectedRecord.punchOutTime ? format((selectedRecord.punchOutTime as any).toDate ? (selectedRecord.punchOutTime as any).toDate() : new Date(selectedRecord.punchOutTime as any), 'p') : '—'}</p>
-                            <p><strong>Work Hours:</strong> {selectedRecord.workHours > 0 ? `${selectedRecord.workHours.toFixed(2)} hours` : '—'}</p>
+                            <div className="flex items-center gap-2"><strong>Status:</strong> <Badge variant={recordToShow.status === 'present' || recordToShow.status === 'approved' ? 'default' : 'destructive'}>{recordToShow.status.replace(/_/g, ' ')}</Badge></div>
+                            <p><strong>Punch In:</strong> {recordToShow.punchInTime ? format((recordToShow.punchInTime as any).toDate ? (recordToShow.punchInTime as any).toDate() : new Date(recordToShow.punchInTime as any), 'p') : '—'}</p>
+                            <p><strong>Punch Out:</strong> {recordToShow.punchOutTime ? format((recordToShow.punchOutTime as any).toDate ? (recordToShow.punchOutTime as any).toDate() : new Date(recordToShow.punchOutTime as any), 'p') : '—'}</p>
+                            <p><strong>Work Hours:</strong> {recordToShow.workHours > 0 ? `${recordToShow.workHours.toFixed(2)} hours` : '—'}</p>
                             
-                             {selectedRecord.reasonHistory && selectedRecord.reasonHistory.length > 0 && (
+                             {recordToShow.reasonHistory && recordToShow.reasonHistory.length > 0 && (
                                  <div className="space-y-2 pt-2 border-t">
                                      <h4 className="text-sm font-semibold flex items-center gap-1.5"><MessageSquare className="h-4 w-4"/> Reason History</h4>
-                                     {selectedRecord.reasonHistory.map((entry, index) => (
+                                     {recordToShow.reasonHistory.map((entry, index) => (
                                          <div key={index} className="text-xs p-2 bg-background/50 rounded-md">
                                              <p className="italic">"{entry.text}"</p>
-                                             <p className="text-muted-foreground mt-1">
+                                             <div className="text-muted-foreground mt-1">
                                                  {format((entry.timestamp as any)?.toDate ? (entry.timestamp as any).toDate() : new Date(entry.timestamp as any), 'Pp')} - <span className="capitalize font-medium">{entry.status}</span>
                                                  {entry.status === 'rejected' && entry.rejectionReason && `: ${entry.rejectionReason}`}
-                                             </p>
+                                             </div>
                                          </div>
                                      ))}
                                  </div>
                              )}
                              
-                             {selectedRecord.status === 'partially_present' && selectedRecord.workHours >= 0 && (
+                             {recordToShow.status === 'partially_present' && recordToShow.workHours >= 0 && (
                                 <Alert className="bg-orange-100 border-orange-300 text-orange-900">
                                     <AlertDescription>
-                                        You worked {selectedRecord.workHours.toFixed(2)} hours, which is less than a full shift. You can request regularization if this was due to an issue.
+                                        You worked {recordToShow.workHours.toFixed(2)} hours, which is less than a full shift. You can request regularization if this was due to an issue.
                                     </AlertDescription>
                                      <Button onClick={() => openRequestDialog(true)} disabled={isProcessing} className="w-full mt-2 bg-orange-400 hover:bg-orange-500 text-orange-900">
                                         Request Regularization
@@ -316,7 +318,7 @@ export default function EmployeeAttendancePage() {
                                 <Alert className="bg-yellow-100 border-yellow-300 text-yellow-900">
                                     <AlertTitle>Request Rejected</AlertTitle>
                                     <AlertDescription>
-                                        Your last request was rejected. You have {3 - (selectedRecord.rejectionCount || 0)} attempts remaining.
+                                        Your last request was rejected. You have {3 - (recordToShow.rejectionCount || 0)} attempts remaining.
                                     </AlertDescription>
                                      <Button onClick={() => openRequestDialog(true)} disabled={isProcessing} className="w-full mt-2 bg-yellow-400 hover:bg-yellow-500 text-yellow-900">
                                         Re-submit Request
@@ -345,6 +347,3 @@ export default function EmployeeAttendancePage() {
     </div>
   );
 }
-
-
-    
