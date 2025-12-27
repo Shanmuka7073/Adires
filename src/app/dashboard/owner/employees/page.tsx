@@ -39,6 +39,7 @@ const baseEmployeeSchema = z.object({
   accountHolderName: z.string().optional(),
   accountNumber: z.string().optional(),
   ifscCode: z.string().optional(),
+  reportingTo: z.string().optional(), // Manager's user ID
 });
 
 const refinedSchemaCheck = (data: any) => {
@@ -53,12 +54,7 @@ const employeeSchema = baseEmployeeSchema.refine(refinedSchemaCheck, {
 });
 
 const editEmployeeSchema = baseEmployeeSchema.omit({ 
-    firstName: true, 
-    lastName: true, 
-    email: true, 
-    password: true, 
-    phone: true, 
-    address: true 
+    password: true,
 }).refine(refinedSchemaCheck, {
     message: "Please fill in the required payment details for the selected method.",
     path: ["payoutMethod"],
@@ -69,7 +65,7 @@ type EmployeeFormValues = z.infer<typeof employeeSchema>;
 type EditEmployeeFormValues = z.infer<typeof editEmployeeSchema>;
 
 // Edit Dialog for Existing Employees
-function EditEmployeeDialog({ employee, isOpen, onOpenChange }: { employee: EmployeeProfile, isOpen: boolean, onOpenChange: (open: boolean) => void }) {
+function EditEmployeeDialog({ employee, employees, isOpen, onOpenChange, myStore }: { employee: EmployeeProfile, employees: EmployeeProfile[], isOpen: boolean, onOpenChange: (open: boolean) => void, myStore: Store }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isSaving, startSave] = useTransition();
@@ -77,11 +73,7 @@ function EditEmployeeDialog({ employee, isOpen, onOpenChange }: { employee: Empl
     const form = useForm<EditEmployeeFormValues>({
         resolver: zodResolver(editEmployeeSchema),
         defaultValues: {
-            role: employee.role,
-            salaryRate: employee.salaryRate,
-            salaryType: employee.salaryType,
-            payoutMethod: employee.payoutMethod,
-            upiId: employee.upiId,
+            ...employee,
             accountHolderName: employee.bankDetails?.accountHolderName,
             accountNumber: employee.bankDetails?.accountNumber,
             ifscCode: employee.bankDetails?.ifscCode,
@@ -89,16 +81,25 @@ function EditEmployeeDialog({ employee, isOpen, onOpenChange }: { employee: Empl
     });
 
     const watchPayoutMethod = form.watch('payoutMethod');
+    
+    const possibleManagers = useMemo(() => {
+        return employees.filter(e => e.userId !== employee.userId);
+    }, [employees, employee]);
 
     const handleSave = async (data: EditEmployeeFormValues) => {
         if (!firestore) return;
         startSave(async () => {
             const profileRef = doc(firestore, 'employeeProfiles', employee.userId);
-            const updateData: Partial<EmployeeProfile> = {
+            const userRef = doc(firestore, 'users', employee.userId);
+
+            const batch = writeBatch(firestore);
+
+            const profileUpdateData: Partial<EmployeeProfile> = {
                 role: data.role,
                 salaryRate: data.salaryRate,
                 salaryType: data.salaryType,
                 payoutMethod: data.payoutMethod,
+                reportingTo: data.reportingTo,
                 upiId: data.payoutMethod === 'upi' ? data.upiId : undefined,
                 bankDetails: data.payoutMethod === 'bank' ? {
                     accountHolderName: data.accountHolderName || '',
@@ -106,9 +107,19 @@ function EditEmployeeDialog({ employee, isOpen, onOpenChange }: { employee: Empl
                     ifscCode: data.ifscCode || '',
                 } : undefined,
             };
+            
+            const userUpdateData = {
+                 firstName: data.firstName,
+                 lastName: data.lastName,
+                 phoneNumber: data.phone,
+                 address: data.address,
+            }
+
+            batch.update(profileRef, profileUpdateData);
+            batch.update(userRef, userUpdateData);
 
             try {
-                await updateDoc(profileRef, updateData);
+                await batch.commit();
                 toast({ title: "Employee Updated", description: "The employee's details have been saved." });
                 onOpenChange(false);
             } catch (error) {
@@ -120,16 +131,45 @@ function EditEmployeeDialog({ employee, isOpen, onOpenChange }: { employee: Empl
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent className="max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>Edit Employee: {employee.employeeId}</DialogTitle>
-                    <DialogDescription>Update the role, salary, and payment details for this employee.</DialogDescription>
+                    <DialogDescription>Update details for this employee.</DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(handleSave)} className="space-y-4">
+                    <form onSubmit={form.handleSubmit(handleSave)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
                         <div className="grid md:grid-cols-2 gap-4">
+                             <FormField control={form.control} name="firstName" render={({ field }) => (
+                                <FormItem><FormLabel>First Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                             <FormField control={form.control} name="lastName" render={({ field }) => (
+                                <FormItem><FormLabel>Last Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                              <FormField control={form.control} name="email" render={({ field }) => (
+                                <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} readOnly disabled/></FormControl><FormMessage /></FormItem>
+                            )} />
+                            <FormField control={form.control} name="phone" render={({ field }) => (
+                                <FormItem><FormLabel>Phone</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                             <FormField control={form.control} name="address" render={({ field }) => (
+                                <FormItem className="md:col-span-2"><FormLabel>Address</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
                             <FormField control={form.control} name="role" render={({ field }) => (
                                 <FormItem><FormLabel>Role</FormLabel><FormControl><Input placeholder="e.g., Cashier" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                             <FormField control={form.control} name="reportingTo" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Reporting To</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Select a manager" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            <SelectItem value={myStore.ownerId}>Store Owner</SelectItem>
+                                            {possibleManagers.map(mgr => (
+                                                <SelectItem key={mgr.userId} value={mgr.userId}>{mgr.role} ({mgr.employeeId})</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </FormItem>
                             )} />
                              <FormField control={form.control} name="salaryType" render={({ field }) => (
                                 <FormItem>
@@ -141,7 +181,7 @@ function EditEmployeeDialog({ employee, isOpen, onOpenChange }: { employee: Empl
                                 </FormItem>
                             )} />
                              <FormField control={form.control} name="salaryRate" render={({ field }) => (
-                                <FormItem className="md:col-span-2">
+                                <FormItem>
                                     <FormLabel>Salary Rate (₹)</FormLabel>
                                     <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
                                     <FormMessage />
@@ -209,12 +249,24 @@ export default function ManageEmployeesPage() {
   const employeesQuery = useMemoFirebase(() => (myStore ? query(collection(firestore, 'employeeProfiles'), where('storeId', '==', myStore.id)) : null), [myStore, firestore]);
   const { data: employees, isLoading: employeesLoading } = useCollection<EmployeeProfile>(employeesQuery);
 
+  const managerMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (employees) {
+        employees.forEach(e => map.set(e.userId, `${e.role} (${e.employeeId})`));
+    }
+    if (user && myStore) {
+        map.set(user.uid, "Store Owner");
+    }
+    return map;
+  }, [employees, user, myStore]);
+
   const form = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeSchema),
     defaultValues: {
       firstName: '', lastName: '', email: '', password: '', phone: '', address: '', role: '',
       salaryRate: 0, salaryType: 'monthly', payoutMethod: 'bank',
       upiId: '', accountHolderName: '', accountNumber: '', ifscCode: '',
+      reportingTo: user?.uid,
     },
   });
 
@@ -253,6 +305,7 @@ export default function ManageEmployeesPage() {
             role: data.role, hireDate: new Date().toISOString().split('T')[0],
             salaryRate: data.salaryRate, salaryType: data.salaryType,
             payoutMethod: data.payoutMethod,
+            reportingTo: data.reportingTo,
             upiId: data.payoutMethod === 'upi' ? data.upiId : null,
             bankDetails: data.payoutMethod === 'bank' ? {
                 accountHolderName: data.accountHolderName, accountNumber: data.accountNumber, ifscCode: data.ifscCode,
@@ -272,10 +325,14 @@ export default function ManageEmployeesPage() {
   };
   
   const handleDelete = (employee: EmployeeProfile) => {
-      if (!confirm(`Are you sure you want to remove ${employee.role}? This cannot be undone.`)) return;
+      if (!confirm(`Are you sure you want to remove ${employee.role}? This will delete the employee's user account and cannot be undone.`)) return;
       if (!firestore) return;
       
-      deleteDoc(doc(firestore, 'employeeProfiles', employee.userId))
+      const batch = writeBatch(firestore);
+      batch.delete(doc(firestore, 'employeeProfiles', employee.userId));
+      batch.delete(doc(firestore, 'users', employee.userId));
+      
+      batch.commit()
         .then(() => toast({ title: 'Employee Removed' }))
         .catch(err => toast({ variant: 'destructive', title: 'Error', description: err.message }));
   }
@@ -290,9 +347,11 @@ export default function ManageEmployeesPage() {
 
   return (
     <>
-      {editingEmployee && (
+      {editingEmployee && employees && (
         <EditEmployeeDialog 
             employee={editingEmployee}
+            employees={employees}
+            myStore={myStore}
             isOpen={!!editingEmployee}
             onOpenChange={() => setEditingEmployee(null)}
         />
@@ -304,7 +363,7 @@ export default function ManageEmployeesPage() {
                   <Users className="h-8 w-8 text-primary" />
                   <div>
                       <CardTitle className="text-3xl font-headline">Manage Employees</CardTitle>
-                      <CardDescription>Add new employees and manage their roles and salary information for {myStore.name}.</CardDescription>
+                      <CardDescription>Add new employees, manage their roles and salary information for {myStore.name}.</CardDescription>
                   </div>
               </div>
           </CardHeader>
@@ -338,6 +397,20 @@ export default function ManageEmployeesPage() {
                                   )} />
                                   <FormField control={form.control} name="role" render={({ field }) => (
                                       <FormItem><FormLabel>Role</FormLabel><FormControl><Input placeholder="e.g., Cashier, Delivery Staff" {...field} /></FormControl><FormMessage /></FormItem>
+                                  )} />
+                                   <FormField control={form.control} name="reportingTo" render={({ field }) => (
+                                      <FormItem>
+                                          <FormLabel>Reporting To</FormLabel>
+                                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                              <FormControl><SelectTrigger><SelectValue placeholder="Select a manager" /></SelectTrigger></FormControl>
+                                              <SelectContent>
+                                                  <SelectItem value={user!.uid}>Store Owner</SelectItem>
+                                                  {employees?.map(emp => (
+                                                      <SelectItem key={emp.userId} value={emp.userId}>{emp.role} ({emp.employeeId})</SelectItem>
+                                                  ))}
+                                              </SelectContent>
+                                          </Select>
+                                      </FormItem>
                                   )} />
                                   <FormField control={form.control} name="salaryType" render={({ field }) => (
                                   <FormItem>
@@ -410,6 +483,7 @@ export default function ManageEmployeesPage() {
                                   <TableRow>
                                       <TableHead>Employee ID</TableHead>
                                       <TableHead>Role</TableHead>
+                                      <TableHead>Reports To</TableHead>
                                       <TableHead>Salary</TableHead>
                                       <TableHead>Payment</TableHead>
                                       <TableHead className="text-right">Actions</TableHead>
@@ -420,6 +494,7 @@ export default function ManageEmployeesPage() {
                                       <TableRow key={emp.userId}>
                                           <TableCell className="font-mono">{emp.employeeId}</TableCell>
                                           <TableCell>{emp.role}</TableCell>
+                                          <TableCell>{managerMap.get(emp.reportingTo || '') || 'N/A'}</TableCell>
                                           <TableCell>₹{emp.salaryRate.toFixed(2)} / {emp.salaryType}</TableCell>
                                           <TableCell className="capitalize">{emp.payoutMethod}</TableCell>
                                           <TableCell className="text-right space-x-1">
@@ -431,7 +506,7 @@ export default function ManageEmployeesPage() {
                                                   <AlertDialogContent>
                                                       <AlertDialogHeader>
                                                           <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                                          <AlertDialogDescription>This will delete the employee's profile. It does not delete their user account.</AlertDialogDescription>
+                                                          <AlertDialogDescription>This will permanently delete the employee's profile and user account. This cannot be undone.</AlertDialogDescription>
                                                       </AlertDialogHeader>
                                                       <AlertDialogFooter>
                                                           <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -454,3 +529,4 @@ export default function ManageEmployeesPage() {
   );
 }
 
+    

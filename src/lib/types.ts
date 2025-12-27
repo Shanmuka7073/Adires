@@ -381,6 +381,7 @@ export type EmployeeProfile = {
         accountNumber: string;
         ifscCode: string;
     };
+    reportingTo?: string; // UserID of the manager
 };
 
 export type ReasonEntry = {
@@ -401,6 +402,8 @@ export type AttendanceRecord = {
     reasonHistory?: ReasonEntry[];
     rejectionCount: number;
     status: 'present' | 'absent' | 'pending_approval' | 'approved' | 'rejected' | 'partially_present';
+    managerId?: string; // Denormalized manager ID for rules
+    managerName?: string; // Denormalized manager name for UI
 };
 
 export type SalarySlip = {
@@ -428,3 +431,5 @@ declare global {
     export default content;
   }
 }
+
+    

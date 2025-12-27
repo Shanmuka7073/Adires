@@ -153,6 +153,7 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
                             <TableHead>Employee</TableHead>
                             <TableHead>Date</TableHead>
                             <TableHead>Reason</TableHead>
+                            <TableHead>Manager</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -162,6 +163,7 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
                                 <TableCell className="font-mono">{req.employeeId.slice(0, 8)}...</TableCell>
                                 <TableCell>{format(new Date(req.workDate), 'PPP')}</TableCell>
                                 <TableCell className="text-sm italic text-muted-foreground">{req.reasonHistory && req.reasonHistory.length > 0 ? req.reasonHistory[req.reasonHistory.length - 1].text : "No reason given"}</TableCell>
+                                <TableCell className="font-medium">{req.managerName || 'Store Owner'}</TableCell>
                                 <TableCell className="text-right space-x-2">
                                     <Button size="sm" variant="ghost" onClick={() => handleApproval(req, false)} disabled={isUpdating}>
                                         <XCircle className="mr-2 h-4 w-4 text-destructive" /> Reject
@@ -245,30 +247,40 @@ function generatePayslipHtml(slip: SalarySlip, employee: EmployeeProfile, store:
     const netPay = slip.netPay;
 
     function numberToWords(num: number): string {
-        const a = ['','one ','two ','three ','four ', 'five ','six ','seven ','eight ','nine ','ten ','eleven ','twelve ','thirteen ','fourteen ','fifteen ','sixteen ','seventeen ','eighteen ','nineteen '];
-        const b = ['', '', 'twenty','thirty','forty','fifty', 'sixty','seventy','eighty','ninety'];
-        const g = ['', 'thousand', 'million', 'billion', 'trillion'];
-    
-        function inWords(n: number) {
+        const a = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+        const b = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+
+        const inWords = (n: number): string => {
             if (n < 20) return a[n];
-            if (n < 100) return b[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' : '') + a[n % 10];
-            if (n < 1000) return a[Math.floor(n / 100)] + 'hundred' + (n % 100 !== 0 ? ' ' : '') + inWords(n % 100);
-            return '';
-        }
+            const digit = n % 10;
+            return b[Math.floor(n / 10)] + (digit ? ' ' + a[digit] : '');
+        };
 
         if (num === 0) return 'Zero';
-        let str = '';
-        let i = 0;
-        while(num > 0) {
-            let chunk = num % 1000;
-            if (chunk > 0) {
-                str = inWords(chunk) + (g[i] ? ' ' + g[i] : '') + ' ' + str;
-            }
-            num = Math.floor(num / 1000);
-            i++;
+        let words = '';
+        if (num >= 10000000) {
+            words += inWords(Math.floor(num / 10000000)) + ' Crore ';
+            num %= 10000000;
         }
-        return str.trim().split(' ').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+        if (num >= 100000) {
+            words += inWords(Math.floor(num / 100000)) + ' Lakh ';
+            num %= 100000;
+        }
+        if (num >= 1000) {
+            words += inWords(Math.floor(num / 1000)) + ' Thousand ';
+            num %= 1000;
+        }
+        if (num >= 100) {
+            words += inWords(Math.floor(num / 100)) + ' Hundred ';
+            num %= 100;
+        }
+        if (num > 0) {
+            if (words) words += 'and ';
+            words += inWords(num);
+        }
+        return words.trim().split(' ').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
     }
+
 
     const netPayInWords = () => {
         const rupees = Math.floor(netPay);
@@ -487,8 +499,8 @@ export default function SalaryReportsPage() {
             const slipData: Omit<SalarySlip, 'id'|'generatedAt'> = {
                 employeeId: selectedEmployee.userId,
                 storeId: myStore.id,
-                periodStart: dateRange.from.toISOString(),
-                periodEnd: dateRange.to.toISOString(),
+                periodStart: dateRange.from!.toISOString(),
+                periodEnd: dateRange.to!.toISOString(),
                 baseSalary: reportData.baseSalary,
                 overtimeHours: 0,
                 overtimePay: 0,
@@ -646,3 +658,5 @@ export default function SalaryReportsPage() {
         </div>
     );
 }
+
+    
