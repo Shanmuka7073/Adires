@@ -123,8 +123,9 @@ service cloud.firestore {
           isOwner(resource.data.employeeId) &&
           (resource.data.status == 'partially_present' || resource.data.status == 'rejected') &&
           request.resource.data.status == 'pending_approval' &&
-          resource.data.rejectionCount < 3 &&
-          request.resource.data.rejectionCount == resource.data.rejectionCount
+          request.resource.data.rejectionCount == resource.data.rejectionCount &&
+          request.resource.data.reasonHistory.size() == resource.data.reasonHistory.size() + 1 &&
+          resource.data.rejectionCount < 3
         ) ||
         // Store owner has full control
         isStoreOwner(storeId);
@@ -147,8 +148,10 @@ service cloud.firestore {
         isStoreOwner(storeId)
         || isOwner(resource.data.employeeId);
 
-      allow list: if isStoreOwner(storeId);
-      
+      allow list: if 
+        isStoreOwner(storeId) 
+        || (request.auth != null && request.query.where[0][2] == request.auth.uid);
+
       allow create, update, delete: if isStoreOwner(storeId);
     }
     

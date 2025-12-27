@@ -31,6 +31,7 @@ function useInitializeApp() {
             setAppReady(true);
             // Optionally, you can still fetch data in the background to get updates
             if (firestore) {
+                // No need to await, let it run in the background
                 fetchInitialData(firestore);
             }
             return;

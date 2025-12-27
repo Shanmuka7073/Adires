@@ -92,12 +92,16 @@ export const useAppStore = create<AppState>()(
         set({ activeStoreId: storeId });
       },
       
-      setAppReady: (isReady: boolean) => set({ appReady: isReady }),
+      setAppReady: (isReady: boolean) => {
+        if (get().appReady !== isReady) {
+            set({ appReady: isReady });
+        }
+      },
 
       fetchInitialData: async (db: Firestore) => {
         if (get().loading) return;
 
-        set({ loading: true, error: null });
+        set({ loading: true, error: null, readCount: 0, writeCount: 0 }); // Reset counters on fetch
         
         try {
           const [stores, masterProducts, aliasDocs, commandDocs] = await Promise.all([
@@ -106,7 +110,7 @@ export const useAppStore = create<AppState>()(
             getDocs(collection(db, 'voiceAliasGroups')),
             getDocs(collection(db, 'voiceCommands'))
           ]);
-          set(state => ({ readCount: state.readCount + 4 }));
+          set(state => ({ readCount: state.readCount + 2 + aliasDocs.size + commandDocs.size }));
 
 
           // Fetch menus efficiently
