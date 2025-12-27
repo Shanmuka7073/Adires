@@ -273,8 +273,8 @@ export default function SalaryReportsPage() {
             const q = query(
                 collectionGroup(firestore, 'attendance'),
                 where('employeeId', '==', selectedEmployeeId),
-                where('workDate', '>=', format(dateRange.from, 'yyyy-MM-dd')),
-                where('workDate', '<=', format(dateRange.to, 'yyyy-MM-dd')),
+                where('workDate', '>=', Timestamp.fromDate(dateRange.from)),
+                where('workDate', '<=', Timestamp.fromDate(dateRange.to)),
                 orderBy('workDate', 'desc')
             );
             const querySnapshot = await getDocs(q);
@@ -282,7 +282,7 @@ export default function SalaryReportsPage() {
             setAttendanceRecords(records);
         } catch (error) {
             console.error("Failed to fetch attendance:", error);
-            toast({ variant: 'destructive', title: "Error", description: "Could not load attendance records." });
+            toast({ variant: 'destructive', title: "Error", description: "Could not load attendance records. Check Firestore index and rules." });
             setAttendanceRecords(null);
         } finally {
             setAttendanceLoading(false);
@@ -508,4 +508,3 @@ export default function SalaryReportsPage() {
         </div>
     );
 }
-
