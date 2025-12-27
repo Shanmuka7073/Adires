@@ -298,5 +298,14 @@ service cloud.firestore {
      match /nlu_extracted_sentences/{sentenceId} {
       allow read, write: if isAdmin();
     }
+    
+    match /{path=**}/attendance/{recordId} {
+      allow list: if isStoreOwner(get(/databases/$(database)/documents/$(path.split('/')[1])
+      /$(path.split('/')[2])).data.storeId);
+      allow read: if isStoreOwner(get(/databases/$(database)/documents/$(path.split('/')[1])
+      /$(path.split('/')[2])).data.storeId) || request.auth.uid == resource.data.employeeId;
+    }
   }
 }
+
+    
