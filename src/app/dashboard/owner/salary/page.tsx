@@ -278,9 +278,10 @@ export default function SalaryReportsPage() {
 
             const startTimestamp = Timestamp.fromDate(start);
             const endTimestamp = Timestamp.fromDate(end);
-
+            
             const q = query(
                 collectionGroup(firestore, 'attendance'),
+                where('storeId', '==', myStore.id),
                 where('employeeId', '==', selectedEmployeeId),
                 where('workDate', '>=', startTimestamp),
                 where('workDate', '<=', endTimestamp),
