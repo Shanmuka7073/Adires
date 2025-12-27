@@ -123,13 +123,13 @@ service cloud.firestore {
         (
           isOwner(resource.data.employeeId) &&
           resource.data.punchOutTime == null &&
-          request.resource.data.punchOutTime != null
+          request.writeFields.hasOnly(['punchOutTime', 'workHours', 'status'])
         ) ||
         // Employee requesting regularization for a partial or rejected day
         (
           isOwner(resource.data.employeeId) &&
           (resource.data.status == 'partially_present' || resource.data.status == 'rejected') &&
-          resource.data.rejectionCount < 3 &&
+          (resource.data.rejectionCount == null || resource.data.rejectionCount < 3) &&
           request.resource.data.status == 'pending_approval' &&
           request.writeFields.hasOnly(['status', 'reasonHistory'])
         ) ||
