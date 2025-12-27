@@ -111,7 +111,9 @@ service cloud.firestore {
 
     match /stores/{storeId}/attendance/{recordId} {
       
-      allow list: if isStoreOwner(storeId);
+      // Allow list if the query is for the user's own records, or if the requester is the store owner.
+      allow list: if (request.query.where.employeeId == request.auth.uid) || isStoreOwner(storeId);
+      
       allow get: if isStoreOwner(storeId) || isOwner(resource.data.employeeId);
       
       allow create: if
