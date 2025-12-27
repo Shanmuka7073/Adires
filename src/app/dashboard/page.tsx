@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -7,14 +6,14 @@ import Link from 'next/link';
 import { t } from '@/lib/locales';
 import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
-import { useEffect, useState, useLayoutEffect } from 'react';
+import { useEffect, useState, useLayoutEffect, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { useAppStore } from '@/lib/store';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 
-const roleCards = [
+const allRoleCards = [
     {
         title: 'start-shopping',
         description: 'browse-local-stores-and-find-fresh-groceries',
@@ -99,19 +98,23 @@ function RoleCard({ card, image, isLoading }: { card: any, image: any, isLoading
 export default function DashboardPage() {
     const [images, setImages] = useState<Record<string, { imageUrl: string; imageHint: string }>>({});
     const [loading, setLoading] = useState(true);
-    const { isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
+    const { isRestaurantOwner, isEmployee, isLoading: isRoleLoading } = useAdminAuth();
     const router = useRouter();
 
+    const roleCards = useMemo(() => {
+        if (isEmployee) {
+            return allRoleCards.filter(card => card.title === 'employee' || card.title === 'salary-slips');
+        }
+        return allRoleCards.filter(card => card.title !== 'employee' && card.title !== 'salary-slips');
+    }, [isEmployee]);
+
     useLayoutEffect(() => {
-        // This effect runs before the browser paints.
-        // If the role is determined and it's a restaurant owner, redirect immediately.
         if (!isRoleLoading && isRestaurantOwner) {
             router.replace('/dashboard/restaurant');
         }
     }, [isRoleLoading, isRestaurantOwner, router]);
 
     useEffect(() => {
-        // This effect runs only if the user is NOT a restaurant owner.
         if (!isRoleLoading && !isRestaurantOwner) {
             const fetchImages = async () => {
                 const imagePromises = roleCards.map(card => getProductImage(card.imageId));
@@ -125,10 +128,8 @@ export default function DashboardPage() {
             };
             fetchImages();
         }
-    }, [isRoleLoading, isRestaurantOwner]);
-
-    // While loading, or if the user is a restaurant owner (and about to be redirected),
-    // render nothing. This prevents any flickering.
+    }, [isRoleLoading, isRestaurantOwner, roleCards]);
+    
     if (isRoleLoading || isRestaurantOwner) {
         return (
             <div className="container mx-auto py-12 text-center">
@@ -137,13 +138,15 @@ export default function DashboardPage() {
         );
     }
 
+    const gridCols = isEmployee ? 'lg:grid-cols-2' : 'lg:grid-cols-3';
+
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
             <div className="text-center mb-12">
                 <h1 className="text-4xl font-bold font-headline">{t('your-dashboard')}</h1>
                 <p className="text-lg text-muted-foreground mt-2">{t('select-your-role-to-access-your-tools')}</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            <div className={`grid grid-cols-1 md:grid-cols-2 ${gridCols} gap-8 max-w-6xl mx-auto`}>
                 {roleCards.map((card) => (
                     <RoleCard 
                         key={card.title} 
@@ -153,26 +156,28 @@ export default function DashboardPage() {
                     />
                 ))}
             </div>
-            <div className="mt-16 text-center">
-                 <Card className="max-w-2xl mx-auto bg-primary/5 border-primary/20">
-                    <CardHeader>
-                        <CardTitle className="flex items-center justify-center gap-2 font-headline">
-                             <Sparkles className="h-6 w-6 text-primary" />
-                            <span>New: Voice ID Login</span>
-                        </CardTitle>
-                        <CardDescription>
-                            Set up a voice password for a faster, more secure way to log in.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Button asChild>
-                            <Link href="/dashboard/customer/voice-id">
-                                Set Up Your Voice ID
-                            </Link>
-                        </Button>
-                    </CardContent>
-                </Card>
-            </div>
+             {!isEmployee && (
+                <div className="mt-16 text-center">
+                    <Card className="max-w-2xl mx-auto bg-primary/5 border-primary/20">
+                        <CardHeader>
+                            <CardTitle className="flex items-center justify-center gap-2 font-headline">
+                                <Sparkles className="h-6 w-6 text-primary" />
+                                <span>New: Voice ID Login</span>
+                            </CardTitle>
+                            <CardDescription>
+                                Set up a voice password for a faster, more secure way to log in.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Button asChild>
+                                <Link href="/dashboard/customer/voice-id">
+                                    Set Up Your Voice ID
+                                </Link>
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
         </div>
     );
 }
