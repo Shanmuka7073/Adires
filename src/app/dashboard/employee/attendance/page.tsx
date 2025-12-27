@@ -50,12 +50,13 @@ export default function EmployeeAttendancePage() {
   const [isRegularization, setIsRegularization] = useState(false);
 
   const todaysRecord = useMemo(() => {
-    return records?.find(record => isSameDay(record.workDate.toDate(), new Date()));
-  }, [records]);
+    return records?.find(record => record.workDateStr === todayStr);
+  }, [records, todayStr]);
 
   const selectedRecord = useMemo(() => {
     if (!selectedDate || !records) return null;
-    return records.find(r => isSameDay(r.workDate.toDate(), selectedDate));
+    const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+    return records.find(r => r.workDateStr === selectedDateStr);
   }, [selectedDate, records]);
   
   const recordToShow = selectedRecord || todaysRecord;
@@ -269,11 +270,11 @@ export default function EmployeeAttendancePage() {
                         onSelect={setSelectedDate}
                         disabled={date => date > new Date()}
                         modifiers={{
-                          present: date => records?.some(r => isSameDay(r.workDate.toDate(), date) && r.status === 'present') || false,
-                          partially_present: date => records?.some(r => isSameDay(r.workDate.toDate(), date) && r.status === 'partially_present') || false,
-                          approved: date => records?.some(r => isSameDay(r.workDate.toDate(), date) && r.status === 'approved') || false,
-                          pending: date => records?.some(r => isSameDay(r.workDate.toDate(), date) && r.status === 'pending_approval') || false,
-                          rejected: date => records?.some(r => isSameDay(r.workDate.toDate(), date) && r.status === 'rejected') || false,
+                          present: date => records?.some(r => r.workDateStr === format(date, 'yyyy-MM-dd') && r.status === 'present') || false,
+                          partially_present: date => records?.some(r => r.workDateStr === format(date, 'yyyy-MM-dd') && r.status === 'partially_present') || false,
+                          approved: date => records?.some(r => r.workDateStr === format(date, 'yyyy-MM-dd') && r.status === 'approved') || false,
+                          pending: date => records?.some(r => r.workDateStr === format(date, 'yyyy-MM-dd') && r.status === 'pending_approval') || false,
+                          rejected: date => records?.some(r => r.workDateStr === format(date, 'yyyy-MM-dd') && r.status === 'rejected') || false,
                         }}
                         modifiersClassNames={{
                             present: 'day-present',
