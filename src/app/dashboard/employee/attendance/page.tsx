@@ -57,9 +57,20 @@ export default function EmployeeAttendancePage() {
     const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
     return records.find(r => r.workDateStr === selectedDateStr);
   }, [selectedDate, records]);
+
+  const recordToShow = useMemo(() => {
+    if (selectedRecord) return selectedRecord;
   
-  const recordToShow = selectedRecord || todaysRecord;
+    if (
+      selectedDate &&
+      format(selectedDate, 'yyyy-MM-dd') === todayStr
+    ) {
+      return todaysRecord;
+    }
   
+    return null;
+  }, [selectedRecord, selectedDate, todaysRecord, todayStr]);
+
   const selectedDateIsPast = selectedDate && !isSameDay(selectedDate, new Date()) && selectedDate < startOfDay(new Date());
   const canRequestApproval = selectedDateIsPast && !selectedRecord;
   const canResubmit = selectedRecord && selectedRecord.status === 'rejected' && (selectedRecord.rejectionCount || 0) < 3;
@@ -291,7 +302,9 @@ export default function EmployeeAttendancePage() {
                     <Calendar
                         mode="single"
                         selected={selectedDate}
-                        onSelect={setSelectedDate}
+                        onSelect={(date) => {
+                            if (date) setSelectedDate(date);
+                        }}
                         disabled={date => date > new Date()}
                         modifiers={{
                           present: date => records?.some(r => r.workDateStr === format(date, 'yyyy-MM-dd') && r.status === 'present') || false,
@@ -312,7 +325,7 @@ export default function EmployeeAttendancePage() {
                  </div>
                  
                   <div className="p-4 rounded-lg bg-muted/50 h-full">
-                    <h3 className="font-semibold text-lg mb-2">Details for {selectedDate ? format(selectedDate, "PPP") : "Today"}</h3>
+                    <h3 className="font-semibold text-lg mb-2">Details for {format(selectedDate ?? new Date(), "PPP")}</h3>
                      {recordToShow ? (
                         <div className="space-y-3">
                             <div className="flex items-center gap-2"><strong>Status:</strong> <Badge variant={recordToShow.status === 'present' || recordToShow.status === 'approved' ? 'default' : 'destructive'}>{recordToShow.status.replace(/_/g, ' ')}</Badge></div>
