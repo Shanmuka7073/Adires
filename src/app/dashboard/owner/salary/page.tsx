@@ -41,6 +41,8 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
 
     const { data: requests, isLoading, refetch } = useCollection<AttendanceRecord>(requestsQuery);
 
+    const toDateSafe = (d: any): Date => d instanceof Timestamp ? d.toDate() : new Date(d);
+
     const handleApproval = async (record: AttendanceRecord, isApproved: boolean) => {
         if (!firestore || !storeId) return;
 
@@ -160,7 +162,7 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
                         {requests.map(req => (
                             <TableRow key={req.id}>
                                 <TableCell className="font-mono">{req.employeeId.slice(0, 8)}...</TableCell>
-                                <TableCell>{format(new Date(req.workDate), 'PPP')}</TableCell>
+                                <TableCell>{format(toDateSafe(req.workDate), 'PPP')}</TableCell>
                                 <TableCell className="text-sm italic text-muted-foreground">{req.reasonHistory && req.reasonHistory.length > 0 ? req.reasonHistory[req.reasonHistory.length - 1].text : "No reason given"}</TableCell>
                                 <TableCell className="text-right space-x-2">
                                     <Button size="sm" variant="ghost" onClick={() => handleApproval(req, false)} disabled={isUpdating}>
@@ -269,7 +271,7 @@ export default function SalaryReportsPage() {
         setAttendanceLoading(true);
         try {
             const q = query(
-                collection(firestore, 'stores', myStore.id, 'attendance'),
+                collectionGroup(firestore, 'attendance'),
                 where('employeeId', '==', selectedEmployeeId),
                 where('workDate', '>=', format(dateRange.from, 'yyyy-MM-dd')),
                 where('workDate', '<=', format(dateRange.to, 'yyyy-MM-dd')),
@@ -300,8 +302,8 @@ export default function SalaryReportsPage() {
         const uniqueDates = new Set<string>();
         const presentOrApprovedRecords = attendanceRecords.filter(r => {
             const isCountable = (r.status === 'present' || r.status === 'approved' || r.status === 'partially_present');
-            if (isCountable && !uniqueDates.has(r.workDate)) {
-                uniqueDates.add(r.workDate);
+            if (isCountable && !uniqueDates.has(r.workDateStr)) {
+                uniqueDates.add(r.workDateStr);
                 return true;
             }
             return false;
@@ -470,7 +472,7 @@ export default function SalaryReportsPage() {
                                         <TableBody>
                                             {reportData.records.map(rec => (
                                                 <TableRow key={rec.id}>
-                                                    <TableCell>{format(new Date(rec.workDate.replace(/-/g, '/')), 'PPP')}</TableCell>
+                                                    <TableCell>{format(new Date(rec.workDateStr.replace(/-/g, '/')), 'PPP')}</TableCell>
                                                     <TableCell>{formatDateSafe(rec.punchInTime)}</TableCell>
                                                     <TableCell>{formatDateSafe(rec.punchOutTime)}</TableCell>
                                                     <TableCell>{rec.workHours > 0 ? rec.workHours.toFixed(2) : '-'}</TableCell>
@@ -506,3 +508,4 @@ export default function SalaryReportsPage() {
         </div>
     );
 }
+
