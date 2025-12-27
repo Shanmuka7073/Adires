@@ -1,5 +1,4 @@
 
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -12,12 +11,23 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isAdmin() {
+      return isSignedIn() &&
+        (request.auth.token.email == 'admin@gmail.com'
+        || request.auth.token.email == 'admin2@gmail.com');
+    }
+
+    function isChickenAdmin() {
+      return isSignedIn() &&
+        request.auth.token.email == 'chickenadmin@gmail.com';
+    }
+
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-
+    
     function getStoreOwnerId(storeId) {
-      return get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId;
+        return get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId;
     }
 
     function isStoreOwner(storeId) {
@@ -28,7 +38,6 @@ service cloud.firestore {
        let employeeProfile = get(/databases/$(database)/documents/employeeProfiles/$(employeeId)).data;
        return employeeProfile.reportingTo == request.auth.uid || isStoreOwner(storeId);
     }
-    
 
     /* ======================
        USERS
@@ -36,11 +45,13 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow get, update, delete: if isOwner(userId);
-      allow list: if false; // List should be restricted
+      allow list: if isAdmin();
 
       allow create: if
         // User creating their own account
         (isOwner(userId) && request.resource.data.id == userId)
+        // Admin
+        || isAdmin()
         // Store owner creating employee user
         || (
           request.resource.data.accountType == 'employee'
@@ -54,7 +65,9 @@ service cloud.firestore {
 
     match /stores/{storeId} {
       allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow create: if
+        (isSignedIn() && request.resource.data.ownerId == request.auth.uid)
+        || isAdmin();
       allow update, delete: if isStoreOwner(storeId);
     }
 
@@ -68,28 +81,36 @@ service cloud.firestore {
       allow write: if isStoreOwner(storeId);
     }
 
+    match /stores/{storeId}/packages/{packageId} {
+      allow get, list: if true;
+      allow create, update, delete: if isStoreOwner(storeId);
+    }
+
     /* ======================
        EMPLOYEE PROFILES
        ====================== */
 
     match /employeeProfiles/{employeeId} {
+
       allow get, update: if
         isOwner(employeeId)
         || isStoreOwner(resource.data.storeId);
-      
-      // Only store owners can create/delete profiles
-      allow create, delete: if
-        isStoreOwner(request.resource.data.storeId);
-      
-      allow list: if isStoreOwner(resource.data.storeId);
-    }
 
+      allow create, delete: if
+        isStoreOwner(request.resource.data.storeId)
+        || isAdmin();
+
+      allow list: if
+        isStoreOwner(resource.data.storeId)
+        || isAdmin();
+    }
 
     /* ======================
        ATTENDANCE
        ====================== */
 
     match /stores/{storeId}/attendance/{recordId} {
+      
       allow list: if isStoreOwner(storeId);
       allow get: if isStoreOwner(storeId) || isOwner(resource.data.employeeId);
       
@@ -99,12 +120,28 @@ service cloud.firestore {
 
       allow update: if
         // Employee punching out
-        (isOwner(resource.data.employeeId) && resource.data.punchOutTime == null && request.resource.data.punchOutTime != null) ||
-        // Employee requesting regularization
-        (isOwner(resource.data.employeeId) && (resource.data.status == 'partially_present' || resource.data.status == 'rejected')) ||
-        // Manager or Store Owner approving/rejecting
-        (isManager(resource.data.employeeId, storeId));
-        
+        (
+          isOwner(resource.data.employeeId) &&
+          resource.data.punchOutTime == null &&
+          request.resource.data.punchOutTime != null
+        ) ||
+        // Employee requesting / re-submitting regularization for a partial or rejected day
+        (
+          isOwner(resource.data.employeeId) &&
+          (resource.data.status == 'partially_present' || resource.data.status == 'rejected') &&
+          request.resource.data.status == 'pending_approval' &&
+          request.resource.data.rejectionCount == resource.data.rejectionCount && // Can't tamper with rejection count
+          request.resource.data.reasonHistory.size() == resource.data.reasonHistory.size() + 1 &&
+          resource.data.rejectionCount < 3
+        ) ||
+        // Manager or Store Owner approving/rejecting a pending request
+        (
+          isManager(resource.data.employeeId, storeId) &&
+          resource.data.status == 'pending_approval'
+        ) ||
+        // Store owner has full control to edit any field
+        isStoreOwner(storeId);
+
       allow delete: if false;
     }
     
@@ -133,7 +170,6 @@ service cloud.firestore {
      match /{path=**}/salarySlips/{slipId} {
        allow get: if isSignedIn();
     }
-
 
     /* ======================
        ORDERS (GROCERY / RESTAURANT)
@@ -166,25 +202,83 @@ service cloud.firestore {
     }
 
     /* ======================
-       OTHER COLLECTIONS
+       CONFIG & MISC
        ====================== */
-       
-    match /asha-conversations/{userId}/{document=**} { allow read, write: if isSignedIn(); }
-    match /asha-conversations/{userId}/atlas_reports/{reportId} { allow create, read: if isOwner(userId); }
-    match /users/{userId}/productRecommendations/{recId} { allow get, list: if isOwner(userId); allow create, update, delete: if false; }
-    match /voice-orders/{voiceOrderId} { allow read, write: if isSignedIn(); }
-    match /cachedRecipes/{recipeId} { allow get, list: if true; allow create, update: if isSignedIn(); allow delete: if false; }
-    match /cachedAIResponses/{responseId} { allow get, list: if true; allow create: if true; allow update, delete: if false; }
-    match /deliveryPartners/{partnerId} { allow get, update: if isOwner(partnerId); allow list: if false; allow create: if isOwner(partnerId) && request.resource.data.userId == partnerId; allow delete: if false; }
-    match /deliveryPartners/{partnerId}/payouts/{payoutId} { allow get, list: if isOwner(partnerId); allow create: if isOwner(partnerId); allow update, delete: if false; }
-    match /productPrices/{productName} { allow get, list: if true; allow write: if false; }
-    match /failedCommands/{commandId} { allow read, list: if false; allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid; allow update, delete: if false; }
-    match /voiceAliasGroups/{key} { allow read: if true; allow write: if false; }
-    match /voiceCommands/{commandKey} { allow read: if true; allow write: if false; }
-    match /siteConfig/{configId} { allow read: if true; allow write: if false; }
-    match /voiceprints/{userId} { allow read, write: if isOwner(userId); }
-    match /nlu_extracted_sentences/{sentenceId} { allow read, write: if false; }
+    match /asha-conversations/{userId}/{document=**} {
+        allow read, write: if isSignedIn();
+    }
+     
+    match /asha-conversations/{userId}/atlas_reports/{reportId} {
+      allow create, read: if isOwner(userId);
+    }
+
+    match /users/{userId}/productRecommendations/{productRecommendationId} {
+      allow get, list: if isOwner(userId);
+      allow create, update, delete: if false;
+    }
+    
+    match /voice-orders/{voiceOrderId} {
+      allow read, write: if isSignedIn();
+    }
+    
+    match /cachedRecipes/{recipeId} {
+      allow get, list: if true;
+      allow create, update: if isSignedIn();
+      allow delete: if false;
+    }
+
+    match /cachedAIResponses/{responseId} {
+        allow get, list: if true;
+        allow create: if true;
+        allow update, delete: if false;
+    }
+
+    match /deliveryPartners/{partnerId} {
+      allow get, update: if isOwner(partnerId);
+      allow list: if isAdmin();
+      allow create: if isOwner(partnerId) && request.resource.data.userId == partnerId;
+      allow delete: if false;
+    }
+
+    match /deliveryPartners/{partnerId}/payouts/{payoutId} {
+      allow get, list: if isOwner(partnerId);
+      allow create: if isOwner(partnerId);
+      allow update, delete: if false;
+    }
+
+    match /productPrices/{productName} {
+      allow get, list: if true;
+      allow write: if isAdmin()
+        || (isChickenAdmin() && productName.matches('.*chicken.*'));
+    }
+    
+    match /failedCommands/{commandId} {
+      allow read, list: if isAdmin();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /voiceAliasGroups/{key} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /voiceCommands/{commandKey} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /siteConfig/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+     match /voiceprints/{userId} {
+        allow read, write: if isOwner(userId);
+     }
+     
+     match /nlu_extracted_sentences/{sentenceId} {
+      allow read, write: if isAdmin();
+    }
   }
 }
-
-    

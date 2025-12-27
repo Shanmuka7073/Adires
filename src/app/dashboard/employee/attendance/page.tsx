@@ -135,7 +135,7 @@ export default function EmployeeAttendancePage() {
     
     startProcessing(async() => {
         try {
-            const newReasonEntry = {
+            const newReasonEntry: ReasonEntry = {
                 text: approvalReason.trim(),
                 timestamp: serverTimestamp(),
                 status: 'submitted',
@@ -143,17 +143,13 @@ export default function EmployeeAttendancePage() {
 
             if ((isRegularization || canResubmit) && selectedRecord) {
                  const recordRef = doc(firestore, `stores/${storeId}/attendance`, selectedRecord.id);
-                 const existing = records?.find(r => r.id === selectedRecord.id);
-                 if (!existing) throw new Error("Could not find record to update.");
-
-                 // This is the key fix: use setDoc with merge instead of updateDoc
-                 await setDoc(recordRef, {
+                 await updateDoc(recordRef, {
                     status: 'pending_approval',
-                    reasonHistory: [...(existing.reasonHistory || []), newReasonEntry],
-                 }, { merge: true });
+                    reasonHistory: arrayUnion(newReasonEntry),
+                 });
 
                  // Manually update local state to avoid waiting for listener
-                setRecords(prev => prev?.map(r => r.id === selectedRecord.id ? { ...r, status: 'pending_approval', reasonHistory: [...(r.reasonHistory || []), newReasonEntry] } : r) || null);
+                 setRecords(prev => prev?.map(r => r.id === selectedRecord.id ? { ...r, status: 'pending_approval', reasonHistory: [...(r.reasonHistory || []), newReasonEntry] } : r) || null);
                 
                 toast({ title: 'Request Submitted', description: 'Your request has been sent to your manager for approval.' });
 
