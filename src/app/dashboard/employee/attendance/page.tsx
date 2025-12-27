@@ -4,7 +4,7 @@
 import { useEffect, useState, useMemo, useTransition, useCallback } from 'react';
 import { collection, query, where, addDoc, getDocs, orderBy, updateDoc, doc, Timestamp, collectionGroup, arrayUnion, setDoc } from 'firebase/firestore';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
-import { format, differenceInMinutes, startOfDay, isSameDay, isPast } from 'date-fns';
+import { format, isSameDay, startOfDay } from 'date-fns';
 import type { AttendanceRecord, EmployeeProfile, Store, ReasonEntry } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,7 +33,6 @@ export default function EmployeeAttendancePage() {
   const { data: employeeProfile, isLoading: profileLoading } = useDoc<EmployeeProfile>(employeeProfileRef);
   
   const storeId = employeeProfile?.storeId;
-  const todayStr = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
 
   const attendanceQuery = useMemoFirebase(() => {
     if (!user?.uid || !firestore || !storeId) return undefined;
@@ -49,29 +48,29 @@ export default function EmployeeAttendancePage() {
   const [isRegularization, setIsRegularization] = useState(false);
 
   const todaysRecord = useMemo(() => {
-    return records?.find(record => record.workDateStr === todayStr);
-  }, [records, todayStr]);
+    if (!records) return null;
+    return records.find(r =>
+      isSameDay((r.workDate as any)?.toDate ? (r.workDate as any).toDate() : new Date(r.workDate as any), new Date())
+    );
+  }, [records]);
 
   const selectedRecord = useMemo(() => {
     if (!selectedDate || !records) return null;
-    const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
-    return records.find(r => r.workDateStr === selectedDateStr);
+    return records.find(r =>
+        isSameDay((r.workDate as any)?.toDate ? (r.workDate as any).toDate() : new Date(r.workDate as any), selectedDate)
+    );
   }, [selectedDate, records]);
 
   const recordToShow = useMemo(() => {
     if (selectedRecord) return selectedRecord;
-  
-    if (
-      selectedDate &&
-      format(selectedDate, 'yyyy-MM-dd') === todayStr
-    ) {
+    if (selectedDate && isSameDay(selectedDate, new Date())) {
       return todaysRecord;
     }
-  
     return null;
-  }, [selectedRecord, selectedDate, todaysRecord, todayStr]);
+  }, [selectedRecord, selectedDate, todaysRecord]);
+  
 
-  const selectedDateIsPast = selectedDate && !isSameDay(selectedDate, new Date()) && selectedDate < startOfDay(new Date());
+  const selectedDateIsPast = selectedDate && selectedDate < startOfDay(new Date());
   const canRequestApproval = selectedDateIsPast && !selectedRecord;
   const canResubmit = selectedRecord && selectedRecord.status === 'rejected' && (selectedRecord.rejectionCount || 0) < 3;
 
@@ -96,7 +95,7 @@ export default function EmployeeAttendancePage() {
             employeeId: user.uid,
             storeId,
             workDate: Timestamp.fromDate(today),
-            workDateStr: todayStr,
+            workDateStr: format(today, 'yyyy-MM-dd'),
             punchInTime: Timestamp.now(),
             punchOutTime: null,
             status: 'partially_present',
@@ -284,7 +283,7 @@ export default function EmployeeAttendancePage() {
                     className="bg-green-600 hover:bg-green-700"
                   >
                     {isProcessing && !todaysRecord ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                    Punch In for {todayStr}
+                    Punch In for {format(new Date(), 'yyyy-MM-dd')}
                   </Button>
                    <Button
                     onClick={punchOut}
@@ -391,3 +390,4 @@ export default function EmployeeAttendancePage() {
     </div>
   );
 }
+
