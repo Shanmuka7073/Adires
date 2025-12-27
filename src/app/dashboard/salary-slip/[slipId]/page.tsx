@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { getSalarySlipData } from '@/app/actions';
@@ -9,18 +9,11 @@ import type { SalarySlip, EmployeeProfile, Store, AttendanceRecord } from '@/lib
 import { Skeleton } from '@/components/ui/skeleton';
 import QRCode from 'qrcode.react';
 import { format } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { Download } from 'lucide-react';
 
 function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: SalarySlip, employee: EmployeeProfile, store: Store, attendance: any }) {
     
-    // Auto-print on mount
-    useEffect(() => {
-        const timeoutId = setTimeout(() => {
-            window.print();
-        }, 500);
-
-        return () => clearTimeout(timeoutId);
-    }, []);
-
     const gross = slip.baseSalary + slip.overtimePay;
     const totalDeduction = slip.deductions;
     const netPay = slip.netPay;
@@ -28,36 +21,39 @@ function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: Salary
     function numberToWords(num: number): string {
         const a = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
         const b = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
-        const g = ['', 'thousand', 'lakh', 'crore'];
 
         const inWords = (n: number): string => {
-            if (n < 20) return a[n];
-            const digit = n % 10;
-            return b[Math.floor(n / 10)] + (digit ? ' ' + a[digit] : '');
+            let str = '';
+            if (n >= 100) {
+                str += a[Math.floor(n / 100)] + ' hundred ';
+                n %= 100;
+            }
+            if (n >= 20) {
+                str += b[Math.floor(n / 10)] + ' ';
+                n %= 10;
+            }
+            if (n > 0) {
+                str += a[n] + ' ';
+            }
+            return str;
         };
-
+        
         if (num === 0) return 'Zero';
+
         let words = '';
         if (num >= 10000000) {
-            words += inWords(Math.floor(num / 10000000)) + ' Crore ';
+            words += inWords(Math.floor(num / 10000000)) + 'Crore ';
             num %= 10000000;
         }
         if (num >= 100000) {
-            words += inWords(Math.floor(num / 100000)) + ' Lakh ';
+            words += inWords(Math.floor(num / 100000)) + 'Lakh ';
             num %= 100000;
         }
         if (num >= 1000) {
-            words += inWords(Math.floor(num / 1000)) + ' Thousand ';
+            words += inWords(Math.floor(num / 1000)) + 'Thousand ';
             num %= 1000;
         }
-        if (num >= 100) {
-            words += inWords(Math.floor(num / 100)) + ' Hundred ';
-            num %= 100;
-        }
-        if (num > 0) {
-            if (words) words += 'and ';
-            words += inWords(num);
-        }
+        words += inWords(num);
         return words.trim().split(' ').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
     }
 
@@ -84,10 +80,30 @@ function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: Salary
     }
 
     const htmlContent = `
-      <html>
-        <head><meta charset='utf-8'><title>Salary Slip for ${format(new Date(slip.periodStart), 'MMMM yyyy')}</title></head>
-        <body style="font-family: Arial, sans-serif; margin: 0; padding: 20px; font-size: 14px;">
-          <div style="width: 800px; margin: auto; padding: 20px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+      <style>
+        @media print {
+            body {
+                background: white;
+                font-size: 12pt;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .payslip-container {
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+        }
+      </style>
+      <div style="font-family: Arial, sans-serif; margin: 0; padding: 20px; font-size: 14px; background-color: #f9fafb;">
+          <div class="no-print" style="max-width: 800px; margin: auto; margin-bottom: 20px; display: flex; justify-content: flex-end;">
+            <button onclick="window.print()" style="padding: 8px 16px; background-color: #16a34a; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                Download / Print
+            </button>
+          </div>
+          <div class="payslip-container" style="width: 800px; margin: auto; padding: 20px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0,0,0,0.1); background: white;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px;">
               <div>
                 <h1 style="font-size: 24px; font-weight: bold; margin: 0;">${store.name}</h1>
@@ -152,8 +168,7 @@ function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: Salary
               <p><b>Authorized Signatory</b></p>
             </div>
           </div>
-        </body>
-      </html>
+      </div>
     `;
 
     return <div dangerouslySetInnerHTML={{ __html: htmlContent }} />;
