@@ -261,11 +261,11 @@ export default function EmployeeAttendancePage() {
                         onSelect={setSelectedDate}
                         disabled={date => date > new Date()}
                         modifiers={{
-                            present: date => records?.some(r => isSameDay(new Date(r.workDate), date) && r.status === 'present') || false,
-                            partially_present: date => records?.some(r => isSameDay(new Date(r.workDate), date) && r.status === 'partially_present') || false,
-                            approved: date => records?.some(r => isSameDay(new Date(r.workDate), date) && r.status === 'approved') || false,
-                            pending: date => records?.some(r => isSameDay(new Date(r.workDate), date) && r.status === 'pending_approval') || false,
-                            rejected: date => records?.some(r => isSameDay(new Date(r.workDate), date) && r.status === 'rejected') || false,
+                            present: date => records?.some(r => r.workDate === format(date, 'yyyy-MM-dd') && r.status === 'present') || false,
+                            partially_present: date => records?.some(r => r.workDate === format(date, 'yyyy-MM-dd') && r.status === 'partially_present') || false,
+                            approved: date => records?.some(r => r.workDate === format(date, 'yyyy-MM-dd') && r.status === 'approved') || false,
+                            pending: date => records?.some(r => r.workDate === format(date, 'yyyy-MM-dd') && r.status === 'pending_approval') || false,
+                            rejected: date => records?.some(r => r.workDate === format(date, 'yyyy-MM-dd') && r.status === 'rejected') || false,
                         }}
                         modifiersClassNames={{
                             present: 'day-present',
@@ -345,3 +345,6 @@ export default function EmployeeAttendancePage() {
     </div>
   );
 }
+
+
+    
