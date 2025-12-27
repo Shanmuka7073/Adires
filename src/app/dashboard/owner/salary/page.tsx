@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Calendar as CalendarIcon, Loader2, FileText, CheckCircle, XCircle, Eye, Info, MessageSquare } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, getDaysInMonth, isSameDay, isPast, isToday, differenceInMinutes, differenceInDays } from 'date-fns';
+import { format, startOfMonth, endOfMonth, getDaysInMonth, isSameDay, isPast, isToday, differenceInDays } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -24,6 +24,7 @@ import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { generateSalarySlipDoc } from '@/lib/generateSalarySlipDoc';
 
 
 function ApprovalRequests({ storeId }: { storeId: string }) {
@@ -280,11 +281,11 @@ export default function SalaryReportsPage() {
             const endTimestamp = Timestamp.fromDate(end);
             
             const q = query(
-                collection(firestore, `stores/${myStore.id}/attendance`),
-                where('employeeId', '==', selectedEmployeeId),
-                where('workDate', '>=', startTimestamp),
-                where('workDate', '<=', endTimestamp),
-                orderBy('workDate', 'desc')
+              collection(firestore, `stores/${myStore.id}/attendance`),
+              where('employeeId', '==', selectedEmployeeId),
+              where('workDate', '>=', startTimestamp),
+              where('workDate', '<=', endTimestamp),
+              orderBy('workDate', 'desc')
             );
             const querySnapshot = await getDocs(q);
             const records = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
@@ -356,7 +357,7 @@ export default function SalaryReportsPage() {
     }, [attendanceRecords, selectedEmployee, dateRange]);
 
     const handleGenerateSlip = async () => {
-        if (!myStore || !selectedEmployee || !reportData || !dateRange?.from || !dateRange?.to || !firestore) {
+        if (!myStore || !selectedEmployee || !reportData || !dateRange?.from) {
             toast({ variant: 'destructive', title: 'Cannot Generate', description: 'Missing required data.' });
             return;
         }
@@ -368,15 +369,10 @@ export default function SalaryReportsPage() {
         startGeneration(async () => {
             const slipId = `${myStore.id}_${selectedEmployee.userId}_${format(dateRange.from!, 'yyyy-MM')}`;
             const slipData: Omit<SalarySlip, 'id'|'generatedAt'> = {
-                employeeId: selectedEmployee.userId,
-                storeId: myStore.id,
-                periodStart: dateRange.from!.toISOString(),
-                periodEnd: dateRange.to!.toISOString(),
-                baseSalary: reportData.baseSalary,
-                overtimeHours: 0,
-                overtimePay: 0,
-                deductions: 0,
-                netPay: reportData.netPay,
+                employeeId: selectedEmployee.userId, storeId: myStore.id,
+                periodStart: dateRange.from!.toISOString(), periodEnd: dateRange.to!.toISOString(),
+                baseSalary: reportData.baseSalary, overtimeHours: 0, overtimePay: 0,
+                deductions: 0, netPay: reportData.netPay,
             };
 
             try {
@@ -384,29 +380,21 @@ export default function SalaryReportsPage() {
                 await setDoc(slipRef, { ...slipData, id: slipId, generatedAt: serverTimestamp() }, { merge: true });
                 toast({ title: 'Salary Slip Stored!', description: `A slip for ${selectedEmployee.role} has been saved.` });
                 
-                await fetch('/api/salary-slip/docx', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      employeeName: `${selectedEmployee.firstName} ${selectedEmployee.lastName}`,
-                      employeeId: selectedEmployee.employeeId,
-                      period: format(dateRange.from!, 'MMMM-yyyy'),
-                      totalHours: reportData.totalHours.toFixed(2),
-                      baseSalary: reportData.baseSalary.toFixed(2),
-                      netPay: reportData.netPay.toFixed(2),
-                    }),
-                  }).then(async res => {
-                    const blob = await res.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `Salary-Slip-${selectedEmployee.employeeId}-${format(dateRange.from!, 'yyyy-MM')}.docx`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                  });
-
+                await generateSalarySlipDoc({
+                    companyName: myStore.name,
+                    payslipNo: `PSL-${slipId.slice(0,8)}`,
+                    employeeName: `${selectedEmployee.firstName} ${selectedEmployee.lastName}`,
+                    employeeId: selectedEmployee.employeeId,
+                    designation: selectedEmployee.role,
+                    payPeriod: format(dateRange.from!, 'MMMM yyyy'),
+                    totalHours: reportData.totalHours,
+                    baseSalary: reportData.baseSalary,
+                    pf: 500, // Placeholder
+                    esi: 200, // Placeholder
+                    netPay: reportData.netPay,
+                    logoUrl: myStore.imageUrl || 'https://i.ibb.co/WpfhKqjW/android-launchericon-512-512.png',
+                    signatureUrl: "https://i.ibb.co/7Qr0T4k/signature.png",
+                });
             } catch (error: any) {
                 console.error("Failed to generate salary slip:", error);
                 toast({ variant: 'destructive', title: 'Error', description: error.message });
