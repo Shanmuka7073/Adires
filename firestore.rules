@@ -26,10 +26,17 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function getStoreOwnerId(storeId) {
+        return get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId;
+    }
+
     function isStoreOwner(storeId) {
-      return isSignedIn() &&
-        get(/databases/$(database)/documents/stores/$(storeId))
-          .data.ownerId == request.auth.uid;
+      return isSignedIn() && getStoreOwnerId(storeId) == request.auth.uid;
+    }
+    
+    function isManager(employeeId, storeId) {
+       let employeeProfile = get(/databases/$(database)/documents/employeeProfiles/$(employeeId)).data;
+       return employeeProfile.reportingTo == request.auth.uid || isStoreOwner(storeId);
     }
 
     /* ======================
@@ -118,16 +125,20 @@ service cloud.firestore {
           resource.data.punchOutTime == null &&
           request.resource.data.punchOutTime != null
         ) ||
-        // Employee requesting / re-submitting regularization
+        // Employee requesting regularization for a partial or rejected day
         (
           isOwner(resource.data.employeeId) &&
           (resource.data.status == 'partially_present' || resource.data.status == 'rejected') &&
           request.resource.data.status == 'pending_approval' &&
-          request.resource.data.rejectionCount == resource.data.rejectionCount &&
-          request.resource.data.reasonHistory.size() == resource.data.reasonHistory.size() + 1 &&
-          resource.data.rejectionCount < 3
+          resource.data.rejectionCount < 3 &&
+          request.writeFields.hasOnly(['status', 'reasonHistory'])
         ) ||
-        // Store owner has full control
+        // Manager or Store Owner approving/rejecting a pending request
+        (
+          isManager(resource.data.employeeId, storeId) &&
+          resource.data.status == 'pending_approval'
+        ) ||
+        // Store owner has full control to edit any field
         isStoreOwner(storeId);
 
       allow delete: if false;
@@ -154,6 +165,10 @@ service cloud.firestore {
 
       allow create, update, delete: if isStoreOwner(storeId);
     }
+    
+     match /{path=**}/salarySlips/{slipId} {
+       allow get: if isSignedIn();
+    }
 
     /* ======================
        ORDERS (GROCERY / RESTAURANT)
@@ -172,19 +187,10 @@ service cloud.firestore {
 
       allow update: if
         isStoreOwner(resource.data.storeId)
-        || (request.auth.uid == resource.data.userId
-            && request.resource.data.status == 'Billed')
-        || (resource.data.deliveryPartnerId != null
-            && request.auth.uid == resource.data.deliveryPartnerId)
-        || isAdmin()
-        || (
-          resource.data.userId == 'guest'
-          && request.resource.data.sessionId == resource.data.sessionId
-        )
-        || (
-          resource.data.deliveryPartnerId == null
-          && request.resource.data.deliveryPartnerId == request.auth.uid
-        );
+        || (resource.data.userId != 'guest' && request.auth.uid == resource.data.userId && request.resource.data.status == 'Billed')
+        || (resource.data.deliveryPartnerId != null && request.auth.uid == resource.data.deliveryPartnerId)
+        || (resource.data.userId == 'guest' && request.resource.data.sessionId == resource.data.sessionId)
+        || (resource.data.deliveryPartnerId == null && request.resource.data.deliveryPartnerId == request.auth.uid);
 
       allow delete: if false;
     }

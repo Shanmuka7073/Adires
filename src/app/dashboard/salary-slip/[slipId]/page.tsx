@@ -8,13 +8,12 @@ import { getSalarySlipData } from '@/app/actions';
 import type { SalarySlip, EmployeeProfile, Store, AttendanceRecord } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import QRCode from 'qrcode.react';
-import { format, getDaysInMonth } from 'date-fns';
+import { format } from 'date-fns';
 
 function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: SalarySlip, employee: EmployeeProfile, store: Store, attendance: any }) {
     
     // Auto-print on mount
     useEffect(() => {
-        // A short delay ensures the content is rendered before printing
         const timeoutId = setTimeout(() => {
             window.print();
         }, 500);
@@ -26,141 +25,136 @@ function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: Salary
     const totalDeduction = slip.deductions;
     const netPay = slip.netPay;
 
-    // A simple number to words converter (for demonstration)
-    const numberToWords = (num: number): string => {
-        // This is a simplified version. A real app would use a robust library.
-        const first = ['','one ','two ','three ','four ', 'five ','six ','seven ','eight ','nine ','ten ','eleven ','twelve ','thirteen ','fourteen ','fifteen ','sixteen ','seventeen ','eighteen ','nineteen '];
-        const tens = ['', '', 'twenty','thirty','forty','fifty', 'sixty','seventy','eighty','ninety'];
-        const mad = ['', 'thousand', 'million', 'billion', 'trillion'];
-        let word = '';
-        
-        for(let i=0; i<mad.length; i++){
-            let tempNumber = num % (100 * Math.pow(1000, i));
-            if(Math.floor(tempNumber/Math.pow(1000,i)) !== 0){
-                if(Math.floor(tempNumber/Math.pow(1000,i)) < 20){
-                    word = first[Math.floor(tempNumber/Math.pow(1000,i))] + mad[i] + ' ' + word;
-                } else {
-                    word = tens[Math.floor(tempNumber/(10*Math.pow(1000,i)))] + '-' + first[Math.floor(tempNumber/Math.pow(1000,i))%10] + mad[i] + ' ' + word;
-                }
+    function numberToWords(num: number): string {
+        const a = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+        const b = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+        const g = ['', 'thousand', 'lakh', 'crore'];
+
+        const inWords = (n: number): string => {
+            if (n < 20) return a[n];
+            const digit = n % 10;
+            return b[Math.floor(n / 10)] + (digit ? ' ' + a[digit] : '');
+        };
+
+        if (num === 0) return 'Zero';
+        let words = '';
+        let i = 0;
+        while (num > 0) {
+            let chunk = num % 100;
+            if (i > 0) {
+              chunk = num % 1000;
+              num = Math.floor(num / 1000);
+            } else {
+               num = Math.floor(num / 100);
             }
-            tempNumber = num % (Math.pow(1000,i+1));
-            if(Math.floor(tempNumber/(100*Math.pow(1000,i))) !== 0) word = first[Math.floor(tempNumber/(100*Math.pow(1000,i)))] + 'hundred ' + word;
+            if (chunk > 0) {
+                let s = '';
+                if(i===0) { // hundreds place
+                    s = inWords(chunk);
+                } else {
+                    s = inWords(chunk);
+                }
+                words = s + ' ' + g[i] + ' ' + words;
+            }
+            i++;
         }
-        return word.trim().replace(/\s+/g, ' ').split(' ').map(s=>s.charAt(0).toUpperCase() + s.slice(1)).join(' ') + ' Only';
-    };
+        return words.trim().replace(/\s+/g, ' ').split(' ').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+    }
+
+
+    const netPayInWords = () => {
+        const rupees = Math.floor(netPay);
+        const paise = Math.round((netPay - rupees) * 100);
+        let words = numberToWords(rupees) + ' Rupees';
+        if (paise > 0) {
+            words += ' and ' + numberToWords(paise) + ' Paise';
+        }
+        return words + ' Only';
+    }
     
-    return (
-        <div className="bg-gray-100 dark:bg-gray-900 p-4 sm:p-8">
-            <div className="watermark"></div>
-            <div className="max-w-3xl mx-auto bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-8 rounded-lg shadow-lg text-sm">
-            
-            {/* HEADER */}
-            <div className="flex justify-between items-center border-b pb-4 mb-6">
-                <div className="flex items-center gap-3">
-                {store.imageUrl && <img src={store.imageUrl} alt="Logo" className="h-12" />}
-                <div>
-                    <h1 className="text-xl font-bold">{store.name}</h1>
-                    <p className="text-xs text-gray-500">{store.address}</p>
-                </div>
-                </div>
+    let paymentDetailsHtml = `<p><b>Payment Mode:</b> ${employee.payoutMethod === 'upi' ? 'UPI' : 'Bank Transfer'}</p>`;
+    if (employee.payoutMethod === 'upi' && employee.upiId) {
+        paymentDetailsHtml += `<p><b>UPI ID:</b> ${employee.upiId}</p>`;
+    } else if (employee.payoutMethod === 'bank' && employee.bankDetails) {
+        paymentDetailsHtml += `
+            <p><b>A/C Holder:</b> ${employee.bankDetails.accountHolderName}</p>
+            <p><b>A/C No:</b> ${employee.bankDetails.accountNumber}</p>
+            <p><b>IFSC:</b> ${employee.bankDetails.ifscCode || 'N/A'}</p>
+        `;
+    }
 
-                <div className="text-right">
-                <h2 className="text-lg font-semibold">Salary Slip</h2>
-                <p className="text-xs text-gray-500">Payslip No: <b>{slip.id.toUpperCase().slice(0, 15)}</b></p>
-                <p className="text-xs">{format(new Date(slip.periodStart), 'MMMM yyyy')}</p>
-                </div>
+    return `
+      <html>
+        <head><meta charset='utf-8'><title>Salary Slip for ${format(new Date(slip.periodStart), 'MMMM yyyy')}</title></head>
+        <body style="font-family: Arial, sans-serif; margin: 0; padding: 20px; font-size: 14px;">
+          <div style="width: 800px; margin: auto; padding: 20px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px;">
+              <div>
+                <h1 style="font-size: 24px; font-weight: bold; margin: 0;">${store.name}</h1>
+                <p style="font-size: 12px; color: #666; margin: 5px 0 0;">${store.address}</p>
+              </div>
+              <div style="text-align: right;">
+                <h2 style="font-size: 20px; font-weight: 600; margin: 0;">Salary Slip</h2>
+                <p style="font-size: 12px; margin: 5px 0 0;">For the Month of ${format(new Date(slip.periodStart), 'MMMM yyyy')}</p>
+                 <p style="font-size: 12px; margin: 5px 0 0;">Payslip No: ${slip.id.toUpperCase().slice(0, 15)}</p>
+                 <p style="font-size: 12px; margin: 5px 0 0;">Generated On: ${format(new Date(), 'dd MMM yyyy')}</p>
+              </div>
             </div>
-
-            {/* EMPLOYEE INFO */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
-                <div>
-                <p><b>Employee Name:</b> {employee.role} ({employee.employeeId})</p>
-                <p><b>Employee ID:</b> {employee.employeeId}</p>
-                <p><b>Designation:</b> {employee.role}</p>
-                </div>
-                <div>
-                <p><b>Store:</b> {store.name}</p>
-                <p><b>Pay Period:</b> {format(new Date(slip.periodStart), 'dd MMM yyyy')} – {format(new Date(slip.periodEnd), 'dd MMM yyyy')}</p>
-                <p><b>Date of Joining:</b> {format(new Date(employee.hireDate), 'dd MMM yyyy')}</p>
-                </div>
+            <table style="width: 100%; margin-bottom: 20px; font-size: 14px;">
+              <tr>
+                <td style="padding: 5px; vertical-align: top;"><b>Employee Name:</b> ${employee.firstName} ${employee.lastName}</td>
+                <td style="padding: 5px; vertical-align: top;"><b>Employee ID:</b> ${employee.employeeId}</td>
+              </tr>
+              <tr>
+                <td style="padding: 5px; vertical-align: top;"><b>Designation:</b> ${employee.role}</td>
+                <td style="padding: 5px; vertical-align: top;"><b>Date of Joining:</b> ${format(new Date(employee.hireDate), 'dd MMM yyyy')}</td>
+              </tr>
+               <tr>
+                <td style="padding: 5px;" colspan="2">
+                   ${paymentDetailsHtml}
+                </td>
+              </tr>
+            </table>
+            <div style="display: flex; justify-content: space-between; text-align: center; margin-bottom: 20px; font-size: 12px; background: #f9f9f9; padding: 10px; border-radius: 5px;">
+                <div><b>Total Days in Month:</b> ${attendance.totalDays}</div>
+                <div><b>Present Days:</b> ${attendance.presentDays}</div>
+                <div><b>Partial Days:</b> ${attendance.partialDays}</div>
+                <div><b>Absent/Rejected:</b> ${attendance.absentDays}</div>
             </div>
-
-            {/* ATTENDANCE SUMMARY */}
-            <div className="mb-6">
-                 <h3 className="font-semibold border-b mb-2">Attendance Summary</h3>
-                 <div className="grid grid-cols-4 gap-2 text-center">
-                    <div className="p-2 bg-gray-50 rounded"><p className="font-bold">{attendance.totalDays}</p><p className="text-xs">Total Days</p></div>
-                    <div className="p-2 bg-green-50 rounded"><p className="font-bold">{attendance.presentDays}</p><p className="text-xs">Present</p></div>
-                    <div className="p-2 bg-yellow-50 rounded"><p className="font-bold">{attendance.partialDays}</p><p className="text-xs">Partial Days</p></div>
-                    <div className="p-2 bg-red-50 rounded"><p className="font-bold">{attendance.absentDays}</p><p className="text-xs">Absent</p></div>
-                 </div>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px;">
+              <tr style="background-color: #f2f2f2;">
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Earnings</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Amount (₹)</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Deductions</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Amount (₹)</th>
+              </tr>
+              <tr>
+                <td style="border: 1px solid #ddd; padding: 8px;">Base Salary (${attendance.presentDays} payable days)</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${slip.baseSalary.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">Standard Deductions</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${slip.deductions.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+              </tr>
+              <tr style="font-weight: bold;">
+                <td style="border: 1px solid #ddd; padding: 8px;">Gross Earnings</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${gross.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">Total Deductions</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${totalDeduction.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+              </tr>
+            </table>
+            <div style="text-align: right; font-size: 18px; font-weight: bold; margin-top: 20px;">
+              Net Pay: ₹ ${netPay.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
             </div>
-
-
-            {/* SALARY TABLE */}
-            <div className="grid grid-cols-2 gap-6">
-                <div>
-                <h3 className="font-semibold border-b mb-2">Earnings</h3>
-                <div className="space-y-1">
-                    <div className="flex justify-between"><span>Base Salary ({attendance.presentDays} days)</span><span>₹{slip.baseSalary.toFixed(2)}</span></div>
-                    {slip.overtimePay > 0 && <div className="flex justify-between"><span>Overtime Pay ({slip.overtimeHours} hrs)</span><span>₹{slip.overtimePay.toFixed(2)}</span></div>}
-                </div>
-                </div>
-
-                <div>
-                <h3 className="font-semibold border-b mb-2">Deductions</h3>
-                 <div className="space-y-1">
-                      <div className="flex justify-between"><span>Standard Deductions</span><span>₹{slip.deductions.toFixed(2)}</span></div>
-                 </div>
-                </div>
+            <div style="margin-top: 10px; font-size: 14px;">
+              <p><b>Amount in Words:</b> ${netPayInWords()}</p>
             </div>
-
-            {/* SUMMARY */}
-            <div className="border-t mt-6 pt-4 space-y-2">
-                <div className="flex justify-between font-semibold">
-                <span>Gross Earnings</span>
-                <span>₹{gross.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between font-semibold">
-                <span>Total Deductions</span>
-                <span>₹{totalDeduction.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-lg font-bold text-green-600">
-                <span>Net Pay</span>
-                <span>₹{netPay.toFixed(2)}</span>
-                </div>
+            <div style="margin-top: 50px; font-size: 12px; color: #666; display: flex; justify-content: space-between;">
+              <p><i>This is a system-generated payslip.</i></p>
+              <p><b>Authorized Signatory</b></p>
             </div>
-
-            {/* FOOTER */}
-            <div className="grid grid-cols-2 gap-4 mt-6 text-xs">
-                <div>
-                <p><b>Amount in Words:</b></p>
-                <p>{numberToWords(netPay)}</p>
-
-                <div className="mt-4">
-                    {/* Placeholder for a digital signature if available */}
-                    <p className="text-xs mt-1">Authorized Signatory</p>
-                </div>
-                </div>
-
-                <div className="flex flex-col items-end">
-                <QRCode
-                    id="qr"
-                    value={`https://localbasket.in/verify/${slip.id}`}
-                    size={80}
-                    level="L"
-                    includeMargin
-                />
-                <p className="mt-1 text-xs text-gray-500">Scan to Verify</p>
-                </div>
-            </div>
-
-            <p className="text-center text-xs text-gray-500 mt-6">
-                This is a system-generated payslip and does not require a physical signature.
-            </p>
-            </div>
-        </div>
-    );
+          </div>
+        </body>
+      </html>
+    `;
 }
 
 interface SalaryData {
@@ -216,6 +210,8 @@ export default function SalarySlipPage() {
     if (error || !data) {
         return <div className="p-8 text-center">{error || "Salary Slip not found."}</div>;
     }
+    
+    const htmlContent = SalarySlipDisplay(data);
 
-    return <SalarySlipDisplay {...data} />;
+    return <div dangerouslySetInnerHTML={{ __html: htmlContent }} />;
 }
