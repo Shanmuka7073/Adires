@@ -338,7 +338,7 @@ export default function SalaryReportsPage() {
             totalHours, 
             baseSalary, 
             netPay, 
-            records: attendanceRecords, 
+            records: presentOrApprovedRecords, // Use the de-duplicated list for display
             presentDays: uniqueDates.size,
             totalDays: totalDaysInPeriod,
             partialDays: partialDaysRecords.length,
@@ -405,7 +405,7 @@ export default function SalaryReportsPage() {
                     <CardDescription>Select an employee and a date range to view attendance and generate salary slips.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    <ApprovalRequests storeId={myStore.id} />
+                    {myStore && <ApprovalRequests storeId={myStore.id} />}
                     <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label>Employee</Label>
@@ -457,7 +457,7 @@ export default function SalaryReportsPage() {
 
                     {selectedEmployeeId && (
                         <>
-                        <GeneratedSlipsList employee={selectedEmployee!} myStore={myStore} />
+                        {selectedEmployee && myStore && <GeneratedSlipsList employee={selectedEmployee} myStore={myStore} />}
                         <Card>
                             <CardHeader><CardTitle>Attendance Details for Period</CardTitle></CardHeader>
                             <CardContent>
@@ -469,7 +469,7 @@ export default function SalaryReportsPage() {
                                         <TableBody>
                                             {reportData.records.map(rec => (
                                                 <TableRow key={rec.id}>
-                                                    <TableCell>{format(new Date(rec.workDate), 'PPP')}</TableCell>
+                                                    <TableCell>{format(new Date(rec.workDate + 'T00:00:00'), 'PPP')}</TableCell>
                                                     <TableCell>{formatDateSafe(rec.punchInTime)}</TableCell>
                                                     <TableCell>{formatDateSafe(rec.punchOutTime)}</TableCell>
                                                     <TableCell>{rec.workHours > 0 ? rec.workHours.toFixed(2) : '-'}</TableCell>
