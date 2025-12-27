@@ -367,7 +367,6 @@ export default function SalaryReportsPage() {
         
         startGeneration(async () => {
             const slipId = `${myStore.id}_${selectedEmployee.userId}_${format(dateRange.from!, 'yyyy-MM')}`;
-            const slipRef = doc(firestore, `stores/${myStore.id}/salarySlips`, slipId);
             const slipData: Omit<SalarySlip, 'id'|'generatedAt'> = {
                 employeeId: selectedEmployee.userId,
                 storeId: myStore.id,
@@ -381,20 +380,35 @@ export default function SalaryReportsPage() {
             };
 
             try {
+                const slipRef = doc(firestore, `stores/${myStore.id}/salarySlips`, slipId);
                 await setDoc(slipRef, { ...slipData, id: slipId, generatedAt: serverTimestamp() }, { merge: true });
-                toast({ title: 'Salary Slip Generated!', description: `A slip for ${selectedEmployee.role} for ${format(dateRange.from!, 'MMMM yyyy')} has been generated.` });
+                toast({ title: 'Salary Slip Stored!', description: `A slip for ${selectedEmployee.role} has been saved.` });
                 
-                // Open the new page for printing
-                window.open(`/dashboard/salary-slip/${slipId}`, '_blank');
+                await fetch('/api/salary-slip/docx', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      employeeName: `${selectedEmployee.firstName} ${selectedEmployee.lastName}`,
+                      employeeId: selectedEmployee.employeeId,
+                      period: format(dateRange.from!, 'MMMM-yyyy'),
+                      totalHours: reportData.totalHours.toFixed(2),
+                      baseSalary: reportData.baseSalary.toFixed(2),
+                      netPay: reportData.netPay.toFixed(2),
+                    }),
+                  }).then(async res => {
+                    const blob = await res.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `Salary-Slip-${selectedEmployee.employeeId}-${format(dateRange.from!, 'yyyy-MM')}.docx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                  });
 
             } catch (error: any) {
                 console.error("Failed to generate salary slip:", error);
-                 const permissionError = new FirestorePermissionError({
-                    path: slipRef.path,
-                    operation: 'write',
-                    requestResourceData: slipData,
-                });
-                errorEmitter.emit('permission-error', permissionError);
                 toast({ variant: 'destructive', title: 'Error', description: error.message });
             }
         });
@@ -511,4 +525,3 @@ export default function SalaryReportsPage() {
         </div>
     );
 }
-
