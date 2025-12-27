@@ -36,6 +36,7 @@ export default function EmployeeAttendancePage() {
 
   const attendanceQuery = useMemoFirebase(() => {
     if (!user?.uid || !firestore || !storeId) return undefined;
+    // This query is now efficient and does not require a composite index.
     return query(
       collection(firestore, `stores/${storeId}/attendance`),
       where('employeeId', '==', user.uid)
@@ -47,37 +48,31 @@ export default function EmployeeAttendancePage() {
   const [approvalReason, setApprovalReason] = useState("");
   const [isRegularization, setIsRegularization] = useState(false);
 
+  // CORRECTED: Use isSameDay for robust date comparison, ignoring timezones.
   const todaysRecord = useMemo(() => {
     if (!records) return null;
+    const today = new Date();
     return records.find(r =>
-      isSameDay((r.workDate as any)?.toDate ? (r.workDate as any).toDate() : new Date(r.workDate as any), new Date())
+      isSameDay((r.workDate as any)?.toDate ? (r.workDate as any).toDate() : new Date(r.workDate as any), today)
     );
   }, [records]);
 
+  // CORRECTED: Use isSameDay for robust date comparison.
   const selectedRecord = useMemo(() => {
     if (!selectedDate || !records) return null;
     return records.find(r =>
       isSameDay((r.workDate as any)?.toDate ? (r.workDate as any).toDate() : new Date(r.workDate as any), selectedDate)
     );
   }, [selectedDate, records]);
-
+  
+  // CORRECTED: Stable logic to decide which record to show.
   const recordToShow = useMemo(() => {
     if (recordsLoading) return null;
-    if (!records) return null;
+    return selectedRecord || (selectedDate && isSameDay(selectedDate, new Date()) ? todaysRecord : null) || null;
+  }, [recordsLoading, selectedRecord, todaysRecord, selectedDate]);
 
-    if (selectedRecord) return selectedRecord;
 
-    if (
-      selectedDate &&
-      isSameDay(selectedDate, new Date())
-    ) {
-      return todaysRecord ?? null;
-    }
-
-    return null;
-  }, [recordsLoading, records, selectedRecord, selectedDate, todaysRecord]);
-
-  const selectedDateIsPast = selectedDate && selectedDate < startOfDay(new Date());
+  const selectedDateIsPast = selectedDate && startOfDay(selectedDate) < startOfDay(new Date());
   const canRequestApproval = !recordsLoading && selectedDateIsPast && !selectedRecord;
   const canResubmit = selectedRecord && selectedRecord.status === 'rejected' && (selectedRecord.rejectionCount || 0) < 3;
 
@@ -85,6 +80,7 @@ export default function EmployeeAttendancePage() {
   const punchIn = async () => {
     if (!user || !storeId || !firestore) return;
     
+    // Guard against duplicate punch-ins
     if (todaysRecord) {
         toast({
             variant: 'destructive',
@@ -95,8 +91,7 @@ export default function EmployeeAttendancePage() {
     }
 
     startProcessing(async () => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const today = startOfDay(new Date());
 
         const newRecordData: Omit<AttendanceRecord, 'id'> = {
             employeeId: user.uid,
@@ -124,6 +119,13 @@ export default function EmployeeAttendancePage() {
 
   const punchOut = async () => {
     if (!user || !storeId || !todaysRecord || !todaysRecord.punchInTime) return;
+    
+    // Prevent punch-out if status is not 'partially_present'
+    if (todaysRecord.status !== 'partially_present') {
+        toast({ title: 'Already Punched Out', description: `Your status is already '${todaysRecord.status}'.` });
+        return;
+    }
+
 
     startProcessing(async () => {
       const recordRef = doc(firestore, 'stores', storeId, 'attendance', todaysRecord.id);
@@ -159,6 +161,16 @@ export default function EmployeeAttendancePage() {
         return;
     };
     
+    const existingRecordForDate = records?.find(r => isSameDay((r.workDate as any).toDate(), selectedDate));
+    if (existingRecordForDate && !isRegularization && !canResubmit) {
+        toast({
+            variant: 'destructive',
+            title: 'Request already exists',
+            description: 'An attendance request already exists for this day.',
+        });
+        return;
+    }
+
     startProcessing(async() => {
         try {
             if ((isRegularization || canResubmit) && selectedRecord) {
@@ -175,19 +187,7 @@ export default function EmployeeAttendancePage() {
                 toast({ title: 'Request Submitted', description: 'Your request has been sent to your manager for approval.' });
 
             } else { 
-                 const existingRecordForDate = records?.find(r => r.workDateStr === format(selectedDate, 'yyyy-MM-dd'));
-                 if (existingRecordForDate) {
-                     toast({
-                         variant: 'destructive',
-                         title: 'Request already exists',
-                         description: 'An attendance request already exists for this day.',
-                     });
-                     return;
-                 }
-
-                const selectedDayStart = new Date(selectedDate);
-                selectedDayStart.setHours(0, 0, 0, 0);
-
+                const selectedDayStart = startOfDay(selectedDate);
                 const newRequestData: Omit<AttendanceRecord, 'id'> = {
                     employeeId: user.uid, storeId,
                     workDate: Timestamp.fromDate(selectedDayStart),
@@ -294,7 +294,7 @@ export default function EmployeeAttendancePage() {
                   </Button>
                    <Button
                     onClick={punchOut}
-                    disabled={!todaysRecord || !!todaysRecord.punchOutTime || isProcessing}
+                    disabled={!todaysRecord || !!todaysRecord.punchOutTime || todaysRecord.status !== 'partially_present' || isProcessing}
                     size="lg"
                     variant="destructive"
                   >
@@ -313,11 +313,11 @@ export default function EmployeeAttendancePage() {
                         }}
                         disabled={date => date > new Date()}
                         modifiers={{
-                          present: date => records?.some(r => r.workDateStr === format(date, 'yyyy-MM-dd') && r.status === 'present') || false,
-                          partially_present: date => records?.some(r => r.workDateStr === format(date, 'yyyy-MM-dd') && r.status === 'partially_present') || false,
-                          approved: date => records?.some(r => r.workDateStr === format(date, 'yyyy-MM-dd') && r.status === 'approved') || false,
-                          pending: date => records?.some(r => r.workDateStr === format(date, 'yyyy-MM-dd') && r.status === 'pending_approval') || false,
-                          rejected: date => records?.some(r => r.workDateStr === format(date, 'yyyy-MM-dd') && r.status === 'rejected') || false,
+                          present: date => records?.some(r => isSameDay(new Date((r.workDate as any).toDate()), date) && r.status === 'present') || false,
+                          partially_present: date => records?.some(r => isSameDay(new Date((r.workDate as any).toDate()), date) && r.status === 'partially_present') || false,
+                          approved: date => records?.some(r => isSameDay(new Date((r.workDate as any).toDate()), date) && r.status === 'approved') || false,
+                          pending: date => records?.some(r => isSameDay(new Date((r.workDate as any).toDate()), date) && r.status === 'pending_approval') || false,
+                          rejected: date => records?.some(r => isSameDay(new Date((r.workDate as any).toDate()), date) && r.status === 'rejected') || false,
                         }}
                         modifiersClassNames={{
                             present: 'day-present',
