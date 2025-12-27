@@ -21,6 +21,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
 
 function AttendanceDetails({ record }: { record: AttendanceRecord }) {
@@ -152,14 +153,32 @@ export default function EmployeeAttendancePage() {
   const employeeProfileRef = useMemoFirebase(() => (user ? doc(firestore, 'employeeProfiles', user.uid) : null), [user, firestore]);
   const { data: employeeProfile, isLoading: profileLoading } = useDoc<EmployeeProfile>(employeeProfileRef);
   
+  const [authReady, setAuthReady] = useState(false);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [recordsLoading, setRecordsLoading] = useState(true);
 
+  const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
+  const [approvalReason, setApprovalReason] = useState("");
+  
   useEffect(() => {
-    if (isUserLoading || profileLoading || !user?.uid || !firestore || !employeeProfile?.storeId) {
+    if (!firestore) return;
+    const auth = getAuth(firestore.app);
+    const unsub = onAuthStateChanged(auth, (u) => {
+        if (u) {
+            setAuthReady(true);
+        }
+    });
+    return () => unsub();
+  }, [firestore]);
+
+  useEffect(() => {
+    if (!authReady || !user?.uid || !firestore || !employeeProfile?.storeId) {
+        if (!isUserLoading && !profileLoading) {
+            setRecordsLoading(false);
+        }
         return;
-    }
-    
+    };
+
     const storeId = employeeProfile.storeId;
     setRecordsLoading(true);
 
@@ -175,26 +194,28 @@ export default function EmployeeAttendancePage() {
           id: d.id,
           ...d.data(),
         })) as AttendanceRecord[];
-
         setRecords(data);
         setRecordsLoading(false);
       },
       (error) => {
-        console.error('Attendance listener error:', error);
+        console.error('🔥 Firestore listener error:', error);
+        toast({
+            variant: 'destructive',
+            title: 'Permission Denied',
+            description: 'Could not fetch attendance records. Please check security rules.'
+        })
         setRecordsLoading(false);
       }
     );
 
     return () => unsubscribe();
-  }, [isUserLoading, profileLoading, user?.uid, firestore, employeeProfile?.storeId]);
+  }, [authReady, user?.uid, firestore, employeeProfile?.storeId, toast]);
 
 
-  const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
-  const [approvalReason, setApprovalReason] = useState("");
-  
   const toDateSafe = (d: any): Date => d instanceof Timestamp ? d.toDate() : new Date(d);
 
   const todaysRecord = useMemo(() => {
+    if (!records) return null;
     return records.find(r => isSameDay(toDateSafe(r.workDate), new Date())) ?? null;
   }, [records]);
   
@@ -209,10 +230,7 @@ export default function EmployeeAttendancePage() {
 
     if (selectedRecord) return selectedRecord;
 
-    if (
-        selectedDate &&
-        isSameDay(selectedDate, new Date())
-    ) {
+    if (selectedDate && isSameDay(selectedDate, new Date())) {
         return todaysRecord ?? null;
     }
 
@@ -222,7 +240,6 @@ export default function EmployeeAttendancePage() {
 
   const selectedDateIsPast = selectedDate && !isSameDay(selectedDate, new Date()) && selectedDate < startOfDay(new Date());
   const canRequestApproval = !recordsLoading && selectedDateIsPast && !selectedRecord;
-  const canResubmit = selectedRecord && selectedRecord.status === 'rejected' && (selectedRecord.rejectionCount || 0) < 3;
 
   const punchIn = async () => {
     if (!user || !employeeProfile?.storeId || !firestore) return;
@@ -233,13 +250,11 @@ export default function EmployeeAttendancePage() {
     }
 
     startProcessing(async () => {
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        const todayStr = format(today, 'yyyy-MM-dd');
+        const today = startOfDay(new Date());
         const newRecordData: Omit<AttendanceRecord, 'id'> = {
             employeeId: user.uid, storeId: employeeProfile.storeId,
             workDate: Timestamp.fromDate(today),
-            workDateStr: todayStr,
+            workDateStr: format(today, 'yyyy-MM-dd'),
             punchInTime: Timestamp.now(), punchOutTime: null,
             status: 'partially_present', workHours: 0,
             rejectionCount: 0, reasonHistory: []
@@ -442,3 +457,4 @@ export default function EmployeeAttendancePage() {
   );
 }
 
+    
