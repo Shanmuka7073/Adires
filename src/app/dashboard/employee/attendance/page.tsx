@@ -4,7 +4,7 @@
 import { useEffect, useState, useMemo, useTransition, useCallback } from 'react';
 import { collection, query, where, addDoc, getDocs, orderBy, updateDoc, doc, Timestamp, collectionGroup, arrayUnion, setDoc } from 'firebase/firestore';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
-import { format, isSameDay, startOfDay, differenceInMinutes, isPast } from 'date-fns';
+import { format, isSameDay, startOfDay, differenceInMinutes } from 'date-fns';
 import type { AttendanceRecord, EmployeeProfile, Store, ReasonEntry } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -168,21 +168,22 @@ export default function EmployeeAttendancePage() {
   const [isRegularization, setIsRegularization] = useState(false);
   
   useEffect(() => {
-    if (!recordsLoading && records) {
+    if (!recordsLoading && records && records.length > 0) {
         setStableRecords(records);
     }
   }, [recordsLoading, records]);
 
-  const effectiveRecords = stableRecords ?? [];
+  const effectiveRecords = useMemo(() => stableRecords ?? [], [stableRecords]);
 
   const todaysRecord = useMemo(() => {
+    if (!effectiveRecords) return null;
     return effectiveRecords.find(r =>
       isSameDay((r.workDate as any)?.toDate ? (r.workDate as any).toDate() : new Date(r.workDate as any), new Date())
     ) ?? null;
   }, [effectiveRecords]);
-
+  
   const selectedRecord = useMemo(() => {
-    if (!selectedDate) return null;
+    if (!selectedDate || !effectiveRecords) return null;
     return effectiveRecords.find(r =>
       isSameDay((r.workDate as any)?.toDate ? (r.workDate as any).toDate() : new Date(r.workDate as any), selectedDate)
     ) ?? null;
@@ -261,8 +262,10 @@ export default function EmployeeAttendancePage() {
         return;
     };
     
-    if (selectedRecord && !isRegularization) {
-        toast({ variant: 'destructive', title: 'Request already exists' });
+    const existing = effectiveRecords?.find(r => isSameDay((r.workDate as any).toDate(), selectedDate));
+
+    if (existing) {
+        toast({ variant: 'destructive', title: 'Request already exists', description: 'An attendance record already exists for this day.' });
         return;
     }
 
@@ -382,10 +385,8 @@ export default function EmployeeAttendancePage() {
                     <Calendar
                         mode="single"
                         selected={selectedDate}
-                        onSelect={(date) => {
-                            if (date) setSelectedDate(date);
-                        }}
-                        disabled={date => date > new Date()}
+                        onSelect={(date) => { if(date) setSelectedDate(date)}}
+                        disabled={(date) => date > new Date()}
                         modifiers={{
                           present: date => effectiveRecords?.some(r => isSameDay((r.workDate as any).toDate(), date) && r.status === 'present') || false,
                           partially_present: date => effectiveRecords?.some(r => isSameDay((r.workDate as any).toDate(), date) && r.status === 'partially_present') || false,
@@ -406,7 +407,7 @@ export default function EmployeeAttendancePage() {
                  
                   <div className="p-4 rounded-lg bg-muted/50 h-full">
                     <h3 className="font-semibold text-lg mb-2">Details for {format(selectedDate ?? new Date(), "PPP")}</h3>
-                    {(recordsLoading && !stableRecords) ? (
+                    {recordsLoading && !stableRecords ? (
                         <Skeleton className="h-40 w-full" />
                     ) : recordToShow ? (
                         <AttendanceDetails record={recordToShow} />
@@ -424,4 +425,3 @@ export default function EmployeeAttendancePage() {
     </div>
   );
 }
-
