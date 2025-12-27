@@ -312,8 +312,9 @@ export default function SalaryReportsPage() {
         const uniqueDates = new Set<string>();
         const presentOrApprovedRecords = attendanceRecords.filter(r => {
             const isCountable = (r.status === 'present' || r.status === 'approved' || r.status === 'partially_present');
-            if (isCountable && !uniqueDates.has(r.workDateStr)) {
-                uniqueDates.add(r.workDateStr);
+            const workDateStr = r.workDate instanceof Timestamp ? r.workDate.toDate().toISOString().split('T')[0] : r.workDate.split('T')[0];
+            if (isCountable && !uniqueDates.has(workDateStr)) {
+                uniqueDates.add(workDateStr);
                 return true;
             }
             return false;
@@ -392,8 +393,6 @@ export default function SalaryReportsPage() {
                     pf: 500, // Placeholder
                     esi: 200, // Placeholder
                     netPay: reportData.netPay,
-                    logoUrl: myStore.imageUrl || 'https://i.ibb.co/WpfhKqj/android-launchericon-512-512.png',
-                    signatureUrl: "https://i.ibb.co/7Qr0T4k/signature.png",
                 });
             } catch (error: any) {
                 console.error("Failed to generate salary slip:", error);
