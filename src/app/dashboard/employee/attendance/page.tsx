@@ -39,8 +39,8 @@ export default function EmployeeAttendancePage() {
     if (!user?.uid || !firestore || !storeId) return undefined;
     return query(
       collection(firestore, `stores/${storeId}/attendance`),
-      where('employeeId', '==', user.uid),
-      orderBy('workDate', 'desc')
+      where('employeeId', '==', user.uid)
+      // Removed orderBy to avoid composite index requirement
     );
   }, [user?.uid, firestore, storeId]);
 
@@ -68,12 +68,25 @@ export default function EmployeeAttendancePage() {
 
   const punchIn = async () => {
     if (!user || !storeId || !firestore) return;
+    
+    // Prevent duplicate punch-ins
+    if (todaysRecord) {
+        toast({
+            variant: 'destructive',
+            title: 'Already Punched In',
+            description: 'You have already punched in for today.',
+        });
+        return;
+    }
 
     startProcessing(async () => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
         const newRecordData: Omit<AttendanceRecord, 'id'> = {
             employeeId: user.uid,
             storeId,
-            workDate: Timestamp.fromDate(startOfDay(new Date())),
+            workDate: Timestamp.fromDate(today),
             workDateStr: todayStr,
             punchInTime: Timestamp.now(),
             punchOutTime: null,
@@ -147,9 +160,12 @@ export default function EmployeeAttendancePage() {
                 toast({ title: 'Request Submitted', description: 'Your request has been sent to your manager for approval.' });
 
             } else { 
+                const selectedDayStart = new Date(selectedDate);
+                selectedDayStart.setHours(0, 0, 0, 0);
+
                 const newRequestData: Omit<AttendanceRecord, 'id'> = {
                     employeeId: user.uid, storeId,
-                    workDate: Timestamp.fromDate(startOfDay(selectedDate)),
+                    workDate: Timestamp.fromDate(selectedDayStart),
                     workDateStr: format(selectedDate, 'yyyy-MM-dd'),
                     punchInTime: null, punchOutTime: null,
                     status: 'pending_approval', workHours: 0,
@@ -354,3 +370,4 @@ export default function EmployeeAttendancePage() {
     </div>
   );
 }
+
