@@ -4,7 +4,7 @@
 import { useEffect, useState, useMemo, useTransition, useCallback } from 'react';
 import { collection, query, where, addDoc, getDocs, orderBy, updateDoc, doc, Timestamp, collectionGroup, arrayUnion, setDoc } from 'firebase/firestore';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
-import { format, isSameDay, startOfDay } from 'date-fns';
+import { format, isSameDay, startOfDay, differenceInMinutes } from 'date-fns';
 import type { AttendanceRecord, EmployeeProfile, Store, ReasonEntry } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -57,21 +57,28 @@ export default function EmployeeAttendancePage() {
   const selectedRecord = useMemo(() => {
     if (!selectedDate || !records) return null;
     return records.find(r =>
-        isSameDay((r.workDate as any)?.toDate ? (r.workDate as any).toDate() : new Date(r.workDate as any), selectedDate)
+      isSameDay((r.workDate as any)?.toDate ? (r.workDate as any).toDate() : new Date(r.workDate as any), selectedDate)
     );
   }, [selectedDate, records]);
 
   const recordToShow = useMemo(() => {
+    if (recordsLoading) return null;
+    if (!records) return null;
+
     if (selectedRecord) return selectedRecord;
-    if (selectedDate && isSameDay(selectedDate, new Date())) {
-      return todaysRecord;
+
+    if (
+      selectedDate &&
+      isSameDay(selectedDate, new Date())
+    ) {
+      return todaysRecord ?? null;
     }
+
     return null;
-  }, [selectedRecord, selectedDate, todaysRecord]);
-  
+  }, [recordsLoading, records, selectedRecord, selectedDate, todaysRecord]);
 
   const selectedDateIsPast = selectedDate && selectedDate < startOfDay(new Date());
-  const canRequestApproval = selectedDateIsPast && !selectedRecord;
+  const canRequestApproval = !recordsLoading && selectedDateIsPast && !selectedRecord;
   const canResubmit = selectedRecord && selectedRecord.status === 'rejected' && (selectedRecord.rejectionCount || 0) < 3;
 
 
@@ -325,7 +332,9 @@ export default function EmployeeAttendancePage() {
                  
                   <div className="p-4 rounded-lg bg-muted/50 h-full">
                     <h3 className="font-semibold text-lg mb-2">Details for {format(selectedDate ?? new Date(), "PPP")}</h3>
-                     {recordToShow ? (
+                    {recordsLoading ? (
+                        <Skeleton className="h-40 w-full" />
+                    ) : recordToShow ? (
                         <div className="space-y-3">
                             <div className="flex items-center gap-2"><strong>Status:</strong> <Badge variant={recordToShow.status === 'present' || recordToShow.status === 'approved' ? 'default' : 'destructive'}>{recordToShow.status.replace(/_/g, ' ')}</Badge></div>
                             <p><strong>Punch In:</strong> {recordToShow.punchInTime ? format((recordToShow.punchInTime as any).toDate ? (recordToShow.punchInTime as any).toDate() : new Date(recordToShow.punchInTime as any), 'p') : '—'}</p>
@@ -391,3 +400,4 @@ export default function EmployeeAttendancePage() {
   );
 }
 
+    
