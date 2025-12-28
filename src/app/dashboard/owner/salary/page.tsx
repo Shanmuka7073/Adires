@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useTransition, useCallback, useEffect } from 'react';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
-import { collection, query, where, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc, getDocs, orderBy, Timestamp, collectionGroup, arrayUnion } from 'firebase/firestore';
+import { collection, query, where, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc, getDocs, orderBy, Timestamp } from 'firebase/firestore';
 import type { Store, EmployeeProfile, AttendanceRecord, SalarySlip, ReasonEntry } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -80,7 +80,12 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
             }
 
             try {
-              await updateDoc(recordRef, updateData);
+              // Ensure critical fields are not accidentally removed on update
+              await updateDoc(recordRef, {
+                  ...updateData,
+                  employeeId: record.employeeId,
+                  storeId: record.storeId,
+              });
               toast({ title: 'Request Updated', description: `The attendance request has been ${newStatus}.` });
               if (refetch) refetch();
             } catch(error) {
@@ -288,10 +293,11 @@ export default function SalaryReportsPage() {
               orderBy('workDate', 'desc')
             );
             const querySnapshot = await getDocs(q);
+             console.log('ATTENDANCE FETCH SUCCESS (Owner)', { count: querySnapshot.size, employeeId: selectedEmployeeId, storeId: myStore.id });
             const records = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
             setAttendanceRecords(records);
         } catch (error) {
-            console.error("Failed to fetch attendance:", error);
+            console.error("ATTENDANCE FETCH FAILED (Owner)", { employeeId: selectedEmployeeId, storeId: myStore.id, error });
             toast({ variant: 'destructive', title: "Error", description: "Could not load attendance records. Check Firestore index and rules." });
             setAttendanceRecords(null);
         } finally {
@@ -312,7 +318,7 @@ export default function SalaryReportsPage() {
         const uniqueDates = new Set<string>();
         const presentOrApprovedRecords = attendanceRecords.filter(r => {
             const isCountable = (r.status === 'present' || r.status === 'approved' || r.status === 'partially_present');
-            const workDateStr = r.workDate instanceof Timestamp ? r.workDate.toDate().toISOString().split('T')[0] : new Date(r.workDate).toISOString().split('T')[0];
+            const workDateStr = r.workDateStr;
             if (isCountable && !uniqueDates.has(workDateStr)) {
                 uniqueDates.add(workDateStr);
                 return true;
@@ -512,3 +518,4 @@ export default function SalaryReportsPage() {
         </div>
     );
 }
+

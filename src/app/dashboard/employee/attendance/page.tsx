@@ -190,6 +190,7 @@ export default function EmployeeAttendancePage() {
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
+        console.log('ATTENDANCE FETCH SUCCESS (Employee)', { count: snapshot.size, employeeId: user.uid, storeId });
         const data = snapshot.docs.map(d => ({
           id: d.id,
           ...d.data(),
@@ -198,7 +199,7 @@ export default function EmployeeAttendancePage() {
         setRecordsLoading(false);
       },
       (error) => {
-        console.error('🔥 Firestore listener error:', error);
+        console.error('ATTENDANCE FETCH FAILED (Employee)', { employeeId: user.uid, storeId, error });
         toast({
             variant: 'destructive',
             title: 'Permission Denied',
@@ -209,7 +210,7 @@ export default function EmployeeAttendancePage() {
     );
 
     return () => unsubscribe();
-  }, [authReady, user?.uid, firestore, employeeProfile?.storeId, toast]);
+  }, [authReady, user?.uid, firestore, employeeProfile?.storeId, toast, isUserLoading, profileLoading]);
 
 
   const toDateSafe = (d: any): Date => d instanceof Timestamp ? d.toDate() : new Date(d);
@@ -456,5 +457,4 @@ export default function EmployeeAttendancePage() {
     </div>
   );
 }
-
     

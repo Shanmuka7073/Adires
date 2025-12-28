@@ -130,32 +130,23 @@ service cloud.firestore {
     }
 
     /* ======================
-       ATTENDANCE (FINAL)
+       ATTENDANCE (FINAL, CORRECTED)
        ====================== */
     
     match /stores/{storeId}/attendance/{recordId} {
         
-      // READ single doc
-      allow get: if
+      // READ (get, list)
+      allow get, list: if
         isSignedIn() &&
         (
-          // employee can read own record
+          // employee can query their own record
           resource.data.employeeId == request.auth.uid
           ||
-          // store owner can read any record of their store
+          // store owner can query any record in their store
           isStoreOwner(storeId)
           ||
-          // manager can read their employees
+          // manager can query records of their employees
           isManager(resource.data.employeeId, storeId)
-        );
-
-      // LIST / QUERY (collection, NOT collectionGroup)
-      allow list: if
-        isSignedIn() &&
-        (
-          isStoreOwner(storeId)
-          || isManager(request.query.where('employeeId').value, storeId)
-          || request.query.where('employeeId', '==', request.auth.uid)
         );
         
       allow create: if
@@ -164,24 +155,13 @@ service cloud.firestore {
         request.resource.data.storeId == storeId;
 
       allow update: if
+        isSignedIn() &&
         (
-          // punch out
-          isSignedIn() &&
-          resource.data.employeeId == request.auth.uid &&
-          resource.data.punchOutTime == null &&
-          request.writeFields.hasOnly(['punchOutTime', 'workHours', 'status'])
-        )
-        ||
-        (
-          // regularization request
-          isSignedIn() &&
-          resource.data.employeeId == request.auth.uid &&
-          request.resource.data.status == 'pending_approval'
-        )
-        ||
-        (
-          // manager / owner approval
           isManager(resource.data.employeeId, storeId)
+          || (
+            resource.data.employeeId == request.auth.uid &&
+            resource.data.punchOutTime == null
+          )
         );
 
       allow delete: if false;

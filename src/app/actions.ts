@@ -15,6 +15,7 @@ import { GetIngredientsInputSchema, GetIngredientsOutputSchema } from '@/ai/flow
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import { googleAI } from '@genkit-ai/google-genai';
 import { getAuth } from 'firebase-admin/auth';
+import { generateSalarySlipDoc } from '@/lib/generateSalarySlipDoc';
 
 
 export async function getFirebaseConfig() {
@@ -731,11 +732,15 @@ async function getFullSlipDetails(slipData: SalarySlip, db: Firestore): Promise<
         console.error(`Data missing for slip ${slipData.id}. Employee: ${employeeSnap.exists()}, User: ${userSnap.exists()}, Store: ${storeSnap.exists()}`);
         return null;
     }
-
-    const attendanceSnap = await db.collectionGroup('attendance')
+    
+    // CORRECTED: Use a direct collection query, not a collectionGroup query
+    const attendanceSnap = await db
+        .collection('stores')
+        .doc(slipData.storeId)
+        .collection('attendance')
         .where('employeeId', '==', slipData.employeeId)
-        .where('workDate', '>=', slipData.periodStart)
-        .where('workDate', '<=', slipData.periodEnd)
+        .where('workDate', '>=', Timestamp.fromDate(new Date(slipData.periodStart)))
+        .where('workDate', '<=', Timestamp.fromDate(new Date(slipData.periodEnd)))
         .get();
 
     const employeeData = employeeSnap.data() as EmployeeProfile;
@@ -745,7 +750,7 @@ async function getFullSlipDetails(slipData: SalarySlip, db: Firestore): Promise<
 
     const attendanceRecords = attendanceSnap.docs.map(d => d.data() as AttendanceRecord);
     const totalDaysInPeriod = Math.round((new Date(slipData.periodEnd).getTime() - new Date(slipData.periodStart).getTime()) / (1000 * 3600 * 24)) + 1;
-    const presentDays = new Set(attendanceRecords.filter(r => ['present', 'approved', 'partially_present'].includes(r.status)).map(r => r.workDate)).size;
+    const presentDays = new Set(attendanceRecords.filter(r => ['present', 'approved', 'partially_present'].includes(r.status)).map(r => r.workDateStr)).size;
 
     const attendanceSummary = {
         totalDays: totalDaysInPeriod,
@@ -770,7 +775,7 @@ async function getFullSlipDetails(slipData: SalarySlip, db: Firestore): Promise<
 }
 
 
-export async function getSalarySlipData(slipId: string, userId: string): Promise<{ slip: SalarySlip; employee: EmployeeProfile; store: Store; attendance: any } | null> {
+export async function getSalarySlipData(slipId: string, userId: string): Promise<{ slip: SalarySlip; employee: EmployeeProfile & User; store: Store; attendance: any } | null> {
     const { db } = await getAdminServices();
 
     try {
@@ -959,8 +964,6 @@ export async function approveRegularization(recordId: string, storeId: string, i
     const updateData: Partial<AttendanceRecord> = {
         status: newStatus,
         reasonHistory: updatedReasonHistory,
-        employeeId: record.employeeId, // Preserve identity field
-        storeId: record.storeId,     // Preserve identity field
     };
     
     if (isApproved && record.workHours === 0) {
