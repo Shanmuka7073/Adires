@@ -276,10 +276,10 @@ export default function SalaryReportsPage() {
 
             const end = new Date(dateRange.to);
             end.setHours(23, 59, 59, 999);
-
+            
             const startTimestamp = Timestamp.fromDate(start);
             const endTimestamp = Timestamp.fromDate(end);
-            
+
             const q = query(
               collection(firestore, `stores/${myStore.id}/attendance`),
               where('employeeId', '==', selectedEmployeeId),
@@ -312,7 +312,7 @@ export default function SalaryReportsPage() {
         const uniqueDates = new Set<string>();
         const presentOrApprovedRecords = attendanceRecords.filter(r => {
             const isCountable = (r.status === 'present' || r.status === 'approved' || r.status === 'partially_present');
-            const workDateStr = r.workDate instanceof Timestamp ? r.workDate.toDate().toISOString().split('T')[0] : r.workDate.split('T')[0];
+            const workDateStr = r.workDate instanceof Timestamp ? r.workDate.toDate().toISOString().split('T')[0] : new Date(r.workDate).toISOString().split('T')[0];
             if (isCountable && !uniqueDates.has(workDateStr)) {
                 uniqueDates.add(workDateStr);
                 return true;
