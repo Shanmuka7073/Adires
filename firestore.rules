@@ -149,7 +149,7 @@ service cloud.firestore {
           isManager(resource.data.employeeId, storeId)
         );
 
-      // LIST / QUERY
+      // LIST / QUERY (collection, NOT collectionGroup)
       allow list: if
         isSignedIn() &&
         (

@@ -2,10 +2,10 @@
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
-import { Timestamp, FieldValue, Firestore, DocumentReference, doc, getDoc, collection, query, where, getDocs, writeBatch, createUser, initializeApp, deleteApp } from 'firebase-admin/firestore';
+import { Timestamp, FieldValue, Firestore, DocumentReference, doc, getDoc, collection, query, where, getDocs, writeBatch, createUser, initializeApp, deleteApp, updateDoc, serverTimestamp, setDoc } from 'firebase-admin/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient, EmployeeProfile, SalarySlip, Store, AttendanceRecord, ReasonEntry, User } from '@/lib/types';
+import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient, EmployeeProfile, SalarySlip, Store, AttendanceRecord, ReasonEntry, User, CartItem } from '@/lib/types';
 import { headers } from 'next/headers';
 import { getApp, getApps } from 'firebase-admin/app';
 import * as pdfjs from 'pdfjs-dist';
@@ -936,101 +936,7 @@ export async function processPdfAndExtractRules(formData: FormData): Promise<{ s
     }
 }
 
-export async function placeRestaurantOrder(cartItems: CartItem[], cartTotal: number, guestInfo: {name: string, phone: string, tableNumber: string}, idToken: string): Promise<{ success: boolean, orderId?: string, error?: string }> {
-    const { auth, db } = await getAdminServices();
-    
-    try {
-        const decodedToken = await auth.verifyIdToken(idToken);
-        const userId = decodedToken.uid;
-        
-        const storeId = cartItems[0]?.product.storeId;
-        if (!storeId) {
-            throw new Error("Cannot place order: store ID is missing from cart items.");
-        }
-
-        const orderRef = doc(collection(db, 'orders'));
-        const orderData = {
-            id: orderRef.id,
-            userId,
-            storeId,
-            customerName: guestInfo.name,
-            phone: guestInfo.phone,
-            tableNumber: guestInfo.tableNumber,
-            totalAmount: cartTotal,
-            status: 'Pending' as 'Pending',
-            orderDate: serverTimestamp(),
-            items: cartItems.map(item => ({
-                productId: item.product.id,
-                productName: item.product.name,
-                variantSku: item.variant.sku,
-                variantWeight: item.variant.weight,
-                quantity: item.quantity,
-                price: item.variant.price,
-            })),
-        };
-
-        await setDoc(orderRef, orderData);
-
-        return { success: true, orderId: orderRef.id };
-    } catch (error: any) {
-        console.error('Error placing restaurant order:', error);
-        return { success: false, error: error.message };
-    }
-}
-
-export async function bulkUploadRecipes(csvText: string): Promise<{ success: boolean; count?: number; error?: string; }> {
-    if (!csvText) {
-        return { success: false, error: 'CSV text cannot be empty.' };
-    }
-
-    try {
-        const { db } = await getAdminServices();
-        const batch = db.batch();
-        const rows = csvText.split('\n').slice(1);
-        let processedCount = 0;
-
-        for (const row of rows) {
-            if (!row.trim()) continue;
-            
-            const [dishName, ingredientsStr] = row.split(',').map(s => s.trim());
-            
-            if (!dishName || !ingredientsStr) {
-                console.warn(`Skipping invalid recipe row: ${row}`);
-                continue;
-            }
-
-            const ingredients = ingredientsStr.split('|').map(name => ({ name: name.trim(), quantity: 'as needed', baseQuantity: 1, unit: 'pcs' }));
-            
-            const docId = `${createSlug(dishName)}_en`; // Assuming English for now
-            const recipeRef = db.collection('cachedRecipes').doc(docId);
-            
-            const recipeData: CachedRecipe = {
-                id: docId,
-                dishName,
-                ingredients,
-                instructions: [], // Not provided in this simple CSV
-                nutrition: { calories: 0, protein: 0 },
-                createdAt: FieldValue.serverTimestamp(),
-            };
-
-            batch.set(recipeRef, recipeData, { merge: true });
-            processedCount++;
-        }
-
-        if (processedCount > 0) {
-            await batch.commit();
-        }
-
-        return { success: true, count: processedCount };
-
-    } catch (error: any) {
-        console.error('Recipe bulk upload failed:', error);
-        return { success: false, error: error.message || 'An unknown server error occurred.' };
-    }
-}
-
-
-export async function approveRegularization(recordId: string, storeId: string, rejectionReason?: string, isApproved: boolean = true) {
+export async function approveRegularization(recordId: string, storeId: string, isApproved: boolean, rejectionReason?: string) {
     const { db } = await getAdminServices();
     const recordRef = doc(db, 'stores', storeId, 'attendance', recordId);
 
@@ -1053,6 +959,8 @@ export async function approveRegularization(recordId: string, storeId: string, r
     const updateData: Partial<AttendanceRecord> = {
         status: newStatus,
         reasonHistory: updatedReasonHistory,
+        employeeId: record.employeeId, // Preserve identity field
+        storeId: record.storeId,     // Preserve identity field
     };
     
     if (isApproved && record.workHours === 0) {
@@ -1063,5 +971,7 @@ export async function approveRegularization(recordId: string, storeId: string, r
 }
 
 export async function rejectRegularization(recordId: string, storeId: string, reason: string) {
-    return await approveRegularization(recordId, storeId, reason, false);
+    return await approveRegularization(recordId, storeId, false, reason);
 }
+
+    
