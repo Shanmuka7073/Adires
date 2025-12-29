@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useTransition, useCallback } from 'react';
@@ -184,7 +183,8 @@ export default function EmployeeAttendancePage() {
 
     const q = query(
       collection(firestore, `stores/${storeId}/attendance`),
-      where('employeeId', '==', user.uid)
+      where('employeeId', '==', user.uid),
+      orderBy('workDate', 'desc')
     );
 
     const unsubscribe = onSnapshot(
@@ -199,7 +199,7 @@ export default function EmployeeAttendancePage() {
         setRecordsLoading(false);
       },
       (error) => {
-        console.error('ATTENDANCE FETCH FAILED (Employee)', { employeeId: user.uid, storeId, error });
+        console.error('ATTENDANCE FETCH FAILED (Employee)', { employeeId: user.uid, storeId, error: error });
         toast({
             variant: 'destructive',
             title: 'Permission Denied',
@@ -457,4 +457,3 @@ export default function EmployeeAttendancePage() {
     </div>
   );
 }
-    

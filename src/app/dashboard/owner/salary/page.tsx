@@ -1,10 +1,9 @@
-
 'use client';
 
 import { useState, useMemo, useTransition, useCallback, useEffect } from 'react';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
 import { collection, query, where, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc, getDocs, orderBy, Timestamp } from 'firebase/firestore';
-import type { Store, EmployeeProfile, AttendanceRecord, SalarySlip, ReasonEntry } from '@/lib/types';
+import type { Store, EmployeeProfile, AttendanceRecord, SalarySlip, ReasonEntry, User } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -25,6 +24,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { generateSalarySlipDoc } from '@/lib/generateSalarySlipDoc';
+import { getAdminServices } from '@/firebase/admin-init';
 
 
 function ApprovalRequests({ storeId }: { storeId: string }) {
@@ -80,11 +80,9 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
             }
 
             try {
-              // Ensure critical fields are not accidentally removed on update
+              // Explicitly include identifiers to prevent issues if `updateData` is incomplete
               await updateDoc(recordRef, {
-                  ...updateData,
-                  employeeId: record.employeeId,
-                  storeId: record.storeId,
+                  ...updateData
               });
               toast({ title: 'Request Updated', description: `The attendance request has been ${newStatus}.` });
               if (refetch) refetch();
@@ -387,17 +385,26 @@ export default function SalaryReportsPage() {
                 await setDoc(slipRef, { ...slipData, id: slipId, generatedAt: serverTimestamp() }, { merge: true });
                 toast({ title: 'Salary Slip Stored!', description: `A slip for ${selectedEmployee.role} has been saved.` });
                 
+                // Fetch full user details for the doc generation
+                const userDocRef = doc(firestore, 'users', selectedEmployee.userId);
+                const userDoc = await getDoc(userDocRef);
+
+                if (!userDoc.exists()) {
+                    throw new Error("Could not find user details for DOCX generation.");
+                }
+                const fullEmployeeProfile = { ...userDoc.data(), ...selectedEmployee } as EmployeeProfile & User;
+                
                 await generateSalarySlipDoc({
                     companyName: myStore.name,
                     payslipNo: `PSL-${slipId.slice(0,8)}`,
-                    employeeName: `${selectedEmployee.firstName} ${selectedEmployee.lastName}`,
-                    employeeId: selectedEmployee.employeeId,
-                    designation: selectedEmployee.role,
+                    employeeName: `${fullEmployeeProfile.firstName} ${fullEmployeeProfile.lastName}`,
+                    employeeId: fullEmployeeProfile.employeeId,
+                    designation: fullEmployeeProfile.role,
                     payPeriod: format(dateRange.from!, 'MMMM yyyy'),
                     totalHours: reportData.totalHours,
                     baseSalary: reportData.baseSalary,
-                    pf: 500, // Placeholder
-                    esi: 200, // Placeholder
+                    pf: 0, // Placeholder, can be calculated later
+                    esi: 0, // Placeholder
                     netPay: reportData.netPay,
                 });
             } catch (error: any) {
@@ -518,4 +525,3 @@ export default function SalaryReportsPage() {
         </div>
     );
 }
-

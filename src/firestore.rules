@@ -149,12 +149,11 @@ service cloud.firestore {
         );
 
       // LIST / QUERY (collection, NOT collectionGroup)
-      // This is the critical fix. The previous rule was incorrect.
       allow list: if
         isSignedIn() &&
         (
           isStoreOwner(storeId)
-          || (request.query.limit <= 31 && request.query.where('employeeId', '==', request.auth.uid))
+          || request.query.where('employeeId', '==', request.auth.uid)
         );
         
       allow create: if
