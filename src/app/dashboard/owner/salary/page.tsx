@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useTransition, useCallback, useEffect } from 'react';
@@ -274,11 +275,8 @@ export default function SalaryReportsPage() {
         }
         setAttendanceLoading(true);
         try {
-            const start = new Date(dateRange.from);
-            start.setHours(0, 0, 0, 0);
-
-            const end = new Date(dateRange.to);
-            end.setHours(23, 59, 59, 999);
+            const start = startOfDay(dateRange.from);
+            const end = endOfMonth(dateRange.to); // Ensure we get the full month
             
             const startTimestamp = Timestamp.fromDate(start);
             const endTimestamp = Timestamp.fromDate(end);
@@ -291,7 +289,6 @@ export default function SalaryReportsPage() {
               orderBy('workDate', 'desc')
             );
             const querySnapshot = await getDocs(q);
-             console.log('ATTENDANCE FETCH SUCCESS (Owner)', { count: querySnapshot.size, employeeId: selectedEmployeeId, storeId: myStore.id });
             const records = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
             setAttendanceRecords(records);
         } catch (error) {
@@ -304,7 +301,7 @@ export default function SalaryReportsPage() {
     }, [myStore, selectedEmployeeId, dateRange, firestore, toast]);
 
     useEffect(() => {
-        if (selectedEmployeeId) {
+        if (selectedEmployeeId && dateRange?.from && dateRange?.to) {
             fetchAttendance();
         }
     }, [selectedEmployeeId, dateRange, fetchAttendance]);
@@ -315,8 +312,8 @@ export default function SalaryReportsPage() {
 
         const uniqueDates = new Set<string>();
         const presentOrApprovedRecords = attendanceRecords.filter(r => {
+            const workDateStr = r.workDate instanceof Timestamp ? r.workDate.toDate().toISOString().split('T')[0] : new Date(r.workDate).toISOString().split('T')[0];
             const isCountable = (r.status === 'present' || r.status === 'approved' || r.status === 'partially_present');
-            const workDateStr = r.workDateStr;
             if (isCountable && !uniqueDates.has(workDateStr)) {
                 uniqueDates.add(workDateStr);
                 return true;
@@ -362,7 +359,7 @@ export default function SalaryReportsPage() {
     }, [attendanceRecords, selectedEmployee, dateRange]);
 
     const handleGenerateSlip = async () => {
-        if (!myStore || !selectedEmployee || !reportData || !dateRange?.from) {
+        if (!myStore || !selectedEmployee || !reportData || !dateRange?.from || !dateRange.to) {
             toast({ variant: 'destructive', title: 'Cannot Generate', description: 'Missing required data.' });
             return;
         }
@@ -388,11 +385,12 @@ export default function SalaryReportsPage() {
                 // Fetch full user details for the doc generation
                 const userDocRef = doc(firestore, 'users', selectedEmployee.userId);
                 const userDoc = await getDoc(userDocRef);
-
-                if (!userDoc.exists()) {
+                const userData = userDoc.data() as User;
+                
+                if (!userData) {
                     throw new Error("Could not find user details for DOCX generation.");
                 }
-                const fullEmployeeProfile = { ...userDoc.data(), ...selectedEmployee } as EmployeeProfile & User;
+                const fullEmployeeProfile = { ...userData, ...selectedEmployee };
                 
                 await generateSalarySlipDoc({
                     companyName: myStore.name,
@@ -489,7 +487,7 @@ export default function SalaryReportsPage() {
                                         <TableBody>
                                             {reportData.records.map(rec => (
                                                 <TableRow key={rec.id}>
-                                                    <TableCell>{format(rec.workDate instanceof Timestamp ? rec.workDate.toDate() : new Date(rec.workDate), 'PPP')}</TableCell>
+                                                    <TableCell>{rec.workDate instanceof Timestamp ? format(rec.workDate.toDate(), 'PPP') : 'Invalid Date'}</TableCell>
                                                     <TableCell>{rec.punchInTime ? format(rec.punchInTime instanceof Timestamp ? rec.punchInTime.toDate() : new Date(rec.punchInTime), 'p') : '—'}</TableCell>
                                                     <TableCell>{rec.punchOutTime ? format(rec.punchOutTime instanceof Timestamp ? rec.punchOutTime.toDate() : new Date(rec.punchOutTime), 'p') : '—'}</TableCell>
                                                     <TableCell>{rec.workHours > 0 ? rec.workHours.toFixed(2) : '-'}</TableCell>
