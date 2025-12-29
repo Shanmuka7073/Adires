@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useTransition, useCallback, useEffect } from 'react';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
-import { collection, query, where, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, query, where, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc, getDocs, orderBy, Timestamp, getDoc } from 'firebase/firestore';
 import type { Store, EmployeeProfile, AttendanceRecord, SalarySlip, ReasonEntry, User } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { generateSalarySlipDoc } from '@/lib/generateSalarySlipDoc';
-import { getAdminServices } from '@/firebase/admin-init';
 
 
 function ApprovalRequests({ storeId }: { storeId: string }) {
@@ -359,7 +358,7 @@ export default function SalaryReportsPage() {
     }, [attendanceRecords, selectedEmployee, dateRange]);
 
     const handleGenerateSlip = async () => {
-        if (!myStore || !selectedEmployee || !reportData || !dateRange?.from || !dateRange.to) {
+        if (!myStore || !selectedEmployee || !reportData || !dateRange?.from || !dateRange.to || !firestore) {
             toast({ variant: 'destructive', title: 'Cannot Generate', description: 'Missing required data.' });
             return;
         }
