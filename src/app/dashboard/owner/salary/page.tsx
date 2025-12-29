@@ -47,8 +47,7 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
 
     const toDateSafe = (d: any): Date => d instanceof Timestamp ? d.toDate() : new Date(d);
 
-    const handleApproval = async (isApproved: boolean) => {
-        if (!selectedRequest) return;
+    const handleApproval = async (request: AttendanceRecord, isApproved: boolean) => {
         if (!isApproved && !rejectionReason.trim()) {
             toast({ variant: "destructive", title: "Reason Required", description: "Please provide a reason for rejection." });
             return;
@@ -56,8 +55,8 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
 
         startUpdate(async () => {
             const actionPromise = isApproved
-                ? approveRegularization(selectedRequest.id, storeId, true)
-                : rejectRegularization(selectedRequest.id, storeId, rejectionReason);
+                ? approveRegularization(request.id, storeId, true)
+                : rejectRegularization(request.id, storeId, rejectionReason);
             
             try {
                 await actionPromise;
@@ -101,7 +100,7 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setSelectedRequest(null)}>Cancel</Button>
-                        <Button variant="destructive" onClick={() => handleApproval(false)} disabled={isUpdating || !rejectionReason.trim()}>
+                        <Button variant="destructive" onClick={() => handleApproval(selectedRequest!, false)} disabled={isUpdating || !rejectionReason.trim()}>
                             {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                             Confirm Rejection
                         </Button>
