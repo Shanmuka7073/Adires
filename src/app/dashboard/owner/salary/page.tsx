@@ -381,27 +381,27 @@ export default function SalaryReportsPage() {
                 const slipRef = doc(firestore, `stores/${myStore.id}/salarySlips`, slipId);
                 await setDoc(slipRef, { ...slipData, id: slipId, generatedAt: serverTimestamp() }, { merge: true });
                 toast({ title: 'Salary Slip Stored!', description: `A slip for ${selectedEmployee.role} has been saved.` });
-                
-                // Fetch full user details for the doc generation
-                const fullSlipDetails = await getSalarySlipData(slipId, user.uid);
-                
-                if (fullSlipDetails) {
-                    await generateSalarySlipDoc({
-                        companyName: fullSlipDetails.store.name,
-                        payslipNo: `PSL-${slipId.slice(0,8)}`,
-                        employeeName: `${fullSlipDetails.employee.firstName} ${fullSlipDetails.employee.lastName}`,
-                        employeeId: fullSlipDetails.employee.employeeId,
-                        designation: fullSlipDetails.employee.role,
-                        payPeriod: format(new Date(fullSlipDetails.slip.periodStart), 'MMMM yyyy'),
-                        totalHours: reportData.totalHours,
-                        baseSalary: reportData.baseSalary,
-                        pf: 0, // Placeholder
-                        esi: 0, // Placeholder
-                        netPay: reportData.netPay,
-                    });
-                } else {
-                    throw new Error("Could not retrieve full slip details for DOCX generation.");
+
+                const userDoc = await getDoc(doc(firestore, 'users', selectedEmployee.userId));
+                if (!userDoc.exists()) {
+                    throw new Error("Could not find employee's user data.");
                 }
+                const employeeUserData = userDoc.data() as User;
+
+                await generateSalarySlipDoc({
+                    companyName: myStore.name,
+                    payslipNo: `PSL-${slipId.slice(0,8)}`,
+                    employeeName: `${employeeUserData.firstName} ${employeeUserData.lastName}`,
+                    employeeId: selectedEmployee.employeeId,
+                    designation: selectedEmployee.role,
+                    payPeriod: format(new Date(slipData.periodStart), 'MMMM yyyy'),
+                    totalHours: reportData.totalHours,
+                    baseSalary: reportData.baseSalary,
+                    pf: 0,
+                    esi: 0,
+                    netPay: reportData.netPay,
+                });
+
             } catch (error: any) {
                 console.error("Failed to generate salary slip:", error);
                 toast({ variant: 'destructive', title: 'Error', description: error.message });
@@ -521,3 +521,4 @@ export default function SalaryReportsPage() {
     );
 }
 
+    
