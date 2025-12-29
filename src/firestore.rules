@@ -129,46 +129,49 @@ service cloud.firestore {
     }
 
     /* ======================
-       ATTENDANCE (FINAL)
+       ATTENDANCE (FINAL - WORKING)
        ====================== */
-    
+
     match /stores/{storeId}/attendance/{recordId} {
-        
-      // READ single doc
-      allow get: if
+
+      // EMPLOYEE: read own attendance (list + get)
+      allow list, get: if
         isSignedIn() &&
         (
-          // employee can read own record
           resource.data.employeeId == request.auth.uid
-          ||
-          // store owner can read any record of their store
-          isStoreOwner(storeId)
-          ||
-          // manager can read their employees
-          isManager(resource.data.employeeId, storeId)
+          || isStoreOwner(storeId)
+          || isManager(resource.data.employeeId, storeId)
         );
 
-      // LIST / QUERY (collection, NOT collectionGroup)
-      allow list: if
-        isSignedIn() &&
-        (
-          isStoreOwner(storeId)
-          || request.query.where('employeeId', '==', request.auth.uid)
-        );
-        
+      // CREATE (employee punches in)
       allow create: if
         isSignedIn() &&
         request.resource.data.employeeId == request.auth.uid &&
         request.resource.data.storeId == storeId;
 
+      // UPDATE
       allow update: if
         isSignedIn() &&
         (
-          isManager(resource.data.employeeId, storeId)
-          || (
+          // 1. Employee punch-out (same day)
+          (
             resource.data.employeeId == request.auth.uid &&
             resource.data.punchOutTime == null
           )
+          ||
+          // 2. Employee regularization request (after punch-out)
+          (
+            resource.data.employeeId == request.auth.uid &&
+            request.resource.data.diff(resource.data).changedKeys()
+              .hasOnly([
+                'reasonHistory',
+                'status',
+                'updatedAt'
+              ])
+          )
+          ||
+          // 3. Manager / Owner approval
+          isManager(resource.data.employeeId, storeId)
         );
 
       allow delete: if false;
@@ -294,3 +297,4 @@ service cloud.firestore {
     }
   }
 }
+    

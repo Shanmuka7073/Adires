@@ -137,12 +137,11 @@ service cloud.firestore {
       // EMPLOYEE: read own attendance (list + get)
       allow list, get: if
         isSignedIn() &&
-        resource.data.employeeId == request.auth.uid;
-
-      // OWNER / MANAGER: full access
-      allow list, get: if
-        isStoreOwner(storeId) ||
-        isManager(resource.data.employeeId, storeId);
+        (
+          resource.data.employeeId == request.auth.uid
+          || isStoreOwner(storeId)
+          || isManager(resource.data.employeeId, storeId)
+        );
 
       // CREATE (employee punches in)
       allow create: if
@@ -154,11 +153,24 @@ service cloud.firestore {
       allow update: if
         isSignedIn() &&
         (
-          // employee punch-out
-          (resource.data.employeeId == request.auth.uid &&
-           resource.data.punchOutTime == null)
+          // 1. Employee punch-out (same day)
+          (
+            resource.data.employeeId == request.auth.uid &&
+            resource.data.punchOutTime == null
+          )
           ||
-          // owner / manager approval
+          // 2. Employee regularization request (after punch-out)
+          (
+            resource.data.employeeId == request.auth.uid &&
+            request.resource.data.diff(resource.data).changedKeys()
+              .hasOnly([
+                'reasonHistory',
+                'status',
+                'updatedAt'
+              ])
+          )
+          ||
+          // 3. Manager / Owner approval
           isManager(resource.data.employeeId, storeId)
         );
 
@@ -285,3 +297,4 @@ service cloud.firestore {
     }
   }
 }
+    
