@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useTransition, useCallback, useEffect } from 'react';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
-import { collection, query, where, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, query, where, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc, getDocs, getDoc, orderBy, Timestamp } from 'firebase/firestore';
 import type { Store, EmployeeProfile, AttendanceRecord, SalarySlip, ReasonEntry, User } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,13 +25,15 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { generateSalarySlipDoc } from '@/lib/generateSalarySlipDoc';
-import { getSalarySlipData } from '@/app/actions';
+import { approveRegularization, rejectRegularization } from '@/app/actions';
 
 
 function ApprovalRequests({ storeId }: { storeId: string }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isUpdating, startUpdate] = useTransition();
+    const [rejectionReason, setRejectionReason] = useState("");
+    const [selectedRequest, setSelectedRequest] = useState<AttendanceRecord | null>(null);
 
     const requestsQuery = useMemoFirebase(() => {
         if (!firestore || !storeId) return null;
@@ -45,81 +47,27 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
 
     const toDateSafe = (d: any): Date => d instanceof Timestamp ? d.toDate() : new Date(d);
 
-    const handleApproval = async (record: AttendanceRecord, isApproved: boolean) => {
-        if (!firestore || !storeId) return;
-
-        let rejectionReason = "";
-        if (!isApproved) {
-            rejectionReason = prompt("Please provide a reason for rejection:") || "Rejected without reason.";
+    const handleApproval = async (isApproved: boolean) => {
+        if (!selectedRequest) return;
+        if (!isApproved && !rejectionReason.trim()) {
+            toast({ variant: "destructive", title: "Reason Required", description: "Please provide a reason for rejection." });
+            return;
         }
-        
+
         startUpdate(async () => {
-            const newStatus = isApproved ? 'approved' : 'rejected';
-            const recordRef = doc(firestore, `stores/${storeId}/attendance`, record.id);
+            const actionPromise = isApproved
+                ? approveRegularization(selectedRequest.id, storeId, true)
+                : rejectRegularization(selectedRequest.id, storeId, rejectionReason);
             
-            const lastReasonIndex = (record.reasonHistory?.length || 0) - 1;
-            const updatedReasonHistory = record.reasonHistory ? [...record.reasonHistory] : [];
-
-            if (lastReasonIndex >= 0) {
-                updatedReasonHistory[lastReasonIndex] = {
-                    ...updatedReasonHistory[lastReasonIndex],
-                    status: newStatus,
-                    rejectionReason: !isApproved ? rejectionReason : undefined,
-                };
-            }
-
-            const updateData: Partial<AttendanceRecord> = { 
-                status: newStatus,
-                rejectionCount: newStatus === 'rejected' ? (record.rejectionCount || 0) + 1 : record.rejectionCount,
-                reasonHistory: updatedReasonHistory,
-            };
-
-            if (isApproved) {
-                updateData.workHours = record.workHours > 0 ? record.workHours : 8; // Grant 8 hours if it was a missed day
-            } else {
-                updateData.workHours = 0;
-            }
-
             try {
-              // Explicitly include identifiers to prevent issues if `updateData` is incomplete
-              await updateDoc(recordRef, {
-                  ...updateData
-              });
-              toast({ title: 'Request Updated', description: `The attendance request has been ${newStatus}.` });
-              if (refetch) refetch();
-            } catch(error) {
-              const permissionError = new FirestorePermissionError({
-                  path: recordRef.path,
-                  operation: 'update',
-                  requestResourceData: updateData,
-              });
-              errorEmitter.emit('permission-error', permissionError);
-            }
-        });
-    };
-
-    const handleApproveAll = () => {
-        if (!firestore || !requests || requests.length === 0) return;
-        
-        startUpdate(async () => {
-            const batch = writeBatch(firestore);
-            requests.forEach(req => {
-                const recordRef = doc(firestore, `stores/${storeId}/attendance`, req.id);
-                batch.update(recordRef, { status: 'approved', workHours: 8 });
-            });
-
-            try {
-              await batch.commit();
-              toast({ title: 'All Requests Approved', description: `${requests.length} requests have been approved.` });
-              if (refetch) refetch();
-            } catch(error) {
-              const firstReq = requests[0];
-              const permissionError = new FirestorePermissionError({
-                  path: `stores/${storeId}/attendance/${firstReq.id}`,
-                  operation: 'update',
-                  requestResourceData: { status: 'approved', workHours: 8 },
-              });
-              errorEmitter.emit('permission-error', permissionError);
+                await actionPromise;
+                toast({ title: 'Request Updated', description: `The attendance request has been ${isApproved ? 'approved' : 'rejected'}.` });
+                setSelectedRequest(null);
+                setRejectionReason("");
+                if (refetch) refetch();
+            } catch (error) {
+                console.error("Failed to update request:", error);
+                toast({ variant: "destructive", title: "Update Failed", description: (error as Error).message });
             }
         });
     };
@@ -140,49 +88,67 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
     }
 
     return (
-        <Card className="border-amber-400 bg-amber-50">
-            <CardHeader>
-                <div className="flex justify-between items-center">
-                    <div>
-                        <CardTitle className="text-amber-900">Attendance Approval Requests</CardTitle>
-                        <CardDescription className="text-amber-800">Review and approve or reject missed punch-in requests from your employees.</CardDescription>
+        <>
+            <Dialog open={!!selectedRequest && selectedRequest.status === 'pending_approval'} onOpenChange={(isOpen) => !isOpen && setSelectedRequest(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Reject Regularization Request</DialogTitle>
+                        <DialogDescription>Please provide a reason for rejecting this request. This will be visible to the employee.</DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <Label htmlFor="rejection-reason">Rejection Reason</Label>
+                        <Textarea id="rejection-reason" value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} />
                     </div>
-                     <Button size="sm" onClick={handleApproveAll} disabled={isUpdating}>
-                        <CheckCircle className="mr-2 h-4 w-4" />
-                        Approve All ({requests.length})
-                    </Button>
-                </div>
-            </CardHeader>
-            <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Employee</TableHead>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Reason</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {requests.map(req => (
-                            <TableRow key={req.id}>
-                                <TableCell className="font-mono">{req.employeeId.slice(0, 8)}...</TableCell>
-                                <TableCell>{format(toDateSafe(req.workDate), 'PPP')}</TableCell>
-                                <TableCell className="text-sm italic text-muted-foreground">{req.reasonHistory && req.reasonHistory.length > 0 ? req.reasonHistory[req.reasonHistory.length - 1].text : "No reason given"}</TableCell>
-                                <TableCell className="text-right space-x-2">
-                                    <Button size="sm" variant="ghost" onClick={() => handleApproval(req, false)} disabled={isUpdating}>
-                                        <XCircle className="mr-2 h-4 w-4 text-destructive" /> Reject
-                                    </Button>
-                                    <Button size="sm" onClick={() => handleApproval(req, true)} disabled={isUpdating}>
-                                        <CheckCircle className="mr-2 h-4 w-4" /> Approve
-                                    </Button>
-                                </TableCell>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setSelectedRequest(null)}>Cancel</Button>
+                        <Button variant="destructive" onClick={() => handleApproval(false)} disabled={isUpdating || !rejectionReason.trim()}>
+                            {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                            Confirm Rejection
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Card className="border-amber-400 bg-amber-50">
+                <CardHeader>
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <CardTitle className="text-amber-900">Attendance Approval Requests</CardTitle>
+                            <CardDescription className="text-amber-800">Review and approve or reject missed punch-in requests from your employees.</CardDescription>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Employee</TableHead>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Reason</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
+                        </TableHeader>
+                        <TableBody>
+                            {requests.map(req => (
+                                <TableRow key={req.id}>
+                                    <TableCell className="font-mono">{req.employeeId.slice(0, 8)}...</TableCell>
+                                    <TableCell>{format(toDateSafe(req.workDate), 'PPP')}</TableCell>
+                                    <TableCell className="text-sm italic text-muted-foreground">{req.reasonHistory && req.reasonHistory.length > 0 ? req.reasonHistory[req.reasonHistory.length - 1].text : "No reason given"}</TableCell>
+                                    <TableCell className="text-right space-x-2">
+                                        <Button size="sm" variant="ghost" onClick={() => setSelectedRequest(req)} disabled={isUpdating}>
+                                            <XCircle className="mr-2 h-4 w-4 text-destructive" /> Reject
+                                        </Button>
+                                        <Button size="sm" onClick={() => handleApproval(req, true)} disabled={isUpdating}>
+                                            <CheckCircle className="mr-2 h-4 w-4" /> Approve
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        </>
     );
 }
 
@@ -357,9 +323,9 @@ export default function SalaryReportsPage() {
             absentDays: totalDaysInPeriod - uniqueDates.size,
         };
     }, [attendanceRecords, selectedEmployee, dateRange]);
-
+    
     const handleGenerateSlip = async () => {
-        if (!myStore || !selectedEmployee || !reportData || !dateRange?.from || !dateRange.to || !firestore || !user) {
+        if (!myStore || !selectedEmployee || !reportData || !dateRange?.from || !dateRange.to || !firestore) {
             toast({ variant: 'destructive', title: 'Cannot Generate', description: 'Missing required data.' });
             return;
         }
@@ -378,16 +344,19 @@ export default function SalaryReportsPage() {
             };
 
             try {
+                // First, save the slip data to Firestore
                 const slipRef = doc(firestore, `stores/${myStore.id}/salarySlips`, slipId);
                 await setDoc(slipRef, { ...slipData, id: slipId, generatedAt: serverTimestamp() }, { merge: true });
                 toast({ title: 'Salary Slip Stored!', description: `A slip for ${selectedEmployee.role} has been saved.` });
-
+                
+                // Now, fetch the full user data for the DOCX generation
                 const userDoc = await getDoc(doc(firestore, 'users', selectedEmployee.userId));
                 if (!userDoc.exists()) {
-                    throw new Error("Could not find employee's user data.");
+                    throw new Error("Could not retrieve full employee details for DOCX generation.");
                 }
                 const employeeUserData = userDoc.data() as User;
-
+                
+                // Finally, generate the document with all the required data.
                 await generateSalarySlipDoc({
                     companyName: myStore.name,
                     payslipNo: `PSL-${slipId.slice(0,8)}`,
@@ -520,5 +489,3 @@ export default function SalaryReportsPage() {
         </div>
     );
 }
-
-    
