@@ -2,7 +2,7 @@
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
-import { Timestamp, FieldValue, Firestore, DocumentReference, doc, getDoc, collection, query, where, getDocs, writeBatch, createUser, initializeApp, deleteApp, updateDoc, serverTimestamp, setDoc } from 'firebase-admin/firestore';
+import { Timestamp, FieldValue, Firestore, DocumentReference } from 'firebase-admin/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
 import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient, EmployeeProfile, SalarySlip, Store, AttendanceRecord, ReasonEntry, User, CartItem } from '@/lib/types';
@@ -942,10 +942,10 @@ export async function processPdfAndExtractRules(formData: FormData): Promise<{ s
 
 export async function approveRegularization(recordId: string, storeId: string, isApproved: boolean, rejectionReason?: string) {
     const { db } = await getAdminServices();
-    const recordRef = doc(db, 'stores', storeId, 'attendance', recordId);
+    const recordRef = db.doc(`stores/${storeId}/attendance/${recordId}`);
 
     const recordSnap = await recordRef.get();
-    if (!recordSnap.exists()) {
+    if (!recordSnap.exists) {
         throw new Error("Attendance record not found.");
     }
     const record = recordSnap.data() as AttendanceRecord;
@@ -969,11 +969,9 @@ export async function approveRegularization(recordId: string, storeId: string, i
         updateData.workHours = 8;
     }
 
-    await updateDoc(recordRef, updateData);
+    await recordRef.update(updateData);
 }
 
 export async function rejectRegularization(recordId: string, storeId: string, reason: string) {
     return await approveRegularization(recordId, storeId, false, reason);
 }
-
-    
