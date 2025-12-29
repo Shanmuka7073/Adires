@@ -129,46 +129,37 @@ service cloud.firestore {
     }
 
     /* ======================
-       ATTENDANCE (FINAL)
+       ATTENDANCE (FINAL - WORKING)
        ====================== */
-    
-    match /stores/{storeId}/attendance/{recordId} {
-        
-      // READ single doc
-      allow get: if
-        isSignedIn() &&
-        (
-          // employee can read own record
-          resource.data.employeeId == request.auth.uid
-          ||
-          // store owner can read any record of their store
-          isStoreOwner(storeId)
-          ||
-          // manager can read their employees
-          isManager(resource.data.employeeId, storeId)
-        );
 
-      // LIST / QUERY (collection, NOT collectionGroup)
-      allow list: if
+    match /stores/{storeId}/attendance/{recordId} {
+
+      // EMPLOYEE: read own attendance (list + get)
+      allow list, get: if
         isSignedIn() &&
-        (
-          isStoreOwner(storeId)
-          || request.query.where('employeeId', '==', request.auth.uid)
-        );
-        
+        resource.data.employeeId == request.auth.uid;
+
+      // OWNER / MANAGER: full access
+      allow list, get: if
+        isStoreOwner(storeId) ||
+        isManager(resource.data.employeeId, storeId);
+
+      // CREATE (employee punches in)
       allow create: if
         isSignedIn() &&
         request.resource.data.employeeId == request.auth.uid &&
         request.resource.data.storeId == storeId;
 
+      // UPDATE
       allow update: if
         isSignedIn() &&
         (
+          // employee punch-out
+          (resource.data.employeeId == request.auth.uid &&
+           resource.data.punchOutTime == null)
+          ||
+          // owner / manager approval
           isManager(resource.data.employeeId, storeId)
-          || (
-            resource.data.employeeId == request.auth.uid &&
-            resource.data.punchOutTime == null
-          )
         );
 
       allow delete: if false;
