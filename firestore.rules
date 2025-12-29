@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -43,7 +44,10 @@ service cloud.firestore {
        ====================== */
 
     match /users/{userId} {
-      allow get, update, delete: if isOwner(userId);
+      allow get, update, delete: if
+        isOwner(userId)
+        || isStoreOwner(resource.data.storeId);
+        
       allow list: if isAdmin();
 
       allow create: if
@@ -135,7 +139,7 @@ service cloud.firestore {
     match /stores/{storeId}/attendance/{recordId} {
 
       // EMPLOYEE: read own attendance (list + get)
-      allow list, get: if
+      allow get, list: if
         isSignedIn() &&
         (
           resource.data.employeeId == request.auth.uid

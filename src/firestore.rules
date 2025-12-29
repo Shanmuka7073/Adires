@@ -44,9 +44,11 @@ service cloud.firestore {
        ====================== */
 
     match /users/{userId} {
-      allow get: if isOwner(userId) || isStoreOwner(get(/databases/$(database)/documents/employeeProfiles/$(userId)).data.storeId);
+      allow get, update, delete: if
+        isOwner(userId)
+        || isStoreOwner(resource.data.storeId);
+        
       allow list: if isAdmin();
-      allow update, delete: if isOwner(userId);
 
       allow create: if
         // User creating their own account
@@ -137,7 +139,7 @@ service cloud.firestore {
     match /stores/{storeId}/attendance/{recordId} {
 
       // EMPLOYEE: read own attendance (list + get)
-      allow list, get: if
+      allow get, list: if
         isSignedIn() &&
         (
           resource.data.employeeId == request.auth.uid
