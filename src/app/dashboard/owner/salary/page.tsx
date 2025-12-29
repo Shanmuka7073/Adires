@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useTransition, useCallback, useEffect } from 'react';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
-import { collection, query, where, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc, getDocs, orderBy, Timestamp, getDoc } from 'firebase/firestore';
+import { collection, query, where, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc, getDocs, orderBy, Timestamp } from 'firebase/firestore';
 import type { Store, EmployeeProfile, AttendanceRecord, SalarySlip, ReasonEntry, User } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { generateSalarySlipDoc } from '@/lib/generateSalarySlipDoc';
+import { getSalarySlipData } from '@/app/actions';
 
 
 function ApprovalRequests({ storeId }: { storeId: string }) {
@@ -358,7 +359,7 @@ export default function SalaryReportsPage() {
     }, [attendanceRecords, selectedEmployee, dateRange]);
 
     const handleGenerateSlip = async () => {
-        if (!myStore || !selectedEmployee || !reportData || !dateRange?.from || !dateRange.to || !firestore) {
+        if (!myStore || !selectedEmployee || !reportData || !dateRange?.from || !dateRange.to || !firestore || !user) {
             toast({ variant: 'destructive', title: 'Cannot Generate', description: 'Missing required data.' });
             return;
         }
@@ -382,28 +383,25 @@ export default function SalaryReportsPage() {
                 toast({ title: 'Salary Slip Stored!', description: `A slip for ${selectedEmployee.role} has been saved.` });
                 
                 // Fetch full user details for the doc generation
-                const userDocRef = doc(firestore, 'users', selectedEmployee.userId);
-                const userDoc = await getDoc(userDocRef);
-                const userData = userDoc.data() as User;
+                const fullSlipDetails = await getSalarySlipData(slipId, user.uid);
                 
-                if (!userData) {
-                    throw new Error("Could not find user details for DOCX generation.");
+                if (fullSlipDetails) {
+                    await generateSalarySlipDoc({
+                        companyName: fullSlipDetails.store.name,
+                        payslipNo: `PSL-${slipId.slice(0,8)}`,
+                        employeeName: `${fullSlipDetails.employee.firstName} ${fullSlipDetails.employee.lastName}`,
+                        employeeId: fullSlipDetails.employee.employeeId,
+                        designation: fullSlipDetails.employee.role,
+                        payPeriod: format(new Date(fullSlipDetails.slip.periodStart), 'MMMM yyyy'),
+                        totalHours: reportData.totalHours,
+                        baseSalary: reportData.baseSalary,
+                        pf: 0, // Placeholder
+                        esi: 0, // Placeholder
+                        netPay: reportData.netPay,
+                    });
+                } else {
+                    throw new Error("Could not retrieve full slip details for DOCX generation.");
                 }
-                const fullEmployeeProfile = { ...userData, ...selectedEmployee };
-                
-                await generateSalarySlipDoc({
-                    companyName: myStore.name,
-                    payslipNo: `PSL-${slipId.slice(0,8)}`,
-                    employeeName: `${fullEmployeeProfile.firstName} ${fullEmployeeProfile.lastName}`,
-                    employeeId: fullEmployeeProfile.employeeId,
-                    designation: fullEmployeeProfile.role,
-                    payPeriod: format(dateRange.from!, 'MMMM yyyy'),
-                    totalHours: reportData.totalHours,
-                    baseSalary: reportData.baseSalary,
-                    pf: 0, // Placeholder, can be calculated later
-                    esi: 0, // Placeholder
-                    netPay: reportData.netPay,
-                });
             } catch (error: any) {
                 console.error("Failed to generate salary slip:", error);
                 toast({ variant: 'destructive', title: 'Error', description: error.message });
@@ -522,3 +520,4 @@ export default function SalaryReportsPage() {
         </div>
     );
 }
+

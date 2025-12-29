@@ -733,7 +733,6 @@ async function getFullSlipDetails(slipData: SalarySlip, db: Firestore): Promise<
         return null;
     }
     
-    // CORRECTED: Use a direct collection query, not a collectionGroup query
     const attendanceSnap = await db
         .collection('stores')
         .doc(slipData.storeId)
@@ -750,7 +749,7 @@ async function getFullSlipDetails(slipData: SalarySlip, db: Firestore): Promise<
 
     const attendanceRecords = attendanceSnap.docs.map(d => d.data() as AttendanceRecord);
     const totalDaysInPeriod = Math.round((new Date(slipData.periodEnd).getTime() - new Date(slipData.periodStart).getTime()) / (1000 * 3600 * 24)) + 1;
-    const presentDays = new Set(attendanceRecords.filter(r => ['present', 'approved', 'partially_present'].includes(r.status)).map(r => r.workDateStr)).size;
+    const presentDays = new Set(attendanceRecords.filter(r => ['present', 'approved', 'partially_present'].includes(r.status)).map(r => (r.workDate as Timestamp).toDate().toISOString().split('T')[0])).size;
 
     const attendanceSummary = {
         totalDays: totalDaysInPeriod,
