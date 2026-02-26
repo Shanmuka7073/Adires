@@ -35,6 +35,7 @@ import {
   Search,
   Download,
   Database,
+  ZapOff
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -278,7 +279,7 @@ function ActionCard({
 }) {
   return (
     <Link href={href}>
-      <Card className="hover:shadow-md transition h-full">
+      <Card className="hover:shadow-md transition h-full border-primary/10 hover:border-primary/30">
         <CardHeader className="flex flex-row gap-4 items-center">
           <Icon className="h-8 w-8 text-primary" />
           <div>
@@ -488,6 +489,12 @@ export default function AdminDashboardPage() {
             description="View a detailed breakdown of Firestore usage and costs."
             href="/dashboard/admin/performance-audit"
             icon={BarChart3}
+          />
+           <ActionCard
+            title="Read Explosion Analysis"
+            description="Identify the exact source of Firestore read multiplication."
+            href="/dashboard/admin/read-explosion-help"
+            icon={ZapOff}
           />
           <ActionCard
             title="PWA Manifest"
