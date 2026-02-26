@@ -14,6 +14,7 @@ import {
   where,
   doc,
   setDoc,
+  updateDoc,
 } from 'firebase/firestore';
 
 import type {
@@ -63,19 +64,19 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { addRestaurantOrderItem } from '@/app/actions';
+import { addRestaurantOrderItem, getIngredientsForDish } from '@/app/actions';
 import { useInstall } from '@/components/install-provider';
 import type { Timestamp } from 'firebase/firestore';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import IngredientsDialog from '@/components/IngredientsDialog';
+import { cn } from '@/lib/utils';
 
-/* -------------------------------------------------------------------------- */
-/*                                   LIVE BILL                                */
-/* -------------------------------------------------------------------------- */
 
-function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }) {
+function LiveBillSheet({ storeId, sessionId, theme }: { storeId: string; sessionId: string; theme: Menu['theme'] }) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [closing, startClose] = useTransition();
@@ -102,47 +103,64 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
     });
   };
 
+   const handleRemoveItem = async (itemToRemove: OrderItem) => {
+      if (!firestore || !order) return;
+
+      const orderRef = doc(firestore, 'orders', order.id);
+      const updatedItems = (order.items || []).filter(item => item.id !== itemToRemove.id);
+      const newTotal = updatedItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+
+      try {
+          await updateDoc(orderRef, {
+              items: updatedItems,
+              totalAmount: newTotal
+          });
+          toast({ description: \`\${itemToRemove.productName} removed from your bill.\` });
+      } catch (e) {
+          console.error("Failed to remove item:", e);
+          toast({ variant: 'destructive', title: 'Failed to remove item.' });
+      }
+  };
+
+
   if (isLoading) {
     return <Loader2 className="animate-spin mx-auto" />;
   }
   
   if (!order || !order.items?.length) {
       return (
-          <Card className="mt-6 bg-muted/50">
-              <CardHeader>
-                   <CardTitle className="flex items-center gap-2 text-lg">
-                      <Receipt /> Live Bill
-                    </CardTitle>
-              </CardHeader>
-              <CardContent>
-                  <p className="text-muted-foreground text-center py-4">No items added to your bill yet.</p>
-              </CardContent>
-          </Card>
+          <div className="p-4">
+              <p className="text-muted-foreground text-center py-4">No items added to your bill yet.</p>
+          </div>
       )
   }
 
   return (
-    <Card className="mt-6">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Receipt /> Live Bill
-        </CardTitle>
-      </CardHeader>
+    <div className="flex flex-col h-full" style={{ backgroundColor: theme?.backgroundColor }}>
+        <SheetHeader className='p-4 border-b' style={{ borderColor: theme?.primaryColor }}>
+            <SheetTitle className="flex items-center gap-2" style={{ color: theme?.primaryColor }}>
+              <Receipt /> Live Bill
+            </SheetTitle>
+        </SheetHeader>
 
-      <CardContent>
-            {order.items.map((it, idx) => (
-              <div key={idx} className="border-b py-2 flex justify-between text-sm">
-                <span className="font-medium">{it.productName} <span className="text-muted-foreground">x{it.quantity}</span></span>
-                <span>₹{(it.price * it.quantity).toFixed(2)}</span>
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+             {order.items.map((it, idx) => (
+              <div key={idx} className="border-b py-2 flex justify-between items-center text-sm" style={{borderColor: theme?.primaryColor + '30', color: theme?.textColor}}>
+                <div>
+                    <span className="font-medium">\${it.productName} <span className="opacity-70">x\${it.quantity}</span></span>
+                    <p>₹\${(it.price * it.quantity).toFixed(2)}</p>
+                </div>
               </div>
             ))}
+        </div>
 
-            <div className="flex justify-between font-bold mt-3 text-xl">
+        <div className="p-4 border-t space-y-4" style={{ borderColor: theme?.primaryColor + '30' }}>
+            <div className="flex justify-between font-bold text-xl" style={{ color: theme?.primaryColor }}>
               <span>Total</span>
-              <span>₹{order.totalAmount.toFixed(2)}</span>
+              <span>₹\${order.totalAmount.toFixed(2)}</span>
             </div>
             
-            <div className="mt-4">
+            <div>
               {order.status === 'Completed' ? (
                  <div className="text-center p-4 bg-blue-100 rounded-md">
                     <Check className="mx-auto h-6 w-6 text-blue-600 mb-2" />
@@ -162,7 +180,6 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
                       Close Bill & Pay
                     </Button>
                   </AlertDialogTrigger>
-
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Ready to Pay?</AlertDialogTitle>
@@ -178,15 +195,11 @@ function LiveBill({ storeId, sessionId }: { storeId: string; sessionId: string }
                 </AlertDialog>
               )}
             </div>
-      </CardContent>
-    </Card>
+        </div>
+    </div>
   );
 }
 
-
-/* -------------------------------------------------------------------------- */
-/*                                MAIN PAGE                                   */
-/* -------------------------------------------------------------------------- */
 
 export default function PublicMenuPage() {
   const { storeId } = useParams<{ storeId: string }>();
@@ -198,16 +211,27 @@ export default function PublicMenuPage() {
   const [sessionId, setSessionId] = useState('');
   
   const { canInstall, triggerInstall } = useInstall();
+  const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null);
+  const [ingredientsData, setIngredientsData] = useState<GetIngredientsOutput | null>(null);
+  const [isFetchingIngredients, startFetchingIngredients] = useTransition();
+  const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
+
+  const orderId = \`\${storeId}_\${sessionId}\`;
+  const orderQuery = useMemoFirebase(
+    () => (firestore && sessionId ? doc(firestore, 'orders', orderId) : null),
+    [firestore, orderId, sessionId]
+  );
+  const { data: order } = useDoc<Order>(orderQuery);
+  const itemCount = order?.items?.length || 0;
 
   useEffect(() => {
-    const key = \`session_\${storeId}_\${tableNumber}\`;
-    let id = sessionStorage.getItem(key);
-    if (!id) {
-      id = uuidv4();
-      sessionStorage.setItem(key, id);
+    if (storeId && tableNumber) {
+        const today = new Date();
+        const dateString = \`\${today.getFullYear()}-\${today.getMonth() + 1}-\${today.getDate()}\`;
+        const newSessionId = \`table-\${tableNumber}-\${dateString}\`;
+        setSessionId(newSessionId);
     }
-    setSessionId(id);
-  }, [storeId, tableNumber]);
+}, [storeId, tableNumber]);
 
   const storeRef = useMemoFirebase(() =>
     firestore ? doc(firestore, 'stores', storeId) : null,
@@ -247,6 +271,14 @@ export default function PublicMenuPage() {
           title: "Added to Bill",
           description: \`\${item.name} has been added to your live bill.\`,
         });
+         setRecentlyAdded(prev => new Set(prev).add(item.id));
+        setTimeout(() => {
+            setRecentlyAdded(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(item.id);
+                return newSet;
+            });
+        }, 2000);
       } else {
         toast({
           variant: "destructive",
@@ -256,6 +288,34 @@ export default function PublicMenuPage() {
       }
     });
   };
+  
+   const handleShowIngredients = (item: MenuItem) => {
+    setSelectedItemForIngredients(item);
+    startFetchingIngredients(async () => {
+      const response = await getIngredientsForDish({
+        dishName: item.name,
+        language: 'en', // default language
+      });
+      
+      if (response && response.isSuccess) {
+        setIngredientsData(response);
+      } else {
+        setIngredientsData({
+          isSuccess: false,
+          title: item.name,
+          ingredients: [],
+          instructions: [],
+          nutrition: { calories: 0, protein: 0 },
+        });
+        toast({
+          variant: 'destructive',
+          title: 'Ingredients Not Available',
+          description: \`The ingredients for "\${item.name}" could not be generated at this time.\`,
+        });
+      }
+    });
+  };
+
 
   if (storeLoading || menuLoading) return (
       <div className="p-4 space-y-4">
@@ -267,62 +327,124 @@ export default function PublicMenuPage() {
       </div>
   );
   if (!store || !menu) return <div className="p-4 text-center">Menu not found.</div>;
+  
+  const isBillFinalized = order?.status === 'Completed';
+  const theme = menu.theme;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto py-8 px-4 md:px-6">
-          <Card className="max-w-2xl mx-auto shadow-lg">
-            <CardHeader className="text-center">
-                 {store.imageUrl && (
-                    <Image
-                      src={store.imageUrl}
-                      alt={store.name}
-                      width={128}
-                      height={128}
-                      className="mx-auto rounded-full border-4 border-white shadow-md -mt-16"
-                    />
+    <>
+      {selectedItemForIngredients && (
+        <IngredientsDialog
+          open={!!selectedItemForIngredients}
+          onClose={() => setSelectedItemForIngredients(null)}
+          dishName={selectedItemForIngredients.name}
+          price={selectedItemForIngredients.price}
+          isLoading={isFetchingIngredients}
+          calories={ingredientsData?.nutrition?.calories || 0}
+          protein={ingredientsData?.nutrition?.protein || 0}
+          ingredients={(ingredientsData?.ingredients as any) || []}
+          onAdd={() => {
+            handleAddItem(selectedItemForIngredients);
+            setSelectedItemForIngredients(null);
+          }}
+        />
+      )}
+      <div className="min-h-screen" style={{ backgroundColor: theme?.backgroundColor }}>
+          <div className="container mx-auto py-8 px-4 md:px-6 max-w-2xl">
+            <Card className="shadow-lg" style={{ backgroundColor: theme?.backgroundColor, borderColor: theme?.primaryColor }}>
+              <CardHeader className="text-center relative pb-4">
+                  {store.imageUrl && (
+                    <div className="relative h-32 w-full mb-4 rounded-t-lg overflow-hidden">
+                       <Image
+                          src={store.imageUrl}
+                          alt={store.name}
+                          fill
+                          className="object-cover"
+                        />
+                         <div className="absolute inset-0 bg-black/30"></div>
+                    </div>
                   )}
-                <div className="flex items-center justify-center gap-2 mt-4">
-                    <Utensils className="h-8 w-8 text-primary" />
+                  <div className="flex items-center justify-center gap-2 mt-4" style={{ color: theme?.primaryColor }}>
                     <CardTitle className="text-3xl font-bold font-headline">{store.name}</CardTitle>
                 </div>
-                {tableNumber && <Badge className="mx-auto mt-2">Table {tableNumber}</Badge>}
+                {tableNumber && <Badge className="mx-auto mt-2" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>Table {tableNumber}</Badge>}
                  {canInstall && (
                   <div className="pt-4">
-                    <Button onClick={triggerInstall} size="sm">
+                    <Button onClick={triggerInstall} size="sm" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>
                         <Download className="mr-2 h-4 w-4" />
                         Add {store.name} to Home Screen
                     </Button>
                   </div>
                  )}
-            </CardHeader>
-            <CardContent className="space-y-6">
-                {sessionId && <LiveBill storeId={storeId} sessionId={sessionId} />}
+              </CardHeader>
+              <CardContent className="space-y-6">
 
-                {Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
+                {isBillFinalized ? (
+                    <div className="text-center py-16 px-6">
+                        <Check className="mx-auto h-16 w-16 text-green-500 bg-green-100 rounded-full p-2" />
+                        <h2 className="text-2xl font-bold mt-4" style={{color: theme?.textColor}}>Thank You!</h2>
+                        <p className="text-base opacity-80" style={{color: theme?.textColor}}>Your bill has been finalized. Please proceed to the counter for payment.</p>
+                    </div>
+                ) : Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
                     <div key={category}>
-                        <h2 className="text-xl font-semibold mb-3 border-b pb-2 tracking-widest uppercase text-muted-foreground">{category}</h2>
+                        <h2 className="text-xl font-semibold mb-3 border-b pb-2 tracking-wide" style={{ borderColor: theme?.primaryColor + '50', color: theme?.primaryColor }}>{category}</h2>
                         <div className="space-y-2">
-                            {items.map((item, index) => (
-                                <button
-                                    key={index}
-                                    onClick={() => handleAddItem(item)}
-                                    disabled={isAdding}
-                                    className="w-full flex justify-between items-center py-2 text-left hover:bg-muted/50 rounded-md px-2 transition-colors disabled:opacity-50"
+                            {items.map((item, index) => {
+                                const isRecentlyAdded = recentlyAdded.has(item.id);
+                                return (
+                                <Card
+                                    key={item.id || index}
+                                    className="flex justify-between items-center p-3"
+                                    style={{ backgroundColor: theme?.backgroundColor, borderColor: theme?.primaryColor + '40' }}
                                 >
-                                    <p className="font-medium text-gray-800">{item.name}</p>
-                                    <p className="font-semibold text-gray-600">₹{item.price.toFixed(2)}</p>
-                                </button>
-                            ))}
+                                    <div>
+                                        <p className="font-semibold" style={{color: theme?.textColor}}>{item.name}</p>
+                                        <p className="text-sm" style={{color: theme?.textColor, opacity: 0.8}}>₹{item.price.toFixed(2)}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Button variant="ghost" size="sm" onClick={() => handleShowIngredients(item)}>
+                                            <Eye className="h-4 w-4" style={{ color: theme?.textColor }}/>
+                                        </Button>
+                                         <Button 
+                                            onClick={() => handleAddItem(item)} 
+                                            disabled={isAdding || isRecentlyAdded}
+                                            className={cn("w-20 rounded-lg", isRecentlyAdded && "bg-green-600")}
+                                            style={{ backgroundColor: isRecentlyAdded ? '' : theme?.primaryColor, color: theme?.backgroundColor }}
+                                        >
+                                            {isRecentlyAdded ? <Check className="h-5 w-5" /> : (isAdding ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />) }
+                                            {isRecentlyAdded ? 'Added' : 'Add'}
+                                        </Button>
+                                    </div>
+                                </Card>
+                            )})}
                         </div>
                     </div>
                 ))}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
+          
+          {itemCount > 0 && !isBillFinalized && (
+               <Sheet>
+                  <SheetTrigger asChild>
+                      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
+                          <Button className="h-14 rounded-full shadow-lg text-lg pl-6 pr-8" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>
+                              <Receipt className="mr-3 h-5 w-5" />
+                              View Bill 
+                              <Badge className="ml-3" style={{ backgroundColor: theme?.backgroundColor, color: theme?.primaryColor }}>{itemCount}</Badge>
+                          </Button>
+                      </div>
+                  </SheetTrigger>
+                  <SheetContent side="bottom" className="h-[75vh] rounded-t-2xl p-0">
+                      <LiveBillSheet storeId={storeId} sessionId={sessionId} theme={theme} />
+                  </SheetContent>
+              </Sheet>
+          )}
         </div>
-      </div>
+    </>
   );
 }
-        `,
+`,
     },
 ];
+    
