@@ -35,7 +35,8 @@ import {
   Search,
   Download,
   Database,
-  ZapOff
+  ZapOff,
+  Truck
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -401,7 +402,7 @@ export default function AdminDashboardPage() {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           <ActionCard
             title="Voice Commands"
-            description="Manage commands users can speak"
+            description="Manage commands users can say"
             href="/dashboard/voice-commands"
             icon={Mic}
           />
@@ -561,6 +562,12 @@ export default function AdminDashboardPage() {
             description="Isolate the specific code related to the checkout page command loop."
             href="/dashboard/admin/checkout-loop-help"
             icon={Bug}
+          />
+           <ActionCard
+            title="Delivery Queries Code"
+            description="View the Firestore queries used in the delivery dashboard."
+            href="/dashboard/admin/deliveries-help"
+            icon={Truck}
           />
         </div>
       </section>
