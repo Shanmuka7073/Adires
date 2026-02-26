@@ -4,13 +4,6 @@
 import { useCart } from '@/lib/cart';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -27,13 +20,13 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { getProductImage, getStore } from '@/lib/data';
-import { useTransition, useState, useCallback, useEffect, useMemo, RefObject, useRef } from 'react';
+import { useTransition, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useFirebase, errorEmitter, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, serverTimestamp, getDoc, writeBatch, type DocumentReference, type DocumentData, setDoc } from 'firebase/firestore';
+import { collection, doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { CheckCircle, MapPin, Loader2, AlertCircle, Store as StoreIcon, Home, LocateFixed } from 'lucide-react';
+import { MapPin, Loader2, AlertCircle, Store as StoreIcon, Home, LocateFixed } from 'lucide-react';
 import Link from 'next/link';
-import type { User as AppUser, Store, ProductPrice } from '@/lib/types';
+import type { User as AppUser, Order } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAppStore } from '@/lib/store';
 import { t } from '@/lib/locales';
@@ -75,6 +68,15 @@ function OrderSummaryItem({ item, image }: { item: any, image: any }) {
     );
 }
 
+/**
+ * Utility to extract a geographic zoneId from an address string.
+ * It looks for a 6-digit Indian pincode.
+ */
+const extractZoneId = (address: string): string => {
+    const pincodeMatch = address.match(/\b\d{6}\b/);
+    return pincodeMatch ? `zone-${pincodeMatch[0]}` : 'zone-default';
+};
+
 export default function CheckoutPage() {
   const { cartItems, cartTotal, clearCart, activeStoreId, setActiveStoreId } = useCart();
   const router = useRouter();
@@ -83,7 +85,7 @@ export default function CheckoutPage() {
   const { firestore, user } = useFirebase();
   const form = useForm<CheckoutFormValues>({
     resolver: zodResolver(checkoutSchema),
-    mode: 'onChange', // Validate on change to update isValid status
+    mode: 'onChange',
     defaultValues: { name: '', phone: '', deliveryAddress: '' },
   });
 
@@ -238,7 +240,7 @@ export default function CheckoutPage() {
         
         const orderDocRef = doc(collection(firestore, 'orders'));
 
-        const orderData = {
+        const orderData: Partial<Order> = {
             id: orderDocRef.id,
             userId: user.uid,
             storeId: activeStoreId,
@@ -251,7 +253,10 @@ export default function CheckoutPage() {
             orderDate: serverTimestamp(),
             status: 'Pending' as 'Pending',
             totalAmount,
+            zoneId: extractZoneId(data.deliveryAddress), // Added partitioned ID
             items: cartItems.map(item => ({
+                id: crypto.randomUUID(),
+                orderId: orderDocRef.id,
                 productId: item.product.id,
                 productName: item.product.name,
                 variantSku: item.variant.sku,
@@ -295,9 +300,8 @@ export default function CheckoutPage() {
 
   useEffect(() => {
       if (shouldPlaceOrderDirectly && areAllDetailsReady && placeOrderBtnRef.current) {
-          console.log("Direct order conditions met. Clicking place order.");
           placeOrderBtnRef.current.click();
-          setShouldPlaceOrderDirectly(false); // Reset after action
+          setShouldPlaceOrderDirectly(false);
       }
   }, [shouldPlaceOrderDirectly, areAllDetailsReady, placeOrderBtnRef, setShouldPlaceOrderDirectly]);
 
@@ -388,7 +392,7 @@ export default function CheckoutPage() {
                                     render={({ field }) => (
                                     <FormItem>
                                         <FormControl>
-                                        <Input placeholder="Select a delivery address above" {...field} />
+                                        <Input placeholder="Include 6-digit Pincode for fast sorting" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -402,7 +406,7 @@ export default function CheckoutPage() {
                                 <FormItem>
                                     <FormLabel>{t('phone-number')}</FormLabel>
                                     <FormControl>
-                                    <Input placeholder="(555) 123-4567" {...field} readOnly={!!userData?.phoneNumber} />
+                                    <Input placeholder="9876543210" {...field} readOnly={!!userData?.phoneNumber} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>

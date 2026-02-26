@@ -1,5 +1,4 @@
 
-
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -22,8 +21,8 @@ export type Product = {
   imageHint?: string;
   matchedAlias?: string; // The alias the user spoke
   isAiAssisted?: boolean; // Flag to show if AI identified this item
-  isMenuItem?: boolean; // NEW: Flag to identify a restaurant menu item
-  price?: number; // NEW: Direct price for menu items
+  isMenuItem?: boolean; // Flag to identify a restaurant menu item
+  price?: number; // Direct price for menu items
 };
 
 export type Store = {
@@ -118,6 +117,7 @@ export type Order = {
   paidAt?: Timestamp;
   paymentMode?: string;
   updatedAt?: any;
+  zoneId?: string; // Geographic partition ID derived from pincode
 };
 
 
@@ -133,6 +133,7 @@ export type DeliveryPartner = {
     accountNumber: string;
     ifscCode: string;
   };
+  zoneId?: string; // Geographic partition ID derived from pincode
 };
 
 export type Payout = {
@@ -303,7 +304,7 @@ export type GenerateBreakfastPackOutput = {
   estimatedCost: number;
 };
 
-// NEW Restaurant Menu Types
+// Restaurant Menu Types
 export type MenuItem = {
   id: string;
   name: string;
@@ -337,7 +338,7 @@ export type UnidentifiedCartItem = {
     status: 'pending' | 'failed' | 'identified';
 };
 
-// NEW Type for Restaurant Inventory
+// Type for Restaurant Inventory
 export type RestaurantIngredient = {
   id: string;
   name: string;

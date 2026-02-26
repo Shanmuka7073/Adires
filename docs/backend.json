@@ -1,5 +1,4 @@
 
-
 {
   "entities": {
     "Store": {
@@ -281,6 +280,10 @@
         "sessionId": {
             "type": "string",
             "description": "The session ID for a table to group orders."
+        },
+        "zoneId": {
+          "type": "string",
+          "description": "Geographic partition ID derived from pincode."
         }
       },
       "required": [
@@ -594,6 +597,10 @@
             "accountNumber": { "type": "string" },
             "ifscCode": { "type": "string" }
           }
+        },
+        "zoneId": {
+          "type": "string",
+          "description": "Geographic partition ID derived from pincode."
         }
       },
       "required": ["userId", "totalEarnings", "payoutsEnabled"]

@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { Order, Store, DeliveryPartner, Payout } from '@/lib/types';
@@ -8,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { MapPin, Check, Banknote, History, Landmark, Receipt, CreditCard, ChevronDown, ChevronUp, Route, Package, Bot, Info, Loader2 } from 'lucide-react';
+import { MapPin, Check, Banknote, History, Landmark, Receipt, CreditCard, ChevronDown, ChevronUp, Route, Package, Bot, Info, Loader2, LocateFixed } from 'lucide-react';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, doc, updateDoc, Timestamp, increment, writeBatch, orderBy, setDoc } from 'firebase/firestore';
 import { useEffect, useState, useMemo, useTransition } from 'react';
@@ -60,6 +59,7 @@ const payoutDetailsSchema = z.object({
   accountHolderName: z.string().optional(),
   accountNumber: z.string().optional(),
   ifscCode: z.string().optional(),
+  pincode: z.string().regex(/^\d{6}$/, "Must be a 6-digit pincode"),
 }).refine(data => {
     if (data.payoutMethod === 'upi') {
         return !!data.upiId && data.upiId.includes('@');
@@ -163,6 +163,7 @@ function PayoutSettingsCard({ partnerData, isLoading, partnerId }: { partnerData
             accountHolderName: partnerData?.bankDetails?.accountHolderName || '',
             accountNumber: partnerData?.bankDetails?.accountNumber || '',
             ifscCode: partnerData?.bankDetails?.ifscCode || '',
+            pincode: partnerData?.zoneId?.replace('zone-', '') || '',
         }
     });
     
@@ -176,6 +177,7 @@ function PayoutSettingsCard({ partnerData, isLoading, partnerId }: { partnerData
                 accountHolderName: partnerData.bankDetails?.accountHolderName || '',
                 accountNumber: partnerData.bankDetails?.accountNumber || '',
                 ifscCode: partnerData.bankDetails?.ifscCode || '',
+                pincode: partnerData.zoneId?.replace('zone-', '') || '',
             });
         }
     }, [partnerData, form, isLoading, isEditing]);
@@ -192,13 +194,14 @@ function PayoutSettingsCard({ partnerData, isLoading, partnerId }: { partnerData
                 accountNumber: data.accountNumber!,
                 ifscCode: data.ifscCode!,
             } : { accountHolderName: '', accountNumber: '', ifscCode: '' },
+            zoneId: `zone-${data.pincode}`, // Partition ID
         };
         
         startSaveTransition(async () => {
             const partnerRef = doc(firestore, 'deliveryPartners', partnerId);
             try {
                 await setDoc(partnerRef, updateData, { merge: true });
-                toast({ title: "Payout details saved!", description: "Your payment information has been updated." });
+                toast({ title: "Profile saved!", description: "Your payment and zone information has been updated." });
                 setIsEditing(false);
             } catch (error) {
                 const permissionError = new FirestorePermissionError({
@@ -211,21 +214,25 @@ function PayoutSettingsCard({ partnerData, isLoading, partnerId }: { partnerData
         });
     };
     
-    const hasDetails = partnerData?.payoutMethod && (partnerData.upiId || partnerData.bankDetails?.accountNumber);
+    const hasDetails = partnerData?.zoneId;
 
     return (
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     <Landmark className="h-6 w-6 text-primary" />
-                    <span>Payout Settings</span>
+                    <span>Delivery Profile & Payouts</span>
                 </CardTitle>
-                <CardDescription>Manage your bank account or UPI details for receiving payments.</CardDescription>
+                <CardDescription>Set your service area (pincode) and payment details.</CardDescription>
             </CardHeader>
             <CardContent>
                 {isLoading ? <p>Loading settings...</p> : (
                     !isEditing && hasDetails ? (
                         <div className="space-y-4">
+                            <div>
+                                <p className="text-sm font-medium">Service Zone</p>
+                                <p className="text-lg font-bold text-primary">{partnerData.zoneId?.replace('zone-', '') || 'Global'}</p>
+                            </div>
                             {partnerData.payoutMethod === 'upi' ? (
                                 <div>
                                     <p className="text-sm font-medium">UPI ID</p>
@@ -241,11 +248,20 @@ function PayoutSettingsCard({ partnerData, isLoading, partnerId }: { partnerData
                                     </div>
                                 </div>
                             )}
-                            <Button variant="outline" onClick={() => setIsEditing(true)}>Change Details</Button>
+                            <Button variant="outline" onClick={() => setIsEditing(true)}>Edit Profile</Button>
                         </div>
                     ) : (
                          <Form {...form}>
                             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                                <FormField control={form.control} name="pincode" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Your Service Area (Pincode)</FormLabel>
+                                        <FormControl><Input placeholder="e.g. 500001" {...field} /></FormControl>
+                                        <FormDescription>You will only see pending orders in this zone.</FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+
                                 <FormField
                                     control={form.control}
                                     name="payoutMethod"
@@ -292,7 +308,7 @@ function PayoutSettingsCard({ partnerData, isLoading, partnerId }: { partnerData
                                     </div>
                                 )}
                                 <div className="flex gap-2">
-                                     <Button type="submit" disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Details'}</Button>
+                                     <Button type="submit" disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Profile'}</Button>
                                      {hasDetails && <Button variant="ghost" onClick={() => setIsEditing(false)}>Cancel</Button>}
                                 </div>
                             </form>
@@ -473,6 +489,12 @@ export default function DeliveriesPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedOrderDistance, setSelectedOrderDistance] = useState<number | undefined>(undefined);
 
+  const partnerDocRef = useMemoFirebase(() => {
+    if (!firestore || !user?.uid) return null;
+    return doc(firestore, 'deliveryPartners', user.uid);
+  }, [firestore, user?.uid]);
+  const { data: partnerData, isLoading: partnerLoading } = useDoc<DeliveryPartner>(partnerDocRef);
+
   // Query 1: Get orders assigned to the current delivery partner.
   const myActiveDeliveriesQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
@@ -483,14 +505,16 @@ export default function DeliveriesPage() {
     );
   }, [firestore, user?.uid]);
   
-  // Query 2: Get orders that are ready for pickup (Pending status, no partner yet).
+  // Query 2: Partitioned Available Deliveries Query
+  // Partitioned by zoneId to avoid scaling failures.
   const availableDeliveriesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !partnerData?.zoneId) return null;
     return query(
         collection(firestore, 'orders'),
-        where('status', '==', 'Pending')
+        where('status', '==', 'Pending'),
+        where('zoneId', '==', partnerData.zoneId) // Partitioned!
     );
-  }, [firestore]);
+  }, [firestore, partnerData?.zoneId]);
 
 
   // Query 3: Get completed orders for the earnings history.
@@ -508,12 +532,6 @@ export default function DeliveriesPage() {
   const { data: availableDeliveries, isLoading: availableDeliveriesLoading } = useCollection<Order>(availableDeliveriesQuery);
   const { data: completedDeliveries, isLoading: completedDeliveriesLoading } = useCollection<Order>(completedDeliveriesQuery);
   
-  const partnerDocRef = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) return null;
-    return doc(firestore, 'deliveryPartners', user.uid);
-  }, [firestore, user?.uid]);
-  const { data: partnerData, isLoading: partnerLoading } = useDoc<DeliveryPartner>(partnerDocRef);
-
   useEffect(() => {
     if (firestore) {
       getStores(firestore).then(setStores);
@@ -526,7 +544,7 @@ export default function DeliveriesPage() {
     return orders.map(order => {
       const store = stores.find(s => s.id === order.storeId);
       return { ...order, store };
-    }).filter(order => order.store); // Filter out orders where store might not be found
+    }).filter(order => order.store);
   };
 
   const myActiveDeliveriesWithStores = useMemo(() => joinStoresToOrders(myActiveDeliveries), [myActiveDeliveries, stores]);
@@ -538,7 +556,6 @@ export default function DeliveriesPage() {
      startUpdateTransition(async () => {
         const orderRef = doc(firestore, 'orders', orderId);
         try {
-            // Set the delivery partner ID AND update the status in one go.
             await updateDoc(orderRef, { 
                 deliveryPartnerId: user.uid,
                 status: 'Out for Delivery' 
@@ -556,11 +573,7 @@ export default function DeliveriesPage() {
 
   const handleMarkAsDelivered = (order: Order) => {
     if (!navigator.geolocation) {
-        toast({
-            variant: 'destructive',
-            title: 'Geolocation Not Supported',
-            description: "Cannot verify your location.",
-        });
+        toast({ variant: 'destructive', title: 'Geolocation Not Supported', description: "Cannot verify your location." });
         return;
     }
 
@@ -602,20 +615,11 @@ export default function DeliveriesPage() {
                     });
                 } catch (error) {
                     console.error("Failed to mark as delivered:", error);
-                    toast({
-                        variant: 'destructive',
-                        title: 'Update Failed',
-                        description: 'Could not update the order status and your earnings. Please try again.'
-                    });
+                    toast({ variant: 'destructive', title: 'Update Failed', description: 'Could not update the order status.' });
                 }
             },
             (error) => {
-                console.error("Geolocation error:", error);
-                toast({
-                    variant: 'destructive',
-                    title: 'Location Error',
-                    description: 'Could not get your current location. Please enable location services and try again.',
-                });
+                toast({ variant: 'destructive', title: 'Location Error', description: 'Could not get your current location.' });
             }
         );
     });
@@ -623,11 +627,11 @@ export default function DeliveriesPage() {
 
   const handlePayoutRequest = async () => {
       if (!firestore || !user || !partnerData || partnerData.totalEarnings <= 0) {
-          toast({ variant: 'destructive', title: 'Payout Error', description: 'No balance available to cash out.' });
+          toast({ variant: 'destructive', title: 'Payout Error', description: 'No balance available.' });
           return;
       }
        if (!partnerData.payoutMethod || (!partnerData.upiId && !partnerData.bankDetails?.accountNumber)) {
-        toast({ variant: 'destructive', title: 'Payout Details Missing', description: 'Please set up your bank or UPI details in Payout Settings before requesting a payout.' });
+        toast({ variant: 'destructive', title: 'Payout Details Missing', description: 'Please set up your details first.' });
         return;
       }
 
@@ -636,11 +640,9 @@ export default function DeliveriesPage() {
 
       try {
         const batch = writeBatch(firestore);
-
-        // This creates a new document with a random ID in the subcollection.
         const newPayoutRef = doc(collection(firestore, `deliveryPartners/${user.uid}/payouts`));
         batch.set(newPayoutRef, {
-            id: newPayoutRef.id, // Explicitly set the ID in the document data
+            id: newPayoutRef.id,
             amount: payoutAmount,
             partnerId: user.uid,
             requestDate: Timestamp.now(),
@@ -656,98 +658,33 @@ export default function DeliveriesPage() {
         });
 
         await batch.commit();
-
-        toast({
-            title: 'Payout Requested!',
-            description: `Your request for ₹${payoutAmount.toFixed(2)} has been submitted for processing.`
-        });
-
+        toast({ title: 'Payout Requested!', description: `Request for ₹${payoutAmount.toFixed(2)} submitted.` });
       } catch (error) {
-          console.error("Failed to request payout:", error);
-          toast({
-              variant: 'destructive',
-              title: 'Payout Failed',
-              description: 'There was an error submitting your payout request. Please try again.'
-          });
+          toast({ variant: 'destructive', title: 'Payout Failed', description: 'Error submitting request.' });
       }
   };
 
   const handleOptimizedRoute = () => {
-    if (!myActiveDeliveriesWithStores || myActiveDeliveriesWithStores.length === 0) {
-        toast({
-            variant: "destructive",
-            title: "No Active Deliveries",
-            description: "There are no active deliveries to create a route for."
-        });
-        return;
-    }
-
+    if (!myActiveDeliveriesWithStores || myActiveDeliveriesWithStores.length === 0) return;
     const baseUrl = `https://www.google.com/maps/dir/`;
-
-    // Get unique store locations (pickups) and format them with labels
-    const storeWaypoints = [...new Map(myActiveDeliveriesWithStores.map(order => {
-        const label = `Pickup: ${order.store!.name.replace(/ /g, '+')}`;
-        const coords = `${order.store!.latitude},${order.store!.longitude}`;
-        return [order.storeId, `${label}/${coords}`];
-    })).values()];
-
-    // Get all customer locations (dropoffs) and format them with labels
-    const customerWaypoints = myActiveDeliveriesWithStores.map(order => {
-        const label = `Drop-off: ${order.customerName.replace(/ /g, '+')}`;
-        const coords = `${order.deliveryLat},${order.deliveryLng}`;
-        return `${label}/${coords}`;
-    });
-
+    const storeWaypoints = [...new Map(myActiveDeliveriesWithStores.map(order => [order.storeId, `Pickup:${order.store!.name}/${order.store!.latitude},${order.store!.longitude}`])).values()];
+    const customerWaypoints = myActiveDeliveriesWithStores.map(order => `Drop-off:${order.customerName}/${order.deliveryLat},${order.deliveryLng}`);
     const allWaypoints = [...storeWaypoints, ...customerWaypoints];
-
-    const generateRoute = (origin: string | null = null) => {
-        let url = baseUrl;
-        const waypointsInOrder = origin ? [origin, ...allWaypoints] : allWaypoints;
-        url += waypointsInOrder.join('/');
-        window.open(url, '_blank');
-    };
-    
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(position => {
-            const { latitude, longitude } = position.coords;
-            generateRoute(`My+Location/${latitude},${longitude}`);
-        }, () => {
-            // Can't get location, open without origin
-            generateRoute();
-        });
-    } else {
-        generateRoute();
-    }
+    window.open(baseUrl + allWaypoints.join('/'), '_blank');
 };
 
   const handleShowDetails = (order: Order) => {
-    const distance = haversineDistance(
-        order.store!.latitude,
-        order.store!.longitude,
-        order.deliveryLat,
-        order.deliveryLng
-    );
+    const distance = haversineDistance(order.store!.latitude, order.store!.longitude, order.deliveryLat, order.deliveryLng);
     setSelectedOrder(order);
     setSelectedOrderDistance(distance);
   }
-
 
   const isLoading = activeDeliveriesLoading || availableDeliveriesLoading || completedDeliveriesLoading || stores.length === 0;
 
   const formatDate = (date: any) => {
     if (!date) return 'N/A';
-    if (date.seconds) {
-      return format(new Date(date.seconds * 1000), 'PPP');
-    }
-    if (typeof date === 'string') {
-        try {
-            return format(new Date(date), 'PPP');
-        } catch(e) { return 'Invalid Date'; }
-    }
-    if (date instanceof Date) {
-        return format(date, 'PPP');
-    }
-    return 'N/A';
+    const jsDate = date.seconds ? new Date(date.seconds * 1000) : new Date(date);
+    return format(jsDate, 'PPP');
   }
 
   return (
@@ -757,7 +694,6 @@ export default function DeliveriesPage() {
                 order={selectedOrder} 
                 isOpen={!!selectedOrder}
                 onClose={() => setSelectedOrder(null)}
-                onAccept={undefined}
                 distance={selectedOrderDistance}
              />
         )}
@@ -775,10 +711,7 @@ export default function DeliveriesPage() {
              <div className="flex justify-between items-center">
                 <CardTitle>Orders You Are Delivering</CardTitle>
                 {myActiveDeliveriesWithStores.length > 0 && (
-                     <Button onClick={handleOptimizedRoute}>
-                        <Route className="mr-2 h-4 w-4" />
-                        View Optimized Route
-                    </Button>
+                     <Button onClick={handleOptimizedRoute}><Route className="mr-2 h-4 w-4" /> Optimized Route</Button>
                 )}
             </div>
           </CardHeader>
@@ -786,13 +719,12 @@ export default function DeliveriesPage() {
             {activeDeliveriesLoading ? (
               <p>Loading your active deliveries...</p>
             ) : myActiveDeliveriesWithStores.length === 0 ? (
-              <p className="text-muted-foreground">You have no active deliveries. Pick one from the available list below.</p>
+              <p className="text-muted-foreground">No active deliveries. Pick one below.</p>
             ) : (
               <div className="space-y-4">
                   {myActiveDeliveriesWithStores.map((order) => (
                     <MyActiveDeliveriesCard 
-                        key={order.id}
-                        order={order}
+                        key={order.id} order={order}
                         handleMarkAsDelivered={handleMarkAsDelivered}
                         isUpdating={isUpdating}
                         onShowDetails={handleShowDetails}
@@ -806,21 +738,19 @@ export default function DeliveriesPage() {
 
 
       <div>
-        <h2 className="text-3xl font-bold mb-8 font-headline">Available for Delivery</h2>
+        <h2 className="text-3xl font-bold mb-8 font-headline">Available in your Zone</h2>
          <Card>
           <CardHeader>
-            <CardTitle>Orders Ready for Pickup</CardTitle>
-             <CardDescription>A list of individual orders ready for pickup near you.</CardDescription>
+            <CardTitle>Ready for Pickup</CardTitle>
+             <CardDescription>Individual orders waiting for a partner in your zone ({partnerData?.zoneId?.replace('zone-', '') || 'Set zone above'}).</CardDescription>
           </CardHeader>
           <CardContent>
-            {availableDeliveriesLoading ? (
+            {!partnerData?.zoneId ? (
+                <Alert><Info className="h-4 w-4"/><AlertTitle>Service Zone Required</AlertTitle><AlertDescription>Please set your Pincode in Payout Settings to see available jobs in your area.</AlertDescription></Alert>
+            ) : availableDeliveriesLoading ? (
               <p>Finding available deliveries...</p>
             ) : !availableDeliveriesWithStores || availableDeliveriesWithStores.length === 0 ? (
-              <Alert>
-                <Package className="h-4 w-4" />
-                <AlertTitle>All Clear!</AlertTitle>
-                <AlertDescription>No orders are currently ready for delivery. Check back soon.</AlertDescription>
-              </Alert>
+              <Alert><Package className="h-4 w-4" /><AlertTitle>Zone is Quiet</AlertTitle><AlertDescription>No orders are currently ready in your zone. Check back soon.</AlertDescription></Alert>
             ) : (
                 <Table>
                     <TableHeader>
@@ -852,13 +782,11 @@ export default function DeliveriesPage() {
       </div>
 
       <div>
-        <h2 className="text-3xl font-bold mb-8 font-headline">Earnings & Completed Deliveries</h2>
+        <h2 className="text-3xl font-bold mb-8 font-headline">Earnings History</h2>
          <Card>
             <CardHeader>
-                <CardTitle>This Month's Delivered Orders</CardTitle>
-                <CardDescription>
-                  This is a record of your completed deliveries for the current cycle. Earnings from the 1st to the 30th of the month are paid out on the last day of the month.
-                </CardDescription>
+                <CardTitle>Completed Deliveries</CardTitle>
+                <CardDescription>A record of your successful deliveries.</CardDescription>
             </CardHeader>
             <CardContent>
                 {completedDeliveriesLoading ? (
@@ -871,7 +799,6 @@ export default function DeliveriesPage() {
                             <TableRow>
                                 <TableHead>Date</TableHead>
                                 <TableHead>Customer</TableHead>
-                                <TableHead>Delivery Address</TableHead>
                                 <TableHead className="text-right">Your Earning</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -880,14 +807,13 @@ export default function DeliveriesPage() {
                                 <TableRow key={order.id}>
                                     <TableCell>{formatDate(order.orderDate)}</TableCell>
                                     <TableCell>{order.customerName}</TableCell>
-                                    <TableCell>{order.deliveryAddress}</TableCell>
                                     <TableCell className="text-right font-medium">₹{DELIVERY_FEE.toFixed(2)}</TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
                         <TableFooter>
                             <TableRow>
-                                <TableCell colSpan={3} className="text-right font-bold text-lg">Total Deliveries in this period</TableCell>
+                                <TableCell colSpan={2} className="text-right font-bold text-lg">Total Deliveries</TableCell>
                                 <TableCell className="text-right font-bold text-lg">{completedDeliveries.length}</TableCell>
                             </TableRow>
                         </TableFooter>
