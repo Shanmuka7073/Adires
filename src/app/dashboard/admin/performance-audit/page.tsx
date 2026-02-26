@@ -9,7 +9,6 @@ import React from 'react';
 import { auditText } from './audit-text';
 import { AuditDisplay } from './audit-display';
 
-
 export default function PerformanceAuditPage() {
     const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
     const router = useRouter();

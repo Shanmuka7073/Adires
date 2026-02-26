@@ -1,7 +1,10 @@
 
 'use client';
 
-// This audit text is now correctly formatted as a template literal string.
+/**
+ * @fileOverview The raw content for the Firestore Performance Audit.
+ * This is stored as a string to allow for easy formatting and copying.
+ */
 export const auditText = `
 ## Firestore Performance Audit
 

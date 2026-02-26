@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-
-function AuditDisplay({ auditText }: { auditText: string }) {
+export function AuditDisplay({ auditText }: { auditText: string }) {
     const { toast } = useToast();
 
     const handleCopy = () => {
@@ -74,5 +73,3 @@ function AuditDisplay({ auditText }: { auditText: string }) {
         </div>
     );
 }
-
-export { AuditDisplay };
