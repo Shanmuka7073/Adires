@@ -34,6 +34,7 @@ import {
   Edit,
   Search,
   Download,
+  Database,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -493,6 +494,12 @@ export default function AdminDashboardPage() {
             description="Edit Progressive Web App settings"
             href="/dashboard/admin/manifest-help"
             icon={FileCode}
+          />
+           <ActionCard
+            title="Data Fetching Logic"
+            description="View the core fetchInitialData function source code."
+            href="/dashboard/admin/initial-data-help"
+            icon={Database}
           />
            <ActionCard
             title="Recipe Cache Code"
