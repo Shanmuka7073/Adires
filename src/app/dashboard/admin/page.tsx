@@ -330,7 +330,7 @@ export default function AdminDashboardPage() {
   const stats = useMemo(() => ({
     totalUsers: users?.length ?? 0,
     totalStores: stores?.length ?? 0,
-    totalOrdersDelivered: deliveredOrders?.length ?? 0,
+    totalOrdersDelivered: orders?.length ?? 0,
   }), [users, stores, orders]);
 
   const statsLoading = isLoading || usersLoading || storesLoading || ordersLoading;
