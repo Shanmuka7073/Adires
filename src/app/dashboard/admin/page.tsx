@@ -37,7 +37,8 @@ import {
   Database,
   ZapOff,
   Truck,
-  PackageSearch
+  PackageSearch,
+  FileJson
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -329,7 +330,7 @@ export default function AdminDashboardPage() {
   const stats = useMemo(() => ({
     totalUsers: users?.length ?? 0,
     totalStores: stores?.length ?? 0,
-    totalOrdersDelivered: orders?.length ?? 0,
+    totalOrdersDelivered: deliveredOrders?.length ?? 0,
   }), [users, stores, orders]);
 
   const statsLoading = isLoading || usersLoading || storesLoading || ordersLoading;
@@ -581,6 +582,12 @@ export default function AdminDashboardPage() {
             description="View the source code for standard and restaurant order creation."
             href="/dashboard/admin/order-logic-help"
             icon={PackageSearch}
+          />
+           <ActionCard
+            title="Delivery Partner Schema"
+            description="View the Firestore schema for the delivery partner profile."
+            href="/dashboard/admin/delivery-partner-schema-help"
+            icon={FileJson}
           />
         </div>
       </section>
