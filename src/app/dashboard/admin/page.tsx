@@ -569,6 +569,12 @@ export default function AdminDashboardPage() {
             href="/dashboard/admin/deliveries-help"
             icon={Truck}
           />
+           <ActionCard
+            title="Sample Order Document"
+            description="View a sample JSON document from the orders collection."
+            href="/dashboard/admin/sample-order-help"
+            icon={Package}
+          />
         </div>
       </section>
     </div>
