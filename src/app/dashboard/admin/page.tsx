@@ -36,7 +36,8 @@ import {
   Download,
   Database,
   ZapOff,
-  Truck
+  Truck,
+  PackageSearch
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -574,6 +575,12 @@ export default function AdminDashboardPage() {
             description="View a sample JSON document from the orders collection."
             href="/dashboard/admin/sample-order-help"
             icon={Package}
+          />
+           <ActionCard
+            title="Order Creation Logic"
+            description="View the source code for standard and restaurant order creation."
+            href="/dashboard/admin/order-logic-help"
+            icon={PackageSearch}
           />
         </div>
       </section>
