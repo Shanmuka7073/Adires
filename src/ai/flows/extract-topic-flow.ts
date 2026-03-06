@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI flow to extract the main topic from a user's question.
@@ -8,7 +9,6 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { googleAI } from '@genkit-ai/google-genai';
 import { z } from 'zod';
 
 const ExtractTopicInputSchema = z.object({
@@ -29,7 +29,7 @@ const prompt = ai.definePrompt({
     name: 'extractTopicPrompt',
     input: { schema: ExtractTopicInputSchema },
     output: { schema: ExtractTopicOutputSchema },
-    model: googleAI.model('gemini-2.5-flash'),
+    model: 'googleai/gemini-2.5-flash',
     prompt: `Analyze the following user question and extract the main, searchable topic.
     
 User Question: "{{question}}"

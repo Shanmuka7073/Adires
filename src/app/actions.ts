@@ -13,7 +13,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { ai } from '@/ai/genkit';
 import { GetIngredientsInputSchema, GetIngredientsOutputSchema } from '@/ai/flows/recipe-ingredients-types';
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
-import { googleAI } from '@genkit-ai/google-genai';
 import { getAuth } from 'firebase-admin/auth';
 import { generateSalarySlipDoc } from '@/lib/generateSalarySlipDoc';
 
@@ -647,7 +646,7 @@ export async function getIngredientsForDish(input: { dishName: string; language:
       name: 'recipeIngredientsPrompt',
       input: { schema: GetIngredientsInputSchema },
       output: { schema: GetIngredientsOutputSchema },
-      model: googleAI.model('gemini-2.5-flash'),
+      model: 'googleai/gemini-2.5-flash',
       prompt: `
           You are an expert Indian chef creating a recipe for a single restaurant-style serving.
           Your primary task is to generate a list of ingredients with REALISTIC quantities and estimated COST in Indian Rupees (₹) for ONE serving. For example, a single biryani serving uses around 150-200g of chicken, not 750g.

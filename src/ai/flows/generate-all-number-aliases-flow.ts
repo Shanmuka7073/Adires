@@ -9,7 +9,6 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { googleAI } from '@genkit-ai/google-genai';
 
 const SingleNumberAliasesSchema = z.object({
   en: z.array(z.string()),
@@ -29,7 +28,7 @@ export async function generateAllNumberAliases(): Promise<GenerateAllNumberAlias
 const prompt = ai.definePrompt({
   name: 'generateAllNumberAliasesPrompt',
   output: { schema: GenerateAllNumberAliasesOutputSchema },
-  model: googleAI.model('gemini-2.5-flash'),
+  model: 'googleai/gemini-2.5-flash',
   prompt: `You are a linguistic expert for a voice-controlled app in India. Your task is to generate a comprehensive list of common aliases for all numbers from 1 to 100.
 
 For EACH number from 1 to 100, generate a list of common ways people might say or spell it.

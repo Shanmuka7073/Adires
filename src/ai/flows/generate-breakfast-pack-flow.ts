@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI flow to generate customized breakfast packs.
@@ -9,9 +10,6 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { googleAI } from '@genkit-ai/google-genai';
-
-const mainBreakfastItems = ['Idli', 'Dosa', 'Poori', 'Chapati', 'Upma', 'Uggani'];
 
 const GenerateBreakfastPackInputSchema = z.object({
   duration: z.enum(['7days', '15days', 'monthly']).describe('The duration of the breakfast plan.'),
@@ -50,7 +48,7 @@ const prompt = ai.definePrompt({
   name: 'generateBreakfastPackPrompt',
   input: { schema: GenerateBreakfastPackInputSchema },
   output: { schema: GenerateBreakfastPackOutputSchema },
-  model: googleAI.model('gemini-2.5-flash'),
+  model: 'googleai/gemini-2.5-flash',
   prompt: `You are an expert Indian chef and meal planner. Your task is to create a breakfast pack for a family of {{familySize}} for a duration of {{duration}}.
 
 Base Main Items:

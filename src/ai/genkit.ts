@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview This file initializes the Genkit AI instance and exports it
  * for use in other parts of the application, such as defining flows.
@@ -5,7 +6,7 @@
  */
 import 'dotenv/config'; // Import and configure dotenv at the very top.
 import { genkit } from 'genkit';
-import { googleAI, gemini15Flash } from '@genkit-ai/google-genai';
+import { googleAI } from '@genkit-ai/google-genai';
 
 // The googleAI() plugin will now automatically pick up the API key
 // from the process.env.GEMINI_API_KEY environment variable.
@@ -13,5 +14,5 @@ export const ai = genkit({
   plugins: [
     googleAI(),
   ],
-  defaultModel: gemini15Flash, // Set a reliable default model for all flows
+  defaultModel: 'googleai/gemini-2.5-flash', // Set Gemini 2.5 Flash as the default model
 });
