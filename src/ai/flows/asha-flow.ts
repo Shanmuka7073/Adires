@@ -8,7 +8,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { googleAI } from '@genkit-ai/google-genai';
+import { gemini15Flash } from '@genkit-ai/google-genai';
 import { z } from 'genkit';
 import type { ChatMessage } from '@/lib/types';
 
@@ -37,7 +37,7 @@ const prompt = ai.definePrompt(
       name: 'ashaPrompt',
       input: { schema: AshaChatInputSchema },
       output: { schema: AshaChatOutputSchema },
-      model: googleAI.model('gemini-2.5-flash'),
+      model: gemini15Flash,
       prompt: `You are Asha, a friendly and empathetic AI diagnostic assistant for the LocalBasket app.
 Your primary role is to help users understand potential health issues based on the symptoms they describe.
 You are not a doctor and you must always remind the user to consult a real medical professional.

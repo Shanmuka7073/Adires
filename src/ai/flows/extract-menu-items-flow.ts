@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview An AI flow to extract menu items and theme from a restaurant menu image.
@@ -10,7 +9,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { googleAI } from '@genkit-ai/google-genai';
+import { gemini15Flash } from '@genkit-ai/google-genai';
 
 const ExtractMenuItemsInputSchema = z.object({
   menuImage: z
@@ -50,7 +49,7 @@ const prompt = ai.definePrompt({
   name: 'extractMenuItemsPrompt',
   input: { schema: ExtractMenuItemsInputSchema },
   output: { schema: ExtractMenuItemsOutputSchema },
-  model: googleAI.model('gemini-2.5-flash'),
+  model: gemini15Flash, // Using 1.5 Flash for high-speed, reliable multimodal OCR
   prompt: `You are an expert OCR and data extraction engine for restaurant menus.
 Your task is to analyze the provided image of a menu and extract every single dish and the menu's color scheme into a structured format.
 
