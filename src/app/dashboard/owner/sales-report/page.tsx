@@ -5,7 +5,7 @@ import React, { useEffect, useState, useTransition, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BarChart3, Download, DollarSign, Receipt, AlertTriangle, List, TrendingUp, TrendingDown, Award, Lightbulb, Search } from 'lucide-react';
+import { BarChart3, Download, DollarSign, Receipt, AlertTriangle, List, TrendingUp, TrendingDown, Award, Lightbulb, Search, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
@@ -396,6 +396,51 @@ function SalesDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean,
     );
 }
 
+function ProfitableDishesDialog({ isOpen, onOpenChange, report }: { isOpen: boolean, onOpenChange: (open: boolean) => void, report: ReportData | null }) {
+    if (!report) return null;
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Highest Profit Dishes Breakdown</DialogTitle>
+                    <DialogDescription>
+                        Menu items ranked by their total contribution to your gross profit.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Dish Name</TableHead>
+                                <TableHead className="text-right">Units Sold</TableHead>
+                                <TableHead className="text-right">Profit / Unit</TableHead>
+                                <TableHead className="text-right">Total Profit</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {report.topProfitableProducts.map(product => (
+                                <TableRow key={product.name}>
+                                    <TableCell className="font-medium capitalize">{product.name}</TableCell>
+                                    <TableCell className="text-right">{product.count}</TableCell>
+                                    <TableCell className="text-right font-mono text-green-600">₹{product.profitPerUnit.toFixed(2)}</TableCell>
+                                    <TableCell className="text-right font-mono font-bold text-green-700">₹{product.totalProfit.toFixed(2)}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                    <p className="text-xs text-muted-foreground mt-4 italic">
+                        * Profit is calculated as (Selling Price - Recorded Ingredient Costs) × Units Sold.
+                    </p>
+                </div>
+                <DialogFooter>
+                    <Button onClick={() => onOpenChange(false)}>Close</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 
 function StatCard({ title, value, highlight = false, description, valueClassName, onClick }: { title: string, value: string | number, highlight?: boolean, description?: string, valueClassName?: string, onClick?: () => void }) {
   return (
@@ -429,6 +474,7 @@ export default function SalesReportPage() {
     const [isCostDialogOpen, setIsCostDialogOpen] = useState(false);
     const [isSalesDialogOpen, setIsSalesDialogOpen] = useState(false);
     const [isProfitPerOrderDialogOpen, setIsProfitPerOrderDialogOpen] = useState(false);
+    const [isProfitableDishesDialogOpen, setIsProfitableDishesDialogOpen] = useState(false);
     const [isSuggestionDialogOpen, setIsSuggestionDialogOpen] = useState(false);
     const [selectedTableForSuggestion, setSelectedTableForSuggestion] = useState<ReportData['salesByTable'][0] | null>(null);
 
@@ -503,6 +549,7 @@ export default function SalesReportPage() {
             <CostDetailsDialog isOpen={isCostDialogOpen} onOpenChange={setIsCostDialogOpen} report={report} />
             <SalesDetailsDialog isOpen={isSalesDialogOpen} onOpenChange={setIsSalesDialogOpen} report={report} />
             <ProfitPerOrderDetailsDialog isOpen={isProfitPerOrderDialogOpen} onOpenChange={setIsProfitPerOrderDialogOpen} report={report} />
+            <ProfitableDishesDialog isOpen={isProfitableDishesDialogOpen} onOpenChange={setIsProfitableDishesDialogOpen} report={report} />
             <SuggestionDetailsDialog isOpen={isSuggestionDialogOpen} onOpenChange={setIsSuggestionDialogOpen} tableData={selectedTableForSuggestion} />
 
             <Card>
@@ -561,21 +608,44 @@ export default function SalesReportPage() {
                                     </div>
                                     
                                     <div className="grid md:grid-cols-2 gap-8">
-                                      <div>
-                                        <h3 className="text-xl font-semibold mb-3 flex items-center gap-2"><List className="h-5 w-5 text-primary"/> Top Products</h3>
-                                        {report.topProducts.length > 0 ? (
-                                            <div className="space-y-2">
-                                                {report.topProducts.map(p => (
-                                                    <div key={p.name} className="flex justify-between items-center text-sm p-3 bg-slate-50 rounded-lg">
-                                                        <span className="capitalize font-medium">{p.name}</span>
-                                                        <span className="font-bold">{p.count} units</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : <p className="text-muted-foreground">No products sold in this period.</p>}
+                                      <div className="space-y-6">
+                                        <div onClick={() => setIsProfitableDishesDialogOpen(true)} className="cursor-pointer">
+                                            <h3 className="text-xl font-semibold mb-3 flex items-center gap-2 text-primary"><Sparkles className="h-5 w-5"/> Highest Profit Dishes</h3>
+                                            {report.topProfitableProducts.length > 0 ? (
+                                                <div className="space-y-2">
+                                                    {report.topProfitableProducts.map(p => (
+                                                        <div key={p.name} className="flex justify-between items-center text-sm p-3 bg-green-50 border border-green-100 rounded-lg">
+                                                            <span className="capitalize font-medium">{p.name}</span>
+                                                            <div className="text-right">
+                                                                <p className="font-bold text-green-700">₹{p.totalProfit.toFixed(2)}</p>
+                                                                <p className="text-[10px] text-green-600">₹{p.profitPerUnit.toFixed(2)} / unit</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    <p className="text-xs text-center text-muted-foreground mt-2">Click to see all {report.topProfitableProducts.length} profitable items.</p>
+                                                </div>
+                                            ) : <p className="text-muted-foreground">No data available for dish profitability.</p>}
+                                        </div>
+
+                                        <Separator />
+
+                                        <div>
+                                            <h3 className="text-xl font-semibold mb-3 flex items-center gap-2 text-primary"><List className="h-5 w-5"/> Most Sold (Volume)</h3>
+                                            {report.topProducts.length > 0 ? (
+                                                <div className="space-y-2">
+                                                    {report.topProducts.map(p => (
+                                                        <div key={p.name} className="flex justify-between items-center text-sm p-3 bg-slate-50 rounded-lg">
+                                                            <span className="capitalize font-medium">{p.name}</span>
+                                                            <span className="font-bold">{p.count} units</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : <p className="text-muted-foreground">No products sold in this period.</p>}
+                                        </div>
                                       </div>
+
                                       <div onClick={() => setIsCostDialogOpen(true)} className="cursor-pointer">
-                                        <h3 className="text-xl font-semibold mb-3 flex items-center gap-2"><Receipt className="h-5 w-5 text-primary"/> Ingredient Consumption</h3>
+                                        <h3 className="text-xl font-semibold mb-3 flex items-center gap-2 text-primary"><Receipt className="h-5 w-5"/> Ingredient Consumption</h3>
                                         {report.ingredientUsage.length > 0 ? (
                                           <div className="space-y-2">
                                             {report.ingredientUsage.slice(0, 5).map(i => (

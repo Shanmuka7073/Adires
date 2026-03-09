@@ -351,6 +351,7 @@ export type ReportData = {
   totalItems: number;
   totalOrders: number;
   topProducts: { name: string; count: number }[];
+  topProfitableProducts: { name: string; totalProfit: number; profitPerUnit: number; count: number }[];
   ingredientUsage: { name: string; quantity: number, unit: string, cost: number }[];
   ingredientCost: number;
   costDrivers: { name: string; cost: number; percentage: number }[];

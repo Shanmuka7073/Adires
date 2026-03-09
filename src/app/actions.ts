@@ -5,7 +5,7 @@ import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue, Firestore, DocumentReference } from 'firebase-admin/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient, EmployeeProfile, SalarySlip, Store, AttendanceRecord, ReasonEntry, User, CartItem } from '@/lib/types';
+import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient, EmployeeProfile, SalarySlip, Store, AttendanceRecord, ReasonEntry, User, CartItem, ReportData } from '@/lib/types';
 import { headers } from 'next/headers';
 import { getApp, getApps } from 'firebase-admin/app';
 import * as pdfjs from 'pdfjs-dist';
@@ -477,12 +477,13 @@ export async function getStoreSalesReport({
   if (validOrders.length === 0) {
     return {
       success: true,
-      report: { totalSales: 0, totalOrders: 0, totalItems: 0, topProducts: [], ingredientUsage: [], ingredientCost: 0, costDrivers: [], optimizationHint: null, salesByTable: [] },
+      report: { totalSales: 0, totalOrders: 0, totalItems: 0, topProducts: [], topProfitableProducts: [], ingredientUsage: [], ingredientCost: 0, costDrivers: [], optimizationHint: null, salesByTable: [] },
     };
   }
 
   let totalSales = 0;
   const productMap = new Map<string, number>();
+  const productProfitMap = new Map<string, { totalProfit: number, count: number }>();
   const ingredientMap = new Map<string, { quantity: number; unit: string; cost: number }>();
   const salesByTableMap = new Map<string, { totalSales: number; orderCount: number, totalCost: number }>();
 
@@ -494,11 +495,13 @@ export async function getStoreSalesReport({
       const key = item.productName.toLowerCase().trim();
       productMap.set(key, (productMap.get(key) || 0) + item.quantity);
 
+      let itemTotalCost = 0;
       for (const ing of item.recipeSnapshot || []) {
          if (!ing.name || typeof ing.qty !== 'number' || !ing.unit) continue;
 
         const consumed = convertToBaseUnit(ing.qty, ing.unit) * item.quantity;
         const itemIngredientCost = (ing.cost || 0) * item.quantity;
+        itemTotalCost += itemIngredientCost;
         orderCost += itemIngredientCost;
 
         const prev = ingredientMap.get(ing.name) || {
@@ -513,6 +516,14 @@ export async function getStoreSalesReport({
           unit: prev.unit,
         });
       }
+
+      // Profit calculation for the specific dish
+      const itemProfit = (item.price * item.quantity) - itemTotalCost;
+      const profitEntry = productProfitMap.get(item.productName) || { totalProfit: 0, count: 0 };
+      productProfitMap.set(item.productName, {
+          totalProfit: profitEntry.totalProfit + itemProfit,
+          count: profitEntry.count + item.quantity
+      });
     }
 
     if (order.tableNumber) {
@@ -534,6 +545,16 @@ export async function getStoreSalesReport({
       percentage: totalIngredientCost > 0 ? (data.cost / totalIngredientCost) * 100 : 0,
   }));
   
+  const topProfitableProducts = [...productProfitMap.entries()]
+    .map(([name, data]) => ({
+        name,
+        totalProfit: data.totalProfit,
+        profitPerUnit: data.totalProfit / data.count,
+        count: data.count
+    }))
+    .sort((a, b) => b.totalProfit - a.totalProfit)
+    .slice(0, 5);
+
   let optimizationHint = null;
   const oilAndGheeCost = sortedIngredients
       .filter(([name]) => name.toLowerCase().includes('oil') || name.toLowerCase().includes('ghee'))
@@ -559,6 +580,7 @@ export async function getStoreSalesReport({
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
         .map(([name, count]) => ({ name, count })),
+      topProfitableProducts,
       ingredientUsage: [...ingredientMap.entries()].map(([name, data]) => {
           const formatted = formatAggregatedQuantity(data.quantity, data.unit);
           return { name, quantity: formatted.quantity, unit: formatted.unit, cost: data.cost };
@@ -578,7 +600,7 @@ export async function getStoreSalesReport({
               profitPercentage: data.totalSales > 0 ? (grossProfit / data.totalSales) * 100 : 0,
           };
       }),
-    },
+    } as ReportData,
     error: null,
   };
 }
