@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -313,7 +312,7 @@ export async function updateManifest(newData: { icons?: any[], screenshots?: any
 export async function addRestaurantOrderItem({
   storeId,
   sessionId,
- TableNumber,
+  tableNumber,
   item,
   quantity,
 }: {
