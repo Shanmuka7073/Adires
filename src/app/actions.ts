@@ -313,7 +313,7 @@ export async function updateManifest(newData: { icons?: any[], screenshots?: any
 export async function addRestaurantOrderItem({
   storeId,
   sessionId,
-  tableNumber,
+ TableNumber,
   item,
   quantity,
 }: {
@@ -754,30 +754,42 @@ async function getFullSlipDetails(slipData: SalarySlip, db: Firestore): Promise<
         return null;
     }
     
-    const attendanceSnap = await db
-        .collection('stores')
-        .doc(slipData.storeId)
-        .collection('attendance')
-        .where('employeeId', '==', slipData.employeeId)
-        .where('workDate', '>=', Timestamp.fromDate(new Date(slipData.periodStart)))
-        .where('workDate', '<=', Timestamp.fromDate(new Date(slipData.periodEnd)))
-        .get();
+    // FETCH ATTENDANCE WITH ROBUST ERROR HANDLING
+    let attendanceSummary = {
+        totalDays: 30, // Fallback
+        presentDays: 0,
+        partialDays: 0,
+        absentDays: 0,
+    };
+
+    try {
+        const attendanceSnap = await db
+            .collection('stores')
+            .doc(slipData.storeId)
+            .collection('attendance')
+            .where('employeeId', '==', slipData.employeeId)
+            .where('workDate', '>=', Timestamp.fromDate(new Date(slipData.periodStart)))
+            .where('workDate', '<=', Timestamp.fromDate(new Date(slipData.periodEnd)))
+            .get();
+
+        const attendanceRecords = attendanceSnap.docs.map(d => d.data() as AttendanceRecord);
+        const totalDaysInPeriod = Math.round((new Date(slipData.periodEnd).getTime() - new Date(slipData.periodStart).getTime()) / (1000 * 3600 * 24)) + 1;
+        const presentDays = new Set(attendanceRecords.filter(r => ['present', 'approved', 'partially_present'].includes(r.status)).map(r => (r.workDate as Timestamp).toDate().toISOString().split('T')[0])).size;
+
+        attendanceSummary = {
+            totalDays: totalDaysInPeriod,
+            presentDays: presentDays,
+            partialDays: attendanceRecords.filter(r => r.status === 'partially_present').length,
+            absentDays: totalDaysInPeriod - presentDays,
+        };
+    } catch (e) {
+        console.warn("Attendance summary fetch failed (likely missing index). Using simplified summary.");
+    }
 
     const employeeData = employeeSnap.data() as EmployeeProfile;
     const userData = userSnap.data() as User;
     const fullEmployeeProfile = { ...userData, ...employeeData };
     const storeData = storeSnap.data() as Store;
-
-    const attendanceRecords = attendanceSnap.docs.map(d => d.data() as AttendanceRecord);
-    const totalDaysInPeriod = Math.round((new Date(slipData.periodEnd).getTime() - new Date(slipData.periodStart).getTime()) / (1000 * 3600 * 24)) + 1;
-    const presentDays = new Set(attendanceRecords.filter(r => ['present', 'approved', 'partially_present'].includes(r.status)).map(r => (r.workDate as Timestamp).toDate().toISOString().split('T')[0])).size;
-
-    const attendanceSummary = {
-        totalDays: totalDaysInPeriod,
-        presentDays: presentDays,
-        partialDays: attendanceRecords.filter(r => r.status === 'partially_present').length,
-        absentDays: totalDaysInPeriod - presentDays,
-    };
 
     const serializableSlip = {
         ...slipData,
@@ -795,19 +807,32 @@ async function getFullSlipDetails(slipData: SalarySlip, db: Firestore): Promise<
 }
 
 
-export async function getSalarySlipData(slipId: string, userId: string): Promise<{ slip: SalarySlip; employee: EmployeeProfile & User; store: Store; attendance: any } | null> {
+export async function getSalarySlipData(slipId: string, userId: string, storeId?: string): Promise<{ slip: SalarySlip; employee: EmployeeProfile & User; store: Store; attendance: any } | null> {
     const { db } = await getAdminServices();
 
     try {
-        const slipQuery = db.collectionGroup('salarySlips').where('id', '==', slipId).limit(1);
-        const slipSnapshot = await slipQuery.get();
+        let slipData: SalarySlip | null = null;
 
-        if (slipSnapshot.empty) {
+        if (storeId) {
+            // Direct fetch is preferred and faster
+            const docSnap = await db.collection('stores').doc(storeId).collection('salarySlips').doc(slipId).get();
+            if (docSnap.exists) {
+                slipData = docSnap.data() as SalarySlip;
+            }
+        }
+
+        if (!slipData) {
+            // Fallback to collection group if storeId is missing
+            const slipQuery = db.collectionGroup('salarySlips').where('id', '==', slipId).limit(1);
+            const slipSnapshot = await slipQuery.get();
+            if (!slipSnapshot.empty) {
+                slipData = slipSnapshot.docs[0].data() as SalarySlip;
+            }
+        }
+
+        if (!slipData) {
             throw new Error("Salary slip not found.");
         }
-        
-        const slipDocFromQuery = slipSnapshot.docs[0];
-        const slipData = slipDocFromQuery.data() as SalarySlip;
 
         const storeDoc = await db.collection('stores').doc(slipData.storeId).get();
         if (!storeDoc.exists()) {

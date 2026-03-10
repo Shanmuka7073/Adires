@@ -1,22 +1,56 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useTransition } from 'react';
 import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, doc } from 'firebase/firestore';
-import type { SalarySlip, EmployeeProfile } from '@/lib/types';
+import { collection, query, where, orderBy, doc, getDoc } from 'firebase/firestore';
+import type { SalarySlip, EmployeeProfile, User, Store } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { FileText, Eye, AlertTriangle } from 'lucide-react';
+import { FileText, Eye, AlertTriangle, Download, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
+import { generateSalarySlipDoc } from '@/lib/generateSalarySlipDoc';
+import { useToast } from '@/hooks/use-toast';
 
-function SalarySlipCard({ slip }: { slip: SalarySlip }) {
+function SalarySlipCard({ slip, employeeProfile, storeName }: { slip: SalarySlip, employeeProfile: EmployeeProfile, storeName: string }) {
+    const [isDownloading, startDownload] = useTransition();
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+
+    const handleDownload = () => {
+        if (!firestore) return;
+        startDownload(async () => {
+            try {
+                // Fetch full names for the document
+                const userDoc = await getDoc(doc(firestore, 'users', slip.employeeId));
+                const userData = userDoc.data() as User;
+
+                await generateSalarySlipDoc({
+                    companyName: storeName,
+                    payslipNo: `PSL-${slip.id.slice(0, 8)}`,
+                    employeeName: `${userData?.firstName || 'Employee'} ${userData?.lastName || ''}`,
+                    employeeId: employeeProfile.employeeId,
+                    designation: employeeProfile.role,
+                    payPeriod: format(new Date(slip.periodStart), 'MMMM yyyy'),
+                    totalHours: (slip.baseSalary / employeeProfile.salaryRate) || 0,
+                    baseSalary: slip.baseSalary,
+                    pf: 0,
+                    esi: 0,
+                    netPay: slip.netPay,
+                });
+                toast({ title: "Download started" });
+            } catch (error) {
+                console.error("DOCX Gen failed:", error);
+                toast({ variant: 'destructive', title: "Download failed" });
+            }
+        });
+    };
     
     return (
-        <Card>
+        <Card className="hover:shadow-lg transition-shadow">
             <CardHeader>
                 <CardTitle>Pay Period: {format(new Date(slip.periodStart), 'MMMM yyyy')}</CardTitle>
                 <CardDescription>Generated on {slip.generatedAt ? format(slip.generatedAt.toDate(), 'PPP') : 'N/A'}</CardDescription>
@@ -31,11 +65,15 @@ function SalarySlipCard({ slip }: { slip: SalarySlip }) {
                     <span className="text-primary">₹{slip.netPay.toFixed(2)}</span>
                 </div>
             </CardContent>
-            <CardFooter>
-                 <Button asChild className="w-full">
-                    <Link href={`/dashboard/salary-slip/${slip.id}`}>
-                        <Eye className="mr-2 h-4 w-4" /> View Detailed Slip
+            <CardFooter className="grid grid-cols-2 gap-2">
+                 <Button asChild variant="outline" size="sm">
+                    <Link href={`/dashboard/salary-slip/${slip.id}?storeId=${slip.storeId}`}>
+                        <Eye className="mr-2 h-4 w-4" /> View
                     </Link>
+                </Button>
+                <Button variant="secondary" size="sm" onClick={handleDownload} disabled={isDownloading}>
+                    {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                    Download
                 </Button>
             </CardFooter>
         </Card>
@@ -48,6 +86,9 @@ export default function EmployeeSalarySlipsPage() {
     const employeeProfileRef = useMemoFirebase(() => (user ? doc(firestore, 'employeeProfiles', user.uid) : null), [user, firestore]);
     const { data: employeeProfile, isLoading: profileLoading } = useDoc<EmployeeProfile>(employeeProfileRef);
     
+    const storeRef = useMemoFirebase(() => (employeeProfile?.storeId ? doc(firestore, 'stores', employeeProfile.storeId) : null), [employeeProfile, firestore]);
+    const { data: storeData } = useDoc<Store>(storeRef);
+
     const salarySlipsQuery = useMemoFirebase(() => {
         if (!firestore || !employeeProfile) return null;
         return query(
@@ -109,13 +150,13 @@ export default function EmployeeSalarySlipsPage() {
                     <FileText className="h-8 w-8 text-primary" />
                     My Salary Slips
                 </h1>
-                <p className="text-muted-foreground">View and download your monthly salary statements.</p>
+                <p className="text-muted-foreground">View and download your monthly salary statements from <strong>{storeData?.name || 'your store'}</strong>.</p>
             </div>
             
             {salarySlips && salarySlips.length > 0 ? (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {salarySlips.map(slip => (
-                        <SalarySlipCard key={slip.id} slip={slip} />
+                        <SalarySlipCard key={slip.id} slip={slip} employeeProfile={employeeProfile} storeName={storeData?.name || 'LocalBasket'} />
                     ))}
                 </div>
             ) : (

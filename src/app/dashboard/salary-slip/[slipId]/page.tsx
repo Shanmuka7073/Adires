@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useFirebase } from '@/firebase';
 import { getSalarySlipData } from '@/app/actions';
 import type { SalarySlip, EmployeeProfile, Store, User } from '@/lib/types';
@@ -11,12 +11,15 @@ import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { generateSalarySlipDoc } from '@/lib/generateSalarySlipDoc';
 import { Card, CardContent } from '@/components/ui/card';
-import { Printer, Download, ArrowLeft } from 'lucide-react';
+import { Printer, Download, ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: SalarySlip, employee: EmployeeProfile & User, store: Store, attendance: any }) {
-    
+    const [isDownloading, setIsDownloading] = useState(false);
+
     const handleDownload = async () => {
+        setIsDownloading(true);
         try {
             await generateSalarySlipDoc({
                 companyName: store.name,
@@ -25,7 +28,7 @@ function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: Salary
                 employeeId: employee.employeeId,
                 designation: employee.role,
                 payPeriod: format(new Date(slip.periodStart), 'MMMM yyyy'),
-                totalHours: attendance.presentDays * 8,
+                totalHours: (attendance?.presentDays || 0) * 8,
                 baseSalary: slip.baseSalary,
                 pf: 0,
                 esi: 0,
@@ -33,6 +36,8 @@ function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: Salary
             });
         } catch (error) {
             console.error("Failed to generate DOCX:", error);
+        } finally {
+            setIsDownloading(false);
         }
     };
     
@@ -48,8 +53,9 @@ function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: Salary
                     <Button onClick={() => window.print()} variant="outline">
                         <Printer className="mr-2 h-4 w-4" /> Print / PDF
                     </Button>
-                    <Button onClick={handleDownload}>
-                        <Download className="mr-2 h-4 w-4" /> Download Word
+                    <Button onClick={handleDownload} disabled={isDownloading}>
+                        {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                        Download Word
                     </Button>
                 </div>
             </div>
@@ -115,15 +121,15 @@ function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: Salary
                             <h4 className="text-xs font-bold text-muted-foreground uppercase mb-3">Attendance Summary</h4>
                             <div className="grid grid-cols-3 gap-4 text-center">
                                 <div>
-                                    <p className="text-2xl font-bold">{attendance.totalDays}</p>
+                                    <p className="text-2xl font-bold">{attendance?.totalDays || 0}</p>
                                     <p className="text-[10px] text-muted-foreground uppercase">Total Days</p>
                                 </div>
                                 <div>
-                                    <p className="text-2xl font-bold text-green-600">{attendance.presentDays}</p>
+                                    <p className="text-2xl font-bold text-green-600">{attendance?.presentDays || 0}</p>
                                     <p className="text-[10px] text-muted-foreground uppercase">Present</p>
                                 </div>
                                 <div>
-                                    <p className="text-2xl font-bold text-red-500">{attendance.absentDays}</p>
+                                    <p className="text-2xl font-bold text-red-500">{attendance?.absentDays || 0}</p>
                                     <p className="text-[10px] text-muted-foreground uppercase">Absent</p>
                                 </div>
                             </div>
@@ -167,6 +173,7 @@ interface SalaryData {
 
 export default function SalarySlipPage() {
     const { slipId } = useParams<{ slipId: string }>();
+    const storeId = useSearchParams().get('storeId');
     const { user } = useFirebase();
 
     const [data, setData] = useState<SalaryData | null>(null);
@@ -183,7 +190,8 @@ export default function SalarySlipPage() {
             setError(null);
 
             try {
-                const result = await getSalarySlipData(slipId, user.uid);
+                // Pass storeId to server action for faster, non-indexed lookup
+                const result = await getSalarySlipData(slipId, user.uid, storeId || undefined);
                 if (result) {
                     setData(result as SalaryData);
                 } else {
@@ -198,7 +206,7 @@ export default function SalarySlipPage() {
         }
 
         fetchData();
-    }, [user, slipId]);
+    }, [user, slipId, storeId]);
 
     if (isLoading) {
         return (
@@ -213,9 +221,12 @@ export default function SalarySlipPage() {
             <div className="container mx-auto py-24 px-4 text-center">
                 <h1 className="text-2xl font-bold text-destructive mb-4">Error</h1>
                 <p className="text-muted-foreground mb-8">{error || "Salary Slip not found."}</p>
-                <Button asChild variant="outline">
-                    <Link href="/dashboard/employee/salary-slips">Back to My Slips</Link>
-                </Button>
+                <div className="flex justify-center gap-4">
+                    <Button asChild variant="outline">
+                        <Link href="/dashboard/employee/salary-slips">Back to My Slips</Link>
+                    </Button>
+                    <Button onClick={() => window.location.reload()}>Retry</Button>
+                </div>
             </div>
         );
     }
