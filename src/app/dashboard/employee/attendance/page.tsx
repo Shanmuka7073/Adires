@@ -1,15 +1,16 @@
+
 'use client';
 
-import { useEffect, useState, useMemo, useTransition, useCallback } from 'react';
+import { useEffect, useState, useMemo, useTransition, useCallback, useRef } from 'react';
 import { collection, query, where, addDoc, getDocs, orderBy, updateDoc, doc, Timestamp, arrayUnion, onSnapshot } from 'firebase/firestore';
 import { useFirebase, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
-import { format, isSameDay, startOfDay, differenceInMinutes, isPast } from 'date-fns';
-import type { AttendanceRecord, EmployeeProfile, Store, ReasonEntry } from '@/lib/types';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { format, isSameDay, startOfDay, differenceInMinutes } from 'date-fns';
+import type { AttendanceRecord, EmployeeProfile, Store, ReasonEntry, User } from '@/lib/types';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, AlertCircle, Calendar as CalendarIcon, CheckCircle, Info, MessageSquare } from 'lucide-react';
+import { Loader2, AlertCircle, Calendar as CalendarIcon, CheckCircle, Info, MessageSquare, Fingerprint, MapPin, LocateFixed, ShieldCheck } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -22,6 +23,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
+// --- BIOMETRIC HELPERS ---
+function bufferDecode(value: string) {
+  return Uint8Array.from(atob(value), c => c.charCodeAt(0));
+}
+
+function bufferEncode(value: ArrayBuffer) {
+  return btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(value))));
+}
 
 function AttendanceDetails({ record }: { record: AttendanceRecord }) {
     const [isRegularizationDialogOpen, setIsRegularizationDialogOpen] = useState(false);
@@ -152,12 +161,23 @@ export default function EmployeeAttendancePage() {
   const employeeProfileRef = useMemoFirebase(() => (user ? doc(firestore, 'employeeProfiles', user.uid) : null), [user, firestore]);
   const { data: employeeProfile, isLoading: profileLoading } = useDoc<EmployeeProfile>(employeeProfileRef);
   
+  const storeRef = useMemoFirebase(() => (employeeProfile?.storeId ? doc(firestore, 'stores', employeeProfile.storeId) : null), [employeeProfile, firestore]);
+  const { data: storeData } = useDoc<Store>(storeRef);
+
   const [authReady, setAuthReady] = useState(false);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [recordsLoading, setRecordsLoading] = useState(true);
 
   const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
   const [approvalReason, setApprovalReason] = useState("");
+
+  const [isDeviceRegistered, setIsDeviceRegistered] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+        setIsDeviceRegistered(!!localStorage.getItem('attendance_credential_id'));
+    }
+  }, []);
   
   useEffect(() => {
     if (!firestore) return;
@@ -190,7 +210,6 @@ export default function EmployeeAttendancePage() {
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        console.log('ATTENDANCE FETCH SUCCESS (Employee)', { count: snapshot.size, employeeId: user.uid, storeId });
         const data = snapshot.docs.map(d => ({
           id: d.id,
           ...d.data(),
@@ -203,7 +222,7 @@ export default function EmployeeAttendancePage() {
         toast({
             variant: 'destructive',
             title: 'Permission Denied',
-            description: 'Could not fetch attendance records. Please check security rules.'
+            description: 'Could not fetch attendance records.'
         })
         setRecordsLoading(false);
       }
@@ -242,30 +261,129 @@ export default function EmployeeAttendancePage() {
   const selectedDateIsPast = selectedDate && !isSameDay(selectedDate, new Date()) && selectedDate < startOfDay(new Date());
   const canRequestApproval = !recordsLoading && selectedDateIsPast && !selectedRecord;
 
+  // --- BIOMETRIC REGISTRATION ---
+  const registerBiometric = async () => {
+    if (!user) return;
+    
+    startProcessing(async () => {
+        try {
+            const publicKey: PublicKeyCredentialCreationOptions = {
+                challenge: crypto.getRandomValues(new Uint8Array(32)),
+                rp: { name: "LocalBasket Attendance" },
+                user: {
+                    id: bufferDecode(btoa(user.uid)),
+                    name: user.email || 'employee',
+                    displayName: `${employeeProfile?.role || 'Employee'}`
+                },
+                pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+                authenticatorSelection: {
+                    authenticatorAttachment: "platform",
+                    userVerification: "required"
+                },
+                timeout: 60000,
+                attestation: "direct"
+            };
+
+            const credential = await navigator.credentials.create({ publicKey }) as any;
+            if (credential) {
+                localStorage.setItem("attendance_credential_id", bufferEncode(credential.rawId));
+                setIsDeviceRegistered(true);
+                toast({ title: "Device Registered!", description: "You can now use your biometric to punch in." });
+            }
+        } catch (e) {
+            console.error("Biometric registration error:", e);
+            toast({ variant: 'destructive', title: "Registration Failed", description: "Could not register biometric on this device." });
+        }
+    });
+  };
+
   const punchIn = async () => {
     if (!user || !employeeProfile?.storeId || !firestore) return;
     
+    const credId = localStorage.getItem("attendance_credential_id");
+    if (!credId) {
+        toast({ variant: 'destructive', title: "Device Not Registered", description: "Please register your device biometric first." });
+        return;
+    }
+
     if (todaysRecord) {
         toast({ variant: 'destructive', title: 'Already Punched In' });
         return;
     }
 
     startProcessing(async () => {
-        const today = startOfDay(new Date());
-        const newRecordData: Omit<AttendanceRecord, 'id'> = {
-            employeeId: user.uid, storeId: employeeProfile.storeId,
-            workDate: Timestamp.fromDate(today),
-            workDateStr: format(today, 'yyyy-MM-dd'),
-            punchInTime: Timestamp.now(), punchOutTime: null,
-            status: 'partially_present', workHours: 0,
-            rejectionCount: 0, reasonHistory: []
-        };
         try {
-            await addDoc(collection(firestore, 'stores', employeeProfile.storeId, 'attendance'), newRecordData);
-            toast({ title: 'Punched In!', description: 'Your shift has started.' });
-        } catch(e: any) {
-            const permissionError = new FirestorePermissionError({ path: `stores/${employeeProfile.storeId}/attendance`, operation: 'create', requestResourceData: newRecordData });
-            errorEmitter.emit('permission-error', permissionError);
+            // 1. VERIFY BIOMETRIC
+            const publicKey: PublicKeyCredentialRequestOptions = {
+                challenge: crypto.getRandomValues(new Uint8Array(32)),
+                allowCredentials: [{
+                    id: bufferDecode(credId),
+                    type: "public-key"
+                }],
+                timeout: 60000,
+                userVerification: "required"
+            };
+
+            await navigator.credentials.get({ publicKey });
+
+            // 2. CAPTURE LOCATION
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    const { latitude, longitude } = position.coords;
+                    
+                    // 3. PROXIMITY CHECK (Optional but recommended)
+                    if (storeData && storeData.latitude && storeData.longitude) {
+                        const R = 6371e3; // metres
+                        const φ1 = latitude * Math.PI/180;
+                        const φ2 = storeData.latitude * Math.PI/180;
+                        const Δφ = (storeData.latitude - latitude) * Math.PI/180;
+                        const Δλ = (storeData.longitude - longitude) * Math.PI/180;
+
+                        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                                Math.cos(φ1) * Math.cos(φ2) *
+                                Math.sin(Δλ/2) * Math.sin(Δλ/2);
+                        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                        const distance = R * c;
+
+                        if (distance > 500) {
+                            toast({ variant: 'destructive', title: 'Out of Range', description: `You must be within 500m of the store. Currently ${Math.round(distance)}m away.` });
+                            return;
+                        }
+                    }
+
+                    // 4. RECORD PUNCH IN
+                    const today = startOfDay(new Date());
+                    const newRecordData: Omit<AttendanceRecord, 'id'> = {
+                        employeeId: user.uid, 
+                        storeId: employeeProfile.storeId,
+                        workDate: Timestamp.fromDate(today),
+                        workDateStr: format(today, 'yyyy-MM-dd'),
+                        punchInTime: Timestamp.now(), 
+                        punchOutTime: null,
+                        status: 'partially_present', 
+                        workHours: 0,
+                        rejectionCount: 0, 
+                        reasonHistory: [],
+                        latitude,
+                        longitude
+                    } as any;
+
+                    try {
+                        await addDoc(collection(firestore, 'stores', employeeProfile.storeId, 'attendance'), newRecordData);
+                        toast({ title: 'Punch In Successful!', description: 'Attendance marked with biometric verification.' });
+                    } catch(e: any) {
+                        const permissionError = new FirestorePermissionError({ path: `stores/${employeeProfile.storeId}/attendance`, operation: 'create', requestResourceData: newRecordData });
+                        errorEmitter.emit('permission-error', permissionError);
+                    }
+                },
+                (err) => {
+                    toast({ variant: 'destructive', title: 'Location Error', description: "Could not verify your location. Please enable GPS." });
+                }
+            );
+
+        } catch (e) {
+            console.error("Biometric verification error:", e);
+            toast({ variant: 'destructive', title: "Verification Failed", description: "Fingerprint/Face verification failed." });
         }
     });
   };
@@ -355,7 +473,7 @@ export default function EmployeeAttendancePage() {
   }
   
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto">
+    <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-8">
       <Dialog open={isRequestDialogOpen} onOpenChange={setIsRequestDialogOpen}>
           <DialogContent>
                 <DialogHeader>
@@ -383,34 +501,66 @@ export default function EmployeeAttendancePage() {
             </DialogContent>
       </Dialog>
 
+      {/* BIOMETRIC REGISTRATION SECTION */}
+      {!isDeviceRegistered && (
+          <Card className="border-primary/50 bg-primary/5">
+              <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                      <Fingerprint className="h-6 w-6 text-primary" />
+                      Biometric Setup Required
+                  </CardTitle>
+                  <CardDescription>
+                      Register your phone's fingerprint or face unlock to enable secure attendance marking.
+                  </CardDescription>
+              </CardHeader>
+              <CardContent>
+                  <Button onClick={registerBiometric} disabled={isProcessing} className="w-full">
+                      {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+                      Register This Device
+                  </Button>
+              </CardContent>
+          </Card>
+      )}
+
       <Card>
           <CardHeader>
             <CardTitle className="text-2xl font-bold mb-2">Employee Attendance</CardTitle>
             <CardDescription>
-                Punch in daily and track your monthly attendance. For missed or partial days, click the date on the calendar to request approval.
+                Punch in securely using your biometric sensor. Location and time will be captured automatically.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Button
                     onClick={punchIn}
-                    disabled={!!todaysRecord || isProcessing}
+                    disabled={!!todaysRecord || isProcessing || !isDeviceRegistered}
                     size="lg"
-                    className="bg-green-600 hover:bg-green-700"
+                    className="h-16 text-lg bg-green-600 hover:bg-green-700"
                   >
-                    {isProcessing && !todaysRecord ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                    Punch In for Today
+                    {isProcessing && !todaysRecord ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Fingerprint className="mr-2 h-6 w-6" />}
+                    Punch In Securely
                   </Button>
                    <Button
                     onClick={punchOut}
                     disabled={!todaysRecord || !!todaysRecord.punchOutTime || todaysRecord.status !== 'partially_present' || isProcessing}
                     size="lg"
+                    className="h-16 text-lg"
                     variant="destructive"
                   >
                      {isProcessing && todaysRecord && !todaysRecord.punchOutTime ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
                     Punch Out
                   </Button>
               </div>
+
+              {todaysRecord && (
+                  <Alert className="bg-green-50 border-green-200">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <AlertTitle className="text-green-800">You are Punched In</AlertTitle>
+                      <AlertDescription className="text-green-700">
+                          Started at {todaysRecord.punchInTime ? format(toDateSafe(todaysRecord.punchInTime), 'p') : ''}
+                      </AlertDescription>
+                  </Alert>
+              )}
 
               <div className="grid md:grid-cols-2 gap-8 items-start">
                  <div className="flex justify-center">
@@ -433,12 +583,15 @@ export default function EmployeeAttendancePage() {
                             approved: 'bg-green-100 text-green-800',
                             rejected: 'bg-red-100 text-red-800',
                         }}
-                        className="rounded-md border"
+                        className="rounded-md border shadow-sm"
                     />
                  </div>
                  
-                  <div className="p-4 rounded-lg bg-muted/50 h-full">
-                    <h3 className="font-semibold text-lg mb-2">Details for {format(selectedDate ?? new Date(), "PPP")}</h3>
+                  <div className="p-4 rounded-lg bg-muted/50 h-full border">
+                    <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                        <CalendarIcon className="h-5 w-5 text-muted-foreground" />
+                        {format(selectedDate ?? new Date(), "PPP")}
+                    </h3>
                     {recordsLoading ? (
                         <Skeleton className="h-40 w-full" />
                     ) : recordToShow ? (
@@ -446,13 +599,24 @@ export default function EmployeeAttendancePage() {
                     ) : canRequestApproval ? (
                         <RequestApprovalUI onOpenDialog={() => setIsRequestDialogOpen(true)} />
                     ) : (
-                        <p className="text-sm text-muted-foreground mt-4">
-                            No record for this day.
-                        </p>
+                        <div className="text-center py-8">
+                            <Info className="h-10 w-10 text-muted-foreground mx-auto mb-2 opacity-20" />
+                            <p className="text-sm text-muted-foreground">
+                                No record found for this day.
+                            </p>
+                        </div>
                     )}
                  </div>
               </div>
           </CardContent>
+          <CardFooter className="border-t bg-muted/20 p-4">
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1"><Badge className="h-2 w-2 p-0 rounded-full bg-green-500" /> Full Day</div>
+                  <div className="flex items-center gap-1"><Badge className="h-2 w-2 p-0 rounded-full bg-orange-400" /> Partial</div>
+                  <div className="flex items-center gap-1"><Badge className="h-2 w-2 p-0 rounded-full bg-yellow-400" /> Pending</div>
+                  <div className="flex items-center gap-1"><Badge className="h-2 w-2 p-0 rounded-full bg-red-400" /> Rejected</div>
+              </div>
+          </CardFooter>
       </Card>
     </div>
   );
