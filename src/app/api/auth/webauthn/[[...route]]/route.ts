@@ -69,13 +69,13 @@ export async function POST(
     }
 
     // ===============================================
-    // FIX RP ID AND ORIGIN (SUPPORT localhost + 127)
+    // DYNAMIC RP ID AND ORIGIN DETECTION
     // ===============================================
+    // The RP ID must be the domain name without the port.
     const hostname = host.split(':')[0];
-
-    let protocol = hostname === 'localhost' || hostname === '127.0.0.1'
-      ? 'http'
-      : 'https';
+    
+    // Determine protocol: insecure only for localhost/127.0.0.1
+    const protocol = hostname === 'localhost' || hostname === '127.0.0.1' ? 'http' : 'https';
 
     const rpID = hostname;
     const origin = `${protocol}://${host}`;
@@ -216,7 +216,7 @@ export async function POST(
 
       if (auths.length === 0) {
         return NextResponse.json(
-          { error: 'No authenticators registered' },
+          { error: 'No fingerprint registered for this email.' },
           { status: 400 }
         );
       }
