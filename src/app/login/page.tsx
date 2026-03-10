@@ -9,7 +9,6 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -24,7 +23,7 @@ import {
     signInWithCustomToken,
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
-import { Fingerprint, Loader2, AlertCircle, Info } from 'lucide-react';
+import { Fingerprint, Loader2, AlertCircle, Info, KeyRound } from 'lucide-react';
 import { startAuthentication } from '@simplewebauthn/browser';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -86,35 +85,30 @@ export default function LoginPage() {
   const { email } = form.watch();
 
   const handleWebAuthnLogin = async () => {
-    if (!email) {
-      setError("Please enter your email to sign in with your fingerprint.");
-      return;
-    }
-    
     setError(null);
     startWebAuthnTransition(async () => {
       try {
-        // 1. Get options from server
+        // ONE-TAP LOGIN: Request authentication options (email is optional)
         const respOptions = await fetch('/api/auth/webauthn/generate-authentication-options', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ email: email || null }), // Send email if typed, else null for Passkey mode
         });
 
         const options = await respOptions.json();
 
         if (!respOptions.ok) {
-          throw new Error(options.error || 'Failed to get authentication options.');
+          throw new Error(options.error || 'Could not find any fingerprints for this account.');
         }
         
-        // 2. Sign the challenge
+        // Trigger the browser's biometric prompt
         const assertion = await startAuthentication(options);
 
-        // 3. Verify the assertion with the server
+        // Verify the result
         const verificationResp = await fetch('/api/auth/webauthn/verify-authentication', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...assertion, email }),
+          body: JSON.stringify({ ...assertion, email: email || null }),
         });
         
         const verificationJSON = await verificationResp.json();
@@ -122,19 +116,23 @@ export default function LoginPage() {
         if (verificationJSON && verificationJSON.verified) {
             if (!auth) throw new Error("Authentication service not available.");
             await signInWithCustomToken(auth, verificationJSON.customToken);
-            toast({ title: 'Welcome back!', description: 'Successfully signed in with your fingerprint.' });
+            toast({ title: 'Welcome back!', description: 'Successfully signed in.' });
         } else {
-            throw new Error(verificationJSON.error || 'Fingerprint verification failed.');
+            throw new Error(verificationJSON.error || 'Verification failed.');
         }
 
       } catch (error: any) {
         console.error("WebAuthn Error:", error);
         setError(error.message);
-        toast({
-          variant: 'destructive',
-          title: 'Biometric Login Error',
-          description: error.message,
-        });
+        if (error.name === 'NotAllowedError') {
+            toast({ variant: 'destructive', title: 'Login Cancelled' });
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Biometric Login Error',
+                description: error.message,
+            });
+        }
       }
     });
   };
@@ -167,7 +165,7 @@ export default function LoginPage() {
 
                 toast({
                     title: 'Account Created!',
-                    description: 'Your account has been successfully created. You can now enable fingerprint login in your profile.',
+                    description: 'You can now enable fingerprint login in your profile.',
                 });
                 setIsSignUp(false);
                 form.reset();
@@ -200,6 +198,34 @@ export default function LoginPage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {!isSignUp && (
+                <div className="space-y-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full h-20 text-lg border-2 border-primary/20 hover:bg-primary/5 hover:border-primary/50 transition-all group flex flex-col gap-1 items-center justify-center"
+                      onClick={handleWebAuthnLogin}
+                      disabled={isWebAuthnPending}
+                    >
+                      {isWebAuthnPending ? (
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      ) : (
+                        <Fingerprint className="h-8 w-8 text-primary group-hover:scale-110 transition-transform" />
+                      )}
+                      <span className="font-bold">One-Tap Fingerprint Login</span>
+                    </Button>
+                    
+                    <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                            <span className="w-full border-t" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-background px-2 text-muted-foreground font-semibold text-[10px]">Or use your email</span>
+                        </div>
+                    </div>
+                </div>
+              )}
+
               <FormField
                 control={form.control}
                 name="email"
@@ -207,53 +233,13 @@ export default function LoginPage() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                        <Input id="email" type="email" placeholder="m@example.com" {...field} className="h-12 text-lg" />
+                        <Input id="email" type="email" placeholder="m@example.com" {...field} className="h-12" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             
-              {!isSignUp && (
-                <div className="space-y-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full h-14 text-lg border-2 hover:bg-primary/5 transition-all group"
-                      onClick={handleWebAuthnLogin}
-                      disabled={isWebAuthnPending}
-                    >
-                      {isWebAuthnPending ? (
-                        <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-                      ) : (
-                        <Fingerprint className="mr-2 h-6 w-6 text-primary group-hover:scale-110 transition-transform" />
-                      )}
-                      Sign in with Fingerprint
-                    </Button>
-                    
-                    {error === 'No fingerprint registered for this email.' && (
-                        <Alert className="bg-blue-50 border-blue-200">
-                            <Info className="h-4 w-4 text-blue-600" />
-                            <AlertTitle className="text-blue-800 text-sm">Need to register?</AlertTitle>
-                            <AlertDescription className="text-blue-700 text-xs">
-                                Log in with your password first, then go to your Profile to enable Fingerprint Login for this device.
-                            </AlertDescription>
-                        </Alert>
-                    )}
-                </div>
-              )}
-
-              {!isSignUp && (
-                <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-background px-2 text-muted-foreground font-semibold">Or continue with</span>
-                    </div>
-                </div>
-              )}
-
               <FormField
                 control={form.control}
                 name="password"
@@ -292,7 +278,7 @@ export default function LoginPage() {
                 />
               )}
 
-              {error && error !== 'No fingerprint registered for this email.' && (
+              {error && (
                 <div className="flex items-center gap-2 text-destructive bg-destructive/10 p-3 rounded-md">
                     <AlertCircle className="h-5 w-5 shrink-0" />
                     <p className="text-sm font-medium">{error}</p>

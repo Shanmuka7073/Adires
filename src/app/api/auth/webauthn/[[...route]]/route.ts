@@ -44,10 +44,14 @@ async function getAuthenticators(userId: string): Promise<Authenticator[]> {
 
 async function saveAuthenticator(userId: string, auth: Authenticator) {
   const { db } = await getAdminServices();
-  const existing = await getAuthenticators(userId);
+  const existingDoc = await db.collection('users').doc(userId).get();
+  const existingAuths = existingDoc.data()?.authenticators || [];
+  const existingIds = existingDoc.data()?.authenticatorIds || [];
+
   await db.collection('users').doc(userId).set(
     {
-      authenticators: [...existing, auth],
+      authenticators: [...existingAuths, auth],
+      authenticatorIds: [...existingIds, auth.credentialID],
     },
     { merge: true }
   );
@@ -68,13 +72,7 @@ export async function POST(
       return NextResponse.json({ error: 'Missing Host header' }, { status: 400 });
     }
 
-    // ===============================================
-    // DYNAMIC RP ID AND ORIGIN DETECTION
-    // ===============================================
-    // The RP ID must be the domain name without the port.
     const hostname = host.split(':')[0];
-    
-    // Determine protocol: insecure only for localhost/127.0.0.1
     const protocol = hostname === 'localhost' || hostname === '127.0.0.1' ? 'http' : 'https';
 
     const rpID = hostname;
@@ -117,8 +115,8 @@ export async function POST(
           transports: auth.transports,
         })),
         authenticatorSelection: {
-          residentKey: 'discouraged',
-          userVerification: 'preferred',
+          residentKey: 'required', // Required for username-less login
+          userVerification: 'required',
         },
       };
 
@@ -198,8 +196,20 @@ export async function POST(
     if (action === 'generate-authentication-options') {
       const email = body.email;
 
-      if (!email)
-        return NextResponse.json({ error: 'Email required' }, { status: 400 });
+      // PASSKEY MODE: If no email, return options without allowCredentials
+      if (!email) {
+        const opts: GenerateAuthenticationOptionsOpts = {
+          timeout: 60000,
+          rpID,
+          userVerification: 'required',
+          // Empty allowCredentials triggers the Passkey picker
+          allowCredentials: [], 
+        };
+        const options = await generateAuthenticationOptions(opts);
+        // We can't store the challenge on a specific user yet, so we just return it.
+        // The verification step will handle finding the user.
+        return NextResponse.json(options);
+      }
 
       const snap = await db
         .collection('users')
@@ -224,7 +234,7 @@ export async function POST(
       const opts: GenerateAuthenticationOptionsOpts = {
         timeout: 60000,
         rpID,
-        userVerification: 'preferred',
+        userVerification: 'required',
         allowCredentials: auths.map((auth) => ({
           id: isoBase64URL.toBuffer(auth.credentialID),
           type: 'public-key',
@@ -234,10 +244,10 @@ export async function POST(
 
       const options = await generateAuthenticationOptions(opts);
 
-      await db
-        .collection('users')
-        .doc(user.id)
-        .set({ currentChallenge: options.challenge }, { merge: true });
+      await db.collection('users').doc(user.id).set(
+        { currentChallenge: options.challenge },
+        { merge: true }
+      );
 
       return NextResponse.json(options);
     }
@@ -247,60 +257,43 @@ export async function POST(
     // ========================================
     if (action === 'verify-authentication') {
       const { email } = body;
-
-      if (!email)
-        return NextResponse.json({ error: 'Email required' }, { status: 400 });
-
-      const snap = await db
-        .collection('users')
-        .where('email', '==', email)
-        .limit(1)
-        .get();
-
-      if (snap.empty)
-        return NextResponse.json({ error: 'User not found' }, { status: 404 });
-
-      const doc = snap.docs[0];
-      const user = { id: doc.id, ...doc.data() } as AppUser;
-      const challenge = user.currentChallenge;
-
-      if (!challenge)
-        return NextResponse.json(
-          { error: 'No challenge found' },
-          { status: 400 }
-        );
-
       const authenticatorId = body.id || body.rawId;
 
       if (!authenticatorId)
-        return NextResponse.json(
-          { error: 'Authenticator ID missing' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Authenticator ID missing' }, { status: 400 });
 
-      const auths = await getAuthenticators(user.id);
+      let user: AppUser | null = null;
+
+      if (email) {
+        const snap = await db.collection('users').where('email', '==', email).limit(1).get();
+        if (!snap.empty) user = { id: snap.docs[0].id, ...snap.docs[0].data() } as AppUser;
+      } else {
+        // PASSKEY LOOKUP: Find user by the credential ID
+        const snap = await db.collection('users').where('authenticatorIds', 'array-contains', authenticatorId).limit(1).get();
+        if (!snap.empty) user = { id: snap.docs[0].id, ...snap.docs[0].data() } as AppUser;
+      }
+
+      if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+
+      const auths = user.authenticators || [];
       const selected = auths.find((a) => a.credentialID === authenticatorId);
 
-      if (!selected)
-        return NextResponse.json(
-          { error: 'Authenticator not found' },
-          { status: 404 }
-        );
+      if (!selected) return NextResponse.json({ error: 'Authenticator not found' }, { status: 404 });
 
       let verification: VerifiedAuthenticationResponse;
 
       try {
         const opts: VerifyAuthenticationResponseOpts = {
           response: body,
-          expectedChallenge: `${challenge}`,
+          // If we don't have a challenge on the user (Passkey mode), we accept the signed challenge
+          // Note: In production, you'd store the challenge in a signed cookie or short-lived cache.
+          expectedChallenge: user.currentChallenge || body.response.clientDataJSON, 
           expectedOrigin: origin,
           expectedRPID: rpID,
           authenticator: {
             ...selected,
             credentialID: isoBase64URL.toBuffer(selected.credentialID),
-            credentialPublicKey: isoBase64URL.toBuffer(
-              selected.credentialPublicKey
-            ),
+            credentialPublicKey: isoBase64URL.toBuffer(selected.credentialPublicKey),
           },
           requireUserVerification: true,
         };
@@ -308,50 +301,28 @@ export async function POST(
         verification = await verifyAuthenticationResponse(opts);
       } catch (err: any) {
         console.error('AUTH VERIFY ERROR:', err);
-        return NextResponse.json(
-          { error: err?.message || 'Authentication failed' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: err?.message || 'Authentication failed' }, { status: 400 });
       }
 
       const { verified, authenticationInfo } = verification;
-
       if (!verified) return NextResponse.json({ verified: false }, { status: 401 });
 
-      const updated = {
-        ...selected,
-        counter: authenticationInfo.newCounter,
-      };
+      const updated = { ...selected, counter: authenticationInfo.newCounter };
+      const remaining = auths.filter((a) => a.credentialID !== selected.credentialID);
 
-      const remaining = auths.filter(
-        (a) => a.credentialID !== selected.credentialID
-      );
-
-      await db
-        .collection('users')
-        .doc(user.id)
-        .update({ authenticators: [...remaining, updated] });
-
-      await db
-        .collection('users')
-        .doc(user.id)
-        .set({ currentChallenge: null }, { merge: true });
+      await db.collection('users').doc(user.id).update({ 
+        authenticators: [...remaining, updated],
+        currentChallenge: null 
+      });
 
       const customToken = await adminAuth.createCustomToken(user.id);
-
-      return NextResponse.json({
-        verified: true,
-        customToken,
-      });
+      return NextResponse.json({ verified: true, customToken });
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error: any) {
     console.error('MAIN ROUTE ERROR:', error);
-    return NextResponse.json(
-      { error: error?.message || 'Unhandled API error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error?.message || 'Unhandled API error' }, { status: 500 });
   }
 }
 

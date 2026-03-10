@@ -63,6 +63,7 @@ export type User = {
     longitude?: number;
     fcmToken?: string;
     authenticators?: Authenticator[];
+    authenticatorIds?: string[]; // Quick lookup for username-less login
     currentChallenge?: string | null; // Can be null
 }
 
