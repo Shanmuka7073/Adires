@@ -114,22 +114,18 @@ service cloud.firestore {
 
     match /stores/{storeId}/salarySlips/{slipId} {
 
-      allow get: if
+      allow get, list: if
         isStoreOwner(storeId)
         || isOwner(resource.data.employeeId);
-
-      allow list: if 
-        isStoreOwner(storeId); 
 
       allow create, update, delete: if isStoreOwner(storeId);
     }
     
      // SAFE collectionGroup rule for salary slips
      match /{path=**}/salarySlips/{slipId} {
-       allow get: if
+       allow get, list: if
         isStoreOwner(resource.data.storeId)
-        || resource.data.employeeId == request.auth.uid;
-       allow list: if isStoreOwner(resource.data.storeId);
+        || isOwner(resource.data.employeeId);
     }
 
     /* ======================
@@ -301,4 +297,3 @@ service cloud.firestore {
     }
   }
 }
-    
