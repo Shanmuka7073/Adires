@@ -116,7 +116,7 @@ service cloud.firestore {
 
       allow get, list: if
         isStoreOwner(storeId)
-        || isOwner(resource.data.employeeId);
+        || (isSignedIn() && resource.data.employeeId == request.auth.uid);
 
       allow create, update, delete: if isStoreOwner(storeId);
     }
@@ -125,7 +125,7 @@ service cloud.firestore {
      match /{path=**}/salarySlips/{slipId} {
        allow get, list: if
         isStoreOwner(resource.data.storeId)
-        || isOwner(resource.data.employeeId);
+        || (isSignedIn() && resource.data.employeeId == request.auth.uid);
     }
 
     /* ======================

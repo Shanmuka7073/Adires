@@ -8,7 +8,7 @@ import type { SalarySlip, EmployeeProfile } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { FileText, Eye } from 'lucide-react';
+import { FileText, Eye, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
@@ -57,7 +57,7 @@ export default function EmployeeSalarySlipsPage() {
         );
     }, [firestore, employeeProfile]);
 
-    const { data: salarySlips, isLoading: slipsLoading } = useCollection<SalarySlip>(salarySlipsQuery);
+    const { data: salarySlips, isLoading: slipsLoading, error: slipsError } = useCollection<SalarySlip>(salarySlipsQuery);
     
     const isLoading = profileLoading || slipsLoading;
 
@@ -71,6 +71,21 @@ export default function EmployeeSalarySlipsPage() {
                 </div>
             </div>
         );
+    }
+
+    if (slipsError) {
+        return (
+            <div className="container mx-auto py-12 px-4 md:px-6">
+                <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Error Loading Salary Slips</AlertTitle>
+                    <AlertDescription>
+                        {slipsError.message}
+                        <p className="mt-2 text-xs">If this is a new installation, the required indexes might still be building in the background. Please wait a moment and refresh.</p>
+                    </AlertDescription>
+                </Alert>
+            </div>
+        )
     }
     
     if (!employeeProfile) {
