@@ -390,26 +390,52 @@ export default function EmployeeAttendancePage() {
 
   const punchOut = async () => {
     if (!user || !employeeProfile?.storeId || !todaysRecord || !todaysRecord.punchInTime) return;
+    
+    const credId = localStorage.getItem("attendance_credential_id");
+    if (!credId) {
+        toast({ variant: 'destructive', title: "Device Not Registered", description: "Please register your device biometric first." });
+        return;
+    }
+
     if (todaysRecord.status !== 'partially_present') {
         toast({ title: 'Already Punched Out', description: `Your status is already '${todaysRecord.status}'.` });
         return;
     }
 
     startProcessing(async () => {
-      const recordRef = doc(firestore, 'stores', employeeProfile.storeId, 'attendance', todaysRecord.id);
-      const punchInTime = toDateSafe(todaysRecord.punchInTime);
-      const punchOutTime = new Date();
-      const minutesDiff = differenceInMinutes(punchOutTime, punchInTime);
-      const workHours = parseFloat((minutesDiff / 60).toFixed(2));
-      const newStatus = workHours >= 8 ? 'present' : 'partially_present';
+        try {
+            // 1. VERIFY BIOMETRIC BEFORE PUNCH OUT
+            const publicKey: PublicKeyCredentialRequestOptions = {
+                challenge: crypto.getRandomValues(new Uint8Array(32)),
+                allowCredentials: [{
+                    id: bufferDecode(credId),
+                    type: "public-key"
+                }],
+                timeout: 60000,
+                userVerification: "required"
+            };
 
-      try {
-        await updateDoc(recordRef, { punchOutTime: Timestamp.fromDate(punchOutTime), workHours, status: newStatus });
-        toast({ title: 'Punched Out!', description: `Your shift has ended. Total hours: ${workHours.toFixed(2)}.` });
-      } catch (e) {
-        const permissionError = new FirestorePermissionError({ path: recordRef.path, operation: 'update', requestResourceData: { workHours, status: newStatus } });
-        errorEmitter.emit('permission-error', permissionError);
-      }
+            await navigator.credentials.get({ publicKey });
+
+            // 2. PROCEED WITH UPDATE
+            const recordRef = doc(firestore, 'stores', employeeProfile.storeId, 'attendance', todaysRecord.id);
+            const punchInTime = toDateSafe(todaysRecord.punchInTime);
+            const punchOutTime = new Date();
+            const minutesDiff = differenceInMinutes(punchOutTime, punchInTime);
+            const workHours = parseFloat((minutesDiff / 60).toFixed(2));
+            const newStatus = workHours >= 8 ? 'present' : 'partially_present';
+
+            try {
+                await updateDoc(recordRef, { punchOutTime: Timestamp.fromDate(punchOutTime), workHours, status: newStatus });
+                toast({ title: 'Punched Out Successfully!', description: `Your shift has ended. Total hours: ${workHours.toFixed(2)}.` });
+            } catch (e) {
+                const permissionError = new FirestorePermissionError({ path: recordRef.path, operation: 'update', requestResourceData: { workHours, status: newStatus } });
+                errorEmitter.emit('permission-error', permissionError);
+            }
+        } catch (e) {
+            console.error("Biometric verification error (Punch Out):", e);
+            toast({ variant: 'destructive', title: "Verification Failed", description: "Fingerprint/Face verification failed. Please try again." });
+        }
     });
   };
   
@@ -510,7 +536,7 @@ export default function EmployeeAttendancePage() {
                       Biometric Setup Required
                   </CardTitle>
                   <CardDescription>
-                      Register your phone's fingerprint or face unlock to enable secure attendance marking.
+                      Register your phone's fingerprint, face unlock, or pattern/PIN to enable secure attendance marking.
                   </CardDescription>
               </CardHeader>
               <CardContent>
@@ -526,7 +552,7 @@ export default function EmployeeAttendancePage() {
           <CardHeader>
             <CardTitle className="text-2xl font-bold mb-2">Employee Attendance</CardTitle>
             <CardDescription>
-                Punch in securely using your biometric sensor. Location and time will be captured automatically.
+                Use your device lock (Fingerprint, Face, or PIN/Pattern) to punch in and out securely.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -542,13 +568,13 @@ export default function EmployeeAttendancePage() {
                   </Button>
                    <Button
                     onClick={punchOut}
-                    disabled={!todaysRecord || !!todaysRecord.punchOutTime || todaysRecord.status !== 'partially_present' || isProcessing}
+                    disabled={!todaysRecord || !!todaysRecord.punchOutTime || todaysRecord.status !== 'partially_present' || isProcessing || !isDeviceRegistered}
                     size="lg"
                     className="h-16 text-lg"
                     variant="destructive"
                   >
-                     {isProcessing && todaysRecord && !todaysRecord.punchOutTime ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                    Punch Out
+                     {isProcessing && todaysRecord && !todaysRecord.punchOutTime ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Fingerprint className="mr-2 h-6 w-6" />}
+                    Punch Out Securely
                   </Button>
               </div>
 
