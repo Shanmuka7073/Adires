@@ -10,6 +10,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { generateSalarySlipDoc } from '@/lib/generateSalarySlipDoc';
+import { Card, CardContent } from '@/components/ui/card';
+import { Printer, Download, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 
 function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: SalarySlip, employee: EmployeeProfile & User, store: Store, attendance: any }) {
     
@@ -22,7 +25,7 @@ function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: Salary
                 employeeId: employee.employeeId,
                 designation: employee.role,
                 payPeriod: format(new Date(slip.periodStart), 'MMMM yyyy'),
-                totalHours: attendance.presentDays * 8, // Simplified for now
+                totalHours: attendance.presentDays * 8,
                 baseSalary: slip.baseSalary,
                 pf: 0,
                 esi: 0,
@@ -34,32 +37,121 @@ function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: Salary
     };
     
     return (
-        <div>
-            <div className="no-print max-w-[800px] mx-auto mb-4 flex justify-end gap-2">
-                <Button onClick={() => window.print()}>Print / Save as PDF</Button>
-                <Button onClick={handleDownload} variant="outline">Download as Word</Button>
-            </div>
-            <div id="payslip-container" className="w-[800px] mx-auto p-5 border shadow-lg bg-white">
-                <div style={{ fontFamily: 'Arial, sans-serif', fontSize: '14px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #333', paddingBottom: '10px', marginBottom: '20px' }}>
-                        <div>
-                            <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: '0' }}>{store.name}</h1>
-                            <p style={{ fontSize: '12px', color: '#666', margin: '5px 0 0' }}>{store.address}</p>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                            <h2 style={{ fontSize: '20px', fontWeight: '600', margin: '0' }}>Salary Slip</h2>
-                            <p style={{ fontSize: '12px', margin: '5px 0 0' }}>For the Month of {format(new Date(slip.periodStart), 'MMMM yyyy')}</p>
-                            <p style={{ fontSize: '12px', margin: '5px 0 0' }}>Payslip No: {slip.id.toUpperCase().slice(0, 15)}</p>
-                            <p style={{ fontSize: '12px', margin: '5px 0 0' }}>Generated On: {format(new Date(slip.generatedAt), 'dd MMM yyyy')}</p>
-                        </div>
-                    </div>
-                    {/* Employee and Payment details here */}
+        <div className="min-h-screen bg-muted/30 py-8 px-4">
+            <div className="no-print max-w-[850px] mx-auto mb-6 flex flex-wrap justify-between items-center gap-4">
+                <Button asChild variant="ghost" size="sm">
+                    <Link href="/dashboard/employee/salary-slips">
+                        <ArrowLeft className="mr-2 h-4 w-4" /> Back to History
+                    </Link>
+                </Button>
+                <div className="flex gap-2">
+                    <Button onClick={() => window.print()} variant="outline">
+                        <Printer className="mr-2 h-4 w-4" /> Print / PDF
+                    </Button>
+                    <Button onClick={handleDownload}>
+                        <Download className="mr-2 h-4 w-4" /> Download Word
+                    </Button>
                 </div>
             </div>
+
+            <Card id="payslip-container" className="max-w-[850px] mx-auto bg-white shadow-xl print:shadow-none print:border-none">
+                <CardContent className="p-8 md:p-12">
+                    <div style={{ fontFamily: 'Arial, sans-serif' }}>
+                        {/* Header */}
+                        <div className="flex justify-between items-start border-b-2 border-primary pb-6 mb-8">
+                            <div>
+                                <h1 className="text-3xl font-bold text-primary mb-1 uppercase tracking-tight">{store.name}</h1>
+                                <p className="text-sm text-muted-foreground max-w-xs">{store.address}</p>
+                            </div>
+                            <div className="text-right">
+                                <h2 className="text-2xl font-bold text-gray-800 mb-1">SALARY SLIP</h2>
+                                <p className="text-sm font-semibold text-muted-foreground">{format(new Date(slip.periodStart), 'MMMM yyyy')}</p>
+                                <p className="text-xs text-muted-foreground mt-2">Payslip No: <span className="font-mono">{slip.id.toUpperCase().slice(0, 12)}</span></p>
+                            </div>
+                        </div>
+
+                        {/* Employee Info Grid */}
+                        <div className="grid grid-cols-2 gap-y-4 mb-10 text-sm">
+                            <div className="flex flex-col">
+                                <span className="text-xs text-muted-foreground uppercase font-bold mb-1">Employee Name</span>
+                                <span className="font-semibold text-base">{employee.firstName} {employee.lastName}</span>
+                            </div>
+                            <div className="flex flex-col text-right">
+                                <span className="text-xs text-muted-foreground uppercase font-bold mb-1">Employee ID</span>
+                                <span className="font-mono font-semibold text-base">{employee.employeeId}</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-xs text-muted-foreground uppercase font-bold mb-1">Designation</span>
+                                <span className="font-semibold text-base">{employee.role}</span>
+                            </div>
+                            <div className="flex flex-col text-right">
+                                <span className="text-xs text-muted-foreground uppercase font-bold mb-1">Pay Period</span>
+                                <span className="font-semibold text-base">{format(new Date(slip.periodStart), 'dd MMM')} - {format(new Date(slip.periodEnd), 'dd MMM yyyy')}</span>
+                            </div>
+                        </div>
+
+                        {/* Salary Table */}
+                        <div className="border rounded-lg overflow-hidden mb-8">
+                            <div className="grid grid-cols-2 bg-muted/50 border-b font-bold text-sm">
+                                <div className="p-3 border-r">EARNINGS</div>
+                                <div className="p-3 text-right">AMOUNT (₹)</div>
+                            </div>
+                            <div className="grid grid-cols-2 border-b text-sm">
+                                <div className="p-3 border-r">Basic Salary</div>
+                                <div className="p-3 text-right font-mono">₹{slip.baseSalary.toFixed(2)}</div>
+                            </div>
+                            <div className="grid grid-cols-2 border-b text-sm">
+                                <div className="p-3 border-r">Incentives / Bonus</div>
+                                <div className="p-3 text-right font-mono">₹0.00</div>
+                            </div>
+                            <div className="grid grid-cols-2 bg-primary/10 font-bold text-lg">
+                                <div className="p-4 border-r">TOTAL NET PAY</div>
+                                <div className="p-4 text-right text-primary font-mono">₹{slip.netPay.toFixed(2)}</div>
+                            </div>
+                        </div>
+
+                        {/* Attendance Summary */}
+                        <div className="bg-muted/20 rounded-lg p-4 mb-10 border border-dashed border-muted-foreground/30">
+                            <h4 className="text-xs font-bold text-muted-foreground uppercase mb-3">Attendance Summary</h4>
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                                <div>
+                                    <p className="text-2xl font-bold">{attendance.totalDays}</p>
+                                    <p className="text-[10px] text-muted-foreground uppercase">Total Days</p>
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-bold text-green-600">{attendance.presentDays}</p>
+                                    <p className="text-[10px] text-muted-foreground uppercase">Present</p>
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-bold text-red-500">{attendance.absentDays}</p>
+                                    <p className="text-[10px] text-muted-foreground uppercase">Absent</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Signature Area */}
+                        <div className="flex justify-between items-end mt-12">
+                            <div className="text-center border-t border-gray-300 pt-2 px-8">
+                                <p className="text-[10px] text-muted-foreground uppercase mb-8">Employee Signature</p>
+                            </div>
+                            <div className="text-center border-t border-gray-300 pt-2 px-8">
+                                <p className="font-bold text-sm mb-1">{store.name}</p>
+                                <p className="text-[10px] text-muted-foreground uppercase">Authorized Signatory</p>
+                            </div>
+                        </div>
+
+                        {/* Footer Disclaimer */}
+                        <div className="mt-12 text-center text-[10px] text-muted-foreground italic">
+                            This is a system-generated document and does not require a physical stamp or signature.
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
              <style jsx global>{`
                 @media print {
-                    body { background: white; -webkit-print-color-adjust: exact; }
+                    body { background: white !important; }
                     .no-print { display: none !important; }
+                    #payslip-container { border: none !important; box-shadow: none !important; margin: 0 !important; max-width: 100% !important; width: 100% !important; }
                 }
             `}</style>
         </div>
@@ -117,7 +209,15 @@ export default function SalarySlipPage() {
     }
     
     if (error || !data) {
-        return <div className="p-8 text-center">{error || "Salary Slip not found."}</div>;
+        return (
+            <div className="container mx-auto py-24 px-4 text-center">
+                <h1 className="text-2xl font-bold text-destructive mb-4">Error</h1>
+                <p className="text-muted-foreground mb-8">{error || "Salary Slip not found."}</p>
+                <Button asChild variant="outline">
+                    <Link href="/dashboard/employee/salary-slips">Back to My Slips</Link>
+                </Button>
+            </div>
+        );
     }
     
     return <SalarySlipDisplay {...data} />;
