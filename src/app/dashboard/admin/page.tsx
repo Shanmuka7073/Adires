@@ -477,14 +477,8 @@ export default function AdminDashboardPage() {
           />
           <ActionCard
             title="Security Rules"
-            description="View database security rules"
+            description="View, copy, and seek help with database security rules."
             href="/dashboard/admin/security-rules"
-            icon={Shield}
-          />
-           <ActionCard
-            title="Firebase Rules"
-            description="View the root firestore.rules file."
-            href="/dashboard/admin/firebase-rules-help"
             icon={Shield}
           />
            <ActionCard
