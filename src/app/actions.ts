@@ -1,7 +1,8 @@
+
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
-import { Timestamp, FieldValue, Firestore, DocumentReference } from 'firebase-admin/firestore';
+import { Timestamp, FieldValue, Firestore, DocumentReference } from 'firebase/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
 import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient, EmployeeProfile, SalarySlip, Store, AttendanceRecord, ReasonEntry, User, CartItem, ReportData } from '@/lib/types';
@@ -311,13 +312,11 @@ export async function updateManifest(newData: { icons?: any[], screenshots?: any
 
 export async function addRestaurantOrderItem({
   storeId,
-  sessionId,
   tableNumber,
   item,
   quantity,
 }: {
   storeId: string;
-  sessionId: string;
   tableNumber: string | null;
   item: MenuItem;
   quantity: number;
@@ -325,6 +324,40 @@ export async function addRestaurantOrderItem({
   try {
     const { db } = await getAdminServices();
 
+    // 1. Find or create an active order for this table
+    const ordersRef = db.collection('orders');
+    const activeOrderQuery = await ordersRef
+      .where('storeId', '==', storeId)
+      .where('tableNumber', '==', tableNumber)
+      .where('status', 'in', ['Pending', 'Processing', 'Billed', 'Out for Delivery'])
+      .limit(1)
+      .get();
+
+    let orderRef;
+    let orderData: any;
+
+    if (!activeOrderQuery.empty) {
+      orderRef = activeOrderQuery.docs[0].ref;
+      orderData = activeOrderQuery.docs[0].data();
+    } else {
+      orderRef = ordersRef.doc();
+      const newSessionId = `session-${uuidv4()}`;
+      orderData = {
+        id: orderRef.id,
+        storeId,
+        tableNumber,
+        sessionId: newSessionId,
+        userId: 'guest',
+        customerName: `Table ${tableNumber || 'N/A'}`,
+        deliveryAddress: 'In-store dining',
+        totalAmount: 0,
+        status: 'Pending',
+        orderDate: Timestamp.now(),
+        items: [],
+      };
+    }
+
+    // 2. Prepare the new item
     const recipeId = `${createSlug(item.name)}_en`;
     const recipeDoc = await db.collection('cachedRecipes').doc(recipeId).get();
 
@@ -337,17 +370,12 @@ export async function addRestaurantOrderItem({
         unit: ing.unit || '',
         cost: ing.cost || 0,
       }));
-    } else {
-      console.warn(`No cached recipe for "${item.name}".`);
     }
 
-    const orderId = `${storeId}_${sessionId}`;
-    const orderRef = db.collection('orders').doc(orderId);
     const menuItemId = item.id || `item-${createSlug(item.name)}`;
-
     const orderItem: OrderItem = {
       id: uuidv4(),
-      orderId,
+      orderId: orderRef.id,
       productId: `${storeId}-${createSlug(item.name)}`,
       menuItemId: menuItemId,
       productName: item.name,
@@ -358,33 +386,14 @@ export async function addRestaurantOrderItem({
       recipeSnapshot: recipeSnapshotData,
     };
 
-    const doc = await orderRef.get();
-
-    if (doc.exists) {
-      // Document exists, so update it
-      await orderRef.update({
-        items: FieldValue.arrayUnion(orderItem),
-        totalAmount: FieldValue.increment(orderItem.price * orderItem.quantity),
-        updatedAt: FieldValue.serverTimestamp(),
-        status: 'Pending',
-      });
-    } else {
-      // Document does not exist, so create it
-      const newOrder: Partial<Order> = {
-        id: orderId,
-        storeId,
-        sessionId,
-        tableNumber,
-        userId: 'guest',
-        customerName: `Table ${tableNumber || 'N/A'}`,
-        deliveryAddress: 'In-store dining',
-        totalAmount: orderItem.price * orderItem.quantity,
-        status: 'Pending',
-        orderDate: Timestamp.now(),
-        items: [orderItem],
-      };
-      await orderRef.set(newOrder);
-    }
+    // 3. Update the document
+    await orderRef.set({
+      ...orderData,
+      items: [...(orderData.items || []), orderItem],
+      totalAmount: (orderData.totalAmount || 0) + (orderItem.price * orderItem.quantity),
+      updatedAt: FieldValue.serverTimestamp(),
+      status: 'Pending', // Reset to Pending if it was Billed to alert the kitchen
+    }, { merge: true });
 
     return { success: true };
   } catch (error: any) {
@@ -416,7 +425,7 @@ export async function updateSiteConfig(configId: string, data: Partial<SiteConfi
         const docRef = db.collection('siteConfig').doc(configId);
         await docRef.set(data, { merge: true });
         return { success: true };
-    } catch (error: any) {
+    } catch (error) {
         console.error("Failed to update site config:", error);
         return { success: false, error: error.message };
     }

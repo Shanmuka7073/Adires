@@ -9,6 +9,7 @@ import {
   doc,
   setDoc,
   updateDoc,
+  limit,
 } from 'firebase/firestore';
 
 import type {
@@ -70,11 +71,10 @@ import IngredientsDialog from '@/components/IngredientsDialog';
 import { cn } from '@/lib/utils';
 
 
-function LiveBillSheet({ storeId, sessionId, theme }: { storeId: string; sessionId: string; theme: Menu['theme'] }) {
+function LiveBillSheet({ orderId, theme }: { orderId: string; theme: Menu['theme'] }) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [closing, startClose] = useTransition();
-  const orderId = `${storeId}_${sessionId}`;
 
   const orderQuery = useMemoFirebase(
     () => (firestore ? doc(firestore, 'orders', orderId) : null),
@@ -202,7 +202,6 @@ export default function PublicMenuPage() {
 
   const { toast } = useToast();
   const [isAdding, startAdding] = useTransition();
-  const [sessionId, setSessionId] = useState('');
   
   const { canInstall, triggerInstall } = useInstall();
   const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null);
@@ -210,22 +209,21 @@ export default function PublicMenuPage() {
   const [isFetchingIngredients, startFetchingIngredients] = useTransition();
   const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
 
-  const orderId = `${storeId}_${sessionId}`;
-  const orderQuery = useMemoFirebase(
-    () => (firestore && sessionId ? doc(firestore, 'orders', orderId) : null),
-    [firestore, orderId, sessionId]
-  );
-  const { data: order } = useDoc<Order>(orderQuery);
-  const itemCount = order?.items?.length || 0;
+  // Dynamic Session Query: Look for any order for this table that is NOT yet Completed
+  const activeOrderQuery = useMemoFirebase(() => {
+    if (!firestore || !storeId || !tableNumber) return null;
+    return query(
+      collection(firestore, 'orders'),
+      where('storeId', '==', storeId),
+      where('tableNumber', '==', tableNumber),
+      where('status', 'in', ['Pending', 'Processing', 'Billed', 'Out for Delivery']),
+      limit(1)
+    );
+  }, [firestore, storeId, tableNumber]);
 
-  useEffect(() => {
-    if (storeId && tableNumber) {
-        const today = new Date();
-        const dateString = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
-        const newSessionId = `table-${tableNumber}-${dateString}`;
-        setSessionId(newSessionId);
-    }
-}, [storeId, tableNumber]);
+  const { data: activeOrders, isLoading: orderLoading } = useCollection<Order>(activeOrderQuery);
+  const order = activeOrders?.[0];
+  const itemCount = order?.items?.length || 0;
 
   const storeRef = useMemoFirebase(() =>
     firestore ? doc(firestore, 'stores', storeId) : null,
@@ -254,7 +252,6 @@ export default function PublicMenuPage() {
     startAdding(async () => {
       const result = await addRestaurantOrderItem({
         storeId,
-        sessionId,
         tableNumber: tableNumber || null,
         item,
         quantity: 1,
@@ -311,7 +308,7 @@ export default function PublicMenuPage() {
   };
 
 
-  if (storeLoading || menuLoading) return (
+  if (storeLoading || menuLoading || orderLoading) return (
       <div className="p-4 space-y-4">
         <Skeleton className="h-8 w-1/2" />
         <Skeleton className="h-24 w-full" />
@@ -322,6 +319,7 @@ export default function PublicMenuPage() {
   );
   if (!store || !menu) return <div className="p-4 text-center">Menu not found.</div>;
   
+  // Terminal state for showing "Thank You" is specifically 'Completed'
   const isBillFinalized = order?.status === 'Completed';
   const theme = menu.theme;
 
@@ -373,7 +371,7 @@ export default function PublicMenuPage() {
               </CardHeader>
               <CardContent className="space-y-6">
 
-                {isBillFinalized ? (
+                {order?.status === 'Billed' ? (
                     <div className="text-center py-16 px-6">
                         <Check className="mx-auto h-16 w-16 text-green-500 bg-green-100 rounded-full p-2" />
                         <h2 className="text-2xl font-bold mt-4" style={{color: theme?.textColor}}>Thank You!</h2>
@@ -418,7 +416,7 @@ export default function PublicMenuPage() {
             </Card>
           </div>
           
-          {itemCount > 0 && !isBillFinalized && (
+          {itemCount > 0 && order?.status !== 'Billed' && (
                <Sheet>
                   <SheetTrigger asChild>
                       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
@@ -430,7 +428,7 @@ export default function PublicMenuPage() {
                       </div>
                   </SheetTrigger>
                   <SheetContent side="bottom" className="h-[75vh] rounded-t-2xl p-0">
-                      <LiveBillSheet storeId={storeId} sessionId={sessionId} theme={theme} />
+                      <LiveBillSheet orderId={order.id} theme={theme} />
                   </SheetContent>
               </Sheet>
           )}
