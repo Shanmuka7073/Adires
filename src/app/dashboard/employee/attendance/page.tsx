@@ -331,7 +331,7 @@ export default function EmployeeAttendancePage() {
                 async (position) => {
                     const { latitude, longitude } = position.coords;
                     
-                    // 3. PROXIMITY CHECK (Optional but recommended)
+                    // 3. PROXIMITY CHECK
                     if (storeData && storeData.latitude && storeData.longitude) {
                         const R = 6371e3; // metres
                         const φ1 = latitude * Math.PI/180;
@@ -364,8 +364,6 @@ export default function EmployeeAttendancePage() {
                         workHours: 0,
                         rejectionCount: 0, 
                         reasonHistory: [],
-                        latitude,
-                        longitude
                     } as any;
 
                     try {
@@ -527,7 +525,6 @@ export default function EmployeeAttendancePage() {
             </DialogContent>
       </Dialog>
 
-      {/* BIOMETRIC REGISTRATION SECTION */}
       {!isDeviceRegistered && (
           <Card className="border-primary/50 bg-primary/5">
               <CardHeader>
@@ -536,7 +533,7 @@ export default function EmployeeAttendancePage() {
                       Biometric Setup Required
                   </CardTitle>
                   <CardDescription>
-                      Register your phone's fingerprint, face unlock, or pattern/PIN to enable secure attendance marking.
+                      Register your phone's pattern or biometric lock to enable secure attendance marking.
                   </CardDescription>
               </CardHeader>
               <CardContent>
@@ -552,7 +549,7 @@ export default function EmployeeAttendancePage() {
           <CardHeader>
             <CardTitle className="text-2xl font-bold mb-2">Employee Attendance</CardTitle>
             <CardDescription>
-                Use your device lock (Fingerprint, Face, or PIN/Pattern) to punch in and out securely.
+                Use your device pattern or biometric lock to punch in and out securely.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">

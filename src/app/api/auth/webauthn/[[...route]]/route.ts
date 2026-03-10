@@ -44,11 +44,12 @@ async function getAuthenticators(userId: string): Promise<Authenticator[]> {
 
 async function saveAuthenticator(userId: string, auth: Authenticator) {
   const { db } = await getAdminServices();
-  const existingDoc = await db.collection('users').doc(userId).get();
-  const existingAuths = existingDoc.data()?.authenticators || [];
-  const existingIds = existingDoc.data()?.authenticatorIds || [];
+  const userRef = db.collection('users').doc(userId);
+  const docSnap = await userRef.get();
+  const existingAuths = docSnap.data()?.authenticators || [];
+  const existingIds = docSnap.data()?.authenticatorIds || [];
 
-  await db.collection('users').doc(userId).set(
+  await userRef.set(
     {
       authenticators: [...existingAuths, auth],
       authenticatorIds: [...existingIds, auth.credentialID],
@@ -72,10 +73,9 @@ export async function POST(
       return NextResponse.json({ error: 'Missing Host header' }, { status: 400 });
     }
 
-    const hostname = host.split(':')[0];
-    const protocol = hostname === 'localhost' || hostname === '127.0.0.1' ? 'http' : 'https';
-
-    const rpID = hostname;
+    // RP ID must be the domain name without port.
+    const rpID = host.split(':')[0];
+    const protocol = rpID === 'localhost' || rpID === '127.0.0.1' ? 'http' : 'https';
     const origin = `${protocol}://${host}`;
     const rpName = 'LocalBasket';
 
@@ -95,11 +95,11 @@ export async function POST(
       if (!userId)
         return NextResponse.json({ error: 'User ID missing' }, { status: 400 });
 
-      const doc = await db.collection('users').doc(userId).get();
-      if (!doc.exists)
+      const docSnap = await db.collection('users').doc(userId).get();
+      if (!docSnap.exists)
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-      const user = doc.data() as AppUser;
+      const user = docSnap.data() as AppUser;
       const existingAuth = await getAuthenticators(userId);
 
       const opts: GenerateRegistrationOptionsOpts = {
@@ -115,7 +115,7 @@ export async function POST(
           transports: auth.transports,
         })),
         authenticatorSelection: {
-          residentKey: 'required', // Required for username-less login
+          residentKey: 'required', // Enables "Passkey" (One-Tap login)
           userVerification: 'required',
         },
       };
@@ -137,11 +137,11 @@ export async function POST(
       if (!userId)
         return NextResponse.json({ error: 'User ID missing' }, { status: 400 });
 
-      const doc = await db.collection('users').doc(userId).get();
-      if (!doc.exists)
+      const docSnap = await db.collection('users').doc(userId).get();
+      if (!docSnap.exists)
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-      const user = doc.data() as AppUser;
+      const user = docSnap.data() as AppUser;
       const challenge = user.currentChallenge;
 
       if (!challenge)
@@ -196,18 +196,16 @@ export async function POST(
     if (action === 'generate-authentication-options') {
       const email = body.email;
 
-      // PASSKEY MODE: If no email, return options without allowCredentials
+      // PASSKEY MODE: If no email is provided, we return options without allowCredentials.
+      // This tells the browser to show the user's Passkey list for this domain.
       if (!email) {
         const opts: GenerateAuthenticationOptionsOpts = {
           timeout: 60000,
           rpID,
           userVerification: 'required',
-          // Empty allowCredentials triggers the Passkey picker
           allowCredentials: [], 
         };
         const options = await generateAuthenticationOptions(opts);
-        // We can't store the challenge on a specific user yet, so we just return it.
-        // The verification step will handle finding the user.
         return NextResponse.json(options);
       }
 
@@ -268,25 +266,24 @@ export async function POST(
         const snap = await db.collection('users').where('email', '==', email).limit(1).get();
         if (!snap.empty) user = { id: snap.docs[0].id, ...snap.docs[0].data() } as AppUser;
       } else {
-        // PASSKEY LOOKUP: Find user by the credential ID
+        // PASSKEY LOOKUP: Find user by the unique credential ID sent by the device.
         const snap = await db.collection('users').where('authenticatorIds', 'array-contains', authenticatorId).limit(1).get();
         if (!snap.empty) user = { id: snap.docs[0].id, ...snap.docs[0].data() } as AppUser;
       }
 
-      if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      if (!user) return NextResponse.json({ error: 'User not recognized. Please register first.' }, { status: 404 });
 
       const auths = user.authenticators || [];
       const selected = auths.find((a) => a.credentialID === authenticatorId);
 
-      if (!selected) return NextResponse.json({ error: 'Authenticator not found' }, { status: 404 });
+      if (!selected) return NextResponse.json({ error: 'Invalid authenticator.' }, { status: 404 });
 
       let verification: VerifiedAuthenticationResponse;
 
       try {
         const opts: VerifyAuthenticationResponseOpts = {
           response: body,
-          // If we don't have a challenge on the user (Passkey mode), we accept the signed challenge
-          // Note: In production, you'd store the challenge in a signed cookie or short-lived cache.
+          // If no specific challenge was stored (Passkey mode), we accept the signed challenge in the response.
           expectedChallenge: user.currentChallenge || body.response.clientDataJSON, 
           expectedOrigin: origin,
           expectedRPID: rpID,

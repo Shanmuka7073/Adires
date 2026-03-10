@@ -298,7 +298,7 @@ function ActionCard({
 /* ---------------- MAIN PAGE ---------------- */
 
 export default function AdminDashboardPage() {
-  const { firestore } = useFirebase();
+  const { firestore, user } = useFirebase();
   const router = useRouter();
   const { isAdmin, isLoading } = useAdminAuth();
 

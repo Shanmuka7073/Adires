@@ -88,23 +88,24 @@ export default function LoginPage() {
     setError(null);
     startWebAuthnTransition(async () => {
       try {
-        // ONE-TAP LOGIN: Request authentication options (email is optional)
+        // PASSKEY FLOW: Request authentication options from our API.
+        // We pass the email if typed, but it's not required for a Passkey login.
         const respOptions = await fetch('/api/auth/webauthn/generate-authentication-options', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email || null }), // Send email if typed, else null for Passkey mode
+          body: JSON.stringify({ email: email || null }), 
         });
 
         const options = await respOptions.json();
 
         if (!respOptions.ok) {
-          throw new Error(options.error || 'Could not find any fingerprints for this account.');
+          throw new Error(options.error || 'Could not initiate biometric login.');
         }
         
-        // Trigger the browser's biometric prompt
+        // Trigger the phone's native pattern/biometric/pin prompt.
         const assertion = await startAuthentication(options);
 
-        // Verify the result
+        // Verify the signature on our backend.
         const verificationResp = await fetch('/api/auth/webauthn/verify-authentication', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -115,8 +116,9 @@ export default function LoginPage() {
         
         if (verificationJSON && verificationJSON.verified) {
             if (!auth) throw new Error("Authentication service not available.");
+            // Sign into Firebase using the custom token issued by our secure API.
             await signInWithCustomToken(auth, verificationJSON.customToken);
-            toast({ title: 'Welcome back!', description: 'Successfully signed in.' });
+            toast({ title: 'Welcome back!', description: 'Successfully signed in with your device lock.' });
         } else {
             throw new Error(verificationJSON.error || 'Verification failed.');
         }
@@ -165,7 +167,7 @@ export default function LoginPage() {
 
                 toast({
                     title: 'Account Created!',
-                    description: 'You can now enable fingerprint login in your profile.',
+                    description: 'You can now enable one-tap login in your profile.',
                 });
                 setIsSignUp(false);
                 form.reset();
@@ -212,7 +214,7 @@ export default function LoginPage() {
                       ) : (
                         <Fingerprint className="h-8 w-8 text-primary group-hover:scale-110 transition-transform" />
                       )}
-                      <span className="font-bold">One-Tap Fingerprint Login</span>
+                      <span className="font-bold">One-Tap Biometric Login</span>
                     </Button>
                     
                     <div className="relative">
