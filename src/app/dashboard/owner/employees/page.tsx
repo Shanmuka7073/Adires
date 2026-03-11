@@ -468,6 +468,7 @@ export default function ManageEmployeesPage() {
                               <TableHeader>
                                   <TableRow>
                                       <TableHead>Employee ID</TableHead>
+                                      <TableHead>Name</TableHead>
                                       <TableHead>Role</TableHead>
                                       <TableHead>Reports To</TableHead>
                                       <TableHead>Salary</TableHead>
@@ -479,6 +480,7 @@ export default function ManageEmployeesPage() {
                                   {employees?.map(emp => (
                                       <TableRow key={emp.userId}>
                                           <TableCell className="font-mono">{emp.employeeId}</TableCell>
+                                          <TableCell className="font-semibold">{emp.firstName} {emp.lastName}</TableCell>
                                           <TableCell>{emp.role}</TableCell>
                                           <TableCell>{managerMap.get(emp.reportingTo || '') || 'N/A'}</TableCell>
                                           <TableCell>₹{emp.salaryRate.toFixed(2)} / {emp.salaryType}</TableCell>
