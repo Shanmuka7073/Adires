@@ -19,7 +19,8 @@ import {
   Loader2,
   Check,
   Package,
-  BarChart3
+  BarChart3,
+  Users
 } from 'lucide-react';
 
 import {
@@ -28,7 +29,7 @@ import {
 
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { useEffect, useMemo, useState, useTransition, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
@@ -38,13 +39,13 @@ import type { Timestamp } from 'firebase/firestore';
 
 
 const STATUS_META: Record<string, any> = {
-  Pending: { icon: AlertTriangle, variant: 'secondary' },
-  Processing: { icon: CookingPot, variant: 'secondary' },
-  'Out for Delivery': { icon: Truck, variant: 'outline' },
-  Billed: { icon: Check, variant: 'default' },
-  Completed: { icon: CheckCircle, variant: 'default' },
-  Delivered: { icon: CheckCircle, variant: 'default' },
-  Cancelled: { icon: AlertTriangle, variant: 'destructive' },
+  Pending: { icon: AlertTriangle, variant: 'secondary', color: 'text-amber-600' },
+  Processing: { icon: CookingPot, variant: 'secondary', color: 'text-blue-600' },
+  'Out for Delivery': { icon: Truck, variant: 'outline', color: 'text-purple-600' },
+  Billed: { icon: Check, variant: 'default', color: 'text-green-600' },
+  Completed: { icon: CheckCircle, variant: 'default', color: 'text-gray-600' },
+  Delivered: { icon: CheckCircle, variant: 'default', color: 'text-gray-600' },
+  Cancelled: { icon: AlertTriangle, variant: 'destructive', color: 'text-red-600' },
 };
 
 
@@ -76,6 +77,16 @@ function playNotificationSound() {
   }
 }
 
+function EmptyTableCard({ tableNumber }: { tableNumber: string }) {
+    return (
+        <Card className="border-dashed bg-muted/20 opacity-60 grayscale hover:opacity-100 hover:grayscale-0 transition-all cursor-default h-full flex flex-col justify-center items-center py-12">
+            <Users className="h-8 w-8 text-muted-foreground mb-2" />
+            <h3 className="font-bold text-lg">Table {tableNumber}</h3>
+            <p className="text-xs text-muted-foreground">Available</p>
+        </Card>
+    )
+}
+
 
 function SessionCard({ session, onStatusChange, isUpdating }: { session: Session; onStatusChange: (sessionId: string, newStatus: Order['status']) => void; isUpdating: boolean }) {
   const { toast } = useToast();
@@ -92,33 +103,35 @@ function SessionCard({ session, onStatusChange, isUpdating }: { session: Session
     });
   };
 
+  const meta = STATUS_META[session.status];
+
   return (
-    <Card className={session.status === 'Billed' ? 'border-primary ring-2 ring-primary' : ''}>
-      <CardHeader>
-        <div className="flex justify-between items-center">
+    <Card className={session.status === 'Billed' ? 'border-primary ring-2 ring-primary h-full' : 'h-full shadow-md'}>
+      <CardHeader className="pb-2">
+        <div className="flex justify-between items-start">
             <div>
-                 <CardTitle>Table {session.tableNumber || 'N/A'}</CardTitle>
-                 <CardDescription>Session ID: {session.id.slice(0, 8)}</CardDescription>
+                 <CardTitle className="text-xl">Table {session.tableNumber || 'N/A'}</CardTitle>
+                 <CardDescription className="text-[10px] font-mono">ID: {session.id.slice(0, 8)}</CardDescription>
             </div>
-             <Badge variant={STATUS_META[session.status]?.variant || 'secondary'} className="text-lg">
+             <Badge variant={meta?.variant || 'secondary'} className="px-2 py-0.5">
                 {session.status}
              </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <h4 className="font-semibold mb-2">Items Ordered:</h4>
-          <div className="max-h-48 overflow-y-auto space-y-2">
+          <h4 className="text-xs font-bold uppercase text-muted-foreground mb-2 tracking-wider">Current Order</h4>
+          <div className="max-h-32 overflow-y-auto space-y-1.5 pr-2">
             {session.orders.flatMap(o => o.items).map((item, index) => (
-              <div key={index} className="flex justify-between items-center text-sm p-2 bg-muted/50 rounded-md">
-                <span>{item.productName} <span className="text-muted-foreground">x{item.quantity}</span></span>
-                <span className="font-medium">₹{(item.price * item.quantity).toFixed(2)}</span>
+              <div key={index} className="flex justify-between items-center text-xs p-2 bg-muted/50 rounded-md">
+                <span className="font-medium">{item.productName} <span className="text-muted-foreground font-normal">x{item.quantity}</span></span>
+                <span className="font-mono">₹{(item.price * item.quantity).toFixed(0)}</span>
               </div>
             ))}
           </div>
         </div>
         <div className="border-t pt-4 space-y-4">
-            <div className="flex justify-between font-bold text-xl">
+            <div className="flex justify-between font-bold text-lg">
                 <span>Total Bill</span>
                 <span>₹{session.totalAmount.toFixed(2)}</span>
             </div>
@@ -129,15 +142,17 @@ function SessionCard({ session, onStatusChange, isUpdating }: { session: Session
                         className={session.status === 'Billed' ? 'w-full bg-green-600 hover:bg-green-700' : 'w-full'}
                         variant={session.status === 'Billed' ? 'default' : 'outline'}
                         disabled={isUpdating || isCompleting || session.status === 'Completed'}
+                        size="sm"
                     >
-                        <Check className="mr-2 h-4 w-4" /> Confirm Payment & Close
+                        {isCompleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Check className="mr-2 h-4 w-4" />}
+                        {session.status === 'Billed' ? 'Receive Payment' : 'Confirm Payment'}
                     </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Confirm Payment Received?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This will mark the session as completed and cannot be undone.
+                            This will finalize the bill for table {session.tableNumber} and mark the session as completed.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -147,7 +162,7 @@ function SessionCard({ session, onStatusChange, isUpdating }: { session: Session
                 </AlertDialogContent>
             </AlertDialog>
             {session.status === 'Pending' && (
-                <p className="text-xs text-center text-muted-foreground">Waiting for customer to close bill.</p>
+                <p className="text-[10px] text-center text-muted-foreground italic">Waiting for customer to finalize their order...</p>
             )}
         </div>
       </CardContent>
@@ -167,7 +182,7 @@ export default function StoreOrdersPage() {
       : null,
   [firestore, user]);
 
-  const { data: myStores } = useCollection<Store>(storeQuery);
+  const { data: myStores, isLoading: storeLoading } = useCollection<Store>(storeQuery);
   const myStore = myStores?.[0];
 
   const ordersQuery = useMemoFirebase(() =>
@@ -180,7 +195,7 @@ export default function StoreOrdersPage() {
       : null,
   [firestore, myStore]);
 
-  const { data: orders, isLoading } = useCollection<Order>(ordersQuery);
+  const { data: orders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
 
   const sessions = useMemo((): Record<string, Session> => {
     if (!orders) return {};
@@ -194,7 +209,7 @@ export default function StoreOrdersPage() {
                 tableNumber: order.tableNumber || 'N/A',
                 orders: [],
                 totalAmount: 0,
-                status: 'Pending', // Default status
+                status: 'Pending',
                 lastActivity: new Date(0),
             };
         }
@@ -244,7 +259,15 @@ export default function StoreOrdersPage() {
     });
   };
 
-  const activeSessions = Object.values(sessions).filter(s => s.status !== 'Completed' && s.status !== 'Cancelled');
+  const activeSessionsByTable = useMemo(() => {
+      const map: Record<string, Session> = {};
+      Object.values(sessions).forEach(s => {
+          if (s.status !== 'Completed' && s.status !== 'Cancelled' && s.tableNumber) {
+              map[s.tableNumber] = s;
+          }
+      });
+      return map;
+  }, [sessions]);
   
   const completedSessions = useMemo(() => {
     const groupedByDate: Record<string, Record<string, Session[]>> = {};
@@ -262,7 +285,6 @@ export default function StoreOrdersPage() {
         groupedByDate[dateKey][tableKey].push(session);
     });
 
-    // Sort sessions within each table
     for (const date in groupedByDate) {
         for (const table in groupedByDate[date]) {
             groupedByDate[date][table].sort((a,b) => b.lastActivity.getTime() - a.lastActivity.getTime());
@@ -271,13 +293,14 @@ export default function StoreOrdersPage() {
     return groupedByDate;
   }, [sessions]);
 
+  const isLoading = storeLoading || ordersLoading;
 
   return (
     <div className="container mx-auto py-12 px-4 md:px-6">
         <div className="mb-8 flex flex-col md:flex-row justify-between md:items-center gap-4">
             <div>
                 <h1 className="text-4xl font-bold font-headline">Live Table Orders</h1>
-                <p className="text-muted-foreground">Manage incoming orders from your restaurant tables.</p>
+                <p className="text-muted-foreground">Monitor and manage your restaurant's tables in real-time.</p>
             </div>
             <Button asChild variant="outline">
                 <Link href="/dashboard/owner/sales-report">
@@ -287,32 +310,46 @@ export default function StoreOrdersPage() {
             </Button>
         </div>
 
-        <div className="space-y-8">
+        <div className="space-y-12">
             <div>
-                <h2 className="text-2xl font-semibold mb-4">Active & Billed Tables</h2>
-                 {isLoading ? (
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <Skeleton className="h-64 w-full" />
-                        <Skeleton className="h-64 w-full" />
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-2xl font-semibold">Table Floor Map</h2>
+                    <div className="flex gap-4 text-xs">
+                        <div className="flex items-center gap-1.5"><Badge className="h-2 w-2 p-0 rounded-full bg-green-500" /> Available</div>
+                        <div className="flex items-center gap-1.5"><Badge className="h-2 w-2 p-0 rounded-full bg-blue-500" /> Booked</div>
+                        <div className="flex items-center gap-1.5"><Badge className="h-2 w-2 p-0 rounded-full bg-orange-500" /> Billed</div>
                     </div>
-                ) : activeSessions.length > 0 ? (
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {activeSessions.sort((a,b) => b.lastActivity.getTime() - a.lastActivity.getTime()).map(session => (
-                            <SessionCard key={session.id} session={session} onStatusChange={handleSessionStatusChange} isUpdating={isUpdating} />
-                        ))}
+                </div>
+                 {isLoading ? (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        <Skeleton className="h-48 w-full" /><Skeleton className="h-48 w-full" /><Skeleton className="h-48 w-full" /><Skeleton className="h-48 w-full" />
+                    </div>
+                ) : myStore?.tables && myStore.tables.length > 0 ? (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        {myStore.tables.map(tableNumber => {
+                            const activeSession = activeSessionsByTable[tableNumber];
+                            return activeSession ? (
+                                <SessionCard key={activeSession.id} session={activeSession} onStatusChange={handleSessionStatusChange} isUpdating={isUpdating} />
+                            ) : (
+                                <EmptyTableCard key={tableNumber} tableNumber={tableNumber} />
+                            )
+                        })}
                     </div>
                 ) : (
-                    <Card>
+                    <Card className="bg-muted/30 border-dashed">
                         <CardHeader>
-                            <CardTitle>No Active Orders</CardTitle>
-                            <CardDescription>When customers order using a QR code, their live bills will appear here.</CardDescription>
+                            <CardTitle>No Tables Configured</CardTitle>
+                            <CardDescription>Go to "My Store" settings to add your restaurant tables and generate QR codes.</CardDescription>
                         </CardHeader>
+                        <CardContent>
+                            <Button asChild variant="outline"><Link href="/dashboard/owner/my-store">Go to Store Settings</Link></Button>
+                        </CardContent>
                      </Card>
                 )}
             </div>
 
              <div>
-                <h2 className="text-2xl font-semibold mb-4 text-muted-foreground">Completed Sessions</h2>
+                <h2 className="text-2xl font-semibold mb-4 text-muted-foreground">Order History</h2>
                  {isLoading ? (
                     <Skeleton className="h-24 w-full" />
                 ) : Object.keys(completedSessions).length > 0 ? (
@@ -325,7 +362,7 @@ export default function StoreOrdersPage() {
                           <AccordionContent className="border border-t-0 rounded-b-lg p-2 space-y-2">
                              <Accordion type="multiple" className="w-full space-y-2">
                                 {Object.entries(tables).map(([tableNumber, tableSessions]) => (
-                                    <AccordionItem value={tableNumber} key={tableNumber}>
+                                    <AccordionItem value={`${date}-${tableNumber}`} key={tableNumber}>
                                         <AccordionTrigger className="text-base font-semibold border px-3 py-2 rounded-md bg-background hover:bg-background/80 hover:no-underline [&[data-state=open]]:rounded-b-none">
                                             Table {tableNumber}
                                         </AccordionTrigger>
@@ -354,7 +391,7 @@ export default function StoreOrdersPage() {
                       ))}
                     </Accordion>
                 ) : (
-                    <p className="text-muted-foreground text-center">No completed sessions yet.</p>
+                    <p className="text-muted-foreground text-center py-8 bg-muted/10 rounded-lg border border-dashed">No completed orders yet.</p>
                 )}
             </div>
         </div>
