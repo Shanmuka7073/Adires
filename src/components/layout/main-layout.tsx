@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, createContext, useContext, useCallback, useEffect } from 'react';
@@ -16,7 +15,6 @@ import { BottomNavBar } from './bottom-nav-bar';
 import { useFirebase } from '@/firebase';
 import { PriceCheckDisplay, PriceCheckInfo } from './price-check-display';
 import { useInstall } from '../install-provider';
-import { FirestoreCounter } from './firestore-counter'; 
 
 // Create a context to provide the trigger function
 const VoiceCommandContext = createContext<{ 
@@ -128,7 +126,6 @@ export function MainLayout({
         <NotificationPermissionManager />
         <Footer />
         <BottomNavBar />
-        <FirestoreCounter />
         </div>
     </VoiceCommandContext.Provider>
   );
@@ -140,7 +137,6 @@ export function MenuLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative min-h-dvh bg-background">
         {children}
-        <FirestoreCounter />
     </div>
   );
 }
