@@ -368,7 +368,7 @@ export default function PublicMenuPage() {
               <CardHeader className="pb-4 p-6">
                   <div className="flex items-center gap-4">
                     {store.imageUrl && (
-                        <div className="relative h-16 w-16 md:h-20 md:w-20 rounded-2xl overflow-hidden border-2 shrink-0 shadow-md" style={{ borderColor: theme?.primaryColor + '40' }}>
+                        <div className="relative h-14 w-14 md:h-16 md:w-16 rounded-xl overflow-hidden border-2 shrink-0 shadow-sm" style={{ borderColor: theme?.primaryColor + '40' }}>
                             <Image
                                 src={store.imageUrl}
                                 alt={store.name}
@@ -378,12 +378,12 @@ export default function PublicMenuPage() {
                         </div>
                     )}
                     <div className="flex-1 min-w-0">
-                        <CardTitle className="text-2xl md:text-3xl font-bold font-headline truncate" style={{ color: theme?.primaryColor }}>
+                        <CardTitle className="text-xl md:text-2xl font-bold font-headline truncate" style={{ color: theme?.primaryColor }}>
                             {store.name}
                         </CardTitle>
                         {tableNumber && (
                             <Badge 
-                                className="mt-1 px-3 py-0.5 text-xs font-bold rounded-full shadow-sm" 
+                                className="mt-0.5 px-2 py-0 text-[10px] font-bold rounded-full shadow-sm" 
                                 style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}
                             >
                                 Table {tableNumber}
@@ -393,12 +393,12 @@ export default function PublicMenuPage() {
                   </div>
                   
                   {!isBillFinalized && (
-                    <div className="space-y-4 mt-6">
+                    <div className="space-y-3 mt-4">
                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50" style={{ color: theme?.textColor }} />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 opacity-50" style={{ color: theme?.textColor }} />
                             <Input 
                                 placeholder="Search dishes..." 
-                                className="pl-10 border-2 h-12 rounded-xl text-base shadow-sm focus-visible:ring-offset-0" 
+                                className="pl-9 border-2 h-10 rounded-lg text-sm shadow-sm focus-visible:ring-offset-0" 
                                 style={{ 
                                     backgroundColor: theme?.backgroundColor, 
                                     color: theme?.textColor,
@@ -410,14 +410,14 @@ export default function PublicMenuPage() {
                         </div>
 
                         {/* Category Filter Bar */}
-                        <ScrollArea className="w-full whitespace-nowrap pb-2">
-                            <div className="flex gap-2">
+                        <ScrollArea className="w-full whitespace-nowrap pb-1">
+                            <div className="flex gap-1.5">
                                 <Button
                                     variant="ghost"
                                     size="sm"
                                     className={cn(
-                                        "rounded-full px-4 h-9 font-bold text-xs uppercase tracking-wider border-2 transition-all",
-                                        !selectedCategory ? "shadow-md scale-105" : "opacity-60 border-transparent"
+                                        "rounded-full px-3 h-7 font-bold text-[10px] uppercase tracking-wider border-2 transition-all",
+                                        !selectedCategory ? "shadow-sm scale-105" : "opacity-60 border-transparent"
                                     )}
                                     style={{ 
                                         backgroundColor: !selectedCategory ? theme?.primaryColor : 'transparent',
@@ -434,8 +434,8 @@ export default function PublicMenuPage() {
                                         variant="ghost"
                                         size="sm"
                                         className={cn(
-                                            "rounded-full px-4 h-9 font-bold text-xs uppercase tracking-wider border-2 transition-all",
-                                            selectedCategory === cat ? "shadow-md scale-105" : "opacity-60 border-transparent"
+                                            "rounded-full px-3 h-7 font-bold text-[10px] uppercase tracking-wider border-2 transition-all",
+                                            selectedCategory === cat ? "shadow-sm scale-105" : "opacity-60 border-transparent"
                                         )}
                                         style={{ 
                                             backgroundColor: selectedCategory === cat ? theme?.primaryColor : 'transparent',
@@ -454,51 +454,51 @@ export default function PublicMenuPage() {
                   )}
 
                   {canInstall && (
-                    <div className="pt-2 text-right">
-                        <Button onClick={triggerInstall} size="sm" variant="ghost" className="h-8 text-[10px] uppercase tracking-widest font-extrabold opacity-60 hover:bg-transparent" style={{ color: theme?.primaryColor }}>
-                            <Download className="mr-1.5 h-3 w-3" />
-                            Install App
+                    <div className="pt-1.5 text-right">
+                        <Button onClick={triggerInstall} size="sm" variant="ghost" className="h-6 text-[9px] uppercase tracking-widest font-extrabold opacity-60 hover:bg-transparent" style={{ color: theme?.primaryColor }}>
+                            <Download className="mr-1 h-2.5 w-2.5" />
+                            Install
                         </Button>
                     </div>
                   )}
               </CardHeader>
-              <CardContent className="space-y-6 pt-0 px-6">
+              <CardContent className="space-y-5 pt-0 px-6">
 
                 {order?.status === 'Billed' ? (
-                    <div className="text-center py-16 px-6">
-                        <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-4" style={{ backgroundColor: theme?.primaryColor + '20' }}>
-                            <Check className="h-10 w-10" style={{ color: theme?.primaryColor }} />
+                    <div className="text-center py-12 px-6">
+                        <div className="mx-auto h-16 w-16 flex items-center justify-center rounded-full mb-3" style={{ backgroundColor: theme?.primaryColor + '20' }}>
+                            <Check className="h-8 w-8" style={{ color: theme?.primaryColor }} />
                         </div>
-                        <h2 className="text-2xl font-bold mt-4" style={{color: theme?.textColor}}>Thank You!</h2>
-                        <p className="text-base opacity-80" style={{color: theme?.textColor}}>Your bill has been finalized. Please proceed to the counter for payment.</p>
+                        <h2 className="text-xl font-bold mt-3" style={{color: theme?.textColor}}>Thank You!</h2>
+                        <p className="text-sm opacity-80" style={{color: theme?.textColor}}>Your bill has been finalized. Please proceed to the counter for payment.</p>
                     </div>
                 ) : Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
                     <div key={category}>
-                        <h2 className="text-lg font-bold mb-3 border-b-2 pb-2 uppercase tracking-wide opacity-80" style={{ borderColor: theme?.primaryColor + '20', color: theme?.primaryColor }}>{category}</h2>
-                        <div className="space-y-3">
+                        <h2 className="text-xs font-bold mb-2 border-b-2 pb-1 uppercase tracking-widest opacity-70" style={{ borderColor: theme?.primaryColor + '20', color: theme?.primaryColor }}>{category}</h2>
+                        <div className="space-y-2">
                             {items.map((item, index) => {
                                 const isRecentlyAdded = recentlyAdded.has(item.id);
                                 return (
                                 <Card
                                     key={item.id || index}
-                                    className="flex justify-between items-center p-4 border-0 shadow-sm rounded-xl transition-all"
+                                    className="flex justify-between items-center p-3 border-0 shadow-sm rounded-xl transition-all"
                                     style={{ backgroundColor: theme?.primaryColor + '08' }}
                                 >
-                                    <div className="flex-1 pr-2">
-                                        <p className="font-bold text-lg leading-tight" style={{color: theme?.textColor}}>{item.name}</p>
-                                        <p className="text-sm font-extrabold mt-1" style={{color: theme?.textColor, opacity: 0.9}}>₹{item.price.toFixed(2)}</p>
+                                    <div className="flex-1 pr-2 min-w-0">
+                                        <p className="font-bold text-base leading-tight truncate" style={{color: theme?.textColor}}>{item.name}</p>
+                                        <p className="text-xs font-bold mt-0.5" style={{color: theme?.textColor, opacity: 0.9}}>₹{item.price.toFixed(2)}</p>
                                     </div>
-                                    <div className="flex items-center gap-3">
-                                        <Button variant="ghost" size="sm" onClick={() => handleShowIngredients(item)} className="h-10 w-10 p-0 rounded-full hover:bg-black/5">
-                                            <Eye className="h-5 w-5" style={{ color: theme?.textColor }}/>
+                                    <div className="flex items-center gap-2">
+                                        <Button variant="ghost" size="sm" onClick={() => handleShowIngredients(item)} className="h-8 w-8 p-0 rounded-full hover:bg-black/5">
+                                            <Eye className="h-4 w-4" style={{ color: theme?.textColor }}/>
                                         </Button>
                                          <Button 
                                             onClick={() => handleAddItem(item)} 
                                             disabled={isAdding || isRecentlyAdded}
-                                            className={cn("w-24 h-10 rounded-full font-bold shadow-md transition-all active:scale-95", isRecentlyAdded ? "bg-green-600" : "")}
+                                            className={cn("w-20 h-8 rounded-full text-xs font-bold shadow-sm transition-all active:scale-95", isRecentlyAdded ? "bg-green-600" : "")}
                                             style={{ backgroundColor: isRecentlyAdded ? '' : theme?.primaryColor, color: theme?.backgroundColor }}
                                         >
-                                            {isRecentlyAdded ? <Check className="h-5 w-5" /> : (isAdding ? <Loader2 className="h-5 w-5 animate-spin" /> : <><Plus className="h-4 w-4 mr-1" />Add</>) }
+                                            {isRecentlyAdded ? <Check className="h-4 w-4" /> : (isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Plus className="h-3 w-3 mr-1" />Add</>) }
                                         </Button>
                                     </div>
                                 </Card>
@@ -508,9 +508,9 @@ export default function PublicMenuPage() {
                 ))}
                 
                 {Object.keys(groupedMenu).length === 0 && !orderLoading && (
-                    <div className="text-center py-16 opacity-40" style={{ color: theme?.textColor }}>
-                        <Utensils className="mx-auto h-16 w-16 mb-4" />
-                        <p className="text-lg font-medium">No dishes found</p>
+                    <div className="text-center py-12 opacity-40" style={{ color: theme?.textColor }}>
+                        <Utensils className="mx-auto h-12 w-12 mb-3" />
+                        <p className="text-base font-medium">No dishes found</p>
                     </div>
                 )}
               </CardContent>
@@ -520,15 +520,15 @@ export default function PublicMenuPage() {
           {itemCount > 0 && order?.status !== 'Billed' && (
                <Sheet>
                   <SheetTrigger asChild>
-                      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-xs px-4">
-                          <Button className="h-14 w-full rounded-full shadow-2xl text-lg font-extrabold transition-transform active:scale-95 ring-4 ring-black/5" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>
-                              <Receipt className="mr-3 h-6 w-6" />
+                      <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 w-full max-w-[280px] px-4">
+                          <Button className="h-12 w-full rounded-full shadow-2xl text-base font-extrabold transition-transform active:scale-95 ring-4 ring-black/5" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>
+                              <Receipt className="mr-2 h-5 w-5" />
                               View Bill 
-                              <Badge className="ml-3 px-2 py-0.5 h-6 min-w-[24px] flex items-center justify-center rounded-full font-bold shadow-inner" style={{ backgroundColor: theme?.backgroundColor, color: theme?.primaryColor }}>{itemCount}</Badge>
+                              <Badge className="ml-2 px-1.5 py-0 h-5 min-w-[20px] flex items-center justify-center rounded-full text-[10px] font-bold shadow-inner" style={{ backgroundColor: theme?.backgroundColor, color: theme?.primaryColor }}>{itemCount}</Badge>
                           </Button>
                       </div>
                   </SheetTrigger>
-                  <SheetContent side="bottom" className="h-[75vh] rounded-t-[2.5rem] p-0 border-0 overflow-hidden shadow-[0_-20px_50px_rgba(0,0,0,0.2)]">
+                  <SheetContent side="bottom" className="h-[75vh] rounded-t-[2rem] p-0 border-0 overflow-hidden shadow-[0_-15px_40px_rgba(0,0,0,0.2)]">
                       <LiveBillSheet orderId={order.id} theme={theme} />
                   </SheetContent>
               </Sheet>
