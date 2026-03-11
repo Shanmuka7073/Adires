@@ -43,6 +43,7 @@ import {
   Mic,
   Eye,
   Download,
+  Search,
 } from 'lucide-react';
 
 import {
@@ -69,6 +70,7 @@ import type { Timestamp } from 'firebase/firestore';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import IngredientsDialog from '@/components/IngredientsDialog';
 import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
 
 
 function LiveBillSheet({ orderId, theme }: { orderId: string; theme: Menu['theme'] }) {
@@ -202,6 +204,7 @@ export default function PublicMenuPage() {
 
   const { toast } = useToast();
   const [isAdding, startAdding] = useTransition();
+  const [searchTerm, setSearchTerm] = useState('');
   
   const { canInstall, triggerInstall } = useInstall();
   const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null);
@@ -240,13 +243,19 @@ export default function PublicMenuPage() {
   
   const groupedMenu = useMemo(() => {
     if (!menu?.items) return {};
-    return menu.items.reduce((acc, item) => {
+    
+    const filteredItems = menu.items.filter(item => 
+        item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        item.category.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    return filteredItems.reduce((acc, item) => {
         const cat = item.category || 'Other';
         if(!acc[cat]) acc[cat] = [];
         acc[cat].push(item);
         return acc;
     }, {} as Record<string, MenuItem[]>)
-  }, [menu]);
+  }, [menu, searchTerm]);
 
   const handleAddItem = (item: MenuItem) => {
     startAdding(async () => {
@@ -343,10 +352,10 @@ export default function PublicMenuPage() {
       )}
       <div className="min-h-screen" style={{ backgroundColor: theme?.backgroundColor }}>
           <div className="container mx-auto py-8 px-4 md:px-6 max-w-2xl">
-            <Card className="shadow-lg" style={{ backgroundColor: theme?.backgroundColor, borderColor: theme?.primaryColor }}>
-              <CardHeader className="text-center relative pb-4">
+            <Card className="shadow-lg overflow-hidden" style={{ backgroundColor: theme?.backgroundColor, borderColor: theme?.primaryColor }}>
+              <CardHeader className="text-center relative pb-4 p-0">
                   {store.imageUrl && (
-                    <div className="relative h-32 w-full mb-4 rounded-t-lg overflow-hidden">
+                    <div className="relative h-32 w-full rounded-t-lg overflow-hidden">
                        <Image
                           src={store.imageUrl}
                           alt={store.name}
@@ -356,18 +365,38 @@ export default function PublicMenuPage() {
                          <div className="absolute inset-0 bg-black/30"></div>
                     </div>
                   )}
-                  <div className="flex items-center justify-center gap-2 mt-4" style={{ color: theme?.primaryColor }}>
-                    <CardTitle className="text-3xl font-bold font-headline">{store.name}</CardTitle>
-                </div>
-                {tableNumber && <Badge className="mx-auto mt-2" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>Table {tableNumber}</Badge>}
-                 {canInstall && (
-                  <div className="pt-4">
-                    <Button onClick={triggerInstall} size="sm" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>
-                        <Download className="mr-2 h-4 w-4" />
-                        Add {store.name} to Home Screen
-                    </Button>
+                  <div className="p-6">
+                    <div className="flex items-center justify-center gap-2" style={{ color: theme?.primaryColor }}>
+                        <CardTitle className="text-3xl font-bold font-headline">{store.name}</CardTitle>
+                    </div>
+                    {tableNumber && <Badge className="mx-auto mt-2" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>Table {tableNumber}</Badge>}
+                    
+                    {!isBillFinalized && (
+                        <div className="mt-6 relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50" style={{ color: theme?.textColor }} />
+                            <Input 
+                                placeholder="Search dishes..." 
+                                className="pl-10 border-2" 
+                                style={{ 
+                                    backgroundColor: theme?.backgroundColor, 
+                                    color: theme?.textColor,
+                                    borderColor: theme?.primaryColor + '40'
+                                }}
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                    )}
+
+                    {canInstall && (
+                    <div className="pt-4">
+                        <Button onClick={triggerInstall} size="sm" variant="ghost" style={{ color: theme?.primaryColor }}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Install App
+                        </Button>
+                    </div>
+                    )}
                   </div>
-                 )}
               </CardHeader>
               <CardContent className="space-y-6">
 
@@ -389,7 +418,7 @@ export default function PublicMenuPage() {
                                     className="flex justify-between items-center p-3"
                                     style={{ backgroundColor: theme?.backgroundColor, borderColor: theme?.primaryColor + '40' }}
                                 >
-                                    <div>
+                                    <div className="flex-1 pr-2">
                                         <p className="font-semibold" style={{color: theme?.textColor}}>{item.name}</p>
                                         <p className="text-sm" style={{color: theme?.textColor, opacity: 0.8}}>₹{item.price.toFixed(2)}</p>
                                     </div>
@@ -412,6 +441,13 @@ export default function PublicMenuPage() {
                         </div>
                     </div>
                 ))}
+                
+                {Object.keys(groupedMenu).length === 0 && !orderLoading && (
+                    <div className="text-center py-12 opacity-50" style={{ color: theme?.textColor }}>
+                        <Utensils className="mx-auto h-12 w-12 mb-4" />
+                        <p>No dishes found matching your search.</p>
+                    </div>
+                )}
               </CardContent>
             </Card>
           </div>

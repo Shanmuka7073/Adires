@@ -28,8 +28,8 @@ export function BottomNavBar() {
   const { user, isUserLoading } = useFirebase();
   const { isEmployee } = useAdminAuth();
 
-  // Don't show if loading or on login page
-  if (isUserLoading || pathname === '/login') {
+  // Don't show if loading, on login page, or on public menu pages
+  if (isUserLoading || pathname === '/login' || pathname.startsWith('/menu/')) {
     return null;
   }
   

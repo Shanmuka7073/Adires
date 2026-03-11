@@ -189,8 +189,8 @@ export function Header({ suggestedCommands }: HeaderProps) {
     command.action();
   }
 
-  // Hide the header on the homepage, as it now has its own integrated header
-  if (pathname === '/') {
+  // Hide the header on the homepage and menu pages
+  if (pathname === '/' || pathname.startsWith('/menu/')) {
     return null;
   }
 
