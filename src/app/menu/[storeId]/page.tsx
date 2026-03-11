@@ -44,6 +44,7 @@ import {
   Eye,
   Download,
   Search,
+  ChevronRight,
 } from 'lucide-react';
 
 import {
@@ -71,6 +72,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import IngredientsDialog from '@/components/IngredientsDialog';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 
 function LiveBillSheet({ orderId, theme }: { orderId: string; theme: Menu['theme'] }) {
@@ -205,6 +207,7 @@ export default function PublicMenuPage() {
   const { toast } = useToast();
   const [isAdding, startAdding] = useTransition();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   
   const { canInstall, triggerInstall } = useInstall();
   const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null);
@@ -240,14 +243,23 @@ export default function PublicMenuPage() {
   const { data: menus, isLoading: menuLoading } = useCollection<Menu>(menuQuery);
   
   const menu = menus?.[0];
+
+  const availableCategories = useMemo(() => {
+    if (!menu?.items) return [];
+    return Array.from(new Set(menu.items.map(item => item.category))).sort();
+  }, [menu]);
   
   const groupedMenu = useMemo(() => {
     if (!menu?.items) return {};
     
-    const filteredItems = menu.items.filter(item => 
+    let filteredItems = menu.items.filter(item => 
         item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
         item.category.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    if (selectedCategory) {
+        filteredItems = filteredItems.filter(item => item.category === selectedCategory);
+    }
 
     return filteredItems.reduce((acc, item) => {
         const cat = item.category || 'Other';
@@ -255,7 +267,7 @@ export default function PublicMenuPage() {
         acc[cat].push(item);
         return acc;
     }, {} as Record<string, MenuItem[]>)
-  }, [menu, searchTerm]);
+  }, [menu, searchTerm, selectedCategory]);
 
   const handleAddItem = (item: MenuItem) => {
     startAdding(async () => {
@@ -381,19 +393,63 @@ export default function PublicMenuPage() {
                   </div>
                   
                   {!isBillFinalized && (
-                    <div className="mt-6 relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50" style={{ color: theme?.textColor }} />
-                        <Input 
-                            placeholder="Search dishes..." 
-                            className="pl-10 border-2 h-12 rounded-xl text-base shadow-sm focus-visible:ring-offset-0" 
-                            style={{ 
-                                backgroundColor: theme?.backgroundColor, 
-                                color: theme?.textColor,
-                                borderColor: theme?.primaryColor + '20'
-                            }}
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                    <div className="space-y-4 mt-6">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50" style={{ color: theme?.textColor }} />
+                            <Input 
+                                placeholder="Search dishes..." 
+                                className="pl-10 border-2 h-12 rounded-xl text-base shadow-sm focus-visible:ring-offset-0" 
+                                style={{ 
+                                    backgroundColor: theme?.backgroundColor, 
+                                    color: theme?.textColor,
+                                    borderColor: theme?.primaryColor + '20'
+                                }}
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Category Filter Bar */}
+                        <ScrollArea className="w-full whitespace-nowrap pb-2">
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className={cn(
+                                        "rounded-full px-4 h-9 font-bold text-xs uppercase tracking-wider border-2 transition-all",
+                                        !selectedCategory ? "shadow-md scale-105" : "opacity-60 border-transparent"
+                                    )}
+                                    style={{ 
+                                        backgroundColor: !selectedCategory ? theme?.primaryColor : 'transparent',
+                                        color: !selectedCategory ? theme?.backgroundColor : theme?.primaryColor,
+                                        borderColor: !selectedCategory ? theme?.primaryColor : 'transparent'
+                                    }}
+                                    onClick={() => setSelectedCategory(null)}
+                                >
+                                    All
+                                </Button>
+                                {availableCategories.map(cat => (
+                                    <Button
+                                        key={cat}
+                                        variant="ghost"
+                                        size="sm"
+                                        className={cn(
+                                            "rounded-full px-4 h-9 font-bold text-xs uppercase tracking-wider border-2 transition-all",
+                                            selectedCategory === cat ? "shadow-md scale-105" : "opacity-60 border-transparent"
+                                        )}
+                                        style={{ 
+                                            backgroundColor: selectedCategory === cat ? theme?.primaryColor : 'transparent',
+                                            color: selectedCategory === cat ? theme?.backgroundColor : theme?.primaryColor,
+                                            borderColor: selectedCategory === cat ? theme?.primaryColor : 'transparent'
+                                        }}
+                                        onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+                                    >
+                                        {cat}
+                                    </Button>
+                                ))}
+                            </div>
+                            <ScrollBar orientation="horizontal" className="hidden" />
+                        </ScrollArea>
                     </div>
                   )}
 
