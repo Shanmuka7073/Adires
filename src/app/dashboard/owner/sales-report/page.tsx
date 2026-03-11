@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useState, useTransition, useMemo } from 'react';
@@ -42,7 +41,7 @@ function SuggestionDetailsDialog({ isOpen, onOpenChange, tableData }: { isOpen: 
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2"><Lightbulb className="text-amber-500"/> Profit Improvement Suggestions</DialogTitle>
                     <DialogDescription>
-                        For Table {tableData.tableNumber}, here's how to increase the profit margin from <strong>{tableData.profitPercentage.toFixed(1)}%</strong> to a healthy <strong>{(TARGET_MARGIN * 100).toFixed(0)}%</strong>.
+                        For Table {tableData.tableNumber}, here's how to increase the profit margin from <strong>{(tableData.profitPercentage ?? 0).toFixed(1)}%</strong> to a healthy <strong>{(TARGET_MARGIN * 100).toFixed(0)}%</strong>.
                     </DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="max-h-[60vh] pr-4">
@@ -50,9 +49,9 @@ function SuggestionDetailsDialog({ isOpen, onOpenChange, tableData }: { isOpen: 
                       {/* Path A */}
                        <div className="space-y-3 p-4 rounded-lg bg-blue-50 border border-blue-200">
                           <h4 className="text-lg font-semibold text-blue-800">Path A: Increase Selling Price</h4>
-                          <p className="text-sm text-blue-700">To reach a 55% margin with your current ingredient cost of <strong>₹{tableData.totalCost.toFixed(2)}</strong>, your total sales for this period would need to be <strong>₹{requiredTotalSales.toFixed(2)}</strong>.</p>
+                          <p className="text-sm text-blue-700">To reach a 55% margin with your current ingredient cost of <strong>₹{(tableData.totalCost ?? 0).toFixed(2)}</strong>, your total sales for this period would need to be <strong>₹{requiredTotalSales.toFixed(2)}</strong>.</p>
                           <div className="font-mono p-2 bg-blue-100 rounded-md text-xs text-blue-900">
-                              Calculation: ₹{tableData.totalCost.toFixed(2)} / (1 - 0.55) = ₹{requiredTotalSales.toFixed(2)}
+                              Calculation: ₹{(tableData.totalCost ?? 0).toFixed(2)} / (1 - 0.55) = ₹{requiredTotalSales.toFixed(2)}
                           </div>
                           <p className="text-sm text-blue-700">The total increase in sales required is <strong>₹{priceIncreaseNeeded.toFixed(2)}</strong>.</p>
                            <p className="text-sm text-blue-700">Spread across {tableData.orderCount} orders, this means an average price increase of:</p>
@@ -64,9 +63,9 @@ function SuggestionDetailsDialog({ isOpen, onOpenChange, tableData }: { isOpen: 
                       {/* Path B */}
                        <div className="space-y-3 p-4 rounded-lg bg-orange-50 border border-orange-200">
                           <h4 className="text-lg font-semibold text-orange-800">Path B: Reduce Ingredient Costs</h4>
-                          <p className="text-sm text-orange-700">To reach a 55% margin from your current sales of <strong>₹{tableData.totalSales.toFixed(2)}</strong>, your total ingredient cost should not exceed <strong>₹{requiredIngredientCost.toFixed(2)}</strong>.</p>
+                          <p className="text-sm text-orange-700">To reach a 55% margin from your current sales of <strong>₹{(tableData.totalSales ?? 0).toFixed(2)}</strong>, your total ingredient cost should not exceed <strong>₹{requiredIngredientCost.toFixed(2)}</strong>.</p>
                           <div className="font-mono p-2 bg-orange-100 rounded-md text-xs text-orange-900">
-                              Calculation: ₹{tableData.totalSales.toFixed(2)} * (1 - 0.55) = ₹{requiredIngredientCost.toFixed(2)}
+                              Calculation: ₹{(tableData.totalSales ?? 0).toFixed(2)} * (1 - 0.55) = ₹{requiredIngredientCost.toFixed(2)}
                           </div>
                           <p className="text-sm text-orange-700">This means you need to reduce your current costs by <strong>₹{costReductionNeeded.toFixed(2)}</strong>.</p>
                           <p className="text-sm text-orange-700">This represents a total cost reduction of:</p>
@@ -85,7 +84,7 @@ function SuggestionDetailsDialog({ isOpen, onOpenChange, tableData }: { isOpen: 
 function GrossProfitDetailsDialog({ isOpen, onOpenChange, report, onSuggestionClick }: { isOpen: boolean, onOpenChange: (open: boolean) => void, report: ReportData | null, onSuggestionClick: (tableData: ReportData['salesByTable'][0]) => void }) {
     if (!report) return null;
 
-    const profit = report.totalSales - report.ingredientCost;
+    const profit = (report.totalSales ?? 0) - (report.ingredientCost ?? 0);
     
     const getProfitColor = (p: number) => p >= 0 ? 'text-green-600' : 'text-red-600';
     
@@ -96,23 +95,23 @@ function GrossProfitDetailsDialog({ isOpen, onOpenChange, report, onSuggestionCl
     };
 
     const getRecommendation = (tableData: ReportData['salesByTable'][0]) => {
-        if (tableData.profitPercentage >= 55) return null;
+        if ((tableData.profitPercentage ?? 0) >= 55) return null;
         const targetMargin = 0.55; 
         
-        const requiredTotalSales = tableData.totalCost / (1 - targetMargin);
-        const priceIncreaseNeeded = requiredTotalSales - tableData.totalSales;
+        const requiredTotalSales = (tableData.totalCost ?? 0) / (1 - targetMargin);
+        const priceIncreaseNeeded = requiredTotalSales - (tableData.totalSales ?? 0);
         const priceIncreasePerOrder = tableData.orderCount > 0 ? priceIncreaseNeeded / tableData.orderCount : 0;
         
-        const requiredIngredientCost = tableData.totalSales * (1 - targetMargin);
-        const costReductionNeeded = tableData.totalCost - requiredIngredientCost;
-        const costReductionPercent = tableData.totalCost > 0 ? (costReductionNeeded / tableData.totalCost) * 100 : 0;
+        const requiredIngredientCost = (tableData.totalSales ?? 0) * (1 - targetMargin);
+        const costReductionNeeded = (tableData.totalCost ?? 0) - requiredIngredientCost;
+        const costReductionPercent = (tableData.totalCost ?? 0) > 0 ? (costReductionNeeded / tableData.totalCost) * 100 : 0;
 
         if (priceIncreasePerOrder <= 0 && costReductionPercent <= 0) return null;
 
         return `Suggestion: Increase dish prices by ~₹${priceIncreasePerOrder.toFixed(0)}/order OR reduce ingredient costs by ${costReductionPercent.toFixed(0)}%.`;
     };
 
-    const sortedByProfit = report.salesByTable?.slice().sort((a,b) => b.profitPercentage - a.profitPercentage);
+    const sortedByProfit = report.salesByTable?.slice().sort((a,b) => (b.profitPercentage ?? 0) - (a.profitPercentage ?? 0));
     const bestTable = sortedByProfit?.[0];
     const worstTable = sortedByProfit?.[sortedByProfit.length - 1];
 
@@ -127,8 +126,8 @@ function GrossProfitDetailsDialog({ isOpen, onOpenChange, report, onSuggestionCl
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                      <div className="grid grid-cols-3 gap-4 text-center">
-                        <Card><CardHeader><CardTitle>₹{report.totalSales.toFixed(2)}</CardTitle><CardDescription>Total Sales</CardDescription></CardHeader></Card>
-                        <Card><CardHeader><CardTitle className="text-red-600">₹{report.ingredientCost.toFixed(2)}</CardTitle><CardDescription>Ingredient Cost</CardDescription></CardHeader></Card>
+                        <Card><CardHeader><CardTitle>₹{(report.totalSales ?? 0).toFixed(2)}</CardTitle><CardDescription>Total Sales</CardDescription></CardHeader></Card>
+                        <Card><CardHeader><CardTitle className="text-red-600">₹{(report.ingredientCost ?? 0).toFixed(2)}</CardTitle><CardDescription>Ingredient Cost</CardDescription></CardHeader></Card>
                         <Card className="bg-primary/5 border-primary/20"><CardHeader><CardTitle className={cn("font-extrabold", getProfitColor(profit))}>₹{profit.toFixed(2)}</CardTitle><CardDescription>Gross Profit</CardDescription></CardHeader></Card>
                     </div>
                     {bestTable && worstTable && bestTable.tableNumber !== worstTable.tableNumber && (
@@ -137,14 +136,14 @@ function GrossProfitDetailsDialog({ isOpen, onOpenChange, report, onSuggestionCl
                                 <Award className="h-4 w-4 text-green-600" />
                                 <AlertTitle className="text-green-800">Best Performer</AlertTitle>
                                 <AlertDescription className="text-green-700">
-                                    Table {bestTable.tableNumber} is your most profitable table with a <strong>{bestTable.profitPercentage.toFixed(1)}%</strong> margin.
+                                    Table {bestTable.tableNumber} is your most profitable table with a <strong>{(bestTable.profitPercentage ?? 0).toFixed(1)}%</strong> margin.
                                 </AlertDescription>
                             </Alert>
                              <Alert className="bg-red-50 border-red-200">
                                 <TrendingDown className="h-4 w-4 text-red-600" />
                                 <AlertTitle className="text-red-800">Needs Attention</AlertTitle>
                                 <AlertDescription className="text-red-700">
-                                    Table {worstTable.tableNumber} has the lowest margin at <strong>{worstTable.profitPercentage.toFixed(1)}%</strong>.
+                                    Table {worstTable.tableNumber} has the lowest margin at <strong>{(worstTable.profitPercentage ?? 0).toFixed(1)}%</strong>.
                                 </AlertDescription>
                             </Alert>
                         </div>
@@ -166,7 +165,7 @@ function GrossProfitDetailsDialog({ isOpen, onOpenChange, report, onSuggestionCl
                                     </TableHeader>
                                     <TableBody>
                                         {report.salesByTable.map(tableData => {
-                                            const status = getStatusInfo(tableData.profitPercentage);
+                                            const status = getStatusInfo(tableData.profitPercentage ?? 0);
                                             const recommendation = getRecommendation(tableData);
                                             return (
                                                 <React.Fragment key={tableData.tableNumber}>
@@ -174,14 +173,14 @@ function GrossProfitDetailsDialog({ isOpen, onOpenChange, report, onSuggestionCl
                                                         <TableCell className="font-medium">Table {tableData.tableNumber}</TableCell>
                                                         <TableCell>
                                                             <div className="flex items-center gap-2">
-                                                                <span className={cn("font-bold", getProfitColor(tableData.profitPercentage))}>{tableData.profitPercentage.toFixed(1)}%</span>
+                                                                <span className={cn("font-bold", getProfitColor(tableData.profitPercentage ?? 0))}>{(tableData.profitPercentage ?? 0).toFixed(1)}%</span>
                                                                 <Badge className={cn("text-xs", status.className)}>{status.label}</Badge>
                                                             </div>
                                                         </TableCell>
-                                                        <TableCell className="text-right font-mono">₹{tableData.totalSales.toFixed(2)}</TableCell>
-                                                        <TableCell className="text-right font-mono text-red-600">₹{tableData.totalCost.toFixed(2)}</TableCell>
-                                                        <TableCell className={cn("text-right font-mono font-bold", getProfitColor(tableData.grossProfit))}>
-                                                            ₹{tableData.grossProfit.toFixed(2)}
+                                                        <TableCell className="text-right font-mono">₹{(tableData.totalSales ?? 0).toFixed(2)}</TableCell>
+                                                        <TableCell className="text-right font-mono text-red-600">₹{(tableData.totalCost ?? 0).toFixed(2)}</TableCell>
+                                                        <TableCell className={cn("text-right font-mono font-bold", getProfitColor(tableData.grossProfit ?? 0))}>
+                                                            ₹{(tableData.grossProfit ?? 0).toFixed(2)}
                                                         </TableCell>
                                                     </TableRow>
                                                     {recommendation && (
@@ -213,7 +212,7 @@ function GrossProfitDetailsDialog({ isOpen, onOpenChange, report, onSuggestionCl
 function ProfitPerOrderDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean, onOpenChange: (open: boolean) => void, report: ReportData | null }) {
     if (!report || report.totalOrders === 0) return null;
 
-    const profit = report.totalSales - report.ingredientCost;
+    const profit = (report.totalSales ?? 0) - (report.ingredientCost ?? 0);
     const profitPerOrder = profit / report.totalOrders;
 
     return (
@@ -255,8 +254,8 @@ function ProfitPerOrderDetailsDialog({ isOpen, onOpenChange, report }: { isOpen:
                                         {report.salesByTable.map(tableData => (
                                             <TableRow key={tableData.tableNumber}>
                                                 <TableCell className="font-medium">Table {tableData.tableNumber}</TableCell>
-                                                <TableCell className={cn("text-right font-mono", tableData.profitPerOrder >= 0 ? "text-green-600" : "text-red-600")}>
-                                                    ₹{tableData.profitPerOrder.toFixed(2)}
+                                                <TableCell className={cn("text-right font-mono", (tableData.profitPerOrder ?? 0) >= 0 ? "text-green-600" : "text-red-600")}>
+                                                    ₹{(tableData.profitPerOrder ?? 0).toFixed(2)}
                                                 </TableCell>
                                             </TableRow>
                                         ))}
@@ -277,8 +276,8 @@ function ProfitPerOrderDetailsDialog({ isOpen, onOpenChange, report }: { isOpen:
 function CostDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean, onOpenChange: (open: boolean) => void, report: ReportData | null }) {
     if (!report) return null;
 
-    const topDrivers = report.costDrivers.slice(0, 3);
-    const otherCost = report.ingredientCost - topDrivers.reduce((acc, d) => acc + d.cost, 0);
+    const topDrivers = report.costDrivers?.slice(0, 3) || [];
+    const otherCost = (report.ingredientCost ?? 0) - topDrivers.reduce((acc, d) => acc + d.cost, 0);
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -290,7 +289,7 @@ function CostDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean, 
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                    {report.costDrivers.length > 0 && (
+                    {topDrivers.length > 0 && (
                         <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
                              <h4 className="font-semibold mb-2 flex items-center gap-2 text-amber-900"><Search className="h-4 w-4"/> Top Cost Drivers</h4>
                             <div className="space-y-2">
@@ -318,10 +317,10 @@ function CostDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean, 
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {report.ingredientUsage.sort((a,b) => b.cost - a.cost).map(ing => (
+                                {(report.ingredientUsage || []).sort((a,b) => b.cost - a.cost).map(ing => (
                                     <TableRow key={ing.name}>
                                         <TableCell className="font-medium capitalize">{ing.name}</TableCell>
-                                        <TableCell className="text-right font-mono">₹{ing.cost.toFixed(2)}</TableCell>
+                                        <TableCell className="text-right font-mono">₹{(ing.cost ?? 0).toFixed(2)}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -341,7 +340,7 @@ function CostDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean, 
                 <DialogFooter className="border-t pt-4">
                     <div className="w-full flex justify-between items-center text-lg font-bold text-red-600">
                         <span>Total Ingredient Cost</span>
-                        <span>₹{report.ingredientCost.toFixed(2)}</span>
+                        <span>₹{(report.ingredientCost ?? 0).toFixed(2)}</span>
                     </div>
                 </DialogFooter>
             </DialogContent>
@@ -364,7 +363,7 @@ function SalesDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean,
                  <div className="py-4 space-y-4">
                     <div className="text-center pb-4 border-b">
                         <p className="text-sm text-muted-foreground">Total Revenue</p>
-                        <p className="text-5xl font-extrabold">₹{report.totalSales.toFixed(2)}</p>
+                        <p className="text-5xl font-extrabold">₹{(report.totalSales ?? 0).toFixed(2)}</p>
                         <p className="text-muted-foreground mt-2">from {report.totalOrders} orders</p>
                     </div>
                     {report.salesByTable && report.salesByTable.length > 0 && (
@@ -380,7 +379,7 @@ function SalesDetailsDialog({ isOpen, onOpenChange, report }: { isOpen: boolean,
                                     {report.salesByTable.sort((a,b) => b.totalSales - a.totalSales).map(tableData => (
                                         <TableRow key={tableData.tableNumber}>
                                             <TableCell className="font-medium">Table {tableData.tableNumber}</TableCell>
-                                            <TableCell className="text-right font-mono">₹{tableData.totalSales.toFixed(2)} ({tableData.orderCount})</TableCell>
+                                            <TableCell className="text-right font-mono">₹{(tableData.totalSales ?? 0).toFixed(2)} ({tableData.orderCount})</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -419,12 +418,12 @@ function ProfitableDishesDialog({ isOpen, onOpenChange, report }: { isOpen: bool
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {report.topProfitableProducts.map(product => (
+                            {(report.topProfitableProducts || []).map(product => (
                                 <TableRow key={product.name}>
                                     <TableCell className="font-medium capitalize">{product.name}</TableCell>
                                     <TableCell className="text-right">{product.count}</TableCell>
-                                    <TableCell className="text-right font-mono text-green-600">₹{product.profitPerUnit.toFixed(2)}</TableCell>
-                                    <TableCell className="text-right font-mono font-bold text-green-700">₹{product.totalProfit.toFixed(2)}</TableCell>
+                                    <TableCell className="text-right font-mono text-green-600">₹{(product.profitPerUnit ?? 0).toFixed(2)}</TableCell>
+                                    <TableCell className="text-right font-mono font-bold text-green-700">₹{(product.totalProfit ?? 0).toFixed(2)}</TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
@@ -510,11 +509,11 @@ export default function SalesReportPage() {
         const headers = ["Product Name", "Quantity Sold"];
         let csvContent = headers.join(",") + "\n";
         
-        report.topProducts.forEach(p => {
+        report.topProducts?.forEach(p => {
              csvContent += `"${p.name}",${p.count}\n`;
         });
 
-        const summary = `Total Sales,${report.totalSales.toFixed(2)}\nTotal Items,${report.totalItems}\n`;
+        const summary = `Total Sales,${(report.totalSales ?? 0).toFixed(2)}\nTotal Items,${report.totalItems ?? 0}\n`;
         csvContent = `Period,${activeTab}\n${summary}\n${csvContent}`;
         
         const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csvContent);
@@ -531,7 +530,7 @@ export default function SalesReportPage() {
         setIsSuggestionDialogOpen(true);
     }
     
-    const profit = report ? report.totalSales - report.ingredientCost : 0;
+    const profit = report ? (report.totalSales ?? 0) - (report.ingredientCost ?? 0) : 0;
     const profitColor = profit >= 0 ? 'text-green-600' : 'text-red-600';
     const profitPerOrder = report && report.totalOrders > 0 ? profit / report.totalOrders : 0;
     
@@ -602,8 +601,8 @@ export default function SalesReportPage() {
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                                       <StatCard title="Gross Profit" value={`₹${profit.toFixed(0)}`} valueClassName={profitColor} highlight={profit > 0} onClick={() => setIsGrossProfitDialogOpen(true)} />
                                       <StatCard title="Profit Per Order" value={`₹${profitPerOrder.toFixed(0)}`} valueClassName={profitPerOrder > 0 ? 'text-gray-800' : 'text-red-600'} onClick={() => setIsProfitPerOrderDialogOpen(true)} />
-                                      <StatCard title="Total Sales" value={`₹${report.totalSales.toFixed(0)}`} onClick={() => setIsSalesDialogOpen(true)} />
-                                      <StatCard title="Ingredient Cost" value={`₹${report.ingredientCost.toFixed(0)}`} valueClassName="text-red-600" onClick={() => setIsCostDialogOpen(true)} />
+                                      <StatCard title="Total Sales" value={`₹${(report.totalSales ?? 0).toFixed(0)}`} onClick={() => setIsSalesDialogOpen(true)} />
+                                      <StatCard title="Ingredient Cost" value={`₹${(report.ingredientCost ?? 0).toFixed(0)}`} valueClassName="text-red-600" onClick={() => setIsCostDialogOpen(true)} />
                                       <StatCard title="Total Orders" value={report.totalOrders} />
                                     </div>
                                     
@@ -611,18 +610,18 @@ export default function SalesReportPage() {
                                       <div className="space-y-6">
                                         <div onClick={() => setIsProfitableDishesDialogOpen(true)} className="cursor-pointer">
                                             <h3 className="text-xl font-semibold mb-3 flex items-center gap-2 text-primary"><Sparkles className="h-5 w-5"/> Highest Profit Dishes</h3>
-                                            {report.topProfitableProducts.length > 0 ? (
+                                            {report.topProfitableProducts && report.topProfitableProducts.length > 0 ? (
                                                 <div className="space-y-2">
                                                     {report.topProfitableProducts.map(p => (
                                                         <div key={p.name} className="flex justify-between items-center text-sm p-3 bg-green-50 border border-green-100 rounded-lg">
                                                             <span className="capitalize font-medium">{p.name}</span>
                                                             <div className="text-right">
-                                                                <p className="font-bold text-green-700">₹{p.totalProfit.toFixed(2)}</p>
-                                                                <p className="text-[10px] text-green-600">₹{p.profitPerUnit.toFixed(2)} / unit</p>
+                                                                <p className="font-bold text-green-700">₹{(p.totalProfit ?? 0).toFixed(2)}</p>
+                                                                <p className="text-[10px] text-green-600">₹{(p.profitPerUnit ?? 0).toFixed(2)} / unit</p>
                                                             </div>
                                                         </div>
                                                     ))}
-                                                    <p className="text-xs text-center text-muted-foreground mt-2">Click to see all {report.topProfitableProducts.length} profitable items.</p>
+                                                    <p className="text-xs text-center text-muted-foreground mt-2">Click to see all profitable items.</p>
                                                 </div>
                                             ) : <p className="text-muted-foreground">No data available for dish profitability.</p>}
                                         </div>
@@ -631,7 +630,7 @@ export default function SalesReportPage() {
 
                                         <div>
                                             <h3 className="text-xl font-semibold mb-3 flex items-center gap-2 text-primary"><List className="h-5 w-5"/> Most Sold (Volume)</h3>
-                                            {report.topProducts.length > 0 ? (
+                                            {report.topProducts && report.topProducts.length > 0 ? (
                                                 <div className="space-y-2">
                                                     {report.topProducts.map(p => (
                                                         <div key={p.name} className="flex justify-between items-center text-sm p-3 bg-slate-50 rounded-lg">
@@ -646,7 +645,7 @@ export default function SalesReportPage() {
 
                                       <div onClick={() => setIsCostDialogOpen(true)} className="cursor-pointer">
                                         <h3 className="text-xl font-semibold mb-3 flex items-center gap-2 text-primary"><Receipt className="h-5 w-5"/> Ingredient Consumption</h3>
-                                        {report.ingredientUsage.length > 0 ? (
+                                        {report.ingredientUsage && report.ingredientUsage.length > 0 ? (
                                           <div className="space-y-2">
                                             {report.ingredientUsage.slice(0, 5).map(i => (
                                               <div
@@ -656,10 +655,10 @@ export default function SalesReportPage() {
                                                 <span className="capitalize font-medium">{i.name}</span>
                                                 <div className="text-right">
                                                     <p className="font-mono font-semibold">
-                                                    {i.quantity.toFixed(2)} {i.unit}
+                                                    {(i.quantity ?? 0).toFixed(2)} {i.unit === 'base' ? 'units' : i.unit}
                                                     </p>
                                                      <p className="text-xs text-red-600 font-semibold">
-                                                        (Cost: ₹{i.cost.toFixed(2)})
+                                                        (Cost: ₹{(i.cost ?? 0).toFixed(2)})
                                                      </p>
                                                 </div>
                                               </div>
