@@ -15,17 +15,19 @@ export const sampleOrderCode = `
   "items": [
     {
       "id": "item_001",
-      "productName": "Potatoes",
-      "variantWeight": "1kg",
+      "productName": "Chicken Biryani",
+      "variantWeight": "1 pc",
       "quantity": 2,
-      "price": 45.00
+      "price": 250.00
     }
   ],
-  "totalAmount": 120.00,
+  "totalAmount": 500.00,
   "status": "Pending",
   "orderDate": {
     "seconds": 1698402600,
     "nanoseconds": 0
-  }
+  },
+  "sessionId": "table-5-2023-10-27",
+  "tableNumber": "5"
 }
 `;

@@ -31,7 +31,7 @@ export default function OrderLogicHelpPage() {
                         Order Creation Logic Source
                     </CardTitle>
                     <CardDescription>
-                        This is the implementation of how the app constructs and writes orders to Firestore, including the standard grocery checkout and the restaurant table ordering system.
+                        This is the implementation of how the app constructs and writes orders to Firestore for the restaurant table system.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>

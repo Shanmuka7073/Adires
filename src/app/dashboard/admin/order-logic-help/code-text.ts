@@ -3,44 +3,39 @@
 
 export const orderLogicCodeText = [
     {
-        path: 'src/app/checkout/page.tsx (Partitioned Order Logic)',
+        path: 'src/app/actions.ts (Restaurant Order Creation)',
         content: `
-  /**
-   * PARTITIONED GROCERY ORDER CREATION
-   * 
-   * Every grocery order now includes a 'zoneId' derived from the pincode.
-   * This is critical for localizing the "Available Jobs" query for partners.
-   */
-  const extractZoneId = (address: string) => {
-    const pincodeMatch = address.match(/\\b\\d{6}\\b/);
-    return pincodeMatch ? \`zone-\${pincodeMatch[0]}\` : 'zone-default';
-  };
+/**
+ * RESTAURANT ORDER LOGIC
+ * 
+ * Every time a user adds an item, we:
+ * 1. Read (getDoc) the existing bill for that table.
+ * 2. Update (setDoc/merge) the bill with the new item.
+ * 
+ * Total Cost: 1 Read + 1 Write per "Add to Bill" action.
+ */
+export async function addRestaurantOrderItem({
+  storeId,
+  tableNumber,
+  item,
+  quantity,
+}: { ... }) {
+  // 1. READ: Find if table already has an active bill
+  const activeOrderQuery = await ordersRef
+    .where('storeId', '==', storeId)
+    .where('tableNumber', '==', tableNumber)
+    .where('status', 'in', ['Pending', 'Processing', 'Billed'])
+    .limit(1)
+    .get();
 
-  const onSubmit = (data: CheckoutFormValues) => {
-    startPlaceOrderTransition(async () => {
-        const orderDocRef = doc(collection(firestore, 'orders'));
-
-        const orderData = {
-            id: orderDocRef.id,
-            userId: user.uid,
-            storeId: activeStoreId,
-            deliveryAddress: data.deliveryAddress,
-            // ... standard fields ...
-            zoneId: extractZoneId(data.deliveryAddress), // Added Geographic Partition
-            status: 'Pending',
-            totalAmount: cartTotal + DELIVERY_FEE,
-            items: cartItems.map(item => ({ ... })),
-        };
-
-        try {
-            await setDoc(orderDocRef, orderData);
-            clearCart();
-            router.push(\`/order-confirmation?orderId=\${orderDocRef.id}\ house\`);
-        } catch (e) {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({ ... }));
-        }
-    });
-  };
+  // 2. WRITE: Create or update the document
+  await orderRef.set({
+    ...orderData,
+    items: [...(orderData.items || []), orderItem],
+    totalAmount: (orderData.totalAmount || 0) + (orderItem.price * orderItem.quantity),
+    status: 'Pending',
+  }, { merge: true });
+}
 `,
     }
 ];
