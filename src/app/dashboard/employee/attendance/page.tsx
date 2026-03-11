@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, AlertCircle, Calendar as CalendarIcon, CheckCircle, Info, MessageSquare, Fingerprint, MapPin, LocateFixed, ShieldCheck } from 'lucide-react';
+import { Loader2, AlertCircle, Calendar as CalendarIcon, CheckCircle, Info, MessageSquare, Fingerprint, MapPin, LocateFixed, ShieldCheck, Mail, Briefcase, User as UserIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -163,6 +163,11 @@ export default function EmployeeAttendancePage() {
   
   const storeRef = useMemoFirebase(() => (employeeProfile?.storeId ? doc(firestore, 'stores', employeeProfile.storeId) : null), [employeeProfile, firestore]);
   const { data: storeData } = useDoc<Store>(storeRef);
+
+  const managerDocRef = useMemoFirebase(() => 
+    (firestore && employeeProfile?.reportingTo) ? doc(firestore, 'users', employeeProfile.reportingTo) : null
+  , [firestore, employeeProfile?.reportingTo]);
+  const { data: managerData } = useDoc<User>(managerDocRef);
 
   const [authReady, setAuthReady] = useState(false);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
@@ -525,6 +530,47 @@ export default function EmployeeAttendancePage() {
             </DialogContent>
       </Dialog>
 
+      <div className="space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-3xl font-bold font-headline">Employee Attendance</h1>
+                <p className="text-muted-foreground mt-1">Use your device pattern or biometric lock to punch in and out securely.</p>
+              </div>
+              <Badge variant="outline" className="w-fit h-fit py-1 px-3 border-primary/30 bg-primary/5 text-primary">
+                  {storeData?.name || 'Loading Store...'}
+              </Badge>
+          </div>
+
+          <Card className="bg-muted/30 border-muted-foreground/10">
+              <CardContent className="pt-6 grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
+                  <div className="space-y-1">
+                      <p className="text-muted-foreground font-bold uppercase text-[9px] tracking-wider flex items-center gap-1">
+                          <UserIcon className="h-3 w-3" /> Employee ID
+                      </p>
+                      <p className="font-mono font-bold text-primary text-base">{employeeProfile.employeeId}</p>
+                  </div>
+                  <div className="space-y-1">
+                      <p className="text-muted-foreground font-bold uppercase text-[9px] tracking-wider flex items-center gap-1">
+                          <Briefcase className="h-3 w-3" /> Role
+                      </p>
+                      <p className="font-bold text-base capitalize">{employeeProfile.role}</p>
+                  </div>
+                  <div className="space-y-1 overflow-hidden">
+                      <p className="text-muted-foreground font-bold uppercase text-[9px] tracking-wider flex items-center gap-1">
+                          <Mail className="h-3 w-3" /> Email
+                      </p>
+                      <p className="truncate font-bold text-base" title={employeeProfile.email}>{employeeProfile.email}</p>
+                  </div>
+                  <div className="space-y-1">
+                      <p className="text-muted-foreground font-bold uppercase text-[9px] tracking-wider flex items-center gap-1">
+                          <UserIcon className="h-3 w-3" /> Reporting To
+                      </p>
+                      <p className="font-bold text-base">{managerData ? `${managerData.firstName} ${managerData.lastName}` : 'Store Owner'}</p>
+                  </div>
+              </CardContent>
+          </Card>
+      </div>
+
       {!isDeviceRegistered && (
           <Card className="border-primary/50 bg-primary/5">
               <CardHeader>
@@ -546,13 +592,7 @@ export default function EmployeeAttendancePage() {
       )}
 
       <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold mb-2">Employee Attendance</CardTitle>
-            <CardDescription>
-                Use your device pattern or biometric lock to punch in and out securely.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-6 pt-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Button
                     onClick={punchIn}
