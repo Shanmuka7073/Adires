@@ -45,6 +45,7 @@ import {
   Download,
   Search,
   ChevronRight,
+  X,
 } from 'lucide-react';
 
 import {
@@ -101,91 +102,82 @@ function LiveBillSheet({ orderId, theme }: { orderId: string; theme: Menu['theme
     });
   };
 
-   const handleRemoveItem = async (itemToRemove: OrderItem) => {
-      if (!firestore || !order) return;
-
-      const orderRef = doc(firestore, 'orders', order.id);
-      const updatedItems = (order.items || []).filter(item => item.id !== itemToRemove.id);
-      const newTotal = updatedItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-
-      try {
-          await updateDoc(orderRef, {
-              items: updatedItems,
-              totalAmount: newTotal
-          });
-          toast({ description: `${itemToRemove.productName} removed from your bill.` });
-      } catch (e) {
-          console.error("Failed to remove item:", e);
-          toast({ variant: 'destructive', title: 'Failed to remove item.' });
-      }
-  };
-
-
   if (isLoading) {
-    return <Loader2 className="animate-spin mx-auto" />;
+    return (
+      <div className="flex items-center justify-center p-12">
+        <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
+      </div>
+    );
   }
   
   if (!order || !order.items?.length) {
       return (
-          <div className="p-4">
-              <p className="text-muted-foreground text-center py-4">No items added to your bill yet.</p>
+          <div className="p-8 text-center space-y-4">
+              <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                <Receipt className="h-8 w-8 text-muted-foreground opacity-20" />
+              </div>
+              <p className="text-muted-foreground text-sm font-medium">Your bill is currently empty.</p>
           </div>
       )
   }
 
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: theme?.backgroundColor }}>
-        <SheetHeader className='p-4 border-b' style={{ borderColor: theme?.primaryColor }}>
-            <SheetTitle className="flex items-center gap-2" style={{ color: theme?.primaryColor }}>
-              <Receipt /> Live Bill
+        <SheetHeader className='p-5 border-b' style={{ borderColor: theme?.primaryColor + '20' }}>
+            <SheetTitle className="flex items-center gap-2 text-lg font-bold" style={{ color: theme?.primaryColor }}>
+              <Receipt className="h-5 w-5" /> Live Bill
             </SheetTitle>
         </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
              {order.items.map((it, idx) => (
-              <div key={idx} className="border-b py-2 flex justify-between items-center text-sm" style={{borderColor: theme?.primaryColor + '30', color: theme?.textColor}}>
-                <div>
-                    <span className="font-medium">{it.productName} <span className="opacity-70">x{it.quantity}</span></span>
-                    <p>₹{(it.price * it.quantity).toFixed(2)}</p>
+              <div key={idx} className="flex justify-between items-start text-sm pb-3 border-b last:border-0" style={{borderColor: theme?.primaryColor + '10', color: theme?.textColor}}>
+                <div className="flex-1 pr-4">
+                    <span className="font-bold leading-tight block">{it.productName}</span>
+                    <span className="text-[10px] opacity-60 font-bold uppercase tracking-wider">Qty: {it.quantity}</span>
+                </div>
+                <div className="text-right font-bold">
+                    ₹{(it.price * it.quantity).toFixed(2)}
                 </div>
               </div>
             ))}
         </div>
 
-        <div className="p-4 border-t space-y-4" style={{ borderColor: theme?.primaryColor + '30' }}>
-            <div className="flex justify-between font-bold text-xl" style={{ color: theme?.primaryColor }}>
-              <span>Total</span>
-              <span>₹{order.totalAmount.toFixed(2)}</span>
+        <div className="p-6 border-t space-y-4 bg-white/50 backdrop-blur-md" style={{ borderColor: theme?.primaryColor + '20' }}>
+            <div className="flex justify-between items-baseline mb-2">
+              <span className="text-sm font-bold uppercase tracking-widest opacity-60">Total Amount</span>
+              <span className="text-2xl font-black" style={{ color: theme?.primaryColor }}>₹{order.totalAmount.toFixed(2)}</span>
             </div>
             
-            <div>
+            <div className="pt-2">
               {order.status === 'Completed' ? (
-                 <div className="text-center p-4 bg-blue-100 rounded-md">
-                    <Check className="mx-auto h-6 w-6 text-blue-600 mb-2" />
-                    <p className="font-semibold text-blue-800">Thank you! Visit Again.</p>
+                 <div className="text-center p-5 bg-green-50 border border-green-100 rounded-2xl shadow-sm">
+                    <Check className="mx-auto h-8 w-8 text-green-600 mb-2" />
+                    <p className="font-bold text-green-800">Paid & Completed</p>
+                    <p className="text-xs text-green-700 opacity-80">Thank you for visiting!</p>
                 </div>
               ) : order.status === 'Billed' ? (
-                <div className="text-center p-4 bg-green-100 rounded-md">
-                    <Clock className="mx-auto h-6 w-6 text-green-600 mb-2" />
-                    <p className="font-semibold text-green-800">Bill Closed. Please pay at the counter.</p>
-                    {order.orderDate && <p className="text-xs text-green-700">Started at {format(new Date((order.orderDate as Timestamp).seconds * 1000), 'p')}</p>}
+                <div className="text-center p-5 bg-amber-50 border border-amber-100 rounded-2xl shadow-sm">
+                    <Clock className="mx-auto h-8 w-8 text-amber-600 mb-2" />
+                    <p className="font-bold text-amber-800 uppercase tracking-wide">Pending Payment</p>
+                    <p className="text-xs text-amber-700 opacity-80">Please pay at the counter.</p>
                 </div>
               ) : (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button className="w-full" variant="destructive" disabled={closing}>
+                    <Button className="w-full h-14 rounded-2xl text-base font-bold shadow-lg" variant="destructive" disabled={closing}>
                       {closing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                       Close Bill & Pay
                     </Button>
                   </AlertDialogTrigger>
-                  <AlertDialogContent>
+                  <AlertDialogContent className="rounded-3xl">
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Ready to Pay?</AlertDialogTitle>
-                      <AlertDialogDescription>This will notify the kitchen that you are done ordering and ready to pay your bill.</AlertDialogDescription>
+                      <AlertDialogTitle>Finalize your order?</AlertDialogTitle>
+                      <AlertDialogDescription>This will signal the staff that you're ready to pay. You won't be able to add more items to this bill.</AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Not yet</AlertDialogCancel>
-                      <AlertDialogAction onClick={closeBill}>
+                    <AlertDialogFooter className="gap-2">
+                      <AlertDialogCancel className="rounded-xl font-bold">Not yet</AlertDialogCancel>
+                      <AlertDialogAction onClick={closeBill} className="rounded-xl font-bold">
                         Yes, Close Bill
                       </AlertDialogAction>
                     </AlertDialogFooter>
@@ -208,6 +200,7 @@ export default function PublicMenuPage() {
   const [isAdding, startAdding] = useTransition();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   
   const { canInstall, triggerInstall } = useInstall();
   const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null);
@@ -215,7 +208,7 @@ export default function PublicMenuPage() {
   const [isFetchingIngredients, startFetchingIngredients] = useTransition();
   const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
 
-  // Dynamic Session Query: Look for any order for this table that is NOT yet Completed
+  // Dynamic Session Query
   const activeOrderQuery = useMemoFirebase(() => {
     if (!firestore || !storeId || !tableNumber) return null;
     return query(
@@ -280,8 +273,8 @@ export default function PublicMenuPage() {
 
       if (result.success) {
         toast({
-          title: "Added to Bill",
-          description: `${item.name} has been added to your live bill.`,
+          title: "Dish Added",
+          description: `${item.name} is on the way.`,
         });
          setRecentlyAdded(prev => new Set(prev).add(item.id));
         setTimeout(() => {
@@ -294,8 +287,8 @@ export default function PublicMenuPage() {
       } else {
         toast({
           variant: "destructive",
-          title: "Failed to Add Item",
-          description: result.error || "An unknown error occurred.",
+          title: "Failed to Add",
+          description: result.error || "Please try again.",
         });
       }
     });
@@ -306,23 +299,17 @@ export default function PublicMenuPage() {
     startFetchingIngredients(async () => {
       const response = await getIngredientsForDish({
         dishName: item.name,
-        language: 'en', // default language
+        language: 'en',
       });
       
       if (response && response.isSuccess) {
         setIngredientsData(response);
       } else {
-        setIngredientsData({
-          isSuccess: false,
-          title: item.name,
-          ingredients: [],
-          instructions: [],
-          nutrition: { calories: 0, protein: 0 },
-        });
+        setIngredientsData(null);
         toast({
           variant: 'destructive',
           title: 'Ingredients Not Available',
-          description: `The ingredients for "${item.name}" could not be generated at this time.`,
+          description: `Could not load details for ${item.name}.`,
         });
       }
     });
@@ -330,17 +317,23 @@ export default function PublicMenuPage() {
 
 
   if (storeLoading || menuLoading || orderLoading) return (
-      <div className="p-4 space-y-4">
-        <Skeleton className="h-8 w-1/2" />
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-6 w-1/4" />
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-12 w-full" />
+      <div className="p-6 space-y-6">
+        <div className="flex gap-4 items-center">
+            <Skeleton className="h-16 w-16 rounded-2xl shrink-0" />
+            <div className="space-y-2">
+                <Skeleton className="h-6 w-32" />
+                <Skeleton className="h-4 w-20" />
+            </div>
+        </div>
+        <Skeleton className="h-10 w-full rounded-xl" />
+        <div className="grid grid-cols-2 gap-4">
+            <Skeleton className="h-40 w-full rounded-2xl" />
+            <Skeleton className="h-40 w-full rounded-2xl" />
+        </div>
       </div>
   );
-  if (!store || !menu) return <div className="p-4 text-center">Menu not found.</div>;
+  if (!store || !menu) return <div className="p-12 text-center font-medium opacity-50">Menu unavailable.</div>;
   
-  // Terminal state for showing "Thank You" is specifically 'Completed'
   const isBillFinalized = order?.status === 'Completed';
   const theme = menu.theme;
 
@@ -362,13 +355,15 @@ export default function PublicMenuPage() {
           }}
         />
       )}
-      <div className="min-h-screen" style={{ backgroundColor: theme?.backgroundColor }}>
-          <div className="container mx-auto py-8 px-4 md:px-6 max-w-2xl">
-            <Card className="shadow-xl overflow-hidden border-0 rounded-2xl" style={{ backgroundColor: theme?.backgroundColor }}>
-              <CardHeader className="pb-4 p-6">
-                  <div className="flex items-center gap-4">
+      <div className="min-h-screen pb-24" style={{ backgroundColor: theme?.backgroundColor }}>
+          <div className="container mx-auto py-6 px-4 md:px-6 max-w-2xl">
+            <div className="space-y-6">
+              
+              {/* COMPACT HEADER */}
+              <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
                     {store.imageUrl && (
-                        <div className="relative h-14 w-14 md:h-16 md:w-16 rounded-xl overflow-hidden border-2 shrink-0 shadow-sm" style={{ borderColor: theme?.primaryColor + '40' }}>
+                        <div className="relative h-12 w-12 md:h-14 md:w-14 rounded-2xl overflow-hidden border shrink-0 shadow-sm" style={{ borderColor: theme?.primaryColor + '20' }}>
                             <Image
                                 src={store.imageUrl}
                                 alt={store.name}
@@ -377,13 +372,13 @@ export default function PublicMenuPage() {
                             />
                         </div>
                     )}
-                    <div className="flex-1 min-w-0">
-                        <CardTitle className="text-xl md:text-2xl font-bold font-headline truncate" style={{ color: theme?.primaryColor }}>
+                    <div className="min-w-0">
+                        <h1 className="text-lg md:text-xl font-black font-headline truncate leading-tight" style={{ color: theme?.primaryColor }}>
                             {store.name}
-                        </CardTitle>
+                        </h1>
                         {tableNumber && (
                             <Badge 
-                                className="mt-0.5 px-2 py-0 text-[10px] font-bold rounded-full shadow-sm" 
+                                className="mt-0.5 px-2 py-0 text-[9px] font-black rounded-md shadow-sm uppercase tracking-widest" 
                                 style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}
                             >
                                 Table {tableNumber}
@@ -391,114 +386,137 @@ export default function PublicMenuPage() {
                         )}
                     </div>
                   </div>
-                  
-                  {!isBillFinalized && (
-                    <div className="space-y-3 mt-4">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 opacity-50" style={{ color: theme?.textColor }} />
+
+                  {/* MINI SEARCH / TOOLS */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {isSearchOpen ? (
+                        <div className="relative flex items-center">
                             <Input 
-                                placeholder="Search dishes..." 
-                                className="pl-9 border-2 h-10 rounded-lg text-sm shadow-sm focus-visible:ring-offset-0" 
-                                style={{ 
-                                    backgroundColor: theme?.backgroundColor, 
-                                    color: theme?.textColor,
-                                    borderColor: theme?.primaryColor + '20'
-                                }}
+                                autoFocus
+                                placeholder="Search..."
+                                className="h-9 w-32 md:w-48 pr-8 rounded-xl text-xs font-bold border-2 focus-visible:ring-0"
+                                style={{ borderColor: theme?.primaryColor + '30', backgroundColor: theme?.backgroundColor }}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="absolute right-0 h-9 w-8 hover:bg-transparent"
+                                onClick={() => { setIsSearchOpen(false); setSearchTerm(''); }}
+                            >
+                                <X className="h-3.5 w-3.5" style={{ color: theme?.textColor }} />
+                            </Button>
                         </div>
-
-                        {/* Category Filter Bar */}
-                        <ScrollArea className="w-full whitespace-nowrap pb-1">
-                            <div className="flex gap-1.5">
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className={cn(
-                                        "rounded-full px-3 h-7 font-bold text-[10px] uppercase tracking-wider border-2 transition-all",
-                                        !selectedCategory ? "shadow-sm scale-105" : "opacity-60 border-transparent"
-                                    )}
-                                    style={{ 
-                                        backgroundColor: !selectedCategory ? theme?.primaryColor : 'transparent',
-                                        color: !selectedCategory ? theme?.backgroundColor : theme?.primaryColor,
-                                        borderColor: !selectedCategory ? theme?.primaryColor : 'transparent'
-                                    }}
-                                    onClick={() => setSelectedCategory(null)}
-                                >
-                                    All
-                                </Button>
-                                {availableCategories.map(cat => (
-                                    <Button
-                                        key={cat}
-                                        variant="ghost"
-                                        size="sm"
-                                        className={cn(
-                                            "rounded-full px-3 h-7 font-bold text-[10px] uppercase tracking-wider border-2 transition-all",
-                                            selectedCategory === cat ? "shadow-sm scale-105" : "opacity-60 border-transparent"
-                                        )}
-                                        style={{ 
-                                            backgroundColor: selectedCategory === cat ? theme?.primaryColor : 'transparent',
-                                            color: selectedCategory === cat ? theme?.backgroundColor : theme?.primaryColor,
-                                            borderColor: selectedCategory === cat ? theme?.primaryColor : 'transparent'
-                                        }}
-                                        onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
-                                    >
-                                        {cat}
-                                    </Button>
-                                ))}
-                            </div>
-                            <ScrollBar orientation="horizontal" className="hidden" />
-                        </ScrollArea>
-                    </div>
-                  )}
-
-                  {canInstall && (
-                    <div className="pt-1.5 text-right">
-                        <Button onClick={triggerInstall} size="sm" variant="ghost" className="h-6 text-[9px] uppercase tracking-widest font-extrabold opacity-60 hover:bg-transparent" style={{ color: theme?.primaryColor }}>
-                            <Download className="mr-1 h-2.5 w-2.5" />
-                            Install
+                    ) : (
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-10 w-10 rounded-full bg-white/50 shadow-sm border border-black/5"
+                            onClick={() => setIsSearchOpen(true)}
+                        >
+                            <Search className="h-4 w-4" style={{ color: theme?.primaryColor }} />
                         </Button>
-                    </div>
-                  )}
-              </CardHeader>
-              <CardContent className="space-y-5 pt-0 px-6">
+                    )}
+                    {canInstall && (
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-10 w-10 rounded-full bg-white/50 shadow-sm border border-black/5"
+                            onClick={triggerInstall}
+                        >
+                            <Download className="h-4 w-4" style={{ color: theme?.primaryColor }} />
+                        </Button>
+                    )}
+                  </div>
+              </div>
 
-                {order?.status === 'Billed' ? (
-                    <div className="text-center py-12 px-6">
-                        <div className="mx-auto h-16 w-16 flex items-center justify-center rounded-full mb-3" style={{ backgroundColor: theme?.primaryColor + '20' }}>
-                            <Check className="h-8 w-8" style={{ color: theme?.primaryColor }} />
-                        </div>
-                        <h2 className="text-xl font-bold mt-3" style={{color: theme?.textColor}}>Thank You!</h2>
-                        <p className="text-sm opacity-80" style={{color: theme?.textColor}}>Your bill has been finalized. Please proceed to the counter for payment.</p>
+              {/* CATEGORY BAR */}
+              {!isBillFinalized && (
+                <ScrollArea className="w-full whitespace-nowrap -mx-4 px-4 pb-2">
+                    <div className="flex gap-2">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className={cn(
+                                "rounded-xl px-4 h-8 font-bold text-[10px] uppercase tracking-widest border transition-all active:scale-95",
+                                !selectedCategory ? "shadow-md border-transparent" : "opacity-50 border-black/5 bg-black/5"
+                            )}
+                            style={{ 
+                                backgroundColor: !selectedCategory ? theme?.primaryColor : '',
+                                color: !selectedCategory ? theme?.backgroundColor : theme?.primaryColor,
+                            }}
+                            onClick={() => setSelectedCategory(null)}
+                        >
+                            All
+                        </Button>
+                        {availableCategories.map(cat => (
+                            <Button
+                                key={cat}
+                                variant="ghost"
+                                size="sm"
+                                className={cn(
+                                    "rounded-xl px-4 h-8 font-bold text-[10px] uppercase tracking-widest border transition-all active:scale-95",
+                                    selectedCategory === cat ? "shadow-md border-transparent" : "opacity-50 border-black/5 bg-black/5"
+                                )}
+                                style={{ 
+                                    backgroundColor: selectedCategory === cat ? theme?.primaryColor : '',
+                                    color: selectedCategory === cat ? theme?.backgroundColor : theme?.primaryColor,
+                                }}
+                                onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+                            >
+                                {cat}
+                            </Button>
+                        ))}
                     </div>
+                    <ScrollBar orientation="horizontal" className="hidden" />
+                </ScrollArea>
+              )}
+
+              {/* MENU CONTENT */}
+              <div className="space-y-8">
+                {order?.status === 'Billed' ? (
+                    <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden" style={{ backgroundColor: theme?.primaryColor + '05' }}>
+                        <CardContent className="text-center py-16 px-8">
+                            <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-white shadow-xl">
+                                <Check className="h-10 w-10" style={{ color: theme?.primaryColor }} />
+                            </div>
+                            <h2 className="text-2xl font-black mb-3" style={{color: theme?.textColor}}>Thank You!</h2>
+                            <p className="text-sm font-bold opacity-60 leading-relaxed" style={{color: theme?.textColor}}>Your bill is closed. Please visit the counter to finalize payment.</p>
+                        </CardContent>
+                    </Card>
                 ) : Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
-                    <div key={category}>
-                        <h2 className="text-xs font-bold mb-2 border-b-2 pb-1 uppercase tracking-widest opacity-70" style={{ borderColor: theme?.primaryColor + '20', color: theme?.primaryColor }}>{category}</h2>
-                        <div className="space-y-2">
+                    <div key={category} className="space-y-3">
+                        <h2 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 px-1" style={{ color: theme?.textColor }}>
+                            {category}
+                        </h2>
+                        <div className="grid gap-3">
                             {items.map((item, index) => {
                                 const isRecentlyAdded = recentlyAdded.has(item.id);
                                 return (
                                 <Card
                                     key={item.id || index}
-                                    className="flex justify-between items-center p-3 border-0 shadow-sm rounded-xl transition-all"
-                                    style={{ backgroundColor: theme?.primaryColor + '08' }}
+                                    className="flex justify-between items-center p-4 border-0 shadow-sm rounded-2xl transition-all active:scale-[0.98]"
+                                    style={{ backgroundColor: 'white' }}
                                 >
-                                    <div className="flex-1 pr-2 min-w-0">
-                                        <p className="font-bold text-base leading-tight truncate" style={{color: theme?.textColor}}>{item.name}</p>
-                                        <p className="text-xs font-bold mt-0.5" style={{color: theme?.textColor, opacity: 0.9}}>₹{item.price.toFixed(2)}</p>
+                                    <div className="flex-1 pr-4 min-w-0" onClick={() => handleShowIngredients(item)}>
+                                        <p className="font-bold text-sm leading-tight truncate mb-1" style={{color: theme?.textColor}}>{item.name}</p>
+                                        <p className="text-xs font-black" style={{color: theme?.primaryColor}}>₹{item.price.toFixed(2)}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <Button variant="ghost" size="sm" onClick={() => handleShowIngredients(item)} className="h-8 w-8 p-0 rounded-full hover:bg-black/5">
-                                            <Eye className="h-4 w-4" style={{ color: theme?.textColor }}/>
-                                        </Button>
                                          <Button 
                                             onClick={() => handleAddItem(item)} 
                                             disabled={isAdding || isRecentlyAdded}
-                                            className={cn("w-20 h-8 rounded-full text-xs font-bold shadow-sm transition-all active:scale-95", isRecentlyAdded ? "bg-green-600" : "")}
-                                            style={{ backgroundColor: isRecentlyAdded ? '' : theme?.primaryColor, color: theme?.backgroundColor }}
+                                            className={cn(
+                                                "w-20 h-9 rounded-xl text-[10px] uppercase tracking-widest font-black shadow-sm transition-all",
+                                                isRecentlyAdded ? "bg-green-600 border-0" : ""
+                                            )}
+                                            style={{ 
+                                                backgroundColor: isRecentlyAdded ? '' : theme?.primaryColor, 
+                                                color: theme?.backgroundColor 
+                                            }}
                                         >
-                                            {isRecentlyAdded ? <Check className="h-4 w-4" /> : (isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Plus className="h-3 w-3 mr-1" />Add</>) }
+                                            {isRecentlyAdded ? <Check className="h-4 w-4" /> : (isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add') }
                                         </Button>
                                     </div>
                                 </Card>
@@ -508,27 +526,27 @@ export default function PublicMenuPage() {
                 ))}
                 
                 {Object.keys(groupedMenu).length === 0 && !orderLoading && (
-                    <div className="text-center py-12 opacity-40" style={{ color: theme?.textColor }}>
-                        <Utensils className="mx-auto h-12 w-12 mb-3" />
-                        <p className="text-base font-medium">No dishes found</p>
+                    <div className="text-center py-24 space-y-4">
+                        <Utensils className="mx-auto h-12 w-12 opacity-10" style={{ color: theme?.textColor }} />
+                        <p className="text-sm font-bold opacity-30 uppercase tracking-widest">No dishes found</p>
                     </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
           
-          {itemCount > 0 && order?.status !== 'Billed' && (
+          {itemCount > 0 && order?.status !== 'Billed' && !isBillFinalized && (
                <Sheet>
                   <SheetTrigger asChild>
-                      <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 w-full max-w-[280px] px-4">
-                          <Button className="h-12 w-full rounded-full shadow-2xl text-base font-extrabold transition-transform active:scale-95 ring-4 ring-black/5" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>
+                      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[240px] px-4">
+                          <Button className="h-14 w-full rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] text-sm font-black uppercase tracking-widest transition-transform active:scale-95 border-0" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>
                               <Receipt className="mr-2 h-5 w-5" />
                               View Bill 
-                              <Badge className="ml-2 px-1.5 py-0 h-5 min-w-[20px] flex items-center justify-center rounded-full text-[10px] font-bold shadow-inner" style={{ backgroundColor: theme?.backgroundColor, color: theme?.primaryColor }}>{itemCount}</Badge>
+                              <Badge className="ml-2 h-6 min-w-[24px] rounded-lg text-[10px] font-black flex items-center justify-center shadow-inner" style={{ backgroundColor: theme?.backgroundColor, color: theme?.primaryColor }}>{itemCount}</Badge>
                           </Button>
                       </div>
                   </SheetTrigger>
-                  <SheetContent side="bottom" className="h-[75vh] rounded-t-[2rem] p-0 border-0 overflow-hidden shadow-[0_-15px_40px_rgba(0,0,0,0.2)]">
+                  <SheetContent side="bottom" className="h-[75vh] rounded-t-[3rem] p-0 border-0 overflow-hidden shadow-[0_-20px_60px_rgba(0,0,0,0.25)]">
                       <LiveBillSheet orderId={order.id} theme={theme} />
                   </SheetContent>
               </Sheet>
