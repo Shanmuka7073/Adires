@@ -230,7 +230,7 @@ export async function updateManifest(newData: any): Promise<{ success: boolean; 
         await fs.writeFile(manifestPath, JSON.stringify(newData, null, 2), 'utf-8');
         return { success: true };
     } catch (error: any) {
-        return { success: false, error: error.message };
+        return { success: boolean, error: error.message };
     }
 }
 
@@ -511,4 +511,52 @@ export async function approveRegularization(recordId: string, storeId: string, i
 
 export async function rejectRegularization(id: string, sid: string, r: string) {
     return approveRegularization(id, sid, false, r);
+}
+
+/**
+ * Updates an employee's professional profile and potentially their login email.
+ */
+export async function updateEmployee(userId: string, data: any): Promise<{ success: boolean; error?: string }> {
+    const { auth, db } = await getAdminServices();
+    try {
+        // 1. Update Auth if email changed
+        if (data.email) {
+            await auth.updateUser(userId, { email: data.email });
+        }
+        
+        const batch = db.batch();
+        
+        // 2. Update User doc
+        const userRef = db.collection('users').doc(userId);
+        batch.update(userRef, {
+            firstName: data.firstName,
+            lastName: data.lastName,
+            phoneNumber: data.phone,
+            address: data.address,
+            email: data.email,
+        });
+        
+        // 3. Update Profile doc
+        const profileRef = db.collection('employeeProfiles').doc(userId);
+        batch.update(profileRef, {
+            role: data.role,
+            salaryRate: data.salaryRate,
+            salaryType: data.salaryType,
+            payoutMethod: data.payoutMethod,
+            reportingTo: data.reportingTo,
+            email: data.email, // Keep denormalized copy
+            upiId: data.payoutMethod === 'upi' ? data.upiId : null,
+            bankDetails: data.payoutMethod === 'bank' ? {
+                accountHolderName: data.accountHolderName || '',
+                accountNumber: data.accountNumber || '',
+                ifscCode: data.ifscCode || '',
+            } : null,
+        });
+        
+        await batch.commit();
+        return { success: true };
+    } catch (e: any) {
+        console.error("Failed to update employee:", e);
+        return { success: false, error: e.message || "Unknown server error" };
+    }
 }

@@ -22,6 +22,8 @@ import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { updateEmployee } from '@/app/actions';
 
 
 const baseEmployeeSchema = z.object({
@@ -87,44 +89,15 @@ function EditEmployeeDialog({ employee, employees, isOpen, onOpenChange, myStore
     }, [employees, employee]);
 
     const handleSave = async (data: EditEmployeeFormValues) => {
-        if (!firestore) return;
         startSave(async () => {
-            const profileRef = doc(firestore, 'employeeProfiles', employee.userId);
-            const userRef = doc(firestore, 'users', employee.userId);
-
-            const batch = writeBatch(firestore);
-
-            const profileUpdateData: Partial<EmployeeProfile> = {
-                role: data.role,
-                salaryRate: data.salaryRate,
-                salaryType: data.salaryType,
-                payoutMethod: data.payoutMethod,
-                reportingTo: data.reportingTo,
-                upiId: data.payoutMethod === 'upi' ? data.upiId : undefined,
-                bankDetails: data.payoutMethod === 'bank' ? {
-                    accountHolderName: data.accountHolderName || '',
-                    accountNumber: data.accountNumber || '',
-                    ifscCode: data.ifscCode || '',
-                } : undefined,
-            };
+            const result = await updateEmployee(employee.userId, data);
             
-            const userUpdateData = {
-                 firstName: data.firstName,
-                 lastName: data.lastName,
-                 phoneNumber: data.phone,
-                 address: data.address,
-            }
-
-            batch.update(profileRef, profileUpdateData);
-            batch.update(userRef, userUpdateData);
-
-            try {
-                await batch.commit();
-                toast({ title: "Employee Updated", description: "The employee's details have been saved." });
+            if (result.success) {
+                toast({ title: "Employee Updated", description: "The employee's details and email have been saved." });
                 onOpenChange(false);
-            } catch (error) {
-                console.error("Failed to update employee:", error);
-                toast({ variant: "destructive", title: "Update Failed", description: "Could not save changes." });
+            } else {
+                console.error("Failed to update employee:", result.error);
+                toast({ variant: "destructive", title: "Update Failed", description: result.error || "Could not save changes." });
             }
         });
     }
@@ -146,7 +119,12 @@ function EditEmployeeDialog({ employee, employees, isOpen, onOpenChange, myStore
                                 <FormItem><FormLabel>Last Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                               <FormField control={form.control} name="email" render={({ field }) => (
-                                <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} readOnly disabled/></FormControl><FormMessage /></FormItem>
+                                <FormItem>
+                                    <FormLabel>Email (Login ID)</FormLabel>
+                                    <FormControl><Input type="email" {...field} /></FormControl>
+                                    <FormDescription>Changing this will update their login email.</FormDescription>
+                                    <FormMessage />
+                                </FormItem>
                             )} />
                             <FormField control={form.control} name="phone" render={({ field }) => (
                                 <FormItem><FormLabel>Phone</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
@@ -301,7 +279,8 @@ export default function ManageEmployeesPage() {
 
         const employeeProfileRef = doc(firestore, 'employeeProfiles', uid);
         batch.set(employeeProfileRef, {
-            userId: uid, storeId: myStore.id, employeeId: `EMP-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
+            userId: uid, storeId: myStore.id, email: data.email,
+            employeeId: `EMP-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
             role: data.role, hireDate: new Date().toISOString().split('T')[0],
             salaryRate: data.salaryRate, salaryType: data.salaryType,
             payoutMethod: data.payoutMethod,
@@ -528,5 +507,3 @@ export default function ManageEmployeesPage() {
     </>
   );
 }
-
-    

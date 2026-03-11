@@ -373,6 +373,7 @@ export type EmployeeProfile = {
     userId: string;
     storeId: string;
     employeeId: string;
+    email: string; // Denormalized email for management
     role: string;
     hireDate: string;
     salaryRate: number;
