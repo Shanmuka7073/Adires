@@ -38,8 +38,6 @@ import { useInstall } from '../install-provider';
 import Image from 'next/image';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
-const ADMIN_EMAIL = 'admin@gmail.com';
-
 const navLinks = [
   { href: '/dashboard/desktop', label: 'desktop' },
 ];
@@ -77,7 +75,7 @@ function LanguageSwitcher() {
 
 function UserMenu() {
   const { user, isUserLoading } = useFirebase();
-  const { isAdmin, isRestaurantOwner } = useAdminAuth();
+  const { isAdmin, isRestaurantOwner, isEmployee } = useAdminAuth();
   const dashboardHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : '/dashboard');
   const { canInstall, triggerInstall } = useInstall();
 
@@ -117,7 +115,7 @@ function UserMenu() {
               <span>{t('dashboard')}</span>
           </DropdownMenuItem>
         </Link>
-        {!isAdmin && !isRestaurantOwner && (
+        {!isAdmin && !isRestaurantOwner && !isEmployee && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuLabel>{t('roles')}</DropdownMenuLabel>
@@ -180,7 +178,7 @@ export function Header({ suggestedCommands }: HeaderProps) {
   const { toast } = useToast();
   const [hasMounted, setHasMounted] = useState(false);
   const { voiceEnabled, voiceStatus, onToggleVoice, isCartOpen, onCartOpenChange } = useVoiceCommanderContext();
-  const { isRestaurantOwner } = useAdminAuth();
+  const { isRestaurantOwner, isEmployee } = useAdminAuth();
 
 
   useEffect(() => {
@@ -196,6 +194,8 @@ export function Header({ suggestedCommands }: HeaderProps) {
     return null;
   }
 
+  const showShoppingControls = !isRestaurantOwner && !isEmployee;
+
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
       <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
@@ -206,7 +206,7 @@ export function Header({ suggestedCommands }: HeaderProps) {
           <Image src="https://i.ibb.co/WpfhKqjW/android-launchericon-512-512.png" alt="Local Basket Logo" width={32} height={32} />
           <span className="font-headline">LocalBasket</span>
         </Link>
-        {!isRestaurantOwner && navLinks.map(({ href, label }) => (
+        {showShoppingControls && navLinks.map(({ href, label }) => (
           <Link
             key={href}
             href={href}
@@ -219,59 +219,61 @@ export function Header({ suggestedCommands }: HeaderProps) {
           </Link>
         ))}
       </nav>
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0 md:hidden">
-            <Menu className="h-5 w-5" />
-            <span className="sr-only">Toggle navigation menu</span>
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="flex flex-col">
-           <SheetHeader>
-            <SheetTitle>
-                 <Link
-                    href="/"
-                    className="flex items-center gap-2 text-lg font-semibold"
-                    >
-                    <Image src="https://i.ibb.co/WpfhKqjW/android-launchericon-512-512.png" alt="Local Basket Logo" width={32} height={32} />
-                    <span className="font-headline">LocalBasket</span>
-                </Link>
-            </SheetTitle>
-          </SheetHeader>
-          <div className="flex-1 overflow-y-auto">
-            <nav className="grid gap-4 text-lg font-medium mt-8">
-                {!isRestaurantOwner && navLinks.map(({ href, label }) => (
-                <SheetClose asChild key={href}>
+      {showShoppingControls && (
+        <Sheet>
+            <SheetTrigger asChild>
+            <Button variant="outline" size="icon" className="shrink-0 md:hidden">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle navigation menu</span>
+            </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="flex flex-col">
+            <SheetHeader>
+                <SheetTitle>
                     <Link
-                        href={href}
-                        className={cn(
-                        'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
-                        pathname === href && 'text-primary'
-                        )}
-                    >
-                        {label === 'desktop' ? <Monitor className="h-5 w-5" /> : null}
-                        {t(label)}
+                        href="/"
+                        className="flex items-center gap-2 text-lg font-semibold"
+                        >
+                        <Image src="https://i.ibb.co/WpfhKqjW/android-launchericon-512-512.png" alt="Local Basket Logo" width={32} height={32} />
+                        <span className="font-headline">LocalBasket</span>
                     </Link>
-                </SheetClose>
-                ))}
-            </nav>
-          </div>
-        </SheetContent>
-      </Sheet>
+                </SheetTitle>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto">
+                <nav className="grid gap-4 text-lg font-medium mt-8">
+                    {navLinks.map(({ href, label }) => (
+                    <SheetClose asChild key={href}>
+                        <Link
+                            href={href}
+                            className={cn(
+                            'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
+                            pathname === href && 'text-primary'
+                            )}
+                        >
+                            {label === 'desktop' ? <Monitor className="h-5 w-5" /> : null}
+                            {t(label)}
+                        </Link>
+                    </SheetClose>
+                    ))}
+                </nav>
+            </div>
+            </SheetContent>
+        </Sheet>
+      )}
       
       <div className="flex w-full items-center justify-end gap-2 md:ml-auto md:gap-2 lg:gap-4">
-        {!isRestaurantOwner && <LanguageSwitcher />}
-        {!isRestaurantOwner && (
+        {showShoppingControls && <LanguageSwitcher />}
+        {showShoppingControls && (
             <Button variant={voiceEnabled ? 'secondary' : 'outline'} size="icon" onClick={onToggleVoice} className="relative">
               {voiceEnabled ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
               {voiceEnabled && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>}
               <span className="sr-only">{voiceEnabled ? 'Stop voice commands' : 'Start voice commands'}</span>
             </Button>
         )}
-        <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />
+        {showShoppingControls && <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />}
         <UserMenu />
       </div>
-        {hasMounted && voiceEnabled && !isRestaurantOwner && (
+        {hasMounted && voiceEnabled && showShoppingControls && (
             <>
                 <div className="absolute top-16 left-0 w-full bg-secondary text-secondary-foreground text-center py-1 text-sm font-mono z-40">
                     {voiceStatus}

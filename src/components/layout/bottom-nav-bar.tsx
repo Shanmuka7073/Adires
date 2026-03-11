@@ -3,30 +3,30 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, User, Package, Store, Truck } from 'lucide-react';
+import { Home, User, Package, Store, Truck, UserCheck, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirebase } from '@/firebase';
 import { t } from '@/lib/locales';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 const navItems = [
-  { href: '/', label: 'home', color: 'text-primary' },
-  { href: '/dashboard/customer/my-orders', label: 'my-orders', color: 'text-blue-500' },
-  { href: '/dashboard/owner/my-store', label: 'my-store', color: 'text-orange-500' },
-  { href: '/dashboard/delivery/deliveries', label: 'deliveries', color: 'text-purple-500' },
-  { href: '/dashboard/customer/my-profile', label: 'my-profile', color: 'text-gray-500' },
+  { href: '/', label: 'home', icon: Home, color: 'text-primary' },
+  { href: '/dashboard/customer/my-orders', label: 'my-orders', icon: Package, color: 'text-blue-500' },
+  { href: '/dashboard/owner/my-store', label: 'my-store', icon: Store, color: 'text-orange-500' },
+  { href: '/dashboard/delivery/deliveries', label: 'deliveries', icon: Truck, color: 'text-purple-500' },
+  { href: '/dashboard/customer/my-profile', label: 'my-profile', icon: User, color: 'text-gray-500' },
 ];
 
-const navIcons = {
-    'home': Home,
-    'my-orders': Package,
-    'my-profile': User,
-    'my-store': Store,
-    'deliveries': Truck,
-};
+const employeeNavItems = [
+    { href: '/dashboard/employee/attendance', label: 'Attendance', icon: UserCheck, color: 'text-green-600' },
+    { href: '/dashboard/employee/salary-slips', label: 'Salaries', icon: FileText, color: 'text-blue-600' },
+    { href: '/dashboard/customer/my-profile', label: 'Profile', icon: User, color: 'text-gray-500' },
+];
 
 export function BottomNavBar() {
   const pathname = usePathname();
   const { user, isUserLoading } = useFirebase();
+  const { isEmployee } = useAdminAuth();
 
   // Don't show if loading or on login page
   if (isUserLoading || pathname === '/login') {
@@ -38,12 +38,16 @@ export function BottomNavBar() {
       return null;
   }
 
+  const items = isEmployee ? employeeNavItems : navItems;
+
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-background border-t z-50">
-      <nav className="grid h-full grid-cols-5">
-        {navItems.map((item) => {
-          const Icon = navIcons[item.label];
+      <nav className={cn("grid h-full", isEmployee ? "grid-cols-3" : "grid-cols-5")}>
+        {items.map((item) => {
+          const Icon = item.icon;
           const isActive = pathname === item.href;
+          const label = isEmployee ? item.label : t(item.label);
+          
           return (
             <Link
               key={item.href}
@@ -54,7 +58,7 @@ export function BottomNavBar() {
               )}
             >
               <Icon className="h-5 w-5" />
-              <span className="truncate">{t(item.label)}</span>
+              <span className="truncate">{label}</span>
             </Link>
           );
         })}
