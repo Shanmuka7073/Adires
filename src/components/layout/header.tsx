@@ -178,8 +178,7 @@ export function Header({ suggestedCommands }: HeaderProps) {
   const { toast } = useToast();
   const [hasMounted, setHasMounted] = useState(false);
   const { voiceEnabled, voiceStatus, onToggleVoice, isCartOpen, onCartOpenChange } = useVoiceCommanderContext();
-  const { isRestaurantOwner, isEmployee } = useAdminAuth();
-
+  const { isAdmin, isRestaurantOwner, isEmployee, isLoading: isRoleLoading } = useAdminAuth();
 
   useEffect(() => {
     setHasMounted(true);
@@ -189,18 +188,19 @@ export function Header({ suggestedCommands }: HeaderProps) {
     command.action();
   }
 
-  // Hide the header on the homepage and menu pages
-  if (pathname === '/' || pathname.startsWith('/menu/')) {
+  // Hide the header on the menu pages
+  if (pathname.startsWith('/menu/')) {
     return null;
   }
 
   const showShoppingControls = !isRestaurantOwner && !isEmployee;
+  const homeHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : (isEmployee ? '/dashboard/employee/attendance' : '/'));
 
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
       <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
         <Link
-          href="/"
+          href={homeHref}
           className="flex items-center gap-2 text-lg font-semibold md:text-base"
         >
           <Image src="https://i.ibb.co/WpfhKqjW/android-launchericon-512-512.png" alt="Local Basket Logo" width={32} height={32} />

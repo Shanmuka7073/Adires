@@ -289,6 +289,8 @@ function VoiceInstructions() {
 /* ---------------- MAIN PAGE ---------------- */
 export default function LocalBasketHomepage() {
   const { firestore, user } = useFirebase();
+  const { isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
+  const router = useRouter();
   const { masterProducts, productPrices, loading: isAppLoading, isInitialized, setActiveStoreId, stores } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const { onToggleVoice } = useVoiceCommanderContext();
@@ -300,6 +302,13 @@ export default function LocalBasketHomepage() {
   const { data: userData } = useDoc<User>(userDocRef);
   
   const masterStoreId = useMemo(() => stores.find(s => s.name === 'LocalBasket')?.id, [stores]);
+
+  // Redirect restaurant owners to their dashboard
+  useEffect(() => {
+    if (!isRoleLoading && isRestaurantOwner) {
+      router.replace('/dashboard/restaurant');
+    }
+  }, [isRoleLoading, isRestaurantOwner, router]);
 
   // Set the active store to the master store when on the homepage
   useEffect(() => {
@@ -316,6 +325,14 @@ export default function LocalBasketHomepage() {
     return masterProducts.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [searchTerm, masterProducts]);
 
+  if (isRoleLoading || isRestaurantOwner) {
+    return (
+        <div className="flex h-screen items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f3f4f6]">
       <HomepageHeader onSearchChange={setSearchTerm} user={userData} onMicClick={onToggleVoice} />
@@ -329,7 +346,7 @@ export default function LocalBasketHomepage() {
                         {Array.from({ length: 6 }).map((_, j) => <Skeleton key={j} className="h-24 w-full" />)}
                     </div>
                 </div>
-            ))
+             ))
         ) : searchTerm ? (
              <div>
                 <h2 className="text-xl font-bold text-gray-800 mb-4">Search Results</h2>
