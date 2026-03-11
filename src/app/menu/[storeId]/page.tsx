@@ -8,7 +8,6 @@ import {
   where,
   doc,
   setDoc,
-  updateDoc,
   limit,
 } from 'firebase/firestore';
 
@@ -17,35 +16,23 @@ import type {
   Menu,
   MenuItem,
   Order,
-  OrderItem,
-  GetIngredientsOutput,
-  Ingredient,
+  MenuTheme,
 } from '@/lib/types';
 
 import { useParams, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState, useTransition, useRef } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
-import { v4 as uuidv4 } from 'uuid';
 
 import {
   Utensils,
   Plus,
-  Minus,
   Receipt,
   Loader2,
   Check,
   Clock,
-  Zap,
-  Flame,
-  Info,
-  ShoppingCart,
-  Salad,
-  Mic,
-  Eye,
-  Download,
   Search,
-  ChevronRight,
   X,
+  Download,
 } from 'lucide-react';
 
 import {
@@ -62,21 +49,20 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
 import { addRestaurantOrderItem, getIngredientsForDish } from '@/app/actions';
 import { useInstall } from '@/components/install-provider';
-import type { Timestamp } from 'firebase/firestore';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import IngredientsDialog from '@/components/IngredientsDialog';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import type { GetIngredientsOutput } from '@/lib/types';
 
 
-function LiveBillSheet({ orderId, theme }: { orderId: string; theme: Menu['theme'] }) {
+function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme | undefined }) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [closing, startClose] = useTransition();
@@ -373,12 +359,12 @@ export default function PublicMenuPage() {
                         </div>
                     )}
                     <div className="min-w-0">
-                        <h1 className="text-lg md:text-xl font-black font-headline truncate leading-tight" style={{ color: theme?.primaryColor }}>
+                        <h1 className="text-base md:text-lg font-black font-headline truncate leading-tight" style={{ color: theme?.primaryColor }}>
                             {store.name}
                         </h1>
                         {tableNumber && (
                             <Badge 
-                                className="mt-0.5 px-2 py-0 text-[9px] font-black rounded-md shadow-sm uppercase tracking-widest" 
+                                className="mt-0.5 px-1.5 py-0 text-[8px] font-black rounded-sm shadow-sm uppercase tracking-widest" 
                                 style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}
                             >
                                 Table {tableNumber}
@@ -394,38 +380,36 @@ export default function PublicMenuPage() {
                             <Input 
                                 autoFocus
                                 placeholder="Search..."
-                                className="h-9 w-32 md:w-48 pr-8 rounded-xl text-xs font-bold border-2 focus-visible:ring-0"
-                                style={{ borderColor: theme?.primaryColor + '30', backgroundColor: theme?.backgroundColor }}
+                                className="h-8 w-28 md:w-40 pr-8 rounded-xl text-[10px] font-bold border-2 focus-visible:ring-0"
+                                style={{ borderColor: theme?.primaryColor + '30', backgroundColor: 'white', color: 'black' }}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
-                            <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="absolute right-0 h-9 w-8 hover:bg-transparent"
+                            <button 
+                                className="absolute right-2 text-black hover:opacity-70"
                                 onClick={() => { setIsSearchOpen(false); setSearchTerm(''); }}
                             >
-                                <X className="h-3.5 w-3.5" style={{ color: theme?.textColor }} />
-                            </Button>
+                                <X className="h-3 w-3" />
+                            </button>
                         </div>
                     ) : (
                         <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-10 w-10 rounded-full bg-white/50 shadow-sm border border-black/5"
+                            className="h-8 w-8 rounded-full bg-white/10 shadow-sm border border-white/5"
                             onClick={() => setIsSearchOpen(true)}
                         >
-                            <Search className="h-4 w-4" style={{ color: theme?.primaryColor }} />
+                            <Search className="h-3.5 w-3.5" style={{ color: theme?.primaryColor }} />
                         </Button>
                     )}
                     {canInstall && (
                         <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-10 w-10 rounded-full bg-white/50 shadow-sm border border-black/5"
+                            className="h-8 w-8 rounded-full bg-white/10 shadow-sm border border-white/5"
                             onClick={triggerInstall}
                         >
-                            <Download className="h-4 w-4" style={{ color: theme?.primaryColor }} />
+                            <Download className="h-3.5 w-3.5" style={{ color: theme?.primaryColor }} />
                         </Button>
                     )}
                   </div>
@@ -439,11 +423,11 @@ export default function PublicMenuPage() {
                             variant="ghost"
                             size="sm"
                             className={cn(
-                                "rounded-xl px-4 h-8 font-bold text-[10px] uppercase tracking-widest border transition-all active:scale-95",
-                                !selectedCategory ? "shadow-md border-transparent" : "opacity-50 border-black/5 bg-black/5"
+                                "rounded-lg px-3 h-7 font-black text-[9px] uppercase tracking-widest border transition-all active:scale-95",
+                                !selectedCategory ? "shadow-md border-transparent" : "opacity-40 border-white/10"
                             )}
                             style={{ 
-                                backgroundColor: !selectedCategory ? theme?.primaryColor : '',
+                                backgroundColor: !selectedCategory ? theme?.primaryColor : 'transparent',
                                 color: !selectedCategory ? theme?.backgroundColor : theme?.primaryColor,
                             }}
                             onClick={() => setSelectedCategory(null)}
@@ -456,11 +440,11 @@ export default function PublicMenuPage() {
                                 variant="ghost"
                                 size="sm"
                                 className={cn(
-                                    "rounded-xl px-4 h-8 font-bold text-[10px] uppercase tracking-widest border transition-all active:scale-95",
-                                    selectedCategory === cat ? "shadow-md border-transparent" : "opacity-50 border-black/5 bg-black/5"
+                                    "rounded-lg px-3 h-7 font-black text-[9px] uppercase tracking-widest border transition-all active:scale-95",
+                                    selectedCategory === cat ? "shadow-md border-transparent" : "opacity-40 border-white/10"
                                 )}
                                 style={{ 
-                                    backgroundColor: selectedCategory === cat ? theme?.primaryColor : '',
+                                    backgroundColor: selectedCategory === cat ? theme?.primaryColor : 'transparent',
                                     color: selectedCategory === cat ? theme?.backgroundColor : theme?.primaryColor,
                                 }}
                                 onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
@@ -474,7 +458,7 @@ export default function PublicMenuPage() {
               )}
 
               {/* MENU CONTENT */}
-              <div className="space-y-8">
+              <div className="space-y-6">
                 {order?.status === 'Billed' ? (
                     <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden" style={{ backgroundColor: theme?.primaryColor + '05' }}>
                         <CardContent className="text-center py-16 px-8">
@@ -486,29 +470,29 @@ export default function PublicMenuPage() {
                         </CardContent>
                     </Card>
                 ) : Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
-                    <div key={category} className="space-y-3">
-                        <h2 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 px-1" style={{ color: theme?.textColor }}>
+                    <div key={category} className="space-y-2">
+                        <h2 className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40 px-1" style={{ color: theme?.textColor }}>
                             {category}
                         </h2>
-                        <div className="grid gap-3">
+                        <div className="grid gap-2">
                             {items.map((item, index) => {
                                 const isRecentlyAdded = recentlyAdded.has(item.id);
                                 return (
                                 <Card
                                     key={item.id || index}
-                                    className="flex justify-between items-center p-4 border-0 shadow-sm rounded-2xl transition-all active:scale-[0.98]"
+                                    className="flex justify-between items-center p-3 border-0 shadow-sm rounded-xl transition-all active:scale-[0.98]"
                                     style={{ backgroundColor: 'white' }}
                                 >
                                     <div className="flex-1 pr-4 min-w-0" onClick={() => handleShowIngredients(item)}>
-                                        <p className="font-bold text-sm leading-tight truncate mb-1" style={{color: theme?.textColor}}>{item.name}</p>
-                                        <p className="text-xs font-black" style={{color: theme?.primaryColor}}>₹{item.price.toFixed(2)}</p>
+                                        <p className="font-bold text-xs leading-tight truncate mb-0.5 text-black">{item.name}</p>
+                                        <p className="text-[10px] font-black" style={{color: theme?.primaryColor}}>₹{item.price.toFixed(2)}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
                                          <Button 
                                             onClick={() => handleAddItem(item)} 
                                             disabled={isAdding || isRecentlyAdded}
                                             className={cn(
-                                                "w-20 h-9 rounded-xl text-[10px] uppercase tracking-widest font-black shadow-sm transition-all",
+                                                "w-16 h-8 rounded-lg text-[9px] uppercase tracking-widest font-black shadow-sm transition-all",
                                                 isRecentlyAdded ? "bg-green-600 border-0" : ""
                                             )}
                                             style={{ 
@@ -516,7 +500,7 @@ export default function PublicMenuPage() {
                                                 color: theme?.backgroundColor 
                                             }}
                                         >
-                                            {isRecentlyAdded ? <Check className="h-4 w-4" /> : (isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add') }
+                                            {isRecentlyAdded ? <Check className="h-3 w-3" /> : (isAdding ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add') }
                                         </Button>
                                     </div>
                                 </Card>
@@ -527,8 +511,8 @@ export default function PublicMenuPage() {
                 
                 {Object.keys(groupedMenu).length === 0 && !orderLoading && (
                     <div className="text-center py-24 space-y-4">
-                        <Utensils className="mx-auto h-12 w-12 opacity-10" style={{ color: theme?.textColor }} />
-                        <p className="text-sm font-bold opacity-30 uppercase tracking-widest">No dishes found</p>
+                        <Utensils className="mx-auto h-10 w-10 opacity-10" style={{ color: theme?.textColor }} />
+                        <p className="text-[10px] font-bold opacity-30 uppercase tracking-widest">No dishes found</p>
                     </div>
                 )}
               </div>
@@ -538,15 +522,15 @@ export default function PublicMenuPage() {
           {itemCount > 0 && order?.status !== 'Billed' && !isBillFinalized && (
                <Sheet>
                   <SheetTrigger asChild>
-                      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[240px] px-4">
-                          <Button className="h-14 w-full rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] text-sm font-black uppercase tracking-widest transition-transform active:scale-95 border-0" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>
-                              <Receipt className="mr-2 h-5 w-5" />
+                      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[200px] px-4">
+                          <Button className="h-12 w-full rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.3)] text-[10px] font-black uppercase tracking-widest transition-transform active:scale-95 border-0" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>
+                              <Receipt className="mr-2 h-4 w-4" />
                               View Bill 
-                              <Badge className="ml-2 h-6 min-w-[24px] rounded-lg text-[10px] font-black flex items-center justify-center shadow-inner" style={{ backgroundColor: theme?.backgroundColor, color: theme?.primaryColor }}>{itemCount}</Badge>
+                              <Badge className="ml-2 h-5 min-w-[20px] rounded-md text-[9px] font-black flex items-center justify-center shadow-inner" style={{ backgroundColor: theme?.backgroundColor, color: theme?.primaryColor }}>{itemCount}</Badge>
                           </Button>
                       </div>
                   </SheetTrigger>
-                  <SheetContent side="bottom" className="h-[75vh] rounded-t-[3rem] p-0 border-0 overflow-hidden shadow-[0_-20px_60px_rgba(0,0,0,0.25)]">
+                  <SheetContent side="bottom" className="h-[70vh] rounded-t-[2.5rem] p-0 border-0 overflow-hidden shadow-[0_-15px_50px_rgba(0,0,0,0.25)]">
                       <LiveBillSheet orderId={order.id} theme={theme} />
                   </SheetContent>
               </Sheet>
