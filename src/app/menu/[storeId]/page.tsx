@@ -129,24 +129,24 @@ function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme |
             ))}
         </div>
 
-        <div className="p-6 border-t space-y-4 bg-white/50 backdrop-blur-md" style={{ borderColor: theme?.primaryColor + '20' }}>
+        <div className="p-6 border-t space-y-4 bg-black/10 backdrop-blur-md" style={{ borderColor: theme?.primaryColor + '20' }}>
             <div className="flex justify-between items-baseline mb-2">
-              <span className="text-sm font-bold uppercase tracking-widest opacity-60">Total Amount</span>
+              <span className="text-sm font-bold uppercase tracking-widest opacity-60" style={{ color: theme?.textColor }}>Total Amount</span>
               <span className="text-2xl font-black" style={{ color: theme?.primaryColor }}>₹{order.totalAmount.toFixed(2)}</span>
             </div>
             
             <div className="pt-2">
               {order.status === 'Completed' ? (
-                 <div className="text-center p-5 bg-green-50 border border-green-100 rounded-2xl shadow-sm">
-                    <Check className="mx-auto h-8 w-8 text-green-600 mb-2" />
-                    <p className="font-bold text-green-800">Paid & Completed</p>
-                    <p className="text-xs text-green-700 opacity-80">Thank you for visiting!</p>
+                 <div className="text-center p-5 bg-green-500/10 border border-green-500/20 rounded-2xl shadow-sm">
+                    <Check className="mx-auto h-8 w-8 text-green-500 mb-2" />
+                    <p className="font-bold text-green-500">Paid & Completed</p>
+                    <p className="text-xs text-green-500/80">Thank you for visiting!</p>
                 </div>
               ) : order.status === 'Billed' ? (
-                <div className="text-center p-5 bg-amber-50 border border-amber-100 rounded-2xl shadow-sm">
-                    <Clock className="mx-auto h-8 w-8 text-amber-600 mb-2" />
-                    <p className="font-bold text-amber-800 uppercase tracking-wide">Pending Payment</p>
-                    <p className="text-xs text-amber-700 opacity-80">Please pay at the counter.</p>
+                <div className="text-center p-5 bg-amber-500/10 border border-amber-500/20 rounded-2xl shadow-sm">
+                    <Clock className="mx-auto h-8 w-8 text-amber-500 mb-2" />
+                    <p className="font-bold text-amber-500 uppercase tracking-wide">Pending Payment</p>
+                    <p className="text-xs text-amber-500/80">Please pay at the counter.</p>
                 </div>
               ) : (
                 <AlertDialog>
@@ -381,12 +381,13 @@ export default function PublicMenuPage() {
                                 autoFocus
                                 placeholder="Search..."
                                 className="h-8 w-28 md:w-40 pr-8 rounded-xl text-[10px] font-bold border-2 focus-visible:ring-0"
-                                style={{ borderColor: theme?.primaryColor + '30', backgroundColor: 'white', color: 'black' }}
+                                style={{ borderColor: theme?.primaryColor + '30', backgroundColor: 'rgba(255,255,255,0.1)', color: theme?.textColor }}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                             <button 
-                                className="absolute right-2 text-black hover:opacity-70"
+                                className="absolute right-2 hover:opacity-70"
+                                style={{ color: theme?.textColor }}
                                 onClick={() => { setIsSearchOpen(false); setSearchTerm(''); }}
                             >
                                 <X className="h-3 w-3" />
@@ -396,7 +397,7 @@ export default function PublicMenuPage() {
                         <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-8 w-8 rounded-full bg-white/10 shadow-sm border border-white/5"
+                            className="h-8 w-8 rounded-full bg-white/5 shadow-sm border border-white/5"
                             onClick={() => setIsSearchOpen(true)}
                         >
                             <Search className="h-3.5 w-3.5" style={{ color: theme?.primaryColor }} />
@@ -406,7 +407,7 @@ export default function PublicMenuPage() {
                         <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-8 w-8 rounded-full bg-white/10 shadow-sm border border-white/5"
+                            className="h-8 w-8 rounded-full bg-white/5 shadow-sm border border-white/5"
                             onClick={triggerInstall}
                         >
                             <Download className="h-3.5 w-3.5" style={{ color: theme?.primaryColor }} />
@@ -462,7 +463,7 @@ export default function PublicMenuPage() {
                 {order?.status === 'Billed' ? (
                     <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden" style={{ backgroundColor: theme?.primaryColor + '05' }}>
                         <CardContent className="text-center py-16 px-8">
-                            <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-white shadow-xl">
+                            <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-white/5 border border-white/10 shadow-xl">
                                 <Check className="h-10 w-10" style={{ color: theme?.primaryColor }} />
                             </div>
                             <h2 className="text-2xl font-black mb-3" style={{color: theme?.textColor}}>Thank You!</h2>
@@ -480,11 +481,11 @@ export default function PublicMenuPage() {
                                 return (
                                 <Card
                                     key={item.id || index}
-                                    className="flex justify-between items-center p-3 border-0 shadow-sm rounded-xl transition-all active:scale-[0.98]"
-                                    style={{ backgroundColor: 'white' }}
+                                    className="flex justify-between items-center p-3 shadow-sm rounded-xl transition-all active:scale-[0.98] border"
+                                    style={{ backgroundColor: 'transparent', borderColor: theme?.primaryColor + '15' }}
                                 >
                                     <div className="flex-1 pr-4 min-w-0" onClick={() => handleShowIngredients(item)}>
-                                        <p className="font-bold text-xs leading-tight truncate mb-0.5 text-black">{item.name}</p>
+                                        <p className="font-bold text-xs leading-tight truncate mb-0.5" style={{ color: theme?.textColor }}>{item.name}</p>
                                         <p className="text-[10px] font-black" style={{color: theme?.primaryColor}}>₹{item.price.toFixed(2)}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -512,7 +513,7 @@ export default function PublicMenuPage() {
                 {Object.keys(groupedMenu).length === 0 && !orderLoading && (
                     <div className="text-center py-24 space-y-4">
                         <Utensils className="mx-auto h-10 w-10 opacity-10" style={{ color: theme?.textColor }} />
-                        <p className="text-[10px] font-bold opacity-30 uppercase tracking-widest">No dishes found</p>
+                        <p className="text-[10px] font-bold opacity-30 uppercase tracking-widest" style={{ color: theme?.textColor }}>No dishes found</p>
                     </div>
                 )}
               </div>
