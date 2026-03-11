@@ -33,6 +33,7 @@ import {
   Search,
   X,
   Download,
+  Eye,
 } from 'lucide-react';
 
 import {
@@ -484,11 +485,19 @@ export default function PublicMenuPage() {
                                     className="flex justify-between items-center p-3 shadow-sm rounded-xl transition-all active:scale-[0.98] border"
                                     style={{ backgroundColor: 'transparent', borderColor: theme?.primaryColor + '15' }}
                                 >
-                                    <div className="flex-1 pr-4 min-w-0" onClick={() => handleShowIngredients(item)}>
+                                    <div className="flex-1 pr-4 min-w-0">
                                         <p className="font-bold text-xs leading-tight truncate mb-0.5" style={{ color: theme?.textColor }}>{item.name}</p>
                                         <p className="text-[10px] font-black" style={{color: theme?.primaryColor}}>₹{item.price.toFixed(2)}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
+                                         <Button 
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 rounded-full"
+                                            onClick={() => handleShowIngredients(item)}
+                                         >
+                                            <Eye className="h-4 w-4" style={{ color: theme?.textColor }} />
+                                         </Button>
                                          <Button 
                                             onClick={() => handleAddItem(item)} 
                                             disabled={isAdding || isRecentlyAdded}
