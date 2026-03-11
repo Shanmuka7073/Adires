@@ -539,6 +539,10 @@ export async function updateEmployee(userId: string, data: any): Promise<{ succe
         // 3. Update Profile doc
         const profileRef = db.collection('employeeProfiles').doc(userId);
         batch.update(profileRef, {
+            firstName: data.firstName,
+            lastName: data.lastName,
+            phone: data.phone,
+            address: data.address,
             role: data.role,
             salaryRate: data.salaryRate,
             salaryType: data.salaryType,

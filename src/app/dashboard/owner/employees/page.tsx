@@ -1,8 +1,8 @@
 
 'use client';
 
-import { useState, useMemo, useTransition } from 'react';
-import { useForm } from 'react-hook-form';
+import { useState, useMemo, useTransition, useEffect } from 'react';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -68,7 +68,6 @@ type EditEmployeeFormValues = z.infer<typeof editEmployeeSchema>;
 
 // Edit Dialog for Existing Employees
 function EditEmployeeDialog({ employee, employees, isOpen, onOpenChange, myStore }: { employee: EmployeeProfile, employees: EmployeeProfile[], isOpen: boolean, onOpenChange: (open: boolean) => void, myStore: Store }) {
-    const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isSaving, startSave] = useTransition();
 
@@ -76,9 +75,9 @@ function EditEmployeeDialog({ employee, employees, isOpen, onOpenChange, myStore
         resolver: zodResolver(editEmployeeSchema),
         defaultValues: {
             ...employee,
-            accountHolderName: employee.bankDetails?.accountHolderName,
-            accountNumber: employee.bankDetails?.accountNumber,
-            ifscCode: employee.bankDetails?.ifscCode,
+            accountHolderName: employee.bankDetails?.accountHolderName || '',
+            accountNumber: employee.bankDetails?.accountNumber || '',
+            ifscCode: employee.bankDetails?.ifscCode || '',
         },
     });
 
@@ -215,7 +214,7 @@ function EditEmployeeDialog({ employee, employees, isOpen, onOpenChange, myStore
 }
 
 export default function ManageEmployeesPage() {
-  const { user, auth, firestore, firebaseApp } = useFirebase();
+  const { user, firestore, firebaseApp } = useFirebase();
   const { toast } = useToast();
   const [isProcessing, startProcessing] = useTransition();
   const [editingEmployee, setEditingEmployee] = useState<EmployeeProfile | null>(null);
@@ -279,10 +278,18 @@ export default function ManageEmployeesPage() {
 
         const employeeProfileRef = doc(firestore, 'employeeProfiles', uid);
         batch.set(employeeProfileRef, {
-            userId: uid, storeId: myStore.id, email: data.email,
+            userId: uid, 
+            storeId: myStore.id, 
+            email: data.email,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            phone: data.phone,
+            address: data.address,
             employeeId: `EMP-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
-            role: data.role, hireDate: new Date().toISOString().split('T')[0],
-            salaryRate: data.salaryRate, salaryType: data.salaryType,
+            role: data.role, 
+            hireDate: new Date().toISOString().split('T')[0],
+            salaryRate: data.salaryRate, 
+            salaryType: data.salaryType,
             payoutMethod: data.payoutMethod,
             reportingTo: data.reportingTo,
             upiId: data.payoutMethod === 'upi' ? data.upiId : null,
