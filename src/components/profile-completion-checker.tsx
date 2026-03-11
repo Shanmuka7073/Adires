@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import type { User as AppUser } from '@/lib/types';
 import {
   AlertDialog,
@@ -24,6 +24,7 @@ const ADMIN_EMAIL = 'admin@gmail.com';
 export function ProfileCompletionChecker() {
   const { user, isUserLoading, firestore } = useFirebase();
   const router = useRouter();
+  const pathname = usePathname();
   const [showPrompt, setShowPrompt] = useState(false);
 
   // Memoize the document reference
@@ -36,13 +37,14 @@ export function ProfileCompletionChecker() {
   const { data: userData, isLoading: isProfileLoading } = useDoc<AppUser>(userDocRef);
 
   useEffect(() => {
-    // Wait until all loading is finished.
-    if (isUserLoading || isProfileLoading) {
+    // Don't show anything on menu pages or if loading
+    if (pathname?.startsWith('/menu/') || isUserLoading || isProfileLoading) {
       return;
     }
 
     // Don't show the prompt if the user is not logged in, is the admin, or has dismissed it this session.
     if (!user || user.email === ADMIN_EMAIL || sessionStorage.getItem(SESSION_STORAGE_KEY) === 'true') {
+      setShowPrompt(false);
       return;
     }
     
@@ -59,7 +61,7 @@ export function ProfileCompletionChecker() {
     } else {
       setShowPrompt(false); // Explicitly hide if profile is complete
     }
-  }, [user, isUserLoading, userData, isProfileLoading]);
+  }, [user, isUserLoading, userData, isProfileLoading, pathname]);
 
   const handleDismiss = () => {
     // Remember that the user dismissed the prompt for this session
