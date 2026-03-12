@@ -41,6 +41,7 @@ import {
   Video,
   Truck,
   CheckCircle,
+  PlusCircle,
 } from 'lucide-react';
 
 import {
@@ -317,14 +318,16 @@ export default function PublicMenuPage() {
   const sessionId = useMemo(() => {
     const today = new Date();
     const dateString = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
-    if (tableNumber) return `table-${tableNumber}-${dateString}`;
+    const subSession = typeof window !== 'undefined' ? localStorage.getItem(`sub_session_${storeId}`) || '1' : '1';
+
+    if (tableNumber) return `table-${tableNumber}-${dateString}-${subSession}`;
     
     let deviceId = localStorage.getItem(`device_session_${storeId}`);
     if (!deviceId) {
         deviceId = Math.random().toString(36).substring(2, 15);
         localStorage.setItem(`device_session_${storeId}`, deviceId);
     }
-    return `home-${deviceId}-${dateString}`;
+    return `home-${deviceId}-${dateString}-${subSession}`;
   }, [tableNumber, storeId]);
 
   const orderId = `${storeId}_${sessionId}`;
@@ -399,6 +402,12 @@ export default function PublicMenuPage() {
     });
   };
 
+  const startNewSession = () => {
+      const nextSubSession = Date.now().toString(36);
+      localStorage.setItem(`sub_session_${storeId}`, nextSubSession);
+      window.location.reload();
+  }
+
   const saveDetailsAndOrder = () => {
       if (!customerName || !phone || (!tableNumber && !deliveryAddress)) {
           toast({ variant: "destructive", title: "Details Required", description: "Please fill in all fields." });
@@ -414,6 +423,8 @@ export default function PublicMenuPage() {
   const handleClearSession = () => {
       if (confirm("Clear your current session? You will lose access to your current bill on this device.")) {
           localStorage.removeItem(`last_table_${storeId}`);
+          localStorage.removeItem(`device_session_${storeId}`);
+          localStorage.removeItem(`sub_session_${storeId}`);
           setTableNumber(null);
           window.location.reload();
       }
@@ -569,32 +580,37 @@ export default function PublicMenuPage() {
                             <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-white/5 border border-white/10 shadow-xl"><Check className="h-10 w-10" style={{ color: theme?.primaryColor }} /></div>
                             <h2 className="text-2xl font-black mb-3" style={{color: theme?.textColor}}>Thank You!</h2>
                             <p className="text-sm font-bold opacity-60 leading-relaxed" style={{color: theme?.textColor}}>{tableNumber ? 'Your visit is complete. We hope to see you again soon!' : 'Your order has been delivered. Enjoy your meal!'}</p>
-                            <Button asChild variant="outline" className="mt-8 rounded-xl h-12 px-8 uppercase font-black text-[10px] tracking-widest" style={{ color: theme?.primaryColor, borderColor: theme?.primaryColor + '20' }}>
-                                <Link href="/">Back to LocalBasket</Link>
-                            </Button>
-                        </CardContent>
-                    </Card>
-                ) : isBilledTable ? (
-                    <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden" style={{ backgroundColor: theme?.primaryColor + '05' }}>
-                        <CardContent className="p-8 text-center">
-                            <div className="mb-8">
-                                <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-white/5 border border-white/10 shadow-xl">
-                                    <Receipt className="h-10 w-10" style={{ color: theme?.primaryColor }} />
-                                </div>
-                                <h2 className="text-2xl font-black mb-1" style={{color: theme?.textColor}}>Bill Requested</h2>
-                                <p className="text-xs font-bold opacity-60" style={{color: theme?.textColor}}>Table {tableNumber}</p>
-                            </div>
-                            <div className="p-6 bg-primary/10 rounded-3xl border border-white/5 mb-6">
-                                <p className="text-xs font-bold opacity-60 mb-2" style={{ color: theme?.textColor }}>Bill Amount</p>
-                                <p className="text-3xl font-black" style={{ color: theme?.primaryColor }}>₹{order?.totalAmount.toFixed(2)}</p>
-                                <p className="text-[10px] font-bold mt-4 uppercase tracking-wider opacity-40" style={{ color: theme?.textColor }}>Please visit the counter to pay your bill.</p>
+                            <div className="flex flex-col gap-3 mt-8">
+                                <Button onClick={startNewSession} className="rounded-xl h-12 px-8 uppercase font-black text-[10px] tracking-widest shadow-lg" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>
+                                    <PlusCircle className="mr-2 h-4 w-4" /> Start New Order
+                                </Button>
+                                <Button asChild variant="outline" className="rounded-xl h-12 px-8 uppercase font-black text-[10px] tracking-widest" style={{ color: theme?.primaryColor, borderColor: theme?.primaryColor + '20' }}>
+                                    <Link href="/">Browse All Shops</Link>
+                                </Button>
                             </div>
                         </CardContent>
                     </Card>
-                ) : isTrackingHome ? (
-                    <LiveOrderTracker order={order!} theme={theme} />
                 ) : (
                     <>
+                        {isBilledTable && (
+                            <Card className="rounded-3xl border-0 shadow-xl overflow-hidden mb-6" style={{ backgroundColor: theme?.primaryColor + '10' }}>
+                                <CardContent className="p-6 text-center">
+                                    <div className="flex items-center justify-center gap-3 mb-2" style={{ color: theme?.primaryColor }}>
+                                        <Receipt className="h-6 w-6" />
+                                        <h2 className="text-xl font-black uppercase tracking-tight">Bill Requested</h2>
+                                    </div>
+                                    <p className="text-[10px] font-black uppercase opacity-40 mb-4" style={{ color: theme?.textColor }}>Table {tableNumber}</p>
+                                    <div className="bg-white/40 p-4 rounded-2xl backdrop-blur-sm">
+                                        <p className="text-xs font-bold opacity-60 mb-1" style={{ color: theme?.textColor }}>Bill Amount</p>
+                                        <p className="text-3xl font-black" style={{ color: theme?.primaryColor }}>₹{order?.totalAmount.toFixed(2)}</p>
+                                    </div>
+                                    <p className="text-[9px] font-black uppercase tracking-[0.2em] mt-4 opacity-40" style={{ color: theme?.textColor }}>Visit the counter to pay. You can still add more items below.</p>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {isTrackingHome && <LiveOrderTracker order={order!} theme={theme} />}
+
                         {/* CATEGORY BAR */}
                         <ScrollArea className="w-full whitespace-nowrap pb-2">
                             <div className="flex gap-2">
@@ -660,7 +676,7 @@ export default function PublicMenuPage() {
             </div>
           </div>
           
-          {itemCount > 0 && order?.status === 'Pending' && !isBilledTable && (
+          {itemCount > 0 && ['Pending', 'Billed'].includes(order?.status || '') && (
                <Sheet>
                   <SheetTrigger asChild>
                       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[200px] px-4">
