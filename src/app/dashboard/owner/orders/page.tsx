@@ -11,7 +11,7 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import {
   CookingPot,
   Truck,
@@ -31,7 +31,8 @@ import {
   Eye,
   History,
   Clock,
-  PlusCircle
+  PlusCircle,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -49,6 +50,8 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const STATUS_META: Record<string, any> = {
   Pending: { icon: AlertTriangle, variant: 'secondary', color: 'text-amber-600' },
@@ -331,6 +334,7 @@ export default function StoreOrdersPage() {
   const { firestore, user } = useFirebase();
   const [isUpdating, startUpdateTransition] = useTransition();
   const { toast } = useToast();
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   
   const [selectedHistoryItems, setSelectedHistoryItems] = useState<{ items: OrderItem[], title: string, total: number } | null>(null);
 
@@ -366,13 +370,17 @@ export default function StoreOrdersPage() {
     orders.forEach(order => {
         if (order.status === 'Draft') return;
 
+        const orderDate = (order.orderDate as Timestamp).toDate();
+        const isSelectedDay = selectedDate ? isSameDay(orderDate, selectedDate) : true;
+
         if (order.tableNumber && order.sessionId) {
             const sid = order.sessionId;
             if (['Completed', 'Delivered'].includes(order.status)) {
+                if (!isSelectedDay) return;
                 // Find or create a history session grouping
                 let hSid = doneTableSessions.find(s => s.id === sid);
                 if (!hSid) {
-                    hSid = { id: sid, tableNumber: order.tableNumber, orders: [], totalAmount: 0, status: 'Completed', lastActivity: (order.orderDate as Timestamp).toDate() };
+                    hSid = { id: sid, tableNumber: order.tableNumber, orders: [], totalAmount: 0, status: 'Completed', lastActivity: orderDate };
                     doneTableSessions.push(hSid);
                 }
                 hSid.orders.push(order);
@@ -384,14 +392,14 @@ export default function StoreOrdersPage() {
                 }
                 tableSessions[sid].orders.push(order);
                 tableSessions[sid].totalAmount += order.totalAmount;
-                const date = (order.orderDate as Timestamp).toDate();
-                if (date > tableSessions[sid].lastActivity) {
-                    tableSessions[sid].lastActivity = date;
+                if (orderDate > tableSessions[sid].lastActivity) {
+                    tableSessions[sid].lastActivity = orderDate;
                     tableSessions[sid].status = order.status;
                 }
             }
         } else {
             if (['Delivered', 'Completed'].includes(order.status)) {
+                if (!isSelectedDay) return;
                 doneDeliveries.push(order);
             } else {
                 directDeliveries.push(order);
@@ -400,7 +408,7 @@ export default function StoreOrdersPage() {
     });
 
     return { sessions: tableSessions, homeDeliveries: directDeliveries, completedDeliveries: doneDeliveries, completedTableSessions: doneTableSessions };
-  }, [orders]);
+  }, [orders, selectedDate]);
 
   const handleOrderUpdate = (orderId: string, newStatus: Order['status']) => {
       if (!firestore) return;
@@ -519,18 +527,44 @@ export default function StoreOrdersPage() {
 
              {/* --- RECENT COMPLETED SECTION --- */}
              <section className="pt-16 border-t-2 border-black/5">
-                <div className="flex items-center gap-3 mb-10 justify-center">
-                    <History className="h-5 w-5 opacity-20" />
-                    <h2 className="text-[10px] font-black uppercase tracking-[0.5em] opacity-30">Recent Completed Orders</h2>
+                <div className="flex flex-col items-center gap-6 mb-12">
+                    <div className="flex items-center gap-3">
+                        <History className="h-5 w-5 opacity-20" />
+                        <h2 className="text-[10px] font-black uppercase tracking-[0.5em] opacity-30">Transaction History</h2>
+                    </div>
+                    
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className="h-14 px-8 rounded-[1.2rem] border-2 flex items-center gap-4 group transition-all hover:bg-primary/5 hover:border-primary/30">
+                                <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+                                    <CalendarIcon className="h-5 w-5 text-primary" />
+                                </div>
+                                <div className="text-left">
+                                    <p className="text-[9px] font-black uppercase tracking-widest opacity-40">Viewing History For</p>
+                                    <p className="text-lg font-black tracking-tight">{selectedDate ? format(selectedDate, "MMMM dd, yyyy") : "All Time"}</p>
+                                </div>
+                                <ChevronDown className="h-4 w-4 opacity-20 ml-4" />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 rounded-3xl overflow-hidden shadow-2xl border-0" align="center">
+                            <Calendar
+                                mode="single"
+                                selected={selectedDate}
+                                onSelect={setSelectedDate}
+                                initialFocus
+                                disabled={(date) => date > new Date()}
+                            />
+                        </PopoverContent>
+                    </Popover>
                 </div>
 
                 <div className="space-y-12">
                     {/* Sub-heading: Home Delivery History */}
-                    {completedDeliveries.length > 0 && (
+                    {completedDeliveries.length > 0 ? (
                         <div>
                             <h3 className="text-xs font-black uppercase tracking-widest mb-6 px-2 text-blue-600/60 border-l-4 border-blue-600 pl-4">Completed Home Deliveries</h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                {completedDeliveries.slice(0, 8).map(order => (
+                                {completedDeliveries.slice(0, 12).map(order => (
                                     <Card 
                                         key={order.id} 
                                         className="bg-white border-0 shadow-sm rounded-2xl cursor-pointer transition-all hover:shadow-lg active:scale-95 group"
@@ -552,14 +586,18 @@ export default function StoreOrdersPage() {
                                 ))}
                             </div>
                         </div>
+                    ) : selectedDate && (
+                        <div className="text-center py-6 opacity-30">
+                            <p className="text-[9px] font-black uppercase tracking-widest">No home deliveries on this date</p>
+                        </div>
                     )}
 
                     {/* Sub-heading: Table History */}
-                    {completedTableSessions.length > 0 && (
+                    {completedTableSessions.length > 0 ? (
                         <div>
                             <h3 className="text-xs font-black uppercase tracking-widest mb-6 px-2 text-green-600/60 border-l-4 border-green-600 pl-4">Completed Table Sessions</h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                {completedTableSessions.slice(0, 8).map(session => (
+                                {completedTableSessions.slice(0, 12).map(session => (
                                     <Card 
                                         key={session.id} 
                                         className="bg-white border-0 shadow-sm rounded-2xl cursor-pointer transition-all hover:shadow-lg active:scale-95 group"
@@ -581,9 +619,13 @@ export default function StoreOrdersPage() {
                                 ))}
                             </div>
                         </div>
+                    ) : selectedDate && (
+                        <div className="text-center py-6 opacity-30">
+                            <p className="text-[9px] font-black uppercase tracking-widest">No table sessions on this date</p>
+                        </div>
                     )}
 
-                    {completedDeliveries.length === 0 && completedTableSessions.length === 0 && (
+                    {completedDeliveries.length === 0 && completedTableSessions.length === 0 && !selectedDate && (
                         <div className="text-center py-10 opacity-20 grayscale">
                             <History className="h-12 w-12 mx-auto mb-2" />
                             <p className="text-[10px] font-black uppercase tracking-widest">No recent transactions</p>
