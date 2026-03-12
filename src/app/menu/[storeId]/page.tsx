@@ -22,6 +22,7 @@ import type {
 import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 
 import {
   Utensils,
@@ -37,6 +38,7 @@ import {
   Home,
   MapPin,
   Save,
+  Video,
 } from 'lucide-react';
 
 import {
@@ -76,6 +78,86 @@ import type { GetIngredientsOutput } from '@/lib/types';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
+/**
+ * Visual tracker showing the progress of a confirmed order.
+ */
+function LiveOrderTracker({ order, theme }: { order: Order; theme: MenuTheme | undefined }) {
+    const statuses = ['Pending', 'Processing', 'Out for Delivery', 'Delivered'];
+    
+    // Status display names for the UI
+    const statusLabels: Record<string, string> = {
+        'Pending': 'Order Received',
+        'Processing': 'Preparing Food',
+        'Out for Delivery': 'On the Way',
+        'Delivered': 'Delivered',
+        'Billed': 'Waiting for Payment'
+    };
+
+    return (
+        <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden" style={{ backgroundColor: theme?.primaryColor + '05' }}>
+            <CardContent className="p-8 text-center">
+                <div className="mb-8">
+                    <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-white/5 border border-white/10 shadow-xl">
+                        <Clock className="h-10 w-10 animate-pulse" style={{ color: theme?.primaryColor }} />
+                    </div>
+                    <h2 className="text-2xl font-black mb-1" style={{color: theme?.textColor}}>{statusLabels[order.status] || order.status}</h2>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40" style={{color: theme?.textColor}}>Order ID: {order.id.slice(0,8)}</p>
+                </div>
+
+                {/* TRACKER STEPS - Only for delivery */}
+                {!order.tableNumber && (
+                    <div className="space-y-6 text-left max-w-[200px] mx-auto mb-8">
+                        {statuses.map((s, i) => {
+                            const currentStatusIdx = statuses.indexOf(order.status);
+                            const isDone = currentStatusIdx >= i;
+                            const isCurrent = order.status === s;
+                            
+                            return (
+                                <div key={s} className="flex items-center gap-4 relative">
+                                    {/* Vertical line connecting steps */}
+                                    {i < statuses.length - 1 && (
+                                        <div className="absolute left-[11px] top-6 w-0.5 h-6 bg-white/5">
+                                            <div className="h-full bg-primary transition-all duration-1000" style={{ height: isDone ? '100%' : '0%', backgroundColor: theme?.primaryColor }} />
+                                        </div>
+                                    )}
+                                    <div className={cn(
+                                        "h-6 w-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-500",
+                                        isDone ? "bg-primary border-transparent" : "border-white/10"
+                                    )} style={{ backgroundColor: isDone ? theme?.primaryColor : '' }}>
+                                        {isDone ? <Check className="h-3 w-3 text-white" /> : <div className="h-1.5 w-1.5 rounded-full bg-white/10" />}
+                                    </div>
+                                    <span className={cn(
+                                        "text-[10px] font-black uppercase tracking-widest transition-all",
+                                        isDone ? "opacity-100" : "opacity-20"
+                                    )} style={{ color: theme?.textColor }}>
+                                        {statusLabels[s] || s}
+                                    </span>
+                                </div>
+                            )
+                        })}
+                    </div>
+                )}
+
+                {/* TABLE SPECIFIC INFO */}
+                {order.tableNumber && order.status === 'Billed' && (
+                    <div className="p-6 bg-primary/10 rounded-3xl border border-white/5 mb-6">
+                        <p className="text-xs font-bold opacity-60 mb-2" style={{ color: theme?.textColor }}>Final Bill Amount</p>
+                        <p className="text-3xl font-black" style={{ color: theme?.primaryColor }}>₹{order.totalAmount.toFixed(2)}</p>
+                        <p className="text-[10px] font-bold mt-4 uppercase tracking-wider opacity-40" style={{ color: theme?.textColor }}>Please visit the counter to pay</p>
+                    </div>
+                )}
+
+                <div className="pt-6 border-t border-white/5">
+                    <Button asChild variant="ghost" className="h-12 px-6 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] transition-all hover:bg-white/5 active:scale-95" style={{ color: theme?.textColor }}>
+                        <Link href={`/live-order/${order.id}`}>
+                            <Video className="mr-2 h-4 w-4" /> Watch Preparation Live
+                        </Link>
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
 
 function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme | undefined }) {
   const { firestore } = useFirebase();
@@ -93,12 +175,16 @@ function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme |
     if (!firestore || !order) return;
     startClose(async () => {
       const orderRef = doc(firestore, 'orders', order.id);
+      // For home delivery, confirmation means the order is now "Pending" (Received)
+      // For table orders, it means they are requesting the bill ("Billed")
+      const nextStatus = order.tableNumber ? 'Billed' : 'Pending';
+      
       try {
-        await setDoc(orderRef, { status: 'Billed' }, { merge: true });
-        toast({ title: 'Bill closed. Please proceed to the counter to pay.' });
+        await setDoc(orderRef, { status: nextStatus }, { merge: true });
+        toast({ title: order.tableNumber ? 'Bill requested.' : 'Order confirmed!' });
       } catch (e) {
         console.error(e);
-        toast({ variant: 'destructive', title: 'Failed to close bill.' });
+        toast({ variant: 'destructive', title: 'Failed to confirm order.' });
       }
     });
   };
@@ -151,24 +237,18 @@ function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme |
             </div>
             
             <div className="pt-2">
-              {order.status === 'Completed' || order.status === 'Delivered' ? (
-                 <div className="text-center p-5 bg-green-500/10 border border-green-500/20 rounded-2xl shadow-sm">
-                    <Check className="mx-auto h-8 w-8 text-green-500 mb-2" />
-                    <p className="font-bold text-green-500">Order Completed</p>
-                    <p className="text-xs text-green-500/80">Thank you for visiting!</p>
-                </div>
-              ) : order.status === 'Billed' ? (
-                <div className="text-center p-5 bg-amber-500/10 border border-amber-500/20 rounded-2xl shadow-sm">
-                    <Clock className="mx-auto h-8 w-8 text-amber-500 mb-2" />
-                    <p className="font-bold text-amber-500 uppercase tracking-wide">Pending Payment</p>
-                    <p className="text-xs text-amber-500/80">Please pay at the counter.</p>
+              {['Completed', 'Delivered', 'Pending', 'Processing', 'Out for Delivery', 'Billed'].includes(order.status) ? (
+                 <div className="text-center p-5 bg-primary/10 border border-white/5 rounded-2xl shadow-sm">
+                    <Check className="mx-auto h-8 w-8 mb-2" style={{ color: theme?.primaryColor }} />
+                    <p className="font-black text-xs uppercase tracking-widest" style={{ color: theme?.textColor }}>Order Confirmed</p>
+                    <p className="text-[10px] font-bold opacity-40 mt-1" style={{ color: theme?.textColor }}>Tracking active on main screen</p>
                 </div>
               ) : (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button className="w-full h-14 rounded-2xl text-base font-bold shadow-lg" variant="destructive" disabled={closing}>
                       {closing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                      {order.tableNumber ? 'Close Bill & Pay' : 'Confirm Order'}
+                      {order.tableNumber ? 'Close Bill & Pay' : 'Confirm Delivery Order'}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent className="rounded-3xl">
@@ -177,7 +257,7 @@ function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme |
                       <AlertDialogDescription>
                           {order.tableNumber 
                             ? "This will signal the staff that you're ready to pay." 
-                            : "This will confirm your delivery order. Please ensure your address is correct."}
+                            : "This will confirm your delivery order. We'll start preparing it immediately."}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="gap-2">
@@ -301,8 +381,8 @@ export default function PublicMenuPage() {
     startAdding(async () => {
       const result = await addRestaurantOrderItem({
         storeId,
-        tableNumber: tableNumber,
         sessionId,
+        tableNumber: tableNumber,
         item,
         quantity: 1,
         deliveryAddress,
@@ -386,7 +466,8 @@ export default function PublicMenuPage() {
   );
   if (!store || !menu) return <div className="p-12 text-center opacity-50">Menu unavailable.</div>;
   
-  const isBillFinalized = order?.status === 'Completed' || order?.status === 'Delivered';
+  const isFinalizedStatus = ['Completed', 'Delivered'].includes(order?.status || '');
+  const isActiveOrderStatus = ['Pending', 'Processing', 'Out for Delivery', 'Billed'].includes(order?.status || '');
   const theme = menu.theme;
 
   return (
@@ -478,82 +559,89 @@ export default function PublicMenuPage() {
                   </div>
               </div>
 
-              {/* CATEGORY BAR */}
-              {!isBillFinalized && (
-                <ScrollArea className="w-full whitespace-nowrap pb-2">
-                    <div className="flex gap-2">
-                        <Button variant="ghost" size="sm" className={cn("rounded-lg px-3 h-7 font-black text-[9px] uppercase tracking-widest border transition-all active:scale-95", !selectedCategory ? "shadow-md border-transparent" : "opacity-40 border-white/10")} style={{ backgroundColor: !selectedCategory ? theme?.primaryColor : 'transparent', color: !selectedCategory ? theme?.backgroundColor : theme?.primaryColor }} onClick={() => setSelectedCategory(null)}>All</Button>
-                        {availableCategories.map(cat => (
-                            <Button key={cat} variant="ghost" size="sm" className={cn("rounded-lg px-3 h-7 font-black text-[9px] uppercase tracking-widest border transition-all active:scale-95", selectedCategory === cat ? "shadow-md border-transparent" : "opacity-40 border-white/10")} style={{ backgroundColor: selectedCategory === cat ? theme?.primaryColor : 'transparent', color: selectedCategory === cat ? theme?.backgroundColor : theme?.primaryColor }} onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}>{cat}</Button>
-                        ))}
-                    </div>
-                    <ScrollBar orientation="horizontal" className="hidden" />
-                </ScrollArea>
-              )}
-
-              {/* INSTALL PROMPT BANNER */}
-              {canInstall && (
-                  <Card className="rounded-2xl border-dashed border-2 shadow-sm" style={{ borderColor: theme?.primaryColor + '40', backgroundColor: theme?.primaryColor + '05' }}>
-                      <CardContent className="p-4 flex items-center justify-between gap-4">
-                          <div className="flex items-center gap-3">
-                              <div className="bg-primary/10 p-2 rounded-xl" style={{ backgroundColor: theme?.primaryColor + '20' }}>
-                                  <Download className="h-5 w-5" style={{ color: theme?.primaryColor }} />
-                              </div>
-                              <div>
-                                  <p className="text-[10px] font-black uppercase tracking-wider" style={{ color: theme?.primaryColor }}>Quick Access</p>
-                                  <p className="text-xs font-bold leading-tight" style={{ color: theme?.textColor }}>Add {store.name} to Home Screen</p>
-                              </div>
-                          </div>
-                          <Button onClick={triggerInstall} size="sm" className="h-8 px-4 rounded-lg font-black text-[9px] uppercase tracking-widest" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>
-                              Install
-                          </Button>
-                      </CardContent>
-                  </Card>
-              )}
-
-              {/* MENU CONTENT */}
+              {/* MENU CONTENT OR TRACKER */}
               <div className="space-y-6">
-                {order?.status === 'Billed' ? (
+                {isFinalizedStatus ? (
                     <Card className="rounded-[2.5rem] border-0 shadow-2xl" style={{ backgroundColor: theme?.primaryColor + '05' }}>
                         <CardContent className="text-center py-16 px-8">
                             <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-white/5 border border-white/10 shadow-xl"><Check className="h-10 w-10" style={{ color: theme?.primaryColor }} /></div>
                             <h2 className="text-2xl font-black mb-3" style={{color: theme?.textColor}}>Thank You!</h2>
-                            <p className="text-sm font-bold opacity-60 leading-relaxed" style={{color: theme?.textColor}}>{tableNumber ? 'Your bill is closed. Please visit the counter to finalize payment.' : 'Your delivery order has been received. You will be notified of updates.'}</p>
+                            <p className="text-sm font-bold opacity-60 leading-relaxed" style={{color: theme?.textColor}}>{tableNumber ? 'Your visit is complete. We hope to see you again soon!' : 'Your order has been delivered. Enjoy your meal!'}</p>
+                            <Button asChild variant="outline" className="mt-8 rounded-xl h-12 px-8 uppercase font-black text-[10px] tracking-widest" style={{ color: theme?.primaryColor, borderColor: theme?.primaryColor + '20' }}>
+                                <Link href="/">Back to LocalBasket</Link>
+                            </Button>
                         </CardContent>
                     </Card>
-                ) : Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
-                    <div key={category} className="space-y-2">
-                        <h2 className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40 px-1" style={{ color: theme?.textColor }}>{category}</h2>
-                        <div className="grid gap-2">
-                            {items.map((item, index) => {
-                                const isRecentlyAdded = recentlyAdded.has(item.id);
-                                return (
-                                <Card key={item.id || index} className="flex justify-between items-center p-3 shadow-sm rounded-xl transition-all active:scale-[0.98] border" style={{ backgroundColor: 'transparent', borderColor: theme?.primaryColor + '15' }}>
-                                    <div className="flex-1 pr-4 min-w-0">
-                                        <p className="font-bold text-xs leading-tight truncate mb-0.5" style={{ color: theme?.textColor }}>{item.name}</p>
-                                        <p className="text-[10px] font-black" style={{color: theme?.primaryColor}}>₹{item.price.toFixed(2)}</p>
+                ) : isActiveOrderStatus ? (
+                    <LiveOrderTracker order={order!} theme={theme} />
+                ) : (
+                    <>
+                        {/* CATEGORY BAR */}
+                        <ScrollArea className="w-full whitespace-nowrap pb-2">
+                            <div className="flex gap-2">
+                                <Button variant="ghost" size="sm" className={cn("rounded-lg px-3 h-7 font-black text-[9px] uppercase tracking-widest border transition-all active:scale-95", !selectedCategory ? "shadow-md border-transparent" : "opacity-40 border-white/10")} style={{ backgroundColor: !selectedCategory ? theme?.primaryColor : 'transparent', color: !selectedCategory ? theme?.backgroundColor : theme?.primaryColor }} onClick={() => setSelectedCategory(null)}>All</Button>
+                                {availableCategories.map(cat => (
+                                    <Button key={cat} variant="ghost" size="sm" className={cn("rounded-lg px-3 h-7 font-black text-[9px] uppercase tracking-widest border transition-all active:scale-95", selectedCategory === cat ? "shadow-md border-transparent" : "opacity-40 border-white/10")} style={{ backgroundColor: selectedCategory === cat ? theme?.primaryColor : 'transparent', color: selectedCategory === cat ? theme?.backgroundColor : theme?.primaryColor }} onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}>{cat}</Button>
+                                ))}
+                            </div>
+                            <ScrollBar orientation="horizontal" className="hidden" />
+                        </ScrollArea>
+
+                        {/* INSTALL PROMPT BANNER */}
+                        {canInstall && (
+                            <Card className="rounded-2xl border-dashed border-2 shadow-sm" style={{ borderColor: theme?.primaryColor + '40', backgroundColor: theme?.primaryColor + '05' }}>
+                                <CardContent className="p-4 flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-primary/10 p-2 rounded-xl" style={{ backgroundColor: theme?.primaryColor + '20' }}>
+                                            <Download className="h-5 w-5" style={{ color: theme?.primaryColor }} />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase tracking-wider" style={{ color: theme?.primaryColor }}>Quick Access</p>
+                                            <p className="text-xs font-bold leading-tight" style={{ color: theme?.textColor }}>Add {store.name} to Home Screen</p>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => handleShowIngredients(item)}><Eye className="h-4 w-4" style={{ color: theme?.textColor }} /></Button>
-                                         <Button onClick={() => handleAddItem(item)} disabled={isAdding || isRecentlyAdded} className={cn("w-16 h-8 rounded-lg text-[9px] uppercase tracking-widest font-black shadow-sm transition-all", isRecentlyAdded ? "bg-green-600 border-0" : "")} style={{ backgroundColor: isRecentlyAdded ? '' : theme?.primaryColor, color: theme?.backgroundColor }}>{isRecentlyAdded ? <Check className="h-3 w-3" /> : (isAdding ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add') }</Button>
-                                    </div>
-                                </Card>
-                            )})}
-                        </div>
-                    </div>
-                ))}
-                
-                {Object.keys(groupedMenu).length === 0 && !orderLoading && (
-                    <div className="text-center py-24 space-y-4">
-                        <Utensils className="mx-auto h-10 w-10 opacity-10" style={{ color: theme?.textColor }} />
-                        <p className="text-[10px] font-bold opacity-30 uppercase tracking-widest" style={{ color: theme?.textColor }}>No dishes found</p>
-                    </div>
+                                    <Button onClick={triggerInstall} size="sm" className="h-8 px-4 rounded-lg font-black text-[9px] uppercase tracking-widest" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>
+                                        Install
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
+                            <div key={category} className="space-y-2">
+                                <h2 className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40 px-1" style={{ color: theme?.textColor }}>{category}</h2>
+                                <div className="grid gap-2">
+                                    {items.map((item, index) => {
+                                        const isRecentlyAdded = recentlyAdded.has(item.id);
+                                        return (
+                                        <Card key={item.id || index} className="flex justify-between items-center p-3 shadow-sm rounded-xl transition-all active:scale-[0.98] border" style={{ backgroundColor: 'transparent', borderColor: theme?.primaryColor + '15' }}>
+                                            <div className="flex-1 pr-4 min-w-0">
+                                                <p className="font-bold text-xs leading-tight truncate mb-0.5" style={{ color: theme?.textColor }}>{item.name}</p>
+                                                <p className="text-[10px] font-black" style={{color: theme?.primaryColor}}>₹{item.price.toFixed(2)}</p>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => handleShowIngredients(item)}><Eye className="h-4 w-4" style={{ color: theme?.textColor }} /></Button>
+                                                <Button onClick={() => handleAddItem(item)} disabled={isAdding || isRecentlyAdded} className={cn("w-16 h-8 rounded-lg text-[9px] uppercase tracking-widest font-black shadow-sm transition-all", isRecentlyAdded ? "bg-green-600 border-0" : "")} style={{ backgroundColor: isRecentlyAdded ? '' : theme?.primaryColor, color: theme?.backgroundColor }}>{isRecentlyAdded ? <Check className="h-3 w-3" /> : (isAdding ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add') }</Button>
+                                            </div>
+                                        </Card>
+                                    )})}
+                                </div>
+                            </div>
+                        ))}
+                        
+                        {Object.keys(groupedMenu).length === 0 && !orderLoading && (
+                            <div className="text-center py-24 space-y-4">
+                                <Utensils className="mx-auto h-10 w-10 opacity-10" style={{ color: theme?.textColor }} />
+                                <p className="text-[10px] font-bold opacity-30 uppercase tracking-widest" style={{ color: theme?.textColor }}>No dishes found</p>
+                            </div>
+                        )}
+                    </>
                 )}
               </div>
             </div>
           </div>
           
-          {itemCount > 0 && order?.status !== 'Billed' && !isBillFinalized && (
+          {itemCount > 0 && !isActiveOrderStatus && !isFinalizedStatus && (
                <Sheet>
                   <SheetTrigger asChild>
                       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[200px] px-4">
@@ -563,7 +651,7 @@ export default function PublicMenuPage() {
                       </div>
                   </SheetTrigger>
                   <SheetContent side="bottom" className="h-[70vh] rounded-t-[2.5rem] p-0 border-0 overflow-hidden shadow-[0_-15px_50px_rgba(0,0,0,0.25)]">
-                      <LiveBillSheet orderId={order.id} theme={theme} />
+                      <LiveBillSheet orderId={order!.id} theme={theme} />
                   </SheetContent>
               </Sheet>
           )}
