@@ -79,6 +79,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import type { GetIngredientsOutput } from '@/lib/types';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import type { Timestamp } from 'firebase/firestore';
 
 /**
  * Visual tracker showing the progress of a confirmed order.
@@ -119,26 +120,27 @@ function LiveOrderTracker({ order, theme }: { order: Order; theme: MenuTheme | u
                         const currentIdx = statuses.indexOf(order.status);
                         const stepIdx = statuses.indexOf(step.key);
                         
-                        // A step is "Done" if the current order status is the same or further along.
-                        // Special case: 'Billed' means food was prepared.
-                        const isDone = currentIdx >= stepIdx || (order.status === 'Billed' && stepIdx <= 1);
+                        // HIGHLIGHT: A step is "Done" (checkmark) if we have PASSED it.
+                        // A step is "Current" if it is the active status.
+                        const isDone = currentIdx > stepIdx;
+                        const isCurrent = currentIdx === stepIdx;
                         
                         return (
                             <div key={step.key} className="flex items-center gap-4 relative">
                                 {i < arr.length - 1 && (
                                     <div className="absolute left-[11px] top-6 w-0.5 h-6 bg-black/10">
-                                        <div className="h-full bg-primary transition-all duration-1000" style={{ height: isDone ? '100%' : '0%', backgroundColor: theme?.primaryColor }} />
+                                        <div className="h-full transition-all duration-1000" style={{ height: isDone ? '100%' : '0%', backgroundColor: theme?.primaryColor }} />
                                     </div>
                                 )}
                                 <div className={cn(
                                     "h-6 w-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-500",
-                                    isDone ? "bg-primary border-transparent" : "border-black/10"
-                                )} style={{ backgroundColor: isDone ? theme?.primaryColor : '' }}>
-                                    {isDone ? <Check className="h-3 w-3 text-white" /> : <div className="h-1.5 w-1.5 rounded-full bg-black/10" />}
+                                    isDone ? "bg-primary border-transparent" : isCurrent ? "border-primary animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]" : "border-black/10"
+                                )} style={{ backgroundColor: isDone ? theme?.primaryColor : '', borderColor: isCurrent ? theme?.primaryColor : '' }}>
+                                    {isDone ? <Check className="h-3 w-3 text-white" /> : <div className="h-1.5 w-1.5 rounded-full bg-black/10" style={{ backgroundColor: isCurrent ? theme?.primaryColor : '' }} />}
                                 </div>
                                 <span className={cn(
                                     "text-[10px] font-black uppercase tracking-widest transition-all",
-                                    isDone ? "opacity-100" : "opacity-20"
+                                    isDone || isCurrent ? "opacity-100 font-extrabold" : "opacity-20"
                                 )} style={{ color: theme?.textColor }}>
                                     {step.label}
                                 </span>

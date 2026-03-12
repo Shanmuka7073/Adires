@@ -11,6 +11,12 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem
+} from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
 import {
   CookingPot,
   Truck,
@@ -24,20 +30,16 @@ import {
   MapPin,
   Phone
 } from 'lucide-react';
-
+import Link from 'next/link';
 import {
-  collection, query, where, orderBy, doc, writeBatch
+  collection, query, where, orderBy, doc, writeBatch, updateDoc, Timestamp
 } from 'firebase/firestore';
-
-import { useFirebase, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { useToast } from '@/hooks/use-toast';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
-import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
-import Link from 'next/link';
 import { markSessionAsPaid } from '@/app/actions';
-import type { Timestamp } from 'firebase/firestore';
+import { Label } from '@/components/ui/label';
 
 
 const STATUS_META: Record<string, any> = {
@@ -195,7 +197,7 @@ function DeliveryOrderCard({ order, onStatusChange, isUpdating }: { order: Order
                     </div>
                     <div className="flex items-start gap-2">
                         <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                        <span>{order.deliveryAddress}</span>
+                        <span className="break-all">{order.deliveryAddress}</span>
                     </div>
                     <div className="flex items-start gap-2">
                         <Phone className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
@@ -216,27 +218,47 @@ function DeliveryOrderCard({ order, onStatusChange, isUpdating }: { order: Order
                     </div>
                 </div>
             </CardContent>
-            <CardFooter className="flex flex-col gap-2 border-t pt-4">
-                {order.status === 'Pending' && (
-                    <Button onClick={() => onStatusChange(order.id, 'Processing')} disabled={isUpdating} size="sm" className="w-full">
-                        <Check className="mr-2 h-4 w-4" /> Accept & Start Preparing
+            <CardFooter className="flex flex-col gap-3 border-t pt-4">
+                <div className="w-full space-y-1.5">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Action / Status</Label>
+                    <Select 
+                        value={order.status} 
+                        onValueChange={(val) => onStatusChange(order.id, val as Order['status'])}
+                        disabled={isUpdating || ['Delivered', 'Completed'].includes(order.status)}
+                    >
+                        <SelectTrigger className="w-full h-10 font-bold">
+                            <SelectValue placeholder="Change status..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Pending">Pending (New)</SelectItem>
+                            <SelectItem value="Processing">Processing (Kitchen)</SelectItem>
+                            <SelectItem value="Out for Delivery">Out for Delivery</SelectItem>
+                            <SelectItem value="Delivered">Delivered</SelectItem>
+                            <SelectItem value="Cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2 w-full">
+                    {order.status === 'Pending' && (
+                        <Button onClick={() => onStatusChange(order.id, 'Processing')} disabled={isUpdating} size="sm" className="w-full bg-blue-600 hover:bg-blue-700">
+                            Accept
+                        </Button>
+                    )}
+                    {order.status === 'Processing' && (
+                        <Button onClick={() => onStatusChange(order.id, 'Out for Delivery')} disabled={isUpdating} size="sm" className="w-full bg-orange-600 hover:bg-orange-700">
+                            Send Out
+                        </Button>
+                    )}
+                    {order.status === 'Out for Delivery' && (
+                        <Button onClick={() => onStatusChange(order.id, 'Delivered')} disabled={isUpdating} size="sm" className="w-full bg-green-600 hover:bg-green-700">
+                            Delivered
+                        </Button>
+                    )}
+                    <Button variant="outline" size="sm" className="w-full" asChild>
+                        <Link href={`/live-order/${order.id}`}>Track</Link>
                     </Button>
-                )}
-                {order.status === 'Processing' && (
-                    <Button onClick={() => onStatusChange(order.id, 'Out for Delivery')} disabled={isUpdating} size="sm" className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-                        <Truck className="mr-2 h-4 w-4" /> Send for Delivery (On the Way)
-                    </Button>
-                )}
-                {order.status === 'Out for Delivery' && (
-                    <Button onClick={() => onStatusChange(order.id, 'Delivered')} disabled={isUpdating} size="sm" className="w-full bg-green-600 hover:bg-green-700 text-white">
-                        <CheckCircle className="mr-2 h-4 w-4" /> Mark as Delivered
-                    </Button>
-                )}
-                {['Delivered', 'Completed'].includes(order.status) && (
-                    <div className="flex items-center justify-center gap-2 py-2 text-green-600 font-bold text-sm w-full bg-green-50 rounded-lg">
-                        <CheckCircle className="h-4 w-4" /> Order Successfully Delivered
-                    </div>
-                )}
+                </div>
             </CardFooter>
         </Card>
     );
