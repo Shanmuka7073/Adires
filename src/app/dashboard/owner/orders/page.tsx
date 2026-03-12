@@ -272,6 +272,12 @@ function DeliveryOrderCard({ order, store, onStatusChange, isUpdating }: { order
                         <Users className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
                         <span className="font-black text-blue-900 truncate">{order.customerName}</span>
                     </div>
+                    {order.phone && (
+                        <div className="flex items-start gap-3">
+                            <Phone className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+                            <span className="font-black text-blue-900">{order.phone}</span>
+                        </div>
+                    )}
                     <div className="flex items-start gap-3">
                         <MapPin className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
                         <div className="min-w-0">
