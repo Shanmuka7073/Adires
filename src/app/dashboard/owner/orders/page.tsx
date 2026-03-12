@@ -25,7 +25,8 @@ import {
   MapPin,
   Phone,
   ArrowRight,
-  Video
+  Video,
+  ExternalLink
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -172,8 +173,26 @@ function SessionCard({ session, isUpdating }: { session: Session; isUpdating: bo
   )
 }
 
-function DeliveryOrderCard({ order, onStatusChange, isUpdating }: { order: Order; onStatusChange: (id: string, status: Order['status']) => void; isUpdating: boolean }) {
+function DeliveryOrderCard({ order, store, onStatusChange, isUpdating }: { order: Order; store?: Store; onStatusChange: (id: string, status: Order['status']) => void; isUpdating: boolean }) {
     const meta = STATUS_META[order.status] || STATUS_META.Pending;
+
+    const handleOpenMap = () => {
+        if (!order.deliveryLat || !order.deliveryLng) {
+            // Fallback to text search if coords are missing
+            const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.deliveryAddress)}`;
+            window.open(url, '_blank');
+            return;
+        }
+
+        // Use Directions API format: /maps/dir/?api=1&origin=...&destination=...
+        let url = `https://www.google.com/maps/dir/?api=1&destination=${order.deliveryLat},${order.deliveryLng}`;
+        
+        if (store?.latitude && store?.longitude) {
+            url += `&origin=${store.latitude},${store.longitude}`;
+        }
+        
+        window.open(url, '_blank');
+    };
 
     return (
         <Card className="border-l-4 border-l-blue-500 shadow-xl overflow-hidden rounded-2xl transition-all hover:scale-[1.02]">
@@ -190,14 +209,23 @@ function DeliveryOrderCard({ order, onStatusChange, isUpdating }: { order: Order
                 </div>
             </CardHeader>
             <CardContent className="space-y-4 pt-4">
-                <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 space-y-3 text-xs">
+                <div 
+                    className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 space-y-3 text-xs cursor-pointer hover:bg-blue-100/50 transition-colors group"
+                    onClick={handleOpenMap}
+                    title="Click to open directions in Google Maps"
+                >
                     <div className="flex items-start gap-3">
                         <Users className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
                         <span className="font-black text-blue-900">{order.customerName}</span>
                     </div>
                     <div className="flex items-start gap-3">
                         <MapPin className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
-                        <span className="font-bold text-blue-800 leading-relaxed">{order.deliveryAddress}</span>
+                        <div className="flex flex-col min-w-0">
+                            <span className="font-bold text-blue-800 leading-relaxed break-words">{order.deliveryAddress}</span>
+                            <span className="text-[9px] text-blue-600 font-black uppercase mt-1 flex items-center gap-1 opacity-60 group-hover:opacity-100">
+                                <ExternalLink className="h-2.5 w-2.5" /> Tap to open maps
+                            </span>
+                        </div>
                     </div>
                     <div className="flex items-start gap-3">
                         <Phone className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
@@ -431,6 +459,7 @@ export default function StoreOrdersPage() {
                                 <DeliveryOrderCard 
                                     key={order.id} 
                                     order={order} 
+                                    store={myStore}
                                     onStatusChange={handleOrderUpdate} 
                                     isUpdating={isUpdating} 
                                 />
