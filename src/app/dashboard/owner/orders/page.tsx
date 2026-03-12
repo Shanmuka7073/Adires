@@ -38,6 +38,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { markSessionAsPaid } from '@/app/actions';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 
 
 const STATUS_META: Record<string, any> = {
@@ -178,19 +179,14 @@ function DeliveryOrderCard({ order, store, onStatusChange, isUpdating }: { order
 
     const handleOpenMap = () => {
         if (!order.deliveryLat || !order.deliveryLng) {
-            // Fallback to text search if coords are missing
             const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.deliveryAddress)}`;
             window.open(url, '_blank');
             return;
         }
-
-        // Use Directions API format: /maps/dir/?api=1&origin=...&destination=...
         let url = `https://www.google.com/maps/dir/?api=1&destination=${order.deliveryLat},${order.deliveryLng}`;
-        
         if (store?.latitude && store?.longitude) {
             url += `&origin=${store.latitude},${store.longitude}`;
         }
-        
         window.open(url, '_blank');
     };
 
@@ -325,14 +321,20 @@ export default function StoreOrdersPage() {
 
   const { data: orders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
 
-  const { sessions, homeDeliveries } = useMemo(() => {
+  const { sessions, homeDeliveries, allCompletedOrders } = useMemo(() => {
     const tableSessions: Record<string, Session> = {};
     const directDeliveries: Order[] = [];
+    const completed: Order[] = [];
 
-    if (!orders) return { sessions: tableSessions, homeDeliveries: directDeliveries };
+    if (!orders) return { sessions: tableSessions, homeDeliveries: directDeliveries, allCompletedOrders: completed };
 
     orders.forEach(order => {
-        if (order.status === 'Draft') return; // Hide drafts from owner dashboard
+        if (order.status === 'Draft') return;
+
+        // Collect all completed or delivered orders for the summary section
+        if (['Completed', 'Delivered'].includes(order.status)) {
+            completed.push(order);
+        }
 
         if (order.tableNumber && order.sessionId) {
             const sessionId = order.sessionId;
@@ -358,7 +360,7 @@ export default function StoreOrdersPage() {
         }
     });
 
-    return { sessions: tableSessions, homeDeliveries: directDeliveries };
+    return { sessions: tableSessions, homeDeliveries: directDeliveries, allCompletedOrders: completed };
   }, [orders]);
   
   useEffect(() => {
@@ -516,23 +518,28 @@ export default function StoreOrdersPage() {
                 )}
             </section>
 
-             {/* --- COMPLETED DELIVERIES --- */}
-             {homeDeliveries.some(o => ['Completed', 'Delivered'].includes(o.status)) && (
+             {/* --- RECENT COMPLETED ORDERS (Unified) --- */}
+             {allCompletedOrders.length > 0 && (
                 <section className="pt-12 border-t border-black/5">
-                    <h2 className="text-xs font-black uppercase tracking-[0.3em] mb-6 opacity-30 text-center">Recent Completed Orders</h2>
+                    <h2 className="text-[10px] font-black uppercase tracking-[0.4em] mb-8 opacity-30 text-center">Recent Completed Orders</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {homeDeliveries
-                            .filter(o => ['Completed', 'Delivered'].includes(o.status))
-                            .slice(0, 8)
+                        {allCompletedOrders
+                            .slice(0, 12)
                             .map(order => (
-                                <Card key={order.id} className="bg-muted/20 border-0 shadow-none rounded-2xl group transition-all hover:bg-muted/40">
+                                <Card key={order.id} className="bg-white border-0 shadow-sm rounded-2xl group transition-all hover:shadow-md hover:scale-[1.02]">
                                     <CardContent className="p-4 flex justify-between items-center">
                                         <div className="min-w-0 pr-4">
-                                            <p className="font-black text-[11px] truncate leading-tight mb-0.5">{order.customerName}</p>
-                                            <p className="text-[9px] font-bold opacity-40 uppercase tracking-tighter">{format((order.orderDate as Timestamp).toDate(), 'p')}</p>
+                                            <p className="font-black text-[11px] truncate leading-tight mb-0.5">
+                                                {order.tableNumber ? `Table ${order.tableNumber}` : order.customerName}
+                                            </p>
+                                            <p className="text-[9px] font-bold opacity-40 uppercase tracking-tighter">
+                                                {format((order.orderDate as Timestamp).toDate(), 'p')}
+                                            </p>
                                         </div>
                                         <div className="text-right shrink-0">
-                                            <Badge variant="outline" className="text-[8px] font-black uppercase border-green-500/20 text-green-600 bg-green-50 px-1 py-0 mb-1">Delivered</Badge>
+                                            <Badge variant="outline" className="text-[8px] font-black uppercase border-green-500/20 text-green-600 bg-green-50 px-1.5 py-0 mb-1 rounded-sm">
+                                                {order.status === 'Delivered' ? 'Delivered' : 'Paid'}
+                                            </Badge>
                                             <p className="font-black text-xs text-primary tracking-tighter">₹{order.totalAmount.toFixed(0)}</p>
                                         </div>
                                     </CardContent>
