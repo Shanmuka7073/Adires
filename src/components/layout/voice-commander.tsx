@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -35,7 +36,6 @@ export interface Command {
 interface VoiceCommanderProps {
   enabled: boolean;
   onStatusUpdate: (status: string) => void;
-  onSuggestions: (suggestions: Command[]) => void;
   onOpenCart: () => void;
   onCloseCart: () => void;
   isCartOpen: boolean;
@@ -109,6 +109,7 @@ export function VoiceCommander({
     handleUseCurrentLocation,
     handleUseHomeAddress,
     placeOrderBtnRef,
+    isWaitingForQuickOrderConfirmation, // FIXED: Added missing destructuring
     setIsWaitingForQuickOrderConfirmation,
     setHomeAddress,
     setShouldUseCurrentLocation
