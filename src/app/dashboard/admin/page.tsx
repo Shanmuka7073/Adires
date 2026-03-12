@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -39,7 +38,8 @@ import {
   Truck,
   PackageSearch,
   FileJson,
-  Smartphone
+  Smartphone,
+  Briefcase
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
