@@ -5,13 +5,8 @@ import { Order, Store } from '@/lib/types';
 import {
   Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter
 } from '@/components/ui/card';
-import {
-  Accordion, AccordionContent, AccordionItem, AccordionTrigger
-} from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem
 } from '@/components/ui/select';
@@ -28,7 +23,9 @@ import {
   BarChart3,
   Users,
   MapPin,
-  Phone
+  Phone,
+  ArrowRight,
+  Video
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -92,7 +89,7 @@ function EmptyTableCard({ tableNumber }: { tableNumber: string }) {
 }
 
 
-function SessionCard({ session, onStatusChange, isUpdating }: { session: Session; onStatusChange: (sessionId: string, newStatus: Order['status']) => void; isUpdating: boolean }) {
+function SessionCard({ session, isUpdating }: { session: Session; isUpdating: boolean }) {
   const { toast } = useToast();
   const [isCompleting, startCompletion] = useTransition();
 
@@ -114,8 +111,8 @@ function SessionCard({ session, onStatusChange, isUpdating }: { session: Session
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
             <div>
-                 <CardTitle className="text-xl">Table {session.tableNumber || 'N/A'}</CardTitle>
-                 <CardDescription className="text-[10px] font-mono">ID: {session.id.slice(0, 8)}</CardDescription>
+                 <CardTitle className="text-xl text-primary font-bold">Table {session.tableNumber || 'N/A'}</CardTitle>
+                 <CardDescription className="text-[10px] font-mono">Session: {session.id.slice(-6)}</CardDescription>
             </div>
              <Badge variant={meta?.variant || 'secondary'} className="px-2 py-0.5">
                 {session.status}
@@ -124,49 +121,50 @@ function SessionCard({ session, onStatusChange, isUpdating }: { session: Session
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <h4 className="text-xs font-bold uppercase text-muted-foreground mb-2 tracking-wider">Current Order</h4>
-          <div className="max-h-32 overflow-y-auto space-y-1.5 pr-2">
+          <h4 className="text-[10px] font-black uppercase text-muted-foreground mb-2 tracking-widest">Order Details</h4>
+          <div className="max-h-32 overflow-y-auto space-y-1 pr-2 custom-scrollbar">
             {session.orders.flatMap(o => o.items).map((item, index) => (
-              <div key={index} className="flex justify-between items-center text-xs p-2 bg-muted/50 rounded-md">
-                <span className="font-medium">{item.productName} <span className="text-muted-foreground font-normal">x{item.quantity}</span></span>
-                <span className="font-mono">₹{(item.price * item.quantity).toFixed(0)}</span>
+              <div key={index} className="flex justify-between items-center text-[11px] p-2 bg-muted/50 rounded-lg">
+                <span className="font-bold">{item.productName} <span className="opacity-50">x{item.quantity}</span></span>
+                <span className="font-black">₹{(item.price * item.quantity).toFixed(0)}</span>
               </div>
             ))}
           </div>
         </div>
         <div className="border-t pt-4 space-y-4">
-            <div className="flex justify-between font-bold text-lg">
-                <span>Total Bill</span>
-                <span>₹{session.totalAmount.toFixed(2)}</span>
+            <div className="flex justify-between font-black text-lg">
+                <span className="opacity-60 text-sm uppercase tracking-tighter">Total Bill</span>
+                <span className="text-primary">₹{session.totalAmount.toFixed(2)}</span>
             </div>
             
             <AlertDialog>
                 <AlertDialogTrigger asChild>
                     <Button 
-                        className={session.status === 'Billed' ? 'w-full bg-green-600 hover:bg-green-700' : 'w-full'}
+                        className={session.status === 'Billed' ? 'w-full h-12 bg-green-600 hover:bg-green-700 rounded-xl shadow-lg' : 'w-full rounded-xl'}
                         variant={session.status === 'Billed' ? 'default' : 'outline'}
                         disabled={isUpdating || isCompleting || session.status === 'Completed'}
-                        size="sm"
                     >
                         {isCompleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Check className="mr-2 h-4 w-4" />}
-                        {session.status === 'Billed' ? 'Receive Payment' : 'Confirm Payment'}
+                        {session.status === 'Billed' ? 'Receive Payment' : 'Confirm Order'}
                     </Button>
                 </AlertDialogTrigger>
-                <AlertDialogContent>
+                <AlertDialogContent className="rounded-[2rem]">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Confirm Payment Received?</AlertDialogTitle>
+                        <AlertDialogTitle>Finalize Session?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This will finalize the bill for table {session.tableNumber} and mark the session as completed.
+                            This will confirm that payment has been received for Table {session.tableNumber} and close the session.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleConfirmPayment}>Yes, Payment Received</AlertDialogAction>
+                    <AlertDialogFooter className="gap-2">
+                        <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmPayment} className="rounded-xl bg-green-600">Yes, Confirm Payment</AlertDialogAction>
                     </AlertDialogFooter>
-                </AlertDialogContent>
+                </AlertDialog>
             </AlertDialog>
-            {session.status === 'Pending' && (
-                <p className="text-[10px] text-center text-muted-foreground italic">Waiting for customer to finalize their order...</p>
+            {session.status === 'Billed' && (
+                <div className="flex items-center justify-center gap-2 text-[10px] font-black uppercase text-green-600 animate-pulse">
+                    <AlertTriangle className="h-3 w-3" /> Ready to Pay
+                </div>
             )}
         </div>
       </CardContent>
@@ -176,63 +174,68 @@ function SessionCard({ session, onStatusChange, isUpdating }: { session: Session
 
 function DeliveryOrderCard({ order, onStatusChange, isUpdating }: { order: Order; onStatusChange: (id: string, status: Order['status']) => void; isUpdating: boolean }) {
     const meta = STATUS_META[order.status] || STATUS_META.Pending;
-    const Icon = meta.icon;
 
     return (
-        <Card className="border-l-4 border-l-blue-500 shadow-md">
-            <CardHeader className="pb-2">
+        <Card className="border-l-4 border-l-blue-500 shadow-xl overflow-hidden rounded-2xl transition-all hover:scale-[1.02]">
+            <CardHeader className="pb-3 bg-muted/20">
                 <div className="flex justify-between items-start">
                     <div>
-                        <CardTitle className="text-lg">Delivery Order</CardTitle>
-                        <CardDescription className="text-xs">{format((order.orderDate as Timestamp).toDate(), 'p, PPP')}</CardDescription>
+                        <div className="flex items-center gap-2 mb-1">
+                            <Package className="h-4 w-4 text-blue-600" />
+                            <CardTitle className="text-base font-black uppercase tracking-tight">Delivery #{order.id.slice(-6)}</CardTitle>
+                        </div>
+                        <CardDescription className="text-[10px] font-bold opacity-60">{format((order.orderDate as Timestamp).toDate(), 'p, PPP')}</CardDescription>
                     </div>
-                    <Badge variant={meta.variant} className="capitalize">{order.status}</Badge>
+                    <Badge variant={meta.variant} className="rounded-md px-2 py-0.5 text-[9px] font-black uppercase tracking-widest">{order.status}</Badge>
                 </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="bg-muted/30 p-3 rounded-lg space-y-2 text-sm">
-                    <div className="flex items-start gap-2">
-                        <Users className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                        <span className="font-bold">{order.customerName}</span>
+            <CardContent className="space-y-4 pt-4">
+                <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 space-y-3 text-xs">
+                    <div className="flex items-start gap-3">
+                        <Users className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+                        <span className="font-black text-blue-900">{order.customerName}</span>
                     </div>
-                    <div className="flex items-start gap-2">
-                        <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                        <span className="break-all">{order.deliveryAddress}</span>
+                    <div className="flex items-start gap-3">
+                        <MapPin className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+                        <span className="font-bold text-blue-800 leading-relaxed">{order.deliveryAddress}</span>
                     </div>
-                    <div className="flex items-start gap-2">
-                        <Phone className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                        <span className="font-mono">{order.phone}</span>
+                    <div className="flex items-start gap-3">
+                        <Phone className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+                        <span className="font-black text-blue-900 tracking-tighter">{order.phone}</span>
                     </div>
                 </div>
 
-                <div className="space-y-1">
-                    {order.items.map((item, idx) => (
-                        <div key={idx} className="flex justify-between text-xs">
-                            <span>{item.productName} x{item.quantity}</span>
-                            <span className="font-mono">₹{(item.price * item.quantity).toFixed(0)}</span>
-                        </div>
-                    ))}
-                    <div className="flex justify-between font-bold border-t pt-2 mt-2">
-                        <span>Total</span>
-                        <span>₹{order.totalAmount.toFixed(2)}</span>
+                <div className="space-y-2">
+                    <h4 className="text-[9px] font-black uppercase tracking-widest opacity-40">Order Items</h4>
+                    <div className="max-h-24 overflow-y-auto space-y-1 custom-scrollbar">
+                        {order.items.map((item, idx) => (
+                            <div key={idx} className="flex justify-between text-[11px] font-bold p-1">
+                                <span>{item.productName} <span className="opacity-40">x{item.quantity}</span></span>
+                                <span className="font-black">₹{(item.price * item.quantity).toFixed(0)}</span>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="flex justify-between font-black border-t border-black/5 pt-2 mt-2">
+                        <span className="text-[10px] uppercase opacity-40">Grand Total</span>
+                        <span className="text-base text-primary">₹{order.totalAmount.toFixed(2)}</span>
                     </div>
                 </div>
             </CardContent>
-            <CardFooter className="flex flex-col gap-3 border-t pt-4">
+            <CardFooter className="flex flex-col gap-3 border-t border-black/5 pt-4 bg-muted/10">
                 <div className="w-full space-y-1.5">
-                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Action / Status</Label>
+                    <Label className="text-[9px] uppercase font-black tracking-widest opacity-40 px-1">Quick Status Update</Label>
                     <Select 
                         value={order.status} 
                         onValueChange={(val) => onStatusChange(order.id, val as Order['status'])}
                         disabled={isUpdating || ['Delivered', 'Completed'].includes(order.status)}
                     >
-                        <SelectTrigger className="w-full h-10 font-bold">
-                            <SelectValue placeholder="Change status..." />
+                        <SelectTrigger className="w-full h-11 rounded-xl font-bold bg-white border-2">
+                            <SelectValue placeholder="Update status..." />
                         </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Pending">Pending (New)</SelectItem>
-                            <SelectItem value="Processing">Processing (Kitchen)</SelectItem>
-                            <SelectItem value="Out for Delivery">Out for Delivery</SelectItem>
+                        <SelectContent className="rounded-xl">
+                            <SelectItem value="Pending">New Order</SelectItem>
+                            <SelectItem value="Processing">In Kitchen</SelectItem>
+                            <SelectItem value="Out for Delivery">Sent for Delivery</SelectItem>
                             <SelectItem value="Delivered">Delivered</SelectItem>
                             <SelectItem value="Cancelled">Cancelled</SelectItem>
                         </SelectContent>
@@ -241,22 +244,24 @@ function DeliveryOrderCard({ order, onStatusChange, isUpdating }: { order: Order
                 
                 <div className="grid grid-cols-2 gap-2 w-full">
                     {order.status === 'Pending' && (
-                        <Button onClick={() => onStatusChange(order.id, 'Processing')} disabled={isUpdating} size="sm" className="w-full bg-blue-600 hover:bg-blue-700">
-                            Accept
+                        <Button onClick={() => onStatusChange(order.id, 'Processing')} disabled={isUpdating} className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 font-black text-[10px] uppercase tracking-widest">
+                            Accept & Start
                         </Button>
                     )}
                     {order.status === 'Processing' && (
-                        <Button onClick={() => onStatusChange(order.id, 'Out for Delivery')} disabled={isUpdating} size="sm" className="w-full bg-orange-600 hover:bg-orange-700">
-                            Send Out
+                        <Button onClick={() => onStatusChange(order.id, 'Out for Delivery')} disabled={isUpdating} className="w-full h-11 rounded-xl bg-orange-600 hover:bg-orange-700 font-black text-[10px] uppercase tracking-widest">
+                            Mark Out
                         </Button>
                     )}
                     {order.status === 'Out for Delivery' && (
-                        <Button onClick={() => onStatusChange(order.id, 'Delivered')} disabled={isUpdating} size="sm" className="w-full bg-green-600 hover:bg-green-700">
-                            Delivered
+                        <Button onClick={() => onStatusChange(order.id, 'Delivered')} disabled={isUpdating} className="w-full h-11 rounded-xl bg-green-600 hover:bg-green-700 font-black text-[10px] uppercase tracking-widest">
+                            Confirm Delivered
                         </Button>
                     )}
-                    <Button variant="outline" size="sm" className="w-full" asChild>
-                        <Link href={`/live-order/${order.id}`}>Track</Link>
+                    <Button variant="outline" className="w-full h-11 rounded-xl border-2 font-black text-[10px] uppercase tracking-widest" asChild>
+                        <Link href={`/live-order/${order.id}`}>
+                            <Video className="mr-2 h-3.5 w-3.5" /> Track
+                        </Link>
                     </Button>
                 </div>
             </CardFooter>
@@ -300,7 +305,6 @@ export default function StoreOrdersPage() {
 
     orders.forEach(order => {
         if (order.tableNumber && order.sessionId) {
-            // It's a table order
             const sessionId = order.sessionId;
             if (!tableSessions[sessionId]) {
                 tableSessions[sessionId] = {
@@ -319,8 +323,7 @@ export default function StoreOrdersPage() {
                 tableSessions[sessionId].lastActivity = orderDate;
                 tableSessions[sessionId].status = order.status;
             }
-        } else {
-            // It's a home order (no table number)
+        } else if (!order.tableNumber) {
             directDeliveries.push(order);
         }
     });
@@ -329,13 +332,12 @@ export default function StoreOrdersPage() {
   }, [orders]);
   
   useEffect(() => {
-    // 1. Monitor Table Sessions for "Ready to Pay"
     Object.values(sessions).forEach(session => {
         if(session.status === 'Billed' && !billedSessionIds.current.has(session.id)) {
             playNotificationSound();
             toast({
-                title: 'Payment Request',
-                description: `Table ${session.tableNumber} is ready to pay.`,
+                title: 'Table Payment Requested',
+                description: `Table ${session.tableNumber} is ready to pay. Check the floor map.`,
                 duration: 10000,
             });
             billedSessionIds.current.add(session.id);
@@ -344,12 +346,11 @@ export default function StoreOrdersPage() {
         }
     });
 
-    // 2. Monitor Home Deliveries for "New Incoming"
     homeDeliveries.forEach(order => {
         if (order.status === 'Pending' && !pendingOrderIds.current.has(order.id)) {
             playNotificationSound();
             toast({
-                title: 'New Home Order!',
+                title: 'New Delivery Order!',
                 description: `Incoming delivery for ${order.customerName}.`,
                 variant: 'default',
                 duration: 15000,
@@ -361,28 +362,12 @@ export default function StoreOrdersPage() {
     });
   }, [sessions, homeDeliveries, toast]);
 
-  const handleSessionStatusChange = (sessionId: string, newStatus: Order['status']) => {
-    if (!firestore) return;
-    const session = sessions[sessionId];
-    if (!session) return;
-    
-    startUpdateTransition(async () => {
-        const batch = writeBatch(firestore);
-        session.orders.forEach(order => {
-            const orderRef = doc(firestore, 'orders', order.id);
-            batch.update(orderRef, { status: newStatus });
-        });
-        await batch.commit();
-        toast({ title: 'Session Updated', description: `Table ${session.tableNumber} marked as ${newStatus}.`});
-    });
-  };
-
   const handleOrderUpdate = (orderId: string, newStatus: Order['status']) => {
       if (!firestore) return;
       startUpdateTransition(async () => {
           try {
               const orderRef = doc(firestore, 'orders', orderId);
-              await updateDoc(orderRef, { status: newStatus });
+              await updateDoc(orderRef, { status: newStatus, updatedAt: serverTimestamp() });
               toast({ title: "Order Updated", description: `Order status changed to ${newStatus}.` });
           } catch (e) {
               console.error(e);
@@ -404,35 +389,42 @@ export default function StoreOrdersPage() {
   const isLoading = storeLoading || ordersLoading;
 
   return (
-    <div className="container mx-auto py-12 px-4 md:px-6">
-        <div className="mb-8 flex flex-col md:flex-row justify-between md:items-center gap-4">
+    <div className="container mx-auto py-8 px-4 md:px-6 max-w-7xl">
+        <div className="mb-10 flex flex-col md:flex-row justify-between md:items-end gap-6 border-b pb-8 border-black/5">
             <div>
-                <h1 className="text-4xl font-bold font-headline">Live Orders Dashboard</h1>
-                <p className="text-muted-foreground">Monitor table sessions and home deliveries in real-time.</p>
+                <h1 className="text-5xl font-black font-headline tracking-tighter">Live Operations</h1>
+                <p className="text-muted-foreground font-bold mt-2 uppercase text-[10px] tracking-widest">Managing: {myStore?.name || 'Loading Store...'}</p>
             </div>
-            <div className="flex gap-2">
-                <Button asChild variant="outline">
+            <div className="flex gap-3">
+                <Button asChild variant="outline" className="h-12 px-6 rounded-2xl font-black text-[10px] uppercase tracking-widest border-2">
                     <Link href="/dashboard/owner/sales-report">
-                        <BarChart3 className="mr-2 h-4 w-4" />
-                        Sales Reports
+                        <BarChart3 className="mr-2 h-4 w-4" /> Reports
+                    </Link>
+                </Button>
+                <Button asChild className="h-12 px-6 rounded-2xl font-black text-[10px] uppercase tracking-widest bg-primary shadow-lg">
+                    <Link href="/dashboard/owner/menu-manager">
+                        <ArrowRight className="mr-2 h-4 w-4" /> Menu Manager
                     </Link>
                 </Button>
             </div>
         </div>
 
-        <div className="space-y-16">
+        <div className="space-y-20">
             {/* --- HOME DELIVERIES SECTION --- */}
-            <section>
-                <div className="flex items-center gap-2 mb-6">
-                    <div className="bg-blue-500 p-2 rounded-lg">
-                        <Truck className="h-6 w-6 text-white" />
+            <section className="bg-blue-50/30 p-8 rounded-[3rem] border border-blue-100/50 shadow-inner">
+                <div className="flex items-center justify-between mb-8">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-blue-600 p-3 rounded-2xl shadow-blue-200 shadow-xl">
+                            <Truck className="h-6 w-6 text-white" />
+                        </div>
+                        <h2 className="text-3xl font-black font-headline tracking-tight text-blue-900">Delivery Orders</h2>
                     </div>
-                    <h2 className="text-2xl font-bold font-headline">Home Deliveries</h2>
+                    <Badge className="bg-blue-600 text-white font-black px-3 py-1 rounded-full">{homeDeliveries.filter(o => !['Delivered', 'Completed', 'Cancelled'].includes(o.status)).length} Active</Badge>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {homeDeliveries.filter(o => o.status !== 'Completed' && o.status !== 'Delivered').length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {homeDeliveries.filter(o => !['Delivered', 'Completed', 'Cancelled'].includes(o.status)).length > 0 ? (
                         homeDeliveries
-                            .filter(o => o.status !== 'Completed' && o.status !== 'Delivered')
+                            .filter(o => !['Delivered', 'Completed', 'Cancelled'].includes(o.status))
                             .map(order => (
                                 <DeliveryOrderCard 
                                     key={order.id} 
@@ -442,9 +434,9 @@ export default function StoreOrdersPage() {
                                 />
                             ))
                     ) : (
-                        <Card className="col-span-full border-dashed bg-muted/10 py-12 flex flex-col items-center justify-center text-muted-foreground">
-                            <Package className="h-12 w-12 mb-2 opacity-20" />
-                            <p>No active home deliveries.</p>
+                        <Card className="col-span-full border-dashed bg-white/50 border-blue-200/50 py-16 flex flex-col items-center justify-center text-muted-foreground rounded-3xl">
+                            <Package className="h-12 w-12 mb-3 opacity-10 text-blue-600" />
+                            <p className="font-bold text-xs uppercase tracking-widest opacity-40">No pending deliveries</p>
                         </Card>
                     )}
                 </div>
@@ -452,65 +444,65 @@ export default function StoreOrdersPage() {
 
             {/* --- TABLE FLOOR MAP SECTION --- */}
             <section>
-                <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-2">
-                        <div className="bg-green-500 p-2 rounded-lg">
+                <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-green-600 p-3 rounded-2xl shadow-green-200 shadow-xl">
                             <Users className="h-6 w-6 text-white" />
                         </div>
-                        <h2 className="text-2xl font-bold font-headline">Table Floor Map</h2>
+                        <h2 className="text-3xl font-black font-headline tracking-tight">Table Floor Map</h2>
                     </div>
-                    <div className="flex gap-4 text-[10px] md:text-xs uppercase font-bold tracking-wider">
-                        <div className="flex items-center gap-1.5"><Badge className="h-2 w-2 p-0 rounded-full bg-green-500" /> Available</div>
-                        <div className="flex items-center gap-1.5"><Badge className="h-2 w-2 p-0 rounded-full bg-blue-500" /> Booked</div>
-                        <div className="flex items-center gap-1.5"><Badge className="h-2 w-2 p-0 rounded-full bg-orange-500" /> Billed</div>
+                    <div className="flex flex-wrap gap-4 text-[9px] font-black uppercase tracking-[0.15em] opacity-60">
+                        <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-full"><div className="h-2 w-2 rounded-full bg-green-500 shadow-sm shadow-green-200" /> Available</div>
+                        <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-full"><div className="h-2 w-2 rounded-full bg-blue-500 shadow-sm shadow-blue-200" /> In Service</div>
+                        <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 rounded-full"><div className="h-2 w-2 rounded-full bg-orange-500 shadow-sm shadow-orange-200" /> Billing</div>
                     </div>
                 </div>
                  {isLoading ? (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                        <Skeleton className="h-48 w-full" /><Skeleton className="h-48 w-full" /><Skeleton className="h-48 w-full" /><Skeleton className="h-48 w-full" />
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+                        <Skeleton className="h-64 w-full rounded-[2rem]" /><Skeleton className="h-64 w-full rounded-[2rem]" /><Skeleton className="h-64 w-full rounded-[2rem]" /><Skeleton className="h-64 w-full rounded-[2rem]" />
                     </div>
                 ) : myStore?.tables && myStore.tables.length > 0 ? (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
                         {myStore.tables.map(tableNumber => {
                             const activeSession = activeSessionsByTable[tableNumber];
                             return activeSession ? (
-                                <SessionCard key={activeSession.id} session={activeSession} onStatusChange={handleSessionStatusChange} isUpdating={isUpdating} />
+                                <SessionCard key={activeSession.id} session={activeSession} isUpdating={isUpdating} />
                             ) : (
                                 <EmptyTableCard key={tableNumber} tableNumber={tableNumber} />
                             )
                         })}
                     </div>
                 ) : (
-                    <Card className="bg-muted/30 border-dashed">
-                        <CardHeader>
-                            <CardTitle>No Tables Configured</CardTitle>
-                            <CardDescription>Go to "My Store" settings to add your restaurant tables.</CardDescription>
+                    <Card className="bg-muted/10 border-dashed border-2 rounded-[3rem] py-16">
+                        <CardHeader className="text-center">
+                            <CardTitle className="text-2xl font-black">No Tables Configured</CardTitle>
+                            <CardDescription className="max-w-xs mx-auto text-xs font-bold leading-relaxed mt-2 uppercase tracking-tight">Setup your floor plan in store settings to start accepting table orders.</CardDescription>
                         </CardHeader>
-                        <CardContent>
-                            <Button asChild variant="outline"><Link href="/dashboard/owner/my-store">Go to Store Settings</Link></Button>
-                        </CardContent>
+                        <CardFooter className="justify-center">
+                            <Button asChild variant="secondary" className="h-12 px-8 rounded-xl font-black text-[10px] uppercase tracking-widest"><Link href="/dashboard/owner/my-store">Go to Store Settings</Link></Button>
+                        </CardFooter>
                      </Card>
                 )}
             </section>
 
              {/* --- COMPLETED DELIVERIES --- */}
-             {homeDeliveries.some(o => o.status === 'Completed' || o.status === 'Delivered') && (
-                <section>
-                    <h2 className="text-xl font-semibold mb-4 text-muted-foreground">Recent Completed Deliveries</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+             {homeDeliveries.some(o => ['Completed', 'Delivered'].includes(o.status)) && (
+                <section className="pt-12 border-t border-black/5">
+                    <h2 className="text-xs font-black uppercase tracking-[0.3em] mb-6 opacity-30 text-center">Recent Completed Orders</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                         {homeDeliveries
-                            .filter(o => o.status === 'Completed' || o.status === 'Delivered')
-                            .slice(0, 6)
+                            .filter(o => ['Completed', 'Delivered'].includes(o.status))
+                            .slice(0, 8)
                             .map(order => (
-                                <Card key={order.id} className="bg-muted/20 border-0">
+                                <Card key={order.id} className="bg-muted/20 border-0 shadow-none rounded-2xl group transition-all hover:bg-muted/40">
                                     <CardContent className="p-4 flex justify-between items-center">
-                                        <div>
-                                            <p className="font-bold text-sm">{order.customerName}</p>
-                                            <p className="text-[10px] text-muted-foreground">{format((order.orderDate as Timestamp).toDate(), 'p')}</p>
+                                        <div className="min-w-0 pr-4">
+                                            <p className="font-black text-[11px] truncate leading-tight mb-0.5">{order.customerName}</p>
+                                            <p className="text-[9px] font-bold opacity-40 uppercase tracking-tighter">{format((order.orderDate as Timestamp).toDate(), 'p')}</p>
                                         </div>
-                                        <div className="text-right">
-                                            <Badge variant="default" className="text-[10px]">Delivered</Badge>
-                                            <p className="font-black text-sm">₹{order.totalAmount.toFixed(0)}</p>
+                                        <div className="text-right shrink-0">
+                                            <Badge variant="outline" className="text-[8px] font-black uppercase border-green-500/20 text-green-600 bg-green-50 px-1 py-0 mb-1">Delivered</Badge>
+                                            <p className="font-black text-xs text-primary tracking-tighter">₹{order.totalAmount.toFixed(0)}</p>
                                         </div>
                                     </CardContent>
                                 </Card>

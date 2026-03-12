@@ -82,20 +82,17 @@ import { Textarea } from '@/components/ui/textarea';
 import type { Timestamp } from 'firebase/firestore';
 
 /**
- * Visual tracker showing the progress of a confirmed order.
+ * Visual tracker showing the progress of a confirmed HOME DELIVERY order.
  */
 function LiveOrderTracker({ order, theme }: { order: Order; theme: MenuTheme | undefined }) {
-    // Robust status order including table-specific and delivery-specific states
-    const statuses = ['Pending', 'Processing', 'Billed', 'Out for Delivery', 'Delivered', 'Completed'];
+    const statuses = ['Pending', 'Processing', 'Out for Delivery', 'Delivered', 'Completed'];
     
-    // Status display names for the UI
     const statusLabels: Record<string, string> = {
         'Pending': 'Order Received',
         'Processing': 'Preparing Food',
-        'Billed': 'Waiting for Payment',
         'Out for Delivery': 'On the Way',
         'Delivered': 'Delivered',
-        'Completed': 'Order Finished'
+        'Completed': 'Delivered'
     };
 
     return (
@@ -109,7 +106,6 @@ function LiveOrderTracker({ order, theme }: { order: Order; theme: MenuTheme | u
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40" style={{color: theme?.textColor}}>Order ID: {order.id.slice(0,8)}</p>
                 </div>
 
-                {/* TRACKER STEPS */}
                 <div className="space-y-6 text-left max-w-[200px] mx-auto mb-8">
                     {[
                         { key: 'Pending', label: 'Order Received' },
@@ -119,9 +115,6 @@ function LiveOrderTracker({ order, theme }: { order: Order; theme: MenuTheme | u
                     ].map((step, i, arr) => {
                         const currentIdx = statuses.indexOf(order.status);
                         const stepIdx = statuses.indexOf(step.key);
-                        
-                        // HIGHLIGHT: A step is "Done" (checkmark) if we have PASSED it.
-                        // A step is "Current" if it is the active status.
                         const isDone = currentIdx > stepIdx;
                         const isCurrent = currentIdx === stepIdx;
                         
@@ -148,15 +141,6 @@ function LiveOrderTracker({ order, theme }: { order: Order; theme: MenuTheme | u
                         )
                     })}
                 </div>
-
-                {/* TABLE SPECIFIC INFO */}
-                {order.tableNumber && order.status === 'Billed' && (
-                    <div className="p-6 bg-primary/10 rounded-3xl border border-white/5 mb-6">
-                        <p className="text-xs font-bold opacity-60 mb-2" style={{ color: theme?.textColor }}>Final Bill Amount</p>
-                        <p className="text-3xl font-black" style={{ color: theme?.primaryColor }}>₹{order.totalAmount.toFixed(2)}</p>
-                        <p className="text-[10px] font-bold mt-4 uppercase tracking-wider opacity-40" style={{ color: theme?.textColor }}>Please visit the counter to pay</p>
-                    </div>
-                )}
 
                 <div className="pt-6 border-t border-black/5">
                     <Button asChild variant="ghost" className="h-12 px-6 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] transition-all hover:bg-black/5 active:scale-95" style={{ color: theme?.textColor }}>
@@ -186,8 +170,6 @@ function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme |
     if (!firestore || !order) return;
     startClose(async () => {
       const orderRef = doc(firestore, 'orders', order.id);
-      // For home delivery, confirmation means the order is now "Pending" (Received)
-      // For table orders, it means they are requesting the bill ("Billed")
       const nextStatus = order.tableNumber ? 'Billed' : 'Pending';
       
       try {
@@ -219,6 +201,8 @@ function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme |
       )
   }
 
+  const isLocked = ['Completed', 'Delivered', 'Pending', 'Processing', 'Out for Delivery', 'Billed'].includes(order.status);
+
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: theme?.backgroundColor }}>
         <SheetHeader className='p-5 border-b' style={{ borderColor: theme?.primaryColor + '20' }}>
@@ -248,11 +232,11 @@ function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme |
             </div>
             
             <div className="pt-2">
-              {['Completed', 'Delivered', 'Pending', 'Processing', 'Out for Delivery', 'Billed'].includes(order.status) ? (
+              {isLocked ? (
                  <div className="text-center p-5 bg-primary/10 border border-white/5 rounded-2xl shadow-sm">
                     <Check className="mx-auto h-8 w-8 mb-2" style={{ color: theme?.primaryColor }} />
-                    <p className="font-black text-xs uppercase tracking-widest" style={{ color: theme?.textColor }}>Order Confirmed</p>
-                    <p className="text-[10px] font-bold opacity-40 mt-1" style={{ color: theme?.textColor }}>Tracking active on main screen</p>
+                    <p className="font-black text-xs uppercase tracking-widest" style={{ color: theme?.textColor }}>Order Finalized</p>
+                    <p className="text-[10px] font-bold opacity-40 mt-1" style={{ color: theme?.textColor }}>Tracker is active on main screen</p>
                 </div>
               ) : (
                 <AlertDialog>
@@ -477,8 +461,15 @@ export default function PublicMenuPage() {
   );
   if (!store || !menu) return <div className="p-12 text-center opacity-50">Menu unavailable.</div>;
   
-  const isFinalizedStatus = ['Completed', 'Delivered'].includes(order?.status || '');
-  const isActiveOrderStatus = ['Pending', 'Processing', 'Out for Delivery', 'Billed'].includes(order?.status || '');
+  const isTableMode = !!tableNumber;
+  const isHomeMode = !tableNumber;
+
+  const isBilledTable = isTableMode && order?.status === 'Billed';
+  const isCompletedTable = isTableMode && order?.status === 'Completed';
+  
+  const isTrackingHome = isHomeMode && ['Pending', 'Processing', 'Out for Delivery'].includes(order?.status || '');
+  const isDeliveredHome = isHomeMode && ['Delivered', 'Completed'].includes(order?.status || '');
+
   const theme = menu.theme;
 
   return (
@@ -570,9 +561,9 @@ export default function PublicMenuPage() {
                   </div>
               </div>
 
-              {/* MENU CONTENT OR TRACKER */}
+              {/* LOGIC FOR DIFFERENT SCREEN STATES */}
               <div className="space-y-6">
-                {isFinalizedStatus ? (
+                {isCompletedTable || isDeliveredHome ? (
                     <Card className="rounded-[2.5rem] border-0 shadow-2xl" style={{ backgroundColor: theme?.primaryColor + '05' }}>
                         <CardContent className="text-center py-16 px-8">
                             <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-white/5 border border-white/10 shadow-xl"><Check className="h-10 w-10" style={{ color: theme?.primaryColor }} /></div>
@@ -583,7 +574,24 @@ export default function PublicMenuPage() {
                             </Button>
                         </CardContent>
                     </Card>
-                ) : isActiveOrderStatus ? (
+                ) : isBilledTable ? (
+                    <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden" style={{ backgroundColor: theme?.primaryColor + '05' }}>
+                        <CardContent className="p-8 text-center">
+                            <div className="mb-8">
+                                <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-white/5 border border-white/10 shadow-xl">
+                                    <Receipt className="h-10 w-10" style={{ color: theme?.primaryColor }} />
+                                </div>
+                                <h2 className="text-2xl font-black mb-1" style={{color: theme?.textColor}}>Bill Requested</h2>
+                                <p className="text-xs font-bold opacity-60" style={{color: theme?.textColor}}>Table {tableNumber}</p>
+                            </div>
+                            <div className="p-6 bg-primary/10 rounded-3xl border border-white/5 mb-6">
+                                <p className="text-xs font-bold opacity-60 mb-2" style={{ color: theme?.textColor }}>Bill Amount</p>
+                                <p className="text-3xl font-black" style={{ color: theme?.primaryColor }}>₹{order?.totalAmount.toFixed(2)}</p>
+                                <p className="text-[10px] font-bold mt-4 uppercase tracking-wider opacity-40" style={{ color: theme?.textColor }}>Please visit the counter to pay your bill.</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ) : isTrackingHome ? (
                     <LiveOrderTracker order={order!} theme={theme} />
                 ) : (
                     <>
@@ -652,7 +660,7 @@ export default function PublicMenuPage() {
             </div>
           </div>
           
-          {itemCount > 0 && !isActiveOrderStatus && !isFinalizedStatus && (
+          {itemCount > 0 && order?.status === 'Pending' && !isBilledTable && (
                <Sheet>
                   <SheetTrigger asChild>
                       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[200px] px-4">
