@@ -38,12 +38,13 @@ import {
   ZapOff,
   Truck,
   PackageSearch,
-  FileJson
+  FileJson,
+  Smartphone
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, updateDoc } from 'firebase/firestore';
-import { useMemo, useEffect, useState, useTransition, useRef } from 'react';
+import { useMemo, useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -127,74 +128,6 @@ function CreateRestaurantUserForm() {
     );
 }
 
-function StoreOwnersList() {
-    const { firestore } = useFirebase();
-    const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
-    const storesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'stores') : null, [firestore]);
-
-    const { data: users, isLoading: usersLoading } = useCollection<User>(usersQuery);
-    const { data: stores, isLoading: storesLoading } = useCollection<StoreType>(storesQuery);
-    
-    const storeOwners = useMemo(() => {
-        if (!users || !stores) return [];
-        const storeOwnerIds = new Set(stores.map(s => s.ownerId));
-        return users.filter(u => storeOwnerIds.has(u.id));
-    }, [users, stores]);
-
-    const getStoreForOwner = (ownerId: string) => {
-        return stores?.find(s => s.ownerId === ownerId);
-    }
-
-    if (usersLoading || storesLoading) {
-        return <Skeleton className="h-24 w-full" />;
-    }
-
-    return (
-         <Accordion type="single" collapsible className="w-full mb-8">
-            <AccordionItem value="store-owners">
-                <AccordionTrigger>
-                     <div className="flex justify-between items-center w-full pr-4">
-                        <div>
-                            <h2 className="text-xl font-bold font-headline">Store Owners ({storeOwners.length})</h2>
-                            <p className="text-sm text-muted-foreground text-left">A list of all users who have created a store.</p>
-                        </div>
-                    </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                    <Card>
-                        <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Owner Name</TableHead>
-                                        <TableHead>Email</TableHead>
-                                        <TableHead>Store Name</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {storeOwners.map(owner => {
-                                        const store = getStoreForOwner(owner.id);
-                                        return (
-                                            <TableRow key={owner.id}>
-                                                <TableCell className="font-medium">{owner.firstName} {owner.lastName}</TableCell>
-                                                <TableCell>{owner.email}</TableCell>
-                                                <TableCell>{store?.name || 'N/A'}</TableCell>
-                                            </TableRow>
-                                        )
-                                    })}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
-                </AccordionContent>
-            </AccordionItem>
-        </Accordion>
-    )
-}
-
-
-/* ---------------- STAT CARD ---------------- */
-
 function StatCard({ title, value, icon: Icon, loading }: any) {
   return (
     <Card>
@@ -208,66 +141,6 @@ function StatCard({ title, value, icon: Icon, loading }: any) {
     </Card>
   );
 }
-
-function LowStockAlerts() {
-    const { productPrices, masterProducts, fetchProductPrices, loading } = useAppStore();
-    const { firestore } = useFirebase();
-
-    useEffect(() => {
-        if (firestore && masterProducts.length > 0) {
-            const productNamesToFetch = masterProducts.map(p => p.name);
-            fetchProductPrices(firestore, productNamesToFetch);
-        }
-    }, [firestore, masterProducts, fetchProductPrices]);
-
-    const lowStockItems = useMemo(() => {
-        const items: { productName: string; variant: ProductVariant }[] = [];
-        if (!productPrices) return items;
-
-        Object.values(productPrices).forEach(priceData => {
-            if (priceData && priceData.variants) {
-                priceData.variants.forEach(variant => {
-                    if (variant.stock <= 10) {
-                        items.push({ productName: priceData.productName, variant });
-                    }
-                });
-            }
-        });
-        return items;
-    }, [productPrices]);
-
-    if (loading) {
-        return (
-            <div className="space-y-2">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-            </div>
-        )
-    }
-
-    if (lowStockItems.length === 0) {
-        return null;
-    }
-
-    return (
-        <div className="mb-8">
-            <h2 className="text-2xl font-bold text-center mb-4 font-headline text-destructive">Low Stock Alerts</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {lowStockItems.map(({ productName, variant }, index) => (
-                    <Alert key={`${productName}-${index}`} variant="destructive">
-                        <AlertTriangle className="h-4 w-4" />
-                        <AlertTitle>Low Stock: {productName}</AlertTitle>
-                        <AlertDescription>
-                            The variant "{variant.weight}" has only <strong>{variant.stock}</strong> items left.
-                        </AlertDescription>
-                    </Alert>
-                ))}
-            </div>
-        </div>
-    )
-}
-
-/* ---------------- ACTION CARD ---------------- */
 
 function ActionCard({
   title,
@@ -295,10 +168,8 @@ function ActionCard({
   );
 }
 
-/* ---------------- MAIN PAGE ---------------- */
-
 export default function AdminDashboardPage() {
-  const { firestore, user } = useFirebase();
+  const { firestore } = useFirebase();
   const router = useRouter();
   const { isAdmin, isLoading } = useAdminAuth();
 
@@ -314,7 +185,7 @@ export default function AdminDashboardPage() {
 
   const ordersQuery = useMemoFirebase(() =>
     firestore
-      ? query(collection(firestore, 'orders'), where('status', '==', 'Delivered'))
+      ? query(collection(firestore, 'orders'), where('status', 'in', ['Delivered', 'Completed']))
       : null,
     [firestore],
   );
@@ -350,9 +221,9 @@ export default function AdminDashboardPage() {
 
       {/* ================= HEADER ================= */}
       <div className="text-center space-y-2">
-        <h1 className="text-4xl font-bold">Admin Dashboard</h1>
+        <h1 className="text-4xl font-bold font-headline">Admin Control Center</h1>
         <p className="text-muted-foreground">
-          Platform overview, operations & system control
+          Platform-wide health, operations, and feature documentation.
         </p>
       </div>
 
@@ -360,228 +231,142 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard title="Total Users" value={stats.totalUsers} icon={Users} loading={statsLoading} />
         <StatCard title="Active Stores" value={stats.totalStores} icon={Store} loading={statsLoading} />
-        <StatCard title="Orders Delivered" value={stats.totalOrdersDelivered} icon={ShoppingBag} loading={statsLoading} />
+        <StatCard title="Orders Completed" value={stats.totalOrdersDelivered} icon={ShoppingBag} loading={statsLoading} />
       </div>
-      
-      <LowStockAlerts />
-      <StoreOwnersList />
 
       {/* ================= OPERATIONS ================= */}
       <section className="space-y-6">
-        <h2 className="text-2xl font-bold">Operations</h2>
+        <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Briefcase className="h-6 w-6 text-primary" />
+            Operations & Onboarding
+        </h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           <CreateRestaurantUserForm />
           <ActionCard
             title="QR Menu Manager"
-            description="Create and manage restaurant QR menus"
+            description="Manage and generate restaurant floor maps and QR codes."
             href="/dashboard/owner/menu-manager"
             icon={QrCode}
           />
            <ActionCard
-            title="Restaurant Ingredient Costs"
-            description="Manage the cost price of raw ingredients for restaurants."
-            href="/dashboard/admin/restaurant-inventory"
-            icon={ChefHat}
-          />
-          <ActionCard
-            title="Master Store & Products"
-            description="Central product catalog management"
+            title="Master Product Catalog"
+            description="Edit global products, images, and base pricing."
             href="/dashboard/owner/my-store"
             icon={Store}
           />
            <ActionCard
-            title="Sales Reports"
-            description="View daily and monthly sales data"
-            href="/dashboard/owner/sales-report"
-            icon={BarChart3}
+            title="Restaurant Ingredient Costs"
+            description="Set standard cost prices for raw materials used in recipes."
+            href="/dashboard/admin/restaurant-inventory"
+            icon={ChefHat}
           />
         </div>
       </section>
 
-      {/* ================= AI & VOICE ================= */}
-      <section className="space-y-6 bg-muted/30 p-6 rounded-xl">
-        <h2 className="text-2xl font-bold">AI & Voice Control</h2>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <ActionCard
-            title="Voice Commands"
-            description="Manage commands users can say"
-            href="/dashboard/voice-commands"
-            icon={Mic}
-          />
-          <ActionCard
-            title="Voice Errors"
-            description="Review failed voice commands"
-            href="/dashboard/admin/failed-commands"
-            icon={Bot}
-          />
-          <ActionCard
-            title="AI Training"
-            description="Teach AI new aliases & meanings"
-            href="/dashboard/admin/training-ground"
-            icon={Lightbulb}
-          />
-           <ActionCard
-            title="Asha AI Agent"
-            description="Use the conversational diagnostic assistant."
-            href="/dashboard/admin/asha-agent"
-            icon={BrainCircuit}
-          />
-          <ActionCard
-            title="Ingredient AI Tester"
-            description="Test recipe ingredient generation"
-            href="/dashboard/admin/recipe-tester"
-            icon={Beaker}
-          />
-        </div>
-      </section>
-
-      {/* ================= SYSTEM & DEBUGGING ================= */}
-      <section className="space-y-6">
-        <h2 className="text-2xl font-bold">System & Debugging (Seek Help)</h2>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-           <ActionCard
-            title="System Status"
-            description="Check the health of backend services and APIs."
-            href="/dashboard/admin/system-status"
-            icon={Server}
-          />
-           <ActionCard
-            title="App Pitch"
-            description="Review and share the official app pitch document."
-            href="/dashboard/admin/pitch"
-            icon={FileText}
-          />
+      {/* ================= GUIDES & DOCUMENTATION ================= */}
+      <section className="space-y-6 bg-primary/5 p-8 rounded-[2.5rem] border border-primary/10">
+        <h2 className="text-2xl font-bold flex items-center gap-2">
+            <HelpCircle className="h-6 w-6 text-primary" />
+            Features: How It Works
+        </h2>
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           <ActionCard
             title="App Overview"
-            description="Get a complete breakdown of the app's features and design."
+            description="A complete guide to Restaurant POS, KDS, and PWA features."
             href="/dashboard/admin/app-overview"
             icon={FileSignature}
           />
           <ActionCard
+            title="Home Delivery Guide"
+            description="Details on GPS pinning, live tracking, and the 20-min countdown."
+            href="/dashboard/admin/deliveries-help"
+            icon={Truck}
+          />
+          <ActionCard
             title="Economics Breakdown"
-            description="Explanation of how the app calculates profit and efficiency."
+            description="Learn how the app calculates Gross Profit and Table Efficiency."
             href="/dashboard/admin/economics-breakdown"
             icon={TrendingUp}
           />
           <ActionCard
-            title="Live Order Video"
-            description="Set kitchen live stream URL"
-            href="/dashboard/admin/site-config"
-            icon={Video}
+            title="PWA & App Install"
+            description="How we create standalone restaurant apps using dynamic manifests."
+            href="/dashboard/admin/manifest-help"
+            icon={Smartphone}
+          />
+        </div>
+      </section>
+
+      {/* ================= AI & VOICE TRAINING ================= */}
+      <section className="space-y-6">
+        <h2 className="text-2xl font-bold flex items-center gap-2">
+            <BrainCircuit className="h-6 w-6 text-primary" />
+            AI Training & Maintenance
+        </h2>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <ActionCard
+            title="Voice Command Editor"
+            description="Manage general commands and conversational replies."
+            href="/dashboard/voice-commands"
+            icon={Mic}
           />
           <ActionCard
-            title="Image Management"
-            description="Manage category & placeholder images"
-            href="/dashboard/admin/image-management"
-            icon={ImageIcon}
+            title="Voice Error Center"
+            description="Review logs of failed commands and teach the AI new aliases."
+            href="/dashboard/admin/failed-commands"
+            icon={Bot}
           />
           <ActionCard
-            title="Security Rules"
-            description="View, copy, and seek help with database security rules."
-            href="/dashboard/admin/security-rules"
-            icon={Shield}
+            title="AI Training Ground"
+            description="Paste text from any source to teach the AI new concepts."
+            href="/dashboard/admin/training-ground"
+            icon={Lightbulb}
           />
+        </div>
+      </section>
+
+      {/* ================= SYSTEM & INFRASTRUCTURE ================= */}
+      <section className="space-y-6">
+        <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Server className="h-6 w-6 text-primary" />
+            System & Performance
+        </h2>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
            <ActionCard
+            title="System Health"
+            description="Monitor service availability and API status."
+            href="/dashboard/admin/system-status"
+            icon={Server}
+          />
+          <ActionCard
             title="Performance Audit"
-            description="View a detailed breakdown of Firestore usage and costs."
+            description="Track Firestore read/write patterns and optimize costs."
             href="/dashboard/admin/performance-audit"
             icon={BarChart3}
           />
-           <ActionCard
-            title="Read Explosion Analysis"
-            description="Identify the exact source of Firestore read multiplication."
-            href="/dashboard/admin/read-explosion-help"
-            icon={ZapOff}
+          <ActionCard
+            title="Security Policy"
+            description="View production Firestore rules and permission logic."
+            href="/dashboard/admin/security-rules"
+            icon={Shield}
           />
           <ActionCard
-            title="PWA Manifest"
-            description="Edit Progressive Web App settings"
-            href="/dashboard/admin/manifest-help"
-            icon={FileCode}
-          />
-           <ActionCard
-            title="Data Fetching Logic"
-            description="View the core fetchInitialData function source code."
+            title="Data Architecture"
+            description="View core fetching logic and initial data parallelization."
             href="/dashboard/admin/initial-data-help"
             icon={Database}
           />
-           <ActionCard
-            title="Recipe Cache Code"
-            description="View the source code for the recipe caching logic."
-            href="/dashboard/admin/cached-recipes-help"
-            icon={BookOpen}
-          />
-           <ActionCard
-            title="Admin Dashboard Code"
-            description="View the source code for this dashboard."
-            href="/dashboard/admin/dashboard-help"
-            icon={FileCode}
-          />
-           <ActionCard
-            title="'My Orders' Page Code"
-            description="View the source for the customer's order history page."
-            href="/dashboard/admin/my-orders-help"
-            icon={Package}
-          />
-           <ActionCard
-            title="'Store Orders' Page Code"
-            description="View the source for the owner's order management page."
-            href="/dashboard/admin/store-orders-help"
-            icon={Store}
-          />
-           <ActionCard
-            title="'My Store' Page Code"
-            description="View the source for the owner's store management page."
-            href="/dashboard/admin/my-store-help"
-            icon={Store}
-          />
           <ActionCard
-            title="Menu Page Code"
-            description="View the source code for the public-facing QR menu page."
-            href="/dashboard/admin/menu-help"
-            icon={FileCode}
-          />
-          <ActionCard
-            title="Sales Report Code"
-            description="View the source code for the sales and profit analysis report."
-            href="/dashboard/admin/sales-report-help"
-            icon={BarChart3}
-          />
-          <ActionCard
-            title="Voice Commander Code"
-            description="View source for the main voice command processing logic."
-            href="/dashboard/admin/voice-commander-help"
-            icon={Mic}
+            title="Read Explosion Fix"
+            description="Technical analysis of N+1 query optimization strategies."
+            href="/dashboard/admin/read-explosion-help"
+            icon={ZapOff}
           />
            <ActionCard
-            title="Checkout Loop Debug"
-            description="Isolate the specific code related to the checkout page command loop."
-            href="/dashboard/admin/checkout-loop-help"
-            icon={Bug}
-          />
-           <ActionCard
-            title="Delivery Queries Code"
-            description="View the Firestore queries used in the delivery dashboard."
-            href="/dashboard/admin/deliveries-help"
-            icon={Truck}
-          />
-           <ActionCard
-            title="Sample Order Document"
-            description="View a sample JSON document from the orders collection."
-            href="/dashboard/admin/sample-order-help"
-            icon={Package}
-          />
-           <ActionCard
-            title="Order Creation Logic"
-            description="View the source code for standard and restaurant order creation."
-            href="/dashboard/admin/order-logic-help"
-            icon={PackageSearch}
-          />
-           <ActionCard
-            title="Delivery Partner Schema"
-            description="View the Firestore schema for the delivery partner profile."
-            href="/dashboard/admin/delivery-partner-schema-help"
-            icon={FileJson}
+            title="WebAuthn API"
+            description="Source code for secure biometric and fingerprint login routes."
+            href="/dashboard/admin/webauthn-api-help"
+            icon={Fingerprint}
           />
         </div>
       </section>
