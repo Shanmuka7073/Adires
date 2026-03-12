@@ -11,6 +11,7 @@ import {
   deleteDoc,
   updateDoc,
   Timestamp,
+  serverTimestamp,
 } from 'firebase/firestore';
 
 import type {
@@ -76,7 +77,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { addRestaurantOrderItem, getIngredientsForDish } from '@/app/actions';
+import { addRestaurantOrderItem, getIngredientsForDish, confirmOrderSession } from '@/app/actions';
 import { useInstall } from '@/components/install-provider';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import IngredientsDialog from '@/components/IngredientsDialog';
@@ -226,25 +227,15 @@ function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme |
   const { data: order, isLoading } = useDoc<Order>(orderQuery);
   
   const closeBill = async () => {
-    if (!firestore || !order) return;
+    if (!order) return;
     startClose(async () => {
-      const orderRef = doc(firestore, 'orders', order.id);
-      let nextStatus: Order['status'];
-      
-      // If it's a draft, Place the order
-      if (order.status === 'Draft') {
-          nextStatus = order.tableNumber ? 'Processing' : 'Pending';
+      // Use Server Action to confirm order and update status.
+      // This bypasses client-side security rules for guests.
+      const result = await confirmOrderSession(order.id);
+      if (result.success) {
+          toast({ title: order.status === 'Draft' ? 'Order Placed!' : 'Bill requested.' });
       } else {
-          // If it's already active, Close the bill (for table only)
-          nextStatus = order.tableNumber ? 'Billed' : order.status;
-      }
-      
-      try {
-        await setDoc(orderRef, { status: nextStatus, updatedAt: serverTimestamp() }, { merge: true });
-        toast({ title: order.status === 'Draft' ? 'Order Placed!' : 'Bill requested.' });
-      } catch (e) {
-        console.error(e);
-        toast({ variant: 'destructive', title: 'Failed to confirm order.' });
+          toast({ variant: 'destructive', title: 'Failed to confirm order.', description: result.error });
       }
     });
   };

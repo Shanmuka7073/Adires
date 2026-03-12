@@ -87,6 +87,7 @@ async function getFirestoreCounts() {
 export async function getSystemStatus() {
     try {
         const counts = await getFirestoreCounts();
+        // LLM status is no longer checked as AI features are removed.
         return {
             status: 'ok',
             llmStatus: 'Online',
@@ -329,6 +330,43 @@ export async function addRestaurantOrderItem({
   } catch (error: any) {
     console.error("Add restaurant item failed:", error);
     return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Confirms a draft order or requests a bill for a table session.
+ * Uses Admin SDK to bypass client-side security rule restrictions for guest users.
+ */
+export async function confirmOrderSession(orderId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { db } = await getAdminServices();
+    const orderRef = db.collection('orders').doc(orderId);
+    const orderSnap = await orderRef.get();
+    
+    if (!orderSnap.exists) return { success: false, error: 'Order not found' };
+    
+    const orderData = orderSnap.data();
+    let currentStatus = orderData?.status;
+    let nextStatus = currentStatus;
+    
+    if (currentStatus === 'Draft') {
+        // If placing a new order: 
+        // Table orders go to Processing (Kitchen), Home Deliveries go to Pending (Waiting for Owner)
+        nextStatus = orderData?.tableNumber ? 'Processing' : 'Pending';
+    } else if (orderData?.tableNumber) {
+        // If closing an existing table bill
+        nextStatus = 'Billed';
+    }
+
+    await orderRef.update({ 
+        status: nextStatus, 
+        updatedAt: FieldValue.serverTimestamp() 
+    });
+    
+    return { success: true };
+  } catch (error: any) { 
+    console.error("Confirm order session failed:", error);
+    return { success: false, error: error.message }; 
   }
 }
 
