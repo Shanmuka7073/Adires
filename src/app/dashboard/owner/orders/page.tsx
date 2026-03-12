@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import {
-  collection, query, where, orderBy, doc, writeBatch, updateDoc, Timestamp
+  collection, query, where, orderBy, doc, writeBatch, updateDoc, serverTimestamp, Timestamp
 } from 'firebase/firestore';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
@@ -159,7 +159,7 @@ function SessionCard({ session, isUpdating }: { session: Session; isUpdating: bo
                         <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
                         <AlertDialogAction onClick={handleConfirmPayment} className="rounded-xl bg-green-600">Yes, Confirm Payment</AlertDialogAction>
                     </AlertDialogFooter>
-                </AlertDialog>
+                </AlertDialogContent>
             </AlertDialog>
             {session.status === 'Billed' && (
                 <div className="flex items-center justify-center gap-2 text-[10px] font-black uppercase text-green-600 animate-pulse">
@@ -259,7 +259,7 @@ function DeliveryOrderCard({ order, onStatusChange, isUpdating }: { order: Order
                         </Button>
                     )}
                     <Button variant="outline" className="w-full h-11 rounded-xl border-2 font-black text-[10px] uppercase tracking-widest" asChild>
-                        <Link href={`/live-order/${order.id}`}>
+                        <Link href={`/menu/${order.storeId}?orderId=${order.id}`}>
                             <Video className="mr-2 h-3.5 w-3.5" /> Track
                         </Link>
                     </Button>
