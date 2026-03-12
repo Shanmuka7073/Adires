@@ -51,6 +51,15 @@ import {
   AlertDialogDescription,
 } from '@/components/ui/alert-dialog';
 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
@@ -65,6 +74,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import type { GetIngredientsOutput } from '@/lib/types';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 
 function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme | undefined }) {
@@ -198,7 +208,6 @@ export default function PublicMenuPage() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAddressMode, setIsAddressOpen] = useState(false);
   
-  // Local persistence for table sessions
   const [tableNumber, setTableNumber] = useState<string | null>(null);
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [customerName, setCustomerName] = useState('');
@@ -210,7 +219,6 @@ export default function PublicMenuPage() {
   const [isFetchingIngredients, startFetchingIngredients] = useTransition();
   const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
 
-  // RECOVER TABLE SESSION
   useEffect(() => {
     const urlTable = searchParams.get('table');
     if (urlTable) {
@@ -223,7 +231,6 @@ export default function PublicMenuPage() {
       }
     }
     
-    // Recover customer details
     const savedAddress = localStorage.getItem(`last_address_${storeId}`);
     const savedName = localStorage.getItem(`last_name_${storeId}`);
     const savedPhone = localStorage.getItem(`last_phone_${storeId}`);
@@ -237,7 +244,6 @@ export default function PublicMenuPage() {
     const dateString = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
     if (tableNumber) return `table-${tableNumber}-${dateString}`;
     
-    // For Home Delivery, use a persistent device session ID
     let deviceId = localStorage.getItem(`device_session_${storeId}`);
     if (!deviceId) {
         deviceId = Math.random().toString(36).substring(2, 15);
@@ -344,6 +350,33 @@ export default function PublicMenuPage() {
           window.location.reload();
       }
   }
+
+  const handleShowIngredients = (item: MenuItem) => {
+    setSelectedItemForIngredients(item);
+    startFetchingIngredients(async () => {
+      const response = await getIngredientsForDish({
+        dishName: item.name,
+        language: 'en',
+      });
+      
+      if (response && response.isSuccess) {
+        setIngredientsData(response);
+      } else {
+        setIngredientsData({
+          isSuccess: false,
+          title: item.name,
+          ingredients: [],
+          instructions: [],
+          nutrition: { calories: 0, protein: 0 },
+        });
+        toast({
+          variant: 'destructive',
+          title: 'Ingredients Not Available',
+          description: `The ingredients for "${item.name}" could not be generated at this time.`,
+        });
+      }
+    });
+  };
 
   if (storeLoading || menuLoading || orderLoading) return (
       <div className="p-6 space-y-6">
