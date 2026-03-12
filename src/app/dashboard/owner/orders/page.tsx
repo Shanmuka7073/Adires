@@ -224,7 +224,7 @@ function DeliveryOrderCard({ order, onStatusChange, isUpdating }: { order: Order
                 )}
                 {order.status === 'Processing' && (
                     <Button onClick={() => onStatusChange(order.id, 'Out for Delivery')} disabled={isUpdating} size="sm" className="flex-1">
-                        Ready for Delivery
+                        Mark as Out for Delivery
                     </Button>
                 )}
                 {order.status === 'Out for Delivery' && (

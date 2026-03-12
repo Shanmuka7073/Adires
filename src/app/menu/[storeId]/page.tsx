@@ -39,6 +39,7 @@ import {
   MapPin,
   Save,
   Video,
+  Truck,
 } from 'lucide-react';
 
 import {
@@ -82,15 +83,17 @@ import { Textarea } from '@/components/ui/textarea';
  * Visual tracker showing the progress of a confirmed order.
  */
 function LiveOrderTracker({ order, theme }: { order: Order; theme: MenuTheme | undefined }) {
-    const statuses = ['Pending', 'Processing', 'Out for Delivery', 'Delivered'];
+    // Robust status order including table-specific and delivery-specific states
+    const statuses = ['Pending', 'Processing', 'Billed', 'Out for Delivery', 'Delivered', 'Completed'];
     
     // Status display names for the UI
     const statusLabels: Record<string, string> = {
         'Pending': 'Order Received',
         'Processing': 'Preparing Food',
+        'Billed': 'Waiting for Payment',
         'Out for Delivery': 'On the Way',
         'Delivered': 'Delivered',
-        'Billed': 'Waiting for Payment'
+        'Completed': 'Order Finished'
     };
 
     return (
@@ -104,39 +107,44 @@ function LiveOrderTracker({ order, theme }: { order: Order; theme: MenuTheme | u
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40" style={{color: theme?.textColor}}>Order ID: {order.id.slice(0,8)}</p>
                 </div>
 
-                {/* TRACKER STEPS - Only for delivery */}
-                {!order.tableNumber && (
-                    <div className="space-y-6 text-left max-w-[200px] mx-auto mb-8">
-                        {statuses.map((s, i) => {
-                            const currentStatusIdx = statuses.indexOf(order.status);
-                            const isDone = currentStatusIdx >= i;
-                            const isCurrent = order.status === s;
-                            
-                            return (
-                                <div key={s} className="flex items-center gap-4 relative">
-                                    {/* Vertical line connecting steps */}
-                                    {i < statuses.length - 1 && (
-                                        <div className="absolute left-[11px] top-6 w-0.5 h-6 bg-white/5">
-                                            <div className="h-full bg-primary transition-all duration-1000" style={{ height: isDone ? '100%' : '0%', backgroundColor: theme?.primaryColor }} />
-                                        </div>
-                                    )}
-                                    <div className={cn(
-                                        "h-6 w-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-500",
-                                        isDone ? "bg-primary border-transparent" : "border-white/10"
-                                    )} style={{ backgroundColor: isDone ? theme?.primaryColor : '' }}>
-                                        {isDone ? <Check className="h-3 w-3 text-white" /> : <div className="h-1.5 w-1.5 rounded-full bg-white/10" />}
+                {/* TRACKER STEPS */}
+                <div className="space-y-6 text-left max-w-[200px] mx-auto mb-8">
+                    {[
+                        { key: 'Pending', label: 'Order Received' },
+                        { key: 'Processing', label: 'Preparing Food' },
+                        { key: 'Out for Delivery', label: 'On the Way' },
+                        { key: 'Delivered', label: 'Delivered' }
+                    ].map((step, i, arr) => {
+                        const currentIdx = statuses.indexOf(order.status);
+                        const stepIdx = statuses.indexOf(step.key);
+                        
+                        // A step is "Done" if the current order status is further along in the list
+                        // Special case: 'Billed' usually means the food was prepared.
+                        const isDone = currentIdx >= stepIdx || (order.status === 'Billed' && stepIdx <= 1);
+                        
+                        return (
+                            <div key={step.key} className="flex items-center gap-4 relative">
+                                {i < arr.length - 1 && (
+                                    <div className="absolute left-[11px] top-6 w-0.5 h-6 bg-white/5">
+                                        <div className="h-full bg-primary transition-all duration-1000" style={{ height: isDone ? '100%' : '0%', backgroundColor: theme?.primaryColor }} />
                                     </div>
-                                    <span className={cn(
-                                        "text-[10px] font-black uppercase tracking-widest transition-all",
-                                        isDone ? "opacity-100" : "opacity-20"
-                                    )} style={{ color: theme?.textColor }}>
-                                        {statusLabels[s] || s}
-                                    </span>
+                                )}
+                                <div className={cn(
+                                    "h-6 w-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-500",
+                                    isDone ? "bg-primary border-transparent" : "border-white/10"
+                                )} style={{ backgroundColor: isDone ? theme?.primaryColor : '' }}>
+                                    {isDone ? <Check className="h-3 w-3 text-white" /> : <div className="h-1.5 w-1.5 rounded-full bg-white/10" />}
                                 </div>
-                            )
-                        })}
-                    </div>
-                )}
+                                <span className={cn(
+                                    "text-[10px] font-black uppercase tracking-widest transition-all",
+                                    isDone ? "opacity-100" : "opacity-20"
+                                )} style={{ color: theme?.textColor }}>
+                                    {step.label}
+                                </span>
+                            </div>
+                        )
+                    })}
+                </div>
 
                 {/* TABLE SPECIFIC INFO */}
                 {order.tableNumber && order.status === 'Billed' && (
