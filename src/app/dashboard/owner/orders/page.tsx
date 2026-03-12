@@ -3,7 +3,7 @@
 
 import { Order, Store } from '@/lib/types';
 import {
-  Card, CardContent, CardHeader, CardTitle, CardDescription
+  Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter
 } from '@/components/ui/card';
 import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger
