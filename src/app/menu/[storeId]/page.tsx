@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -251,19 +252,12 @@ export default function PublicMenuPage() {
     return `home-${deviceId}-${dateString}`;
   }, [tableNumber, storeId]);
 
-  const activeOrderQuery = useMemoFirebase(() => {
-    if (!firestore || !storeId || !sessionId) return null;
-    return query(
-      collection(firestore, 'orders'),
-      where('storeId', '==', storeId),
-      where('sessionId', '==', sessionId),
-      where('status', 'in', ['Pending', 'Processing', 'Billed', 'Out for Delivery']),
-      limit(1)
-    );
-  }, [firestore, storeId, sessionId]);
-
-  const { data: activeOrders, isLoading: orderLoading } = useCollection<Order>(activeOrderQuery);
-  const order = activeOrders?.[0];
+  const orderId = `${storeId}_${sessionId}`;
+  const orderRef = useMemoFirebase(
+    () => (firestore && sessionId ? doc(firestore, 'orders', orderId) : null),
+    [firestore, orderId, sessionId]
+  );
+  const { data: order, isLoading: orderLoading } = useDoc<Order>(orderRef);
   const itemCount = order?.items?.length || 0;
 
   const storeRef = useMemoFirebase(() =>
