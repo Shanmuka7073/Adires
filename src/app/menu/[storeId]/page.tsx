@@ -40,6 +40,7 @@ import {
   Save,
   Video,
   Truck,
+  CheckCircle,
 } from 'lucide-react';
 
 import {
@@ -118,22 +119,22 @@ function LiveOrderTracker({ order, theme }: { order: Order; theme: MenuTheme | u
                         const currentIdx = statuses.indexOf(order.status);
                         const stepIdx = statuses.indexOf(step.key);
                         
-                        // A step is "Done" if the current order status is further along in the list
-                        // Special case: 'Billed' usually means the food was prepared.
+                        // A step is "Done" if the current order status is the same or further along.
+                        // Special case: 'Billed' means food was prepared.
                         const isDone = currentIdx >= stepIdx || (order.status === 'Billed' && stepIdx <= 1);
                         
                         return (
                             <div key={step.key} className="flex items-center gap-4 relative">
                                 {i < arr.length - 1 && (
-                                    <div className="absolute left-[11px] top-6 w-0.5 h-6 bg-white/5">
+                                    <div className="absolute left-[11px] top-6 w-0.5 h-6 bg-black/10">
                                         <div className="h-full bg-primary transition-all duration-1000" style={{ height: isDone ? '100%' : '0%', backgroundColor: theme?.primaryColor }} />
                                     </div>
                                 )}
                                 <div className={cn(
                                     "h-6 w-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-500",
-                                    isDone ? "bg-primary border-transparent" : "border-white/10"
+                                    isDone ? "bg-primary border-transparent" : "border-black/10"
                                 )} style={{ backgroundColor: isDone ? theme?.primaryColor : '' }}>
-                                    {isDone ? <Check className="h-3 w-3 text-white" /> : <div className="h-1.5 w-1.5 rounded-full bg-white/10" />}
+                                    {isDone ? <Check className="h-3 w-3 text-white" /> : <div className="h-1.5 w-1.5 rounded-full bg-black/10" />}
                                 </div>
                                 <span className={cn(
                                     "text-[10px] font-black uppercase tracking-widest transition-all",
@@ -155,8 +156,8 @@ function LiveOrderTracker({ order, theme }: { order: Order; theme: MenuTheme | u
                     </div>
                 )}
 
-                <div className="pt-6 border-t border-white/5">
-                    <Button asChild variant="ghost" className="h-12 px-6 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] transition-all hover:bg-white/5 active:scale-95" style={{ color: theme?.textColor }}>
+                <div className="pt-6 border-t border-black/5">
+                    <Button asChild variant="ghost" className="h-12 px-6 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] transition-all hover:bg-black/5 active:scale-95" style={{ color: theme?.textColor }}>
                         <Link href={`/live-order/${order.id}`}>
                             <Video className="mr-2 h-4 w-4" /> Watch Preparation Live
                         </Link>

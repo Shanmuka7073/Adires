@@ -184,7 +184,7 @@ function DeliveryOrderCard({ order, onStatusChange, isUpdating }: { order: Order
                         <CardTitle className="text-lg">Delivery Order</CardTitle>
                         <CardDescription className="text-xs">{format((order.orderDate as Timestamp).toDate(), 'p, PPP')}</CardDescription>
                     </div>
-                    <Badge variant={meta.variant}>{order.status}</Badge>
+                    <Badge variant={meta.variant} className="capitalize">{order.status}</Badge>
                 </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -216,26 +216,26 @@ function DeliveryOrderCard({ order, onStatusChange, isUpdating }: { order: Order
                     </div>
                 </div>
             </CardContent>
-            <CardFooter className="flex gap-2 border-t pt-4">
+            <CardFooter className="flex flex-col gap-2 border-t pt-4">
                 {order.status === 'Pending' && (
-                    <Button onClick={() => onStatusChange(order.id, 'Processing')} disabled={isUpdating} size="sm" className="flex-1">
-                        Accept & Process
+                    <Button onClick={() => onStatusChange(order.id, 'Processing')} disabled={isUpdating} size="sm" className="w-full">
+                        <Check className="mr-2 h-4 w-4" /> Accept & Start Preparing
                     </Button>
                 )}
                 {order.status === 'Processing' && (
-                    <Button onClick={() => onStatusChange(order.id, 'Out for Delivery')} disabled={isUpdating} size="sm" className="flex-1">
-                        Mark as Out for Delivery
+                    <Button onClick={() => onStatusChange(order.id, 'Out for Delivery')} disabled={isUpdating} size="sm" className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                        <Truck className="mr-2 h-4 w-4" /> Send for Delivery (On the Way)
                     </Button>
                 )}
                 {order.status === 'Out for Delivery' && (
-                    <p className="text-xs text-center w-full text-muted-foreground italic flex items-center justify-center gap-1">
-                        <Truck className="h-3 w-3" /> Waiting for delivery partner...
-                    </p>
+                    <Button onClick={() => onStatusChange(order.id, 'Delivered')} disabled={isUpdating} size="sm" className="w-full bg-green-600 hover:bg-green-700 text-white">
+                        <CheckCircle className="mr-2 h-4 w-4" /> Mark as Delivered
+                    </Button>
                 )}
                 {['Delivered', 'Completed'].includes(order.status) && (
-                    <p className="text-xs text-center w-full text-green-600 font-bold flex items-center justify-center gap-1">
-                        <CheckCircle className="h-3 w-3" /> Order Fulfilled
-                    </p>
+                    <div className="flex items-center justify-center gap-2 py-2 text-green-600 font-bold text-sm w-full bg-green-50 rounded-lg">
+                        <CheckCircle className="h-4 w-4" /> Order Successfully Delivered
+                    </div>
                 )}
             </CardFooter>
         </Card>
@@ -400,16 +400,16 @@ export default function StoreOrdersPage() {
 
         <div className="space-y-16">
             {/* --- HOME DELIVERIES SECTION --- */}
-            {homeDeliveries.some(o => o.status !== 'Completed' && o.status !== 'Delivered') && (
-                <section>
-                    <div className="flex items-center gap-2 mb-6">
-                        <div className="bg-blue-500 p-2 rounded-lg">
-                            <Truck className="h-6 w-6 text-white" />
-                        </div>
-                        <h2 className="text-2xl font-bold font-headline">Pending Home Deliveries</h2>
+            <section>
+                <div className="flex items-center gap-2 mb-6">
+                    <div className="bg-blue-500 p-2 rounded-lg">
+                        <Truck className="h-6 w-6 text-white" />
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {homeDeliveries
+                    <h2 className="text-2xl font-bold font-headline">Home Deliveries</h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {homeDeliveries.filter(o => o.status !== 'Completed' && o.status !== 'Delivered').length > 0 ? (
+                        homeDeliveries
                             .filter(o => o.status !== 'Completed' && o.status !== 'Delivered')
                             .map(order => (
                                 <DeliveryOrderCard 
@@ -419,10 +419,14 @@ export default function StoreOrdersPage() {
                                     isUpdating={isUpdating} 
                                 />
                             ))
-                        }
-                    </div>
-                </section>
-            )}
+                    ) : (
+                        <Card className="col-span-full border-dashed bg-muted/10 py-12 flex flex-col items-center justify-center text-muted-foreground">
+                            <Package className="h-12 w-12 mb-2 opacity-20" />
+                            <p>No active home deliveries.</p>
+                        </Card>
+                    )}
+                </div>
+            </section>
 
             {/* --- TABLE FLOOR MAP SECTION --- */}
             <section>
