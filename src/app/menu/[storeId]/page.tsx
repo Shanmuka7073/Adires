@@ -10,6 +10,7 @@ import {
   setDoc,
   deleteDoc,
   updateDoc,
+  Timestamp,
 } from 'firebase/firestore';
 
 import type {
@@ -84,12 +85,13 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import type { Timestamp } from 'firebase/firestore';
 
 /**
  * Visual tracker showing the progress of a confirmed HOME DELIVERY order.
+ * Now includes a 20-minute countdown when the order is "On the Way".
  */
 function LiveOrderTracker({ order, theme }: { order: Order; theme: MenuTheme | undefined }) {
+    const [timeLeft, setTimeLeft] = useState<number | null>(null);
     const statuses = ['Pending', 'Processing', 'Out for Delivery', 'Delivered', 'Completed'];
     
     const statusLabels: Record<string, string> = {
@@ -100,13 +102,65 @@ function LiveOrderTracker({ order, theme }: { order: Order; theme: MenuTheme | u
         'Completed': 'Delivered'
     };
 
+    useEffect(() => {
+        // Only show countdown when the order is Out for Delivery
+        if (order.status !== 'Out for Delivery') {
+            setTimeLeft(null);
+            return;
+        }
+
+        const tick = () => {
+            const now = new Date().getTime();
+            let updateTimeMs = now;
+            const up = order.updatedAt;
+
+            if (up) {
+                // Handle different possible timestamp formats from Firestore
+                if (typeof up.toDate === 'function') {
+                    updateTimeMs = up.toDate().getTime();
+                } else if (up.seconds) {
+                    updateTimeMs = up.seconds * 1000;
+                } else {
+                    const parsed = new Date(up).getTime();
+                    if (!isNaN(parsed)) updateTimeMs = parsed;
+                }
+            }
+
+            const twentyMinutesMs = 20 * 60 * 1000;
+            const expiryTime = updateTimeMs + twentyMinutesMs;
+            const diff = Math.max(0, Math.floor((expiryTime - now) / 1000));
+            
+            setTimeLeft(diff);
+        };
+
+        tick();
+        const intervalId = setInterval(tick, 1000);
+        return () => clearInterval(intervalId);
+    }, [order.status, order.updatedAt]);
+
+    const formatTime = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
     return (
         <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden mb-6" style={{ backgroundColor: theme?.primaryColor + '05' }}>
             <CardContent className="p-8 text-center">
                 <div className="mb-8">
-                    <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-white/5 border border-white/10 shadow-xl">
+                    <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-4 bg-white/5 border border-white/10 shadow-xl">
                         <Clock className="h-10 w-10 animate-pulse" style={{ color: theme?.primaryColor }} />
                     </div>
+                    
+                    {timeLeft !== null && (
+                        <div className="mb-4 animate-in zoom-in-95 fade-in duration-500">
+                            <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 mb-1" style={{color: theme?.textColor}}>Arriving in</p>
+                            <p className="text-5xl font-black tabular-nums tracking-tighter" style={{color: theme?.primaryColor}}>
+                                {formatTime(timeLeft)}
+                            </p>
+                        </div>
+                    )}
+
                     <h2 className="text-2xl font-black mb-1" style={{color: theme?.textColor}}>{statusLabels[order.status] || order.status}</h2>
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40" style={{color: theme?.textColor}}>Order ID: {order.id.slice(0,8)}</p>
                 </div>
@@ -186,7 +240,7 @@ function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme |
       }
       
       try {
-        await setDoc(orderRef, { status: nextStatus }, { merge: true });
+        await setDoc(orderRef, { status: nextStatus, updatedAt: serverTimestamp() }, { merge: true });
         toast({ title: order.status === 'Draft' ? 'Order Placed!' : 'Bill requested.' });
       } catch (e) {
         console.error(e);
