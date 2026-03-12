@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -7,6 +8,8 @@ import {
   where,
   doc,
   setDoc,
+  deleteDoc,
+  updateDoc,
 } from 'firebase/firestore';
 
 import type {
@@ -14,6 +17,7 @@ import type {
   Menu,
   MenuItem,
   Order,
+  OrderItem,
   MenuTheme,
   GetIngredientsOutput,
 } from '@/lib/types';
@@ -42,6 +46,7 @@ import {
   CheckCircle,
   PlusCircle,
   LocateFixed,
+  Trash2,
 } from 'lucide-react';
 
 import {
@@ -170,16 +175,62 @@ function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme |
     if (!firestore || !order) return;
     startClose(async () => {
       const orderRef = doc(firestore, 'orders', order.id);
-      const nextStatus = order.tableNumber ? 'Billed' : 'Pending';
+      let nextStatus: Order['status'];
+      
+      // If it's a draft, Place the order
+      if (order.status === 'Draft') {
+          nextStatus = order.tableNumber ? 'Processing' : 'Pending';
+      } else {
+          // If it's already active, Close the bill (for table only)
+          nextStatus = order.tableNumber ? 'Billed' : order.status;
+      }
       
       try {
         await setDoc(orderRef, { status: nextStatus }, { merge: true });
-        toast({ title: order.tableNumber ? 'Bill requested.' : 'Order confirmed!' });
+        toast({ title: order.status === 'Draft' ? 'Order Placed!' : 'Bill requested.' });
       } catch (e) {
         console.error(e);
         toast({ variant: 'destructive', title: 'Failed to confirm order.' });
       }
     });
+  };
+
+  const cancelOrder = async () => {
+      if (!firestore || !order) return;
+      try {
+          await deleteDoc(doc(firestore, 'orders', order.id));
+          toast({ title: 'Order Cancelled', description: 'Your draft order has been cleared.' });
+      } catch (e) {
+          toast({ variant: 'destructive', title: 'Failed to cancel order' });
+      }
+  }
+
+  const handleRemoveItem = async (itemToRemove: OrderItem) => {
+      if (!firestore || !order) return;
+
+      const orderRef = doc(firestore, 'orders', order.id);
+      const updatedItems = (order.items || []).filter(item => item.id !== itemToRemove.id);
+      
+      if (updatedItems.length === 0) {
+          try {
+              await deleteDoc(orderRef);
+              toast({ description: "Bill cleared." });
+          } catch (e) {}
+          return;
+      }
+
+      const newTotal = updatedItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+
+      try {
+          await updateDoc(orderRef, {
+              items: updatedItems,
+              totalAmount: newTotal
+          });
+          toast({ description: `${itemToRemove.productName} removed.` });
+      } catch (e) {
+          console.error("Failed to remove item:", e);
+          toast({ variant: 'destructive', title: 'Failed to remove item.' });
+      }
   };
 
   if (isLoading) {
@@ -201,6 +252,7 @@ function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme |
       )
   }
 
+  const isDraft = order.status === 'Draft';
   const isLocked = ['Completed', 'Delivered', 'Pending', 'Processing', 'Out for Delivery', 'Billed'].includes(order.status);
 
   return (
@@ -218,8 +270,15 @@ function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme |
                     <span className="font-bold leading-tight block truncate">{it.productName}</span>
                     <span className="text-[10px] opacity-60 font-bold uppercase tracking-wider">Qty: {it.quantity}</span>
                 </div>
-                <div className="text-right font-bold shrink-0">
-                    ₹{(it.price * it.quantity).toFixed(2)}
+                <div className="flex items-center gap-3">
+                    <div className="text-right font-bold shrink-0">
+                        ₹{(it.price * it.quantity).toFixed(2)}
+                    </div>
+                    {isDraft && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(it)}>
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    )}
                 </div>
               </div>
             ))}
@@ -239,30 +298,37 @@ function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme |
                     <p className="text-[10px] font-bold opacity-40 mt-1" style={{ color: theme?.textColor }}>Tracker is active on main screen</p>
                 </div>
               ) : (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button className="w-full h-14 rounded-2xl text-base font-bold shadow-lg" variant="destructive" disabled={closing}>
-                      {closing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                      {order.tableNumber ? 'Close Bill & Pay' : 'Confirm Delivery Order'}
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent className="rounded-3xl">
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Finalize your order?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                          {order.tableNumber 
-                            ? "This will signal the staff that you're ready to pay." 
-                            : "This will confirm your delivery order. We'll start preparing it immediately."}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter className="gap-2">
-                      <AlertDialogCancel className="rounded-xl font-bold">Not yet</AlertDialogCancel>
-                      <AlertDialogAction onClick={closeBill} className="rounded-xl font-bold">
-                        Yes, Confirm
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <div className="flex gap-2">
+                    {isDraft && (
+                        <Button variant="outline" className="flex-1 h-14 rounded-2xl font-bold" onClick={cancelOrder}>
+                            Cancel
+                        </Button>
+                    )}
+                    <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button className="flex-[2] h-14 rounded-2xl text-base font-bold shadow-lg" variant="destructive" disabled={closing}>
+                        {closing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                        {isDraft ? (order.tableNumber ? 'Confirm Order' : 'Place Order') : 'Close Bill & Pay'}
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="rounded-3xl">
+                        <AlertDialogHeader>
+                        <AlertDialogTitle>{isDraft ? 'Place Order?' : 'Finalize your bill?'}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {isDraft 
+                                ? "This will send your order to the kitchen. You can't cancel it after this step." 
+                                : "This will signal the staff that you're ready to pay."}
+                        </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter className="gap-2">
+                        <AlertDialogCancel className="rounded-xl font-bold">Not yet</AlertDialogCancel>
+                        <AlertDialogAction onClick={closeBill} className="rounded-xl font-bold">
+                            Yes, Confirm
+                        </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                    </AlertDialog>
+                </div>
               )}
             </div>
         </div>
@@ -290,7 +356,6 @@ export default function PublicMenuPage() {
   const [phone, setPhone] = useState('');
   const [deliveryCoords, setDeliveryCoords] = useState<{lat: number, lng: number} | null>(null);
 
-  // New State for Ingredients Dialog
   const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null);
   const [ingredientsData, setIngredientsData] = useState<GetIngredientsOutput | null>(null);
   const [isFetchingIngredients, startFetchingIngredients] = useTransition();
@@ -717,7 +782,7 @@ export default function PublicMenuPage() {
             </div>
           </div>
           
-          {itemCount > 0 && ['Pending', 'Billed'].includes(order?.status || '') && (
+          {itemCount > 0 && ['Pending', 'Billed', 'Draft'].includes(order?.status || '') && (
                <Sheet>
                   <SheetTrigger asChild>
                       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[200px] px-4">

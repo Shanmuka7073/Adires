@@ -304,6 +304,8 @@ export default function StoreOrdersPage() {
     if (!orders) return { sessions: tableSessions, homeDeliveries: directDeliveries };
 
     orders.forEach(order => {
+        if (order.status === 'Draft') return; // Hide drafts from owner dashboard
+
         if (order.tableNumber && order.sessionId) {
             const sessionId = order.sessionId;
             if (!tableSessions[sessionId]) {

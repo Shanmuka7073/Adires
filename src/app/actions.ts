@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -282,7 +283,7 @@ export async function addRestaurantOrderItem({
         deliveryLng: deliveryLng || 0,
         phone: phone || '',
         totalAmount: 0,
-        status: 'Pending', 
+        status: 'Draft', 
         orderDate: Timestamp.now(), 
         items: [],
       };
@@ -310,12 +311,18 @@ export async function addRestaurantOrderItem({
       recipeSnapshot: recipeSnapshotData,
     };
 
+    // If adding more items to a billed or completed session, move it back to Processing (kitchen visible)
+    let nextStatus = orderData.status || 'Draft';
+    if (['Billed', 'Completed', 'Delivered'].includes(nextStatus)) {
+        nextStatus = orderData.tableNumber ? 'Processing' : 'Pending';
+    }
+
     await orderDocRef.set({
       ...orderData,
       items: [...(orderData.items || []), orderItem],
       totalAmount: (orderData.totalAmount || 0) + (orderItem.price * orderItem.quantity),
       updatedAt: FieldValue.serverTimestamp(),
-      status: 'Pending',
+      status: nextStatus,
     }, { merge: true });
 
     return { success: true };
