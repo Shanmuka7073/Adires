@@ -15,6 +15,7 @@ import type {
   MenuItem,
   Order,
   MenuTheme,
+  GetIngredientsOutput,
 } from '@/lib/types';
 
 import { useParams, useSearchParams } from 'next/navigation';
@@ -76,7 +77,6 @@ import IngredientsDialog from '@/components/IngredientsDialog';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import type { GetIngredientsOutput } from '@/lib/types';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { Timestamp } from 'firebase/firestore';
@@ -289,6 +289,14 @@ export default function PublicMenuPage() {
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
   const [deliveryCoords, setDeliveryCoords] = useState<{lat: number, lng: number} | null>(null);
+
+  // New State for Ingredients Dialog
+  const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null);
+  const [ingredientsData, setIngredientsData] = useState<GetIngredientsOutput | null>(null);
+  const [isFetchingIngredients, startFetchingIngredients] = useTransition();
+  const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
+
+  const { canInstall, triggerInstall } = useInstall();
 
   useEffect(() => {
     const urlTable = searchParams.get('table');
