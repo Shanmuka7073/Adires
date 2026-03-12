@@ -65,7 +65,7 @@ export const useAppStore = create<AppState>()(
       locales: {},
       commands: {},
       loading: false,
-      isInitialized: false, // This will no longer be persisted
+      isInitialized: false,
       error: null,
       language: getInitialLanguage(),
       activeStoreId: null,

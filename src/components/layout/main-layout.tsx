@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
@@ -15,6 +16,7 @@ import { useFirebase } from '@/firebase';
 import { PriceCheckDisplay, PriceCheckInfo } from './price-check-display';
 import { useInstall } from '../install-provider';
 import { VoiceCommandContext } from './voice-commander-context';
+import { FirestoreCounter } from './firestore-counter';
 
 export function MainLayout({ 
   children,
@@ -99,6 +101,7 @@ export function MainLayout({
         <NotificationPermissionManager />
         <Footer />
         <BottomNavBar />
+        <FirestoreCounter />
         </div>
     </VoiceCommandContext.Provider>
   );
