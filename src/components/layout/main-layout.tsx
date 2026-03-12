@@ -1,41 +1,20 @@
 'use client';
 
-import { useState, createContext, useContext, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useCart } from '@/lib/cart';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
-import { VoiceCommander, Command } from '@/components/layout/voice-commander';
+import { VoiceCommander } from '@/components/layout/voice-commander';
 import { ProfileCompletionChecker } from '@/components/profile-completion-checker';
 import { NotificationPermissionManager } from '@/components/layout/notification-permission-manager';
 import { useAppStore } from '@/lib/store';
-import { getLanguageForLocation } from '@/lib/location-service';
 import { useToast } from '@/hooks/use-toast';
 import { usePathname } from 'next/navigation';
 import { BottomNavBar } from './bottom-nav-bar';
 import { useFirebase } from '@/firebase';
 import { PriceCheckDisplay, PriceCheckInfo } from './price-check-display';
 import { useInstall } from '../install-provider';
-
-// Create a context to provide the trigger function
-const VoiceCommandContext = createContext<{ 
-    triggerVoicePrompt: () => void, 
-    retryCommand?: (command: string) => void; 
-    showPriceCheck: (info: PriceCheckInfo) => void;
-    hidePriceCheck: () => void;
-    onCartOpenChange: (open: boolean) => void;
-    isCartOpen: boolean;
-    voiceEnabled: boolean;
-    voiceStatus: string;
-    onToggleVoice: () => void;
-} | undefined>(undefined);
-
-export function useVoiceCommanderContext() {
-    const context = useContext(VoiceCommandContext);
-    if (!context) {
-        throw new Error('useVoiceCommanderContext must be used within a MainLayout or MenuLayout');
-    }
-    return context;
-}
+import { VoiceCommandContext } from './voice-commander-context';
 
 export function MainLayout({ 
   children,
@@ -44,7 +23,6 @@ export function MainLayout({
 }) {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState('Click the mic to start listening.');
-  const [suggestedCommands, setSuggestedCommands] = useState<Command[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { cartItems } = useCart();
   const { toast } = useToast();
@@ -52,25 +30,21 @@ export function MainLayout({
   
   const { user } = useFirebase();
   
-  const { setLanguage, isInitialized, fetchInitialData } = useAppStore();
+  const { setLanguage, isInitialized } = useAppStore();
   const [priceCheckInfo, setPriceCheckInfo] = useState<PriceCheckInfo | null>(null);
 
   const [voiceTrigger, setVoiceTrigger] = useState(0);
   const [retryCommandText, setRetryCommandText] = useState<string | null>(null);
   const { triggerInstall } = useInstall();
 
-  // --- Location-based language detection ---
   useEffect(() => {
     if (!isInitialized) return;
     const savedLanguage = localStorage.getItem('app-language');
     if (savedLanguage) {
       setLanguage(savedLanguage);
-      return;
     }
   }, [isInitialized, setLanguage]);
 
-
-  // Stable callback to trigger the voice prompt check
   const triggerVoicePrompt = useCallback(() => {
     setVoiceTrigger(v => v + 1);
   }, []);
@@ -87,7 +61,6 @@ export function MainLayout({
       setPriceCheckInfo(null);
   }, []);
 
-
   return (
     <VoiceCommandContext.Provider value={{ 
         triggerVoicePrompt, 
@@ -102,13 +75,13 @@ export function MainLayout({
     }}>
         <div className="relative flex min-h-dvh flex-col bg-background">
         <Header 
-            suggestedCommands={suggestedCommands}
+            suggestedCommands={[]} // Suggestions handled inside VoiceCommander internally
         />
         {user && isInitialized && (
             <VoiceCommander 
                 enabled={voiceEnabled} 
                 onStatusUpdate={setVoiceStatus}
-                onSuggestions={setSuggestedCommands}
+                onSuggestions={() => {}} // Suggestions handled via internal state now
                 onOpenCart={() => setIsCartOpen(true)}
                 onCloseCart={() => setIsCartOpen(false)}
                 isCartOpen={isCartOpen}
@@ -131,8 +104,6 @@ export function MainLayout({
   );
 }
 
-
-// New simplified layout for the Menu pages
 export function MenuLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative min-h-dvh bg-background">
