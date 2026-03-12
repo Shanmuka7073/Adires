@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -477,7 +476,11 @@ export default function PublicMenuPage() {
                     ) : (
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-white/5 border border-white/5" onClick={() => setIsSearchOpen(true)}><Search className="h-3.5 w-3.5" style={{ color: theme?.primaryColor }} /></Button>
                     )}
-                    {canInstall && <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-white/5 border border-white/5" onClick={triggerInstall}><Download className="h-3.5 w-3.5" style={{ color: theme?.primaryColor }} /></Button>}
+                    {canInstall && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-white/5 border border-white/5" onClick={triggerInstall}>
+                            <Download className="h-3.5 w-3.5" style={{ color: theme?.primaryColor }} />
+                        </Button>
+                    )}
                   </div>
               </div>
 
@@ -492,6 +495,26 @@ export default function PublicMenuPage() {
                     </div>
                     <ScrollBar orientation="horizontal" className="hidden" />
                 </ScrollArea>
+              )}
+
+              {/* INSTALL PROMPT BANNER */}
+              {canInstall && (
+                  <Card className="rounded-2xl border-dashed border-2 shadow-sm" style={{ borderColor: theme?.primaryColor + '40', backgroundColor: theme?.primaryColor + '05' }}>
+                      <CardContent className="p-4 flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                              <div className="bg-primary/10 p-2 rounded-xl" style={{ backgroundColor: theme?.primaryColor + '20' }}>
+                                  <Download className="h-5 w-5" style={{ color: theme?.primaryColor }} />
+                              </div>
+                              <div>
+                                  <p className="text-[10px] font-black uppercase tracking-wider" style={{ color: theme?.primaryColor }}>Quick Access</p>
+                                  <p className="text-xs font-bold leading-tight" style={{ color: theme?.textColor }}>Add {store.name} to Home Screen</p>
+                              </div>
+                          </div>
+                          <Button onClick={triggerInstall} size="sm" className="h-8 px-4 rounded-lg font-black text-[9px] uppercase tracking-widest" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>
+                              Install
+                          </Button>
+                      </CardContent>
+                  </Card>
               )}
 
               {/* MENU CONTENT */}

@@ -32,6 +32,15 @@ export default function RootLayout({
     <html lang="en" className={ptSans.variable}>
        <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
+        <script dangerouslySetInnerHTML={{ __html: `
+          // Catch the install prompt event as early as possible
+          window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            window.deferredInstallPrompt = e;
+            // Notify the app that installation is available
+            window.dispatchEvent(new CustomEvent('pwa-install-available'));
+          });
+        ` }} />
       </head>
       <body>
         <ClientRoot>{children}</ClientRoot>
