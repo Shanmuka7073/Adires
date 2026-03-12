@@ -30,7 +30,8 @@ import {
   Receipt,
   Eye,
   History,
-  Clock
+  Clock,
+  PlusCircle
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -566,7 +567,7 @@ export default function StoreOrdersPage() {
                                                 </p>
                                             </div>
                                             <div className="text-right shrink-0">
-                                                <Badge variant="outline" className="text-[8px] font-black uppercase border-green-500/20 text-green-600 bg-green-50 px-1.5 py-0 mb-1 rounded-sm">Paid</Badge>
+                                                <Badge variant="outline" className="text-[8px] font-black uppercase border-blue-500/20 text-green-600 bg-green-50 px-1.5 py-0 mb-1 rounded-sm">Paid</Badge>
                                                 <p className="font-black text-xs text-primary tracking-tighter">₹{session.totalAmount.toFixed(0)}</p>
                                             </div>
                                         </CardContent>
