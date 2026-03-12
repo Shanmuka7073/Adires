@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -8,7 +7,6 @@ import {
   where,
   doc,
   setDoc,
-  limit,
 } from 'firebase/firestore';
 
 import type {
@@ -42,6 +40,7 @@ import {
   Truck,
   CheckCircle,
   PlusCircle,
+  LocateFixed,
 } from 'lucide-react';
 
 import {
@@ -283,17 +282,13 @@ export default function PublicMenuPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAddressMode, setIsAddressOpen] = useState(false);
+  const [isFetchingLocation, setIsFetchingLocation] = useState(false);
   
   const [tableNumber, setTableNumber] = useState<string | null>(null);
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
-
-  const { canInstall, triggerInstall } = useInstall();
-  const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null);
-  const [ingredientsData, setIngredientsData] = useState<GetIngredientsOutput | null>(null);
-  const [isFetchingIngredients, startFetchingIngredients] = useTransition();
-  const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
+  const [deliveryCoords, setDeliveryCoords] = useState<{lat: number, lng: number} | null>(null);
 
   useEffect(() => {
     const urlTable = searchParams.get('table');
@@ -310,9 +305,13 @@ export default function PublicMenuPage() {
     const savedAddress = localStorage.getItem(`last_address_${storeId}`);
     const savedName = localStorage.getItem(`last_name_${storeId}`);
     const savedPhone = localStorage.getItem(`last_phone_${storeId}`);
+    const savedLat = localStorage.getItem(`last_lat_${storeId}`);
+    const savedLng = localStorage.getItem(`last_lng_${storeId}`);
+
     if (savedAddress) setDeliveryAddress(savedAddress);
     if (savedName) setCustomerName(savedName);
     if (savedPhone) setPhone(savedPhone);
+    if (savedLat && savedLng) setDeliveryCoords({lat: parseFloat(savedLat), lng: parseFloat(savedLng)});
   }, [searchParams, storeId]);
 
   const sessionId = useMemo(() => {
@@ -370,6 +369,28 @@ export default function PublicMenuPage() {
     }, {} as Record<string, MenuItem[]>)
   }, [menu, searchTerm, selectedCategory]);
 
+  const handleGetLocation = () => {
+    if (navigator.geolocation) {
+        setIsFetchingLocation(true);
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                setDeliveryCoords({ lat: latitude, lng: longitude });
+                setDeliveryAddress(`GPS Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`);
+                toast({ title: "Location Captured!", description: "We've accurately pinned your delivery spot." });
+                setIsFetchingLocation(false);
+            },
+            () => {
+                toast({ variant: 'destructive', title: "Location Error", description: "Could not retrieve GPS coordinates. Please enter address manually." });
+                setIsFetchingLocation(false);
+            },
+            { timeout: 10000, enableHighAccuracy: true }
+        );
+    } else {
+        toast({ variant: 'destructive', title: "Not Supported", description: "GPS is not supported by your browser." });
+    }
+  };
+
   const handleAddItem = (item: MenuItem) => {
     if (!tableNumber && (!deliveryAddress || !customerName)) {
         setIsAddressOpen(true);
@@ -386,6 +407,8 @@ export default function PublicMenuPage() {
         deliveryAddress,
         customerName,
         phone,
+        deliveryLat: deliveryCoords?.lat,
+        deliveryLng: deliveryCoords?.lng,
       });
 
       if (result.success) {
@@ -416,6 +439,10 @@ export default function PublicMenuPage() {
       localStorage.setItem(`last_address_${storeId}`, deliveryAddress);
       localStorage.setItem(`last_name_${storeId}`, customerName);
       localStorage.setItem(`last_phone_${storeId}`, phone);
+      if (deliveryCoords) {
+          localStorage.setItem(`last_lat_${storeId}`, deliveryCoords.lat.toString());
+          localStorage.setItem(`last_lng_${storeId}`, deliveryCoords.lng.toString());
+      }
       setIsAddressOpen(false);
       toast({ title: "Details Saved", description: "You can now add items to your bill." });
   }
@@ -501,7 +528,7 @@ export default function PublicMenuPage() {
 
       {/* ADDRESS/DETAILS DIALOG */}
       <Dialog open={isAddressMode} onOpenChange={setIsAddressOpen}>
-          <DialogContent>
+          <DialogContent className="rounded-3xl">
               <DialogHeader>
                   <DialogTitle>{tableNumber ? 'Confirm Table Details' : 'Order for Home Delivery'}</DialogTitle>
                   <DialogDescription>Please provide your contact information to start your bill.</DialogDescription>
@@ -518,12 +545,18 @@ export default function PublicMenuPage() {
                   {!tableNumber && (
                       <div className="space-y-2">
                           <Label>Delivery Address</Label>
-                          <Textarea placeholder="Enter full address for delivery" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} />
+                          <div className="flex gap-2">
+                              <Textarea placeholder="Enter full address for delivery" className="min-h-[80px]" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} />
+                              <Button type="button" variant="outline" size="icon" className="h-auto w-12 rounded-xl shrink-0" onClick={handleGetLocation} disabled={isFetchingLocation}>
+                                  {isFetchingLocation ? <Loader2 className="h-4 w-4 animate-spin"/> : <LocateFixed className="h-5 w-5 text-primary" />}
+                              </Button>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">Tap the GPS icon to automatically pin your current location.</p>
                       </div>
                   )}
               </div>
               <DialogFooter>
-                  <Button onClick={saveDetailsAndOrder} className="w-full h-12 rounded-xl font-bold">
+                  <Button onClick={saveDetailsAndOrder} className="w-full h-12 rounded-2xl font-bold shadow-lg bg-primary text-white">
                       <Save className="mr-2 h-4 w-4" /> Save & Continue
                   </Button>
               </DialogFooter>

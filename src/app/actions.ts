@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -31,7 +30,7 @@ export async function getFirebaseConfig() {
       messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
       appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to get Firebase config:", error);
     return null;
   }
@@ -243,6 +242,8 @@ export async function addRestaurantOrderItem({
   deliveryAddress,
   customerName,
   phone,
+  deliveryLat,
+  deliveryLng,
 }: {
   storeId: string;
   tableNumber: string | null;
@@ -252,6 +253,8 @@ export async function addRestaurantOrderItem({
   deliveryAddress?: string;
   customerName?: string;
   phone?: string;
+  deliveryLat?: number;
+  deliveryLng?: number;
 }): Promise<{ success: boolean; error?: string }> {
   try {
     const { db } = await getAdminServices();
@@ -275,6 +278,8 @@ export async function addRestaurantOrderItem({
         userId: 'guest',
         customerName: customerName || (tableNumber ? `Table ${tableNumber}` : 'Guest'),
         deliveryAddress: deliveryAddress || (tableNumber ? 'In-store dining' : 'TBD'),
+        deliveryLat: deliveryLat || 0,
+        deliveryLng: deliveryLng || 0,
         phone: phone || '',
         totalAmount: 0,
         status: 'Pending', 
