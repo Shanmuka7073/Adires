@@ -101,7 +101,7 @@ function LiveOrderTracker({ order, theme }: { order: Order; theme: MenuTheme | u
     };
 
     return (
-        <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden" style={{ backgroundColor: theme?.primaryColor + '05' }}>
+        <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden mb-6" style={{ backgroundColor: theme?.primaryColor + '05' }}>
             <CardContent className="p-8 text-center">
                 <div className="mb-8">
                     <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-white/5 border border-white/10 shadow-xl">
@@ -138,7 +138,7 @@ function LiveOrderTracker({ order, theme }: { order: Order; theme: MenuTheme | u
                                 </div>
                                 <span className={cn(
                                     "text-[10px] font-black uppercase tracking-widest transition-all",
-                                    isDone || isCurrent ? "opacity-100 font-extrabold" : "opacity-20"
+                                    isDone || i === currentIdx ? "opacity-100 font-extrabold" : "opacity-20"
                                 )} style={{ color: theme?.textColor }}>
                                     {step.label}
                                 </span>
@@ -253,7 +253,7 @@ function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme |
   }
 
   const isDraft = order.status === 'Draft';
-  const isLocked = ['Completed', 'Delivered', 'Pending', 'Processing', 'Out for Delivery', 'Billed'].includes(order.status);
+  const isLocked = ['Completed', 'Delivered', 'Billed'].includes(order.status);
 
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: theme?.backgroundColor }}>
@@ -294,8 +294,8 @@ function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme |
               {isLocked ? (
                  <div className="text-center p-5 bg-primary/10 border border-white/5 rounded-2xl shadow-sm">
                     <Check className="mx-auto h-8 w-8 mb-2" style={{ color: theme?.primaryColor }} />
-                    <p className="font-black text-xs uppercase tracking-widest" style={{ color: theme?.textColor }}>Order Finalized</p>
-                    <p className="text-[10px] font-bold opacity-40 mt-1" style={{ color: theme?.textColor }}>Tracker is active on main screen</p>
+                    <p className="font-black text-xs uppercase tracking-widest" style={{ color: theme?.textColor }}>Bill Locked</p>
+                    <p className="text-[10px] font-bold opacity-40 mt-1" style={{ color: theme?.textColor }}>Final processing in progress</p>
                 </div>
               ) : (
                 <div className="flex gap-2">
@@ -306,7 +306,7 @@ function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme |
                     )}
                     <AlertDialog>
                     <AlertDialogTrigger asChild>
-                        <Button className="flex-[2] h-14 rounded-2xl text-base font-bold shadow-lg" variant="destructive" disabled={closing}>
+                        <Button className="w-full h-14 rounded-2xl text-base font-bold shadow-lg" variant="destructive" disabled={closing}>
                         {closing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                         {isDraft ? (order.tableNumber ? 'Confirm Order' : 'Place Order') : 'Close Bill & Pay'}
                         </Button>
@@ -782,11 +782,11 @@ export default function PublicMenuPage() {
             </div>
           </div>
           
-          {itemCount > 0 && ['Pending', 'Billed', 'Draft'].includes(order?.status || '') && (
+          {itemCount > 0 && ['Pending', 'Processing', 'Out for Delivery', 'Billed', 'Draft'].includes(order?.status || '') && (
                <Sheet>
                   <SheetTrigger asChild>
                       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[200px] px-4">
-                          <Button className="h-12 w-full rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.3)] text-[10px] font-black uppercase tracking-widest transition-transform active:scale-95 border-0" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>
+                          <Button className="h-12 w-full rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.3)] text-[10px] font-black uppercase tracking-widest transition-transform active:scale-95 border-0 bg-primary hover:bg-primary/90 text-white" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>
                               <Receipt className="mr-2 h-4 w-4" /> View Bill <Badge className="ml-2 h-5 min-w-[20px] rounded-md text-[9px] font-black flex items-center justify-center shadow-inner" style={{ backgroundColor: theme?.backgroundColor, color: theme?.primaryColor }}>{itemCount}</Badge>
                           </Button>
                       </div>
