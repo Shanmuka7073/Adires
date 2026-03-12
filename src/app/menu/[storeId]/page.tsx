@@ -34,6 +34,9 @@ import {
   X,
   Download,
   Eye,
+  Home,
+  MapPin,
+  Save,
 } from 'lucide-react';
 
 import {
@@ -61,6 +64,7 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import type { GetIngredientsOutput } from '@/lib/types';
+import { Label } from '@/components/ui/label';
 
 
 function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme | undefined }) {
@@ -119,11 +123,11 @@ function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme |
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
              {order.items.map((it, idx) => (
               <div key={idx} className="flex justify-between items-start text-sm pb-3 border-b last:border-0" style={{borderColor: theme?.primaryColor + '10', color: theme?.textColor}}>
-                <div className="flex-1 pr-4">
-                    <span className="font-bold leading-tight block">{it.productName}</span>
+                <div className="flex-1 pr-4 min-w-0">
+                    <span className="font-bold leading-tight block truncate">{it.productName}</span>
                     <span className="text-[10px] opacity-60 font-bold uppercase tracking-wider">Qty: {it.quantity}</span>
                 </div>
-                <div className="text-right font-bold">
+                <div className="text-right font-bold shrink-0">
                     ₹{(it.price * it.quantity).toFixed(2)}
                 </div>
               </div>
@@ -137,10 +141,10 @@ function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme |
             </div>
             
             <div className="pt-2">
-              {order.status === 'Completed' ? (
+              {order.status === 'Completed' || order.status === 'Delivered' ? (
                  <div className="text-center p-5 bg-green-500/10 border border-green-500/20 rounded-2xl shadow-sm">
                     <Check className="mx-auto h-8 w-8 text-green-500 mb-2" />
-                    <p className="font-bold text-green-500">Paid & Completed</p>
+                    <p className="font-bold text-green-500">Order Completed</p>
                     <p className="text-xs text-green-500/80">Thank you for visiting!</p>
                 </div>
               ) : order.status === 'Billed' ? (
@@ -154,18 +158,22 @@ function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme |
                   <AlertDialogTrigger asChild>
                     <Button className="w-full h-14 rounded-2xl text-base font-bold shadow-lg" variant="destructive" disabled={closing}>
                       {closing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                      Close Bill & Pay
+                      {order.tableNumber ? 'Close Bill & Pay' : 'Confirm Order'}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent className="rounded-3xl">
                     <AlertDialogHeader>
                       <AlertDialogTitle>Finalize your order?</AlertDialogTitle>
-                      <AlertDialogDescription>This will signal the staff that you're ready to pay. You won't be able to add more items to this bill.</AlertDialogDescription>
+                      <AlertDialogDescription>
+                          {order.tableNumber 
+                            ? "This will signal the staff that you're ready to pay." 
+                            : "This will confirm your delivery order. Please ensure your address is correct."}
+                      </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="gap-2">
                       <AlertDialogCancel className="rounded-xl font-bold">Not yet</AlertDialogCancel>
                       <AlertDialogAction onClick={closeBill} className="rounded-xl font-bold">
-                        Yes, Close Bill
+                        Yes, Confirm
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -180,32 +188,74 @@ function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme |
 
 export default function PublicMenuPage() {
   const { storeId } = useParams<{ storeId: string }>();
-  const tableNumber = useSearchParams().get('table');
+  const searchParams = useSearchParams();
   const { firestore } = useFirebase();
-
   const { toast } = useToast();
+
   const [isAdding, startAdding] = useTransition();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isAddressMode, setIsAddressOpen] = useState(false);
   
+  // Local persistence for table sessions
+  const [tableNumber, setTableNumber] = useState<string | null>(null);
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [phone, setPhone] = useState('');
+
   const { canInstall, triggerInstall } = useInstall();
   const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null);
   const [ingredientsData, setIngredientsData] = useState<GetIngredientsOutput | null>(null);
   const [isFetchingIngredients, startFetchingIngredients] = useTransition();
   const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
 
-  // Dynamic Session Query
+  // RECOVER TABLE SESSION
+  useEffect(() => {
+    const urlTable = searchParams.get('table');
+    if (urlTable) {
+      setTableNumber(urlTable);
+      localStorage.setItem(`last_table_${storeId}`, urlTable);
+    } else {
+      const savedTable = localStorage.getItem(`last_table_${storeId}`);
+      if (savedTable) {
+        setTableNumber(savedTable);
+      }
+    }
+    
+    // Recover customer details
+    const savedAddress = localStorage.getItem(`last_address_${storeId}`);
+    const savedName = localStorage.getItem(`last_name_${storeId}`);
+    const savedPhone = localStorage.getItem(`last_phone_${storeId}`);
+    if (savedAddress) setDeliveryAddress(savedAddress);
+    if (savedName) setCustomerName(savedName);
+    if (savedPhone) setPhone(savedPhone);
+  }, [searchParams, storeId]);
+
+  const sessionId = useMemo(() => {
+    const today = new Date();
+    const dateString = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+    if (tableNumber) return `table-${tableNumber}-${dateString}`;
+    
+    // For Home Delivery, use a persistent device session ID
+    let deviceId = localStorage.getItem(`device_session_${storeId}`);
+    if (!deviceId) {
+        deviceId = Math.random().toString(36).substring(2, 15);
+        localStorage.setItem(`device_session_${storeId}`, deviceId);
+    }
+    return `home-${deviceId}-${dateString}`;
+  }, [tableNumber, storeId]);
+
   const activeOrderQuery = useMemoFirebase(() => {
-    if (!firestore || !storeId || !tableNumber) return null;
+    if (!firestore || !storeId || !sessionId) return null;
     return query(
       collection(firestore, 'orders'),
       where('storeId', '==', storeId),
-      where('tableNumber', '==', tableNumber),
+      where('sessionId', '==', sessionId),
       where('status', 'in', ['Pending', 'Processing', 'Billed', 'Out for Delivery']),
       limit(1)
     );
-  }, [firestore, storeId, tableNumber]);
+  }, [firestore, storeId, sessionId]);
 
   const { data: activeOrders, isLoading: orderLoading } = useCollection<Order>(activeOrderQuery);
   const order = activeOrders?.[0];
@@ -221,7 +271,6 @@ export default function PublicMenuPage() {
 
   const { data: store, isLoading: storeLoading } = useDoc<Store>(storeRef);
   const { data: menus, isLoading: menuLoading } = useCollection<Menu>(menuQuery);
-  
   const menu = menus?.[0];
 
   const availableCategories = useMemo(() => {
@@ -231,16 +280,11 @@ export default function PublicMenuPage() {
   
   const groupedMenu = useMemo(() => {
     if (!menu?.items) return {};
-    
     let filteredItems = menu.items.filter(item => 
         item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
         item.category.toLowerCase().includes(searchTerm.toLowerCase())
     );
-
-    if (selectedCategory) {
-        filteredItems = filteredItems.filter(item => item.category === selectedCategory);
-    }
-
+    if (selectedCategory) filteredItems = filteredItems.filter(item => item.category === selectedCategory);
     return filteredItems.reduce((acc, item) => {
         const cat = item.category || 'Other';
         if(!acc[cat]) acc[cat] = [];
@@ -250,78 +294,73 @@ export default function PublicMenuPage() {
   }, [menu, searchTerm, selectedCategory]);
 
   const handleAddItem = (item: MenuItem) => {
+    if (!tableNumber && (!deliveryAddress || !customerName)) {
+        setIsAddressOpen(true);
+        return;
+    }
+
     startAdding(async () => {
       const result = await addRestaurantOrderItem({
         storeId,
-        tableNumber: tableNumber || null,
+        tableNumber: tableNumber,
+        sessionId,
         item,
         quantity: 1,
+        deliveryAddress,
+        customerName,
+        phone,
       });
 
       if (result.success) {
-        toast({
-          title: "Dish Added",
-          description: `${item.name} is on the way.`,
-        });
-         setRecentlyAdded(prev => new Set(prev).add(item.id));
-        setTimeout(() => {
-            setRecentlyAdded(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(item.id);
-                return newSet;
-            });
-        }, 2000);
+        toast({ title: "Dish Added", description: `${item.name} added to your bill.` });
+        setRecentlyAdded(prev => new Set(prev).add(item.id));
+        setTimeout(() => setRecentlyAdded(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(item.id);
+            return newSet;
+        }), 2000);
       } else {
-        toast({
-          variant: "destructive",
-          title: "Failed to Add",
-          description: result.error || "Please try again.",
-        });
-      }
-    });
-  };
-  
-   const handleShowIngredients = (item: MenuItem) => {
-    setSelectedItemForIngredients(item);
-    startFetchingIngredients(async () => {
-      const response = await getIngredientsForDish({
-        dishName: item.name,
-        language: 'en',
-      });
-      
-      if (response && response.isSuccess) {
-        setIngredientsData(response);
-      } else {
-        setIngredientsData(null);
-        toast({
-          variant: 'destructive',
-          title: 'Ingredients Not Available',
-          description: `Could not load details for ${item.name}.`,
-        });
+        toast({ variant: "destructive", title: "Failed to Add", description: result.error });
       }
     });
   };
 
+  const saveDetailsAndOrder = () => {
+      if (!customerName || !phone || (!tableNumber && !deliveryAddress)) {
+          toast({ variant: "destructive", title: "Details Required", description: "Please fill in all fields." });
+          return;
+      }
+      localStorage.setItem(`last_address_${storeId}`, deliveryAddress);
+      localStorage.setItem(`last_name_${storeId}`, customerName);
+      localStorage.setItem(`last_phone_${storeId}`, phone);
+      setIsAddressOpen(false);
+      toast({ title: "Details Saved", description: "You can now add items to your bill." });
+  }
+
+  const handleClearSession = () => {
+      if (confirm("Clear your current session? You will lose access to your current bill on this device.")) {
+          localStorage.removeItem(`last_table_${storeId}`);
+          setTableNumber(null);
+          window.location.reload();
+      }
+  }
 
   if (storeLoading || menuLoading || orderLoading) return (
       <div className="p-6 space-y-6">
         <div className="flex gap-4 items-center">
-            <Skeleton className="h-16 w-16 rounded-2xl shrink-0" />
+            <Skeleton className="h-16 w-16 rounded-2xl" />
             <div className="space-y-2">
                 <Skeleton className="h-6 w-32" />
                 <Skeleton className="h-4 w-20" />
             </div>
         </div>
         <Skeleton className="h-10 w-full rounded-xl" />
-        <div className="grid grid-cols-2 gap-4">
-            <Skeleton className="h-40 w-full rounded-2xl" />
-            <Skeleton className="h-40 w-full rounded-2xl" />
-        </div>
+        <div className="grid grid-cols-2 gap-4"><Skeleton className="h-40 w-full" /><Skeleton className="h-40 w-full" /></div>
       </div>
   );
-  if (!store || !menu) return <div className="p-12 text-center font-medium opacity-50">Menu unavailable.</div>;
+  if (!store || !menu) return <div className="p-12 text-center opacity-50">Menu unavailable.</div>;
   
-  const isBillFinalized = order?.status === 'Completed';
+  const isBillFinalized = order?.status === 'Completed' || order?.status === 'Delivered';
   const theme = menu.theme;
 
   return (
@@ -336,12 +375,41 @@ export default function PublicMenuPage() {
           calories={ingredientsData?.nutrition?.calories || 0}
           protein={ingredientsData?.nutrition?.protein || 0}
           ingredients={(ingredientsData?.ingredients as any) || []}
-          onAdd={() => {
-            handleAddItem(selectedItemForIngredients);
-            setSelectedItemForIngredients(null);
-          }}
+          onAdd={() => { handleAddItem(selectedItemForIngredients); setSelectedItemForIngredients(null); }}
         />
       )}
+
+      {/* ADDRESS/DETAILS DIALOG */}
+      <Dialog open={isAddressMode} onOpenChange={setIsAddressOpen}>
+          <DialogContent>
+              <DialogHeader>
+                  <DialogTitle>{tableNumber ? 'Confirm Table Details' : 'Order for Home Delivery'}</DialogTitle>
+                  <DialogDescription>Please provide your contact information to start your bill.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                      <Label>Your Name</Label>
+                      <Input placeholder="Enter your name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                      <Label>Phone Number</Label>
+                      <Input placeholder="Enter mobile number" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                  </div>
+                  {!tableNumber && (
+                      <div className="space-y-2">
+                          <Label>Delivery Address</Label>
+                          <Textarea placeholder="Enter full address for delivery" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} />
+                      </div>
+                  )}
+              </div>
+              <DialogFooter>
+                  <Button onClick={saveDetailsAndOrder} className="w-full h-12 rounded-xl font-bold">
+                      <Save className="mr-2 h-4 w-4" /> Save & Continue
+                  </Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
+
       <div className="min-h-screen pb-24" style={{ backgroundColor: theme?.backgroundColor }}>
           <div className="container mx-auto py-6 px-4 md:px-6 max-w-2xl">
             <div className="space-y-6">
@@ -350,109 +418,43 @@ export default function PublicMenuPage() {
               <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3 min-w-0">
                     {store.imageUrl && (
-                        <div className="relative h-12 w-12 md:h-14 md:w-14 rounded-2xl overflow-hidden border shrink-0 shadow-sm" style={{ borderColor: theme?.primaryColor + '20' }}>
-                            <Image
-                                src={store.imageUrl}
-                                alt={store.name}
-                                fill
-                                className="object-cover"
-                            />
+                        <div className="relative h-12 w-12 rounded-2xl overflow-hidden border shrink-0 shadow-sm" style={{ borderColor: theme?.primaryColor + '20' }}>
+                            <Image src={store.imageUrl} alt={store.name} fill className="object-cover" />
                         </div>
                     )}
                     <div className="min-w-0">
-                        <h1 className="text-base md:text-lg font-black font-headline truncate leading-tight" style={{ color: theme?.primaryColor }}>
-                            {store.name}
-                        </h1>
-                        {tableNumber && (
-                            <Badge 
-                                className="mt-0.5 px-1.5 py-0 text-[8px] font-black rounded-sm shadow-sm uppercase tracking-widest" 
-                                style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}
-                            >
-                                Table {tableNumber}
-                            </Badge>
-                        )}
+                        <h1 className="text-base font-black font-headline truncate leading-tight" style={{ color: theme?.primaryColor }}>{store.name}</h1>
+                        <div className="flex items-center gap-2 mt-0.5">
+                            {tableNumber ? (
+                                <Badge className="px-1.5 py-0 text-[8px] font-black rounded-sm uppercase tracking-widest" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>Table {tableNumber}</Badge>
+                            ) : (
+                                <Badge className="px-1.5 py-0 text-[8px] font-black rounded-sm uppercase tracking-widest bg-blue-500 text-white border-0">Home Delivery</Badge>
+                            )}
+                            <button onClick={handleClearSession} className="text-[8px] font-bold opacity-40 hover:opacity-100 uppercase tracking-tighter" style={{ color: theme?.textColor }}>Change Mode</button>
+                        </div>
                     </div>
                   </div>
 
-                  {/* MINI SEARCH / TOOLS */}
                   <div className="flex items-center gap-2 shrink-0">
                     {isSearchOpen ? (
                         <div className="relative flex items-center">
-                            <Input 
-                                autoFocus
-                                placeholder="Search..."
-                                className="h-8 w-28 md:w-40 pr-8 rounded-xl text-[10px] font-bold border-2 focus-visible:ring-0"
-                                style={{ borderColor: theme?.primaryColor + '30', backgroundColor: 'rgba(255,255,255,0.1)', color: theme?.textColor }}
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                            <button 
-                                className="absolute right-2 hover:opacity-70"
-                                style={{ color: theme?.textColor }}
-                                onClick={() => { setIsSearchOpen(false); setSearchTerm(''); }}
-                            >
-                                <X className="h-3 w-3" />
-                            </button>
+                            <Input autoFocus placeholder="Search..." className="h-8 w-28 pr-8 rounded-xl text-[10px] font-bold border-2" style={{ borderColor: theme?.primaryColor + '30', backgroundColor: 'rgba(255,255,255,0.1)', color: theme?.textColor }} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                            <button className="absolute right-2" style={{ color: theme?.textColor }} onClick={() => { setIsSearchOpen(false); setSearchTerm(''); }}><X className="h-3 w-3" /></button>
                         </div>
                     ) : (
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 rounded-full bg-white/5 shadow-sm border border-white/5"
-                            onClick={() => setIsSearchOpen(true)}
-                        >
-                            <Search className="h-3.5 w-3.5" style={{ color: theme?.primaryColor }} />
-                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-white/5 border border-white/5" onClick={() => setIsSearchOpen(true)}><Search className="h-3.5 w-3.5" style={{ color: theme?.primaryColor }} /></Button>
                     )}
-                    {canInstall && (
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 rounded-full bg-white/5 shadow-sm border border-white/5"
-                            onClick={triggerInstall}
-                        >
-                            <Download className="h-3.5 w-3.5" style={{ color: theme?.primaryColor }} />
-                        </Button>
-                    )}
+                    {canInstall && <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-white/5 border border-white/5" onClick={triggerInstall}><Download className="h-3.5 w-3.5" style={{ color: theme?.primaryColor }} /></Button>}
                   </div>
               </div>
 
               {/* CATEGORY BAR */}
               {!isBillFinalized && (
-                <ScrollArea className="w-full whitespace-nowrap -mx-4 px-4 pb-2">
+                <ScrollArea className="w-full whitespace-nowrap pb-2">
                     <div className="flex gap-2">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className={cn(
-                                "rounded-lg px-3 h-7 font-black text-[9px] uppercase tracking-widest border transition-all active:scale-95",
-                                !selectedCategory ? "shadow-md border-transparent" : "opacity-40 border-white/10"
-                            )}
-                            style={{ 
-                                backgroundColor: !selectedCategory ? theme?.primaryColor : 'transparent',
-                                color: !selectedCategory ? theme?.backgroundColor : theme?.primaryColor,
-                            }}
-                            onClick={() => setSelectedCategory(null)}
-                        >
-                            All
-                        </Button>
+                        <Button variant="ghost" size="sm" className={cn("rounded-lg px-3 h-7 font-black text-[9px] uppercase tracking-widest border transition-all active:scale-95", !selectedCategory ? "shadow-md border-transparent" : "opacity-40 border-white/10")} style={{ backgroundColor: !selectedCategory ? theme?.primaryColor : 'transparent', color: !selectedCategory ? theme?.backgroundColor : theme?.primaryColor }} onClick={() => setSelectedCategory(null)}>All</Button>
                         {availableCategories.map(cat => (
-                            <Button
-                                key={cat}
-                                variant="ghost"
-                                size="sm"
-                                className={cn(
-                                    "rounded-lg px-3 h-7 font-black text-[9px] uppercase tracking-widest border transition-all active:scale-95",
-                                    selectedCategory === cat ? "shadow-md border-transparent" : "opacity-40 border-white/10"
-                                )}
-                                style={{ 
-                                    backgroundColor: selectedCategory === cat ? theme?.primaryColor : 'transparent',
-                                    color: selectedCategory === cat ? theme?.backgroundColor : theme?.primaryColor,
-                                }}
-                                onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
-                            >
-                                {cat}
-                            </Button>
+                            <Button key={cat} variant="ghost" size="sm" className={cn("rounded-lg px-3 h-7 font-black text-[9px] uppercase tracking-widest border transition-all active:scale-95", selectedCategory === cat ? "shadow-md border-transparent" : "opacity-40 border-white/10")} style={{ backgroundColor: selectedCategory === cat ? theme?.primaryColor : 'transparent', color: selectedCategory === cat ? theme?.backgroundColor : theme?.primaryColor }} onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}>{cat}</Button>
                         ))}
                     </div>
                     <ScrollBar orientation="horizontal" className="hidden" />
@@ -462,56 +464,28 @@ export default function PublicMenuPage() {
               {/* MENU CONTENT */}
               <div className="space-y-6">
                 {order?.status === 'Billed' ? (
-                    <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden" style={{ backgroundColor: theme?.primaryColor + '05' }}>
+                    <Card className="rounded-[2.5rem] border-0 shadow-2xl" style={{ backgroundColor: theme?.primaryColor + '05' }}>
                         <CardContent className="text-center py-16 px-8">
-                            <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-white/5 border border-white/10 shadow-xl">
-                                <Check className="h-10 w-10" style={{ color: theme?.primaryColor }} />
-                            </div>
+                            <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-white/5 border border-white/10 shadow-xl"><Check className="h-10 w-10" style={{ color: theme?.primaryColor }} /></div>
                             <h2 className="text-2xl font-black mb-3" style={{color: theme?.textColor}}>Thank You!</h2>
-                            <p className="text-sm font-bold opacity-60 leading-relaxed" style={{color: theme?.textColor}}>Your bill is closed. Please visit the counter to finalize payment.</p>
+                            <p className="text-sm font-bold opacity-60 leading-relaxed" style={{color: theme?.textColor}}>{tableNumber ? 'Your bill is closed. Please visit the counter to finalize payment.' : 'Your delivery order has been received. You will be notified of updates.'}</p>
                         </CardContent>
                     </Card>
                 ) : Object.entries(groupedMenu).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
                     <div key={category} className="space-y-2">
-                        <h2 className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40 px-1" style={{ color: theme?.textColor }}>
-                            {category}
-                        </h2>
+                        <h2 className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40 px-1" style={{ color: theme?.textColor }}>{category}</h2>
                         <div className="grid gap-2">
                             {items.map((item, index) => {
                                 const isRecentlyAdded = recentlyAdded.has(item.id);
                                 return (
-                                <Card
-                                    key={item.id || index}
-                                    className="flex justify-between items-center p-3 shadow-sm rounded-xl transition-all active:scale-[0.98] border"
-                                    style={{ backgroundColor: 'transparent', borderColor: theme?.primaryColor + '15' }}
-                                >
+                                <Card key={item.id || index} className="flex justify-between items-center p-3 shadow-sm rounded-xl transition-all active:scale-[0.98] border" style={{ backgroundColor: 'transparent', borderColor: theme?.primaryColor + '15' }}>
                                     <div className="flex-1 pr-4 min-w-0">
                                         <p className="font-bold text-xs leading-tight truncate mb-0.5" style={{ color: theme?.textColor }}>{item.name}</p>
                                         <p className="text-[10px] font-black" style={{color: theme?.primaryColor}}>₹{item.price.toFixed(2)}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                         <Button 
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 rounded-full"
-                                            onClick={() => handleShowIngredients(item)}
-                                         >
-                                            <Eye className="h-4 w-4" style={{ color: theme?.textColor }} />
-                                         </Button>
-                                         <Button 
-                                            onClick={() => handleAddItem(item)} 
-                                            disabled={isAdding || isRecentlyAdded}
-                                            className={cn(
-                                                "w-16 h-8 rounded-lg text-[9px] uppercase tracking-widest font-black shadow-sm transition-all",
-                                                isRecentlyAdded ? "bg-green-600 border-0" : ""
-                                            )}
-                                            style={{ 
-                                                backgroundColor: isRecentlyAdded ? '' : theme?.primaryColor, 
-                                                color: theme?.backgroundColor 
-                                            }}
-                                        >
-                                            {isRecentlyAdded ? <Check className="h-3 w-3" /> : (isAdding ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add') }
-                                        </Button>
+                                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => handleShowIngredients(item)}><Eye className="h-4 w-4" style={{ color: theme?.textColor }} /></Button>
+                                         <Button onClick={() => handleAddItem(item)} disabled={isAdding || isRecentlyAdded} className={cn("w-16 h-8 rounded-lg text-[9px] uppercase tracking-widest font-black shadow-sm transition-all", isRecentlyAdded ? "bg-green-600 border-0" : "")} style={{ backgroundColor: isRecentlyAdded ? '' : theme?.primaryColor, color: theme?.backgroundColor }}>{isRecentlyAdded ? <Check className="h-3 w-3" /> : (isAdding ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add') }</Button>
                                     </div>
                                 </Card>
                             )})}
@@ -534,9 +508,7 @@ export default function PublicMenuPage() {
                   <SheetTrigger asChild>
                       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[200px] px-4">
                           <Button className="h-12 w-full rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.3)] text-[10px] font-black uppercase tracking-widest transition-transform active:scale-95 border-0" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>
-                              <Receipt className="mr-2 h-4 w-4" />
-                              View Bill 
-                              <Badge className="ml-2 h-5 min-w-[20px] rounded-md text-[9px] font-black flex items-center justify-center shadow-inner" style={{ backgroundColor: theme?.backgroundColor, color: theme?.primaryColor }}>{itemCount}</Badge>
+                              <Receipt className="mr-2 h-4 w-4" /> View Bill <Badge className="ml-2 h-5 min-w-[20px] rounded-md text-[9px] font-black flex items-center justify-center shadow-inner" style={{ backgroundColor: theme?.backgroundColor, color: theme?.primaryColor }}>{itemCount}</Badge>
                           </Button>
                       </div>
                   </SheetTrigger>

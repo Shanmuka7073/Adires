@@ -1,10 +1,11 @@
+
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient, EmployeeProfile, SalarySlip, Store, AttendanceRecord, ReasonEntry, User, CartItem, ReportData } from '@/lib/types';
+import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient, EmployeeProfile, SalarySlip, Store, AttendanceRecord, ReasonEntry, User, CartItem } from '@/lib/types';
 import { getApps } from 'firebase-admin/app';
 import * as pdfjs from 'pdfjs-dist';
 import { v4 as uuidv4 } from 'uuid';
@@ -236,38 +237,49 @@ export async function updateManifest(newData: any): Promise<{ success: boolean; 
 export async function addRestaurantOrderItem({
   storeId,
   tableNumber,
+  sessionId,
   item,
   quantity,
+  deliveryAddress,
+  customerName,
+  phone,
 }: {
   storeId: string;
   tableNumber: string | null;
+  sessionId: string;
   item: MenuItem;
   quantity: number;
+  deliveryAddress?: string;
+  customerName?: string;
+  phone?: string;
 }): Promise<{ success: boolean; error?: string }> {
   try {
     const { db } = await getAdminServices();
     const ordersRef = db.collection('orders');
-    const activeOrderQuery = await ordersRef
-      .where('storeId', '==', storeId)
-      .where('tableNumber', '==', tableNumber)
-      .where('status', 'in', ['Pending', 'Processing', 'Billed', 'Out for Delivery'])
-      .limit(1)
-      .get();
+    
+    // Deterministic Order ID based on the table/session to prevent duplicates
+    const orderId = `${storeId}_${sessionId}`;
+    const orderDocRef = ordersRef.doc(orderId);
+    const orderSnap = await orderDocRef.get();
 
-    let orderRef;
     let orderData: any;
 
-    if (!activeOrderQuery.empty) {
-      orderRef = activeOrderQuery.docs[0].ref;
-      orderData = activeOrderQuery.docs[0].data();
+    if (orderSnap.exists) {
+      orderData = orderSnap.data();
     } else {
-      orderRef = ordersRef.doc();
       orderData = {
-        id: orderRef.id, storeId, tableNumber,
-        sessionId: `session-${uuidv4()}`, userId: 'guest',
-        customerName: `Table ${tableNumber || 'N/A'}`,
-        deliveryAddress: 'In-store dining', totalAmount: 0,
-        status: 'Pending', orderDate: Timestamp.now(), items: [],
+        id: orderId, 
+        storeId, 
+        tableNumber: tableNumber || null,
+        sessionId: sessionId,
+        userId: 'guest',
+        customerName: customerName || (tableNumber ? `Table ${tableNumber}` : 'Guest'),
+        deliveryAddress: deliveryAddress || (tableNumber ? 'In-store dining' : 'TBD'),
+        phone: phone || '',
+        totalAmount: 0,
+        status: 'Pending', 
+        orderDate: Timestamp.now(), 
+        items: [],
       };
     }
 
@@ -282,14 +294,18 @@ export async function addRestaurantOrderItem({
     }
 
     const orderItem: OrderItem = {
-      id: uuidv4(), orderId: orderRef.id,
+      id: uuidv4(), 
+      orderId: orderId,
       productId: `${storeId}-${createSlug(item.name)}`,
-      productName: item.name, variantSku: 'default',
-      variantWeight: '1 pc', quantity, price: item.price,
+      productName: item.name, 
+      variantSku: 'default',
+      variantWeight: '1 pc', 
+      quantity, 
+      price: item.price,
       recipeSnapshot: recipeSnapshotData,
     };
 
-    await orderRef.set({
+    await orderDocRef.set({
       ...orderData,
       items: [...(orderData.items || []), orderItem],
       totalAmount: (orderData.totalAmount || 0) + (orderItem.price * orderItem.quantity),
@@ -299,6 +315,7 @@ export async function addRestaurantOrderItem({
 
     return { success: true };
   } catch (error: any) {
+    console.error("Add restaurant item failed:", error);
     return { success: false, error: error.message };
   }
 }
@@ -436,7 +453,7 @@ export async function getStoreSalesReport({ storeId, period }: { storeId: string
       report: {
         totalSales,
         totalOrders: validOrders.length,
-        totalItems: Array.from(productMap.values()).reduce((a, b) => a + b.count, 0),
+        totalItems: Array.from(productMap.values()).reduce((a, b) => a + b, 0),
         topProducts: Array.from(productMap.entries())
             .map(([name, stat]) => ({ name, count: stat.count }))
             .sort((a,b) => b.count - a.count)
@@ -578,7 +595,7 @@ export async function rejectRule(id: string) {
     try {
         const { db } = await getAdminServices();
         await db.collection('nlu_extracted_sentences').doc(id).update({ status: 'rejected' });
-        return { success: true };
+        return { true: true };
     } catch (e: any) { return { success: false, error: e.message }; }
 }
 
