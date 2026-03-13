@@ -218,7 +218,13 @@ function DeliveryOrderCard({ order, store, onStatusChange, isUpdating }: { order
                             <Package className="h-4 w-4 text-blue-600" />
                             <CardTitle className="text-base font-black uppercase tracking-tight text-blue-950">Delivery #{order.id.slice(-6)}</CardTitle>
                         </div>
-                        <CardDescription className="text-[10px] font-bold opacity-40">{format((order.orderDate as Timestamp).toDate(), 'p, PPP')}</CardDescription>
+                        <CardDescription className="text-[10px] font-bold opacity-40">
+                            {order.orderDate instanceof Timestamp 
+                                ? format(order.orderDate.toDate(), 'p, PPP') 
+                                : order.orderDate instanceof Date 
+                                    ? format(order.orderDate, 'p, PPP') 
+                                    : 'Recently Placed'}
+                        </CardDescription>
                     </div>
                     <Badge variant={meta.variant} className="rounded-md px-2 py-0.5 text-[9px] font-black uppercase tracking-widest">{order.status}</Badge>
                 </div>
@@ -269,19 +275,19 @@ export default function StoreOrdersPage() {
 
   const { userStore: myStore, loading: storeLoading } = useAppStore();
 
+  // Simplified query: Fetch ALL non-finalized orders for this store.
+  // Filtering by status happens in-memory to avoid complex index errors.
   const activeOrdersQuery = useMemoFirebase(() =>
     firestore && myStore
       ? query(
           collection(firestore, 'orders'),
           where('storeId', '==', myStore.id),
-          where('status', 'not-in', ['Completed', 'Delivered', 'Cancelled']),
-          orderBy('status'), 
           orderBy('orderDate', 'desc')
         )
       : null,
   [firestore, myStore]);
 
-  const { data: activeOrders, isLoading: ordersLoading } = useCollection<Order>(activeOrdersQuery);
+  const { data: allActiveOrders, isLoading: ordersLoading } = useCollection<Order>(activeOrdersQuery);
 
   const fetchHistory = useCallback(() => {
     if (!firestore || !myStore || !selectedDate) return;
@@ -295,20 +301,21 @@ export default function StoreOrdersPage() {
         const hQuery = query(
             collection(firestore, 'orders'),
             where('storeId', '==', myStore.id),
-            where('orderDate', ">=", Timestamp.fromDate(start)),
-            where('orderDate', "<=", Timestamp.fromDate(end)),
+            where('orderDate', '>=', Timestamp.fromDate(start)),
+            where('orderDate', '<=', Timestamp.fromDate(end)),
             orderBy('orderDate', 'desc')
         );
 
         try {
             const snap = await getDocs(hQuery);
             const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Order));
+            // Filter for finalized statuses in memory
             const filtered = data.filter(o => ['Completed', 'Delivered', 'Cancelled'].includes(o.status));
             setHistoryHistoryOrders(filtered);
             toast({ title: "History Loaded", description: `Found ${filtered.length} records.`});
         } catch (e) {
             console.error("History fetch error:", e);
-            toast({ variant: 'destructive', title: "Load Failed", description: "Could not retrieve historical data."});
+            toast({ variant: 'destructive', title: "Load Failed", description: "Could not retrieve historical data. Check indexes."});
         }
     });
   }, [firestore, myStore, selectedDate, toast]);
@@ -318,18 +325,32 @@ export default function StoreOrdersPage() {
     const directDeliveries: Order[] = [];
     const others: Session[] = [];
 
-    if (!activeOrders) return { sessions: tableSessions, homeDeliveries: directDeliveries, otherSessions: others };
+    if (!allActiveOrders) return { sessions: tableSessions, homeDeliveries: directDeliveries, otherSessions: others };
 
-    const myTableSet = new Set(myStore?.tables || []);
+    const activeFilter = ['Pending', 'Processing', 'Billed', 'Out for Delivery'];
+    const filteredOrders = allActiveOrders.filter(o => activeFilter.includes(o.status));
 
-    activeOrders.forEach(order => {
-        if (order.status === 'Draft') return;
-        const orderDate = (order.orderDate as Timestamp).toDate();
+    const normalizeTable = (t: string) => t.toLowerCase().replace('table ', '').trim();
+    const myTableSet = new Set(myStore?.tables?.map(normalizeTable) || []);
+
+    filteredOrders.forEach(order => {
+        const orderDate = order.orderDate instanceof Timestamp 
+            ? order.orderDate.toDate() 
+            : order.orderDate instanceof Date 
+                ? order.orderDate 
+                : new Date();
 
         if (order.tableNumber && order.sessionId) {
             const sid = order.sessionId;
             if (!tableSessions[sid]) {
-                tableSessions[sid] = { id: sid, tableNumber: order.tableNumber, orders: [], totalAmount: 0, status: 'Pending', lastActivity: new Date(0) };
+                tableSessions[sid] = { 
+                    id: sid, 
+                    tableNumber: order.tableNumber, 
+                    orders: [], 
+                    totalAmount: 0, 
+                    status: 'Pending', 
+                    lastActivity: new Date(0) 
+                };
             }
             tableSessions[sid].orders.push(order);
             tableSessions[sid].totalAmount += order.totalAmount;
@@ -342,18 +363,18 @@ export default function StoreOrdersPage() {
         }
     });
 
-    // Separate sessions into "My Tables" and "Other Sessions"
     const finalSessions: Record<string, Session> = {};
     Object.values(tableSessions).forEach(s => {
-        if (s.tableNumber && myTableSet.has(s.tableNumber)) {
-            finalSessions[s.tableNumber] = s;
+        const norm = normalizeTable(s.tableNumber || '');
+        if (norm && myTableSet.has(norm)) {
+            finalSessions[norm] = s;
         } else {
             others.push(s);
         }
     });
 
     return { sessions: finalSessions, homeDeliveries: directDeliveries, otherSessions: others };
-  }, [activeOrders, myStore?.tables]);
+  }, [allActiveOrders, myStore?.tables]);
 
   const handleOrderUpdate = (orderId: string, newStatus: Order['status']) => {
       if (!firestore) return;
@@ -368,7 +389,12 @@ export default function StoreOrdersPage() {
 
   const activeSessionsByTable = useMemo(() => {
       const map: Record<string, Session> = {};
-      Object.values(sessions).forEach(s => { if (s.tableNumber) map[s.tableNumber] = s; });
+      Object.values(sessions).forEach(s => { 
+          if (s.tableNumber) {
+              const norm = s.tableNumber.toLowerCase().replace('table ', '').trim();
+              map[norm] = s;
+          }
+      });
       return map;
   }, [sessions]);
   
@@ -399,7 +425,7 @@ export default function StoreOrdersPage() {
 
         <div className="space-y-24">
             <section>
-                <h2 className="text-2xl font-black font-headline tracking-tight uppercase mb-8 border-l-8 border-blue-600 pl-4">Home Delivery</h2>
+                <h2 className="text-2xl font-black font-headline tracking-tight uppercase mb-8 border-l-8 border-blue-600 pl-4 text-blue-600">Home Delivery</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {homeDeliveries.map(order => (
                         <DeliveryOrderCard key={order.id} order={order} store={myStore || undefined} onStatusChange={handleOrderUpdate} isUpdating={isUpdating} />
@@ -409,14 +435,15 @@ export default function StoreOrdersPage() {
             </section>
 
             <section>
-                <h2 className="text-2xl font-black font-headline tracking-tight uppercase mb-8 border-l-8 border-green-600 pl-4">Table Service</h2>
+                <h2 className="text-2xl font-black font-headline tracking-tight uppercase mb-8 border-l-8 border-green-600 pl-4 text-green-600">Table Service</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-                    {myStore?.tables?.map(tableNumber => {
-                        const activeSession = activeSessionsByTable[tableNumber];
+                    {myStore?.tables?.map(tableId => {
+                        const norm = tableId.toLowerCase().replace('table ', '').trim();
+                        const activeSession = activeSessionsByTable[norm];
                         return activeSession ? (
                             <SessionCard key={activeSession.id} session={activeSession} isUpdating={isUpdating} />
                         ) : (
-                            <EmptyTableCard key={tableNumber} tableNumber={tableNumber} />
+                            <EmptyTableCard key={tableId} tableNumber={tableId} />
                         )
                     })}
                 </div>
@@ -479,7 +506,13 @@ export default function StoreOrdersPage() {
                                         <CardContent className="p-4 flex justify-between items-center">
                                             <div className="min-w-0 pr-4">
                                                 <p className="font-black text-[11px] truncate leading-tight group-hover:text-primary transition-colors">{order.customerName || `Table ${order.tableNumber}`}</p>
-                                                <p className="text-[9px] font-bold opacity-40 uppercase tracking-tighter">{format((order.orderDate as Timestamp).toDate(), 'p')}</p>
+                                                <p className="text-[9px] font-bold opacity-40 uppercase tracking-tighter">
+                                                    {order.orderDate instanceof Timestamp 
+                                                        ? format(order.orderDate.toDate(), 'p') 
+                                                        : order.orderDate instanceof Date 
+                                                            ? format(order.orderDate, 'p') 
+                                                            : '—'}
+                                                </p>
                                             </div>
                                             <div className="text-right shrink-0">
                                                 <Badge variant="outline" className="text-[8px] font-black uppercase border-black/10 px-1.5 py-0 mb-1 rounded-sm">{order.status}</Badge>
