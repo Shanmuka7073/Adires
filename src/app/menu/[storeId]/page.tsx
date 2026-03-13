@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -22,7 +23,7 @@ import type {
   GetIngredientsOutput,
 } from '@/lib/types';
 
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -90,60 +91,113 @@ import { Textarea } from '@/components/ui/textarea';
 const ADIRES_LOGO = "https://i.ibb.co/NdxC1XFF/file-000000007de872069c754b2d3cd565ec.png";
 
 /**
- * Detailed Quick Access / Install Dialog
- * Shows the user how the app will look on their home screen.
+ * Mode Selection Dialog
+ * Allows users to switch between Table Service and Home Delivery.
  */
+function ModeSelectionDialog({ 
+    isOpen, 
+    onOpenChange, 
+    onSelectMode, 
+    currentMode, 
+    theme 
+}: { 
+    isOpen: boolean; 
+    onOpenChange: (open: boolean) => void; 
+    onSelectMode: (mode: 'table' | 'delivery', value?: string) => void; 
+    currentMode: 'table' | 'delivery';
+    theme: MenuTheme | undefined;
+}) {
+    const [tableVal, setTableVal] = useState('');
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="rounded-[2rem] border-0 shadow-2xl p-6" style={{ backgroundColor: theme?.backgroundColor }}>
+                <DialogHeader className="mb-4">
+                    <DialogTitle className="text-xl font-black uppercase tracking-tight" style={{ color: theme?.primaryColor }}>Change Order Mode</DialogTitle>
+                    <DialogDescription style={{ color: theme?.textColor, opacity: 0.6 }}>How would you like to receive your food today?</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4">
+                    <Button 
+                        variant={currentMode === 'delivery' ? 'default' : 'outline'} 
+                        className={cn(
+                            "h-20 rounded-2xl flex flex-col gap-1 items-center justify-center transition-all active:scale-95 border-2",
+                            currentMode === 'delivery' ? "shadow-lg" : "opacity-60"
+                        )}
+                        style={{ 
+                            backgroundColor: currentMode === 'delivery' ? theme?.primaryColor : 'transparent',
+                            color: currentMode === 'delivery' ? theme?.backgroundColor : theme?.primaryColor,
+                            borderColor: theme?.primaryColor
+                        }}
+                        onClick={() => { onSelectMode('delivery'); onOpenChange(false); }}
+                    >
+                        <div className="flex items-center gap-2 font-black text-xs uppercase tracking-widest"><Truck className="h-4 w-4"/> Home Delivery</div>
+                        <span className="text-[10px] font-bold opacity-60">Delivered to your home</span>
+                    </Button>
+
+                    <div className="relative py-2">
+                        <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-black/5" /></div>
+                        <div className="relative flex justify-center text-[8px] font-black uppercase tracking-[0.3em] opacity-30"><span className="bg-white px-2" style={{ backgroundColor: theme?.backgroundColor }}>Or</span></div>
+                    </div>
+
+                    <div className="space-y-3">
+                        <Label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1" style={{ color: theme?.textColor }}>Dine-in at Restaurant</Label>
+                        <div className="flex gap-2">
+                            <Input 
+                                placeholder="Enter Table No." 
+                                value={tableVal} 
+                                onChange={(e) => setTableVal(e.target.value)}
+                                className="rounded-xl h-12 border-2 text-center font-bold"
+                                style={{ borderColor: theme?.primaryColor + '20' }}
+                            />
+                            <Button 
+                                disabled={!tableVal.trim()}
+                                onClick={() => { onSelectMode('table', tableVal); onOpenChange(false); }}
+                                className="h-12 rounded-xl px-6 font-black text-[10px] uppercase tracking-widest shadow-lg"
+                                style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}
+                            >
+                                Set Table
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 function QuickAccessDialog({ store, isOpen, onOpenChange, onInstall }: { store: Store; isOpen: boolean; onOpenChange: (open: boolean) => void; onInstall: () => void }) {
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md rounded-[2.5rem] p-0 overflow-hidden border-0 shadow-2xl">
                 <div className="bg-gradient-to-br from-primary/20 to-primary/5 p-8 text-center relative">
                     <button onClick={() => onOpenChange(false)} className="absolute top-4 right-4 p-2 rounded-full hover:bg-black/5"><X className="h-5 w-5 opacity-40" /></button>
-                    
-                    {/* Phone Mockup Preview */}
                     <div className="mx-auto w-48 h-80 bg-slate-900 rounded-[2.5rem] border-4 border-slate-800 shadow-2xl relative overflow-hidden mb-6 p-2">
                         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-20 h-4 bg-slate-800 rounded-b-xl z-10"></div>
                         <div className="grid grid-cols-4 gap-3 p-4 pt-8">
-                            {/* App Icon Mockup */}
                             <div className="col-span-1 space-y-1 flex flex-col items-center">
-                                <div className="w-8 h-8 rounded-xl bg-white shadow-lg relative overflow-hidden border border-white/20 animate-in zoom-in-50 duration-700 delay-300">
+                                <div className="w-8 h-8 rounded-xl bg-white shadow-lg relative overflow-hidden border border-white/20">
                                     <Image src={store.imageUrl || ADIRES_LOGO} alt="App Icon" fill className="object-cover" />
                                 </div>
                                 <span className="text-[5px] font-bold text-white/60 truncate w-full text-center">{store.name}</span>
                             </div>
-                            {/* Filler icons */}
                             {[1,2,3,4,5,6,7].map(i => (
                                 <div key={i} className="w-8 h-8 rounded-xl bg-white/10"></div>
                             ))}
                         </div>
-                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-white/40"></div>
-                            <div className="w-1.5 h-1.5 rounded-full bg-white/20"></div>
-                        </div>
                     </div>
-
                     <h2 className="text-2xl font-black tracking-tight mb-2">Add to Home Screen</h2>
                     <p className="text-sm font-medium opacity-60 px-4">Get one-tap access to {store.name} just like a native app.</p>
                 </div>
-
                 <div className="p-8 space-y-6">
                     <div className="grid gap-4">
                         <div className="flex items-start gap-4">
                             <div className="bg-primary/10 p-3 rounded-2xl"><Zap className="h-5 w-5 text-primary" /></div>
                             <div>
                                 <h4 className="font-black text-xs uppercase tracking-widest mb-1">Instant Launch</h4>
-                                <p className="text-xs opacity-60">Open the menu directly without typing a URL in the browser.</p>
-                            </div>
-                        </div>
-                        <div className="flex items-start gap-4">
-                            <div className="bg-primary/10 p-3 rounded-2xl"><Smartphone className="h-5 w-5 text-primary" /></div>
-                            <div>
-                                <h4 className="font-black text-xs uppercase tracking-widest mb-1">Full Screen Mode</h4>
-                                <p className="text-xs opacity-60">Experience the menu in beautiful full-screen without browser bars.</p>
+                                <p className="text-xs opacity-60">Open the menu directly without typing a URL.</p>
                             </div>
                         </div>
                     </div>
-
                     <Button onClick={onInstall} className="w-full h-14 rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-primary/20">
                         Install App Now
                     </Button>
@@ -153,13 +207,8 @@ function QuickAccessDialog({ store, isOpen, onOpenChange, onInstall }: { store: 
     )
 }
 
-/**
- * Visual tracker showing the progress of a confirmed HOME DELIVERY order.
- */
 function LiveOrderTracker({ order, theme }: { order: Order; theme: MenuTheme | undefined }) {
     const [timeLeft, setTimeLeft] = useState<number | null>(null);
-    const statuses = ['Pending', 'Processing', 'Out for Delivery', 'Delivered', 'Completed'];
-    
     const statusLabels: Record<string, string> = {
         'Pending': 'Order Received',
         'Processing': 'Preparing Food',
@@ -169,31 +218,21 @@ function LiveOrderTracker({ order, theme }: { order: Order; theme: MenuTheme | u
     };
 
     useEffect(() => {
-        if (order.status !== 'Out for Delivery') {
-            setTimeLeft(null);
-            return;
-        }
-
+        if (order.status !== 'Out for Delivery') { setTimeLeft(null); return; }
         const tick = () => {
             const now = new Date().getTime();
             let updateTimeMs = now;
             const up = order.updatedAt;
-
             if (up) {
                 if (typeof up.toDate === 'function') updateTimeMs = up.toDate().getTime();
                 else if (up.seconds) updateTimeMs = up.seconds * 1000;
-                else {
-                    const parsed = new Date(up).getTime();
-                    if (!isNaN(parsed)) updateTimeMs = parsed;
-                }
+                else { const parsed = new Date(up).getTime(); if (!isNaN(parsed)) updateTimeMs = parsed; }
             }
-
             const twentyMinutesMs = 20 * 60 * 1000;
             const expiryTime = updateTimeMs + twentyMinutesMs;
             const diff = Math.max(0, Math.floor((expiryTime - now) / 1000));
             setTimeLeft(diff);
         };
-
         tick();
         const intervalId = setInterval(tick, 1000);
         return () => clearInterval(intervalId);
@@ -342,6 +381,7 @@ export default function PublicMenuPage() {
   const searchParams = useSearchParams();
   const { firestore } = useFirebase();
   const { toast } = useToast();
+  const router = useRouter();
 
   const [isAdding, startAdding] = useTransition();
   const [searchTerm, setSearchTerm] = useState('');
@@ -350,6 +390,7 @@ export default function PublicMenuPage() {
   const [isAddressMode, setIsAddressOpen] = useState(false);
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
   const [isQuickAccessOpen, setIsQuickAccessOpen] = useState(false);
+  const [isModeDialogOpen, setIsModeDialogOpen] = useState(false);
   
   const [tableNumber, setTableNumber] = useState<string | null>(null);
   const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -401,8 +442,6 @@ export default function PublicMenuPage() {
     [firestore, orderId, sessionId]
   );
   const { data: order, isLoading: orderLoading } = useDoc<Order>(orderRef);
-  
-  // Define itemCount based on fetched order
   const itemCount = order?.items?.length || 0;
 
   const storeRef = useMemoFirebase(() => firestore ? doc(firestore, 'stores', storeId) : null, [firestore, storeId]);
@@ -456,13 +495,23 @@ export default function PublicMenuPage() {
     });
   };
 
-  /**
-   * Clears the current completed session and starts a fresh one.
-   */
   const handleStartNewOrder = () => {
     const currentSub = parseInt(localStorage.getItem(`sub_session_${storeId}`) || '1', 10);
     localStorage.setItem(`sub_session_${storeId}`, (currentSub + 1).toString());
     window.location.reload();
+  };
+
+  const handleModeChange = (mode: 'table' | 'delivery', value?: string) => {
+      if (mode === 'delivery') {
+          setTableNumber(null);
+          localStorage.removeItem(`last_table_${storeId}`);
+          router.replace(`/menu/${storeId}`);
+      } else if (mode === 'table' && value) {
+          setTableNumber(value);
+          localStorage.setItem(`last_table_${storeId}`, value);
+          router.replace(`/menu/${storeId}?table=${encodeURIComponent(value)}`);
+      }
+      handleStartNewOrder(); // Force reset sub-session when changing mode
   };
 
   if (storeLoading || menuLoading || orderLoading) return <div className="p-6 space-y-6"><Skeleton className="h-16 w-16 rounded-2xl" /><Skeleton className="h-10 w-full" /></div>;
@@ -489,11 +538,18 @@ export default function PublicMenuPage() {
         />
       )}
 
-      {/* QUICK ACCESS PREVIEW DIALOG */}
+      <ModeSelectionDialog 
+        isOpen={isModeDialogOpen} 
+        onOpenChange={setIsModeDialogOpen} 
+        onSelectMode={handleModeChange} 
+        currentMode={tableNumber ? 'table' : 'delivery'} 
+        theme={theme}
+      />
+
       <QuickAccessDialog 
         store={store} 
         isOpen={isQuickAccessOpen} 
-        onOpenChange={isQuickAccessOpen => setIsQuickAccessOpen(isQuickAccessOpen)} 
+        onOpenChange={setIsQuickAccessOpen} 
         onInstall={() => { setIsQuickAccessOpen(false); triggerInstall(); }} 
       />
 
@@ -506,7 +562,14 @@ export default function PublicMenuPage() {
                     {store.imageUrl && <div className="relative h-12 w-12 rounded-2xl overflow-hidden shrink-0"><Image src={store.imageUrl} alt={store.name} fill className="object-cover" /></div>}
                     <div className="min-w-0">
                         <h1 className="text-base font-black font-headline truncate" style={{ color: theme?.primaryColor }}>{store.name}</h1>
-                        {tableNumber && <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>Table {tableNumber}</Badge>}
+                        <div className="flex items-center gap-2">
+                            {tableNumber ? (
+                                <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>Table {tableNumber}</Badge>
+                            ) : (
+                                <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest bg-blue-600 text-white">Home Delivery</Badge>
+                            )}
+                            <button onClick={() => setIsModeDialogOpen(true)} className="text-[8px] font-black uppercase tracking-widest opacity-40 hover:opacity-100 underline" style={{ color: theme?.textColor }}>Change Mode</button>
+                        </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
