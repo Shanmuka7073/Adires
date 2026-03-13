@@ -27,7 +27,8 @@ import {
   Calendar as CalendarIcon,
   ChevronDown,
   Download,
-  Trash2
+  Trash2,
+  Coffee
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -312,12 +313,14 @@ export default function StoreOrdersPage() {
     });
   }, [firestore, myStore, selectedDate, toast]);
 
-  const { sessions, homeDeliveries, unassignedOrders } = useMemo(() => {
+  const { sessions, homeDeliveries, otherSessions } = useMemo(() => {
     const tableSessions: Record<string, Session> = {};
     const directDeliveries: Order[] = [];
-    const unassigned: Order[] = [];
+    const others: Session[] = [];
 
-    if (!activeOrders) return { sessions: tableSessions, homeDeliveries: directDeliveries, unassignedOrders: unassigned };
+    if (!activeOrders) return { sessions: tableSessions, homeDeliveries: directDeliveries, otherSessions: others };
+
+    const myTableSet = new Set(myStore?.tables || []);
 
     activeOrders.forEach(order => {
         if (order.status === 'Draft') return;
@@ -334,15 +337,23 @@ export default function StoreOrdersPage() {
                 tableSessions[sid].lastActivity = orderDate;
                 tableSessions[sid].status = order.status;
             }
-        } else if (order.tableNumber) {
-            unassigned.push(order);
         } else {
             directDeliveries.push(order);
         }
     });
 
-    return { sessions: tableSessions, homeDeliveries: directDeliveries, unassignedOrders: unassigned };
-  }, [activeOrders]);
+    // Separate sessions into "My Tables" and "Other Sessions"
+    const finalSessions: Record<string, Session> = {};
+    Object.values(tableSessions).forEach(s => {
+        if (s.tableNumber && myTableSet.has(s.tableNumber)) {
+            finalSessions[s.tableNumber] = s;
+        } else {
+            others.push(s);
+        }
+    });
+
+    return { sessions: finalSessions, homeDeliveries: directDeliveries, otherSessions: others };
+  }, [activeOrders, myStore?.tables]);
 
   const handleOrderUpdate = (orderId: string, newStatus: Order['status']) => {
       if (!firestore) return;
@@ -377,7 +388,7 @@ export default function StoreOrdersPage() {
 
         <div className="mb-12 flex flex-col md:flex-row justify-between md:items-end gap-6 border-b pb-10 border-black/5">
             <div>
-                <h1 className="text-6xl font-black font-headline tracking-tighter">Kitchen POS</h1>
+                <h1 className="text-6xl font-black font-headline tracking-tighter">Operation Center</h1>
                 <p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">STORE: {myStore?.name || '...'}</p>
             </div>
             <div className="flex gap-3">
@@ -411,12 +422,12 @@ export default function StoreOrdersPage() {
                 </div>
             </section>
 
-            {unassignedOrders.length > 0 && (
+            {otherSessions.length > 0 && (
                 <section>
-                    <h2 className="text-2xl font-black font-headline tracking-tight uppercase mb-8 border-l-8 border-amber-600 pl-4 text-amber-600">Unassigned Tables</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {unassignedOrders.map(order => (
-                            <DeliveryOrderCard key={order.id} order={order} store={myStore || undefined} onStatusChange={handleOrderUpdate} isUpdating={isUpdating} />
+                    <h2 className="text-2xl font-black font-headline tracking-tight uppercase mb-8 border-l-8 border-amber-600 pl-4 text-amber-600">Other Active Tables</h2>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+                        {otherSessions.map(session => (
+                            <SessionCard key={session.id} session={session} isUpdating={isUpdating} />
                         ))}
                     </div>
                 </section>
