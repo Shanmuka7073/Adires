@@ -309,8 +309,8 @@ export default function StoreOrdersPage() {
         const hQuery = query(
             collection(firestore, 'orders'),
             where('storeId', '==', myStore.id),
-            where('orderDate', >=, Timestamp.fromDate(start)),
-            where('orderDate', <=, Timestamp.fromDate(end)),
+            where('orderDate', '>=', Timestamp.fromDate(start)),
+            where('orderDate', '<=', Timestamp.fromDate(end)),
             orderBy('orderDate', 'desc')
         );
 
