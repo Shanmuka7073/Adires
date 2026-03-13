@@ -12,32 +12,36 @@ import { InstallProvider } from '@/components/install-provider';
 
 /**
  * This hook is responsible for making sure the application's essential
- * data is loaded before the UI is shown to the user. It now ensures a fresh
- * fetch on every cold load, preventing race conditions.
+ * data is loaded before the UI is shown to the user.
  */
 function useInitializeApp() {
     const { firestore, user } = useFirebase();
     const {
         fetchInitialData,
+        fetchUserStore,
         isInitialized,
         loading,
+        userStore
     } = useAppStore();
 
     useEffect(() => {
         // Only fetch if firestore is available and we haven't initialized yet.
-        // This runs once per application load.
         if (firestore && !isInitialized && !loading) {
             fetchInitialData(firestore, user?.uid);
         }
     }, [firestore, user?.uid, isInitialized, loading, fetchInitialData]);
+
+    // Handle secondary branding fetch if user logs in later
+    useEffect(() => {
+        if (isInitialized && user?.uid && !userStore && firestore) {
+            fetchUserStore(firestore, user.uid);
+        }
+    }, [isInitialized, user?.uid, userStore, firestore, fetchUserStore]);
 }
 
 
 function AppContent({ children }: { children: React.ReactNode }) {
     useInitializeApp();
-    // We now rely solely on isInitialized, which is only set to true after the
-    // initial data fetch is complete. This prevents the UI from rendering
-    // with stale or incomplete data from localStorage.
     const { isInitialized } = useAppStore();
 
     if (!isInitialized) {

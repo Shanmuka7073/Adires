@@ -41,6 +41,7 @@ export interface AppState {
   setActiveStoreId: (storeId: string | null) => void;
   setUserStore: (store: Store | null) => void;
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
+  fetchUserStore: (db: Firestore, userId: string) => Promise<void>;
   fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
   getProductName: (product: Product) => string;
   getAllAliases: (key: string) => Record<string, string[]>;
@@ -98,7 +99,6 @@ export const useAppStore = create<AppState>()(
         set({ loading: true, error: null });
         
         try {
-          // Parallel fetch of core platform data
           const [stores, masterProducts, aliasDocs, commandDocs] = await Promise.all([
             getStores(db),
             getMasterProducts(db),
@@ -108,7 +108,6 @@ export const useAppStore = create<AppState>()(
           
           let userStore = null;
           if (userId) {
-              // Efficiently find the user's store using indexed ownerId
               const userStoreQuery = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
               const userStoreSnap = await getDocs(userStoreQuery);
               if (!userStoreSnap.empty) {
@@ -147,6 +146,19 @@ export const useAppStore = create<AppState>()(
           set({ error: error as Error, loading: false, isInitialized: true });
         }
       },
+
+      fetchUserStore: async (db: Firestore, userId: string) => {
+          try {
+              const userStoreQuery = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
+              const userStoreSnap = await getDocs(userStoreQuery);
+              if (!userStoreSnap.empty) {
+                  const userStore = { id: userStoreSnap.docs[0].id, ...userStoreSnap.docs[0].data() } as Store;
+                  set({ userStore });
+              }
+          } catch (error) {
+              console.error("Failed to fetch user store specifically:", error);
+          }
+      },
       
       fetchProductPrices: async (db: Firestore, productNames: string[]) => {
           const { productPrices, incrementReadCount } = get();
@@ -157,14 +169,14 @@ export const useAppStore = create<AppState>()(
           try {
               const pricesToUpdate: Record<string, ProductPrice | null> = {};
               const batchSize = 30;
-              let reads = 0;
+              let totalReads = 0;
 
               for (let i = 0; i < namesToFetch.length; i += batchSize) {
                   const batchNames = namesToFetch.slice(i, i + batchSize).map(n => n.toLowerCase());
                   if (batchNames.length > 0) {
                       const priceQuery = query(collection(db, 'productPrices'), where('productName', 'in', batchNames));
                       const priceSnapshot = await getDocs(priceQuery);
-                      reads++;
+                      totalReads++;
                       
                       const fetchedPrices = new Map(priceSnapshot.docs.map(doc => [doc.id, doc.data() as ProductPrice]));
                       
@@ -174,7 +186,7 @@ export const useAppStore = create<AppState>()(
                   }
               }
 
-              incrementReadCount(reads);
+              incrementReadCount(totalReads);
               set(state => ({
                   productPrices: { ...state.productPrices, ...pricesToUpdate }
               }));
@@ -186,7 +198,6 @@ export const useAppStore = create<AppState>()(
       getProductName: (product: Product) => {
         if (!product || !product.name) return '';
         const lang = get().language;
-        // The t function is exported from locales.ts, ensuring consistent behavior.
         const { t } = require('@/lib/locales');
         return t(product.name.toLowerCase().replace(/ /g, '-'), lang);
       },
