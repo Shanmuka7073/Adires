@@ -3,14 +3,13 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Firestore, collection, getDocs, query, where } from 'firebase/firestore';
+import { Firestore, collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { Store, Product, ProductPrice, VoiceAliasGroup, Menu } from './types';
-import { getStores, getMasterProducts, getProductPrice } from './data';
+import { getStores, getMasterProducts } from './data';
 import { RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import { t as translate, initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups } from '@/lib/locales';
+import { initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups } from '@/lib/locales';
 import { generalCommands as defaultGeneralCommands, CommandGroup } from '@/lib/locales/commands';
-
 
 export interface ProfileFormValues {
   firstName?: string;
@@ -25,7 +24,7 @@ export interface AppState {
   stores: Store[];
   masterProducts: Product[];
   allMenus: Menu[];
-  userStore: Store | null; // The store owned by the logged-in user
+  userStore: Store | null; 
   productPrices: Record<string, ProductPrice | null>;
   locales: Locales;
   commands: Record<string, CommandGroup>;
@@ -55,7 +54,6 @@ const getInitialLanguage = (): string => {
   }
   return 'en';
 };
-
 
 export const useAppStore = create<AppState>()(
   persist(
@@ -97,21 +95,26 @@ export const useAppStore = create<AppState>()(
       fetchInitialData: async (db: Firestore, userId?: string) => {
         if (get().loading) return;
 
-        set({ loading: true, error: null, readCount: 0, writeCount: 0 });
+        set({ loading: true, error: null });
         
         try {
+          // Parallel fetch of core platform data
           const [stores, masterProducts, aliasDocs, commandDocs] = await Promise.all([
             getStores(db),
             getMasterProducts(db),
             getDocs(collection(db, 'voiceAliasGroups')),
             getDocs(collection(db, 'voiceCommands'))
           ]);
-          set(state => ({ readCount: state.readCount + 2 + aliasDocs.size + commandDocs.size }));
-
-          const menuPromises = stores.map(store => getDocs(query(collection(db, `stores/${store.id}/menus`))));
-          const menuSnapshots = await Promise.all(menuPromises);
-          set(state => ({ readCount: state.readCount + menuSnapshots.length }));
-          const allMenus = menuSnapshots.flatMap(snapshot => snapshot.docs.map(doc => doc.data() as Menu));
+          
+          let userStore = null;
+          if (userId) {
+              // Efficiently find the user's store using indexed ownerId
+              const userStoreQuery = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
+              const userStoreSnap = await getDocs(userStoreQuery);
+              if (!userStoreSnap.empty) {
+                  userStore = { id: userStoreSnap.docs[0].id, ...userStoreSnap.docs[0].data() } as Store;
+              }
+          }
 
           const voiceAliasGroups = aliasDocs.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
           const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
@@ -125,12 +128,9 @@ export const useAppStore = create<AppState>()(
 
           initializeTranslations(locales); 
 
-          const userStore = userId ? (stores.find(s => s.ownerId === userId) || null) : null;
-
           set({
             stores,
             masterProducts,
-            allMenus,
             userStore,
             locales,
             commands: enrichedCommands,
@@ -186,7 +186,9 @@ export const useAppStore = create<AppState>()(
       getProductName: (product: Product) => {
         if (!product || !product.name) return '';
         const lang = get().language;
-        return translate(product.name.toLowerCase().replace(/ /g, '-'), lang);
+        // The t function is exported from locales.ts, ensuring consistent behavior.
+        const { t } = require('@/lib/locales');
+        return t(product.name.toLowerCase().replace(/ /g, '-'), lang);
       },
 
       getAllAliases: (key: string) => {
@@ -210,7 +212,6 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
-
 
 interface ProfileFormState {
   form: UseFormReturn<ProfileFormValues> | null;

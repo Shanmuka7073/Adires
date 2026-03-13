@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Order, Store, OrderItem } from '@/lib/types';
@@ -7,7 +8,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { format, isSameDay } from 'date-fns';
+import { format } from 'date-fns';
 import {
   CookingPot,
   Truck,
@@ -16,21 +17,17 @@ import {
   Loader2,
   Check,
   Package,
-  BarChart3,
   Users,
   MapPin,
   Phone,
-  ArrowRight,
   Video,
-  ExternalLink,
   Receipt,
-  Eye,
   History,
-  Clock,
   PlusCircle,
   Calendar as CalendarIcon,
   ChevronDown,
-  Download
+  Download,
+  Trash2
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -44,8 +41,6 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from '@/components/ui/dialog';
 import { markSessionAsPaid } from '@/app/actions';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Calendar } from '@/components/ui/calendar';
@@ -70,9 +65,6 @@ interface Session {
   lastActivity: Date;
 }
 
-/**
- * Detailed Dialog to show items for a specific order or session
- */
 function ViewOrderDetailsDialog({ 
     items, 
     title, 
@@ -252,13 +244,13 @@ function DeliveryOrderCard({ order, store, onStatusChange, isUpdating }: { order
                     <span className="text-[9px] uppercase font-black opacity-30">Total Bill</span>
                     <span className="text-xl font-black text-primary">₹{order.totalAmount.toFixed(2)}</span>
                 </div>
-                <Button 
+                <button 
                     onClick={() => onStatusChange(order.id, order.status === 'Pending' ? 'Processing' : order.status === 'Processing' ? 'Out for Delivery' : 'Delivered')} 
                     disabled={isUpdating} 
-                    className="w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-700 font-black text-[10px] uppercase tracking-widest shadow-lg"
+                    className="w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-700 font-black text-[10px] uppercase tracking-widest shadow-lg text-white"
                 >
                     {order.status === 'Pending' ? 'Start Prep' : order.status === 'Processing' ? 'Mark Out for Delivery' : 'Confirm Delivery'}
-                </Button>
+                </button>
             </CardFooter>
         </Card>
     );
@@ -270,27 +262,18 @@ export default function StoreOrdersPage() {
   const [isHistoryLoading, startHistoryTransition] = useTransition();
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  
   const [historyOrders, setHistoryHistoryOrders] = useState<Order[] | null>(null);
   const [selectedHistoryItems, setSelectedHistoryItems] = useState<{ items: OrderItem[], title: string, total: number } | null>(null);
 
-  const storeQuery = useMemoFirebase(() =>
-    firestore && user
-      ? query(collection(firestore, 'stores'), where('ownerId', '==', user.uid))
-      : null,
-  [firestore, user]);
+  const { userStore: myStore, loading: storeLoading } = useAppStore();
 
-  const { data: myStores, isLoading: storeLoading } = useCollection<Store>(storeQuery);
-  const myStore = myStores?.[0];
-
-  // REAL-TIME LISTENER: Only for ACTIVE orders (not completed/cancelled) to save reads
   const activeOrdersQuery = useMemoFirebase(() =>
     firestore && myStore
       ? query(
           collection(firestore, 'orders'),
           where('storeId', '==', myStore.id),
           where('status', 'not-in', ['Completed', 'Delivered', 'Cancelled']),
-          orderBy('status'), // Composite index required for not-in + orderBy other field, status sort is cheap
+          orderBy('status'), 
           orderBy('orderDate', 'desc')
         )
       : null,
@@ -318,7 +301,6 @@ export default function StoreOrdersPage() {
         try {
             const snap = await getDocs(hQuery);
             const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Order));
-            // Client-side filter for completed/cancelled to match history intent
             const filtered = data.filter(o => ['Completed', 'Delivered', 'Cancelled'].includes(o.status));
             setHistoryHistoryOrders(filtered);
             toast({ title: "History Loaded", description: `Found ${filtered.length} records.`});
@@ -352,7 +334,6 @@ export default function StoreOrdersPage() {
                 tableSessions[sid].status = order.status;
             }
         } else if (order.tableNumber) {
-            // Unassigned table order (missing sessionId or table not in list)
             unassigned.push(order);
         } else {
             directDeliveries.push(order);
@@ -379,7 +360,7 @@ export default function StoreOrdersPage() {
       return map;
   }, [sessions]);
   
-  const isLoading = storeLoading || ordersLoading;
+  if (storeLoading || ordersLoading) return <div className="p-12 text-center"><Loader2 className="animate-spin mx-auto h-8 w-8 opacity-20" /></div>;
 
   return (
     <div className="container mx-auto py-10 px-4 md:px-6 max-w-7xl">
@@ -395,28 +376,26 @@ export default function StoreOrdersPage() {
 
         <div className="mb-12 flex flex-col md:flex-row justify-between md:items-end gap-6 border-b pb-10 border-black/5">
             <div>
-                <h1 className="text-6xl font-black font-headline tracking-tighter">Adires Kitchen</h1>
+                <h1 className="text-6xl font-black font-headline tracking-tighter">Kitchen POS</h1>
                 <p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">STORE: {myStore?.name || '...'}</p>
             </div>
             <div className="flex gap-3">
                 <Button asChild variant="outline" className="h-12 px-6 rounded-2xl font-black text-[10px] uppercase border-2"><Link href="/dashboard/owner/sales-report">Reports & Profit</Link></Button>
-                <Button asChild className="h-12 px-6 rounded-2xl font-black text-[10px] uppercase bg-primary"><Link href="/dashboard/owner/menu-manager"><PlusCircle className="mr-2 h-4 w-4" /> Manage Menu</Link></Button>
+                <Button asChild className="h-12 px-6 rounded-2xl font-black text-[10px] uppercase bg-primary text-white"><Link href="/dashboard/owner/menu-manager"><PlusCircle className="mr-2 h-4 w-4" /> Manage Menu</Link></Button>
             </div>
         </div>
 
         <div className="space-y-24">
-            {/* --- ACTIVE HOME DELIVERIES --- */}
             <section>
                 <h2 className="text-2xl font-black font-headline tracking-tight uppercase mb-8 border-l-8 border-blue-600 pl-4">Home Delivery</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {homeDeliveries.map(order => (
-                        <DeliveryOrderCard key={order.id} order={order} store={myStore} onStatusChange={handleOrderUpdate} isUpdating={isUpdating} />
+                        <DeliveryOrderCard key={order.id} order={order} store={myStore || undefined} onStatusChange={handleOrderUpdate} isUpdating={isUpdating} />
                     ))}
                     {homeDeliveries.length === 0 && <p className="text-muted-foreground opacity-40 text-xs font-black uppercase tracking-widest">No active deliveries</p>}
                 </div>
             </section>
 
-            {/* --- ACTIVE TABLE FLOOR MAP --- */}
             <section>
                 <h2 className="text-2xl font-black font-headline tracking-tight uppercase mb-8 border-l-8 border-green-600 pl-4">Table Service</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
@@ -431,19 +410,17 @@ export default function StoreOrdersPage() {
                 </div>
             </section>
 
-            {/* --- UNASSIGNED ORDERS CATCH-ALL --- */}
             {unassignedOrders.length > 0 && (
                 <section>
                     <h2 className="text-2xl font-black font-headline tracking-tight uppercase mb-8 border-l-8 border-amber-600 pl-4 text-amber-600">Unassigned Tables</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {unassignedOrders.map(order => (
-                            <DeliveryOrderCard key={order.id} order={order} store={myStore} onStatusChange={handleOrderUpdate} isUpdating={isUpdating} />
+                            <DeliveryOrderCard key={order.id} order={order} store={myStore || undefined} onStatusChange={handleOrderUpdate} isUpdating={isUpdating} />
                         ))}
                     </div>
                 </section>
             )}
 
-             {/* --- LAZY LOADED TRANSACTION HISTORY --- */}
              <section className="pt-16 border-t-2 border-black/5">
                 <div className="flex flex-col items-center gap-6 mb-12">
                     <div className="flex items-center gap-3">
@@ -466,7 +443,7 @@ export default function StoreOrdersPage() {
                         </Popover>
 
                         {!historyOrders ? (
-                            <Button onClick={fetchHistory} disabled={isHistoryLoading || !selectedDate} className="h-12 px-8 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg">
+                            <Button onClick={fetchHistory} disabled={isHistoryLoading || !selectedDate} className="h-12 px-8 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg bg-primary text-white">
                                 {isHistoryLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4" />}
                                 Load History
                             </Button>
