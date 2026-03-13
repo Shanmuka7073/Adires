@@ -401,6 +401,9 @@ export default function PublicMenuPage() {
     [firestore, orderId, sessionId]
   );
   const { data: order, isLoading: orderLoading } = useDoc<Order>(orderRef);
+  
+  // FIX: Define itemCount based on fetched order
+  const itemCount = order?.items?.length || 0;
 
   const storeRef = useMemoFirebase(() => firestore ? doc(firestore, 'stores', storeId) : null, [firestore, storeId]);
   const menuQuery = useMemoFirebase(() => firestore ? query(collection(firestore, `stores/${storeId}/menus`)) : null, [firestore, storeId]);
@@ -456,7 +459,6 @@ export default function PublicMenuPage() {
   if (storeLoading || menuLoading || orderLoading) return <div className="p-6 space-y-6"><Skeleton className="h-16 w-16 rounded-2xl" /><Skeleton className="h-10 w-full" /></div>;
   if (!store || !menu) return <div className="p-12 text-center opacity-50">Menu unavailable.</div>;
   
-  const isTableMode = !!tableNumber;
   const isHomeMode = !tableNumber;
   const isCompleted = ['Completed', 'Delivered'].includes(order?.status || '');
   const isTrackingHome = isHomeMode && ['Pending', 'Processing', 'Out for Delivery'].includes(order?.status || '');
