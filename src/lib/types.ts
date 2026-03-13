@@ -38,6 +38,7 @@ export type Store = {
   distance?: number;
   isClosed?: boolean;
   tables?: string[]; // For restaurant table numbers
+  liveVideoUrl?: string; // URL for live kitchen stream
 };
 
 // WebAuthn types

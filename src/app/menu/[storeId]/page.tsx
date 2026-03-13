@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -680,6 +681,13 @@ export default function PublicMenuPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    {store.liveVideoUrl && (
+                        <Button asChild variant="outline" size="sm" className="h-8 rounded-xl border-2 px-3 font-black text-[8px] uppercase tracking-widest animate-pulse" style={{ color: theme?.primaryColor, borderColor: theme?.primaryColor }}>
+                            <Link href={`/live-order/${orderId || 'preview'}`}>
+                                <Video className="mr-1 h-3 w-3" /> Live Prep
+                            </Link>
+                        </Button>
+                    )}
                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-white/5" onClick={() => setIsSearchOpen(!isSearchOpen)}><Search className="h-3.5 w-3.5" style={{ color: theme?.primaryColor }} /></Button>
                     {canInstall && <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-white/5" onClick={() => setIsQuickAccessOpen(true)}><Download className="h-3.5 w-3.5" style={{ color: theme?.primaryColor }} /></Button>}
                   </div>

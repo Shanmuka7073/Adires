@@ -55,6 +55,11 @@
             "type": "array",
             "items": { "type": "string" },
             "description": "A list of table numbers or names for a restaurant."
+        },
+        "liveVideoUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "YouTube or video URL for live preparation stream."
         }
       },
       "required": [

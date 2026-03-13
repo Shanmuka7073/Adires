@@ -62,7 +62,7 @@ import {
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
-import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Camera, CameraOff, Sparkles, PlusCircle, Edit, Link2, QrCode, ClipboardList, Save } from 'lucide-react';
+import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Camera, CameraOff, Sparkles, PlusCircle, Edit, Link2, QrCode, ClipboardList, Save, Video } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import Link from 'next/link';
@@ -89,6 +89,7 @@ const storeSchema = z.object({
   latitude: z.coerce.number().min(-90, "Invalid latitude").max(90, "Invalid latitude"),
   longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude"),
   tables: z.array(z.string()).optional(),
+  liveVideoUrl: z.string().url('Please enter a valid URL').optional().or(z.literal('')),
 });
 
 const locationSchema = z.object({
@@ -147,7 +148,6 @@ function StoreImageUploader({ store }: { store: Store }) {
 
             if (result.success) {
                 toast({ title: 'Image URL Updated!' });
-                // Update the global Zustand store immediately so the header/loader reflect the change
                 setUserStore({ ...store, imageUrl });
             } else {
                 toast({
@@ -490,17 +490,20 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
     const [isOpen, setIsOpen] = useState(false);
     const { getAllAliases, setUserStore } = useAppStore();
 
-    const form = useForm<Omit<StoreFormValues, 'latitude' | 'longitude' | 'tables'>>({
-        resolver: zodResolver(storeSchema.omit({ latitude: true, longitude: true, tables: true })),
+    const form = useForm<StoreFormValues>({
+        resolver: zodResolver(storeSchema),
         defaultValues: {
             name: store.name,
             teluguName: store.teluguName || '',
             description: store.description,
             address: store.address,
+            latitude: store.latitude || 0,
+            longitude: store.longitude || 0,
+            liveVideoUrl: store.liveVideoUrl || '',
         },
     });
     
-    const onSubmit = (data: Omit<StoreFormValues, 'latitude' | 'longitude' | 'tables'>) => {
+    const onSubmit = (data: StoreFormValues) => {
         if (!firestore) return;
 
         startTransition(() => {
@@ -540,13 +543,13 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                                 <Edit className="mr-2 h-4 w-4" /> {t('edit')}
                             </Button>
                         </DialogTrigger>
-                        <DialogContent>
+                        <DialogContent className="max-w-2xl">
                             <DialogHeader>
                                 <DialogTitle>{t('edit-store-details')}</DialogTitle>
                                 <DialogDescription>{t('update-your-stores-public-information')}</DialogDescription>
                             </DialogHeader>
                             <Form {...form}>
-                                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
                                     <FormField
                                         control={form.control}
                                         name="name"
@@ -596,6 +599,18 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                                             </FormItem>
                                         )}
                                     />
+                                    <FormField
+                                        control={form.control}
+                                        name="liveVideoUrl"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="flex items-center gap-2"><Video className="h-4 w-4" /> Live Preparation URL</FormLabel>
+                                                <FormControl><Input placeholder="e.g., https://www.youtube.com/watch?v=..." {...field} /></FormControl>
+                                                <FormDescription>A YouTube Live link for customers to watch your kitchen preparation.</FormDescription>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
                                     <DialogFooter>
                                         <Button type="button" variant="secondary" onClick={() => setIsOpen(false)}>{t('cancel')}</Button>
                                         <Button type="submit" disabled={isPending}>{isPending ? t('saving') : t('save-changes')}</Button>
@@ -611,6 +626,12 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                 <p><strong>{t('address')}:</strong> {store.address}</p>
                  <p><strong>Telugu Name:</strong> {store.teluguName || 'Not set'}</p>
                 <p><strong>{t('location')}:</strong> {store.latitude}, {store.longitude}</p>
+                {store.liveVideoUrl && (
+                    <div className="flex items-center gap-2 text-green-600 font-bold">
+                        <Video className="h-4 w-4" />
+                        Live Feed Enabled
+                    </div>
+                )}
                 <div>
                   <strong>Voice Aliases:</strong>
                   <div className="flex flex-wrap gap-1 mt-1">
@@ -677,7 +698,7 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
                 </CardContent>
              </Card>
         </TabsContent>
-    </Tabs>
+      </Tabs>
     )
 }
 
