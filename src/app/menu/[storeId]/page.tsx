@@ -388,7 +388,6 @@ export default function PublicMenuPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAddressMode, setIsAddressOpen] = useState(false);
-  const [isFetchingLocation, setIsFetchingLocation] = useState(false);
   const [isQuickAccessOpen, setIsQuickAccessOpen] = useState(false);
   const [isModeDialogOpen, setIsModeDialogOpen] = useState(false);
   
@@ -405,16 +404,19 @@ export default function PublicMenuPage() {
 
   const { canInstall, triggerInstall } = useInstall();
 
+  // --- AUTOMATIC MODE DETECTION ---
   useEffect(() => {
     const urlTable = searchParams.get('table');
     if (urlTable) {
+      // If table is in URL, we are definitively in Table Service mode.
       setTableNumber(urlTable);
       localStorage.setItem(`last_table_${storeId}`, urlTable);
     } else {
-      const savedTable = localStorage.getItem(`last_table_${storeId}`);
-      if (savedTable) setTableNumber(savedTable);
+      // If NOT in URL, we default to Home Delivery (null table).
+      setTableNumber(null);
     }
     
+    // Load customer meta
     const savedAddress = localStorage.getItem(`last_address_${storeId}`);
     const savedName = localStorage.getItem(`last_name_${storeId}`);
     const savedPhone = localStorage.getItem(`last_phone_${storeId}`);
@@ -427,7 +429,13 @@ export default function PublicMenuPage() {
     const today = new Date();
     const dateString = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
     const subSession = typeof window !== 'undefined' ? localStorage.getItem(`sub_session_${storeId}`) || '1' : '1';
-    if (tableNumber) return `table-${tableNumber}-${dateString}-${subSession}`;
+    
+    // Session depends on mode
+    if (tableNumber) {
+        return `table-${tableNumber}-${dateString}-${subSession}`;
+    }
+    
+    // Home Delivery session uses device ID
     let deviceId = localStorage.getItem(`device_session_${storeId}`);
     if (!deviceId) {
         deviceId = Math.random().toString(36).substring(2, 15);
@@ -511,7 +519,7 @@ export default function PublicMenuPage() {
           localStorage.setItem(`last_table_${storeId}`, value);
           router.replace(`/menu/${storeId}?table=${encodeURIComponent(value)}`);
       }
-      handleStartNewOrder(); // Force reset sub-session when changing mode
+      handleStartNewOrder(); 
   };
 
   if (storeLoading || menuLoading || orderLoading) return <div className="p-6 space-y-6"><Skeleton className="h-16 w-16 rounded-2xl" /><Skeleton className="h-10 w-full" /></div>;
@@ -559,7 +567,9 @@ export default function PublicMenuPage() {
               
               <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3 min-w-0">
-                    {store.imageUrl && <div className="relative h-12 w-12 rounded-2xl overflow-hidden shrink-0"><Image src={store.imageUrl} alt={store.name} fill className="object-cover" /></div>}
+                    <div className="relative h-12 w-12 rounded-2xl overflow-hidden shrink-0 border shadow-sm">
+                        <Image src={store.imageUrl || ADIRES_LOGO} alt={store.name} fill className="object-cover" />
+                    </div>
                     <div className="min-w-0">
                         <h1 className="text-base font-black font-headline truncate" style={{ color: theme?.primaryColor }}>{store.name}</h1>
                         <div className="flex items-center gap-2">
