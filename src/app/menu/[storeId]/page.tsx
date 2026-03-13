@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -89,6 +88,86 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
 const ADIRES_LOGO = "https://i.ibb.co/NdxC1XFF/file-000000007de872069c754b2d3cd565ec.png";
+
+/**
+ * Delivery Details Dialog
+ * Collects name, phone, and address for Home Delivery.
+ */
+function DeliveryDetailsDialog({ 
+    isOpen, 
+    onOpenChange, 
+    onSave, 
+    initialData, 
+    theme 
+}: { 
+    isOpen: boolean; 
+    onOpenChange: (open: boolean) => void; 
+    onSave: (data: { name: string, phone: string, address: string, lat?: number, lng?: number }) => void;
+    initialData: { name: string, phone: string, address: string };
+    theme: MenuTheme | undefined;
+}) {
+    const [name, setName] = useState(initialData.name);
+    const [phone, setPhone] = useState(initialData.phone);
+    const [address, setAddress] = useState(initialData.address);
+    const [coords, setCoords] = useState<{lat: number, lng: number} | null>(null);
+    const [isLocating, setIsLocating] = useState(false);
+
+    const handleGetLocation = () => {
+        if (!navigator.geolocation) return;
+        setIsLocating(true);
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const { latitude, longitude } = pos.coords;
+                setCoords({ lat: latitude, lng: longitude });
+                setAddress(prev => prev || `GPS: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+                setIsLocating(false);
+            },
+            () => {
+                setIsLocating(false);
+            }
+        );
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="rounded-[2rem] border-0 shadow-2xl p-6" style={{ backgroundColor: theme?.backgroundColor }}>
+                <DialogHeader className="mb-4">
+                    <DialogTitle className="text-xl font-black uppercase tracking-tight" style={{ color: theme?.primaryColor }}>Delivery Details</DialogTitle>
+                    <DialogDescription style={{ color: theme?.textColor, opacity: 0.6 }}>Please provide your details for home delivery.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                    <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1" style={{ color: theme?.textColor }}>Your Name</Label>
+                        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full Name" className="rounded-xl h-12 border-2 font-bold" style={{ borderColor: theme?.primaryColor + '20' }} />
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1" style={{ color: theme?.textColor }}>Phone Number</Label>
+                        <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Mobile Number" className="rounded-xl h-12 border-2 font-bold" style={{ borderColor: theme?.primaryColor + '20' }} />
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase tracking-widest opacity-40 ml-1" style={{ color: theme?.textColor }}>Delivery Address</Label>
+                        <div className="flex gap-2">
+                            <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="House No, Street, Landmark..." className="rounded-xl h-12 border-2 flex-1 font-bold" style={{ borderColor: theme?.primaryColor + '20' }} />
+                            <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl shrink-0" onClick={handleGetLocation} disabled={isLocating}>
+                                {isLocating ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+                <DialogFooter className="pt-4">
+                    <Button 
+                        disabled={!name.trim() || !phone.trim() || !address.trim()}
+                        onClick={() => { onSave({ name, phone, address, lat: coords?.lat, lng: coords?.lng }); onOpenChange(false); }}
+                        className="w-full h-14 rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl"
+                        style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}
+                    >
+                        Confirm & Start Ordering
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 /**
  * Mode Selection Dialog
@@ -387,7 +466,7 @@ export default function PublicMenuPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isAddressMode, setIsAddressOpen] = useState(false);
+  const [isDeliveryDetailsOpen, setIsDeliveryDetailsOpen] = useState(false);
   const [isQuickAccessOpen, setIsQuickAccessOpen] = useState(false);
   const [isModeDialogOpen, setIsModeDialogOpen] = useState(false);
   
@@ -408,11 +487,9 @@ export default function PublicMenuPage() {
   useEffect(() => {
     const urlTable = searchParams.get('table');
     if (urlTable) {
-      // If table is in URL, we are definitively in Table Service mode.
       setTableNumber(urlTable);
       localStorage.setItem(`last_table_${storeId}`, urlTable);
     } else {
-      // If NOT in URL, we default to Home Delivery (null table).
       setTableNumber(null);
     }
     
@@ -430,12 +507,10 @@ export default function PublicMenuPage() {
     const dateString = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
     const subSession = typeof window !== 'undefined' ? localStorage.getItem(`sub_session_${storeId}`) || '1' : '1';
     
-    // Session depends on mode
     if (tableNumber) {
         return `table-${tableNumber}-${dateString}-${subSession}`;
     }
     
-    // Home Delivery session uses device ID
     let deviceId = localStorage.getItem(`device_session_${storeId}`);
     if (!deviceId) {
         deviceId = Math.random().toString(36).substring(2, 15);
@@ -479,8 +554,9 @@ export default function PublicMenuPage() {
   }, [menu, searchTerm, selectedCategory]);
 
   const handleAddItem = (item: MenuItem) => {
-    if (!tableNumber && (!deliveryAddress || !customerName)) {
-        setIsAddressOpen(true);
+    // If Home Delivery, we MUST have delivery details
+    if (!tableNumber && (!deliveryAddress || !customerName || !phone)) {
+        setIsDeliveryDetailsOpen(true);
         return;
     }
     startAdding(async () => {
@@ -493,6 +569,19 @@ export default function PublicMenuPage() {
         setTimeout(() => setRecentlyAdded(prev => { const n = new Set(prev); n.delete(item.id); return n; }), 2000);
       }
     });
+  };
+
+  const handleSaveDeliveryDetails = (data: { name: string, phone: string, address: string, lat?: number, lng?: number }) => {
+      setCustomerName(data.name);
+      setPhone(data.phone);
+      setDeliveryAddress(data.address);
+      if (data.lat && data.lng) setDeliveryCoords({ lat: data.lat, lng: data.lng });
+      
+      localStorage.setItem(`last_name_${storeId}`, data.name);
+      localStorage.setItem(`last_phone_${storeId}`, data.phone);
+      localStorage.setItem(`last_address_${storeId}`, data.address);
+      
+      toast({ title: "Details Saved", description: "You can now add items to your bill." });
   };
 
   const handleShowIngredients = (item: MenuItem) => {
@@ -545,6 +634,14 @@ export default function PublicMenuPage() {
           onAdd={() => { handleAddItem(selectedItemForIngredients); setSelectedItemForIngredients(null); }}
         />
       )}
+
+      <DeliveryDetailsDialog 
+        isOpen={isDeliveryDetailsOpen} 
+        onOpenChange={setIsDeliveryDetailsOpen} 
+        onSave={handleSaveDeliveryDetails} 
+        initialData={{ name: customerName, phone, address: deliveryAddress }} 
+        theme={theme} 
+      />
 
       <ModeSelectionDialog 
         isOpen={isModeDialogOpen} 
