@@ -45,6 +45,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useAppStore } from '@/lib/store';
 
 const STATUS_META: Record<string, any> = {
   Pending: { icon: AlertTriangle, variant: 'secondary', color: 'text-amber-600' },
@@ -293,8 +294,8 @@ export default function StoreOrdersPage() {
         const hQuery = query(
             collection(firestore, 'orders'),
             where('storeId', '==', myStore.id),
-            where('orderDate', '>=', Timestamp.fromDate(start)),
-            where('orderDate', '<=', Timestamp.fromDate(end)),
+            where('orderDate', ">=", Timestamp.fromDate(start)),
+            where('orderDate', "<=", Timestamp.fromDate(end)),
             orderBy('orderDate', 'desc')
         );
 
