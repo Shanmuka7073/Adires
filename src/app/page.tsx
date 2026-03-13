@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -22,6 +23,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { useInstall } from '@/components/install-provider';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
+
+const ADIRES_LOGO = "https://i.ibb.co/NdxC1XFF/file-000000007de872069c754b2d3cd565ec.png";
 
 const homePageSections = [
     {
@@ -98,15 +101,25 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
     const { onCartOpenChange, isCartOpen, voiceEnabled } = useVoiceCommanderContext();
     const { canInstall, triggerInstall } = useInstall();
     const { isRestaurantOwner } = useAdminAuth();
+    const { userStore } = useAppStore();
 
     useEffect(() => { setDeliveryTime(Math.floor(Math.random() * 10) + 15); }, []);
+
+    // Brand details: show restaurant specifics if available
+    const logoUrl = userStore?.imageUrl || ADIRES_LOGO;
+    const brandName = userStore?.name || "Adires";
 
     return (
         <header className="bg-background sticky top-0 z-20 px-4 pt-4 pb-2 border-b">
             <div className="flex justify-between items-center mb-3">
-                <div>
-                     <p className="text-xs font-bold text-gray-700 uppercase">Delivery in</p>
-                     {deliveryTime !== null ? <p className="text-xl font-bold text-gray-900">{deliveryTime} minutes</p> : <Skeleton className="h-7 w-24 mt-1" />}
+                <div className="flex items-center gap-3">
+                    <div className="relative w-10 h-10 rounded-full overflow-hidden border bg-white shadow-sm">
+                        <Image src={logoUrl} alt={brandName} fill className="object-cover" />
+                    </div>
+                    <div>
+                        <p className="text-xs font-bold text-gray-700 uppercase">Delivery in</p>
+                        {deliveryTime !== null ? <p className="text-xl font-bold text-gray-900">{deliveryTime} minutes</p> : <Skeleton className="h-7 w-24 mt-1" />}
+                    </div>
                 </div>
                  <div className="flex items-center gap-1">
                     {canInstall && <Button variant="ghost" size="icon" onClick={triggerInstall}><Download className="h-5 w-5 text-gray-600" /></Button>}
@@ -121,7 +134,7 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
             </div>
             <div className="flex items-center gap-3 bg-[#F1F3F5] p-2.5 rounded-xl border border-gray-200 shadow-sm">
                 <Search className="h-5 w-5 text-gray-500" />
-                <input type="text" placeholder='Search "vegetables"' className="w-full bg-transparent outline-none text-sm" onChange={(e) => onSearchChange(e.target.value)} />
+                <input type="text" placeholder={`Search ${brandName}...`} className="w-full bg-transparent outline-none text-sm" onChange={(e) => onSearchChange(e.target.value)} />
             </div>
         </header>
     );

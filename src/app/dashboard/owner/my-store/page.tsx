@@ -130,6 +130,7 @@ function StoreImageUploader({ store }: { store: Store }) {
     const { toast } = useToast();
     const [isSaving, startSaveTransition] = useTransition();
     const [imageUrl, setImageUrl] = useState(store.imageUrl || '');
+    const { setUserStore } = useAppStore();
 
     useEffect(() => {
         setImageUrl(store.imageUrl || '');
@@ -146,6 +147,8 @@ function StoreImageUploader({ store }: { store: Store }) {
 
             if (result.success) {
                 toast({ title: 'Image URL Updated!' });
+                // Update the global Zustand store immediately so the header/loader reflect the change
+                setUserStore({ ...store, imageUrl });
             } else {
                 toast({
                     variant: 'destructive',
@@ -371,7 +374,7 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
             updateDoc(storeRef, data)
                 .then(() => {
                     toast({ title: "Store Location Updated!", description: "Your store's location has been saved." });
-                    onUpdate();
+                    onUpdate(); 
                 })
                 .catch((error) => {
                     const permissionError = new FirestorePermissionError({
@@ -485,7 +488,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
     const [isOpen, setIsOpen] = useState(false);
-    const { getAllAliases } = useAppStore();
+    const { getAllAliases, setUserStore } = useAppStore();
 
     const form = useForm<Omit<StoreFormValues, 'latitude' | 'longitude' | 'tables'>>({
         resolver: zodResolver(storeSchema.omit({ latitude: true, longitude: true, tables: true })),
@@ -505,6 +508,8 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
             updateDoc(storeRef, data)
                 .then(() => {
                     toast({ title: "Store Details Updated!", description: "Your store's information has been saved." });
+                    // Update global state immediately
+                    setUserStore({ ...store, ...data });
                     setIsOpen(false);
                     onUpdate(); 
                 })

@@ -25,6 +25,7 @@ export interface AppState {
   stores: Store[];
   masterProducts: Product[];
   allMenus: Menu[];
+  userStore: Store | null; // The store owned by the logged-in user
   productPrices: Record<string, ProductPrice | null>;
   locales: Locales;
   commands: Record<string, CommandGroup>;
@@ -39,7 +40,8 @@ export interface AppState {
   incrementWriteCount: (count?: number) => void;
   setLanguage: (lang: string) => void;
   setActiveStoreId: (storeId: string | null) => void;
-  fetchInitialData: (db: Firestore) => Promise<void>;
+  setUserStore: (store: Store | null) => void;
+  fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
   fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
   getProductName: (product: Product) => string;
   getAllAliases: (key: string) => Record<string, string[]>;
@@ -61,6 +63,7 @@ export const useAppStore = create<AppState>()(
       stores: [],
       masterProducts: [],
       allMenus: [],
+      userStore: null,
       productPrices: {},
       locales: {},
       commands: {},
@@ -82,6 +85,8 @@ export const useAppStore = create<AppState>()(
         set({ language: lang });
       },
       
+      setUserStore: (store: Store | null) => set({ userStore: store }),
+
       setLocales: (newLocales: Locales) => set({ locales: newLocales }),
       setCommands: (newCommands: Record<string, CommandGroup>) => set({ commands: newCommands }),
       
@@ -89,7 +94,7 @@ export const useAppStore = create<AppState>()(
         set({ activeStoreId: storeId });
       },
 
-      fetchInitialData: async (db: Firestore) => {
+      fetchInitialData: async (db: Firestore, userId?: string) => {
         if (get().loading) return;
 
         set({ loading: true, error: null, readCount: 0, writeCount: 0 });
@@ -120,10 +125,13 @@ export const useAppStore = create<AppState>()(
 
           initializeTranslations(locales); 
 
+          const userStore = userId ? (stores.find(s => s.ownerId === userId) || null) : null;
+
           set({
             stores,
             masterProducts,
             allMenus,
+            userStore,
             locales,
             commands: enrichedCommands,
             isInitialized: true,
@@ -192,6 +200,7 @@ export const useAppStore = create<AppState>()(
           stores: state.stores,
           masterProducts: state.masterProducts,
           allMenus: state.allMenus,
+          userStore: state.userStore,
           productPrices: state.productPrices,
           locales: state.locales,
           commands: state.commands,

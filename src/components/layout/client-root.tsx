@@ -16,7 +16,7 @@ import { InstallProvider } from '@/components/install-provider';
  * fetch on every cold load, preventing race conditions.
  */
 function useInitializeApp() {
-    const { firestore } = useFirebase();
+    const { firestore, user } = useFirebase();
     const {
         fetchInitialData,
         isInitialized,
@@ -27,9 +27,9 @@ function useInitializeApp() {
         // Only fetch if firestore is available and we haven't initialized yet.
         // This runs once per application load.
         if (firestore && !isInitialized && !loading) {
-            fetchInitialData(firestore);
+            fetchInitialData(firestore, user?.uid);
         }
-    }, [firestore, isInitialized, loading, fetchInitialData]);
+    }, [firestore, user?.uid, isInitialized, loading, fetchInitialData]);
 }
 
 

@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -130,6 +131,7 @@ export function Header({ suggestedCommands }: HeaderProps) {
   const [hasMounted, setHasMounted] = useState(false);
   const { voiceEnabled, voiceStatus, onToggleVoice, isCartOpen, onCartOpenChange } = useVoiceCommanderContext();
   const { isAdmin, isRestaurantOwner, isEmployee } = useAdminAuth();
+  const { userStore } = useAppStore();
 
   useEffect(() => {
     setHasMounted(true);
@@ -139,13 +141,19 @@ export function Header({ suggestedCommands }: HeaderProps) {
 
   const showShoppingControls = !isRestaurantOwner && !isEmployee;
   const homeHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : (isEmployee ? '/dashboard/employee/attendance' : '/'));
+  
+  // Brand details: show restaurant specifics if available
+  const logoUrl = userStore?.imageUrl || ADIRES_LOGO;
+  const brandName = userStore?.name || "Adires";
 
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
       <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
         <Link href={homeHref} className="flex items-center gap-2 text-lg font-semibold md:text-base">
-          <Image src={ADIRES_LOGO} alt="Adires Logo" width={32} height={32} className="rounded-full" />
-          <span className="font-headline font-bold text-primary">Adires</span>
+          <div className="relative w-8 h-8 rounded-full overflow-hidden border bg-white shadow-sm">
+            <Image src={logoUrl} alt={brandName} fill className="object-cover" />
+          </div>
+          <span className="font-headline font-bold text-primary">{brandName}</span>
         </Link>
       </nav>
       
