@@ -1,4 +1,3 @@
-
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -106,7 +105,7 @@ export type Order = {
   deliveryLng: number;
   items: OrderItem[];
   totalAmount: number;
-  status: 'Pending' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled' | 'Completed' | 'Billed';
+  status: 'Pending' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled' | 'Completed' | 'Billed' | 'Draft';
   orderDate: Timestamp | Date | string;
   phone: string;
   email: string;
@@ -434,6 +433,7 @@ declare global {
   interface Window {
       SpeechRecognition: any;
       webkitSpeechRecognition: any;
+      deferredInstallPrompt: any;
   }
   module "*.rules" {
     const content: string;
