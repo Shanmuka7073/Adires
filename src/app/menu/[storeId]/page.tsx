@@ -402,7 +402,7 @@ export default function PublicMenuPage() {
   );
   const { data: order, isLoading: orderLoading } = useDoc<Order>(orderRef);
   
-  // FIX: Define itemCount based on fetched order
+  // Define itemCount based on fetched order
   const itemCount = order?.items?.length || 0;
 
   const storeRef = useMemoFirebase(() => firestore ? doc(firestore, 'stores', storeId) : null, [firestore, storeId]);
@@ -456,6 +456,15 @@ export default function PublicMenuPage() {
     });
   };
 
+  /**
+   * Clears the current completed session and starts a fresh one.
+   */
+  const handleStartNewOrder = () => {
+    const currentSub = parseInt(localStorage.getItem(`sub_session_${storeId}`) || '1', 10);
+    localStorage.setItem(`sub_session_${storeId}`, (currentSub + 1).toString());
+    window.location.reload();
+  };
+
   if (storeLoading || menuLoading || orderLoading) return <div className="p-6 space-y-6"><Skeleton className="h-16 w-16 rounded-2xl" /><Skeleton className="h-10 w-full" /></div>;
   if (!store || !menu) return <div className="p-12 text-center opacity-50">Menu unavailable.</div>;
   
@@ -484,7 +493,7 @@ export default function PublicMenuPage() {
       <QuickAccessDialog 
         store={store} 
         isOpen={isQuickAccessOpen} 
-        onOpenChange={setIsQuickAccessOpen} 
+        onOpenChange={isQuickAccessOpen => setIsQuickAccessOpen(isQuickAccessOpen)} 
         onInstall={() => { setIsQuickAccessOpen(false); triggerInstall(); }} 
       />
 
@@ -510,10 +519,10 @@ export default function PublicMenuPage() {
 
               <div className="space-y-6">
                 {isCompleted ? (
-                    <Card className="rounded-[2.5rem] border-0 shadow-2xl text-center py-16 px-8" style={{ backgroundColor: theme?.primaryColor + '05' }}>
+                    <Card className="rounded-[2.5rem] border-0 shadow-2xl text-center py-16 px-8" style={{ backgroundColor: theme?.backgroundColor === '#ffffff' ? '#fafafa' : theme?.backgroundColor, borderColor: theme?.primaryColor + '10' }}>
                         <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-white/5"><Check className="h-10 w-10 text-primary" style={{ color: theme?.primaryColor }} /></div>
                         <h2 className="text-2xl font-black mb-3">Thank You!</h2>
-                        <Button onClick={() => window.location.reload()} className="rounded-xl h-12 px-8 uppercase font-black text-[10px] tracking-widest shadow-lg" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>Start New Order</Button>
+                        <Button onClick={handleStartNewOrder} className="rounded-xl h-12 px-8 uppercase font-black text-[10px] tracking-widest shadow-lg" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>Start New Order</Button>
                     </Card>
                 ) : (
                     <>
