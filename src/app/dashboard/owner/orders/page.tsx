@@ -36,7 +36,7 @@ import {
   collection, query, where, orderBy, doc, updateDoc, serverTimestamp, Timestamp, getDocs
 } from 'firebase/firestore';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition, useCallback } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import {
@@ -309,8 +309,8 @@ export default function StoreOrdersPage() {
         const hQuery = query(
             collection(firestore, 'orders'),
             where('storeId', '==', myStore.id),
-            where('orderDate', '>=', Timestamp.fromDate(start)),
-            where('orderDate', '<=', Timestamp.fromDate(end)),
+            where('orderDate', >=, Timestamp.fromDate(start)),
+            where('orderDate', <=, Timestamp.fromDate(end)),
             orderBy('orderDate', 'desc')
         );
 
