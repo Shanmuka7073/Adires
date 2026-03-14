@@ -52,6 +52,7 @@ import {
   Zap,
   CreditCard,
   QrCode,
+  Info,
 } from 'lucide-react';
 
 import {
@@ -75,6 +76,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
