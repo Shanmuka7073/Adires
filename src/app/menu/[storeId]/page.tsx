@@ -97,7 +97,7 @@ const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3
 
 /**
  * UPI Payment Dialog
- * Shows a QR code for direct payment if the store has a UPI ID.
+ * Shows a QR code for direct payment and a deep link for mobile apps.
  */
 function UPIPaymentDialog({ 
     isOpen, 
@@ -117,31 +117,47 @@ function UPIPaymentDialog({
     // Standard UPI Intent String
     const upiUrl = `upi://pay?pa=${encodeURIComponent(store.upiId)}&pn=${encodeURIComponent(store.name)}&am=${order.totalAmount.toFixed(2)}&cu=INR&tn=Order%20${order.id.slice(-6)}`;
 
+    const handleAppPayment = () => {
+        window.location.href = upiUrl;
+    };
+
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="rounded-[2rem] border-0 shadow-2xl p-8 flex flex-col items-center text-center" style={{ backgroundColor: theme?.backgroundColor }}>
+            <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl p-8 flex flex-col items-center text-center max-w-sm mx-auto" style={{ backgroundColor: theme?.backgroundColor }}>
                 <DialogHeader className="mb-4">
-                    <DialogTitle className="text-xl font-black uppercase tracking-tight" style={{ color: theme?.primaryColor }}>Pay with UPI</DialogTitle>
-                    <DialogDescription style={{ color: theme?.textColor, opacity: 0.6 }}>Scan the QR code with GPay, PhonePe, or Paytm.</DialogDescription>
+                    <DialogTitle className="text-xl font-black uppercase tracking-tight" style={{ color: theme?.primaryColor }}>Pay Bill</DialogTitle>
+                    <DialogDescription style={{ color: theme?.textColor, opacity: 0.6 }}>Choose your preferred payment method.</DialogDescription>
                 </DialogHeader>
                 
-                <div className="p-6 bg-white rounded-[2rem] shadow-inner border-4 border-black/5 mb-6">
-                    <QRCode value={upiUrl} size={200} level="H" includeMargin={true} />
+                <div className="p-6 bg-white rounded-[2.5rem] shadow-inner border-4 border-black/5 mb-6">
+                    <QRCode value={upiUrl} size={180} level="H" includeMargin={true} />
+                    <p className="mt-4 text-[10px] font-black uppercase tracking-widest opacity-40">Scan QR to Pay</p>
                 </div>
 
-                <div className="space-y-1 mb-6">
-                    <p className="text-sm font-bold opacity-40 uppercase tracking-widest" style={{ color: theme?.textColor }}>Total Bill Amount</p>
-                    <p className="text-4xl font-black" style={{ color: theme?.primaryColor }}>₹{order.totalAmount.toFixed(2)}</p>
+                <div className="w-full space-y-4">
+                    <div className="space-y-1">
+                        <p className="text-[10px] font-black opacity-40 uppercase tracking-widest" style={{ color: theme?.textColor }}>Amount to Pay</p>
+                        <p className="text-4xl font-black" style={{ color: theme?.primaryColor }}>₹{order.totalAmount.toFixed(2)}</p>
+                    </div>
+
+                    <Button 
+                        onClick={handleAppPayment}
+                        className="w-full h-14 rounded-2xl text-xs font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/20 flex items-center justify-center gap-3"
+                        style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}
+                    >
+                        <Smartphone className="h-5 w-5" />
+                        Pay via UPI App
+                    </Button>
+
+                    <Alert className="bg-primary/5 border-primary/10 rounded-2xl">
+                        <Info className="h-4 w-4" style={{ color: theme?.primaryColor }} />
+                        <AlertDescription className="text-[9px] font-bold leading-tight" style={{ color: theme?.textColor }}>
+                            After payment, please show the confirmation screen to our staff to finalize your bill.
+                        </AlertDescription>
+                    </Alert>
+
+                    <Button variant="ghost" className="w-full font-bold opacity-40 hover:opacity-100" onClick={() => onOpenChange(false)}>Close</Button>
                 </div>
-
-                <Alert className="bg-primary/5 border-primary/10 rounded-2xl mb-6">
-                    <Info className="h-4 w-4" style={{ color: theme?.primaryColor }} />
-                    <AlertDescription className="text-[10px] font-bold" style={{ color: theme?.textColor }}>
-                        Once paid, please show the success screen to our staff to finalize your departure.
-                    </AlertDescription>
-                </Alert>
-
-                <Button variant="outline" className="w-full h-12 rounded-xl font-bold" onClick={() => onOpenChange(false)}>Close</Button>
             </DialogContent>
         </Dialog>
     );
