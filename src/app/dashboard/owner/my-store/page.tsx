@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import type { Store, Product, ProductPrice, User as AppUser, ProductVariant } from '@/lib/types';
-import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirebase, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { updateStoreImageUrl } from '@/app/actions';
 import { useRouter } from 'next/navigation';
@@ -62,7 +62,7 @@ import {
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
-import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Camera, CameraOff, Sparkles, PlusCircle, Edit, Link2, QrCode, ClipboardList, Save, Video } from 'lucide-react';
+import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Camera, CameraOff, Sparkles, PlusCircle, Edit, Link2, QrCode, ClipboardList, Save, Video, CreditCard } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import Link from 'next/link';
@@ -90,6 +90,7 @@ const storeSchema = z.object({
   longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude"),
   tables: z.array(z.string()).optional(),
   liveVideoUrl: z.string().url('Please enter a valid URL').optional().or(z.literal('')),
+  upiId: z.string().optional().refine((val) => !val || val.includes('@'), { message: "Invalid UPI ID format" }),
 });
 
 const locationSchema = z.object({
@@ -500,6 +501,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
             latitude: store.latitude || 0,
             longitude: store.longitude || 0,
             liveVideoUrl: store.liveVideoUrl || '',
+            upiId: store.upiId || '',
         },
     });
     
@@ -599,18 +601,32 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                                             </FormItem>
                                         )}
                                     />
-                                    <FormField
-                                        control={form.control}
-                                        name="liveVideoUrl"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="flex items-center gap-2"><Video className="h-4 w-4" /> Live Preparation URL</FormLabel>
-                                                <FormControl><Input placeholder="e.g., https://www.youtube.com/watch?v=..." {...field} /></FormControl>
-                                                <FormDescription>A YouTube Live link for customers to watch your kitchen preparation.</FormDescription>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <FormField
+                                            control={form.control}
+                                            name="liveVideoUrl"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="flex items-center gap-2"><Video className="h-4 w-4" /> Live Preparation URL</FormLabel>
+                                                    <FormControl><Input placeholder="e.g., https://www.youtube.com/watch?v=..." {...field} /></FormControl>
+                                                    <FormDescription>A YouTube Live link for customers to watch your kitchen.</FormDescription>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="upiId"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="flex items-center gap-2"><CreditCard className="h-4 w-4" /> Restaurant UPI ID</FormLabel>
+                                                    <FormControl><Input placeholder="e.g., restaurant@okaxis" {...field} /></FormControl>
+                                                    <FormDescription>Used to generate dynamic payment QR codes for tables.</FormDescription>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
                                     <DialogFooter>
                                         <Button type="button" variant="secondary" onClick={() => setIsOpen(false)}>{t('cancel')}</Button>
                                         <Button type="submit" disabled={isPending}>{isPending ? t('saving') : t('save-changes')}</Button>
@@ -626,12 +642,18 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                 <p><strong>{t('address')}:</strong> {store.address}</p>
                  <p><strong>Telugu Name:</strong> {store.teluguName || 'Not set'}</p>
                 <p><strong>{t('location')}:</strong> {store.latitude}, {store.longitude}</p>
-                {store.liveVideoUrl && (
-                    <div className="flex items-center gap-2 text-green-600 font-bold">
-                        <Video className="h-4 w-4" />
-                        Live Feed Enabled
-                    </div>
-                )}
+                <div className="flex flex-wrap gap-4">
+                    {store.liveVideoUrl && (
+                        <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 flex gap-1.5 items-center">
+                            <Video className="h-3 w-3" /> Live Feed Enabled
+                        </Badge>
+                    )}
+                    {store.upiId && (
+                        <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50 flex gap-1.5 items-center">
+                            <CreditCard className="h-3 w-3" /> Payments: {store.upiId}
+                        </Badge>
+                    )}
+                </div>
                 <div>
                   <strong>Voice Aliases:</strong>
                   <div className="flex flex-wrap gap-1 mt-1">

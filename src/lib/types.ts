@@ -39,6 +39,7 @@ export type Store = {
   isClosed?: boolean;
   tables?: string[]; // For restaurant table numbers
   liveVideoUrl?: string; // URL for live kitchen stream
+  upiId?: string; // NEW: The UPI ID for receiving payments
 };
 
 // WebAuthn types

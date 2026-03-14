@@ -50,6 +50,8 @@ import {
   Trash2,
   Smartphone,
   Zap,
+  CreditCard,
+  QrCode,
 } from 'lucide-react';
 
 import {
@@ -87,8 +89,61 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import QRCode from 'qrcode.react';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
+
+/**
+ * UPI Payment Dialog
+ * Shows a QR code for direct payment if the store has a UPI ID.
+ */
+function UPIPaymentDialog({ 
+    isOpen, 
+    onOpenChange, 
+    order, 
+    store, 
+    theme 
+}: { 
+    isOpen: boolean; 
+    onOpenChange: (open: boolean) => void; 
+    order: Order;
+    store: Store;
+    theme: MenuTheme | undefined;
+}) {
+    if (!store.upiId) return null;
+
+    // Standard UPI Intent String
+    const upiUrl = `upi://pay?pa=${encodeURIComponent(store.upiId)}&pn=${encodeURIComponent(store.name)}&am=${order.totalAmount.toFixed(2)}&cu=INR&tn=Order%20${order.id.slice(-6)}`;
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="rounded-[2rem] border-0 shadow-2xl p-8 flex flex-col items-center text-center" style={{ backgroundColor: theme?.backgroundColor }}>
+                <DialogHeader className="mb-4">
+                    <DialogTitle className="text-xl font-black uppercase tracking-tight" style={{ color: theme?.primaryColor }}>Pay with UPI</DialogTitle>
+                    <DialogDescription style={{ color: theme?.textColor, opacity: 0.6 }}>Scan the QR code with GPay, PhonePe, or Paytm.</DialogDescription>
+                </DialogHeader>
+                
+                <div className="p-6 bg-white rounded-[2rem] shadow-inner border-4 border-black/5 mb-6">
+                    <QRCode value={upiUrl} size={200} level="H" includeMargin={true} />
+                </div>
+
+                <div className="space-y-1 mb-6">
+                    <p className="text-sm font-bold opacity-40 uppercase tracking-widest" style={{ color: theme?.textColor }}>Total Bill Amount</p>
+                    <p className="text-4xl font-black" style={{ color: theme?.primaryColor }}>₹{order.totalAmount.toFixed(2)}</p>
+                </div>
+
+                <Alert className="bg-primary/5 border-primary/10 rounded-2xl mb-6">
+                    <Info className="h-4 w-4" style={{ color: theme?.primaryColor }} />
+                    <AlertDescription className="text-[10px] font-bold" style={{ color: theme?.textColor }}>
+                        Once paid, please show the success screen to our staff to finalize your departure.
+                    </AlertDescription>
+                </Alert>
+
+                <Button variant="outline" className="w-full h-12 rounded-xl font-bold" onClick={() => onOpenChange(false)}>Close</Button>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 /**
  * Delivery Details Dialog
@@ -352,7 +407,7 @@ function LiveOrderTracker({ order, theme }: { order: Order; theme: MenuTheme | u
     )
 }
 
-function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme | undefined }) {
+function LiveBillSheet({ orderId, theme, store, onShowUpi }: { orderId: string; theme: MenuTheme | undefined; store: Store; onShowUpi: () => void }) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [closing, startClose] = useTransition();
@@ -395,7 +450,8 @@ function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme |
   if (!order || !order.items?.length) return <div className="p-8 text-center"><p className="text-muted-foreground text-sm font-medium">Your bill is empty.</p></div>;
 
   const isDraft = order.status === 'Draft';
-  const isLocked = ['Completed', 'Delivered', 'Billed'].includes(order.status);
+  const isBilled = order.status === 'Billed';
+  const isLocked = ['Completed', 'Delivered'].includes(order.status);
 
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: theme?.backgroundColor }}>
@@ -427,20 +483,24 @@ function LiveBillSheet({ orderId, theme }: { orderId: string; theme: MenuTheme |
               {isLocked ? (
                  <div className="text-center p-5 bg-primary/10 border border-white/5 rounded-2xl">
                     <Check className="mx-auto h-8 w-8 mb-2" style={{ color: theme?.primaryColor }} />
-                    <p className="font-black text-xs uppercase tracking-widest" style={{ color: theme?.textColor }}>Bill Locked</p>
+                    <p className="font-black text-xs uppercase tracking-widest" style={{ color: theme?.textColor }}>Order Completed</p>
                 </div>
+              ) : isBilled && store.upiId ? (
+                  <Button onClick={onShowUpi} className="w-full h-14 rounded-2xl text-base font-black uppercase tracking-widest shadow-xl bg-green-600 hover:bg-green-700 text-white">
+                      <CreditCard className="mr-2 h-5 w-5" /> Pay Now with UPI
+                  </Button>
               ) : (
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
                         <Button className="w-full h-14 rounded-2xl text-base font-bold shadow-lg" variant="destructive" disabled={closing}>
                         {closing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                        {isDraft ? (order.tableNumber ? 'Confirm Order' : 'Place Order') : 'Close Bill & Pay'}
+                        {isDraft ? (order.tableNumber ? 'Confirm Order' : 'Place Order') : 'Request Bill'}
                         </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent className="rounded-3xl">
                         <AlertDialogHeader>
-                        <AlertDialogTitle>{isDraft ? 'Place Order?' : 'Finalize your bill?'}</AlertDialogTitle>
-                        <AlertDialogDescription>{isDraft ? "This will send your order to the kitchen." : "This will signal the staff that you're ready to pay."}</AlertDialogDescription>
+                        <AlertDialogTitle>{isDraft ? 'Place Order?' : 'Request Final Bill?'}</AlertDialogTitle>
+                        <AlertDialogDescription>{isDraft ? "This will send your order to the kitchen." : "Staff will be notified that you're ready to pay."}</AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter className="gap-2">
                         <AlertDialogCancel className="rounded-xl font-bold">Not yet</AlertDialogCancel>
@@ -470,6 +530,7 @@ export default function PublicMenuPage() {
   const [isDeliveryDetailsOpen, setIsDeliveryDetailsOpen] = useState(false);
   const [isQuickAccessOpen, setIsQuickAccessOpen] = useState(false);
   const [isModeDialogOpen, setIsModeDialogOpen] = useState(false);
+  const [isUpiDialogOpen, setIsUpiDialogOpen] = useState(false);
   
   const [tableNumber, setTableNumber] = useState<string | null>(null);
   const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -659,6 +720,16 @@ export default function PublicMenuPage() {
         onInstall={() => { setIsQuickAccessOpen(false); triggerInstall(); }} 
       />
 
+      {order && (
+          <UPIPaymentDialog 
+            isOpen={isUpiDialogOpen} 
+            onOpenChange={setIsUpiDialogOpen} 
+            order={order} 
+            store={store} 
+            theme={theme} 
+          />
+      )}
+
       <div className="min-h-screen pb-24" style={{ backgroundColor: theme?.backgroundColor }}>
           <div className="container mx-auto py-6 px-4 md:px-6 max-w-2xl">
             <div className="space-y-6">
@@ -765,7 +836,12 @@ export default function PublicMenuPage() {
                       </div>
                   </SheetTrigger>
                   <SheetContent side="bottom" className="h-[70vh] rounded-t-[2.5rem] p-0 border-0 overflow-hidden shadow-2xl">
-                      <LiveBillSheet orderId={order!.id} theme={theme} />
+                      <LiveBillSheet 
+                        orderId={order!.id} 
+                        theme={theme} 
+                        store={store} 
+                        onShowUpi={() => setIsUpiDialogOpen(true)} 
+                      />
                   </SheetContent>
               </Sheet>
           )}
