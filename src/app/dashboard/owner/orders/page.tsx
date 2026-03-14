@@ -275,13 +275,19 @@ export default function StoreOrdersPage() {
 
   const { userStore: myStore, loading: storeLoading } = useAppStore();
 
-  // Simplified query: Fetch ALL non-finalized orders for this store.
-  // Filtering by status happens in-memory to avoid complex index errors.
+  /**
+   * OPTIMIZED ACTIVE ORDERS QUERY
+   * 
+   * CRITICAL: We only fetch orders with active statuses. This prevents the
+   * performance issue where thousands of old, closed orders were being
+   * loaded on every dashboard visit.
+   */
   const activeOrdersQuery = useMemoFirebase(() =>
     firestore && myStore
       ? query(
           collection(firestore, 'orders'),
           where('storeId', '==', myStore.id),
+          where('status', 'in', ['Pending', 'Processing', 'Billed', 'Out for Delivery', 'Draft']),
           orderBy('orderDate', 'desc')
         )
       : null,
@@ -309,7 +315,7 @@ export default function StoreOrdersPage() {
         try {
             const snap = await getDocs(hQuery);
             const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Order));
-            // Filter for finalized statuses in memory
+            // Filter for finalized statuses in memory to stay within index limits
             const filtered = data.filter(o => ['Completed', 'Delivered', 'Cancelled'].includes(o.status));
             setHistoryHistoryOrders(filtered);
             toast({ title: "History Loaded", description: `Found ${filtered.length} records.`});
@@ -327,13 +333,10 @@ export default function StoreOrdersPage() {
 
     if (!allActiveOrders) return { sessions: tableSessions, homeDeliveries: directDeliveries, otherSessions: others };
 
-    const activeFilter = ['Pending', 'Processing', 'Billed', 'Out for Delivery'];
-    const filteredOrders = allActiveOrders.filter(o => activeFilter.includes(o.status));
-
     const normalizeTable = (t: string) => t.toLowerCase().replace('table ', '').trim();
     const myTableSet = new Set(myStore?.tables?.map(normalizeTable) || []);
 
-    filteredOrders.forEach(order => {
+    allActiveOrders.forEach(order => {
         const orderDate = order.orderDate instanceof Timestamp 
             ? order.orderDate.toDate() 
             : order.orderDate instanceof Date 
@@ -495,7 +498,7 @@ export default function StoreOrdersPage() {
                 {historyOrders && (
                     <div className="space-y-12">
                         <div>
-                            <h3 className="text-[10px] font-black uppercase tracking-widest mb-6 opacity-40">Orders for {format(selectedDate!, 'PP')}</h3>
+                            <h3 className="text-[10px] font-black uppercase tracking-widest mb-6 opacity-40">Finalized Orders for {format(selectedDate!, 'PP')}</h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                 {historyOrders.map(order => (
                                     <Card 

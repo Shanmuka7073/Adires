@@ -40,7 +40,8 @@ import {
   PackageSearch,
   FileJson,
   Smartphone,
-  Briefcase
+  Briefcase,
+  Binary
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -344,6 +345,12 @@ export default function AdminDashboardPage() {
             description="Track Firestore read/write patterns and optimize costs."
             href="/dashboard/admin/performance-audit"
             icon={BarChart3}
+          />
+          <ActionCard
+            title="Counter Calculation Logic"
+            description="View source code for real-time R/W performance tracking."
+            href="/dashboard/admin/counter-logic-help"
+            icon={Binary}
           />
           <ActionCard
             title="Security Policy"
