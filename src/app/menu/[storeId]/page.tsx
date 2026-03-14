@@ -114,8 +114,16 @@ function UPIPaymentDialog({
 }) {
     if (!store.upiId) return null;
 
+    // Construct a detailed transaction note for the customer's payment app
+    // Example: "Adires: Chicken Biryani(1), Coke(2) | Total: ₹250"
+    const itemsSummary = order.items.map(it => `${it.productName}(${it.quantity})`).join(', ');
+    const rawNote = `${store.name}: ${itemsSummary} | Total: ₹${order.totalAmount.toFixed(0)}`;
+    
+    // UPI apps often limit the note length. We'll cap it at 80 characters.
+    const finalNote = rawNote.length > 80 ? rawNote.substring(0, 77) + "..." : rawNote;
+
     // Standard UPI Intent String
-    const upiUrl = `upi://pay?pa=${encodeURIComponent(store.upiId)}&pn=${encodeURIComponent(store.name)}&am=${order.totalAmount.toFixed(2)}&cu=INR&tn=Order%20${order.id.slice(-6)}`;
+    const upiUrl = `upi://pay?pa=${encodeURIComponent(store.upiId)}&pn=${encodeURIComponent(store.name)}&am=${order.totalAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(finalNote)}`;
 
     const handleAppPayment = () => {
         window.location.href = upiUrl;
