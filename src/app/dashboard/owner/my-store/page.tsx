@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useEffect, useMemo, useRef, RefObject } from 'react';
@@ -35,7 +34,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import type { Store, Product, ProductPrice, User as AppUser, ProductVariant } from '@/lib/types';
-import { useFirebase, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { updateStoreImageUrl } from '@/app/actions';
 import { useRouter } from 'next/navigation';
@@ -72,7 +71,6 @@ import { Badge } from '@/components/ui/badge';
 import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import StoreCard from '@/components/store-card';
 
 
 const ADMIN_EMAIL = 'admin@gmail.com';
