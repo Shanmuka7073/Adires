@@ -1,10 +1,11 @@
+
 'use server';
 
 import { getAdminServices } from "@/firebase/admin-init";
 import { NextResponse } from "next/server";
 import type { Store, Menu } from "@/lib/types";
 
-const ADIRES_LOGO = "https://i.ibb.co/NdxC1XFF/file-000000007de872069c754b2d3cd565ec.png";
+const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
 export async function GET(
   request: Request,

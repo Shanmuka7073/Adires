@@ -37,7 +37,7 @@ import { useInstall } from '../install-provider';
 import Image from 'next/image';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
-const ADIRES_LOGO = "https://i.ibb.co/NdxC1XFF/file-000000007de872069c754b2d3cd565ec.png";
+const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
 function LanguageSwitcher() {
     const { language, setLanguage } = useAppStore();

@@ -24,7 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { useInstall } from '@/components/install-provider';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
-const ADIRES_LOGO = "https://i.ibb.co/NdxC1XFF/file-000000007de872069c754b2d3cd565ec.png";
+const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
 const homePageSections = [
     {

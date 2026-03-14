@@ -4,7 +4,7 @@
 import Image from 'next/image';
 import { useAppStore } from '@/lib/store';
 
-const ADIRES_LOGO = "https://i.ibb.co/NdxC1XFF/file-000000007de872069c754b2d3cd565ec.png";
+const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
 export default function GlobalLoader() {
   const { userStore } = useAppStore();
