@@ -41,7 +41,8 @@ import {
   FileJson,
   Smartphone,
   Briefcase,
-  Binary
+  Binary,
+  MessageSquarePlus
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -334,6 +335,12 @@ export default function AdminDashboardPage() {
             System & Performance
         </h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+           <ActionCard
+            title="AI Support Prompt"
+            description="Copy a comprehensive context prompt to seek help from an AI assistant."
+            href="/dashboard/admin/support-prompt"
+            icon={MessageSquarePlus}
+          />
            <ActionCard
             title="System Health"
             description="Monitor service availability and API status."
