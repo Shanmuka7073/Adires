@@ -18,7 +18,15 @@ The platform is designed to support Restaurants, Salons, and Retailers using a *
 
 ---
 
-### 🥗 2. Restaurant & Salon Operations
+### 🔍 2. How Businesses are Identified (The 3-Layer Logic)
+To ensure users see the right view (Menu vs. Grocery List), the app uses a hierarchical check:
+1.  **Explicit Metadata**: Checks the \`businessType\` field in the Store document.
+2.  **Signup Role Sync**: If the owner signed up as a "Restaurant Owner," the app automatically "repairs" the store vertical to match.
+3.  **Fuzzy Keyword Match**: As a fallback, the app scans the name and description for 20+ keywords like "Mess," "Dhaba," "Hotel," or "Salon."
+
+---
+
+### 🥗 3. Restaurant & Salon Operations
 The app turns any service business into a high-tech operation with zero hardware cost.
 
 *   **AI Menu Scanning**: Owners upload a photo of a menu. The AI extracts names, prices, categories, and components (ingredients for food, materials for salons).
@@ -28,7 +36,7 @@ The app turns any service business into a high-tech operation with zero hardware
 
 ---
 
-### 🚚 3. Home Delivery & Logistics
+### 🚚 4. Home Delivery & Logistics
 Built for precision and speed in the Indian context.
 
 *   **GPS Pinning**: Customers use a "One-Tap GPS" button to pin their location, passed directly to Google Maps for delivery partners.
@@ -37,7 +45,7 @@ Built for precision and speed in the Indian context.
 
 ---
 
-### 🎙️ 4. Voice ID & NLU Engine
+### 🎙️ 5. Voice ID & NLU Engine
 The "Brain" of the platform.
 
 *   **Multilingual NLU**: Understands English, Telugu, and Hindi mixed sentences. It extracts quantities, prices, and products simultaneously.
@@ -46,7 +54,7 @@ The "Brain" of the platform.
 
 ---
 
-### 📈 5. Business Economics & Intelligence
+### 📈 6. Business Economics & Intelligence
 *   **Ingredient Cost Catalog**: Admins maintain master raw material costs.
 *   **Gross Profit Analysis**: The app calculates exact profit for every dish/service and every table by subtracting ingredient/material costs from the selling price.
 `;
