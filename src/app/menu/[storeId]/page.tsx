@@ -96,13 +96,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
-// Time slots for salons
-const TIME_SLOTS = [
-    "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
-    "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM",
-    "05:00 PM", "06:00 PM", "07:00 PM", "08:00 PM"
-];
-
 function UPIPaymentDialog({ isOpen, onOpenChange, order, store, theme }: { isOpen: boolean; onOpenChange: (open: boolean) => void; order: Order; store: Store; theme: MenuTheme | undefined; }) {
     if (!store.upiId) return null;
     const itemsSummary = order.items.map(it => `${it.productName}(${it.quantity})`).join(', ');
@@ -190,8 +183,8 @@ function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId:
 
   const closeBill = async () => { 
     if (!order) return; 
-    if (isSalon && !selectedTime) {
-        toast({ variant: 'destructive', title: 'Time Slot Required', description: 'Please select a preferred time for your appointment.' });
+    if (isSalon && !selectedTime.trim()) {
+        toast({ variant: 'destructive', title: 'Time Required', description: 'Please enter a preferred time for your appointment.' });
         return;
     }
     startClose(async () => { 
@@ -224,31 +217,26 @@ function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId:
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
              {isSalon && (
                  <div className="space-y-3">
-                    <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor }}>Select Appointment Time</h4>
+                    <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor }}>{isDraft ? 'Enter Appointment Time' : 'Confirmed Appointment Time'}</h4>
                     {isDraft ? (
-                        <div className="grid grid-cols-3 gap-2">
-                            {TIME_SLOTS.map(slot => (
-                                <Button 
-                                    key={slot} 
-                                    variant={selectedTime === slot ? 'default' : 'outline'}
-                                    className={cn("h-10 rounded-xl text-[9px] font-black uppercase tracking-tighter border-2 px-1", selectedTime === slot ? "shadow-md" : "opacity-60")}
-                                    style={selectedTime === slot 
-                                        ? { backgroundColor: theme?.primaryColor, color: theme?.backgroundColor, borderColor: theme?.primaryColor } 
-                                        : { color: theme?.textColor, borderColor: theme?.primaryColor + '20' }
-                                    }
-                                    onClick={() => setSelectedTime(slot)}
-                                >
-                                    {slot}
-                                </Button>
-                            ))}
+                        <div className="space-y-2">
+                            <Input 
+                                type="text"
+                                placeholder="e.g. 10:30 AM, Today at 4pm"
+                                value={selectedTime}
+                                onChange={(e) => setSelectedTime(e.target.value)}
+                                className="rounded-xl h-14 border-2 text-center font-black text-lg bg-black/5"
+                                style={{ borderColor: theme?.primaryColor + '40', color: theme?.textColor }}
+                            />
+                            <p className="text-[9px] font-bold uppercase tracking-tight opacity-40 text-center" style={{ color: theme?.textColor }}>Type your preferred time for the service.</p>
                         </div>
                     ) : order.appointmentTime ? (
-                        <div className="p-4 rounded-2xl border-2 border-primary/20 bg-primary/5 flex items-center justify-between">
+                        <div className="p-4 rounded-2xl border-2 bg-primary/5 flex items-center justify-between" style={{ borderColor: theme?.primaryColor + '30' }}>
                             <div>
-                                <p className="text-[8px] font-black uppercase opacity-40 mb-0.5">Confirmed Slot</p>
-                                <p className="text-lg font-black text-primary" style={{ color: theme?.primaryColor }}>{order.appointmentTime}</p>
+                                <p className="text-[8px] font-black uppercase opacity-40 mb-0.5" style={{ color: theme?.textColor }}>Confirmed Slot</p>
+                                <p className="text-lg font-black" style={{ color: theme?.primaryColor }}>{order.appointmentTime}</p>
                             </div>
-                            <CheckCircle className="h-6 w-6 text-primary" style={{ color: theme?.primaryColor }} />
+                            <CheckCircle className="h-6 w-6" style={{ color: theme?.primaryColor }} />
                         </div>
                     ) : null}
                  </div>
