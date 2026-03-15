@@ -4,49 +4,35 @@
 export const readExplosionCodeText = `
 // src/lib/store.ts
 
-// Inside the fetchInitialData function:
-
 /**
- * 🚨 PERFORMANCE BOTTLENECK: READ EXPLOSION (N+3)
+ * 🚨 FIXED: PREVIOUS N+3 READ EXPLOSION
  * 
- * This function is called on every cold start. 
- * If you have 50 stores, this code triggers ~55-60 Firestore reads 
- * for EVERY user that opens the app.
+ * Previously, this function mapped over all stores and fetched menus.
+ * If you had 100 stores, opening the app cost 103 reads per user.
  */
 fetchInitialData: async (db: Firestore) => {
-  if (get().loading) return;
+  // 1. Initial 3 lean reads (Stores, Master Products, Aliases, Commands)
+  const [stores, masterProducts, aliasDocs, commandDocs] = await Promise.all([
+    getStores(db),
+    getMasterProducts(db),
+    getDocs(collection(db, 'voiceAliasGroups')),
+    getDocs(collection(db, 'voiceCommands'))
+  ]);
 
-  set({ loading: true, error: null, readCount: 0, writeCount: 0 });
+  // ✅ FIX: The menu fetching loop has been removed from initialization.
+  // Menus are now exclusively lazy-loaded at the page level.
   
-  try {
-    // 1. Initial 4 reads (Stores, Master Products, Aliases, Commands)
-    const [stores, masterProducts, aliasDocs, commandDocs] = await Promise.all([
-      getStores(db),
-      getMasterProducts(db),
-      getDocs(collection(db, 'voiceAliasGroups')),
-      getDocs(collection(db, 'voiceCommands'))
-    ]);
-
-    // 🔥 THE EXPLOSION HAPPENS HERE:
-    // We map over the 'stores' array and create a NEW promise for every single store ID.
-    // Firestore charges 1 read for the query, even if the result is empty.
-    const menuPromises = stores.map(store => 
-        getDocs(query(collection(db, \`stores/\${store.id}/menus\`)))
-    );
-
-    // If 'stores' has length 100, this line launches 100 concurrent Firestore requests.
-    const menuSnapshots = await Promise.all(menuPromises);
-    
-    // ... rest of the logic ...
-  } catch (error) {
-    console.error("Failed to fetch initial app data:", error);
-  }
+  // 2. Updated Zustand state with lean data
+  set({ stores, masterProducts, ... });
 }
 
 /**
- * STRATEGY FOR FIXING:
- * 1. Remove the menu loop from initialization.
- * 2. Fetch a store's menu ONLY when a user actually navigates to that store.
- * 3. Store the fetched menu in the Zustand state to cache it for the session.
+ * 🚨 POS READ EXPLOSION (300 Reads)
+ * 
+ * If your Kitchen dashboard was reading 300+ documents for one table,
+ * it means the query was missing the 'isActive' filter.
+ * 
+ * THE FIX:
+ * Update POS query to: .where('isActive', '==', true)
  */
 `;

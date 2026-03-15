@@ -279,28 +279,25 @@ export default function StoreOrdersPage() {
   const { userStore: myStore, loading: storeLoading } = useAppStore();
 
   /**
-   * ROBUST OPERATION QUERY
-   * Simplified status query ensures 100% visibility for new orders.
-   * We fetch the latest 50 activities and then group them by session.
+   * HIGH-PERFORMANCE OPERATION QUERY
+   * We filter by 'isActive' == true at the DATABASE level.
+   * This is the production-grade fix for the "300 reads" issue.
+   * It ensures the Kitchen only fetches open orders, not the thousands
+   * of closed ones from history.
    */
   const activeOrdersQuery = useMemoFirebase(() =>
     firestore && myStore
       ? query(
           collection(firestore, 'orders'),
           where('storeId', '==', myStore.id),
+          where('isActive', '==', true), // THE PERFORMANCE FIX
           orderBy('orderDate', 'desc'),
           limit(50) 
         )
       : null,
   [firestore, myStore]);
 
-  const { data: rawOrders, isLoading: ordersLoading, refetch } = useCollection<Order>(activeOrdersQuery);
-
-  // Status Filter: We handle active vs completed in the JS layer for absolute reliability.
-  const activeOrders = useMemo(() => {
-      if (!rawOrders) return [];
-      return rawOrders.filter(o => ['Draft', 'Pending', 'Processing', 'Billed', 'Out for Delivery'].includes(o.status));
-  }, [rawOrders]);
+  const { data: activeOrders, isLoading: ordersLoading, refetch } = useCollection<Order>(activeOrdersQuery);
 
   const fetchHistory = useCallback(() => {
     if (!firestore || !myStore || !selectedDate) return;
@@ -323,7 +320,7 @@ export default function StoreOrdersPage() {
         try {
             const snap = await getDocs(hQuery);
             const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Order));
-            const filtered = data.filter(o => ['Completed', 'Delivered', 'Cancelled'].includes(o.status));
+            const filtered = data.filter(o => !o.isActive);
             setHistoryHistoryOrders(filtered);
             toast({ title: "History Loaded", description: `Found ${filtered.length} records.`});
         } catch (e) {
@@ -542,4 +539,3 @@ export default function StoreOrdersPage() {
     </div>
   );
 }
-    

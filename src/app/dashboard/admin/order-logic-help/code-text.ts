@@ -1,52 +1,75 @@
 
 'use client';
 
-export const orderLogicCodeText = [
+export const orderLogicCode = [
     {
-        path: 'src/app/dashboard/owner/orders/page.tsx (Optimized Active Query)',
+        path: 'src/app/actions.ts (Atomic Operational Upsert)',
         content: `
 /**
- * HIGH-PERFORMANCE OPERATION CENTER QUERY
- * 
- * We strictly filter by status at the DATABASE level.
- * This prevents the "N+History" read explosion where the dashboard
- * would waste money reading thousands of old, completed orders.
+ * THE OPERATIONAL INDEX PATTERN
+ * This pattern ensures that active orders are indexed for the POS
+ * without loading historical data.
  */
-const activeOrdersQuery = useMemoFirebase(() =>
-  firestore && myStore
-    ? query(
-        collection(firestore, 'orders'),
-        where('storeId', '==', myStore.id),
-        // DB-LEVEL FILTER: Exclude Completed/Delivered/Cancelled
-        where('status', 'in', ['Draft', 'Pending', 'Processing', 'Billed', 'Out for Delivery']),
-        orderBy('orderDate', 'desc'),
-        limit(50)
-      )
-    : null,
-[firestore, myStore]);
-`,
+export async function addRestaurantOrderItem({ storeId, sessionId, item, quantity, ... }) {
+  const orderId = \`\${storeId}_\${sessionId}\`;
+  const orderDocRef = db.collection('orders').doc(orderId);
+
+  // We set 'isActive: true'. This is the core field the POS filters by.
+  await orderDocRef.set({
+    id: orderId,
+    storeId,
+    status: 'Draft',
+    isActive: true, // Operational Index Flag
+    orderDate: FieldValue.serverTimestamp(),
+    items: FieldValue.arrayUnion({ ...item, quantity }),
+    totalAmount: FieldValue.increment(item.price * quantity),
+    ...customerMeta
+  }, { merge: true });
+}
+`
     },
     {
-        path: 'src/app/actions.ts (Optimized markSessionAsPaid)',
+        path: 'src/app/dashboard/owner/orders/page.tsx (POS Operational Listener)',
         content: `
 /**
- * TARGETED BATCH UPDATE
- * 
- * Instead of reading the entire session, we only read orders that are 
- * actually ready for payment (status == 'Billed').
+ * THE OPERATIONAL POS QUERY
+ * Only reads documents where isActive is true. 
+ * This prevents reading the entire order history.
+ */
+const activeOrdersQuery = query(
+    collection(firestore, 'orders'),
+    where('storeId', '==', myStore.id),
+    where('isActive', '==', true), // THE PERFORMANCE FIX
+    orderBy('orderDate', 'desc'),
+    limit(50)
+);
+
+// This ensures that even if you have 10,000 historical orders,
+// the Kitchen screen only 'pays' for the 5-10 active tables.
+`
+    },
+    {
+        path: 'src/app/actions.ts (Lifecycle Closure)',
+        content: `
+/**
+ * CLOSING THE READ CYCLE
+ * When a customer pays, we mark isActive: false.
  */
 export async function markSessionAsPaid(sessionId: string) {
   const snapshot = await db.collection('orders')
       .where('sessionId', '==', sessionId)
-      .where('status', '==', 'Billed') // TARGETED READ
+      .where('status', '==', 'Billed')
       .get();
 
   const batch = db.batch();
   snapshot.docs.forEach(doc => {
-    batch.update(doc.ref, { status: 'Completed', ... });
+    batch.update(doc.ref, { 
+        status: 'Completed', 
+        isActive: false // Removes from POS Operational Index
+    });
   });
   await batch.commit();
 }
-`,
+`
     }
 ];

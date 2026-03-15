@@ -214,7 +214,7 @@ export async function updateManifest(newData: any): Promise<{ success: boolean; 
 
 /**
  * ROBUST SYNC: addRestaurantOrderItem ensures POS-critical fields are written on every item add.
- * Optimized to use setDoc with merge to prevent read amplification.
+ * OPTIMIZED: Uses isActive: true flag to strictly separate operational data from history.
  */
 export async function addRestaurantOrderItem({
   storeId,
@@ -260,7 +260,8 @@ export async function addRestaurantOrderItem({
     };
 
     // ATOMIC WRITE: We write all search-critical fields (storeId, status, tableNumber)
-    // on every item addition. This ensures the POS listener never misses an update.
+    // on every item addition.
+    // PERFORMANCE FIX: We set isActive: true to ensure the POS only reads open orders.
     await orderDocRef.set({
       id: orderId, 
       storeId: storeId, 
@@ -271,9 +272,10 @@ export async function addRestaurantOrderItem({
       deliveryAddress: deliveryAddress || (tableNumber ? 'In-store dining' : 'TBD'),
       deliveryLat: deliveryLat || 0,
       deliveryLng: deliveryLng || 0,
-      zoneId: zoneId || 'local-service', // Ensure zoneId is never null for partitioned queries
+      zoneId: zoneId || 'local-service',
       phone: phone || '',
       status: 'Draft', 
+      isActive: true, // Operational Index Flag
       orderDate: FieldValue.serverTimestamp(), 
       updatedAt: FieldValue.serverTimestamp(),
       items: FieldValue.arrayUnion(orderItem),
@@ -292,7 +294,6 @@ export async function confirmOrderSession(orderId: string): Promise<{ success: b
     const { db } = await getAdminServices();
     const orderRef = db.collection('orders').doc(orderId);
     
-    // Optimized: Fetch the specific order by ID only.
     const orderSnap = await orderRef.get();
     
     if (!orderSnap.exists) return { success: false, error: 'Order not found' };
@@ -300,7 +301,6 @@ export async function confirmOrderSession(orderId: string): Promise<{ success: b
     const orderData = orderSnap.data();
     let currentStatus = orderData?.status;
     
-    // Prevent confirming already completed/cancelled orders
     if (['Completed', 'Delivered', 'Cancelled'].includes(currentStatus)) {
         return { success: false, error: 'Order is already finalized.' };
     }
@@ -327,13 +327,12 @@ export async function confirmOrderSession(orderId: string): Promise<{ success: b
 
 /**
  * Optimized: markSessionAsPaid only reads the specific billed orders 
- * for a session, ignoring historical/completed ones.
+ * for a session and sets isActive: false to stop read amplification.
  */
 export async function markSessionAsPaid(sessionId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const { db } = await getAdminServices();
-    // Only fetch orders for this session that are currently waiting for payment (Billed).
-    // This prevents re-reading and re-writing thousands of old orders.
+    
     const snapshot = await db.collection('orders')
         .where('sessionId', '==', sessionId)
         .where('status', '==', 'Billed')
@@ -343,7 +342,13 @@ export async function markSessionAsPaid(sessionId: string): Promise<{ success: b
     
     const batch = db.batch();
     snapshot.docs.forEach(doc => {
-      batch.update(doc.ref, { status: 'Completed', paidAt: Timestamp.now(), paymentMode: 'UPI' });
+      // SET isActive: false. This removes the document from the Operational real-time listener instantly.
+      batch.update(doc.ref, { 
+        status: 'Completed', 
+        isActive: false, 
+        paidAt: Timestamp.now(), 
+        paymentMode: 'UPI' 
+      });
     });
     await batch.commit();
     return { success: true };
