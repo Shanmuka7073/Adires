@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, MapPin, Loader2, Info, Building2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { useSearchParams } from 'next/navigation';
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   if (!lat1 || !lon1 || !lat2 || !lon2) return Infinity;
@@ -21,7 +22,6 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(lat1 * (Math.PI / 180)) *
       Math.cos(lat2 * (Math.PI / 180)) *
-      // Fixed potential typo in longitude calculation
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
@@ -30,17 +30,26 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 
 export default function StoresPage() {
   const { firestore } = useFirebase();
+  const searchParams = useSearchParams();
+  const categoryParam = searchParams.get('category');
+  
   const allStores = useAppStore((state) => state.stores);
   const loading = useAppStore((state) => state.loading);
   const fetchInitialData = useAppStore((state) => state.fetchInitialData);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState(categoryParam || 'all');
   const [sortedStores, setSortedStores] = useState<Store[]>([]);
 
   useEffect(() => {
     if (firestore) fetchInitialData(firestore);
   }, [firestore, fetchInitialData]);
+
+  useEffect(() => {
+    if (categoryParam) {
+      setActiveTab(categoryParam);
+    }
+  }, [categoryParam]);
 
   useEffect(() => {
     if (allStores.length > 0) {
@@ -66,7 +75,7 @@ export default function StoresPage() {
   }, [allStores]);
 
   const filteredStores = useMemo(() => {
-    let result = sortedStores.filter(s => s.name !== 'LocalBasket'); 
+    let result = sortedStores.filter(s => s.name !== 'LocalBasket' && !s.isClosed); 
     
     if (searchTerm) {
         result = result.filter(s => 
@@ -75,19 +84,38 @@ export default function StoresPage() {
         );
     }
 
+    const checkIsRestaurant = (s: Store) => {
+        if (s.businessType === 'restaurant') return true;
+        if (s.businessType) return false;
+        const pool = `${s.name} ${s.description}`.toLowerCase();
+        return [
+            'restaurant', 'restuarent', 'hotel', 'biryani', 'tiffin', 'mess', 
+            'canteen', 'dhaba', 'food', 'meals', 'sweets', 'bakery', 'kitchen', 
+            'cafe', 'bakers', 'grand', 'deluxe', 'paradise', 'pantry', 'grill', 
+            'bbq', 'fry', 'kabab', 'fast food', 'curry'
+        ].some(kw => pool.includes(kw));
+    };
+
+    const checkIsSalon = (s: Store) => {
+        if (s.businessType === 'salon') return true;
+        if (s.businessType) return false;
+        const pool = `${s.name} ${s.description}`.toLowerCase();
+        return ['salon', 'saloon', 'parlour', 'beauty', 'hair', 'cut', 'spa', 'massage', 'style', 'makeup', 'barber'].some(kw => pool.includes(kw));
+    };
+
     if (activeTab === 'restaurants') {
-        result = result.filter(s => s.businessType === 'restaurant' || s.name.toLowerCase().includes('restaurant') || s.name.toLowerCase().includes('restuarent') || s.name.toLowerCase().includes('hotel') || s.name.toLowerCase().includes('biryani') || s.name.toLowerCase().includes('tiffin'));
+        result = result.filter(checkIsRestaurant);
     } else if (activeTab === 'salons') {
-        result = result.filter(s => s.businessType === 'salon' || s.name.toLowerCase().includes('salon') || s.name.toLowerCase().includes('saloon') || s.name.toLowerCase().includes('parlour'));
+        result = result.filter(checkIsSalon);
     } else if (activeTab === 'retail') {
-        result = result.filter(s => s.businessType === 'grocery' || (!s.name.toLowerCase().includes('salon') && !s.name.toLowerCase().includes('saloon') && !s.name.toLowerCase().includes('restaurant') && !s.name.toLowerCase().includes('restuarent') && !s.name.toLowerCase().includes('hotel') && !s.name.toLowerCase().includes('biryani') && !s.name.toLowerCase().includes('tiffin')));
+        result = result.filter(s => s.businessType === 'grocery' || (!checkIsRestaurant(s) && !checkIsSalon(s)));
     }
 
     return result;
   }, [sortedStores, searchTerm, activeTab]);
 
   return (
-    <div className="container mx-auto py-10 px-4 md:px-6 max-w-6xl">
+    <div className="container mx-auto py-10 px-4 md:px-6 max-w-6xl pb-24 md:pb-10">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-10 border-b pb-8">
         <div className="space-y-1">
             <h1 className="text-5xl font-black font-headline tracking-tighter">Market Directory</h1>
@@ -104,7 +132,7 @@ export default function StoresPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="all" onValueChange={setActiveTab} className="w-full space-y-8">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-8">
         <TabsList className="grid grid-cols-4 w-full md:max-w-md h-12 bg-black/5 p-1 rounded-2xl border">
           <TabsTrigger value="all" className="rounded-xl font-black text-[10px] uppercase">All</TabsTrigger>
           <TabsTrigger value="restaurants" className="rounded-xl font-black text-[10px] uppercase">Food</TabsTrigger>
