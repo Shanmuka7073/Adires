@@ -33,8 +33,22 @@ function StoreCard({ store }: StoreCardProps) {
         fetchImage();
     }, [store]);
 
-    const isSalon = store.businessType === 'salon' || store.name.toLowerCase().includes('salon') || store.name.toLowerCase().includes('saloon');
-    const isRestaurant = store.businessType === 'restaurant' || store.name.toLowerCase().includes('restaurant') || store.name.toLowerCase().includes('restuarent') || store.name.toLowerCase().includes('hotel') || store.name.toLowerCase().includes('biryani') || store.name.toLowerCase().includes('tiffin');
+    const isSalon = useMemo(() => {
+        if (store.businessType === 'salon') return true;
+        const searchPool = `${store.name} ${store.description}`.toLowerCase();
+        return ['salon', 'saloon', 'parlour', 'beauty', 'hair', 'cut', 'spa', 'massage', 'style', 'makeup'].some(kw => searchPool.includes(kw));
+    }, [store]);
+
+    const isRestaurant = useMemo(() => {
+        if (store.businessType === 'restaurant') return true;
+        const searchPool = `${store.name} ${store.description}`.toLowerCase();
+        return [
+            'restaurant', 'restuarent', 'hotel', 'biryani', 'tiffin', 'mess', 
+            'canteen', 'dhaba', 'food', 'meals', 'sweets', 'bakery', 'kitchen', 
+            'cafe', 'bakers', 'grand', 'deluxe', 'paradise', 'pantry', 'grill', 
+            'bbq', 'fry', 'kabab', 'fast food', 'curry'
+        ].some(kw => searchPool.includes(kw));
+    }, [store]);
 
     const destination = (isSalon || isRestaurant) ? `/menu/${store.id}` : `/stores/${store.id}`;
 

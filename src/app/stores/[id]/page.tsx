@@ -16,7 +16,6 @@ export default function StoreDetailPage() {
   
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
 
-  // Get all data from the central Zustand store
   const { 
     stores,
     masterProducts, 
@@ -27,14 +26,17 @@ export default function StoreDetailPage() {
     fetchInitialData
   } = useAppStore();
 
-  // Find the specific store being viewed from the already-loaded list.
   const store = useMemo(() => stores.find(s => s.id === id), [stores, id]);
   
-  // Fail-safe redirect: if this is a restaurant or salon, it belongs on the /menu page
   useEffect(() => {
     if (store) {
-        const isSalon = store.businessType === 'salon' || store.name.toLowerCase().includes('salon') || store.name.toLowerCase().includes('saloon');
-        const isRestaurant = store.businessType === 'restaurant' || store.name.toLowerCase().includes('restaurant') || store.name.toLowerCase().includes('restuarent') || store.name.toLowerCase().includes('hotel') || store.name.toLowerCase().includes('biryani') || store.name.toLowerCase().includes('tiffin');
+        const searchPool = `${store.name} ${store.description}`.toLowerCase();
+        const isSalon = store.businessType === 'salon' || ['salon', 'saloon', 'parlour', 'beauty', 'hair', 'cut', 'spa', 'makeup'].some(kw => searchPool.includes(kw));
+        const isRestaurant = store.businessType === 'restaurant' || [
+            'restaurant', 'restuarent', 'hotel', 'biryani', 'tiffin', 'mess', 
+            'canteen', 'dhaba', 'food', 'meals', 'sweets', 'bakery', 'kitchen', 
+            'cafe', 'bakers', 'grand', 'deluxe', 'paradise'
+        ].some(kw => searchPool.includes(kw));
         
         if (isSalon || isRestaurant) {
             router.replace(`/menu/${store.id}`);
@@ -42,7 +44,6 @@ export default function StoreDetailPage() {
     }
   }, [store, router]);
 
-  // Fetch initial data if it's not already in the store
   useEffect(() => {
     if (firestore && !isInitialized) {
       fetchInitialData(firestore);
@@ -50,7 +51,6 @@ export default function StoreDetailPage() {
   }, [firestore, isInitialized, fetchInitialData]);
 
 
-  // When master products are loaded, fetch their prices.
   useEffect(() => {
     if (firestore && masterProducts.length > 0) {
       const productNames = masterProducts.map(p => p.name);
@@ -58,7 +58,6 @@ export default function StoreDetailPage() {
     }
   }, [firestore, masterProducts, fetchProductPrices]);
 
-  // Determine the final loading state.
   const isLoading = appLoading || !isInitialized;
 
   if (isLoading) {
@@ -78,12 +77,9 @@ export default function StoreDetailPage() {
   }
   
   if (!store) {
-    // If the store is not found after loading, it's a 404.
     notFound();
   }
 
-
-  // Once everything is loaded, render the main client component.
   return (
       <div className="flex-1 overflow-y-auto">
         <CategoryClient

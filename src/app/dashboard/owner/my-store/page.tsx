@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import type { Store, Product, ProductPrice, User as AppUser, ProductVariant } from '@/lib/types';
-import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirebase, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { updateStoreImageUrl } from '@/app/actions';
 import { useRouter } from 'next/navigation';
@@ -699,8 +699,28 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
 }
 
 function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdmin: boolean, adminStoreId?: string; }) {
+    const { firestore, user } = useFirebase();
     const { toast } = useToast();
     const [isOpening, startOpenTransition] = useTransition();
+    const [isRepairing, startRepair] = useTransition();
+
+    const userDocRef = useMemoFirebase(() => (!firestore || !user) ? null : doc(firestore, 'users', user.uid), [firestore, user]);
+    const { data: userData } = useDoc<AppUser>(userDocRef);
+
+    // AUTO-REPAIR: If businessType is missing, update it based on accountType
+    useEffect(() => {
+        if (!store.businessType && userData?.accountType && firestore && !isRepairing) {
+            startRepair(async () => {
+                const inferredType = userData.accountType === 'restaurant' ? 'restaurant' : 'grocery';
+                try {
+                    await updateDoc(doc(firestore, 'stores', store.id), { businessType: inferredType });
+                    toast({ title: "Business type initialized", description: `We've set your store to ${inferredType} based on your profile.` });
+                } catch (e) {
+                    console.error("Auto-repair failed", e);
+                }
+            });
+        }
+    }, [store, userData, firestore, isRepairing]);
 
     if (store.isClosed) {
         return (
@@ -850,30 +870,6 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                 });
         });
     };
-
-    if (profile && !isAdmin) {
-        return (
-            <div className="text-center">
-                 <AlertDialog open={isLocationConfirmOpen} onOpenChange={setIsLocationConfirmOpen}>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>{t('confirm-store-location')}</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                {t('weve-detected-your-location')}
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel onClick={() => handleConfirmLocation(false)}>{t('no-ill-do-it-later')}</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleConfirmLocation(true)}>{t('yes-create-my-store-here')}</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-                <p className="text-lg">{t('attempting-to-create-your-store-automatically')}...</p>
-                <Loader2 className="mx-auto mt-4 h-8 w-8 animate-spin" />
-                 <p className="text-sm text-muted-foreground mt-4">{t('if-this-fails-you-can-create-your-store-manually')}</p>
-            </div>
-        );
-    }
 
     return (
         <Card className="max-w-3xl mx-auto">
