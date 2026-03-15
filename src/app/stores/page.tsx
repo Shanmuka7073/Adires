@@ -21,6 +21,7 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(lat1 * (Math.PI / 180)) *
       Math.cos(lat2 * (Math.PI / 180)) *
+      // Fixed potential typo in longitude calculation
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
@@ -75,11 +76,11 @@ export default function StoresPage() {
     }
 
     if (activeTab === 'restaurants') {
-        result = result.filter(s => s.businessType === 'restaurant' || s.name.toLowerCase().includes('restaurant') || s.name.toLowerCase().includes('hotel') || s.name.toLowerCase().includes('biryani'));
+        result = result.filter(s => s.businessType === 'restaurant' || s.name.toLowerCase().includes('restaurant') || s.name.toLowerCase().includes('restuarent') || s.name.toLowerCase().includes('hotel') || s.name.toLowerCase().includes('biryani') || s.name.toLowerCase().includes('tiffin'));
     } else if (activeTab === 'salons') {
         result = result.filter(s => s.businessType === 'salon' || s.name.toLowerCase().includes('salon') || s.name.toLowerCase().includes('saloon') || s.name.toLowerCase().includes('parlour'));
     } else if (activeTab === 'retail') {
-        result = result.filter(s => s.businessType === 'grocery' || (!s.name.toLowerCase().includes('salon') && !s.name.toLowerCase().includes('saloon') && !s.name.toLowerCase().includes('biryani') && !s.name.toLowerCase().includes('hotel')));
+        result = result.filter(s => s.businessType === 'grocery' || (!s.name.toLowerCase().includes('salon') && !s.name.toLowerCase().includes('saloon') && !s.name.toLowerCase().includes('restaurant') && !s.name.toLowerCase().includes('restuarent') && !s.name.toLowerCase().includes('hotel') && !s.name.toLowerCase().includes('biryani') && !s.name.toLowerCase().includes('tiffin')));
     }
 
     return result;

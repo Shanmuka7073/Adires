@@ -1,7 +1,7 @@
 
 'use client';
 import { Store, Product, ProductPrice } from '@/lib/types';
-import { useParams, notFound, useSearchParams } from 'next/navigation';
+import { useParams, notFound, useSearchParams, useRouter } from 'next/navigation';
 import { useFirebase } from '@/firebase';
 import { CategoryClient } from './category-client';
 import { useEffect, useMemo } from 'react';
@@ -11,8 +11,8 @@ import { useAppStore } from '@/lib/store';
 export default function StoreDetailPage() {
   const { firestore } = useFirebase();
   const params = useParams();
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const highlightProduct = searchParams.get('highlight');
   
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
 
@@ -30,6 +30,18 @@ export default function StoreDetailPage() {
   // Find the specific store being viewed from the already-loaded list.
   const store = useMemo(() => stores.find(s => s.id === id), [stores, id]);
   
+  // Fail-safe redirect: if this is a restaurant or salon, it belongs on the /menu page
+  useEffect(() => {
+    if (store) {
+        const isSalon = store.businessType === 'salon' || store.name.toLowerCase().includes('salon') || store.name.toLowerCase().includes('saloon');
+        const isRestaurant = store.businessType === 'restaurant' || store.name.toLowerCase().includes('restaurant') || store.name.toLowerCase().includes('restuarent') || store.name.toLowerCase().includes('hotel') || store.name.toLowerCase().includes('biryani') || store.name.toLowerCase().includes('tiffin');
+        
+        if (isSalon || isRestaurant) {
+            router.replace(`/menu/${store.id}`);
+        }
+    }
+  }, [store, router]);
+
   // Fetch initial data if it's not already in the store
   useEffect(() => {
     if (firestore && !isInitialized) {
@@ -83,4 +95,3 @@ export default function StoreDetailPage() {
       </div>
   );
 }
-

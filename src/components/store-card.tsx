@@ -33,10 +33,12 @@ function StoreCard({ store }: StoreCardProps) {
     }, [store]);
 
     const isSalon = store.businessType === 'salon' || store.name.toLowerCase().includes('salon') || store.name.toLowerCase().includes('saloon');
-    const isRestaurant = store.businessType === 'restaurant' || store.name.toLowerCase().includes('restaurant') || store.name.toLowerCase().includes('hotel') || store.name.toLowerCase().includes('biryani');
+    const isRestaurant = store.businessType === 'restaurant' || store.name.toLowerCase().includes('restaurant') || store.name.toLowerCase().includes('restuarent') || store.name.toLowerCase().includes('hotel') || store.name.toLowerCase().includes('biryani') || store.name.toLowerCase().includes('tiffin');
+
+    const destination = (isSalon || isRestaurant) ? `/menu/${store.id}` : `/stores/${store.id}`;
 
   return (
-    <Link href={`/stores/${store.id}`} className="block group">
+    <Link href={destination} className="block group">
         <Card className="h-full border-0 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-[2.5rem] overflow-hidden bg-white">
             <div className="relative h-44 w-full">
                 {image.imageUrl ? (
