@@ -78,11 +78,16 @@ export type CartItem = {
 
 export type Ingredient = {
   name: string;
-  baseQuantity: number;
+  baseQuantity?: number;
   quantity: string;
-  unit: 'g' | 'kg' | 'ml' | 'l' | 'pcs' | 'tsp' | 'tbsp' | '' ;
+  unit?: string;
   cost?: number;
 };
+
+export type InstructionStep = {
+    title: string;
+    actions: string[];
+}
 
 export type OrderItem = {
   id: string;
@@ -173,9 +178,10 @@ export type VoiceAliasGroup = {
 
 export interface GetIngredientsOutput {
     isSuccess: boolean;
+    itemType: 'food' | 'service' | 'product';
     title: string;
-    ingredients: Ingredient[];
-    instructions: InstructionStep[];
+    components: Ingredient[];
+    steps: InstructionStep[];
     nutrition: {
         calories: number;
         protein: number;
@@ -185,8 +191,9 @@ export interface GetIngredientsOutput {
 export type CachedRecipe = {
     id: string;
     dishName: string;
-    ingredients: Ingredient[];
-    instructions: InstructionStep[];
+    itemType: 'food' | 'service' | 'product';
+    components: Ingredient[];
+    steps: InstructionStep[];
     nutrition: {
         calories: number;
         protein: number;

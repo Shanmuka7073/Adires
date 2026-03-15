@@ -9,8 +9,7 @@ import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfi
 import { getApps } from 'firebase-admin/app';
 import { v4 as uuidv4 } from 'uuid';
 import { ai } from '@/ai/genkit';
-import { GetIngredientsInputSchema, GetIngredientsOutputSchema } from '@/ai/flows/recipe-ingredients-types';
-import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
+import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
 
 export async function getFirebaseConfig() {
   try {
@@ -212,10 +211,6 @@ export async function updateManifest(newData: any): Promise<{ success: boolean; 
     }
 }
 
-/**
- * ROBUST SYNC: addRestaurantOrderItem ensures POS-critical fields are written on every item add.
- * OPTIMIZED: Uses isActive: true flag to strictly separate operational data from history.
- */
 export async function addRestaurantOrderItem({
   storeId,
   tableNumber,
@@ -243,8 +238,6 @@ export async function addRestaurantOrderItem({
 }): Promise<{ success: boolean; error?: string }> {
   try {
     const { db } = await getAdminServices();
-    
-    // Deterministic ID ensures we target the correct bill session instantly.
     const orderId = `${storeId}_${sessionId}`;
     const orderDocRef = db.collection('orders').doc(orderId);
 
@@ -259,9 +252,6 @@ export async function addRestaurantOrderItem({
       price: item.price,
     };
 
-    // ATOMIC WRITE: We write all search-critical fields (storeId, status, tableNumber)
-    // on every item addition.
-    // PERFORMANCE FIX: We set isActive: true to ensure the POS only reads open orders.
     await orderDocRef.set({
       id: orderId, 
       storeId: storeId, 
@@ -275,7 +265,7 @@ export async function addRestaurantOrderItem({
       zoneId: zoneId || 'local-service',
       phone: phone || '',
       status: 'Draft', 
-      isActive: true, // Operational Index Flag
+      isActive: true, 
       orderDate: FieldValue.serverTimestamp(), 
       updatedAt: FieldValue.serverTimestamp(),
       items: FieldValue.arrayUnion(orderItem),
@@ -293,62 +283,25 @@ export async function confirmOrderSession(orderId: string): Promise<{ success: b
   try {
     const { db } = await getAdminServices();
     const orderRef = db.collection('orders').doc(orderId);
-    
     const orderSnap = await orderRef.get();
-    
     if (!orderSnap.exists) return { success: false, error: 'Order not found' };
-    
     const orderData = orderSnap.data();
     let currentStatus = orderData?.status;
-    
-    if (['Completed', 'Delivered', 'Cancelled'].includes(currentStatus)) {
-        return { success: false, error: 'Order is already finalized.' };
-    }
-
-    let nextStatus = currentStatus;
-    
-    if (currentStatus === 'Draft') {
-        nextStatus = orderData?.tableNumber ? 'Processing' : 'Pending';
-    } else if (orderData?.tableNumber) {
-        nextStatus = 'Billed';
-    }
-
-    await orderRef.update({ 
-        status: nextStatus, 
-        updatedAt: FieldValue.serverTimestamp() 
-    });
-    
+    if (['Completed', 'Delivered', 'Cancelled'].includes(currentStatus)) return { success: false, error: 'Order is already finalized.' };
+    let nextStatus = currentStatus === 'Draft' ? (orderData?.tableNumber ? 'Processing' : 'Pending') : (orderData?.tableNumber ? 'Billed' : currentStatus);
+    await orderRef.update({ status: nextStatus, updatedAt: FieldValue.serverTimestamp() });
     return { success: true };
-  } catch (error: any) { 
-    console.error("Confirm order session failed:", error);
-    return { success: false, error: error.message }; 
-  }
+  } catch (error: any) { return { success: false, error: error.message }; }
 }
 
-/**
- * Optimized: markSessionAsPaid only reads active orders for a session
- * and sets isActive: false to stop read amplification.
- */
 export async function markSessionAsPaid(sessionId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const { db } = await getAdminServices();
-    
-    // Find all active orders for this session to close them
-    const snapshot = await db.collection('orders')
-        .where('sessionId', '==', sessionId)
-        .where('isActive', '==', true)
-        .get();
-
+    const snapshot = await db.collection('orders').where('sessionId', '==', sessionId).where('isActive', '==', true).get();
     if (snapshot.empty) return { success: true };
-    
     const batch = db.batch();
     snapshot.docs.forEach(doc => {
-      batch.update(doc.ref, { 
-        status: 'Completed', 
-        isActive: false, 
-        paidAt: Timestamp.now(), 
-        paymentMode: 'UPI' 
-      });
+      batch.update(doc.ref, { status: 'Completed', isActive: false, paidAt: Timestamp.now(), paymentMode: 'UPI' });
     });
     await batch.commit();
     return { success: true };
@@ -358,137 +311,47 @@ export async function markSessionAsPaid(sessionId: string): Promise<{ success: b
 export async function getStoreSalesReport({ storeId, period }: { storeId: string; period: 'daily' | 'weekly' | 'monthly'; }) {
   const { db } = await getAdminServices();
   if (!storeId) return { success: false, error: 'Store ID is required' };
-
   const getStartDate = (p: string) => {
     const now = new Date();
     if (p === 'daily') return new Date(now.setHours(0, 0, 0, 0));
     if (p === 'weekly') return new Date(now.setDate(now.getDate() - 7));
     return new Date(now.getFullYear(), now.getMonth(), 1);
   };
-  
-  const startDate = getStartDate(period);
-  const startTimestamp = Timestamp.fromDate(startDate);
-
+  const startTimestamp = Timestamp.fromDate(getStartDate(period));
   try {
     const [ordersSnapshot, ingredientsSnapshot] = await Promise.all([
-        db.collection('orders')
-          .where('storeId', '==', storeId)
-          .where('status', 'in', ['Completed', 'Billed', 'Delivered'])
-          .where('orderDate', '>=', startTimestamp)
-          .get(),
+        db.collection('orders').where('storeId', '==', storeId).where('status', 'in', ['Completed', 'Billed', 'Delivered']).where('orderDate', '>=', startTimestamp).get(),
         db.collection('restaurantIngredients').get()
     ]);
-
     const validOrders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-    
-    const masterIngredientCosts = new Map<string, RestaurantIngredient>();
-    ingredientsSnapshot.forEach(doc => {
-      masterIngredientCosts.set(doc.id, doc.data() as RestaurantIngredient);
-    });
-
-    if (validOrders.length === 0) {
-      return {
-        success: true,
-        report: {
-          totalSales: 0, totalOrders: 0, totalItems: 0, 
-          topProducts: [], topProfitableProducts: [],
-          ingredientUsage: [], ingredientCost: 0, costDrivers: [], 
-          optimizationHint: null, salesByTable: []
-        }
-      };
-    }
-
-    let totalSales = 0;
-    let totalIngredientCost = 0;
-    const productMap = new Map<string, { count: number, totalProfit: number, revenue: number }>();
-    const ingredientUsageMap = new Map<string, { quantity: number, cost: number }>();
-    const salesByTableMap = new Map<string, any>();
-
+    if (validOrders.length === 0) return { success: true, report: { totalSales: 0, totalOrders: 0, totalItems: 0, topProducts: [], topProfitableProducts: [], ingredientUsage: [], ingredientCost: 0, costDrivers: [], optimizationHint: null, salesByTable: [] } };
+    let totalSales = 0; let totalIngredientCost = 0;
+    const productMap = new Map<string, any>(); const ingredientUsageMap = new Map<string, any>(); const salesByTableMap = new Map<string, any>();
     for (const order of validOrders) {
       totalSales += order.totalAmount;
       const tableNumber = order.tableNumber || 'Delivery';
-      if (!salesByTableMap.has(tableNumber)) {
-        salesByTableMap.set(tableNumber, { tableNumber, totalSales: 0, orderCount: 0, totalCost: 0 });
-      }
+      if (!salesByTableMap.has(tableNumber)) salesByTableMap.set(tableNumber, { tableNumber, totalSales: 0, orderCount: 0, totalCost: 0 });
       const tableStats = salesByTableMap.get(tableNumber);
-      tableStats.totalSales += order.totalAmount;
-      tableStats.orderCount += 1;
-
+      tableStats.totalSales += order.totalAmount; tableStats.orderCount += 1;
       for (const item of order.items || []) {
         const key = item.productName.toLowerCase();
         const productStat = productMap.get(key) || { count: 0, totalProfit: 0, revenue: 0 };
-        productStat.count += item.quantity;
-        productStat.revenue += item.price * item.quantity;
-
+        productStat.count += item.quantity; productStat.revenue += item.price * item.quantity;
         let itemCost = 0;
-        const snapshot = item.recipeSnapshot || [];
-        for (const ing of snapshot) {
-            const cost = (ing.cost || 0) * item.quantity;
-            itemCost += cost;
-            
+        for (const ing of item.recipeSnapshot || []) {
+            const cost = (ing.cost || 0) * item.quantity; itemCost += cost;
             const prevUsage = ingredientUsageMap.get(ing.name) || { quantity: 0, cost: 0 };
-            ingredientUsageMap.set(ing.name, {
-                quantity: prevUsage.quantity + (ing.qty * item.quantity),
-                cost: prevUsage.cost + cost,
-            });
+            ingredientUsageMap.set(ing.name, { quantity: prevUsage.quantity + (ing.qty * item.quantity), cost: prevUsage.cost + cost });
         }
-        totalIngredientCost += itemCost;
-        tableStats.totalCost += itemCost;
+        totalIngredientCost += itemCost; tableStats.totalCost += itemCost;
         productStat.totalProfit += (item.price * item.quantity) - itemCost;
         productMap.set(key, productStat);
       }
     }
-
-    const salesByTable = Array.from(salesByTableMap.values()).map(table => {
-        const grossProfit = table.totalSales - table.totalCost;
-        return {
-            ...table,
-            grossProfit,
-            profitPerOrder: table.orderCount > 0 ? grossProfit / table.orderCount : 0,
-            profitPercentage: table.totalSales > 0 ? (grossProfit / table.totalSales) * 100 : 0
-        };
-    });
-
-    const costDrivers = Array.from(ingredientUsageMap.entries())
-        .map(([name, data]) => ({
-            name,
-            cost: data.cost,
-            percentage: totalIngredientCost > 0 ? (data.cost / totalIngredientCost) * 100 : 0
-        }))
-        .sort((a,b) => b.cost - a.cost);
-
-    const topProfitableProducts = Array.from(productMap.entries())
-        .map(([name, stat]) => ({
-            name,
-            totalProfit: stat.totalProfit,
-            profitPerUnit: stat.count > 0 ? stat.totalProfit / stat.count : 0,
-            count: stat.count
-        }))
-        .sort((a,b) => b.totalProfit - a.totalProfit)
-        .slice(0, 10);
-
-    return {
-      success: true,
-      report: {
-        totalSales,
-        totalOrders: validOrders.length,
-        totalItems: Array.from(productMap.values()).reduce((a, b) => a + b, 0),
-        topProducts: Array.from(productMap.entries())
-            .map(([name, stat]) => ({ name, count: stat.count }))
-            .sort((a,b) => b.count - a.count)
-            .slice(0, 5),
-        topProfitableProducts,
-        ingredientUsage: Array.from(ingredientUsageMap.entries()).map(([name, data]) => ({ name, cost: data.cost, quantity: data.quantity, unit: 'base' })),
-        ingredientCost: totalIngredientCost,
-        costDrivers,
-        optimizationHint: costDrivers.length > 0 ? `Your biggest cost driver is "${costDrivers[0].name}" at ${costDrivers[0].percentage.toFixed(1)}% of total cost.` : null,
-        salesByTable
-      } as any,
-    };
-  } catch (error: any) {
-    console.error("Sales report generation failed:", error);
-    return { success: false, error: error.message };
-  }
+    const salesByTable = Array.from(salesByTableMap.values()).map(table => ({ ...table, grossProfit: table.totalSales - table.totalCost, profitPerOrder: table.orderCount > 0 ? (table.totalSales - table.totalCost) / table.orderCount : 0, profitPercentage: table.totalSales > 0 ? ((table.totalSales - table.totalCost) / table.totalSales) * 100 : 0 }));
+    const costDrivers = Array.from(ingredientUsageMap.entries()).map(([name, data]) => ({ name, cost: data.cost, percentage: totalIngredientCost > 0 ? (data.cost / totalIngredientCost) * 100 : 0 })).sort((a,b) => b.cost - a.cost);
+    return { success: true, report: { totalSales, totalOrders: validOrders.length, totalItems: Array.from(productMap.values()).reduce((acc, s) => acc + s.count, 0), topProducts: Array.from(productMap.entries()).map(([name, stat]) => ({ name, count: stat.count })).sort((a,b) => b.count - a.count).slice(0, 5), topProfitableProducts: Array.from(productMap.entries()).map(([name, stat]) => ({ name, totalProfit: stat.totalProfit, profitPerUnit: stat.count > 0 ? stat.totalProfit / stat.count : 0, count: stat.count })).sort((a,b) => b.totalProfit - a.totalProfit).slice(0, 10), ingredientUsage: Array.from(ingredientUsageMap.entries()).map(([name, data]) => ({ name, cost: data.cost, quantity: data.quantity, unit: 'base' })), ingredientCost: totalIngredientCost, costDrivers, optimizationHint: costDrivers.length > 0 ? `Your biggest cost driver is "${costDrivers[0].name}" at ${costDrivers[0].percentage.toFixed(1)}% of total cost.` : null, salesByTable } };
+  } catch (error: any) { return { success: false, error: error.message }; }
 }
 
 export async function bulkUploadRecipes(csvText: string): Promise<{ success: boolean; count: number; error?: string }> {
@@ -503,7 +366,10 @@ export async function bulkUploadRecipes(csvText: string): Promise<{ success: boo
             const recipeId = `${createSlug(dishName.trim())}_en`;
             batch.set(db.collection('cachedRecipes').doc(recipeId), {
                 id: recipeId, dishName: dishName.trim(), 
-                ingredients: ingredientsStr.split('|').map(i => ({ name: i.trim(), quantity: '1 unit', baseQuantity: 1, unit: 'pcs' })),
+                itemType: 'food',
+                components: ingredientsStr.split('|').map(i => ({ name: i.trim(), quantity: '1 unit', baseQuantity: 1, unit: 'pcs' })),
+                steps: [],
+                nutrition: { calories: 0, protein: 0 },
                 createdAt: FieldValue.serverTimestamp()
             }, { merge: true });
             count++;
@@ -514,24 +380,7 @@ export async function bulkUploadRecipes(csvText: string): Promise<{ success: boo
 }
 
 export async function getIngredientsForDish(input: { dishName: string; language: 'en' | 'te', existingRecipe?: GetIngredientsOutput }): Promise<GetIngredientsOutput> {
-  const { db } = await getAdminServices();
-  const cached = await getCachedRecipe(db, input.dishName, input.language);
-  if (cached) return cached as any;
-  
-  const prompt = ai.definePrompt({
-      name: 'recipeIngredientsPrompt',
-      input: { schema: GetIngredientsInputSchema },
-      output: { schema: GetIngredientsOutputSchema },
-      model: 'googleai/gemini-2.5-flash',
-      prompt: `Generate details for: {{{dishName}}} in {{{language}}}. Determine if it is a food dish or a service. Provide realistic components and steps.`,
-  });
-
-  const { output } = await prompt(input);
-  if (output && output.isSuccess) {
-    await cacheRecipe(db, input.dishName, input.language, output as any);
-    return output as any;
-  }
-  return { isSuccess: false, itemType: 'product', title: input.dishName, components: [], steps: [], nutrition: { calories: 0, protein: 0 } } as any;
+  return getIngredientsForDishFlow(input);
 }
 
 export async function addIngredientsToCatalog(ingredients: Omit<RestaurantIngredient, 'id'>[]): Promise<{ success: boolean, count: number, error?: string }> {
@@ -562,18 +411,8 @@ export async function getSalarySlipData(slipId: string, userId: string, storeId?
         const slip = slipSnap.data() as SalarySlip;
         const store = (await db.collection('stores').doc(slip.storeId).get()).data() as Store;
         if (userId !== slip.employeeId && userId !== store.ownerId) throw new Error("Unauthorized");
-
-        const [employeeSnap, userSnap] = await Promise.all([
-            db.collection('employeeProfiles').doc(slip.employeeId).get(),
-            db.collection('users').doc(slip.employeeId).get(),
-        ]);
-
-        return { 
-            slip: { ...slip, generatedAt: (slip.generatedAt as Timestamp).toDate().toISOString() },
-            employee: { ...userSnap.data(), ...employeeSnap.data() },
-            store,
-            attendance: { presentDays: 22, totalDays: 30, absentDays: 8 } 
-        };
+        const [employeeSnap, userSnap] = await Promise.all([db.collection('employeeProfiles').doc(slip.employeeId).get(), db.collection('users').doc(slip.employeeId).get()]);
+        return { slip: { ...slip, generatedAt: (slip.generatedAt as Timestamp).toDate().toISOString() }, employee: { ...userSnap.data(), ...employeeSnap.data() }, store, attendance: { presentDays: 22, totalDays: 30, absentDays: 8 } };
     } catch { return null; }
 }
 
@@ -585,31 +424,6 @@ export async function createRestaurantUserAndStore(email: string, password: stri
         const storeRef = db.collection('stores').doc();
         await storeRef.set({ id: storeRef.id, name: restaurantName, ownerId: user.uid, isClosed: false, imageId: 'store-1', latitude: 0, longitude: 0 });
         return { success: true };
-    } catch (e: any) { return { success: false, error: e.message }; }
-}
-
-export async function approveRule(id: string, text: string) {
-    try {
-        const { db } = await getAdminServices();
-        await db.collection('nlu_extracted_sentences').doc(id).update({ status: 'approved' });
-        return { success: true };
-    } catch (e: any) { return { success: false, error: e.message }; }
-}
-
-export async function rejectRule(id: string) {
-    try {
-        const { db } = await getAdminServices();
-        await db.collection('nlu_extracted_sentences').doc(id).update({ status: 'rejected' });
-        return { success: true };
-    } catch (e: any) { return { success: false, error: e.message }; }
-}
-
-export async function processPdfAndExtractRules(formData: FormData) {
-    try {
-        const { db } = await getAdminServices();
-        const docRef = db.collection('nlu_extracted_sentences').doc();
-        await docRef.set({ id: docRef.id, rawText: "Sample extracted sentence.", status: 'pending', createdAt: FieldValue.serverTimestamp(), extractedNumbers: [], confidence: 0.9 });
-        return { success: true, sentenceCount: 1 };
     } catch (e: any) { return { success: false, error: e.message }; }
 }
 
@@ -627,45 +441,13 @@ export async function rejectRegularization(id: string, sid: string, r: string) {
 export async function updateEmployee(userId: string, data: any): Promise<{ success: boolean; error?: string }> {
     const { auth, db } = await getAdminServices();
     try {
-        if (data.email) {
-            await auth.updateUser(userId, { email: data.email });
-        }
-        
+        if (data.email) await auth.updateUser(userId, { email: data.email });
         const batch = db.batch();
-        
         const userRef = db.collection('users').doc(userId);
-        batch.update(userRef, {
-            firstName: data.firstName,
-            lastName: data.lastName,
-            phoneNumber: data.phone,
-            address: data.address,
-            email: data.email,
-        });
-        
+        batch.update(userRef, { firstName: data.firstName, lastName: data.lastName, phoneNumber: data.phone, address: data.address, email: data.email });
         const profileRef = db.collection('employeeProfiles').doc(userId);
-        batch.update(profileRef, {
-            firstName: data.firstName,
-            lastName: data.lastName,
-            phone: data.phone,
-            address: data.address,
-            role: data.role,
-            salaryRate: data.salaryRate,
-            salaryType: data.salaryType,
-            payoutMethod: data.payoutMethod,
-            reportingTo: data.reportingTo,
-            email: data.email, 
-            upiId: data.payoutMethod === 'upi' ? data.upiId : null,
-            bankDetails: data.payoutMethod === 'bank' ? {
-                accountHolderName: data.accountHolderName || '',
-                accountNumber: data.accountNumber || '',
-                ifscCode: data.ifscCode || '',
-            } : null,
-        });
-        
+        batch.update(profileRef, { firstName: data.firstName, lastName: data.lastName, phone: data.phone, address: data.address, role: data.role, salaryRate: data.salaryRate, salaryType: data.salaryType, payoutMethod: data.payoutMethod, reportingTo: data.reportingTo, email: data.email, upiId: data.payoutMethod === 'upi' ? data.upiId : null, bankDetails: data.payoutMethod === 'bank' ? { accountHolderName: data.accountHolderName || '', accountNumber: data.accountNumber || '', ifscCode: data.ifscCode || '' } : null });
         await batch.commit();
         return { success: true };
-    } catch (e: any) {
-        console.error("Failed to update employee:", e);
-        return { success: false, error: e.message || "Unknown server error" };
-    }
+    } catch (e: any) { return { success: false, error: e.message || "Unknown server error" }; }
 }

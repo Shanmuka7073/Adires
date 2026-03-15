@@ -1,22 +1,23 @@
 
 'use client';
 
-import { useState, useTransition, useEffect, useMemo, useRef } from 'react';
+import { useState, useTransition, useMemo, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { ChefHat, Loader2, Sparkles, ShoppingCart, AlertCircle, Search, Volume2, Copy, StopCircle, Salad, Info } from 'lucide-react';
+import { ChefHat, Loader2, Sparkles, Volume2, Copy, StopCircle, Salad, Search } from 'lucide-react';
 import { getIngredientsForDish } from '@/app/actions';
-import type { GetIngredientsOutput, Ingredient, InstructionStep } from '@/lib/types';
+import type { GetIngredientsOutput, InstructionStep } from '@/lib/types';
 import { generateVoiceReply } from '@/ai/flows/generate-voice-reply-flow';
 import { t as translate } from '@/lib/locales';
-
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 function RecipeContent({ result, onSpeak, isSpeaking, onStop, onCopyIngredients, onCopyInstructions }: { result: GetIngredientsOutput, onSpeak: (text: string) => void, isSpeaking: boolean, onStop: () => void, onCopyIngredients: () => void, onCopyInstructions: () => void }) {
     
     const renderInstructions = (instructions: InstructionStep[]) => {
-        if (!instructions || instructions.length === 0) return <p className="text-muted-foreground">No instructions provided.</p>;
+        if (!instructions || instructions.length === 0) return <p className="text-muted-foreground">No steps provided.</p>;
         
         return (
             <ol className="space-y-4">
@@ -28,7 +29,7 @@ function RecipeContent({ result, onSpeak, isSpeaking, onStop, onCopyIngredients,
                                 <h4 className="font-bold text-base text-primary">{step.title}</h4>
                                 <Button variant="ghost" size="icon" onClick={() => isSpeaking ? onStop() : onSpeak(stepTextToSpeak)}>
                                     {isSpeaking ? <StopCircle className="h-4 w-4 text-destructive" /> : <Volume2 className="h-4 w-4" />}
-                                    <span className="sr-only">{isSpeaking ? "Stop reading" : "Read step aloud"}</span>
+                                    <span className="sr-only">{isSpeaking ? "Stop" : "Read aloud"}</span>
                                 </Button>
                             </div>
                             <ul className="list-disc pl-5 space-y-2 text-sm text-gray-700">
@@ -47,32 +48,30 @@ function RecipeContent({ result, onSpeak, isSpeaking, onStop, onCopyIngredients,
         <div className="space-y-6">
             <div>
                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-lg flex items-center gap-2"><Salad className="h-5 w-5 text-green-600"/> Ingredients</h4>
+                    <h4 className="font-semibold text-lg flex items-center gap-2">
+                        {result.itemType === 'food' ? <Salad className="h-5 w-5 text-green-600"/> : null} 
+                        {result.itemType === 'food' ? 'Ingredients' : 'Components & Materials'}
+                    </h4>
                     <Button variant="ghost" size="icon" onClick={onCopyIngredients}>
                         <Copy className="h-4 w-4" />
-                        <span className="sr-only">Copy Ingredients</span>
                     </Button>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    {result.ingredients.map((ing, index) => (
+                    {result.components.map((ing, index) => (
                         <Badge key={index} variant="secondary" className="text-base py-1 px-3">
                             {ing.name} - {ing.quantity}
                         </Badge>
                     ))}
                 </div>
-                <p className="text-xs text-gray-500 mt-2">Ingredients & nutrition values are approximate per serving.</p>
             </div>
              <div>
                 <div className="flex items-center justify-between mb-2">
-                     <h4 className="font-semibold text-lg">Instructions</h4>
-                     <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" onClick={onCopyInstructions}>
-                           <Copy className="h-4 w-4" />
-                           <span className="sr-only">Copy Instructions</span>
-                        </Button>
-                     </div>
+                     <h4 className="font-semibold text-lg">{result.itemType === 'food' ? 'Cooking Instructions' : 'Service Process'}</h4>
+                     <Button variant="ghost" size="icon" onClick={onCopyInstructions}>
+                        <Copy className="h-4 w-4" />
+                     </Button>
                 </div>
-                {renderInstructions(result.instructions)}
+                {renderInstructions(result.steps)}
             </div>
         </div>
     )
@@ -91,111 +90,54 @@ export function RecipeCard() {
 
     const handleGetIngredients = async (lang: 'en' | 'te', forceRefetch = false) => {
         if (!dishName.trim()) {
-            toast({ variant: 'destructive', title: 'Please enter a dish name.' });
+            toast({ variant: 'destructive', title: 'Please enter a name.' });
             return;
         }
-
         setCurrentLanguage(lang);
-        if (recipeData[lang] && !forceRefetch) {
-            return;
-        }
+        if (recipeData[lang] && !forceRefetch) return;
         
         startGeneration(async () => {
             try {
-                const response = await getIngredientsForDish({
-                    dishName: dishName,
-                    language: lang,
-                    existingRecipe: lang === 'en' ? recipeData['te'] : recipeData['en'],
-                });
-
-                if (response.isSuccess) {
-                    setRecipeData(prev => ({...prev, [lang]: response}));
-                } else {
-                     toast({
-                        variant: 'destructive',
-                        title: 'Recipe Not Found',
-                        description: `The AI couldn't find a recipe for "${dishName}".`,
-                    });
-                }
+                const response = await getIngredientsForDish({ dishName, language: lang });
+                if (response.isSuccess) setRecipeData(prev => ({...prev, [lang]: response}));
+                else toast({ variant: 'destructive', title: 'Details Not Found' });
             } catch (error) {
-                console.error("AI Recipe Flow failed:", error);
-                toast({
-                    variant: 'destructive',
-                    title: 'An Error Occurred',
-                    description: 'The AI flow failed. Please check the server console for details.',
-                });
+                toast({ variant: 'destructive', title: 'An Error Occurred' });
             }
         });
     };
     
     const handleSpeak = async (textToSpeak: string) => {
         if (!textToSpeak || isSpeaking) return;
-
         setIsSpeaking(true);
         try {
             const result = await generateVoiceReply({ text: textToSpeak, language: currentLanguage });
-            if (result.audioDataUri) {
-                if (audioRef.current) {
-                    audioRef.current.src = result.audioDataUri;
-                    audioRef.current.play();
-                }
-            } else {
-                throw new Error("AI did not return audio data.");
+            if (result.audioDataUri && audioRef.current) {
+                audioRef.current.src = result.audioDataUri;
+                audioRef.current.play();
             }
         } catch (error) {
-            console.error("AI voice generation failed:", error);
-            toast({ variant: 'destructive', title: 'Voice Generation Failed', description: (error as Error).message });
             setIsSpeaking(false);
         }
     };
     
-    const handleStopSpeaking = () => {
-        if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.currentTime = 0;
-        }
-        setIsSpeaking(false);
-    }
-    
-    // Effect to manage the audio element
     useEffect(() => {
-        const audio = new Audio();
-        audioRef.current = audio;
-        
+        const audio = new Audio(); audioRef.current = audio;
         const onEnded = () => setIsSpeaking(false);
-        const onError = () => {
-            toast({ variant: 'destructive', title: 'Audio Playback Error' });
-            setIsSpeaking(false);
-        }
-
         audio.addEventListener('ended', onEnded);
-        audio.addEventListener('error', onError);
-
-        return () => {
-            audio.removeEventListener('ended', onEnded);
-            audio.removeEventListener('error', onError);
-            audio.pause();
-        };
-    }, [toast]);
+        return () => { audio.removeEventListener('ended', onEnded); audio.pause(); };
+    }, []);
     
-    const handleCopy = (textToCopy: string, type: 'Ingredients' | 'Instructions') => {
-        navigator.clipboard.writeText(textToCopy).then(() => {
-            toast({ title: `${type} Copied!`, description: `The ${type.toLowerCase()} have been copied to your clipboard.` });
-        }).catch(err => {
-            toast({ variant: 'destructive', title: 'Copy Failed', description: 'Could not copy text to clipboard.' });
-        });
-    };
-
     const handleCopyIngredients = () => {
-        if (!result?.ingredients) return;
-        const ingredientsText = result.ingredients.map(ing => `${ing.name} - ${ing.quantity}`).join('\n');
-        handleCopy(ingredientsText, 'Ingredients');
+        if (!result?.components) return;
+        const text = result.components.map(ing => `${ing.name} - ${ing.quantity}`).join('\n');
+        navigator.clipboard.writeText(text).then(() => toast({ title: 'Copied!' }));
     };
 
     const handleCopyInstructions = () => {
-        if (!result?.instructions) return;
-        const instructionsText = result.instructions.map(step => `${step.title}\n- ${step.actions.join('\n- ')}`).join('\n\n');
-        handleCopy(instructionsText, 'Instructions');
+        if (!result?.steps) return;
+        const text = result.steps.map(step => `${step.title}\n- ${step.actions.join('\n- ')}`).join('\n\n');
+        navigator.clipboard.writeText(text).then(() => toast({ title: 'Copied!' }));
     };
 
     return (
@@ -203,59 +145,34 @@ export function RecipeCard() {
             <CardHeader>
                 <CardTitle className="flex items-center gap-2 font-headline">
                     <ChefHat className="h-6 w-6 text-green-600" />
-                    {translate('ai-recipe-finder')}
+                    AI Item Specialist
                 </CardTitle>
-                <CardDescription>{translate('what-are-you-planning-to-cook')}</CardDescription>
+                <CardDescription>Enter any product or service name to see how it's made or done.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="flex gap-2">
                     <div className="relative flex-grow">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder={translate('eg-chicken-biryani')}
-                            value={dishName}
-                            onChange={(e) => setDishName(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleGetIngredients(currentLanguage, true)}
-                            disabled={isGenerating}
-                            className="pl-9"
-                        />
+                        <Input placeholder={translate('eg-chicken-biryani')} value={dishName} onChange={(e) => setDishName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleGetIngredients(currentLanguage, true)} disabled={isGenerating} className="pl-9" />
                     </div>
                     <Button onClick={() => handleGetIngredients(currentLanguage, true)} disabled={isGenerating}>
                         {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                        {translate('get-recipe')}
+                        Analyze
                     </Button>
                 </div>
                  {result && (
                     <div className="border-t pt-4">
                         {result.isSuccess ? (
-                            <Tabs defaultValue={currentLanguage} value={currentLanguage} onValueChange={(value) => handleGetIngredients(value as 'en' | 'te')}>
+                            <Tabs defaultValue={currentLanguage} value={currentLanguage} onValueChange={(v) => handleGetIngredients(v as 'en' | 'te')}>
                                 <div className="flex justify-between items-center mb-2">
                                      <h3 className="font-bold text-xl">{result.title}</h3>
-                                     <TabsList>
-                                        <TabsTrigger value="en">English</TabsTrigger>
-                                        <TabsTrigger value="te">తెలుగు</TabsTrigger>
-                                    </TabsList>
+                                     <TabsList><TabsTrigger value="en">EN</TabsTrigger><TabsTrigger value="te">TE</TabsTrigger></TabsList>
                                 </div>
                                 <TabsContent value={currentLanguage}>
-                                   <RecipeContent 
-                                        result={result} 
-                                        onSpeak={handleSpeak}
-                                        onStop={handleStopSpeaking}
-                                        isSpeaking={isSpeaking}
-                                        onCopyIngredients={handleCopyIngredients}
-                                        onCopyInstructions={handleCopyInstructions}
-                                    />
+                                   <RecipeContent result={result} onSpeak={handleSpeak} onStop={() => { if(audioRef.current){ audioRef.current.pause(); audioRef.current.currentTime=0; } setIsSpeaking(false); }} isSpeaking={isSpeaking} onCopyIngredients={handleCopyIngredients} onCopyInstructions={handleCopyInstructions} />
                                 </TabsContent>
                             </Tabs>
-                        ) : (
-                            <Alert variant="destructive">
-                                <AlertCircle className="h-4 w-4" />
-                                <AlertTitle>Recipe Not Found</AlertTitle>
-                                <AlertDescription>
-                                    The AI couldn't find a recipe for "{dishName}". Please try a different dish.
-                                </AlertDescription>
-                            </Alert>
-                        )}
+                        ) : <Alert variant="destructive"><AlertTitle>Not Found</AlertTitle></Alert>}
                     </div>
                 )}
             </CardContent>
