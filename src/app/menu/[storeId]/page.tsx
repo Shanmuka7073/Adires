@@ -86,7 +86,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { addRestaurantOrderItem, confirmOrderSession } from '@/app/actions';
+import { addRestaurantOrderItem, confirmOrderSession, getIngredientsForDish } from '@/app/actions';
 import { useInstall } from '@/components/install-provider';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import IngredientsDialog from '@/components/IngredientsDialog';
@@ -99,6 +99,15 @@ import QRCode from 'qrcode.react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
+
+function toDateSafe(d: any): Date {
+    if (!d) return new Date();
+    if (d instanceof Date) return d;
+    if (d instanceof Timestamp) return d.toDate();
+    if (typeof d === 'string') return new Date(d);
+    if (typeof d === 'object' && d.seconds) return new Date(d.seconds * 1000);
+    return new Date();
+}
 
 function DateScroller({ value, onChange, theme }: { value: Date, onChange: (val: Date) => void, theme: MenuTheme | undefined }) {
     const dates = useMemo(() => {
@@ -323,7 +332,10 @@ function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId:
   if (isLoading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin h-8 w-8" /></div>;
   if (!order || !order.items?.length) return <div className="p-8 text-center"><p className="opacity-60 text-sm font-medium">Your {isSalon ? 'booking' : 'bill'} is empty.</p></div>;
   
-  const isDraft = order.status === 'Draft'; const isBilled = order.status === 'Billed'; const isLocked = ['Pending', 'Processing', 'Out for Delivery', 'Billed', 'Completed', 'Delivered'].includes(order.status);
+  const isDraft = order.status === 'Draft'; 
+  const isBilled = order.status === 'Billed'; 
+  const isFinalized = ['Completed', 'Delivered'].includes(order.status);
+  const isLocked = ['Pending', 'Processing', 'Out for Delivery', 'Billed'].includes(order.status);
   
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: theme?.backgroundColor }}>
@@ -385,10 +397,12 @@ function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId:
         <div className="p-6 border-t space-y-4 bg-black/5" style={{ borderColor: theme?.primaryColor + '20' }}>
             <div className="flex justify-between items-baseline mb-2"><span className="text-sm font-bold uppercase tracking-widest opacity-60" style={{ color: theme?.textColor }}>Total</span><span className="text-2xl font-black" style={{ color: theme?.primaryColor }}>₹{order.totalAmount.toFixed(2)}</span></div>
             <div className="pt-2">
-              {isLocked ? (
-                 <div className="text-center p-5 bg-primary/10 rounded-2xl border-2" style={{ borderColor: theme?.primaryColor + '30' }}><Check className="mx-auto h-8 w-8 mb-2" style={{ color: theme?.primaryColor }} /><p className="font-black text-xs uppercase" style={{ color: theme?.textColor }}>{isSalon ? 'Booking Confirmed' : 'Order Confirmed'}</p></div>
-              ) : isBilled && store.upiId ? (
-                  <Button onClick={onShowUpi} className="w-full h-14 rounded-2xl uppercase font-black tracking-widest bg-green-600 text-white shadow-xl"><CreditCard className="mr-2 h-5 w-5" /> Pay Now with UPI</Button>
+              {isFinalized ? (
+                 <div className="text-center p-5 bg-primary/10 rounded-2xl border-2" style={{ borderColor: theme?.primaryColor + '30' }}><Check className="mx-auto h-8 w-8 mb-2" style={{ color: theme?.primaryColor }} /><p className="font-black text-xs uppercase" style={{ color: theme?.textColor }}>{isSalon ? 'Booking Finalized' : 'Order Finalized'}</p></div>
+              ) : store.upiId && (isBilled || (isSalon && isLocked)) ? (
+                  <Button onClick={onShowUpi} className="w-full h-14 rounded-2xl uppercase font-black tracking-widest bg-green-600 hover:bg-green-700 text-white shadow-xl shadow-green-900/20"><CreditCard className="mr-2 h-5 w-5" /> Pay Now with UPI</Button>
+              ) : isLocked ? (
+                 <div className="text-center p-5 bg-primary/10 rounded-2xl border-2" style={{ borderColor: theme?.primaryColor + '30' }}><Clock className="mx-auto h-8 w-8 mb-2" style={{ color: theme?.primaryColor }} /><p className="font-black text-xs uppercase" style={{ color: theme?.textColor }}>{isSalon ? 'Booking Confirmed' : 'Order Confirmed'}</p></div>
               ) : (
                 <AlertDialog><AlertDialogTrigger asChild><Button className="w-full h-14 rounded-2xl text-base font-black uppercase tracking-widest shadow-xl" variant="destructive" disabled={closing || isPastTime}>{closing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}{isDraft ? (isSalon ? 'Book Appointment' : 'Place Order') : 'Request Bill'}</Button></AlertDialogTrigger><AlertDialogContent className="rounded-[2rem] border-0 shadow-2xl" style={{ backgroundColor: theme?.backgroundColor }}><AlertDialogHeader><AlertDialogTitle className="text-xl font-black uppercase tracking-tight" style={{ color: theme?.primaryColor }}>{isDraft ? (isSalon ? 'Confirm Booking?' : 'Place Order?') : 'Request Final Bill?'}</AlertDialogTitle><AlertDialogDescription style={{ color: theme?.textColor, opacity: 0.7 }}>This will notify the staff to start preparation.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter className="gap-2"><AlertDialogCancel className="rounded-xl font-bold">Not yet</AlertDialogCancel><AlertDialogAction onClick={closeBill} className="rounded-xl font-bold bg-primary hover:bg-primary/90">Yes, Confirm</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
               )}
@@ -396,15 +410,6 @@ function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId:
         </div>
     </div>
   );
-}
-
-function toDateSafe(d: any): Date {
-    if (!d) return new Date();
-    if (d instanceof Date) return d;
-    if (d instanceof Timestamp) return d.toDate();
-    if (typeof d === 'string') return new Date(d);
-    if (typeof d === 'object' && d.seconds) return new Date(d.seconds * 1000);
-    return new Date();
 }
 
 export default function PublicMenuPage() {
