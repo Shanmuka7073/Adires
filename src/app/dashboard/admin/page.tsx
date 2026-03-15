@@ -360,6 +360,12 @@ export default function AdminDashboardPage() {
             icon={Binary}
           />
           <ActionCard
+            title="Order Logic Source"
+            description="View high-performance Atomic Upsert logic for kitchen POS."
+            href="/dashboard/admin/order-logic-help"
+            icon={PackageSearch}
+          />
+          <ActionCard
             title="Security Policy"
             description="View production Firestore rules and permission logic."
             href="/dashboard/admin/security-rules"

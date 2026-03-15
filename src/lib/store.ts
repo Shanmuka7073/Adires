@@ -4,7 +4,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Firestore, collection, getDocs, query, where, limit } from 'firebase/firestore';
-import { Store, Product, ProductPrice, VoiceAliasGroup, Menu } from './types';
+import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
 import { getStores, getMasterProducts } from './data';
 import { RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
@@ -97,7 +97,6 @@ export const useAppStore = create<AppState>()(
         set({ loading: true, error: null });
         
         try {
-          // OPTIMIZED: We only fetch the core metadata. Menus are NOT loaded globally anymore.
           const [stores, masterProducts, aliasDocs, commandDocs] = await Promise.all([
             getStores(db),
             getMasterProducts(db),
