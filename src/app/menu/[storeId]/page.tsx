@@ -387,8 +387,8 @@ function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId:
   
   const isDraft = order.status === 'Draft'; 
   const isBilled = order.status === 'Billed'; 
-  const isFinalized = ['Completed', 'Delivered'].includes(order.status);
   const isLocked = ['Pending', 'Processing', 'Out for Delivery', 'Billed'].includes(order.status);
+  const isFinalized = ['Completed', 'Delivered'].includes(order.status);
   
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: theme?.backgroundColor }}>
@@ -452,7 +452,7 @@ function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId:
             <div className="pt-2">
               {isFinalized ? (
                  <div className="text-center p-5 bg-primary/10 rounded-2xl border-2" style={{ borderColor: theme?.primaryColor + '30' }}><Check className="mx-auto h-8 w-8 mb-2" style={{ color: theme?.primaryColor }} /><p className="font-black text-xs uppercase" style={{ color: theme?.textColor }}>{isSalon ? 'Booking Finalized' : 'Order Finalized'}</p></div>
-              ) : store.upiId && (isBilled || (isSalon && isLocked)) ? (
+              ) : store.upiId && isLocked ? (
                   <Button onClick={onShowUpi} className="w-full h-14 rounded-2xl uppercase font-black tracking-widest bg-green-600 hover:bg-green-700 text-white shadow-xl shadow-green-900/20"><CreditCard className="mr-2 h-5 w-5" /> Pay Now with UPI</Button>
               ) : isLocked ? (
                  <div className="text-center p-5 bg-primary/10 rounded-2xl border-2" style={{ borderColor: theme?.primaryColor + '30' }}><Clock className="mx-auto h-8 w-8 mb-2" style={{ color: theme?.primaryColor }} /><p className="font-black text-xs uppercase" style={{ color: theme?.textColor }}>{isSalon ? 'Booking Confirmed' : 'Order Confirmed'}</p></div>
