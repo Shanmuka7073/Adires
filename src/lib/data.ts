@@ -10,25 +10,17 @@ import {
   where,
   Firestore,
 } from 'firebase/firestore';
+import placeholderData from './placeholder-images.json';
 
-async function getImages() {
-    try {
-        // Dynamically import the JSON file to get the latest version.
-        const placeholderData = await import('./placeholder-images.json');
-        return placeholderData.default.placeholderImages;
-    } catch (error) {
-        console.error("Error parsing placeholder-images.json:", error);
-        // Return a default empty array in case of a parsing error
-        return [];
-    }
-}
+// OPTIMIZED: Use static import for placeholder data to avoid dynamic await inside loops
+const getImages = () => placeholderData.placeholderImages;
 
-const getImage = async (id: string) => {
-  const images = await getImages();
+const getImage = (id: string) => {
+  const images = getImages();
   const image = images.find((img) => img.id === id);
   return (
     image || {
-      imageUrl: 'https://picsum.photos/seed/placeholder/300/300',
+      imageUrl: 'https://placehold.co/300x300/E2E8F0/64748B?text=?',
       imageHint: 'placeholder',
     }
   );
@@ -39,8 +31,6 @@ const getImage = async (id: string) => {
 
 export async function getStores(db: Firestore): Promise<Store[]> {
   const storesCol = collection(db, 'stores');
-  // This function should return all stores, not just the master one.
-  // The UI can then filter or prioritize as needed.
   const storeSnapshot = await getDocs(storesCol);
   const storeList = storeSnapshot.docs.map(
     (doc) =>
@@ -60,8 +50,6 @@ export async function getStore(
   const storeSnap = await getDoc(storeDocRef);
   if (storeSnap.exists()) {
     const storeData = { id: storeSnap.id, ...storeSnap.data() } as Store;
-    // For internal use (like creating an order), we should return the store even if closed.
-    // The getStores function for public listing already filters out closed stores.
     return storeData;
   }
   return undefined;
@@ -85,7 +73,6 @@ export async function getMasterProducts(db: Firestore): Promise<Product[]> {
     const storeSnapshot = await getDocs(storesQuery);
 
     if (storeSnapshot.empty) {
-        console.warn("Master 'LocalBasket' store not found.");
         return [];
     }
 
@@ -120,12 +107,12 @@ export async function getProductPrice(db: Firestore, productName: string): Promi
     return null;
 }
 
-// --- Placeholder image functions ---
+// --- Optimized image functions ---
 
-export const getProductImage = async (imageId: string) => await getImage(imageId);
-export const getStoreImage = async (store: Store) => {
+export const getProductImage = (imageId: string) => getImage(imageId);
+export const getStoreImage = (store: Store) => {
     if (store.imageUrl) {
         return { imageUrl: store.imageUrl, imageHint: 'store image' };
     }
-    return await getImage(store.imageId);
+    return getImage(store.imageId);
 };

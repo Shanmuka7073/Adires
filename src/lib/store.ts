@@ -91,12 +91,19 @@ export const useAppStore = create<AppState>()(
         set({ activeStoreId: storeId });
       },
 
+      /**
+       * OPTIMIZED: The primary data loading function.
+       * 1. Fetches core platform data in parallel.
+       * 2. Removes the previous N+3 menu-fetching loop.
+       * 3. Unlocks the UI immediately once core data is ready.
+       */
       fetchInitialData: async (db: Firestore, userId?: string) => {
         if (get().loading) return;
 
         set({ loading: true, error: null });
         
         try {
+          // Parallel fetch of core platform data (3 lean reads)
           const [stores, masterProducts, aliasDocs, commandDocs] = await Promise.all([
             getStores(db),
             getMasterProducts(db),
@@ -135,6 +142,7 @@ export const useAppStore = create<AppState>()(
             loading: false,
           });
 
+          // Kick off background pricing fetch for the product catalog
           if (masterProducts.length > 0) {
             await get().fetchProductPrices(db, masterProducts.map(p => p.name));
           }

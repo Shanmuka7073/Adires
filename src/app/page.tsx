@@ -58,33 +58,12 @@ const homePageSections = [
 ];
 
 function GroceryCategoryCard({ categoryName, imageHint, count, bgColor }: { categoryName: string, imageHint: string, count?: number, bgColor?: string }) {
-    const [image, setImage] = useState({ imageUrl: 'https://picsum.photos/seed/placeholder/200/200', imageHint: 'placeholder' });
-    const [isLoading, setIsLoading] = useState(true);
+    const slug = categoryName.toLowerCase().replace(/ & /g, '-&-').replace(/ /g, '-');
+    const imageId = `cat-${slug}`;
+    const image = getProductImage(imageId);
     const firstStoreId = useAppStore(state => state.stores.find(s => s.name === 'LocalBasket')?.id);
     const href = firstStoreId ? `/stores/${firstStoreId}?category=${encodeURIComponent(categoryName)}` : '/';
 
-    useEffect(() => {
-        let mounted = true;
-        const fetchImage = async () => {
-            setIsLoading(true);
-            try {
-                const slug = categoryName.toLowerCase().replace(/ & /g, '-&-').replace(/ /g, '-');
-                const imageId = `cat-${slug}`;
-                const fetchedImage = await getProductImage(imageId);
-                if (mounted) setImage(fetchedImage);
-            } catch (error) {
-                console.error("Failed to fetch image for category:", categoryName, error);
-                setImage({ imageUrl: 'https://picsum.photos/seed/placeholder/128/128', imageHint: 'placeholder' });
-            } finally {
-                if (mounted) setIsLoading(false);
-            }
-        };
-        fetchImage();
-        return () => { mounted = false; };
-    }, [categoryName]);
-
-    if (isLoading) return <Skeleton className="w-full h-24 rounded-lg" />;
-    
     return (
         <Link href={href} className="flex flex-col items-center gap-2 text-center group bg-white p-2 rounded-lg shadow-sm">
              <div className={cn("w-full h-16 relative rounded-lg overflow-hidden flex justify-center items-center gap-1", bgColor || 'bg-gray-50')}>
@@ -114,7 +93,7 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
             <div className="flex justify-between items-center mb-3">
                 <div className="flex items-center gap-3">
                     <div className="relative w-10 h-10 rounded-full overflow-hidden border bg-white shadow-sm">
-                        <Image src={logoUrl} alt={brandName} fill className="object-cover" />
+                        <Image src={logoUrl} alt={brandName} fill className="object-cover" priority />
                     </div>
                     <div>
                         <p className="text-xs font-bold text-gray-700 uppercase">Delivery in</p>
@@ -144,7 +123,7 @@ export default function LocalBasketHomepage() {
   const { firestore, user } = useFirebase();
   const { isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
   const router = useRouter();
-  const { masterProducts, productPrices, loading: isAppLoading, isInitialized, setActiveStoreId, stores } = useAppStore();
+  const { masterProducts, productPrices, loading: isAppLoading, isInitialized, setActiveStoreId, stores, fetchInitialData } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const { onToggleVoice } = useVoiceCommanderContext();
   
@@ -152,6 +131,7 @@ export default function LocalBasketHomepage() {
   const { data: userData } = useDoc<User>(userDocRef);
   const masterStoreId = useMemo(() => stores.find(s => s.name === 'LocalBasket')?.id, [stores]);
 
+  useEffect(() => { if (firestore && !isInitialized) fetchInitialData(firestore, user?.uid); }, [firestore, isInitialized, fetchInitialData, user?.uid]);
   useEffect(() => { if (!isRoleLoading && isRestaurantOwner) router.replace('/dashboard/restaurant'); }, [isRoleLoading, isRestaurantOwner, router]);
   useEffect(() => { if(masterStoreId) setActiveStoreId(masterStoreId); return () => setActiveStoreId(null); }, [masterStoreId, setActiveStoreId]);
 
@@ -171,6 +151,15 @@ export default function LocalBasketHomepage() {
           <>
             <VoiceInstructions />
             <RecipeCard />
+            <div className="rounded-xl overflow-hidden relative aspect-[2/1] w-full shadow-lg">
+                <Image 
+                    src="https://i.ibb.co/ZQC3c3h/file-00000000f15871fab9942ef91d9c2021.png" 
+                    alt="Promotional Banner" 
+                    fill 
+                    className="object-cover" 
+                    priority
+                />
+            </div>
             {homePageSections.map(section => (
                 <div key={section.title}>
                     <h2 className="text-xl font-bold text-gray-800 mb-4">{section.title}</h2>
