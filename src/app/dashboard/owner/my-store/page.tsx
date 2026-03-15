@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import type { Store, Product, ProductPrice, User as AppUser, ProductVariant } from '@/lib/types';
-import { useFirebase, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { updateStoreImageUrl } from '@/app/actions';
 import { useRouter } from 'next/navigation';
@@ -62,7 +62,7 @@ import {
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
-import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Camera, CameraOff, Sparkles, PlusCircle, Edit, Link2, QrCode, ClipboardList, Save, Video, CreditCard, LayoutGrid } from 'lucide-react';
+import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Camera, CameraOff, Sparkles, PlusCircle, Edit, Link2, QrCode, ClipboardList, Save, Video, CreditCard, LayoutGrid, Info } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import Link from 'next/link';
@@ -149,7 +149,8 @@ function StoreImageUploader({ store }: { store: Store }) {
 
             if (result.success) {
                 toast({ title: 'Image URL Updated!' });
-                setUserStore({ ...store, imageUrl });
+                // Note: userStore update should ideally happen via Firestore listener, 
+                // but we update state here for immediate feedback if needed.
             } else {
                 toast({
                     variant: 'destructive',
@@ -489,7 +490,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
     const [isOpen, setIsOpen] = useState(false);
-    const { getAllAliases, setUserStore } = useAppStore();
+    const { getAllAliases } = useAppStore();
 
     const form = useForm<StoreFormValues>({
         resolver: zodResolver(storeSchema),
@@ -514,7 +515,6 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
             updateDoc(storeRef, data)
                 .then(() => {
                     toast({ title: "Store Details Updated!", description: "Your store's information has been saved." });
-                    setUserStore({ ...store, ...data });
                     setIsOpen(false);
                     onUpdate(); 
                 })
@@ -695,6 +695,83 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                 </div>
             </CardContent>
         </Card>
+    );
+}
+
+function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Product; storeId: string; onEdit: () => void; onDelete: () => void; }) {
+    const { firestore } = useFirebase();
+    const { getProductName, language, getAllAliases } = useAppStore();
+
+    const priceDocRef = useMemoFirebase(() => {
+        if (!firestore || !product.name) return null;
+        return doc(firestore, 'productPrices', product.name.toLowerCase());
+    }, [firestore, product.name]);
+
+    const { data: priceData, isLoading: pricesLoading } = useDoc<ProductPrice>(priceDocRef);
+    
+    const productAliases = useMemo(() => {
+        const key = createSlug(product.name);
+        return getAllAliases(key);
+    }, [product.name, getAllAliases]);
+
+    const variantsString = useMemo(() => {
+        if (pricesLoading) return "Loading prices...";
+        if (!priceData || !priceData.variants || priceData.variants.length === 0) return 'N/A';
+        return priceData.variants.map(v => `${v.weight} (₹${v.price}, Stock: ${v.stock})`).join(' | ');
+    }, [priceData, pricesLoading]);
+
+    return (
+        <TableRow>
+            <TableCell>
+                 <div className="flex items-start gap-4">
+                    <Image
+                        src={product.imageUrl || 'https://placehold.co/40x40/E2E8F0/64748B?text=?'}
+                        alt={product.name}
+                        width={40}
+                        height={40}
+                        className="rounded-sm object-cover mt-1"
+                    />
+                    <div>
+                        <span className="font-semibold">{getProductName(product)}</span>
+                         <div className="flex flex-wrap gap-1 mt-1">
+                            {Object.entries(productAliases).flatMap(([lang, aliases]) => 
+                                aliases.map(alias => (
+                                    <Badge key={`${lang}-${alias}`} variant="outline">{alias} ({lang})</Badge>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </TableCell>
+            <TableCell>{t(product.category?.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</TableCell>
+            <TableCell>{variantsString}</TableCell>
+            <TableCell className="text-right">
+                <Button variant="ghost" size="icon" onClick={onEdit}>
+                    <Edit className="h-4 w-4" />
+                    <span className="sr-only">Edit {product.name}</span>
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <Trash2 className="h-4 w-4" />
+                      <span className="sr-only">Delete {product.name}</span>
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{t('are-you-sure')}</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete the master product "{product.name}" and its pricing from the entire platform. This cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+                      <AlertDialogAction onClick={onDelete} className="bg-destructive hover:bg-destructive/90">{t('delete')}</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+            </TableCell>
+        </TableRow>
     );
 }
 
