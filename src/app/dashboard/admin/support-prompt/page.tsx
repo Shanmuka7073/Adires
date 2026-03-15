@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { MessageSquare, Copy, ShieldCheck, Sparkles, Code2 } from 'lucide-react';
@@ -11,6 +10,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 
+/**
+ * @fileOverview A specialized admin page that generates a comprehensive
+ * context prompt for use with AI coding assistants.
+ */
 export default function SupportPromptPage() {
     const { isAdmin, isLoading } = useAdminAuth();
     const router = useRouter();
