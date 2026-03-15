@@ -95,7 +95,7 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
             </div>
             <div className="flex items-center gap-3 bg-[#F1F3F5] p-3 rounded-2xl border border-gray-200 shadow-inner">
                 <Search className="h-5 w-5 text-gray-400" />
-                <input type="text" placeholder={`Search stores or items...`} className="w-full bg-transparent outline-none text-sm font-medium placeholder:text-gray-400" onChange={(e) => onSearchChange(e.target.value)} />
+                <input type="text" placeholder={`Search shops, salons or items...`} className="w-full bg-transparent outline-none text-sm font-medium placeholder:text-gray-400" onChange={(e) => onSearchChange(e.target.value)} />
             </div>
         </header>
     );
@@ -122,7 +122,7 @@ export default function LocalBasketHomepage() {
 
   if (isRoleLoading || isRestaurantOwner) return <div className="flex h-screen items-center justify-center bg-background"><Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" /></div>;
 
-  const featuredStores = stores.filter(s => s.name !== 'LocalBasket').slice(0, 5);
+  const featuredStores = stores.filter(s => s.name !== 'LocalBasket');
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">
@@ -180,27 +180,27 @@ export default function LocalBasketHomepage() {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent flex items-end p-6">
                     <div className="text-white">
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] mb-1">Limited Offer</p>
-                        <h3 className="text-2xl font-black leading-tight">Fresh to your door<br/>in 20 minutes.</h3>
+                        <p className="text-[10px] font-black uppercase tracking-[0.3em] mb-1">Central Marketplace</p>
+                        <h3 className="text-2xl font-black leading-tight text-shadow">Everything you need,<br/>all in one app.</h3>
                     </div>
                 </div>
             </div>
 
-            {/* FEATURED BUSINESSES */}
+            {/* CENTRAL MARKETPLACE HUB - ALL BUSINESSES */}
             <section className="space-y-4">
                 <div className="flex justify-between items-end px-1">
                     <div>
-                        <h2 className="text-xl font-black font-headline uppercase tracking-tighter text-gray-950">Explore Nearby</h2>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Stores & Salons</p>
+                        <h2 className="text-xl font-black font-headline uppercase tracking-tighter text-gray-950">Marketplace Hub</h2>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">All Local Business Owners</p>
                     </div>
                     <Button asChild variant="link" className="text-xs font-black uppercase tracking-widest text-primary p-0 h-auto">
-                        <Link href="/stores">See All <ArrowRight className="ml-1 h-3 w-3" /></Link>
+                        <Link href="/stores">Open Directory <ArrowRight className="ml-1 h-3 w-3" /></Link>
                     </Button>
                 </div>
                 <ScrollArea className="w-full whitespace-nowrap pb-4">
                     <div className="flex gap-4 px-1">
                         {featuredStores.length > 0 ? featuredStores.map(store => (
-                            <div key={store.id} className="w-[280px] shrink-0">
+                            <div key={store.id} className="w-[300px] shrink-0">
                                 <StoreCard store={store} />
                             </div>
                         )) : (
@@ -220,7 +220,7 @@ export default function LocalBasketHomepage() {
                 <section key={section.title} className="space-y-4">
                     <div className="px-1">
                         <h2 className="text-xl font-black font-headline uppercase tracking-tighter text-gray-950">{section.title}</h2>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Fresh from Market</p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Shop by Category</p>
                     </div>
                      <div className="grid grid-cols-3 gap-3">
                         {section.categories.map(item => <GroceryCategoryCard key={item.name} categoryName={item.name} imageHint={item.imageHint} bgColor={item.bgColor} />)}
@@ -232,19 +232,20 @@ export default function LocalBasketHomepage() {
                 <CardHeader className="pb-2">
                     <div className="flex items-center gap-2 text-primary mb-1">
                         <Mic className="h-5 w-5" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em]">Voice AI</span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em]">Voice Assistant</span>
                     </div>
-                    <CardTitle className="text-2xl font-black tracking-tight text-gray-950">Shop with your voice.</CardTitle>
+                    <CardTitle className="text-2xl font-black tracking-tight text-gray-950">Can't find a store?</CardTitle>
+                    <CardDescription className="font-bold text-gray-600">Just ask me. I'll search the whole market for you.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="p-4 bg-white/60 backdrop-blur-sm rounded-2xl border border-white/40 space-y-3">
                         <div className="flex items-center gap-3">
                             <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center font-black text-primary text-xs">1</div>
-                            <p className="text-xs font-bold text-gray-800">Tap the Mic at the top</p>
+                            <p className="text-xs font-bold text-gray-800">Tap the Mic</p>
                         </div>
                         <div className="flex items-center gap-3">
                             <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center font-black text-primary text-xs">2</div>
-                            <p className="text-xs font-bold text-gray-800 italic">"Order 1kg Chicken from Patel Store"</p>
+                            <p className="text-xs font-bold text-gray-800 italic">"Where can I buy chicken near me?"</p>
                         </div>
                     </div>
                 </CardContent>

@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAppStore } from '@/lib/store';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, MapPin, Loader2, Info } from 'lucide-react';
+import { Search, MapPin, Loader2, Info, Building2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -29,7 +29,6 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 
 export default function StoresPage() {
   const { firestore } = useFirebase();
-  const { toast } = useToast();
   const allStores = useAppStore((state) => state.stores);
   const loading = useAppStore((state) => state.loading);
   const fetchInitialData = useAppStore((state) => state.fetchInitialData);
@@ -66,7 +65,7 @@ export default function StoresPage() {
   }, [allStores]);
 
   const filteredStores = useMemo(() => {
-    let result = sortedStores.filter(s => s.name !== 'LocalBasket'); // Don't show admin store here
+    let result = sortedStores.filter(s => s.name !== 'LocalBasket'); 
     
     if (searchTerm) {
         result = result.filter(s => 
@@ -78,9 +77,9 @@ export default function StoresPage() {
     if (activeTab === 'restaurants') {
         result = result.filter(s => s.businessType === 'restaurant' || s.name.toLowerCase().includes('restaurant') || s.name.toLowerCase().includes('hotel') || s.name.toLowerCase().includes('biryani'));
     } else if (activeTab === 'salons') {
-        result = result.filter(s => s.businessType === 'salon' || s.name.toLowerCase().includes('salon') || s.name.toLowerCase().includes('parlour'));
+        result = result.filter(s => s.businessType === 'salon' || s.name.toLowerCase().includes('salon') || s.name.toLowerCase().includes('saloon') || s.name.toLowerCase().includes('parlour'));
     } else if (activeTab === 'retail') {
-        result = result.filter(s => s.businessType === 'grocery' || (!s.name.toLowerCase().includes('salon') && !s.name.toLowerCase().includes('biryani') && !s.name.toLowerCase().includes('hotel')));
+        result = result.filter(s => s.businessType === 'grocery' || (!s.name.toLowerCase().includes('salon') && !s.name.toLowerCase().includes('saloon') && !s.name.toLowerCase().includes('biryani') && !s.name.toLowerCase().includes('hotel')));
     }
 
     return result;
@@ -91,12 +90,12 @@ export default function StoresPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-10 border-b pb-8">
         <div className="space-y-1">
             <h1 className="text-5xl font-black font-headline tracking-tighter">Market Directory</h1>
-            <p className="text-muted-foreground font-bold uppercase text-[10px] tracking-widest opacity-60">Fnd local stores, restaurants, & salons</p>
+            <p className="text-muted-foreground font-bold uppercase text-[10px] tracking-widest opacity-60">Browse every business owner on the platform</p>
         </div>
         <div className="relative w-full md:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
-                placeholder="Search by name or category..." 
+                placeholder="Find a store or owner..." 
                 className="pl-10 h-12 rounded-2xl border-2 bg-white"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -127,7 +126,7 @@ export default function StoresPage() {
                 </div>
             ) : (
                 <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-black/5">
-                    <Info className="h-12 w-12 mx-auto mb-4 opacity-10" />
+                    <Building2 className="h-12 w-12 mx-auto mb-4 opacity-10" />
                     <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">No businesses found in this category.</p>
                 </div>
             )}
