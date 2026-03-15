@@ -43,7 +43,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from '@/components/ui/dialog';
-import { markSessionAsPaid } from '@/app/actions';
+import { markSessionAsPaid, confirmOrderSession } from '@/app/actions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Calendar } from '@/components/ui/calendar';
@@ -134,13 +134,23 @@ function EmptyTableCard({ tableNumber }: { tableNumber: string }) {
 
 function SessionCard({ session, isUpdating }: { session: Session; isUpdating: boolean }) {
   const { toast } = useToast();
-  const [isCompleting, startCompletion] = useTransition();
+  const [isProcessing, startAction] = useTransition();
 
-  const handleConfirmPayment = () => {
-    startCompletion(async () => {
-        const result = await markSessionAsPaid(session.id);
+  const handleAction = () => {
+    startAction(async () => {
+        let result;
+        if (session.status === 'Billed') {
+            result = await markSessionAsPaid(session.id);
+        } else {
+            // For deterministic IDs, use the first order ID in the session
+            const orderId = session.orders[0]?.id;
+            if (!orderId) return;
+            result = await confirmOrderSession(orderId);
+        }
+
         if (result.success) {
-            toast({ title: 'Payment Confirmed', description: `Order for table ${session.tableNumber} is now complete.`});
+            const msg = session.status === 'Billed' ? 'Payment Confirmed' : 'Kitchen Notified';
+            toast({ title: msg, description: `Order for table ${session.tableNumber} updated.`});
         } else {
             toast({ variant: 'destructive', title: 'Update Failed', description: result.error });
         }
@@ -188,10 +198,10 @@ function SessionCard({ session, isUpdating }: { session: Session; isUpdating: bo
                     "w-full h-12 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg transition-all",
                     session.status === 'Billed' ? 'bg-green-600 hover:bg-green-700' : 'bg-primary'
                 )}
-                onClick={handleConfirmPayment}
-                disabled={isUpdating || isCompleting || session.status === 'Draft'}
+                onClick={handleAction}
+                disabled={isUpdating || isProcessing || session.status === 'Draft'}
             >
-                {isCompleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Check className="mr-2 h-4 w-4" />}
+                {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Check className="mr-2 h-4 w-4" />}
                 {session.status === 'Billed' ? 'Receive Payment' : session.status === 'Draft' ? 'Customer Ordering...' : 'Confirm & Prep'}
             </Button>
       </CardFooter>
@@ -281,16 +291,14 @@ export default function StoreOrdersPage() {
   /**
    * HIGH-PERFORMANCE OPERATION QUERY
    * We filter by 'isActive' == true at the DATABASE level.
-   * This is the production-grade fix for the "300 reads" issue.
-   * It ensures the Kitchen only fetches open orders, not the thousands
-   * of closed ones from history.
+   * This ensures the Kitchen only fetches open orders, not history.
    */
   const activeOrdersQuery = useMemoFirebase(() =>
     firestore && myStore
       ? query(
           collection(firestore, 'orders'),
           where('storeId', '==', myStore.id),
-          where('isActive', '==', true), // THE PERFORMANCE FIX
+          where('isActive', '==', true),
           orderBy('orderDate', 'desc'),
           limit(50) 
         )
