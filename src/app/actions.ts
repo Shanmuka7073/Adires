@@ -213,8 +213,9 @@ export async function updateManifest(newData: any): Promise<{ success: boolean; 
 }
 
 /**
- * OPTIMIZED: addRestaurantOrderItem now uses the Atomic Upsert pattern.
- * This performs 1 write and 0 reads by utilizing arrayUnion and increment.
+ * OPTIMIZED: addRestaurantOrderItem now uses the Atomic Upsert pattern with Deterministic IDs.
+ * 1. Deterministic ID based on store + session ensures multiple people sync to one bill.
+ * 2. Field mapping ensures tableNumber and storeId are always present for POS queries.
  */
 export async function addRestaurantOrderItem({
   storeId,
@@ -244,7 +245,7 @@ export async function addRestaurantOrderItem({
   try {
     const { db } = await getAdminServices();
     
-    // Deterministic Order ID based on the table/session
+    // DETERMINISTIC ID: Crucial for table service reliability
     const orderId = `${storeId}_${sessionId}`;
     const orderDocRef = db.collection('orders').doc(orderId);
 
@@ -260,12 +261,12 @@ export async function addRestaurantOrderItem({
     };
 
     // ATOMIC UPSERT: 0 reads, 1 write.
-    // If the document doesn't exist, it creates it with the base fields.
-    // If it exists, it merges items and increments the total.
+    // Writes all required search fields (storeId, tableNumber, status)
+    // to ensure POS dashboard query pick it up instantly.
     await orderDocRef.set({
       id: orderId, 
-      storeId, 
-      tableNumber: tableNumber || null,
+      storeId: storeId, 
+      tableNumber: tableNumber ? String(tableNumber) : null,
       sessionId: sessionId,
       userId: 'guest',
       customerName: customerName || (tableNumber ? `Table ${tableNumber}` : 'Guest'),
@@ -274,7 +275,7 @@ export async function addRestaurantOrderItem({
       deliveryLng: deliveryLng || 0,
       zoneId: zoneId || null,
       phone: phone || '',
-      status: 'Draft', 
+      status: 'Draft', // Draft orders are visible in the operation center
       orderDate: FieldValue.serverTimestamp(), 
       updatedAt: FieldValue.serverTimestamp(),
       items: FieldValue.arrayUnion(orderItem),
