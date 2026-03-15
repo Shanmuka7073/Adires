@@ -30,7 +30,8 @@ import {
   Trash2,
   Coffee,
   RefreshCw,
-  FileEdit
+  FileEdit,
+  Clock
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -142,7 +143,6 @@ function SessionCard({ session, isUpdating }: { session: Session; isUpdating: bo
         if (session.status === 'Billed') {
             result = await markSessionAsPaid(session.id);
         } else {
-            // For deterministic IDs, use the first order ID in the session
             const orderId = session.orders[0]?.id;
             if (!orderId) return;
             result = await confirmOrderSession(orderId);
@@ -158,6 +158,7 @@ function SessionCard({ session, isUpdating }: { session: Session; isUpdating: bo
   };
 
   const meta = STATUS_META[session.status] || STATUS_META.Pending;
+  const appointmentTime = session.orders.find(o => o.appointmentTime)?.appointmentTime;
 
   return (
     <Card className={cn(
@@ -176,6 +177,15 @@ function SessionCard({ session, isUpdating }: { session: Session; isUpdating: bo
         </div>
       </CardHeader>
       <CardContent className="space-y-4 flex-1">
+        {appointmentTime && (
+            <div className="bg-primary/5 p-3 rounded-xl border border-primary/10 flex items-center gap-2">
+                <Clock className="h-4 w-4 text-primary" />
+                <div>
+                    <p className="text-[8px] font-black uppercase opacity-40">Appointment</p>
+                    <p className="text-sm font-black text-primary">{appointmentTime}</p>
+                </div>
+            </div>
+        )}
         <div>
           <h4 className="text-[10px] font-black uppercase text-muted-foreground mb-2 tracking-widest opacity-40">Active Bill</h4>
           <div className="max-h-32 overflow-y-auto space-y-1 pr-2 custom-scrollbar">
@@ -243,6 +253,15 @@ function DeliveryOrderCard({ order, store, onStatusChange, isUpdating }: { order
                 </div>
             </CardHeader>
             <CardContent className="space-y-4 pt-5 flex-1 text-xs">
+                {order.appointmentTime && (
+                    <div className="bg-amber-50 p-3 rounded-xl border border-amber-100 flex items-center gap-2 mb-2">
+                        <Clock className="h-4 w-4 text-amber-600" />
+                        <div>
+                            <p className="text-[8px] font-black uppercase opacity-40 text-amber-800">Home Service Time</p>
+                            <p className="text-sm font-black text-amber-900">{order.appointmentTime}</p>
+                        </div>
+                    </div>
+                )}
                 <div 
                     className="bg-blue-50/30 p-4 rounded-2xl border border-blue-100 space-y-2 cursor-pointer hover:bg-blue-100/50 transition-all active:scale-[0.98]"
                     onClick={handleOpenMap}
@@ -441,7 +460,7 @@ export default function StoreOrdersPage() {
 
         <div className="space-y-24">
             <section>
-                <h2 className="text-2xl font-black font-headline tracking-tight uppercase mb-8 border-l-8 border-blue-600 pl-4 text-blue-600">Home Delivery</h2>
+                <h2 className="text-2xl font-black font-headline tracking-tight uppercase mb-8 border-l-8 border-blue-600 pl-4 text-blue-600">Home Delivery & Services</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {homeDeliveries.map(order => (
                         <DeliveryOrderCard key={order.id} order={order} store={myStore || undefined} onStatusChange={handleOrderUpdate} isUpdating={isUpdating} />
@@ -451,7 +470,7 @@ export default function StoreOrdersPage() {
             </section>
 
             <section>
-                <h2 className="text-2xl font-black font-headline tracking-tight uppercase mb-8 border-l-8 border-green-600 pl-4 text-green-600">Table Service</h2>
+                <h2 className="text-2xl font-black font-headline tracking-tight uppercase mb-8 border-l-8 border-green-600 pl-4 text-green-600">Table & Chair Service</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
                     {myStore?.tables?.map(tableId => {
                         const norm = tableId.toLowerCase().replace('table ', '').trim();
@@ -467,7 +486,7 @@ export default function StoreOrdersPage() {
 
             {otherSessions.length > 0 && (
                 <section>
-                    <h2 className="text-2xl font-black font-headline tracking-tight uppercase mb-8 border-l-8 border-amber-600 pl-4 text-amber-600">Other Active Tables</h2>
+                    <h2 className="text-2xl font-black font-headline tracking-tight uppercase mb-8 border-l-8 border-amber-600 pl-4 text-amber-600">Other Active Sessions</h2>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
                         {otherSessions.map(session => (
                             <SessionCard key={session.id} session={session} isUpdating={isUpdating} />

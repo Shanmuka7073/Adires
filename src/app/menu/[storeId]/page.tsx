@@ -216,14 +216,46 @@ function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId:
   if (isLoading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin h-8 w-8" /></div>;
   if (!order || !order.items?.length) return <div className="p-8 text-center"><p className="opacity-60 text-sm font-medium">Your {isSalon ? 'booking' : 'bill'} is empty.</p></div>;
   
-  const isDraft = order.status === 'Draft'; const isBilled = order.status === 'Billed'; const isLocked = ['Completed', 'Delivered'].includes(order.status);
+  const isDraft = order.status === 'Draft'; const isBilled = order.status === 'Billed'; const isLocked = ['Completed', 'Delivered', 'Pending', 'Processing'].includes(order.status);
   
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: theme?.backgroundColor }}>
         <SheetHeader className='p-5 border-b' style={{ borderColor: theme?.primaryColor + '20' }}><SheetTitle className="flex items-center gap-2 text-lg font-bold" style={{ color: theme?.primaryColor }}><Receipt className="h-5 w-5" /> {isSalon ? 'Appointment Summary' : 'Live Bill'}</SheetTitle></SheetHeader>
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
+             {isSalon && (
+                 <div className="space-y-3">
+                    <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor }}>Select Appointment Time</h4>
+                    {isDraft ? (
+                        <div className="grid grid-cols-3 gap-2">
+                            {TIME_SLOTS.map(slot => (
+                                <Button 
+                                    key={slot} 
+                                    variant={selectedTime === slot ? 'default' : 'outline'}
+                                    className={cn("h-10 rounded-xl text-[9px] font-black uppercase tracking-tighter border-2 px-1", selectedTime === slot ? "shadow-md" : "opacity-60")}
+                                    style={selectedTime === slot 
+                                        ? { backgroundColor: theme?.primaryColor, color: theme?.backgroundColor, borderColor: theme?.primaryColor } 
+                                        : { color: theme?.textColor, borderColor: theme?.primaryColor + '20' }
+                                    }
+                                    onClick={() => setSelectedTime(slot)}
+                                >
+                                    {slot}
+                                </Button>
+                            ))}
+                        </div>
+                    ) : order.appointmentTime ? (
+                        <div className="p-4 rounded-2xl border-2 border-primary/20 bg-primary/5 flex items-center justify-between">
+                            <div>
+                                <p className="text-[8px] font-black uppercase opacity-40 mb-0.5">Confirmed Slot</p>
+                                <p className="text-lg font-black text-primary" style={{ color: theme?.primaryColor }}>{order.appointmentTime}</p>
+                            </div>
+                            <CheckCircle className="h-6 w-6 text-primary" style={{ color: theme?.primaryColor }} />
+                        </div>
+                    ) : null}
+                 </div>
+             )}
+
              <div className="space-y-3">
-                <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40">{isSalon ? 'Selected Services' : 'Order Items'}</h4>
+                <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor }}>{isSalon ? 'Selected Services' : 'Order Items'}</h4>
                 {order.items.map((it, idx) => (
                 <div key={idx} className="flex justify-between items-start text-sm pb-3 border-b last:border-0" style={{borderColor: theme?.primaryColor + '10', color: theme?.textColor}}>
                     <div className="flex-1 pr-4 min-w-0"><span className="font-bold block truncate">{it.productName}</span><span className="text-[10px] opacity-60 font-bold uppercase">Qty: {it.quantity}</span></div>
@@ -231,42 +263,16 @@ function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId:
                 </div>
                 ))}
              </div>
-
-             {isSalon && isDraft && (
-                 <div className="space-y-3 bg-primary/5 p-4 rounded-2xl border border-primary/10">
-                    <div className="flex items-center gap-2 mb-1">
-                        <CalendarDays className="h-4 w-4 text-primary" />
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-primary">Select Appointment Time</h4>
-                    </div>
-                    <Select value={selectedTime} onValueChange={setSelectedTime}>
-                        <SelectTrigger className="rounded-xl border-2 h-12 bg-white" style={{ borderColor: theme?.primaryColor + '20' }}>
-                            <SelectValue placeholder="Pick a time slot" />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl">
-                            {TIME_SLOTS.map(slot => (
-                                <SelectItem key={slot} value={slot}>{slot}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                 </div>
-             )}
-
-             {isSalon && !isDraft && order.appointmentTime && (
-                 <div className="p-4 rounded-2xl border-2 border-primary/20 bg-primary/5">
-                    <p className="text-[10px] font-black uppercase opacity-40 mb-1">Booked For</p>
-                    <p className="text-lg font-black text-primary">{order.appointmentTime}</p>
-                 </div>
-             )}
         </div>
-        <div className="p-6 border-t space-y-4 bg-black/10" style={{ borderColor: theme?.primaryColor + '20' }}>
-            <div className="flex justify-between items-baseline mb-2"><span className="text-sm font-bold uppercase tracking-widest opacity-60">Total</span><span className="text-2xl font-black" style={{ color: theme?.primaryColor }}>₹{order.totalAmount.toFixed(2)}</span></div>
+        <div className="p-6 border-t space-y-4 bg-black/5" style={{ borderColor: theme?.primaryColor + '20' }}>
+            <div className="flex justify-between items-baseline mb-2"><span className="text-sm font-bold uppercase tracking-widest opacity-60" style={{ color: theme?.textColor }}>Total</span><span className="text-2xl font-black" style={{ color: theme?.primaryColor }}>₹{order.totalAmount.toFixed(2)}</span></div>
             <div className="pt-2">
               {isLocked ? (
-                 <div className="text-center p-5 bg-primary/10 rounded-2xl"><Check className="mx-auto h-8 w-8 mb-2" style={{ color: theme?.primaryColor }} /><p className="font-black text-xs uppercase">{isSalon ? 'Appointment Finished' : 'Order Completed'}</p></div>
+                 <div className="text-center p-5 bg-primary/10 rounded-2xl border-2" style={{ borderColor: theme?.primaryColor + '30' }}><Check className="mx-auto h-8 w-8 mb-2" style={{ color: theme?.primaryColor }} /><p className="font-black text-xs uppercase" style={{ color: theme?.textColor }}>{isSalon ? 'Booking Confirmed' : 'Order Confirmed'}</p></div>
               ) : isBilled && store.upiId ? (
-                  <Button onClick={onShowUpi} className="w-full h-14 rounded-2xl uppercase font-black tracking-widest bg-green-600 text-white"><CreditCard className="mr-2 h-5 w-5" /> Pay Now with UPI</Button>
+                  <Button onClick={onShowUpi} className="w-full h-14 rounded-2xl uppercase font-black tracking-widest bg-green-600 text-white shadow-xl"><CreditCard className="mr-2 h-5 w-5" /> Pay Now with UPI</Button>
               ) : (
-                <AlertDialog><AlertDialogTrigger asChild><Button className="w-full h-14 rounded-2xl text-base font-bold shadow-lg" variant="destructive" disabled={closing}>{closing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}{isDraft ? (isSalon ? 'Book Appointment' : 'Place Order') : 'Request Bill'}</Button></AlertDialogTrigger><AlertDialogContent className="rounded-3xl"><AlertDialogHeader><AlertDialogTitle>{isDraft ? (isSalon ? 'Confirm Booking?' : 'Place Order?') : 'Request Final Bill?'}</AlertDialogTitle></AlertDialogHeader><AlertDialogFooter className="gap-2"><AlertDialogCancel className="rounded-xl font-bold">Not yet</AlertDialogCancel><AlertDialogAction onClick={closeBill} className="rounded-xl font-bold">Yes, Confirm</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+                <AlertDialog><AlertDialogTrigger asChild><Button className="w-full h-14 rounded-2xl text-base font-black uppercase tracking-widest shadow-xl" variant="destructive" disabled={closing}>{closing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}{isDraft ? (isSalon ? 'Book Appointment' : 'Place Order') : 'Request Bill'}</Button></AlertDialogTrigger><AlertDialogContent className="rounded-[2rem] border-0 shadow-2xl"><AlertDialogHeader><AlertDialogTitle className="text-xl font-black uppercase tracking-tight">{isDraft ? (isSalon ? 'Confirm Booking?' : 'Place Order?') : 'Request Final Bill?'}</AlertDialogTitle><AlertDialogDescription>This will notify the staff to start preparation.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter className="gap-2"><AlertDialogCancel className="rounded-xl font-bold">Not yet</AlertDialogCancel><AlertDialogAction onClick={closeBill} className="rounded-xl font-bold bg-primary hover:bg-primary/90">Yes, Confirm</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
               )}
             </div>
         </div>
@@ -342,7 +348,7 @@ export default function PublicMenuPage() {
   if (storeLoading || menuLoading || orderLoading) return <div className="p-6 space-y-6"><Skeleton className="h-16 w-16 rounded-2xl" /><Skeleton className="h-10 w-full" /></div>;
   if (!store || !menu) return <div className="p-12 text-center opacity-50">Menu unavailable.</div>;
   
-  const theme = menu.theme; const isCompleted = ['Completed', 'Delivered'].includes(order?.status || '');
+  const theme = menu.theme; const isLocked = ['Pending', 'Processing', 'Out for Delivery', 'Billed', 'Completed', 'Delivered'].includes(order?.status || '');
 
   return (
     <>
@@ -354,11 +360,11 @@ export default function PublicMenuPage() {
           <div className="container mx-auto py-6 px-4 max-w-2xl">
             <div className="space-y-6">
               <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 min-w-0"><div className="relative h-12 w-12 rounded-2xl overflow-hidden border shadow-sm"><Image src={store.imageUrl || ADIRES_LOGO} alt={store.name} fill className="object-cover" /></div><div className="min-w-0"><h1 className="text-base font-black truncate" style={{ color: theme?.primaryColor }}>{store.name}</h1><div className="flex items-center gap-2">{tableNumber ? <Badge className="px-1.5 py-0 text-[8px] uppercase" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>{isSalon ? `Chair ${tableNumber}` : `Table ${tableNumber}`}</Badge> : <Badge className="px-1.5 py-0 text-[8px] uppercase bg-blue-600 text-white">{isSalon ? 'Home Service' : 'Delivery'}</Badge>}<button onClick={() => setIsModeDialogOpen(true)} className="text-[8px] uppercase underline opacity-40">Change</button></div></div></div>
+                  <div className="flex items-center gap-3 min-w-0"><div className="relative h-12 w-12 rounded-2xl overflow-hidden border shadow-sm"><Image src={store.imageUrl || ADIRES_LOGO} alt={store.name} fill className="object-cover" /></div><div className="min-w-0"><h1 className="text-base font-black truncate" style={{ color: theme?.primaryColor }}>{store.name}</h1><div className="flex items-center gap-2">{tableNumber ? <Badge className="px-1.5 py-0 text-[8px] uppercase" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>{isSalon ? `Chair ${tableNumber}` : `Table ${tableNumber}`}</Badge> : <Badge className="px-1.5 py-0 text-[8px] uppercase bg-blue-600 text-white">{isSalon ? 'Home Service' : 'Delivery'}</Badge>}<button onClick={() => setIsModeDialogOpen(true)} className="text-[8px] uppercase underline opacity-40" style={{ color: theme?.textColor }}>Change</button></div></div></div>
                   <div className="flex items-center gap-2">{store.liveVideoUrl && <Button asChild variant="outline" size="sm" className="h-8 rounded-xl border-2 px-3 font-black text-[8px] uppercase animate-pulse" style={{ color: theme?.primaryColor, borderColor: theme?.primaryColor }}><Link href={`/live-order/${orderId}`}><Video className="mr-1 h-3 w-3" /> Live Feed</Link></Button>}<Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => {}}><Search className="h-3.5 w-3.5" style={{ color: theme?.primaryColor }} /></Button></div>
               </div>
               <div className="space-y-6">
-                {isCompleted ? (
+                {['Completed', 'Delivered'].includes(order?.status || '') ? (
                     <Card className="rounded-[2.5rem] border-0 shadow-2xl text-center py-16 px-8" style={{ backgroundColor: '#fafafa' }}><div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-white"><Check className="h-10 w-10 text-primary" style={{ color: theme?.primaryColor }} /></div><h2 className="text-2xl font-black mb-3">Thank You!</h2><Button onClick={handleStartNewOrder} className="rounded-xl h-12 px-8 uppercase font-black text-[10px] tracking-widest shadow-lg" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>{isSalon ? 'Book Again' : 'Start New Order'}</Button></Card>
                 ) : (
                     <>
@@ -377,7 +383,7 @@ export default function PublicMenuPage() {
             </div>
           </div>
           {itemCount > 0 && ['Pending', 'Processing', 'Out for Delivery', 'Billed', 'Draft'].includes(order?.status || '') && (
-               <Sheet><SheetTrigger asChild><div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[200px] px-4"><Button className="h-12 w-full rounded-xl shadow-2xl text-[10px] font-black uppercase tracking-widest" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}><Receipt className="mr-2 h-4 w-4" /> {isSalon ? 'Booking Info' : 'View Bill'} <Badge className="ml-2 h-5 min-w-[20px] rounded-md text-[9px] font-black" style={{ backgroundColor: theme?.backgroundColor, color: theme?.primaryColor }}>{itemCount}</Badge></Button></div></SheetTrigger><SheetContent side="bottom" className="h-[75vh] rounded-t-[2.5rem] p-0 border-0 overflow-hidden"><LiveBillSheet orderId={order!.id} theme={theme} store={store} onShowUpi={() => setIsUpiDialogOpen(true)} isSalon={isSalon} /></SheetContent></Sheet>
+               <Sheet><SheetTrigger asChild><div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[200px] px-4"><Button className="h-12 w-full rounded-xl shadow-2xl text-[10px] font-black uppercase tracking-widest" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}><Receipt className="mr-2 h-4 w-4" /> {isSalon ? 'Appointment' : 'View Bill'} <Badge className="ml-2 h-5 min-w-[20px] rounded-md text-[9px] font-black" style={{ backgroundColor: theme?.backgroundColor, color: theme?.primaryColor }}>{itemCount}</Badge></Button></div></SheetTrigger><SheetContent side="bottom" className="h-[75vh] rounded-t-[2.5rem] p-0 border-0 overflow-hidden"><LiveBillSheet orderId={order!.id} theme={theme} store={store} onShowUpi={() => setIsUpiDialogOpen(true)} isSalon={isSalon} /></SheetContent></Sheet>
           )}
         </div>
     </>
