@@ -707,20 +707,27 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
     const userDocRef = useMemoFirebase(() => (!firestore || !user) ? null : doc(firestore, 'users', user.uid), [firestore, user]);
     const { data: userData } = useDoc<AppUser>(userDocRef);
 
-    // AUTO-REPAIR: If businessType is missing, update it based on accountType
+    // Proactive Auto-Repair: Strictly align businessType with owner accountType
     useEffect(() => {
-        if (!store.businessType && userData?.accountType && firestore && !isRepairing) {
-            startRepair(async () => {
-                const inferredType = userData.accountType === 'restaurant' ? 'restaurant' : 'grocery';
-                try {
-                    await updateDoc(doc(firestore, 'stores', store.id), { businessType: inferredType });
-                    toast({ title: "Business type initialized", description: `We've set your store to ${inferredType} based on your profile.` });
-                } catch (e) {
-                    console.error("Auto-repair failed", e);
-                }
-            });
+        if (userData?.accountType && firestore && !isRepairing) {
+            const inferredType = userData.accountType === 'restaurant' ? 'restaurant' : 'grocery';
+            
+            // Only trigger update if it's missing or mismatched
+            if (!store.businessType || store.businessType !== inferredType) {
+                startRepair(async () => {
+                    try {
+                        await updateDoc(doc(firestore, 'stores', store.id), { businessType: inferredType });
+                        toast({ 
+                            title: "Business profile synced", 
+                            description: `We've updated your store to ${inferredType} mode to match your ${userData.accountType} account.` 
+                        });
+                    } catch (e) {
+                        console.error("Auto-repair failed", e);
+                    }
+                });
+            }
         }
-    }, [store, userData, firestore, isRepairing]);
+    }, [store.businessType, store.id, userData?.accountType, firestore, isRepairing, toast]);
 
     if (store.isClosed) {
         return (

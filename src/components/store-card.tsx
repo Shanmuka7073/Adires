@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import type { Store } from '@/lib/types';
 import { getStoreImage } from '@/lib/data';
-import { Star, Clock, MapPin, LayoutGrid, Scissors, Utensils } from 'lucide-react';
+import { Star, Clock, MapPin, LayoutGrid, Scissors, Utensils, ArrowRight } from 'lucide-react';
 import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from './ui/skeleton';
 import { Badge } from './ui/badge';
@@ -33,14 +33,17 @@ function StoreCard({ store }: StoreCardProps) {
         fetchImage();
     }, [store]);
 
+    // Primary detection via explicit businessType, secondary via name/description
     const isSalon = useMemo(() => {
         if (store.businessType === 'salon') return true;
+        if (store.businessType) return false; // If vertical is set and NOT salon, return false
         const searchPool = `${store.name} ${store.description}`.toLowerCase();
         return ['salon', 'saloon', 'parlour', 'beauty', 'hair', 'cut', 'spa', 'massage', 'style', 'makeup'].some(kw => searchPool.includes(kw));
     }, [store]);
 
     const isRestaurant = useMemo(() => {
         if (store.businessType === 'restaurant') return true;
+        if (store.businessType) return false; // If vertical is set and NOT restaurant, return false
         const searchPool = `${store.name} ${store.description}`.toLowerCase();
         return [
             'restaurant', 'restuarent', 'hotel', 'biryani', 'tiffin', 'mess', 
@@ -123,26 +126,6 @@ function StoreCard({ store }: StoreCardProps) {
         </Card>
     </Link>
   );
-}
-
-function ArrowRight(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M5 12h14" />
-      <path d="m12 5 7 7-7 7" />
-    </svg>
-  )
 }
 
 StoreCard.Skeleton = function StoreCardSkeleton() {
