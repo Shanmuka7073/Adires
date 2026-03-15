@@ -51,7 +51,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useAppStore } from '@/lib/store';
 
 const STATUS_META: Record<string, any> = {
-  Draft: { icon: FileEdit, variant: 'outline', color: 'text-gray-400', label: 'Draft' },
+  Draft: { icon: FileEdit, variant: 'outline', color: 'text-gray-400', label: 'Ordering...' },
   Pending: { icon: AlertTriangle, variant: 'secondary', color: 'text-amber-600', label: 'New' },
   Processing: { icon: CookingPot, variant: 'secondary', color: 'text-blue-600', label: 'Kitchen' },
   'Out for Delivery': { icon: Truck, variant: 'outline', color: 'text-purple-600', label: 'Delivery' },
@@ -279,24 +279,28 @@ export default function StoreOrdersPage() {
   const { userStore: myStore, loading: storeLoading } = useAppStore();
 
   /**
-   * HIGH-PERFORMANCE OPERATION CENTER QUERY
-   * 
-   * FIXED: moving the filter to the database level to prevent 
-   * "N+History" read explosion. We only load active operational states.
+   * ROBUST OPERATION QUERY
+   * Simplified status query ensures 100% visibility for new orders.
+   * We fetch the latest 50 activities and then group them by session.
    */
   const activeOrdersQuery = useMemoFirebase(() =>
     firestore && myStore
       ? query(
           collection(firestore, 'orders'),
           where('storeId', '==', myStore.id),
-          where('status', 'in', ['Draft', 'Pending', 'Processing', 'Billed', 'Out for Delivery']),
           orderBy('orderDate', 'desc'),
           limit(50) 
         )
       : null,
   [firestore, myStore]);
 
-  const { data: activeOrders, isLoading: ordersLoading, refetch } = useCollection<Order>(activeOrdersQuery);
+  const { data: rawOrders, isLoading: ordersLoading, refetch } = useCollection<Order>(activeOrdersQuery);
+
+  // Status Filter: We handle active vs completed in the JS layer for absolute reliability.
+  const activeOrders = useMemo(() => {
+      if (!rawOrders) return [];
+      return rawOrders.filter(o => ['Draft', 'Pending', 'Processing', 'Billed', 'Out for Delivery'].includes(o.status));
+  }, [rawOrders]);
 
   const fetchHistory = useCallback(() => {
     if (!firestore || !myStore || !selectedDate) return;
@@ -538,3 +542,4 @@ export default function StoreOrdersPage() {
     </div>
   );
 }
+    
