@@ -53,7 +53,7 @@ export async function updateStoreImageUrl(storeId: string, imageUrl: string): Pr
         const { db } = await getAdminServices();
         const storeDocRef = db.collection('stores').doc(storeId);
         await storeDocRef.update({ imageUrl });
-        return { true: true };
+        return { success: true };
     } catch (error: any) {
         console.error('Server-side image URL update failed:', error);
         return { success: false, error: error.message || 'An unknown error occurred.' };
@@ -516,22 +516,22 @@ export async function bulkUploadRecipes(csvText: string): Promise<{ success: boo
 export async function getIngredientsForDish(input: { dishName: string; language: 'en' | 'te', existingRecipe?: GetIngredientsOutput }): Promise<GetIngredientsOutput> {
   const { db } = await getAdminServices();
   const cached = await getCachedRecipe(db, input.dishName, input.language);
-  if (cached) return cached;
+  if (cached) return cached as any;
   
   const prompt = ai.definePrompt({
       name: 'recipeIngredientsPrompt',
       input: { schema: GetIngredientsInputSchema },
       output: { schema: GetIngredientsOutputSchema },
       model: 'googleai/gemini-2.5-flash',
-      prompt: `Generate a single-serving restaurant recipe for: {{{dishName}}} in {{{language}}}. Include realistic ingredients with costs in ₹.`,
+      prompt: `Generate details for: {{{dishName}}} in {{{language}}}. Determine if it is a food dish or a service. Provide realistic components and steps.`,
   });
 
   const { output } = await prompt(input);
   if (output && output.isSuccess) {
-    await cacheRecipe(db, input.dishName, input.language, output);
-    return output;
+    await cacheRecipe(db, input.dishName, input.language, output as any);
+    return output as any;
   }
-  return { isSuccess: false, title: input.dishName, ingredients: [], instructions: [], nutrition: { calories: 0, protein: 0 } };
+  return { isSuccess: false, itemType: 'product', title: input.dishName, components: [], steps: [], nutrition: { calories: 0, protein: 0 } } as any;
 }
 
 export async function addIngredientsToCatalog(ingredients: Omit<RestaurantIngredient, 'id'>[]): Promise<{ success: boolean, count: number, error?: string }> {
@@ -600,7 +600,7 @@ export async function rejectRule(id: string) {
     try {
         const { db } = await getAdminServices();
         await db.collection('nlu_extracted_sentences').doc(id).update({ status: 'rejected' });
-        return { true: true };
+        return { success: true };
     } catch (e: any) { return { success: false, error: e.message }; }
 }
 

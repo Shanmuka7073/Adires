@@ -115,14 +115,10 @@ function UPIPaymentDialog({
     if (!store.upiId) return null;
 
     // Construct a detailed transaction note for the customer's payment app
-    // Example: "Adires: Chicken Biryani(1), Coke(2) | Total: ₹250"
     const itemsSummary = order.items.map(it => `${it.productName}(${it.quantity})`).join(', ');
     const rawNote = `${store.name}: ${itemsSummary} | Total: ₹${order.totalAmount.toFixed(0)}`;
-    
-    // UPI apps often limit the note length. We'll cap it at 80 characters.
     const finalNote = rawNote.length > 80 ? rawNote.substring(0, 77) + "..." : rawNote;
 
-    // Standard UPI Intent String
     const upiUrl = `upi://pay?pa=${encodeURIComponent(store.upiId)}&pn=${encodeURIComponent(store.name)}&am=${order.totalAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(finalNote)}`;
 
     const handleAppPayment = () => {
@@ -652,7 +648,7 @@ export default function PublicMenuPage() {
         storeId, sessionId, tableNumber, item, quantity: 1, deliveryAddress, customerName, phone, deliveryLat: deliveryCoords?.lat, deliveryLng: deliveryCoords?.lng,
       });
       if (result.success) {
-        toast({ title: "Dish Added" });
+        toast({ title: "Item Added" });
         setRecentlyAdded(prev => new Set(prev).add(item.id));
         setTimeout(() => setRecentlyAdded(prev => { const n = new Set(prev); n.delete(item.id); return n; }), 2000);
       }
@@ -718,7 +714,8 @@ export default function PublicMenuPage() {
           isLoading={isFetchingIngredients}
           calories={ingredientsData?.nutrition?.calories || 0}
           protein={ingredientsData?.nutrition?.protein || 0}
-          ingredients={(ingredientsData?.ingredients as any) || []}
+          ingredients={(ingredientsData?.components as any) || []}
+          itemType={ingredientsData?.itemType}
           onAdd={() => { handleAddItem(selectedItemForIngredients); setSelectedItemForIngredients(null); }}
         />
       )}
@@ -790,7 +787,7 @@ export default function PublicMenuPage() {
                   </div>
               </div>
 
-              {isSearchOpen && <Input placeholder="Search dishes..." className="rounded-xl h-10 border-2" style={{ borderColor: theme?.primaryColor + '20' }} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />}
+              {isSearchOpen && <Input placeholder="Search items..." className="rounded-xl h-10 border-2" style={{ borderColor: theme?.primaryColor + '20' }} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />}
 
               <div className="space-y-6">
                 {isCompleted ? (
