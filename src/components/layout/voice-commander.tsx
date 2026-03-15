@@ -5,13 +5,13 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
-import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, SiteConfig, MenuItem } from '@/lib/types';
+import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, SiteConfig, MenuItem, Menu } from '@/lib/types';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
 import { useAppStore } from '@/lib/store';
 import { useMyStorePageStore } from '@/lib/store';
 import { t } from '@/lib/locales';
-import { doc, getDoc, serverTimestamp, addDoc, collection, query, where, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, addDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { useCheckoutStore } from '@/lib/checkout-store';
 import { useProfileFormStore, ProfileFormValues } from '@/lib/store';
 import { useVoiceCommanderContext } from './voice-commander-context';
@@ -101,7 +101,7 @@ export function VoiceCommander({
   const { showPriceCheck, hidePriceCheck } = useVoiceCommanderContext();
   const { isRestaurantOwner } = useAdminAuth();
 
-  const { stores, masterProducts, allMenus, productPrices, fetchProductPrices, getProductName, language, getAllAliases, locales, commands, loading: isAppStoreLoading, fetchInitialData } = useAppStore();
+  const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, getAllAliases, locales, commands, loading: isAppStoreLoading } = useAppStore();
 
   const { form: profileForm } = useProfileFormStore();
   const { saveInventoryBtnRef } = useMyStorePageStore();
@@ -109,7 +109,7 @@ export function VoiceCommander({
     handleUseCurrentLocation,
     handleUseHomeAddress,
     placeOrderBtnRef,
-    isWaitingForQuickOrderConfirmation, // FIXED: Added missing destructuring
+    isWaitingForQuickOrderConfirmation,
     setIsWaitingForQuickOrderConfirmation,
     setHomeAddress,
     setShouldUseCurrentLocation
@@ -131,9 +131,23 @@ export function VoiceCommander({
   const [speechSynthesisVoices, setSpeechSynthesisVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [hasRunCheckoutPrompt, setHasRunCheckoutPrompt] = useState(false);
 
+  // OPTIMIZED: We fetch the current menu locally if on a menu page
+  const [localMenu, setLocalMenu] = useState<Menu | null>(null);
   const isMenuPage = pathname.startsWith('/menu/');
   const menuStoreId = isMenuPage ? pathname.split('/')[2] : null;
-  const currentMenu = useMemo(() => allMenus.find(m => m.storeId === menuStoreId), [allMenus, menuStoreId]);
+
+  useEffect(() => {
+      const fetchLocalMenu = async () => {
+          if (isMenuPage && menuStoreId && firestore) {
+              const q = query(collection(firestore, `stores/${menuStoreId}/menus`), limit(1));
+              const snap = await getDocs(q);
+              if (!snap.empty) setLocalMenu(snap.docs[0].data() as Menu);
+          } else {
+              setLocalMenu(null);
+          }
+      };
+      fetchLocalMenu();
+  }, [isMenuPage, menuStoreId, firestore]);
 
   const universalProductAliasMap = useMemo<AliasToProductMap>(() => {
     const map: AliasToProductMap = new Map();
@@ -343,9 +357,9 @@ export function VoiceCommander({
     const nluResult = runNLU(phrase, language);
     const { qty, unit, money, productPhrase } = extractQuantityAndProduct(nluResult);
 
-    if (isMenuPage && currentMenu) {
+    if (isMenuPage && localMenu) {
         let bestMatch: { menuItem: MenuItem, score: number } | null = null;
-        for (const item of currentMenu.items) {
+        for (const item of localMenu.items) {
             const similarity = calculateSimilarity(productPhrase.toLowerCase(), item.name.toLowerCase());
             if (!bestMatch || similarity > bestMatch.score) {
                 if(similarity > 0.8) bestMatch = { menuItem: item, score: similarity };
@@ -418,7 +432,7 @@ export function VoiceCommander({
         chosenVariant = priceData.variants.find(v => parseFloat(v.weight) === finalQty) || priceData.variants[0];
     }
     return { product, variant: chosenVariant, requestedQty: finalQty, remainingPhrase: productPhrase, matchedAlias, lang: detectedLang };
-}, [firestore, productPrices, universalProductAliasMap, language, isMenuPage, currentMenu, menuStoreId]);
+}, [firestore, productPrices, universalProductAliasMap, language, isMenuPage, localMenu, menuStoreId]);
 
   const recognizeIntent = useCallback((text: string, spokenLang: string): Intent => {
     const lowerText = text.toLowerCase().trim();

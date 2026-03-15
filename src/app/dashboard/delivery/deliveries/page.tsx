@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Order, Store, DeliveryPartner, Payout } from '@/lib/types';
@@ -6,10 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { MapPin, Check, Banknote, History, Landmark, Receipt, CreditCard, ChevronDown, ChevronUp, Route, Package, Bot, Info, Loader2, LocateFixed } from 'lucide-react';
+import { MapPin, Check, Banknote, History, Landmark, Receipt, CreditCard, ChevronDown, ChevronUp, Route, Package, Bot, Info, Loader2, LocateFixed, RefreshCw } from 'lucide-react';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, query, where, doc, updateDoc, Timestamp, increment, writeBatch, orderBy, setDoc } from 'firebase/firestore';
-import { useEffect, useState, useMemo, useTransition } from 'react';
+import { collection, query, where, doc, updateDoc, Timestamp, increment, writeBatch, orderBy, setDoc, getDocs, limit } from 'firebase/firestore';
+import { useEffect, useState, useMemo, useTransition, useCallback } from 'react';
 import { getStores } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -30,7 +31,7 @@ const DELIVERY_PROXIMITY_THRESHOLD_KM = 1;
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   if (!lat1 || !lon1 || !lat2 || !lon2) return Infinity;
-  const R = 6371; // Radius of the Earth in kilometers
+  const R = 6371; 
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
   const a =
@@ -40,7 +41,7 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c; // Distance in kilometers
+  return R * c; 
 }
 
 const openInGoogleMaps = (destLat: number, destLng: number, originLat?: number, originLng?: number) => {
@@ -193,7 +194,7 @@ function PayoutSettingsCard({ partnerData, isLoading, partnerId }: { partnerData
                 accountNumber: data.accountNumber!,
                 ifscCode: data.ifscCode!,
             } : { accountHolderName: '', accountNumber: '', ifscCode: '' },
-            zoneId: `zone-${data.pincode}`, // Partition ID
+            zoneId: `zone-${data.pincode}`, 
         };
         
         startSaveTransition(async () => {
@@ -487,6 +488,8 @@ export default function DeliveriesPage() {
   const { toast } = useToast();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedOrderDistance, setSelectedOrderDistance] = useState<number | undefined>(undefined);
+  const [availableJobs, setAvailableJobs] = useState<Order[]>([]);
+  const [availableLoading, setAvailableLoading] = useState(false);
 
   const partnerDocRef = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
@@ -494,7 +497,6 @@ export default function DeliveriesPage() {
   }, [firestore, user?.uid]);
   const { data: partnerData, isLoading: partnerLoading } = useDoc<DeliveryPartner>(partnerDocRef);
 
-  // Query 1: Get orders assigned to the current delivery partner.
   const myActiveDeliveriesQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
     return query(
@@ -504,19 +506,39 @@ export default function DeliveriesPage() {
     );
   }, [firestore, user?.uid]);
   
-  // Query 2: Partitioned Available Deliveries Query
-  // Partitioned by zoneId to avoid scaling failures.
-  const availableDeliveriesQuery = useMemoFirebase(() => {
-    if (!firestore || !partnerData?.zoneId) return null;
-    return query(
-        collection(firestore, 'orders'),
-        where('status', '==', 'Pending'),
-        where('zoneId', '==', partnerData.zoneId) // Partitioned!
-    );
+  const { data: myActiveDeliveries, isLoading: activeDeliveriesLoading } = useCollection<Order>(myActiveDeliveriesQuery);
+
+  /**
+   * OPTIMIZED: Delivery Job Fetching
+   * We use getDocs + zoneId partition to keep reads extremely low.
+   * Refreshing is manual or periodic, not heavy real-time.
+   */
+  const fetchAvailableJobs = useCallback(async () => {
+    if (!firestore || !partnerData?.zoneId) return;
+    setAvailableLoading(true);
+    try {
+        const q = query(
+            collection(firestore, 'orders'),
+            where('status', '==', 'Pending'),
+            where('zoneId', '==', partnerData.zoneId),
+            limit(20)
+        );
+        const snap = await getDocs(q);
+        const jobs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Order));
+        setAvailableJobs(jobs);
+    } catch (e) {
+        console.error("Failed to fetch jobs:", e);
+    } finally {
+        setAvailableLoading(false);
+    }
   }, [firestore, partnerData?.zoneId]);
 
+  useEffect(() => {
+    fetchAvailableJobs();
+    const interval = setInterval(fetchAvailableJobs, 30000); // 30s refresh
+    return () => clearInterval(interval);
+  }, [fetchAvailableJobs]);
 
-  // Query 3: Get completed orders for the earnings history.
   const completedDeliveriesQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
     return query(
@@ -526,9 +548,6 @@ export default function DeliveriesPage() {
     );
   }, [firestore, user?.uid]);
 
-  // Hooks for each query
-  const { data: myActiveDeliveries, isLoading: activeDeliveriesLoading } = useCollection<Order>(myActiveDeliveriesQuery);
-  const { data: availableDeliveries, isLoading: availableDeliveriesLoading } = useCollection<Order>(availableDeliveriesQuery);
   const { data: completedDeliveries, isLoading: completedDeliveriesLoading } = useCollection<Order>(completedDeliveriesQuery);
   
   useEffect(() => {
@@ -537,7 +556,6 @@ export default function DeliveriesPage() {
     }
   }, [firestore]);
 
-  // Memoize to join store data with orders
   const joinStoresToOrders = (orders: Order[] | null) => {
     if (!orders || !stores.length) return [];
     return orders.map(order => {
@@ -547,7 +565,7 @@ export default function DeliveriesPage() {
   };
 
   const myActiveDeliveriesWithStores = useMemo(() => joinStoresToOrders(myActiveDeliveries), [myActiveDeliveries, stores]);
-  const availableDeliveriesWithStores = useMemo(() => joinStoresToOrders(availableDeliveries), [availableDeliveries, stores]);
+  const availableDeliveriesWithStores = useMemo(() => joinStoresToOrders(availableJobs), [availableJobs, stores]);
 
   const handleConfirmPickup = (orderId: string) => {
     if (!firestore || !user?.uid) return;
@@ -563,6 +581,7 @@ export default function DeliveriesPage() {
                 title: `Job Accepted!`,
                 description: `You are now assigned to deliver this order.`
             });
+            fetchAvailableJobs(); // Refresh jobs
         } catch (error) {
              console.error("Failed to confirm pickup:", error);
              toast({ variant: 'destructive', title: "Accept Failed", description: "Could not accept the selected job."})
@@ -599,7 +618,7 @@ export default function DeliveriesPage() {
                 try {
                     const batch = writeBatch(firestore);
 
-                    batch.update(orderRef, { status: 'Delivered' });
+                    batch.update(orderRef, { status: 'Delivered', updatedAt: serverTimestamp() });
                     batch.set(partnerRef, {
                         totalEarnings: increment(DELIVERY_FEE),
                         userId: user.uid,
@@ -678,7 +697,7 @@ export default function DeliveriesPage() {
     setSelectedOrderDistance(distance);
   }
 
-  const isLoading = activeDeliveriesLoading || availableDeliveriesLoading || completedDeliveriesLoading || stores.length === 0;
+  const isLoading = activeDeliveriesLoading || completedDeliveriesLoading || stores.length === 0;
 
   const formatDate = (date: any) => {
     if (!date) return 'N/A';
@@ -737,16 +756,22 @@ export default function DeliveriesPage() {
 
 
       <div>
-        <h2 className="text-3xl font-bold mb-8 font-headline">Available in your Zone</h2>
+        <div className="flex justify-between items-center mb-8">
+            <h2 className="text-3xl font-bold font-headline">Available in your Zone</h2>
+            <Button variant="outline" size="sm" onClick={fetchAvailableJobs} disabled={availableLoading}>
+                <RefreshCw className={cn("mr-2 h-4 w-4", availableLoading && "animate-spin")} />
+                Refresh
+            </Button>
+        </div>
          <Card>
           <CardHeader>
             <CardTitle>Ready for Pickup</CardTitle>
-             <CardDescription>Individual orders waiting for a partner in your zone ({partnerData?.zoneId?.replace('zone-', '') || 'Set zone above'}).</CardDescription>
+             <CardDescription>Orders in your zone ({partnerData?.zoneId?.replace('zone-', '') || 'Set zone above'}).</CardDescription>
           </CardHeader>
           <CardContent>
             {!partnerData?.zoneId ? (
                 <Alert><Info className="h-4 w-4"/><AlertTitle>Service Zone Required</AlertTitle><AlertDescription>Please set your Pincode in Payout Settings to see available jobs in your area.</AlertDescription></Alert>
-            ) : availableDeliveriesLoading ? (
+            ) : availableLoading && availableJobs.length === 0 ? (
               <p>Finding available deliveries...</p>
             ) : !availableDeliveriesWithStores || availableDeliveriesWithStores.length === 0 ? (
               <Alert><Package className="h-4 w-4" /><AlertTitle>Zone is Quiet</AlertTitle><AlertDescription>No orders are currently ready in your zone. Check back soon.</AlertDescription></Alert>

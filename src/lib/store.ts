@@ -23,7 +23,6 @@ export interface ProfileFormValues {
 export interface AppState {
   stores: Store[];
   masterProducts: Product[];
-  allMenus: Menu[];
   userStore: Store | null; 
   productPrices: Record<string, ProductPrice | null>;
   locales: Locales;
@@ -61,7 +60,6 @@ export const useAppStore = create<AppState>()(
     (set, get) => ({
       stores: [],
       masterProducts: [],
-      allMenus: [],
       userStore: null,
       productPrices: {},
       locales: {},
@@ -99,6 +97,7 @@ export const useAppStore = create<AppState>()(
         set({ loading: true, error: null });
         
         try {
+          // OPTIMIZED: We only fetch the core metadata. Menus are NOT loaded globally anymore.
           const [stores, masterProducts, aliasDocs, commandDocs] = await Promise.all([
             getStores(db),
             getMasterProducts(db),
@@ -212,7 +211,6 @@ export const useAppStore = create<AppState>()(
       partialize: (state) => ({ 
           stores: state.stores,
           masterProducts: state.masterProducts,
-          allMenus: state.allMenus,
           userStore: state.userStore,
           productPrices: state.productPrices,
           locales: state.locales,

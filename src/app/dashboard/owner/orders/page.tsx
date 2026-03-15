@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import {
-  collection, query, where, orderBy, doc, updateDoc, serverTimestamp, Timestamp, getDocs
+  collection, query, where, orderBy, doc, updateDoc, serverTimestamp, Timestamp, getDocs, limit
 } from 'firebase/firestore';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useEffect, useMemo, useRef, useState, useTransition, useCallback } from 'react';
@@ -276,11 +276,10 @@ export default function StoreOrdersPage() {
   const { userStore: myStore, loading: storeLoading } = useAppStore();
 
   /**
-   * OPTIMIZED ACTIVE ORDERS QUERY
+   * OPTIMIZED OPERATION CENTER QUERY
    * 
-   * CRITICAL: We only fetch orders with active statuses. This prevents the
-   * performance issue where thousands of old, closed orders were being
-   * loaded on every dashboard visit.
+   * To fix the "reading all orders" issue, we strictly filter by
+   * active statuses and limit to 50 results.
    */
   const activeOrdersQuery = useMemoFirebase(() =>
     firestore && myStore
@@ -288,7 +287,8 @@ export default function StoreOrdersPage() {
           collection(firestore, 'orders'),
           where('storeId', '==', myStore.id),
           where('status', 'in', ['Pending', 'Processing', 'Billed', 'Out for Delivery', 'Draft']),
-          orderBy('orderDate', 'desc')
+          orderBy('orderDate', 'desc'),
+          limit(50) // OPTIMIZED: Prevents read explosion
         )
       : null,
   [firestore, myStore]);
@@ -309,19 +309,19 @@ export default function StoreOrdersPage() {
             where('storeId', '==', myStore.id),
             where('orderDate', '>=', Timestamp.fromDate(start)),
             where('orderDate', '<=', Timestamp.fromDate(end)),
-            orderBy('orderDate', 'desc')
+            orderBy('orderDate', 'desc'),
+            limit(50)
         );
 
         try {
             const snap = await getDocs(hQuery);
             const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Order));
-            // Filter for finalized statuses in memory to stay within index limits
             const filtered = data.filter(o => ['Completed', 'Delivered', 'Cancelled'].includes(o.status));
             setHistoryHistoryOrders(filtered);
             toast({ title: "History Loaded", description: `Found ${filtered.length} records.`});
         } catch (e) {
             console.error("History fetch error:", e);
-            toast({ variant: 'destructive', title: "Load Failed", description: "Could not retrieve historical data. Check indexes."});
+            toast({ variant: 'destructive', title: "Load Failed", description: "Could not retrieve historical data."});
         }
     });
   }, [firestore, myStore, selectedDate, toast]);

@@ -7,7 +7,6 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient, EmployeeProfile, SalarySlip, Store, AttendanceRecord, ReasonEntry, User, CartItem } from '@/lib/types';
 import { getApps } from 'firebase-admin/app';
-import * as pdfjs from 'pdfjs-dist';
 import { v4 as uuidv4 } from 'uuid';
 import { ai } from '@/ai/genkit';
 import { GetIngredientsInputSchema, GetIngredientsOutputSchema } from '@/ai/flows/recipe-ingredients-types';
@@ -87,7 +86,6 @@ async function getFirestoreCounts() {
 export async function getSystemStatus() {
     try {
         const counts = await getFirestoreCounts();
-        // LLM status is no longer checked as AI features are removed.
         return {
             status: 'ok',
             llmStatus: 'Online',
@@ -162,27 +160,6 @@ export async function importProductsFromUrl(url: string): Promise<{ success: boo
     }
 }
 
-export async function getMealDbRecipe(dishName: string): Promise<{ ingredients?: string[]; instructions?: string; error?: string }> {
-  const url = `https://www.themealdb.com/api/json/v1/1/search.php?s=${encodeURIComponent(dishName)}`;
-  try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`API returned status ${response.status}`);
-    const data = await response.json();
-    if (!data.meals || data.meals.length === 0) return { error: `No recipe found for "${dishName}".` };
-    const meal = data.meals[0];
-    const ingredients: string[] = [];
-    for (let i = 1; i <= 20; i++) {
-      const ingredient = meal['strIngredient' + i];
-      const measure = meal['strMeasure' + i];
-      if (ingredient) ingredients.push(`${measure} ${ingredient}`.trim());
-      else break;
-    }
-    return { ingredients, instructions: meal.strInstructions };
-  } catch (error: any) {
-    return { error: error.message };
-  }
-}
-
 export async function getWikipediaSummary(topic: string): Promise<{ summary?: string; error?: string }> {
     const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(topic.replace(/ /g, '_'))}`;
     try {
@@ -235,6 +212,10 @@ export async function updateManifest(newData: any): Promise<{ success: boolean; 
     }
 }
 
+/**
+ * OPTIMIZED: addRestaurantOrderItem now uses the Atomic Upsert pattern.
+ * This performs 1 write and 0 reads by utilizing arrayUnion and increment.
+ */
 export async function addRestaurantOrderItem({
   storeId,
   tableNumber,
@@ -246,6 +227,7 @@ export async function addRestaurantOrderItem({
   phone,
   deliveryLat,
   deliveryLng,
+  zoneId,
 }: {
   storeId: string;
   tableNumber: string | null;
@@ -257,48 +239,14 @@ export async function addRestaurantOrderItem({
   phone?: string;
   deliveryLat?: number;
   deliveryLng?: number;
+  zoneId?: string;
 }): Promise<{ success: boolean; error?: string }> {
   try {
     const { db } = await getAdminServices();
-    const ordersRef = db.collection('orders');
     
-    // Deterministic Order ID based on the table/session to prevent duplicates
+    // Deterministic Order ID based on the table/session
     const orderId = `${storeId}_${sessionId}`;
-    const orderDocRef = ordersRef.doc(orderId);
-    const orderSnap = await orderDocRef.get();
-
-    let orderData: any;
-
-    if (orderSnap.exists) {
-      orderData = orderSnap.data();
-    } else {
-      orderData = {
-        id: orderId, 
-        storeId, 
-        tableNumber: tableNumber || null,
-        sessionId: sessionId,
-        userId: 'guest',
-        customerName: customerName || (tableNumber ? `Table ${tableNumber}` : 'Guest'),
-        deliveryAddress: deliveryAddress || (tableNumber ? 'In-store dining' : 'TBD'),
-        deliveryLat: deliveryLat || 0,
-        deliveryLng: deliveryLng || 0,
-        phone: phone || '',
-        totalAmount: 0,
-        status: 'Draft', 
-        orderDate: Timestamp.now(), 
-        items: [],
-      };
-    }
-
-    const recipeId = `${createSlug(item.name)}_en`;
-    const recipeDoc = await db.collection('cachedRecipes').doc(recipeId).get();
-    let recipeSnapshotData: any[] = [];
-    if (recipeDoc.exists) {
-      const recipe = recipeDoc.data() as CachedRecipe;
-      recipeSnapshotData = (recipe.ingredients || []).map(ing => ({
-        name: ing.name, qty: ing.baseQuantity, unit: ing.unit || '', cost: ing.cost || 0,
-      }));
-    }
+    const orderDocRef = db.collection('orders').doc(orderId);
 
     const orderItem: OrderItem = {
       id: uuidv4(), 
@@ -309,34 +257,37 @@ export async function addRestaurantOrderItem({
       variantWeight: '1 pc', 
       quantity, 
       price: item.price,
-      recipeSnapshot: recipeSnapshotData,
     };
 
-    // If adding more items to a billed or completed session, move it back to Processing (kitchen visible)
-    let nextStatus = orderData.status || 'Draft';
-    if (['Billed', 'Completed', 'Delivered'].includes(nextStatus)) {
-        nextStatus = orderData.tableNumber ? 'Processing' : 'Pending';
-    }
-
+    // ATOMIC UPSERT: 0 reads, 1 write.
+    // If the document doesn't exist, it creates it with the base fields.
+    // If it exists, it merges items and increments the total.
     await orderDocRef.set({
-      ...orderData,
-      items: [...(orderData.items || []), orderItem],
-      totalAmount: (orderData.totalAmount || 0) + (orderItem.price * orderItem.quantity),
+      id: orderId, 
+      storeId, 
+      tableNumber: tableNumber || null,
+      sessionId: sessionId,
+      userId: 'guest',
+      customerName: customerName || (tableNumber ? `Table ${tableNumber}` : 'Guest'),
+      deliveryAddress: deliveryAddress || (tableNumber ? 'In-store dining' : 'TBD'),
+      deliveryLat: deliveryLat || 0,
+      deliveryLng: deliveryLng || 0,
+      zoneId: zoneId || null,
+      phone: phone || '',
+      status: 'Draft', 
+      orderDate: FieldValue.serverTimestamp(), 
       updatedAt: FieldValue.serverTimestamp(),
-      status: nextStatus,
+      items: FieldValue.arrayUnion(orderItem),
+      totalAmount: FieldValue.increment(orderItem.price * orderItem.quantity),
     }, { merge: true });
 
     return { success: true };
   } catch (error: any) {
-    console.error("Add restaurant item failed:", error);
+    console.error("Optimized restaurant item add failed:", error);
     return { success: false, error: error.message };
   }
 }
 
-/**
- * Confirms a draft order or requests a bill for a table session.
- * Uses Admin SDK to bypass client-side security rule restrictions for guest users.
- */
 export async function confirmOrderSession(orderId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const { db } = await getAdminServices();
@@ -350,11 +301,8 @@ export async function confirmOrderSession(orderId: string): Promise<{ success: b
     let nextStatus = currentStatus;
     
     if (currentStatus === 'Draft') {
-        // If placing a new order: 
-        // Table orders go to Processing (Kitchen), Home Deliveries go to Pending (Waiting for Owner)
         nextStatus = orderData?.tableNumber ? 'Processing' : 'Pending';
     } else if (orderData?.tableNumber) {
-        // If closing an existing table bill
         nextStatus = 'Billed';
     }
 
@@ -617,7 +565,7 @@ export async function getSalarySlipData(slipId: string, userId: string, storeId?
             slip: { ...slip, generatedAt: (slip.generatedAt as Timestamp).toDate().toISOString() },
             employee: { ...userSnap.data(), ...employeeSnap.data() },
             store,
-            attendance: { presentDays: 22, totalDays: 30, absentDays: 8 } // Simple fallback
+            attendance: { presentDays: 22, totalDays: 30, absentDays: 8 } 
         };
     } catch { return null; }
 }
@@ -669,20 +617,15 @@ export async function rejectRegularization(id: string, sid: string, r: string) {
     return approveRegularization(id, sid, false, r);
 }
 
-/**
- * Updates an employee's professional profile and potentially their login email.
- */
 export async function updateEmployee(userId: string, data: any): Promise<{ success: boolean; error?: string }> {
     const { auth, db } = await getAdminServices();
     try {
-        // 1. Update Auth if email changed
         if (data.email) {
             await auth.updateUser(userId, { email: data.email });
         }
         
         const batch = db.batch();
         
-        // 2. Update User doc
         const userRef = db.collection('users').doc(userId);
         batch.update(userRef, {
             firstName: data.firstName,
@@ -692,7 +635,6 @@ export async function updateEmployee(userId: string, data: any): Promise<{ succe
             email: data.email,
         });
         
-        // 3. Update Profile doc
         const profileRef = db.collection('employeeProfiles').doc(userId);
         batch.update(profileRef, {
             firstName: data.firstName,
@@ -704,7 +646,7 @@ export async function updateEmployee(userId: string, data: any): Promise<{ succe
             salaryType: data.salaryType,
             payoutMethod: data.payoutMethod,
             reportingTo: data.reportingTo,
-            email: data.email, // Keep denormalized copy
+            email: data.email, 
             upiId: data.payoutMethod === 'upi' ? data.upiId : null,
             bankDetails: data.payoutMethod === 'bank' ? {
                 accountHolderName: data.accountHolderName || '',
