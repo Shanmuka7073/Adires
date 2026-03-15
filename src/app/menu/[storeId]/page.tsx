@@ -239,8 +239,46 @@ function UPIPaymentDialog({ isOpen, onOpenChange, order, store, theme }: { isOpe
 }
 
 function DeliveryDetailsDialog({ isOpen, onOpenChange, onSave, initialData, theme }: { isOpen: boolean; onOpenChange: (open: boolean) => void; onSave: (data: { name: string, phone: string, address: string, lat?: number, lng?: number }) => void; initialData: { name: string, phone: string, address: string }; theme: MenuTheme | undefined; }) {
-    const [name, setName] = useState(initialData.name); const [phone, setPhone] = useState(initialData.phone); const [address, setAddress] = useState(initialData.address); const [coords, setCoords] = useState<{lat: number, lng: number} | null>(null); const [isLocating, setIsLocating] = useState(false);
-    const handleGetLocation = () => { if (!navigator.geolocation) return; setIsLocating(true); navigator.geolocation.getCurrentPosition((pos) => { const { latitude, longitude } = pos.coords; setCoords({ lat: latitude, lng: longitude }); setAddress(prev => prev || `GPS: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`); setIsLocating(false); }, () => setIsLocating(false)); };
+    const [name, setName] = useState(initialData.name);
+    const [phone, setPhone] = useState(initialData.phone);
+    const [address, setAddress] = useState(initialData.address);
+    const [coords, setCoords] = useState<{lat: number, lng: number} | null>(null);
+    const [isLocating, setIsLocating] = useState(false);
+    const { toast } = useToast();
+
+    // Sync state with props when dialog opens to reflect last saved/entered data
+    useEffect(() => {
+        if (isOpen) {
+            setName(initialData.name);
+            setPhone(initialData.phone);
+            setAddress(initialData.address);
+        }
+    }, [isOpen, initialData]);
+
+    const handleGetLocation = () => {
+        if (!navigator.geolocation) {
+            toast({ variant: 'destructive', title: 'Not Supported', description: 'Geolocation is not supported by your browser.' });
+            return;
+        }
+        setIsLocating(true);
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const { latitude, longitude } = pos.coords;
+                setCoords({ lat: latitude, lng: longitude });
+                // Force update address field with GPS data
+                setAddress(`GPS (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`);
+                setIsLocating(false);
+                toast({ title: 'Location Captured!', description: 'Your current location has been set as the delivery address.' });
+            },
+            (err) => {
+                console.error("GPS Capture failed", err);
+                setIsLocating(false);
+                toast({ variant: 'destructive', title: 'Location Error', description: 'Could not retrieve your location. Please check your browser permissions.' });
+            },
+            { timeout: 10000 }
+        );
+    };
+
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="rounded-[2rem] border-0 shadow-2xl p-6" style={{ backgroundColor: theme?.backgroundColor }}>
@@ -248,14 +286,29 @@ function DeliveryDetailsDialog({ isOpen, onOpenChange, onSave, initialData, them
                     <DialogTitle className="text-xl font-black uppercase tracking-tight" style={{ color: theme?.primaryColor }}>Your Details</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
-                    <div className="space-y-1.5"><Label className="text-[10px] uppercase font-black opacity-40 ml-1">Your Name</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full Name" className="rounded-xl h-12 border-2" style={{ borderColor: theme?.primaryColor + '20' }} /></div>
-                    <div className="space-y-1.5"><Label className="text-[10px] uppercase font-black opacity-40 ml-1">Phone</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Mobile Number" className="rounded-xl h-12 border-2" style={{ borderColor: theme?.primaryColor + '20' }} /></div>
+                    <div className="space-y-1.5">
+                        <Label className="text-[10px] uppercase font-black opacity-40 ml-1">Your Name</Label>
+                        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full Name" className="rounded-xl h-12 border-2" style={{ borderColor: theme?.primaryColor + '20' }} />
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label className="text-[10px] uppercase font-black opacity-40 ml-1">Phone</Label>
+                        <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Mobile Number" className="rounded-xl h-12 border-2" style={{ borderColor: theme?.primaryColor + '20' }} />
+                    </div>
                     <div className="space-y-1.5">
                         <Label className="text-[10px] uppercase font-black opacity-40 ml-1">Address (For Delivery Only)</Label>
-                        <div className="flex gap-2"><Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="House No, Street..." className="rounded-xl h-12 border-2 flex-1" style={{ borderColor: theme?.primaryColor + '20' }} /><Button variant="outline" size="icon" className="h-12 w-12 rounded-xl" onClick={handleGetLocation} disabled={isLocating}>{isLocating ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}</Button></div>
+                        <div className="flex gap-2">
+                            <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="House No, Street..." className="rounded-xl h-12 border-2 flex-1" style={{ borderColor: theme?.primaryColor + '20' }} />
+                            <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl" onClick={handleGetLocation} disabled={isLocating}>
+                                {isLocating ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
+                            </Button>
+                        </div>
                     </div>
                 </div>
-                <DialogFooter className="pt-4"><Button disabled={!name.trim() || !phone.trim() } onClick={() => { onSave({ name, phone, address, lat: coords?.lat, lng: coords?.lng }); onOpenChange(false); }} className="w-full h-14 rounded-2xl uppercase font-black tracking-widest text-xs" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>Confirm & Start</Button></DialogFooter>
+                <DialogFooter className="pt-4">
+                    <Button disabled={!name.trim() || !phone.trim() || isLocating} onClick={() => { onSave({ name, phone, address, lat: coords?.lat, lng: coords?.lng }); onOpenChange(false); }} className="w-full h-14 rounded-2xl uppercase font-black tracking-widest text-xs" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>
+                        Confirm & Start
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );
