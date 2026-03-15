@@ -288,11 +288,6 @@ export default function StoreOrdersPage() {
 
   const { userStore: myStore, loading: storeLoading } = useAppStore();
 
-  /**
-   * HIGH-PERFORMANCE OPERATION QUERY
-   * We filter by 'isActive' == true at the DATABASE level.
-   * This ensures the Kitchen only fetches open orders, not history.
-   */
   const activeOrdersQuery = useMemoFirebase(() =>
     firestore && myStore
       ? query(
@@ -396,7 +391,12 @@ export default function StoreOrdersPage() {
       startUpdateTransition(async () => {
           try {
               const orderRef = doc(firestore, 'orders', orderId);
-              await updateDoc(orderRef, { status: newStatus, updatedAt: serverTimestamp() });
+              const finalized = ['Delivered', 'Completed', 'Cancelled'].includes(newStatus);
+              await updateDoc(orderRef, { 
+                  status: newStatus, 
+                  updatedAt: serverTimestamp(),
+                  isActive: !finalized 
+              });
               toast({ title: "Order Updated", description: `Changed to ${newStatus}.` });
           } catch (e) { toast({ variant: 'destructive', title: "Update Failed" }); }
       });

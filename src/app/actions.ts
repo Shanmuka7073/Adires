@@ -53,7 +53,7 @@ export async function updateStoreImageUrl(storeId: string, imageUrl: string): Pr
         const { db } = await getAdminServices();
         const storeDocRef = db.collection('stores').doc(storeId);
         await storeDocRef.update({ imageUrl });
-        return { success: true };
+        return { true: true };
     } catch (error: any) {
         console.error('Server-side image URL update failed:', error);
         return { success: false, error: error.message || 'An unknown error occurred.' };
@@ -187,8 +187,8 @@ export async function updatePlaceholderImages(data: any) {
         const filePath = path.join(process.cwd(), 'src/lib/placeholder-images.json');
         await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf8');
         return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
     }
 }
 
@@ -326,23 +326,23 @@ export async function confirmOrderSession(orderId: string): Promise<{ success: b
 }
 
 /**
- * Optimized: markSessionAsPaid only reads the specific billed orders 
- * for a session and sets isActive: false to stop read amplification.
+ * Optimized: markSessionAsPaid only reads active orders for a session
+ * and sets isActive: false to stop read amplification.
  */
 export async function markSessionAsPaid(sessionId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const { db } = await getAdminServices();
     
+    // Find all active orders for this session to close them
     const snapshot = await db.collection('orders')
         .where('sessionId', '==', sessionId)
-        .where('status', '==', 'Billed')
+        .where('isActive', '==', true)
         .get();
 
-    if (snapshot.empty) return { success: false, error: 'No active billed orders found for this session.' };
+    if (snapshot.empty) return { success: true };
     
     const batch = db.batch();
     snapshot.docs.forEach(doc => {
-      // SET isActive: false. This removes the document from the Operational real-time listener instantly.
       batch.update(doc.ref, { 
         status: 'Completed', 
         isActive: false, 
