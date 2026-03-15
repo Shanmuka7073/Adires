@@ -1,3 +1,4 @@
+
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -40,6 +41,7 @@ export type Store = {
   tables?: string[]; // For restaurant table numbers
   liveVideoUrl?: string; // URL for live kitchen stream
   upiId?: string; // NEW: The UPI ID for receiving payments
+  businessType?: 'restaurant' | 'salon' | 'grocery'; // NEW: Business categorization
 };
 
 // WebAuthn types
@@ -125,6 +127,7 @@ export type Order = {
   paymentMode?: string;
   updatedAt?: any;
   zoneId?: string; // Geographic partition ID derived from pincode
+  appointmentTime?: string; // NEW: For salons
 };
 
 
