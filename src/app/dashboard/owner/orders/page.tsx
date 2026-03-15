@@ -279,29 +279,24 @@ export default function StoreOrdersPage() {
   const { userStore: myStore, loading: storeLoading } = useAppStore();
 
   /**
-   * ROBUST OPERATION CENTER QUERY
+   * HIGH-PERFORMANCE OPERATION CENTER QUERY
    * 
-   * Simplified query focusing on storeId and latest items.
-   * Filtering for active status happens client-side to avoid index delays.
+   * FIXED: moving the filter to the database level to prevent 
+   * "N+History" read explosion. We only load active operational states.
    */
-  const rawOrdersQuery = useMemoFirebase(() =>
+  const activeOrdersQuery = useMemoFirebase(() =>
     firestore && myStore
       ? query(
           collection(firestore, 'orders'),
           where('storeId', '==', myStore.id),
+          where('status', 'in', ['Draft', 'Pending', 'Processing', 'Billed', 'Out for Delivery']),
           orderBy('orderDate', 'desc'),
-          limit(100) 
+          limit(50) 
         )
       : null,
   [firestore, myStore]);
 
-  const { data: allRecentOrders, isLoading: ordersLoading, refetch } = useCollection<Order>(rawOrdersQuery);
-
-  const activeOrders = useMemo(() => {
-      if (!allRecentOrders) return [];
-      const activeStatuses = ['Pending', 'Processing', 'Billed', 'Out for Delivery', 'Draft'];
-      return allRecentOrders.filter(o => activeStatuses.includes(o.status));
-  }, [allRecentOrders]);
+  const { data: activeOrders, isLoading: ordersLoading, refetch } = useCollection<Order>(activeOrdersQuery);
 
   const fetchHistory = useCallback(() => {
     if (!firestore || !myStore || !selectedDate) return;

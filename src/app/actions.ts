@@ -214,6 +214,7 @@ export async function updateManifest(newData: any): Promise<{ success: boolean; 
 
 /**
  * ROBUST SYNC: addRestaurantOrderItem ensures POS-critical fields are written on every item add.
+ * Optimized to use setDoc with merge to prevent read amplification.
  */
 export async function addRestaurantOrderItem({
   storeId,
@@ -290,12 +291,20 @@ export async function confirmOrderSession(orderId: string): Promise<{ success: b
   try {
     const { db } = await getAdminServices();
     const orderRef = db.collection('orders').doc(orderId);
+    
+    // Optimized: Fetch the specific order by ID only.
     const orderSnap = await orderRef.get();
     
     if (!orderSnap.exists) return { success: false, error: 'Order not found' };
     
     const orderData = orderSnap.data();
     let currentStatus = orderData?.status;
+    
+    // Prevent confirming already completed/cancelled orders
+    if (['Completed', 'Delivered', 'Cancelled'].includes(currentStatus)) {
+        return { success: false, error: 'Order is already finalized.' };
+    }
+
     let nextStatus = currentStatus;
     
     if (currentStatus === 'Draft') {
@@ -316,20 +325,29 @@ export async function confirmOrderSession(orderId: string): Promise<{ success: b
   }
 }
 
-export async function getSiteConfig(configId: string): Promise<Partial<SiteConfig> | null> {
+/**
+ * Optimized: markSessionAsPaid only reads the specific billed orders 
+ * for a session, ignoring historical/completed ones.
+ */
+export async function markSessionAsPaid(sessionId: string): Promise<{ success: boolean; error?: string }> {
+  try {
     const { db } = await getAdminServices();
-    try {
-        const docSnap = await db.collection('siteConfig').doc(configId).get();
-        return docSnap.exists ? (docSnap.data() as SiteConfig) : null;
-    } catch { return null; }
-}
+    // Only fetch orders for this session that are currently waiting for payment (Billed).
+    // This prevents re-reading and re-writing thousands of old orders.
+    const snapshot = await db.collection('orders')
+        .where('sessionId', '==', sessionId)
+        .where('status', '==', 'Billed')
+        .get();
 
-export async function updateSiteConfig(configId: string, data: Partial<SiteConfig>): Promise<{ success: boolean; error?: string }> {
-    const { db } = await getAdminServices();
-    try {
-        await db.collection('siteConfig').doc(configId).set(data, { merge: true });
-        return { success: true };
-    } catch (error: any) { return { success: false, error: error.message }; }
+    if (snapshot.empty) return { success: false, error: 'No active billed orders found for this session.' };
+    
+    const batch = db.batch();
+    snapshot.docs.forEach(doc => {
+      batch.update(doc.ref, { status: 'Completed', paidAt: Timestamp.now(), paymentMode: 'UPI' });
+    });
+    await batch.commit();
+    return { success: true };
+  } catch (error: any) { return { success: false, error: error.message }; }
 }
 
 export async function getStoreSalesReport({ storeId, period }: { storeId: string; period: 'daily' | 'weekly' | 'monthly'; }) {
@@ -466,20 +484,6 @@ export async function getStoreSalesReport({ storeId, period }: { storeId: string
     console.error("Sales report generation failed:", error);
     return { success: false, error: error.message };
   }
-}
-
-export async function markSessionAsPaid(sessionId: string): Promise<{ success: boolean; error?: string }> {
-  try {
-    const { db } = await getAdminServices();
-    const snapshot = await db.collection('orders').where('sessionId', '==', sessionId).get();
-    if (snapshot.empty) return { success: false, error: 'No orders found' };
-    const batch = db.batch();
-    snapshot.docs.forEach(doc => {
-      batch.update(doc.ref, { status: 'Completed', paidAt: Timestamp.now(), paymentMode: 'UPI' });
-    });
-    await batch.commit();
-    return { success: true };
-  } catch (error: any) { return { success: false, error: error.message }; }
 }
 
 export async function bulkUploadRecipes(csvText: string): Promise<{ success: boolean; count: number; error?: string }> {

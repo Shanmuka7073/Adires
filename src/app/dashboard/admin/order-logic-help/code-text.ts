@@ -3,43 +3,49 @@
 
 export const orderLogicCodeText = [
     {
-        path: 'src/app/actions.ts (Restaurant Order Creation)',
+        path: 'src/app/dashboard/owner/orders/page.tsx (Optimized Active Query)',
         content: `
 /**
- * HIGH-PERFORMANCE RESTAURANT ORDER ARCHITECTURE
+ * HIGH-PERFORMANCE OPERATION CENTER QUERY
  * 
- * 1. DETERMINISTIC IDs:
- * We use orderId = storeId + "_" + sessionId. This allows multiple
- * customers to contribute to the same bill without any 'get' queries.
- * 
- * 2. ATOMIC UPSERTS:
- * We use setDoc(ref, ..., { merge: true }) with FieldValue.arrayUnion 
- * and FieldValue.increment. This performs 1 write and 0 reads.
- * 
- * 3. FIELD MAPPING:
- * We explicitly write 'storeId', 'tableNumber' (as string), and 'status' 
- * fields to ensure the POS Dashboard query picks it up instantly.
+ * We strictly filter by status at the DATABASE level.
+ * This prevents the "N+History" read explosion where the dashboard
+ * would waste money reading thousands of old, completed orders.
  */
-export async function addRestaurantOrderItem({
-  storeId,
-  tableNumber,
-  sessionId,
-  item,
-  quantity,
-}) {
-  const orderId = \`\${storeId}_\${sessionId}\`;
-  const orderRef = db.collection('orders').doc(orderId);
+const activeOrdersQuery = useMemoFirebase(() =>
+  firestore && myStore
+    ? query(
+        collection(firestore, 'orders'),
+        where('storeId', '==', myStore.id),
+        // DB-LEVEL FILTER: Exclude Completed/Delivered/Cancelled
+        where('status', 'in', ['Draft', 'Pending', 'Processing', 'Billed', 'Out for Delivery']),
+        orderBy('orderDate', 'desc'),
+        limit(50)
+      )
+    : null,
+[firestore, myStore]);
+`,
+    },
+    {
+        path: 'src/app/actions.ts (Optimized markSessionAsPaid)',
+        content: `
+/**
+ * TARGETED BATCH UPDATE
+ * 
+ * Instead of reading the entire session, we only read orders that are 
+ * actually ready for payment (status == 'Billed').
+ */
+export async function markSessionAsPaid(sessionId: string) {
+  const snapshot = await db.collection('orders')
+      .where('sessionId', '==', sessionId)
+      .where('status', '==', 'Billed') // TARGETED READ
+      .get();
 
-  // 0 READS, 1 WRITE
-  await orderRef.set({
-    id: orderId,
-    storeId: storeId, 
-    tableNumber: tableNumber ? String(tableNumber) : null,
-    status: 'Draft',
-    orderDate: FieldValue.serverTimestamp(),
-    items: FieldValue.arrayUnion(orderItem),
-    totalAmount: FieldValue.increment(item.price * quantity),
-  }, { merge: true });
+  const batch = db.batch();
+  snapshot.docs.forEach(doc => {
+    batch.update(doc.ref, { status: 'Completed', ... });
+  });
+  await batch.commit();
 }
 `,
     }
