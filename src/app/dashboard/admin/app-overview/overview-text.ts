@@ -8,49 +8,45 @@ LocalBasket is a multi-role hyperlocal grocery and restaurant platform. It lever
 
 ---
 
-### 🥗 1. Restaurant POS & Table Management
-The app turns any restaurant into a high-tech operation with zero hardware cost.
+### 🏛️ 1. Multi-Vertical Data Architecture
+The platform is designed to support Restaurants, Salons, and Retailers using a **Unified Behavioral Schema**. 
 
-*   **AI Menu Scanning**: Owners don't type. They upload a photo of a paper menu. The AI extracts names, prices, categories, and ingredients.
-*   **Dynamic Floor Map**: The "Store Orders" dashboard shows every table in the restaurant. It highlights which tables are active, which are waiting for food, and which are ready to pay ("Billed").
-*   **Kitchen Display System (KDS)**: Home deliveries appear at the top, while table orders appear on the map. The kitchen can "Accept" and "Process" orders in real-time.
-*   **QR Table Ordering**: Each table gets a unique QR code. When scanned, it opens a customized web app for that specific table. Guests can order and add to their bill without calling a waiter.
+*   **Behavioral Collections**: Instead of business-specific collections (like 'salonServices'), we use operational nature:
+    *   **Catalog Items (Retail/Dairy)**: Standardized goods with variants and stock levels.
+    *   **Service/Menu Items (Restaurant/Salon)**: Craft-based items requiring preparation or scheduling.
+*   **The Benefit**: This allows the AI to apply different logic (e.g., weight validation for retail vs. time-slot validation for salons) while keeping the database lean and fast.
 
 ---
 
-### 🚚 2. Home Delivery & Logistics
+### 🥗 2. Restaurant & Salon Operations
+The app turns any service business into a high-tech operation with zero hardware cost.
+
+*   **AI Menu Scanning**: Owners upload a photo of a menu. The AI extracts names, prices, categories, and components (ingredients for food, materials for salons).
+*   **Dynamic Floor Map**: The "Store Orders" dashboard shows every table/chair. It highlights which are active, waiting, or ready to pay ("Billed").
+*   **Integrated Booking**: For Salons, the app automatically switches to a "Book Appointment" flow with a date scroller and time picker.
+*   **QR Ordering**: Each table/chair gets a unique QR code. Guests can order or book directly from their phone.
+
+---
+
+### 🚚 3. Home Delivery & Logistics
 Built for precision and speed in the Indian context.
 
-*   **GPS Pinning**: Customers can use a "One-Tap GPS" button to pin their exact delivery location, which is then passed directly to Google Maps for the delivery partner.
-*   **Live Tracker**: Once an order is "Out for Delivery," the customer sees a live status bar and a **20-minute arrival countdown**.
-*   **Live Prep Video**: Customers can watch a live stream of the kitchen (configured via Site Config) while waiting for their food.
-*   **Geographic Partitioning**: Orders are tagged with a \`zoneId\` (pincode). Delivery partners only see jobs in their specific zone, ensuring the system scales to millions of users without slowing down.
-
----
-
-### 📱 3. The "Install App" (PWA) Feature
-We use Progressive Web App technology to act like a native Android/iOS app.
-
-*   **Platform Install**: The main LocalBasket app can be installed from the browser.
-*   **Restaurant Branding**: Crucially, every restaurant has its own **Dynamic Manifest**. When a user scans a QR code for "Paradise Biryani," they can install *just* that restaurant as a separate icon on their home screen.
-*   **Push Notifications**: The system integrates with Firebase Cloud Messaging (FCM) to send status updates directly to the user's phone.
+*   **GPS Pinning**: Customers use a "One-Tap GPS" button to pin their location, passed directly to Google Maps for delivery partners.
+*   **Live Tracker**: Customers see a live status bar and a **20-minute arrival countdown**.
+*   **Geographic Partitioning**: Orders are tagged with a \`zoneId\` (pincode). Partners only see jobs in their specific zone, ensuring global scalability.
 
 ---
 
 ### 🎙️ 4. Voice ID & NLU Engine
 The "Brain" of the platform.
 
-*   **Multilingual NLU**: Our custom engine understands English, Telugu, and Hindi mixed sentences. It can extract quantities (1kg, 250gm), prices (50 rupees), and products simultaneously.
-*   **Voice ID**: A biometric feature allowing users to enroll their voice as a secure password for one-tap logins.
-*   **Alias Learning**: If the voice engine fails, it logs the error. The Admin reviews these in the "Failed Command Center" and creates new "Aliases" to teach the app new words.
+*   **Multilingual NLU**: Understands English, Telugu, and Hindi mixed sentences. It extracts quantities, prices, and products simultaneously.
+*   **Voice ID**: A biometric feature allowing users to enroll their voice as a secure key for authentication.
+*   **Self-Learning**: Failed commands are logged for Admin review to teach the app new regional aliases.
 
 ---
 
 ### 📈 5. Business Economics & Intelligence
-Turning data into profit.
-
-*   **Ingredient Cost Catalog**: Admins maintain a master list of raw ingredient costs (e.g., Rice at ₹60/kg).
-*   **Recipe Snapshots**: When a dish is ordered, the app takes a "snapshot" of its current ingredient costs.
-*   **Gross Profit Analysis**: The "Sales Report" calculates the exact profit for every dish and every table by subtracting the snapshot ingredient cost from the selling price.
-*   **Waste Reduction**: By tracking ingredient consumption, owners can see exactly how much stock they should be buying.
+*   **Ingredient Cost Catalog**: Admins maintain master raw material costs.
+*   **Gross Profit Analysis**: The app calculates exact profit for every dish/service and every table by subtracting ingredient/material costs from the selling price.
 `;
