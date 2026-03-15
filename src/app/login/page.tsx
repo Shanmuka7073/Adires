@@ -69,7 +69,9 @@ export default function LoginPage() {
        } else if (user.email === CHICKEN_ADMIN_EMAIL) {
             router.push('/dashboard/chicken-admin');
        } else if (userData.accountType === 'restaurant') {
-            router.push('/dashboard/restaurant');
+            router.push('/dashboard/restaurant'); // Restaurant owners go to their dash
+       } else if (userData.accountType === 'groceries') {
+            router.push('/'); // Grocery users go to the marketplace immediately
        } else {
             router.push(redirectTo);
        }
