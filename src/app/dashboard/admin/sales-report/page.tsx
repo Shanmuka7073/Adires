@@ -5,26 +5,20 @@ import { useEffect, useState, useTransition, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BarChart3, TrendingUp, ShoppingCart, Beef, Carrot, Grape, Download } from 'lucide-react';
+import { BarChart3, TrendingUp, ShoppingBag, Beef, Carrot, Grape, Download } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirebase } from '@/firebase';
 import { collection, query, where, Timestamp, getDocs } from 'firebase/firestore';
-import type { Order, OrderItem, Product } from '@/lib/types';
+import type { Order, ReportData } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
 
 type ReportCategory = {
   totalSales: number;
   itemCount: number;
   topProducts: { name: string; count: number }[];
-};
-
-type ReportData = {
-  grocery: ReportCategory;
-  meat: ReportCategory;
-  vegetable: ReportCategory;
 };
 
 function ReportCard({ title, data, icon: Icon, isLoading }: { title: string; data: ReportCategory | null; icon: React.ElementType; isLoading: boolean }) {
@@ -82,7 +76,7 @@ function ReportCard({ title, data, icon: Icon, isLoading }: { title: string; dat
                 </div>
                 <div className="flex justify-between items-baseline">
                      <div className="flex items-center gap-2">
-                        <ShoppingCart className="h-5 w-5 text-blue-500" />
+                        <ShoppingBag className="h-5 w-5 text-blue-500" />
                         <span className="text-sm text-muted-foreground">Items Sold</span>
                     </div>
                     <p className="text-2xl font-bold">{data.itemCount}</p>
@@ -107,7 +101,7 @@ function ReportCard({ title, data, icon: Icon, isLoading }: { title: string; dat
     );
 }
 
-const generateReport = async (db, period: 'daily' | 'monthly'): Promise<ReportData | null> => {
+const generateReport = async (db: any, period: 'daily' | 'monthly'): Promise<any | null> => {
     const now = new Date();
     let startDate: Date;
 
@@ -140,9 +134,8 @@ const generateReport = async (db, period: 'daily' | 'monthly'): Promise<ReportDa
         const vegetableCategories = ['vegetables'];
 
         for (const order of deliveredOrders) {
-            const itemsQuery = collection(db, 'orders', order.id, 'orderItems');
-            const itemsSnapshot = await getDocs(itemsQuery);
-            const items = itemsSnapshot.docs.map(doc => doc.data() as OrderItem);
+            // FIX: Items are embedded in the 'items' array, not a subcollection
+            const items = order.items || [];
 
             for (const item of items) {
                 const itemTotal = item.price * item.quantity;
@@ -189,8 +182,8 @@ export default function SalesReportPage() {
     const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
     const router = useRouter();
     const { firestore } = useFirebase();
-    const [dailyReport, setDailyReport] = useState<ReportData | null>(null);
-    const [monthlyReport, setMonthlyReport] = useState<ReportData | null>(null);
+    const [dailyReport, setDailyReport] = useState<any | null>(null);
+    const [monthlyReport, setMonthlyReport] = useState<any | null>(null);
     const [isLoading, startLoading] = useTransition();
     const [activeTab, setActiveTab] = useState<'daily' | 'monthly'>('daily');
 
@@ -207,8 +200,6 @@ export default function SalesReportPage() {
                 generateReport(firestore, 'daily'),
                 generateReport(firestore, 'monthly')
             ]);
-            console.log("Daily Result:", dailyData);
-            console.log("Monthly Result:", monthlyData);
             setDailyReport(dailyData);
             setMonthlyReport(monthlyData);
         });
@@ -218,7 +209,7 @@ export default function SalesReportPage() {
         if (isAdmin && firestore) {
           fetchReports();
         }
-    }, [isAdmin, firestore]);
+    }, [isAdmin, firestore, fetchReports]);
     
     const handleDownload = () => {
         const reportToDownload = activeTab === 'daily' ? dailyReport : monthlyReport;
@@ -227,7 +218,7 @@ export default function SalesReportPage() {
         const headers = ["Category", "Total Sales (INR)", "Items Sold", "Top Product 1", "Top Product 1 Qty", "Top Product 2", "Top Product 2 Qty"];
         let csvContent = headers.join(",") + "\n";
 
-        Object.entries(reportToDownload).forEach(([categoryName, categoryData]) => {
+        Object.entries(reportToDownload).forEach(([categoryName, categoryData]: [string, any]) => {
             const topProducts = categoryData.topProducts.slice(0, 2);
             const row = [
                 `"${categoryName.charAt(0).toUpperCase() + categoryName.slice(1)}"`,
@@ -268,9 +259,9 @@ export default function SalesReportPage() {
                         <div className="flex items-center gap-3">
                             <BarChart3 className="h-8 w-8 text-primary" />
                             <div>
-                                <CardTitle className="text-3xl font-headline">Sales Reports</CardTitle>
+                                <CardTitle className="text-3xl font-headline">Admin Sales Reports</CardTitle>
                                 <CardDescription>
-                                    An overview of your daily and monthly sales performance.
+                                    Platform-wide aggregate sales data using the optimized Embedded Array architecture.
                                 </CardDescription>
                             </div>
                         </div>
