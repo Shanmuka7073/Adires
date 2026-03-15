@@ -213,9 +213,7 @@ export async function updateManifest(newData: any): Promise<{ success: boolean; 
 }
 
 /**
- * OPTIMIZED: addRestaurantOrderItem now uses the Atomic Upsert pattern with Deterministic IDs.
- * 1. Deterministic ID based on store + session ensures multiple people sync to one bill.
- * 2. Field mapping ensures tableNumber and storeId are always present for POS queries.
+ * ROBUST SYNC: addRestaurantOrderItem ensures POS-critical fields are written on every item add.
  */
 export async function addRestaurantOrderItem({
   storeId,
@@ -245,7 +243,7 @@ export async function addRestaurantOrderItem({
   try {
     const { db } = await getAdminServices();
     
-    // DETERMINISTIC ID: Crucial for table service reliability
+    // Deterministic ID ensures we target the correct bill session instantly.
     const orderId = `${storeId}_${sessionId}`;
     const orderDocRef = db.collection('orders').doc(orderId);
 
@@ -260,9 +258,8 @@ export async function addRestaurantOrderItem({
       price: item.price,
     };
 
-    // ATOMIC UPSERT: 0 reads, 1 write.
-    // Writes all required search fields (storeId, tableNumber, status)
-    // to ensure POS dashboard query pick it up instantly.
+    // ATOMIC WRITE: We write all search-critical fields (storeId, status, tableNumber)
+    // on every item addition. This ensures the POS listener never misses an update.
     await orderDocRef.set({
       id: orderId, 
       storeId: storeId, 
@@ -273,9 +270,9 @@ export async function addRestaurantOrderItem({
       deliveryAddress: deliveryAddress || (tableNumber ? 'In-store dining' : 'TBD'),
       deliveryLat: deliveryLat || 0,
       deliveryLng: deliveryLng || 0,
-      zoneId: zoneId || null,
+      zoneId: zoneId || 'local-service', // Ensure zoneId is never null for partitioned queries
       phone: phone || '',
-      status: 'Draft', // Draft orders are visible in the operation center
+      status: 'Draft', 
       orderDate: FieldValue.serverTimestamp(), 
       updatedAt: FieldValue.serverTimestamp(),
       items: FieldValue.arrayUnion(orderItem),
@@ -284,7 +281,7 @@ export async function addRestaurantOrderItem({
 
     return { success: true };
   } catch (error: any) {
-    console.error("Optimized restaurant item add failed:", error);
+    console.error("Robust POS add failed:", error);
     return { success: false, error: error.message };
   }
 }

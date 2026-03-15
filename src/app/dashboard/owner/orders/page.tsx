@@ -28,7 +28,9 @@ import {
   ChevronDown,
   Download,
   Trash2,
-  Coffee
+  Coffee,
+  RefreshCw,
+  FileEdit
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -49,13 +51,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useAppStore } from '@/lib/store';
 
 const STATUS_META: Record<string, any> = {
-  Pending: { icon: AlertTriangle, variant: 'secondary', color: 'text-amber-600' },
-  Processing: { icon: CookingPot, variant: 'secondary', color: 'text-blue-600' },
-  'Out for Delivery': { icon: Truck, variant: 'outline', color: 'text-purple-600' },
-  Billed: { icon: Check, variant: 'default', color: 'text-green-600' },
-  Completed: { icon: CheckCircle, variant: 'default', color: 'text-gray-600' },
-  Delivered: { icon: CheckCircle, variant: 'default', color: 'text-gray-600' },
-  Cancelled: { icon: AlertTriangle, variant: 'destructive', color: 'text-red-600' },
+  Draft: { icon: FileEdit, variant: 'outline', color: 'text-gray-400', label: 'Draft' },
+  Pending: { icon: AlertTriangle, variant: 'secondary', color: 'text-amber-600', label: 'New' },
+  Processing: { icon: CookingPot, variant: 'secondary', color: 'text-blue-600', label: 'Kitchen' },
+  'Out for Delivery': { icon: Truck, variant: 'outline', color: 'text-purple-600', label: 'Delivery' },
+  Billed: { icon: Check, variant: 'default', color: 'text-green-600', label: 'Ready' },
+  Completed: { icon: CheckCircle, variant: 'default', color: 'text-gray-600', label: 'Paid' },
+  Delivered: { icon: CheckCircle, variant: 'default', color: 'text-gray-600', label: 'Done' },
+  Cancelled: { icon: AlertTriangle, variant: 'destructive', color: 'text-red-600', label: 'Void' },
 };
 
 interface Session {
@@ -144,12 +147,12 @@ function SessionCard({ session, isUpdating }: { session: Session; isUpdating: bo
     });
   };
 
-  const meta = STATUS_META[session.status];
+  const meta = STATUS_META[session.status] || STATUS_META.Pending;
 
   return (
     <Card className={cn(
         "rounded-[2rem] transition-all overflow-hidden h-full flex flex-col border-0 shadow-xl",
-        session.status === 'Billed' ? 'ring-4 ring-green-500 bg-green-50' : 'bg-white'
+        session.status === 'Billed' ? 'ring-4 ring-green-500 bg-green-50' : (session.status === 'Draft' ? 'opacity-80 bg-slate-50 border-2 border-dashed' : 'bg-white')
     )}>
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
@@ -158,7 +161,7 @@ function SessionCard({ session, isUpdating }: { session: Session; isUpdating: bo
                  <CardDescription className="text-[10px] font-mono opacity-40">Session: {session.id.slice(-6)}</CardDescription>
             </div>
              <Badge variant={meta?.variant || 'secondary'} className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest">
-                {session.status}
+                {meta.label}
              </Badge>
         </div>
       </CardHeader>
@@ -186,10 +189,10 @@ function SessionCard({ session, isUpdating }: { session: Session; isUpdating: bo
                     session.status === 'Billed' ? 'bg-green-600 hover:bg-green-700' : 'bg-primary'
                 )}
                 onClick={handleConfirmPayment}
-                disabled={isUpdating || isCompleting}
+                disabled={isUpdating || isCompleting || session.status === 'Draft'}
             >
                 {isCompleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Check className="mr-2 h-4 w-4" />}
-                {session.status === 'Billed' ? 'Receive Payment' : 'Confirm & Prep'}
+                {session.status === 'Billed' ? 'Receive Payment' : session.status === 'Draft' ? 'Customer Ordering...' : 'Confirm & Prep'}
             </Button>
       </CardFooter>
     </Card>
@@ -226,7 +229,7 @@ function DeliveryOrderCard({ order, store, onStatusChange, isUpdating }: { order
                                     : 'Recently Placed'}
                         </CardDescription>
                     </div>
-                    <Badge variant={meta.variant} className="rounded-md px-2 py-0.5 text-[9px] font-black uppercase tracking-widest">{order.status}</Badge>
+                    <Badge variant={meta.variant} className="rounded-md px-2 py-0.5 text-[9px] font-black uppercase tracking-widest">{meta.label}</Badge>
                 </div>
             </CardHeader>
             <CardContent className="space-y-4 pt-5 flex-1 text-xs">
@@ -276,24 +279,29 @@ export default function StoreOrdersPage() {
   const { userStore: myStore, loading: storeLoading } = useAppStore();
 
   /**
-   * OPTIMIZED OPERATION CENTER QUERY
+   * ROBUST OPERATION CENTER QUERY
    * 
-   * To fix the "reading all orders" issue, we strictly filter by
-   * active statuses and limit to 50 results.
+   * Simplified query focusing on storeId and latest items.
+   * Filtering for active status happens client-side to avoid index delays.
    */
-  const activeOrdersQuery = useMemoFirebase(() =>
+  const rawOrdersQuery = useMemoFirebase(() =>
     firestore && myStore
       ? query(
           collection(firestore, 'orders'),
           where('storeId', '==', myStore.id),
-          where('status', 'in', ['Pending', 'Processing', 'Billed', 'Out for Delivery', 'Draft']),
           orderBy('orderDate', 'desc'),
-          limit(50) // OPTIMIZED: Prevents read explosion
+          limit(100) 
         )
       : null,
   [firestore, myStore]);
 
-  const { data: allActiveOrders, isLoading: ordersLoading } = useCollection<Order>(activeOrdersQuery);
+  const { data: allRecentOrders, isLoading: ordersLoading, refetch } = useCollection<Order>(rawOrdersQuery);
+
+  const activeOrders = useMemo(() => {
+      if (!allRecentOrders) return [];
+      const activeStatuses = ['Pending', 'Processing', 'Billed', 'Out for Delivery', 'Draft'];
+      return allRecentOrders.filter(o => activeStatuses.includes(o.status));
+  }, [allRecentOrders]);
 
   const fetchHistory = useCallback(() => {
     if (!firestore || !myStore || !selectedDate) return;
@@ -310,7 +318,7 @@ export default function StoreOrdersPage() {
             where('orderDate', '>=', Timestamp.fromDate(start)),
             where('orderDate', '<=', Timestamp.fromDate(end)),
             orderBy('orderDate', 'desc'),
-            limit(50)
+            limit(100)
         );
 
         try {
@@ -331,12 +339,12 @@ export default function StoreOrdersPage() {
     const directDeliveries: Order[] = [];
     const others: Session[] = [];
 
-    if (!allActiveOrders) return { sessions: tableSessions, homeDeliveries: directDeliveries, otherSessions: others };
+    if (!activeOrders) return { sessions: tableSessions, homeDeliveries: directDeliveries, otherSessions: others };
 
     const normalizeTable = (t: string) => t.toLowerCase().replace('table ', '').trim();
     const myTableSet = new Set(myStore?.tables?.map(normalizeTable) || []);
 
-    allActiveOrders.forEach(order => {
+    activeOrders.forEach(order => {
         const orderDate = order.orderDate instanceof Timestamp 
             ? order.orderDate.toDate() 
             : order.orderDate instanceof Date 
@@ -377,7 +385,7 @@ export default function StoreOrdersPage() {
     });
 
     return { sessions: finalSessions, homeDeliveries: directDeliveries, otherSessions: others };
-  }, [allActiveOrders, myStore?.tables]);
+  }, [activeOrders, myStore?.tables]);
 
   const handleOrderUpdate = (orderId: string, newStatus: Order['status']) => {
       if (!firestore) return;
@@ -421,6 +429,7 @@ export default function StoreOrdersPage() {
                 <p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">STORE: {myStore?.name || '...'}</p>
             </div>
             <div className="flex gap-3">
+                <Button onClick={() => refetch?.()} variant="outline" className="h-12 px-4 rounded-2xl font-black text-[10px] uppercase border-2"><RefreshCw className="h-4 w-4" /></Button>
                 <Button asChild variant="outline" className="h-12 px-6 rounded-2xl font-black text-[10px] uppercase border-2"><Link href="/dashboard/owner/sales-report">Reports & Profit</Link></Button>
                 <Button asChild className="h-12 px-6 rounded-2xl font-black text-[10px] uppercase bg-primary text-white"><Link href="/dashboard/owner/menu-manager"><PlusCircle className="mr-2 h-4 w-4" /> Manage Menu</Link></Button>
             </div>
