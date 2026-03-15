@@ -9,14 +9,15 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
-import { Search, Mic, ChevronDown, MapPin, User as UserCircle, Globe, Download, Loader2, Info, ChefHat, Sparkles, ArrowRight, Store as StoreIcon } from 'lucide-react';
+import { Search, Mic, ChevronDown, MapPin, User as UserCircle, Globe, Download, Loader2, Info, ChefHat, Sparkles, ArrowRight, Store as StoreIcon, LayoutGrid, Beef, Scissors } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import StoreCard from '@/components/store-card';
+import ProductCard from '@/components/product-card';
 import { doc } from 'firebase/firestore';
 import { useVoiceCommanderContext } from '@/components/layout/voice-commander-context';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { CartIcon } from '@/components/cart/cart-icon';
 import { RecipeCard } from '@/components/features/recipe-card';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -101,6 +102,28 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
     );
 }
 
+function HubNavigation() {
+    return (
+        <ScrollArea className="w-full whitespace-nowrap py-4 border-b bg-white">
+            <div className="flex gap-4 px-4">
+                <Button asChild variant="outline" className="rounded-full h-10 px-6 font-black text-[10px] uppercase tracking-widest border-2">
+                    <Link href="/stores"><LayoutGrid className="mr-2 h-4 w-4" /> Market Hub</Link>
+                </Button>
+                <Button asChild variant="outline" className="rounded-full h-10 px-6 font-black text-[10px] uppercase tracking-widest border-2">
+                    <Link href="/stores?category=restaurants"><Beef className="mr-2 h-4 w-4" /> Food</Link>
+                </Button>
+                <Button asChild variant="outline" className="rounded-full h-10 px-6 font-black text-[10px] uppercase tracking-widest border-2">
+                    <Link href="/stores?category=salons"><Scissors className="mr-2 h-4 w-4" /> Beauty</Link>
+                </Button>
+                <Button asChild variant="outline" className="rounded-full h-10 px-6 font-black text-[10px] uppercase tracking-widest border-2">
+                    <Link href="/stores?category=retail"><ShoppingBag className="mr-2 h-4 w-4" /> Groceries</Link>
+                </Button>
+            </div>
+            <ScrollBar orientation="horizontal" className="opacity-0" />
+        </ScrollArea>
+    );
+}
+
 export default function LocalBasketHomepage() {
   const { firestore, user } = useFirebase();
   const { isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
@@ -128,6 +151,8 @@ export default function LocalBasketHomepage() {
     <div className="min-h-screen bg-[#f8fafc] pb-20">
       <HomepageHeader onSearchChange={setSearchTerm} user={userData} onMicClick={onToggleVoice} />
       
+      {!searchTerm && <HubNavigation />}
+
       <main className="p-4 space-y-8">
         {isAppLoading && !isInitialized ? (
             <div className="space-y-6">
