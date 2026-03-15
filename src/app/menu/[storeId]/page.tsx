@@ -96,6 +96,64 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
+function TimePicker({ value, onChange, theme }: { value: string, onChange: (val: string) => void, theme: MenuTheme | undefined }) {
+    const [h, m, p] = useMemo(() => {
+        if (!value) return ["10", "00", "AM"];
+        const match = value.match(/(\d+):(\d+)\s*(AM|PM)/i);
+        return match ? [match[1], match[2], match[3].toUpperCase()] : ["10", "00", "AM"];
+    }, [value]);
+
+    const update = (newH: string, newM: string, newP: string) => {
+        onChange(`${newH}:${newM} ${newP}`);
+    };
+
+    const hours = Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, '0'));
+    const minutes = ["00", "15", "30", "45"];
+
+    return (
+        <div className="flex items-center justify-center gap-3 py-2">
+            <div className="flex flex-col items-center gap-1.5">
+                <p className="text-[8px] font-black uppercase opacity-40" style={{ color: theme?.textColor }}>Hour</p>
+                <Select value={h} onValueChange={(v) => update(v, m, p)}>
+                    <SelectTrigger className="w-20 h-14 rounded-xl border-2 text-xl font-black bg-black/5" style={{ borderColor: theme?.primaryColor + '40', color: theme?.textColor }}>
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {hours.map(hr => <SelectItem key={hr} value={hr}>{hr}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </div>
+            <span className="text-2xl font-black mt-5" style={{ color: theme?.textColor }}>:</span>
+            <div className="flex flex-col items-center gap-1.5">
+                <p className="text-[8px] font-black uppercase opacity-40" style={{ color: theme?.textColor }}>Min</p>
+                <Select value={m} onValueChange={(v) => update(h, v, p)}>
+                    <SelectTrigger className="w-20 h-14 rounded-xl border-2 text-xl font-black bg-black/5" style={{ borderColor: theme?.primaryColor + '40', color: theme?.textColor }}>
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {minutes.map(min => <SelectItem key={min} value={min}>{min}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </div>
+            <div className="flex flex-col items-center gap-1.5 ml-2">
+                <p className="text-[8px] font-black uppercase opacity-40" style={{ color: theme?.textColor }}>Period</p>
+                <div className="flex border-2 rounded-xl overflow-hidden h-14 bg-black/5" style={{ borderColor: theme?.primaryColor + '40' }}>
+                    <button 
+                        className={cn("px-4 text-xs font-black transition-all", p === 'AM' ? "shadow-inner" : "opacity-30")}
+                        style={{ backgroundColor: p === 'AM' ? theme?.primaryColor : 'transparent', color: p === 'AM' ? theme?.backgroundColor : theme?.textColor }}
+                        onClick={() => update(h, m, 'AM')}
+                    >AM</button>
+                    <button 
+                        className={cn("px-4 text-xs font-black transition-all", p === 'PM' ? "shadow-inner" : "opacity-30")}
+                        style={{ backgroundColor: p === 'PM' ? theme?.primaryColor : 'transparent', color: p === 'PM' ? theme?.backgroundColor : theme?.textColor }}
+                        onClick={() => update(h, m, 'PM')}
+                    >PM</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function UPIPaymentDialog({ isOpen, onOpenChange, order, store, theme }: { isOpen: boolean; onOpenChange: (open: boolean) => void; order: Order; store: Store; theme: MenuTheme | undefined; }) {
     if (!store.upiId) return null;
     const itemsSummary = order.items.map(it => `${it.productName}(${it.quantity})`).join(', ');
@@ -179,14 +237,10 @@ function ModeSelectionDialog({ isOpen, onOpenChange, onSelectMode, currentMode, 
 function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId: string; theme: MenuTheme | undefined; store: Store; onShowUpi: () => void; isSalon: boolean }) {
   const { firestore } = useFirebase(); const { toast } = useToast(); const [closing, startClose] = useTransition();
   const { data: order, isLoading } = useDoc<Order>(useMemoFirebase(() => (firestore ? doc(firestore, 'orders', orderId) : null), [firestore, orderId]));
-  const [selectedTime, setSelectedTime] = useState<string>("");
+  const [selectedTime, setSelectedTime] = useState<string>("10:00 AM");
 
   const closeBill = async () => { 
     if (!order) return; 
-    if (isSalon && !selectedTime.trim()) {
-        toast({ variant: 'destructive', title: 'Time Required', description: 'Please enter a preferred time for your appointment.' });
-        return;
-    }
     startClose(async () => { 
         const result = await confirmOrderSession(order.id); 
         if (result.success) {
@@ -216,20 +270,14 @@ function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId:
         <SheetHeader className='p-5 border-b' style={{ borderColor: theme?.primaryColor + '20' }}><SheetTitle className="flex items-center gap-2 text-lg font-bold" style={{ color: theme?.primaryColor }}><Receipt className="h-5 w-5" /> {isSalon ? 'Appointment Summary' : 'Live Bill'}</SheetTitle></SheetHeader>
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
              {isSalon && (
-                 <div className="space-y-3">
-                    <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor }}>{isDraft ? 'Enter Appointment Time' : 'Confirmed Appointment Time'}</h4>
+                 <div className="space-y-4">
+                    <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor }}>{isDraft ? 'Select Appointment Time' : 'Confirmed Appointment Time'}</h4>
                     {isDraft ? (
-                        <div className="space-y-2">
-                            <Input 
-                                type="text"
-                                placeholder="e.g. 10:30 AM, Today at 4pm"
-                                value={selectedTime}
-                                onChange={(e) => setSelectedTime(e.target.value)}
-                                className="rounded-xl h-14 border-2 text-center font-black text-lg bg-black/5"
-                                style={{ borderColor: theme?.primaryColor + '40', color: theme?.textColor }}
-                            />
-                            <p className="text-[9px] font-bold uppercase tracking-tight opacity-40 text-center" style={{ color: theme?.textColor }}>Type your preferred time for the service.</p>
-                        </div>
+                        <TimePicker 
+                            value={selectedTime}
+                            onChange={setSelectedTime}
+                            theme={theme}
+                        />
                     ) : order.appointmentTime ? (
                         <div className="p-4 rounded-2xl border-2 bg-primary/5 flex items-center justify-between" style={{ borderColor: theme?.primaryColor + '30' }}>
                             <div>
