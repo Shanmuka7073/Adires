@@ -245,6 +245,7 @@ export async function addRestaurantOrderItem({
       id: uuidv4(), 
       orderId: orderId,
       productId: `${storeId}-${createSlug(item.name)}`,
+      menuItemId: item.id, // Store the reference to the original menu item
       productName: item.name, 
       variantSku: 'default',
       variantWeight: '1 pc', 

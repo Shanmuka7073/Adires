@@ -95,7 +95,7 @@ export type OrderItem = {
   id: string;
   orderId: string;
   productId: string;
-  menuItemId?: string; // Reference to the menu item for cost calculation
+  menuItemId: string; // Reference to the original menu item for robust cost calculation and analytics
   productName: string;
   variantSku: string;
   variantWeight: string;
