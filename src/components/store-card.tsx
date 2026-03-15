@@ -6,10 +6,11 @@ import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import type { Store } from '@/lib/types';
 import { getStoreImage } from '@/lib/data';
-import { Star, Clock, MapPin } from 'lucide-react';
+import { Star, Clock, MapPin, LayoutGrid, Scissors, Utensils } from 'lucide-react';
 import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from './ui/skeleton';
 import { Badge } from './ui/badge';
+import { cn } from '@/lib/utils';
 
 interface StoreCardProps {
   store: Store;
@@ -58,13 +59,28 @@ function StoreCard({ store }: StoreCardProps) {
                     <Badge className="bg-white/90 backdrop-blur-sm text-gray-950 hover:bg-white text-[9px] font-black uppercase tracking-widest border-0">
                         <Star className="h-3 w-3 fill-amber-400 text-amber-400 mr-1" /> {rating}
                     </Badge>
-                    {isSalon && <Badge className="bg-primary text-white border-0 text-[9px] font-black uppercase tracking-widest">Salon</Badge>}
-                    {isRestaurant && <Badge className="bg-orange-500 text-white border-0 text-[9px] font-black uppercase tracking-widest">Restaurant</Badge>}
+                    {isSalon && (
+                        <Badge className="bg-primary text-white border-0 text-[9px] font-black uppercase tracking-widest flex gap-1 items-center">
+                            <Scissors className="h-2.5 w-2.5" /> Salon
+                        </Badge>
+                    )}
+                    {isRestaurant && (
+                        <Badge className="bg-orange-500 text-white border-0 text-[9px] font-black uppercase tracking-widest flex gap-1 items-center">
+                            <Utensils className="h-2.5 w-2.5" /> Restaurant
+                        </Badge>
+                    )}
+                    {!isSalon && !isRestaurant && (
+                        <Badge className="bg-blue-600 text-white border-0 text-[9px] font-black uppercase tracking-widest flex gap-1 items-center">
+                            <LayoutGrid className="h-2.5 w-2.5" /> Grocery
+                        </Badge>
+                    )}
                 </div>
 
                 <div className="absolute bottom-4 left-4 right-4">
                     <h3 className="font-black text-xl text-white truncate leading-none">{store.name}</h3>
-                    <p className="text-[10px] text-white/80 font-bold uppercase tracking-widest mt-1.5 truncate">{store.description}</p>
+                    <p className="text-[10px] text-white/80 font-bold uppercase tracking-widest mt-1.5 truncate">
+                        {store.description}
+                    </p>
                 </div>
             </div>
             <CardContent className="p-5 flex items-center justify-between">

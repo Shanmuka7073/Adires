@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useEffect, useMemo, useRef, RefObject } from 'react';
@@ -61,7 +62,7 @@ import {
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
-import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Camera, CameraOff, Sparkles, PlusCircle, Edit, Link2, QrCode, ClipboardList, Save, Video, CreditCard } from 'lucide-react';
+import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Camera, CameraOff, Sparkles, PlusCircle, Edit, Link2, QrCode, ClipboardList, Save, Video, CreditCard, LayoutGrid } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import Link from 'next/link';
@@ -89,6 +90,7 @@ const storeSchema = z.object({
   tables: z.array(z.string()).optional(),
   liveVideoUrl: z.string().url('Please enter a valid URL').optional().or(z.literal('')),
   upiId: z.string().optional().refine((val) => !val || val.includes('@'), { message: "Invalid UPI ID format" }),
+  businessType: z.enum(['restaurant', 'salon', 'grocery']),
 });
 
 const locationSchema = z.object({
@@ -500,6 +502,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
             longitude: store.longitude || 0,
             liveVideoUrl: store.liveVideoUrl || '',
             upiId: store.upiId || '',
+            businessType: store.businessType || 'grocery',
         },
     });
     
@@ -511,7 +514,6 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
             updateDoc(storeRef, data)
                 .then(() => {
                     toast({ title: "Store Details Updated!", description: "Your store's information has been saved." });
-                    // Update global state immediately
                     setUserStore({ ...store, ...data });
                     setIsOpen(false);
                     onUpdate(); 
@@ -559,6 +561,29 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                                                 <FormControl>
                                                     <Input {...field} disabled={store.name === 'LocalBasket'} />
                                                 </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="businessType"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Business Vertical</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select business type" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        <SelectItem value="grocery">Grocery / Retail Shop</SelectItem>
+                                                        <SelectItem value="restaurant">Restaurant / Hotel</SelectItem>
+                                                        <SelectItem value="salon">Salon / Beauty Parlour</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormDescription>This determines if customers see a Menu or a Product list.</FormDescription>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -617,9 +642,9 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                                             name="upiId"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel className="flex items-center gap-2"><CreditCard className="h-4 w-4" /> Restaurant UPI ID</FormLabel>
-                                                    <FormControl><Input placeholder="e.g., restaurant@okaxis" {...field} /></FormControl>
-                                                    <FormDescription>Used to generate dynamic payment QR codes for tables.</FormDescription>
+                                                    <FormLabel className="flex items-center gap-2"><CreditCard className="h-4 w-4" /> Store UPI ID</FormLabel>
+                                                    <FormControl><Input placeholder="e.g., merchant@okaxis" {...field} /></FormControl>
+                                                    <FormDescription>Used to generate dynamic payment QR codes.</FormDescription>
                                                     <FormMessage />
                                                 </FormItem>
                                             )}
@@ -636,6 +661,12 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                 </div>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
+                <div className="flex flex-wrap gap-2 mb-2">
+                    <Badge variant="outline" className="capitalize bg-muted/50">
+                        <LayoutGrid className="h-3 w-3 mr-1.5" />
+                        Vertical: {store.businessType || 'Grocery'}
+                    </Badge>
+                </div>
                 <p><strong>{t('description')}:</strong> {store.description}</p>
                 <p><strong>{t('address')}:</strong> {store.address}</p>
                  <p><strong>Telugu Name:</strong> {store.teluguName || 'Not set'}</p>
@@ -691,7 +722,7 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="restaurant">Restaurant / QR Menu</TabsTrigger>
+          <TabsTrigger value="inventory">Inventory & Menu</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="mt-6 space-y-6">
             <StoreDetails store={store} onUpdate={() => {}} />
@@ -701,43 +732,56 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
             </div>
             <DangerZone store={store} />
         </TabsContent>
-        <TabsContent value="restaurant" className="mt-6 space-y-6">
-            <TableManager store={store} />
-             <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <QrCode className="h-6 w-6 text-primary" />
-                        QR Code Menu Manager
-                    </CardTitle>
-                    <CardDescription>Create a full digital menu for your restaurant tables.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Button asChild className="w-full">
-                        <Link href="/dashboard/owner/menu-manager">Go to Menu Manager</Link>
-                    </Button>
-                </CardContent>
-             </Card>
+        <TabsContent value="inventory" className="mt-6 space-y-6">
+            {store.businessType === 'grocery' ? (
+                adminStoreId ? (
+                    <ProductChecklist storeId={store.id} adminStoreId={adminStoreId} />
+                ) : (
+                    <Alert><Info className="h-4 w-4" /><AlertTitle>Catalog Unavailable</AlertTitle><AlertDescription>The master grocery catalog is not set up.</AlertDescription></Alert>
+                )
+            ) : (
+                <>
+                    <TableManager store={store} />
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <QrCode className="h-6 w-6 text-primary" />
+                                Digital Menu Manager
+                            </CardTitle>
+                            <CardDescription>Create a digital menu for your {store.businessType} services.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Button asChild className="w-full">
+                                <Link href="/dashboard/owner/menu-manager">Go to Menu Manager</Link>
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </>
+            )}
         </TabsContent>
       </Tabs>
     )
 }
 
-function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; isAdmin: boolean; profile?: AppUser | null; onAutoCreate: (coords: { lat: number; lng: number }) => void; }) {
+function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; isAdmin: boolean; profile?: AppUser | null; onAutoCreate: (coords: { lat: number; lng: number, businessType: 'restaurant' | 'salon' | 'grocery' }) => void; }) {
     const { toast } = useToast();
     const [isPending, startTransition] = useTransition();
     const { firestore } = useFirebase();
     const [isLocationConfirmOpen, setIsLocationConfirmOpen] = useState(false);
     const [capturedCoords, setCapturedCoords] = useState<{ lat: number; lng: number } | null>(null);
 
+    const defaultBusinessType = profile?.accountType === 'restaurant' ? 'restaurant' : 'grocery';
+
     const form = useForm<StoreFormValues>({
         resolver: zodResolver(storeSchema),
         defaultValues: {
             name: isAdmin ? 'LocalBasket' : (profile ? `${profile.firstName}'s Store` : ''),
-            description: isAdmin ? 'The master store for setting canonical product prices.' : (profile ? `Groceries and goods from ${profile.firstName}'s Store.` : ''),
+            description: isAdmin ? 'The master store for setting canonical product prices.' : (profile ? `${profile.accountType === 'restaurant' ? 'Fresh meals and services' : 'Groceries and goods'} from ${profile.firstName}'s Store.` : ''),
             address: isAdmin ? 'Platform-wide' : (profile?.address || ''),
             latitude: 0,
             longitude: 0,
-            teluguName: ''
+            teluguName: '',
+            businessType: defaultBusinessType,
         },
     });
 
@@ -778,7 +822,7 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
     const handleConfirmLocation = (confirmed: boolean) => {
         setIsLocationConfirmOpen(false);
         if (confirmed && capturedCoords) {
-            onAutoCreate(capturedCoords);
+            onAutoCreate({ ...capturedCoords, businessType: form.getValues('businessType') });
         } else {
             toast({ title: 'Automatic Creation Cancelled', description: 'Please create your store manually from your store location.' });
         }
@@ -855,6 +899,29 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                             </FormItem>
                             )}
                         />
+                        <FormField
+                            control={form.control}
+                            name="businessType"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Business Vertical</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select business type" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="grocery">Grocery / Retail Shop</SelectItem>
+                                            <SelectItem value="restaurant">Restaurant / Hotel</SelectItem>
+                                            <SelectItem value="salon">Salon / Beauty Parlour</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <FormDescription>This determines if your storefront shows a Menu or a Product catalog.</FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                          <FormField
                             control={form.control}
                             name="teluguName"
@@ -886,7 +953,7 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                             render={({ field }) => (
                             <FormItem>
                                 <FormLabel>{t('full-store-address')}</FormLabel>
-                                <FormControl><Input placeholder="123 Main Street, Mumbai" {...field} /></FormControl>
+                                <FormControl><Input placeholder="123 Market Street, Mumbai" {...field} /></FormControl>
                                 <FormMessage />
                             </FormItem>
                             )}
@@ -954,7 +1021,7 @@ export default function MyStorePage() {
         }
     }, [isUserLoading, user, router]);
 
-    const handleAutoCreateStore = (coords: { lat: number; lng: number }) => {
+    const handleAutoCreateStore = (coords: { lat: number; lng: number, businessType: 'restaurant' | 'salon' | 'grocery' }) => {
         if (!user || !firestore || !userProfile) {
              toast({ variant: 'destructive', title: 'Error', description: 'User profile not found.' });
              return;
@@ -964,13 +1031,14 @@ export default function MyStorePage() {
              const storeData = {
                 name: `${userProfile.firstName}'s Store`,
                 teluguName: `${userProfile.firstName} గారి స్టోర్`,
-                description: `Groceries and goods from ${userProfile.firstName}'s Store.`,
+                description: `${coords.businessType === 'restaurant' ? 'Fresh meals and services' : 'Groceries and goods'} from ${userProfile.firstName}'s Store.`,
                 address: userProfile.address,
                 latitude: coords.lat,
                 longitude: coords.lng,
                 ownerId: user.uid,
                 imageId: `store-${Math.floor(Math.random() * 3) + 1}`,
                 isClosed: false,
+                businessType: coords.businessType,
             };
             addDoc(collection(firestore, 'stores'), storeData)
                 .then(() => {
