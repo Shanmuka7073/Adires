@@ -10,6 +10,8 @@ import {
   setDoc,
   deleteDoc,
   updateDoc,
+  limit,
+  Timestamp,
 } from 'firebase/firestore';
 
 import type {
@@ -26,6 +28,7 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { format, addDays, isSameDay, isToday, isAfter, set } from 'date-fns';
 
 import {
   Utensils,
@@ -53,6 +56,7 @@ import {
   QrCode,
   Info,
   CalendarDays,
+  AlertTriangle,
 } from 'lucide-react';
 
 import {
@@ -82,7 +86,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { addRestaurantOrderItem, getIngredientsForDish, confirmOrderSession } from '@/app/actions';
+import { addRestaurantOrderItem, confirmOrderSession } from '@/app/actions';
 import { useInstall } from '@/components/install-provider';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import IngredientsDialog from '@/components/IngredientsDialog';
@@ -95,6 +99,41 @@ import QRCode from 'qrcode.react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
+
+function DateScroller({ value, onChange, theme }: { value: Date, onChange: (val: Date) => void, theme: MenuTheme | undefined }) {
+    const dates = useMemo(() => {
+        return Array.from({ length: 7 }, (_, i) => addDays(new Date(), i));
+    }, []);
+
+    return (
+        <ScrollArea className="w-full whitespace-nowrap pb-2">
+            <div className="flex gap-3 px-1">
+                {dates.map((date) => {
+                    const isSelected = isSameDay(date, value);
+                    return (
+                        <button
+                            key={date.toISOString()}
+                            onClick={() => onChange(date)}
+                            className={cn(
+                                "flex flex-col items-center justify-center min-w-[64px] h-20 rounded-2xl border-2 transition-all duration-200",
+                                isSelected ? "shadow-lg scale-105" : "opacity-40"
+                            )}
+                            style={{ 
+                                backgroundColor: isSelected ? theme?.primaryColor : 'transparent',
+                                borderColor: theme?.primaryColor + (isSelected ? '' : '20'),
+                                color: isSelected ? theme?.backgroundColor : theme?.textColor
+                            }}
+                        >
+                            <span className="text-[10px] font-black uppercase tracking-widest">{format(date, 'EEE')}</span>
+                            <span className="text-xl font-black">{format(date, 'dd')}</span>
+                        </button>
+                    );
+                })}
+            </div>
+            <ScrollBar orientation="horizontal" className="opacity-0" />
+        </ScrollArea>
+    );
+}
 
 function TimePicker({ value, onChange, theme }: { value: string, onChange: (val: string) => void, theme: MenuTheme | undefined }) {
     const [h, m, p] = useMemo(() => {
@@ -179,7 +218,7 @@ function UPIPaymentDialog({ isOpen, onOpenChange, order, store, theme }: { isOpe
                     <Button onClick={() => window.location.href = upiUrl} className="w-full h-14 rounded-2xl text-xs font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/20 flex items-center justify-center gap-3" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>
                         <Smartphone className="h-5 w-5" /> Pay via UPI App
                     </Button>
-                    <Alert className="bg-primary/5 border-primary/10 rounded-2xl">
+                    <Alert className="bg-primary/5 border-primary/10 rounded-2xl text-left">
                         <Info className="h-4 w-4" style={{ color: theme?.primaryColor }} />
                         <AlertDescription className="text-[9px] font-bold leading-tight" style={{ color: theme?.textColor }}>After payment, show the confirmation to staff.</AlertDescription>
                     </Alert>
@@ -237,7 +276,27 @@ function ModeSelectionDialog({ isOpen, onOpenChange, onSelectMode, currentMode, 
 function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId: string; theme: MenuTheme | undefined; store: Store; onShowUpi: () => void; isSalon: boolean }) {
   const { firestore } = useFirebase(); const { toast } = useToast(); const [closing, startClose] = useTransition();
   const { data: order, isLoading } = useDoc<Order>(useMemoFirebase(() => (firestore ? doc(firestore, 'orders', orderId) : null), [firestore, orderId]));
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string>("10:00 AM");
+
+  const isPastTime = useMemo(() => {
+    if (!isSalon) return false;
+    if (!isToday(selectedDate)) return false;
+    
+    // Parse selectedTime "HH:MM AM/PM"
+    const match = selectedTime.match(/(\d+):(\d+)\s*(AM|PM)/i);
+    if (!match) return false;
+    
+    let hours = parseInt(match[1]);
+    const minutes = parseInt(match[2]);
+    const period = match[3].toUpperCase();
+    
+    if (period === 'PM' && hours < 12) hours += 12;
+    if (period === 'AM' && hours === 12) hours = 0;
+    
+    const appointmentDateTime = set(selectedDate, { hours, minutes, seconds: 0, milliseconds: 0 });
+    return !isAfter(appointmentDateTime, new Date());
+  }, [selectedDate, selectedTime, isSalon]);
 
   const closeBill = async () => { 
     if (!order) return; 
@@ -245,7 +304,8 @@ function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId:
         const result = await confirmOrderSession(order.id); 
         if (result.success) {
             if (isSalon) {
-                await updateDoc(doc(firestore!, 'orders', order.id), { appointmentTime: selectedTime });
+                const finalTimeStr = `${format(selectedDate, 'MMM dd, yyyy')} at ${selectedTime}`;
+                await updateDoc(doc(firestore!, 'orders', order.id), { appointmentTime: finalTimeStr });
             }
             toast({ title: order.status === 'Draft' ? (isSalon ? 'Booking Confirmed!' : 'Order Placed!') : 'Bill requested.' }); 
         }
@@ -263,30 +323,52 @@ function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId:
   if (isLoading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin h-8 w-8" /></div>;
   if (!order || !order.items?.length) return <div className="p-8 text-center"><p className="opacity-60 text-sm font-medium">Your {isSalon ? 'booking' : 'bill'} is empty.</p></div>;
   
-  const isDraft = order.status === 'Draft'; const isBilled = order.status === 'Billed'; const isLocked = ['Completed', 'Delivered', 'Pending', 'Processing'].includes(order.status);
+  const isDraft = order.status === 'Draft'; const isBilled = order.status === 'Billed'; const isLocked = ['Pending', 'Processing', 'Out for Delivery', 'Billed', 'Completed', 'Delivered'].includes(order.status);
   
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: theme?.backgroundColor }}>
         <SheetHeader className='p-5 border-b' style={{ borderColor: theme?.primaryColor + '20' }}><SheetTitle className="flex items-center gap-2 text-lg font-bold" style={{ color: theme?.primaryColor }}><Receipt className="h-5 w-5" /> {isSalon ? 'Appointment Summary' : 'Live Bill'}</SheetTitle></SheetHeader>
-        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+        <div className="flex-1 overflow-y-auto p-5 space-y-8">
              {isSalon && (
-                 <div className="space-y-4">
-                    <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor }}>{isDraft ? 'Select Appointment Time' : 'Confirmed Appointment Time'}</h4>
-                    {isDraft ? (
-                        <TimePicker 
-                            value={selectedTime}
-                            onChange={setSelectedTime}
-                            theme={theme}
-                        />
-                    ) : order.appointmentTime ? (
-                        <div className="p-4 rounded-2xl border-2 bg-primary/5 flex items-center justify-between" style={{ borderColor: theme?.primaryColor + '30' }}>
-                            <div>
-                                <p className="text-[8px] font-black uppercase opacity-40 mb-0.5" style={{ color: theme?.textColor }}>Confirmed Slot</p>
-                                <p className="text-lg font-black" style={{ color: theme?.primaryColor }}>{order.appointmentTime}</p>
+                 <div className="space-y-6">
+                    <div className="space-y-3">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor }}>Select Date</h4>
+                        {isDraft ? (
+                            <DateScroller value={selectedDate} onChange={setSelectedDate} theme={theme} />
+                        ) : (
+                            <div className="p-4 rounded-2xl border-2 bg-primary/5 flex items-center justify-between" style={{ borderColor: theme?.primaryColor + '30' }}>
+                                <div>
+                                    <p className="text-[8px] font-black uppercase opacity-40 mb-0.5" style={{ color: theme?.textColor }}>Appointment Date</p>
+                                    <p className="text-lg font-black" style={{ color: theme?.primaryColor }}>{format(toDateSafe(order.orderDate), 'PPP')}</p>
+                                </div>
+                                <CalendarDays className="h-6 w-6" style={{ color: theme?.primaryColor }} />
                             </div>
-                            <CheckCircle className="h-6 w-6" style={{ color: theme?.primaryColor }} />
-                        </div>
-                    ) : null}
+                        )}
+                    </div>
+
+                    <div className="space-y-3">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor }}>{isDraft ? 'Select Time' : 'Confirmed Arrival'}</h4>
+                        {isDraft ? (
+                            <>
+                                <TimePicker value={selectedTime} onChange={setSelectedTime} theme={theme} />
+                                {isPastTime && (
+                                    <Alert variant="destructive" className="rounded-xl border-2 py-2">
+                                        <AlertTriangle className="h-4 w-4" />
+                                        <AlertTitle className="text-xs font-black uppercase">Time Already Passed</AlertTitle>
+                                        <AlertDescription className="text-[10px]">Please select a future time slot for today.</AlertDescription>
+                                    </Alert>
+                                )}
+                            </>
+                        ) : order.appointmentTime ? (
+                            <div className="p-4 rounded-2xl border-2 bg-primary/5 flex items-center justify-between" style={{ borderColor: theme?.primaryColor + '30' }}>
+                                <div>
+                                    <p className="text-[8px] font-black uppercase opacity-40 mb-0.5" style={{ color: theme?.textColor }}>Confirmed Time</p>
+                                    <p className="text-lg font-black" style={{ color: theme?.primaryColor }}>{order.appointmentTime.split(' at ')[1]}</p>
+                                </div>
+                                <Clock className="h-6 w-6" style={{ color: theme?.primaryColor }} />
+                            </div>
+                        ) : null}
+                    </div>
                  </div>
              )}
 
@@ -308,12 +390,21 @@ function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId:
               ) : isBilled && store.upiId ? (
                   <Button onClick={onShowUpi} className="w-full h-14 rounded-2xl uppercase font-black tracking-widest bg-green-600 text-white shadow-xl"><CreditCard className="mr-2 h-5 w-5" /> Pay Now with UPI</Button>
               ) : (
-                <AlertDialog><AlertDialogTrigger asChild><Button className="w-full h-14 rounded-2xl text-base font-black uppercase tracking-widest shadow-xl" variant="destructive" disabled={closing}>{closing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}{isDraft ? (isSalon ? 'Book Appointment' : 'Place Order') : 'Request Bill'}</Button></AlertDialogTrigger><AlertDialogContent className="rounded-[2rem] border-0 shadow-2xl"><AlertDialogHeader><AlertDialogTitle className="text-xl font-black uppercase tracking-tight">{isDraft ? (isSalon ? 'Confirm Booking?' : 'Place Order?') : 'Request Final Bill?'}</AlertDialogTitle><AlertDialogDescription>This will notify the staff to start preparation.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter className="gap-2"><AlertDialogCancel className="rounded-xl font-bold">Not yet</AlertDialogCancel><AlertDialogAction onClick={closeBill} className="rounded-xl font-bold bg-primary hover:bg-primary/90">Yes, Confirm</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+                <AlertDialog><AlertDialogTrigger asChild><Button className="w-full h-14 rounded-2xl text-base font-black uppercase tracking-widest shadow-xl" variant="destructive" disabled={closing || isPastTime}>{closing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}{isDraft ? (isSalon ? 'Book Appointment' : 'Place Order') : 'Request Bill'}</Button></AlertDialogTrigger><AlertDialogContent className="rounded-[2rem] border-0 shadow-2xl" style={{ backgroundColor: theme?.backgroundColor }}><AlertDialogHeader><AlertDialogTitle className="text-xl font-black uppercase tracking-tight" style={{ color: theme?.primaryColor }}>{isDraft ? (isSalon ? 'Confirm Booking?' : 'Place Order?') : 'Request Final Bill?'}</AlertDialogTitle><AlertDialogDescription style={{ color: theme?.textColor, opacity: 0.7 }}>This will notify the staff to start preparation.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter className="gap-2"><AlertDialogCancel className="rounded-xl font-bold">Not yet</AlertDialogCancel><AlertDialogAction onClick={closeBill} className="rounded-xl font-bold bg-primary hover:bg-primary/90">Yes, Confirm</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
               )}
             </div>
         </div>
     </div>
   );
+}
+
+function toDateSafe(d: any): Date {
+    if (!d) return new Date();
+    if (d instanceof Date) return d;
+    if (d instanceof Timestamp) return d.toDate();
+    if (typeof d === 'string') return new Date(d);
+    if (typeof d === 'object' && d.seconds) return new Date(d.seconds * 1000);
+    return new Date();
 }
 
 export default function PublicMenuPage() {
@@ -384,7 +475,7 @@ export default function PublicMenuPage() {
   if (storeLoading || menuLoading || orderLoading) return <div className="p-6 space-y-6"><Skeleton className="h-16 w-16 rounded-2xl" /><Skeleton className="h-10 w-full" /></div>;
   if (!store || !menu) return <div className="p-12 text-center opacity-50">Menu unavailable.</div>;
   
-  const theme = menu.theme; const isLocked = ['Pending', 'Processing', 'Out for Delivery', 'Billed', 'Completed', 'Delivered'].includes(order?.status || '');
+  const theme = menu.theme;
 
   return (
     <>
@@ -419,7 +510,7 @@ export default function PublicMenuPage() {
             </div>
           </div>
           {itemCount > 0 && ['Pending', 'Processing', 'Out for Delivery', 'Billed', 'Draft'].includes(order?.status || '') && (
-               <Sheet><SheetTrigger asChild><div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[200px] px-4"><Button className="h-12 w-full rounded-xl shadow-2xl text-[10px] font-black uppercase tracking-widest" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}><Receipt className="mr-2 h-4 w-4" /> {isSalon ? 'Appointment' : 'View Bill'} <Badge className="ml-2 h-5 min-w-[20px] rounded-md text-[9px] font-black" style={{ backgroundColor: theme?.backgroundColor, color: theme?.primaryColor }}>{itemCount}</Badge></Button></div></SheetTrigger><SheetContent side="bottom" className="h-[75vh] rounded-t-[2.5rem] p-0 border-0 overflow-hidden"><LiveBillSheet orderId={order!.id} theme={theme} store={store} onShowUpi={() => setIsUpiDialogOpen(true)} isSalon={isSalon} /></SheetContent></Sheet>
+               <Sheet><SheetTrigger asChild><div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[200px] px-4"><Button className="h-12 w-full rounded-xl shadow-2xl text-[10px] font-black uppercase tracking-widest" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}><Receipt className="mr-2 h-4 w-4" /> {isSalon ? 'Summary' : 'View Bill'} <Badge className="ml-2 h-5 min-w-[20px] rounded-md text-[9px] font-black" style={{ backgroundColor: theme?.backgroundColor, color: theme?.primaryColor }}>{itemCount}</Badge></Button></div></SheetTrigger><SheetContent side="bottom" className="h-[75vh] rounded-t-[2.5rem] p-0 border-0 overflow-hidden"><LiveBillSheet orderId={order!.id} theme={theme} store={store} onShowUpi={() => setIsUpiDialogOpen(true)} isSalon={isSalon} /></SheetContent></Sheet>
           )}
         </div>
     </>
