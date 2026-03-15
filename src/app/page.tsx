@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
-import { Search, Mic, ChevronDown, MapPin, User as UserCircle, Globe, Download, Loader2, Info, ChefHat, Sparkles, ArrowRight, Store as StoreIcon, LayoutGrid, Beef, Scissors } from 'lucide-react';
+import { Search, Mic, ChevronDown, MapPin, User as UserCircle, Globe, Download, Loader2, Info, ChefHat, Sparkles, ArrowRight, Store as StoreIcon, LayoutGrid, Beef, Scissors, ShoppingBag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import StoreCard from '@/components/store-card';
