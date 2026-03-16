@@ -464,62 +464,62 @@ function MenuCard({ item, onAdd, onShowDetails, isAdding, recentlyAdded, theme }
     const [qty, setQty] = useState(1);
     
     return (
-        <Card className="flex flex-col shadow-xl rounded-[2rem] border-0 overflow-hidden group hover:scale-[1.02] transition-all duration-300" style={{ backgroundColor: '#2D2424' }}>
-            {/* Top Section: Image */}
+        <Card className="flex flex-col shadow-xl rounded-[1.2rem] border-0 overflow-hidden group hover:scale-[1.02] transition-all duration-300" style={{ backgroundColor: '#2D2424' }}>
+            {/* Top Section: Image - NOW COMPACT 16:9 */}
             <div 
-                className="relative aspect-square w-full rounded-t-[2rem] overflow-hidden cursor-pointer" 
+                className="relative aspect-video w-full rounded-t-[1.2rem] overflow-hidden cursor-pointer" 
                 onClick={() => onShowDetails(item)}
             >
                 <Image src={item.imageUrl || ADIRES_LOGO} alt={item.name} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
                 <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors" />
                 
                 {/* Price Overlay */}
-                <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
-                    <p className="text-xs font-black" style={{ color: theme?.primaryColor || '#FBC02D' }}>₹{item.price.toFixed(0)}</p>
+                <div className="absolute bottom-1.5 left-1.5 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10">
+                    <p className="text-[10px] font-black" style={{ color: theme?.primaryColor || '#FBC02D' }}>₹{item.price.toFixed(0)}</p>
                 </div>
             </div>
 
             {/* Bottom Section: Details & Action */}
-            <div className="p-3 flex flex-col gap-3 flex-1 min-w-0">
+            <div className="p-2 flex flex-col gap-2 flex-1 min-w-0">
                 <div className="min-w-0">
-                    <h3 className="font-black text-sm leading-tight text-white mb-1 truncate">{item.name}</h3>
+                    <h3 className="font-black text-[11px] leading-tight text-white mb-0.5 truncate">{item.name}</h3>
                     <div className="flex items-center gap-1 opacity-40">
-                        <Sparkles className="h-2.5 w-2.5" style={{ color: theme?.primaryColor || '#FBC02D' }} />
-                        <span className="text-[8px] font-black uppercase tracking-widest text-white">Popular</span>
+                        <Sparkles className="h-2 w-2" style={{ color: theme?.primaryColor || '#FBC02D' }} />
+                        <span className="text-[7px] font-black uppercase tracking-widest text-white">Popular</span>
                     </div>
                 </div>
 
                 {/* Quantity Selector Pill - Compact */}
-                <div className="flex items-center justify-between h-8 w-full rounded-full bg-black/40 border border-white/10 px-1 overflow-hidden">
+                <div className="flex items-center justify-between h-7 w-full rounded-full bg-black/40 border border-white/10 px-1 overflow-hidden">
                     <button 
                         onClick={() => setQty(Math.max(1, qty - 1))}
-                        className="h-6 w-6 rounded-full flex items-center justify-center text-white hover:bg-white/10"
+                        className="h-5 w-5 rounded-full flex items-center justify-center text-white hover:bg-white/10"
                     >
-                        <Minus className="h-2.5 w-2.5" />
+                        <Minus className="h-2 w-2" />
                     </button>
-                    <span className="text-xs font-black text-white">{qty}</span>
+                    <span className="text-[10px] font-black text-white">{qty}</span>
                     <button 
                         onClick={() => setQty(qty + 1)}
-                        className="h-6 w-6 rounded-full flex items-center justify-center text-white hover:bg-white/10"
+                        className="h-5 w-5 rounded-full flex items-center justify-center text-white hover:bg-white/10"
                     >
-                        <Plus className="h-2.5 w-2.5" />
+                        <Plus className="h-2 w-2" />
                     </button>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                     <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="h-8 w-8 rounded-full opacity-40 hover:opacity-100 bg-white/5" 
+                        className="h-7 w-7 rounded-full opacity-40 hover:opacity-100 bg-white/5" 
                         onClick={() => onShowDetails(item)}
                     >
-                        <Eye className="h-4 w-4 text-white" />
+                        <Eye className="h-3.5 w-3.5 text-white" />
                     </Button>
                     <Button 
                         onClick={() => onAdd(item, qty)} 
                         disabled={isAdding || recentlyAdded} 
                         className={cn(
-                            "flex-1 h-9 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95",
+                            "flex-1 h-8 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95",
                             recentlyAdded ? "bg-green-600 text-white" : ""
                         )} 
                         style={{ 
@@ -527,7 +527,7 @@ function MenuCard({ item, onAdd, onShowDetails, isAdding, recentlyAdded, theme }
                             color: recentlyAdded ? '' : (theme?.backgroundColor || '#1A1616') 
                         }}
                     >
-                        {recentlyAdded ? <Check className="h-3 w-3" /> : 'Add'}
+                        {recentlyAdded ? <Check className="h-2.5 w-2.5" /> : 'Add'}
                     </Button>
                 </div>
             </div>
@@ -619,50 +619,49 @@ export default function PublicMenuPage() {
       {order && <UPIPaymentDialog isOpen={isUpiDialogOpen} onOpenChange={setIsUpiDialogOpen} order={order} store={store} theme={theme} />}
       
       <div className="min-h-screen pb-24" style={{ backgroundColor: theme?.backgroundColor || '#1A1616' }}>
-          <div className="container mx-auto py-6 px-4 max-w-2xl">
-            <div className="space-y-8">
-              {/* Header Info */}
-              <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 min-w-0">
-                      <Button asChild variant="ghost" size="icon" className="rounded-full hover:bg-white/10"><Link href="/"><ArrowLeft className="h-5 w-5 text-white" /></Link></Button>
-                      <div className="relative h-14 w-14 rounded-2xl overflow-hidden border-2 shadow-2xl" style={{ borderColor: theme?.primaryColor || '#FBC02D' }}><Image src={store.imageUrl || ADIRES_LOGO} alt={store.name} fill className="object-cover" /></div>
+          <div className="container mx-auto py-4 px-3 max-w-2xl">
+            <div className="space-y-6">
+              {/* Header Info - Tighter spacing */}
+              <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                      <Button asChild variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-white/10"><Link href="/"><ArrowLeft className="h-4 w-4 text-white" /></Link></Button>
+                      <div className="relative h-10 w-10 rounded-xl overflow-hidden border shadow-xl" style={{ borderColor: theme?.primaryColor || '#FBC02D' }}><Image src={store.imageUrl || ADIRES_LOGO} alt={store.name} fill className="object-cover" /></div>
                       <div className="min-w-0">
-                          <h1 className="text-xl font-black truncate leading-tight" style={{ color: theme?.primaryColor || '#FBC02D' }}>{store.name}</h1>
-                          <div className="flex items-center gap-2 mt-0.5">
-                              {tableNumber ? <Badge className="px-2 py-0 text-[9px] font-black uppercase tracking-widest" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>{isSalon ? `Chair ${tableNumber}` : `Table ${tableNumber}`}</Badge> : <Badge className="px-2 py-0 text-[9px] font-black uppercase tracking-widest bg-blue-600 text-white border-0">{isSalon ? 'Home Service' : 'Delivery'}</Badge>}
-                              <button onClick={() => setIsModeDialogOpen(true)} className="text-[9px] font-black uppercase tracking-widest underline opacity-40 hover:opacity-100 transition-opacity" style={{ color: theme?.textColor || '#fff' }}>Change</button>
+                          <h1 className="text-base font-black truncate leading-tight" style={{ color: theme?.primaryColor || '#FBC02D' }}>{store.name}</h1>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                              {tableNumber ? <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>{isSalon ? `Chair ${tableNumber}` : `T-${tableNumber}`}</Badge> : <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest bg-blue-600 text-white border-0">{isSalon ? 'Home' : 'Delivery'}</Badge>}
+                              <button onClick={() => setIsModeDialogOpen(true)} className="text-[8px] font-black uppercase tracking-widest underline opacity-40 hover:opacity-100 transition-opacity" style={{ color: theme?.textColor || '#fff' }}>Change</button>
                           </div>
                       </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                      {store.liveVideoUrl && <Button asChild variant="outline" size="sm" className="h-9 rounded-xl border-2 px-4 font-black text-[9px] uppercase tracking-widest animate-pulse" style={{ color: theme?.primaryColor || '#FBC02D', borderColor: theme?.primaryColor || '#FBC02D' }}><Link href={`/live-order/${orderId}`}><Video className="mr-1.5 h-3.5 w-3.5" /> Live Feed</Link></Button>}
-                      {canInstall && <Button variant="ghost" size="icon" onClick={triggerInstall} className="rounded-full hover:bg-white/10 text-white"><Download className="h-5 w-5" /></Button>}
+                  <div className="flex items-center gap-1.5">
+                      {store.liveVideoUrl && <Button asChild variant="outline" size="sm" className="h-7 rounded-lg border px-2 font-black text-[8px] uppercase tracking-widest animate-pulse" style={{ color: theme?.primaryColor || '#FBC02D', borderColor: theme?.primaryColor || '#FBC02D' }}><Link href={`/live-order/${orderId}`}><Video className="mr-1 h-3 w-3" /> Live</Link></Button>}
+                      {canInstall && <Button variant="ghost" size="icon" onClick={triggerInstall} className="h-8 w-8 rounded-full hover:bg-white/10 text-white"><Download className="h-4 w-4" /></Button>}
                   </div>
               </div>
 
               {!menu && products && products.length > 0 ? (
-                  <div className="space-y-8">
-                      <Alert className="bg-primary/5 border-primary/20 rounded-3xl"><Info className="h-4 w-4" style={{ color: theme?.primaryColor || '#FBC02D' }}/><AlertTitle className="font-black text-xs uppercase tracking-widest text-white">Catalog Mode</AlertTitle><AlertDescription className="text-xs opacity-60 text-white">Digital menu is not set up. Showing retail products instead.</AlertDescription></Alert>
-                      <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-6">
+                      <div className="grid grid-cols-2 gap-3">
                           {products.map(p => <ProductCard key={p.id} product={p} priceData={productPrices[p.name.toLowerCase()]} />)}
                       </div>
                   </div>
               ) : !menu ? (
                   <div className="text-center py-20 opacity-20 text-white"><Utensils className="h-12 w-12 mx-auto mb-4" /><p className="font-black uppercase tracking-widest text-xs">No Items Available</p></div>
               ) : (
-                <div className="space-y-8">
+                <div className="space-y-6">
                     {['Completed', 'Delivered'].includes(order?.status || '') ? (
-                        <Card className="rounded-[3rem] border-0 shadow-2xl text-center py-20 px-8" style={{ backgroundColor: '#2D2424' }}><div className="mx-auto h-24 w-24 flex items-center justify-center rounded-full mb-8 bg-white/5 border-4 border-white/10 shadow-inner"><Check className="h-12 w-12 text-primary" style={{ color: theme?.primaryColor || '#FBC02D' }} /></div><h2 className="text-3xl font-black mb-4 text-white tracking-tight uppercase">Order Finalized</h2><Button onClick={handleStartNewOrder} className="rounded-2xl h-14 px-10 uppercase font-black text-xs tracking-[0.2em] shadow-2xl transition-transform active:scale-95" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>Start New Session</Button></Card>
+                        <Card className="rounded-[2.5rem] border-0 shadow-2xl text-center py-16 px-6" style={{ backgroundColor: '#2D2424' }}><div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-white/5 border-4 border-white/10 shadow-inner"><Check className="h-10 w-10 text-primary" style={{ color: theme?.primaryColor || '#FBC02D' }} /></div><h2 className="text-2xl font-black mb-4 text-white tracking-tight uppercase">Order Finalized</h2><Button onClick={handleStartNewOrder} className="rounded-xl h-12 px-8 uppercase font-black text-[10px] tracking-[0.2em] shadow-2xl transition-transform active:scale-95" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>Start New Session</Button></Card>
                     ) : (
                         <>
-                            {/* Category Filter Chips */}
-                            <ScrollArea className="w-full whitespace-nowrap pb-2">
-                                <div className="flex gap-3 px-1">
+                            {/* Category Filter Chips - Tighter */}
+                            <ScrollArea className="w-full whitespace-nowrap pb-1">
+                                <div className="flex gap-2 px-1">
                                     <button 
                                         onClick={() => setSelectedCategory(null)}
                                         className={cn(
-                                            "rounded-xl px-6 h-10 font-black text-[10px] uppercase tracking-widest border-2 transition-all duration-300",
-                                            !selectedCategory ? "shadow-xl scale-105" : "opacity-40"
+                                            "rounded-lg px-4 h-8 font-black text-[9px] uppercase tracking-widest border transition-all duration-300",
+                                            !selectedCategory ? "shadow-lg scale-105" : "opacity-40"
                                         )}
                                         style={{ 
                                             backgroundColor: !selectedCategory ? (theme?.primaryColor || '#FBC02D') : 'transparent', 
@@ -675,8 +674,8 @@ export default function PublicMenuPage() {
                                             key={cat} 
                                             onClick={() => setSelectedCategory(cat)}
                                             className={cn(
-                                                "rounded-xl px-6 h-10 font-black text-[10px] uppercase tracking-widest border-2 transition-all duration-300",
-                                                selectedCategory === cat ? "shadow-xl scale-105" : "opacity-40"
+                                                "rounded-lg px-4 h-8 font-black text-[9px] uppercase tracking-widest border transition-all duration-300",
+                                                selectedCategory === cat ? "shadow-lg scale-105" : "opacity-40"
                                             )}
                                             style={{ 
                                                 backgroundColor: selectedCategory === cat ? (theme?.primaryColor || '#FBC02D') : 'transparent', 
@@ -689,23 +688,23 @@ export default function PublicMenuPage() {
                                 <ScrollBar orientation="horizontal" className="opacity-0" />
                             </ScrollArea>
 
-                            {/* Search Bar */}
+                            {/* Search Bar - Tighter */}
                             <div className="relative">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 opacity-30 text-white" />
+                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 opacity-30 text-white" />
                                 <Input 
-                                    placeholder="Find your favorite dish..." 
+                                    placeholder="Search dishes..." 
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="h-14 rounded-2xl bg-white/5 border-2 pl-12 text-white placeholder:text-white/20"
+                                    className="h-11 rounded-xl bg-white/5 border pl-10 text-xs text-white placeholder:text-white/20"
                                     style={{ borderColor: theme?.primaryColor + '10' }}
                                 />
                             </div>
 
-                            {/* Menu Sections */}
+                            {/* Menu Sections - Tighter Gaps */}
                             {Object.entries(groupedMenu).map(([category, items]) => (
-                                <section key={category} className="space-y-4">
-                                    <h2 className="text-[11px] font-black uppercase tracking-[0.3em] opacity-40 px-2" style={{ color: theme?.textColor || '#fff' }}>{category}</h2>
-                                    <div className="grid grid-cols-2 gap-3">
+                                <section key={category} className="space-y-3">
+                                    <h2 className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40 px-1" style={{ color: theme?.textColor || '#fff' }}>{category}</h2>
+                                    <div className="grid grid-cols-2 gap-2">
                                         {items.map((item) => (
                                             <MenuCard 
                                                 key={item.id} 
@@ -727,9 +726,9 @@ export default function PublicMenuPage() {
             </div>
           </div>
 
-          {/* Floating Bill Button */}
+          {/* Floating Bill Button - Scaled down */}
           {itemCount > 0 && ['Pending', 'Processing', 'Out for Delivery', 'Billed', 'Draft'].includes(order?.status || '') && (
-               <Sheet><SheetTrigger asChild><div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 w-full max-w-[240px] px-4"><Button className="h-14 w-full rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] text-xs font-black uppercase tracking-[0.2em] border-2 border-white/10" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}><Receipt className="mr-3 h-5 w-5" /> View {isSalon ? 'Booking' : 'Bill'} <Badge className="ml-3 h-6 min-w-[24px] rounded-lg text-[10px] font-black shadow-inner" style={{ backgroundColor: theme?.backgroundColor || '#1A1616', color: theme?.primaryColor || '#FBC02D' }}>{itemCount}</Badge></Button></div></SheetTrigger><SheetContent side="bottom" className="h-[80vh] rounded-t-[3rem] p-0 border-0 overflow-hidden shadow-2xl"><LiveBillSheet orderId={order!.id} theme={theme} store={store} onShowUpi={() => setIsUpiDialogOpen(true)} isSalon={isSalon} /></SheetContent></Sheet>
+               <Sheet><SheetTrigger asChild><div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[200px] px-4"><Button className="h-12 w-full rounded-xl shadow-2xl text-[10px] font-black uppercase tracking-[0.1em] border border-white/10" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}><Receipt className="mr-2 h-4 w-4" /> View {isSalon ? 'Booking' : 'Bill'} <Badge className="ml-2 h-5 min-w-[20px] rounded-md text-[9px] font-black shadow-inner" style={{ backgroundColor: theme?.backgroundColor || '#1A1616', color: theme?.primaryColor || '#FBC02D' }}>{itemCount}</Badge></Button></div></SheetTrigger><SheetContent side="bottom" className="h-[80vh] rounded-t-[2.5rem] p-0 border-0 overflow-hidden shadow-2xl"><LiveBillSheet orderId={order!.id} theme={theme} store={store} onShowUpi={() => setIsUpiDialogOpen(true)} isSalon={isSalon} /></SheetContent></Sheet>
           )}
         </div>
     </>
