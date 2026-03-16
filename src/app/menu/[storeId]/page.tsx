@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -59,6 +58,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   Store as StoreIcon,
+  Sparkles,
 } from 'lucide-react';
 
 import {
