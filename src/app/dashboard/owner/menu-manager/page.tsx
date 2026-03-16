@@ -3,12 +3,13 @@
 
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, setDoc, limit, updateDoc } from 'firebase/firestore';
+import { collection, query, where, doc, setDoc, limit, updateDoc, deleteDoc } from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import type { Store, Menu, MenuItem, MenuTheme } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Trash2, Sparkles, Loader2, Save, QrCode, Printer, Copy, AlertTriangle, List, PlusCircle, Edit, ImageIcon, Check } from 'lucide-react';
+import { Trash2, Sparkles, Loader2, Save, QrCode, Printer, Copy, AlertTriangle, List, PlusCircle, Edit, ImageIcon, Check, Upload as UploadIcon } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -29,11 +30,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
 // Helper to create a URL-friendly slug from a string
 const createSlug = (text: string) => {
+    if(!text) return '';
     return text
       .toLowerCase()
       .trim()
@@ -75,7 +78,10 @@ function EditMenuDialog({
   });
   const [isSaving, startSave] = useTransition();
   const [isGenerating, startGeneration] = useTransition();
+  const [isUploading, startUpload] = useTransition();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { storage } = useFirebase();
 
   useEffect(() => {
     form.reset(existingItem || { name: '', price: 0, category: '', description: '', imageUrl: '' });
@@ -111,56 +117,106 @@ function EditMenuDialog({
       });
   }
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !storage) return;
+
+    startUpload(async () => {
+        try {
+            const storageRef = ref(storage, `menu-items/${Date.now()}-${file.name}`);
+            const uploadTask = uploadBytesResumable(storageRef, file);
+
+            uploadTask.on(
+                'state_changed',
+                null,
+                (error) => {
+                    console.error("Upload failed", error);
+                    toast({ variant: 'destructive', title: 'Upload Failed', description: error.message });
+                },
+                () => {
+                    getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+                        form.setValue('imageUrl', downloadURL);
+                        toast({ title: 'Image Uploaded!' });
+                    });
+                }
+            );
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Upload Error', description: error.message });
+        }
+    });
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl rounded-[2.5rem]">
         <DialogHeader>
-          <DialogTitle>{existingItem ? 'Edit Menu Item' : 'Add New Item'}</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-2xl font-black uppercase tracking-tight">Edit Menu Item</DialogTitle>
+          <DialogDescription className="font-bold opacity-60">
             {existingItem ? `Update details for ${existingItem.name}.` : 'Add a new item to your menu.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-                 <div className="grid md:grid-cols-2 gap-6">
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+                 <div className="grid md:grid-cols-2 gap-8">
                     <div className="space-y-4">
                         <FormField control={form.control} name="name" render={({ field }) => (
-                            <FormItem><FormLabel>Item Name</FormLabel><FormControl><Input {...field} placeholder="e.g., Chicken Biryani" /></FormControl><FormMessage /></FormItem>
+                            <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Item Name</FormLabel><FormControl><Input {...field} placeholder="e.g., Chicken Biryani" className="rounded-xl h-12 border-2" /></FormControl><FormMessage /></FormItem>
                         )} />
                         <FormField control={form.control} name="category" render={({ field }) => (
-                            <FormItem><FormLabel>Category</FormLabel><FormControl><Input {...field} placeholder="e.g., Main Course" /></FormControl><FormMessage /></FormItem>
+                            <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Category</FormLabel><FormControl><Input {...field} placeholder="e.g., Main Course" className="rounded-xl h-12 border-2" /></FormControl><FormMessage /></FormItem>
                         )} />
                         <FormField control={form.control} name="price" render={({ field }) => (
-                            <FormItem><FormLabel>Price (₹)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>
+                            <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Price (₹)</FormLabel><FormControl><Input type="number" step="0.01" {...field} className="rounded-xl h-12 border-2" /></FormControl><FormMessage /></FormItem>
                         )} />
                     </div>
                     <div className="space-y-4">
-                        <Label>Dish Image</Label>
-                        <div className="relative aspect-square rounded-2xl overflow-hidden border bg-muted flex items-center justify-center">
+                        <Label className="text-[10px] font-black uppercase opacity-40">Dish Image</Label>
+                        <div className="relative aspect-square rounded-[2rem] overflow-hidden border-2 bg-muted flex items-center justify-center">
                             {form.watch('imageUrl') ? (
                                 <Image src={form.watch('imageUrl')!} alt="Preview" fill className="object-cover" />
-                            ) : <p className="text-[10px] uppercase font-black opacity-20">No Image</p>}
+                            ) : (
+                                <div className="text-center opacity-20">
+                                    <ImageIcon className="h-12 w-12 mx-auto mb-2" />
+                                    <p className="text-[10px] font-black uppercase">No Image</p>
+                                </div>
+                            )}
+                            {(isUploading || isGenerating) && (
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-sm">
+                                    <Loader2 className="h-10 w-10 animate-spin text-white" />
+                                </div>
+                            )}
                         </div>
-                        <div className="flex gap-2">
-                            <Input placeholder="Image URL..." {...form.register('imageUrl')} className="flex-1" />
-                            <Button type="button" variant="secondary" onClick={handleGenerateImage} disabled={isGenerating}>
-                                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                        
+                        <div className="space-y-3">
+                            <div className="flex gap-2">
+                                <Input placeholder="Image URL..." {...form.register('imageUrl')} className="rounded-xl h-10 border-2 text-xs" />
+                                <Button type="button" variant="outline" size="icon" className="rounded-xl h-10 w-10" onClick={handleGenerateImage} disabled={isGenerating || isUploading} title="Generate with AI">
+                                    {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 text-primary" />}
+                                </Button>
+                            </div>
+                            <div className="relative">
+                                <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                                <div className="relative flex justify-center text-[8px] font-black uppercase"><span className="bg-background px-2 text-muted-foreground">Or</span></div>
+                            </div>
+                            <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" className="hidden" />
+                            <Button type="button" variant="secondary" className="w-full h-10 rounded-xl font-black text-[10px] uppercase tracking-widest" onClick={() => fileInputRef.current?.click()} disabled={isUploading || isGenerating}>
+                                <UploadIcon className="mr-2 h-4 w-4" /> Upload from Device
                             </Button>
                         </div>
                     </div>
                  </div>
                 <FormField control={form.control} name="description" render={({ field }) => (
-                    <FormItem><FormLabel>Description (Optional)</FormLabel><FormControl><Textarea {...field} placeholder="A short description of the dish." /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Description (Optional)</FormLabel><FormControl><Textarea {...field} placeholder="A short description of the dish." className="rounded-xl min-h-[80px] border-2" /></FormControl><FormMessage /></FormItem>
                 )} />
-                <DialogFooter className="pt-4">
+                <DialogFooter className="pt-4 gap-3">
                    {existingItem && onDeleteItem && (
                      <AlertDialog>
-                        <AlertDialogTrigger asChild><Button type="button" variant="destructive" className="mr-auto" disabled={isSaving}>Delete Item</Button></AlertDialogTrigger>
-                        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will remove "{existingItem.name}" from your menu.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                        <AlertDialogTrigger asChild><Button type="button" variant="destructive" className="mr-auto rounded-xl font-black text-[10px] uppercase" disabled={isSaving || isUploading}>Delete Item</Button></AlertDialogTrigger>
+                        <AlertDialogContent className="rounded-[2rem]"><AlertDialogHeader><AlertDialogTitle className="font-black uppercase">Are you sure?</AlertDialogTitle><AlertDialogDescription className="font-bold">This will remove &quot;{existingItem.name}&quot; from your menu.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="rounded-xl font-bold">Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90 rounded-xl font-bold">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
                     </AlertDialog>
                    )}
-                    <DialogClose asChild><Button type="button" variant="outline" disabled={isSaving}>Cancel</Button></DialogClose>
-                    <Button type="submit" disabled={isSaving}>{isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Item</Button>
+                    <DialogClose asChild><Button type="button" variant="ghost" className="rounded-xl font-bold" disabled={isSaving}>Cancel</Button></DialogClose>
+                    <Button type="submit" className="rounded-xl h-12 px-8 font-black uppercase text-[10px] tracking-widest shadow-lg" disabled={isSaving || isUploading}>{isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Item</Button>
                 </DialogFooter>
             </form>
         </Form>
@@ -199,12 +255,22 @@ function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (data: { items: Me
     };
 
     return (
-        <Card>
-            <CardHeader><CardTitle>1. Create Your Menu</CardTitle><CardDescription>Upload a picture of your physical menu. AI will convert it to a digital menu.</CardDescription></CardHeader>
-            <CardContent className="space-y-4">
-                <div className="w-full aspect-video relative rounded-md overflow-hidden border bg-muted flex items-center justify-center">{menuImage ? <Image src={menuImage} alt="Menu preview" fill className="object-contain" /> : <p className="text-muted-foreground opacity-20 font-black uppercase text-xs">Menu Photo</p>}</div>
-                <Input type="file" accept="image/*" onChange={handleFileChange} disabled={isProcessing} />
-                <Button onClick={handleExtract} disabled={!menuImage || isProcessing} className="w-full">{isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}{isProcessing ? 'Analyzing Menu...' : 'Extract Menu Items with AI'}</Button>
+        <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden">
+            <CardHeader className="bg-primary/5 border-b border-black/5 pb-6"><CardTitle className="text-xl font-black uppercase tracking-tight">1. Create Your Menu</CardTitle><CardDescription className="text-xs font-bold opacity-40 uppercase">Upload photo & AI will digitize it</CardDescription></CardHeader>
+            <CardContent className="space-y-6 pt-6">
+                <div className="w-full aspect-video relative rounded-[2rem] overflow-hidden border-2 bg-muted flex items-center justify-center">
+                    {menuImage ? <Image src={menuImage} alt="Menu preview" fill className="object-contain" /> : (
+                        <div className="text-center opacity-20">
+                            <ImageIcon className="h-12 w-12 mx-auto mb-2" />
+                            <p className="text-[10px] font-black uppercase">No Photo Selected</p>
+                        </div>
+                    )}
+                </div>
+                <Input type="file" accept="image/*" onChange={handleFileChange} disabled={isProcessing} className="rounded-xl border-2 cursor-pointer" />
+                <Button onClick={handleExtract} disabled={!menuImage || isProcessing} className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20">
+                    {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Sparkles className="mr-2 h-5 w-5" />}
+                    {isProcessing ? 'Analyzing Menu...' : 'Extract Menu with AI'}
+                </Button>
             </CardContent>
         </Card>
     );
@@ -225,16 +291,18 @@ function QRCodeDialog({ table, storeId }: { table: string, storeId: string }) {
     };
     
     return (
-        <DialogContent>
-            <DialogHeader><DialogTitle>QR Code for {table}</DialogTitle></DialogHeader>
-            <div className="flex flex-col items-center gap-4">
-                 <div id={`qr-code-container-${table}`} className="p-6 bg-white rounded-[2.5rem] border-4 border-black relative">
-                    {menuUrl ? <QRCode value={menuUrl} size={256} /> : <div className="w-[256px] h-[256px] bg-gray-200 animate-pulse" />}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-4 py-2 rounded-xl border-4 border-black"><span className="text-4xl font-black text-black">{table}</span></div>
+        <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl p-8 max-w-sm mx-auto">
+            <DialogHeader className="mb-4">
+                <DialogTitle className="text-xl font-black uppercase tracking-tight text-center">QR Code: {table}</DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-6">
+                 <div id={`qr-code-container-${table}`} className="p-6 bg-white rounded-[2.5rem] border-4 border-black relative shadow-inner">
+                    {menuUrl ? <QRCode value={menuUrl} size={200} /> : <div className="w-[200px] h-[200px] bg-gray-200 animate-pulse" />}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-4 py-2 rounded-xl border-4 border-black shadow-lg"><span className="text-3xl font-black text-black">{table}</span></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 w-full">
-                    <Button onClick={() => navigator.clipboard.writeText(menuUrl).then(() => toast({title:'Copied'}))} variant="outline"><Copy className="mr-2 h-4 w-4" /> Copy Link</Button>
-                    <Button onClick={handlePrint} className="w-full"><Printer className="mr-2 h-4 w-4" /> Print QR Code</Button>
+                    <Button onClick={() => navigator.clipboard.writeText(menuUrl).then(() => toast({title:'Copied'}))} variant="outline" className="rounded-xl font-black text-[10px] uppercase border-2">Copy Link</Button>
+                    <Button onClick={handlePrint} className="rounded-xl font-black text-[10px] uppercase shadow-lg">Print QR</Button>
                 </div>
             </div>
         </DialogContent>
