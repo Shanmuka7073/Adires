@@ -13,6 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import Image from 'next/image';
+import Link from 'next/link';
 import QRCode from 'qrcode.react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -27,6 +28,7 @@ import { extractMenuItems } from '@/ai/flows/extract-menu-items-flow';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
+import { Badge } from '@/components/ui/badge';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
@@ -142,7 +144,7 @@ function EditMenuDialog({
                         <div className="flex gap-2">
                             <Input placeholder="Image URL..." {...form.register('imageUrl')} className="flex-1" />
                             <Button type="button" variant="secondary" onClick={handleGenerateImage} disabled={isGenerating}>
-                                {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                             </Button>
                         </div>
                     </div>
