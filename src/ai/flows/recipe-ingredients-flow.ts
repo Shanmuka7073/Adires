@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -46,22 +45,22 @@ const prompt = ai.definePrompt(
 );
 
 
-// This function is the AI flow that will be called by the Server Action
+// This function is the AI flow that follows a cache-first strategy.
 export async function getIngredientsForDishFlow(input: { dishName: string; language: 'en' | 'te', existingRecipe?: GetIngredientsOutput }): Promise<GetIngredientsOutput> {
   const { db } = await getAdminServices();
   
   const language = input.language || 'en';
 
-  // 1. Check cache first (Directly fetch from catalogue)
+  // 1. Check catalogue first (Directly fetch from Firestore)
   const cachedData = await getCachedRecipe(db, input.dishName, language);
   if (cachedData) {
     return cachedData as any;
   }
   
-  // 2. If not in cache, ask AI to generate
+  // 2. If not in catalogue, ask AI to generate new details
   const { output } = await prompt({ ...input, language });
   
-  // 3. If AI call is successful, add same details to catalogue for next time
+  // 3. If AI call is successful, add same details to catalogue for next time (Teaching the system)
   if (output && output.isSuccess) {
     await cacheRecipe(db, input.dishName, language, output as any);
   } else if (!output) {

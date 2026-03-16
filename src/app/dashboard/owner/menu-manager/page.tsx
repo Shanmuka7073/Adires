@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
@@ -9,7 +8,7 @@ import type { Store, Menu, MenuItem, MenuTheme } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Trash2, Sparkles, Loader2, Save, QrCode, Printer, Copy, AlertTriangle, List, PlusCircle, Edit, ImageIcon, Check, Upload as UploadIcon } from 'lucide-react';
+import { Trash2, Sparkles, Loader2, Save, QrCode, Printer, Copy, AlertTriangle, List, PlusCircle, Edit, ImageIcon, Check, Upload as UploadIcon, Link2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -17,24 +16,21 @@ import Image from 'next/image';
 import Link from 'next/link';
 import QRCode from 'qrcode.react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
 import { getIngredientsForDish } from '@/app/actions';
 import { extractMenuItems } from '@/ai/flows/extract-menu-items-flow';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Skeleton } from '@/components/ui/skeleton';
 import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
-// Helper to create a URL-friendly slug from a string
 const createSlug = (text: string) => {
     if(!text) return '';
     return text
@@ -45,9 +41,8 @@ const createSlug = (text: string) => {
       .replace(/--+/g, '-') 
       .replace(/^-+/, '') 
       .replace(/-+$/, ''); 
-  };
+};
 
-// Schema for a single menu item
 const menuItemSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(2, "Item name is required."),
@@ -58,8 +53,7 @@ const menuItemSchema = z.object({
 });
 type MenuItemFormValues = z.infer<typeof menuItemSchema>;
 
-
-function EditMenuDialog({
+function EditMenuItemDialog({
   isOpen,
   onOpenChange,
   onSave,
@@ -76,6 +70,7 @@ function EditMenuDialog({
     resolver: zodResolver(menuItemSchema),
     defaultValues: existingItem || { name: '', price: 0, category: '', description: '', imageUrl: '' },
   });
+  
   const [isSaving, startSave] = useTransition();
   const [isGenerating, startGeneration] = useTransition();
   const [isUploading, startUpload] = useTransition();
@@ -148,15 +143,16 @@ function EditMenuDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl rounded-[2.5rem]">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl rounded-[2.5rem] border-0 shadow-2xl overflow-hidden">
+        <DialogHeader className="p-6 pb-0">
           <DialogTitle className="text-2xl font-black uppercase tracking-tight">Edit Menu Item</DialogTitle>
           <DialogDescription className="font-bold opacity-60">
             {existingItem ? `Update details for ${existingItem.name}.` : 'Add a new item to your menu.'}
           </DialogDescription>
         </DialogHeader>
+        
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 p-6 pt-2">
                  <div className="grid md:grid-cols-2 gap-8">
                     <div className="space-y-4">
                         <FormField control={form.control} name="name" render={({ field }) => (
@@ -169,19 +165,20 @@ function EditMenuDialog({
                             <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Price (₹)</FormLabel><FormControl><Input type="number" step="0.01" {...field} className="rounded-xl h-12 border-2" /></FormControl><FormMessage /></FormItem>
                         )} />
                     </div>
+                    
                     <div className="space-y-4">
-                        <Label className="text-[10px] font-black uppercase opacity-40">Dish Image</Label>
-                        <div className="relative aspect-square rounded-[2rem] overflow-hidden border-2 bg-muted flex items-center justify-center">
+                        <Label className="text-[10px] font-black uppercase opacity-40">Item Visuals</Label>
+                        <div className="relative aspect-square rounded-[2rem] overflow-hidden border-2 bg-muted flex items-center justify-center group">
                             {form.watch('imageUrl') ? (
                                 <Image src={form.watch('imageUrl')!} alt="Preview" fill className="object-cover" />
                             ) : (
                                 <div className="text-center opacity-20">
                                     <ImageIcon className="h-12 w-12 mx-auto mb-2" />
-                                    <p className="text-[10px] font-black uppercase">No Image</p>
+                                    <p className="text-[10px] font-black uppercase">No Photo</p>
                                 </div>
                             )}
                             {(isUploading || isGenerating) && (
-                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-sm">
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-sm transition-all">
                                     <Loader2 className="h-10 w-10 animate-spin text-white" />
                                 </div>
                             )}
@@ -189,8 +186,11 @@ function EditMenuDialog({
                         
                         <div className="space-y-3">
                             <div className="flex gap-2">
-                                <Input placeholder="Image URL..." {...form.register('imageUrl')} className="rounded-xl h-10 border-2 text-xs" />
-                                <Button type="button" variant="outline" size="icon" className="rounded-xl h-10 w-10" onClick={handleGenerateImage} disabled={isGenerating || isUploading} title="Generate with AI">
+                                <div className="relative flex-grow">
+                                    <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-30" />
+                                    <Input placeholder="Paste image URL..." {...form.register('imageUrl')} className="rounded-xl h-10 border-2 text-xs pl-9" />
+                                </div>
+                                <Button type="button" variant="outline" size="icon" className="rounded-xl h-10 w-10 shrink-0" onClick={handleGenerateImage} disabled={isGenerating || isUploading} title="AI Generate Photo">
                                     {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 text-primary" />}
                                 </Button>
                             </div>
@@ -205,18 +205,20 @@ function EditMenuDialog({
                         </div>
                     </div>
                  </div>
+                 
                 <FormField control={form.control} name="description" render={({ field }) => (
                     <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Description (Optional)</FormLabel><FormControl><Textarea {...field} placeholder="A short description of the dish." className="rounded-xl min-h-[80px] border-2" /></FormControl><FormMessage /></FormItem>
                 )} />
+                
                 <DialogFooter className="pt-4 gap-3">
                    {existingItem && onDeleteItem && (
                      <AlertDialog>
-                        <AlertDialogTrigger asChild><Button type="button" variant="destructive" className="mr-auto rounded-xl font-black text-[10px] uppercase" disabled={isSaving || isUploading}>Delete Item</Button></AlertDialogTrigger>
-                        <AlertDialogContent className="rounded-[2rem]"><AlertDialogHeader><AlertDialogTitle className="font-black uppercase">Are you sure?</AlertDialogTitle><AlertDialogDescription className="font-bold">This will remove &quot;{existingItem.name}&quot; from your menu.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="rounded-xl font-bold">Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90 rounded-xl font-bold">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                        <AlertDialogTrigger asChild><Button type="button" variant="destructive" className="mr-auto rounded-xl font-black text-[10px] uppercase h-12" disabled={isSaving || isUploading}>Delete</Button></AlertDialogTrigger>
+                        <AlertDialogContent className="rounded-[2rem] border-0 shadow-2xl"><AlertDialogHeader><AlertDialogTitle className="font-black uppercase tracking-tight">Remove Dish?</AlertDialogTitle><AlertDialogDescription className="font-bold">This will permanently delete &quot;{existingItem.name}&quot; from your digital menu.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter className="gap-2"><AlertDialogCancel className="rounded-xl font-bold">Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90 rounded-xl font-bold">Delete Item</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
                     </AlertDialog>
                    )}
-                    <DialogClose asChild><Button type="button" variant="ghost" className="rounded-xl font-bold" disabled={isSaving}>Cancel</Button></DialogClose>
-                    <Button type="submit" className="rounded-xl h-12 px-8 font-black uppercase text-[10px] tracking-widest shadow-lg" disabled={isSaving || isUploading}>{isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Item</Button>
+                    <DialogClose asChild><Button type="button" variant="ghost" className="rounded-xl font-bold h-12" disabled={isSaving}>Cancel</Button></DialogClose>
+                    <Button type="submit" className="rounded-xl h-12 px-8 font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20" disabled={isSaving || isUploading}>{isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Item</Button>
                 </DialogFooter>
             </form>
         </Form>
@@ -291,7 +293,7 @@ function QRCodeDialog({ table, storeId }: { table: string, storeId: string }) {
     };
     
     return (
-        <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl p-8 max-w-sm mx-auto">
+        <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl p-8 flex flex-col items-center text-center max-w-sm mx-auto">
             <DialogHeader className="mb-4">
                 <DialogTitle className="text-xl font-black uppercase tracking-tight text-center">QR Code: {table}</DialogTitle>
             </DialogHeader>
@@ -301,8 +303,8 @@ function QRCodeDialog({ table, storeId }: { table: string, storeId: string }) {
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-4 py-2 rounded-xl border-4 border-black shadow-lg"><span className="text-3xl font-black text-black">{table}</span></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 w-full">
-                    <Button onClick={() => navigator.clipboard.writeText(menuUrl).then(() => toast({title:'Copied'}))} variant="outline" className="rounded-xl font-black text-[10px] uppercase border-2">Copy Link</Button>
-                    <Button onClick={handlePrint} className="rounded-xl font-black text-[10px] uppercase shadow-lg">Print QR</Button>
+                    <Button onClick={() => navigator.clipboard.writeText(menuUrl).then(() => toast({title:'Copied'}))} variant="outline" className="rounded-xl font-black text-[10px] uppercase border-2 h-12">Copy Link</Button>
+                    <Button onClick={handlePrint} className="rounded-xl font-black text-[10px] uppercase shadow-lg h-12">Print QR</Button>
                 </div>
             </div>
         </DialogContent>
@@ -346,9 +348,9 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
     
     return (
         <div className="grid md:grid-cols-2 gap-8">
-            {isEditDialogOpen && <EditMenuDialog isOpen={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} onSave={handleSaveItem} existingItem={editingItem} onDeleteItem={handleDeleteItem} />}
+            {isEditDialogOpen && <EditMenuItemDialog isOpen={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} onSave={handleSaveItem} existingItem={editingItem} onDeleteItem={handleDeleteItem} />}
             <Card className="rounded-3xl border-0 shadow-xl overflow-hidden">
-                <CardHeader className="bg-primary/5 border-b border-black/5 pb-6"><div className="flex justify-between items-center"><CardTitle className="text-xl font-black uppercase tracking-tight">Active Menu</CardTitle><Button size="sm" variant="outline" className="rounded-xl font-black text-[9px] uppercase border-2" onClick={() => { setEditingItem(null); setIsEditDialogOpen(true); }}>Add Item</Button></div></CardHeader>
+                <CardHeader className="bg-primary/5 border-b border-black/5 pb-6"><div className="flex justify-between items-center"><CardTitle className="text-xl font-black uppercase tracking-tight">Active Menu</CardTitle><Button size="sm" variant="outline" className="rounded-xl font-black text-[9px] uppercase border-2 h-8 px-4" onClick={() => { setEditingItem(null); setIsEditDialogOpen(true); }}>Add Item</Button></div></CardHeader>
                 <CardContent className="p-0">
                      <Table>
                         <TableHeader className="bg-black/5"><TableRow><TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Item</TableHead><TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Status</TableHead><TableHead className="text-right text-[10px] font-black uppercase tracking-widest opacity-40">Edit</TableHead></TableRow></TableHeader>
@@ -367,7 +369,7 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
                             ))}
                         </TableBody>
                     </Table>
-                     <div className="p-6 border-t border-black/5 bg-black/5"><Button onClick={onReplace} variant="destructive" className="w-full rounded-xl font-black text-[10px] uppercase tracking-widest h-12">Delete & Start Over</Button></div>
+                     <div className="p-6 border-t border-black/5 bg-black/5"><Button onClick={onReplace} variant="destructive" className="w-full rounded-xl font-black text-[10px] uppercase tracking-widest h-12 shadow-lg">Delete & Start Over</Button></div>
                 </CardContent>
             </Card>
              <Card className="rounded-3xl border-0 shadow-xl overflow-hidden h-fit">
@@ -379,7 +381,7 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
                                 <Dialog key={t}><DialogTrigger asChild><Button variant="outline" className="h-14 rounded-2xl border-2 justify-between px-4 font-black uppercase text-[10px] tracking-widest"><span>{t}</span><QrCode className="h-4 w-4 opacity-20" /></Button></DialogTrigger><QRCodeDialog table={t} storeId={store.id} /></Dialog>
                             ))}
                         </div>
-                    ) : <div className="text-center py-10 opacity-30"><p className="text-xs font-black uppercase tracking-widest mb-4">No tables found</p><Button asChild variant="secondary" className="rounded-xl font-black text-[10px] uppercase"><Link href="/dashboard/owner/my-store">Go to Store Details</Link></Button></div>}
+                    ) : <div className="text-center py-10 opacity-30"><p className="text-xs font-black uppercase tracking-widest mb-4">No tables found</p><Button asChild variant="secondary" className="rounded-xl font-black text-[10px] uppercase h-10 px-6"><Link href="/dashboard/owner/my-store">Go to Store Details</Link></Button></div>}
                 </CardContent>
             </Card>
         </div>

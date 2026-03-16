@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { PT_Sans } from "next/font/google";
 import "./globals.css";
 import { ClientRoot } from "@/components/layout/client-root";
-import Script from "next/script";
 
 const ptSans = PT_Sans({
   subsets: ["latin"],
@@ -33,28 +32,16 @@ export default function RootLayout({
        <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <script dangerouslySetInnerHTML={{ __html: `
-          // Catch the install prompt event as early as possible
+          // Early capture of the install prompt
           window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             window.deferredInstallPrompt = e;
-            // Notify the app that installation is available
             window.dispatchEvent(new CustomEvent('pwa-install-available'));
           });
         ` }} />
       </head>
       <body>
         <ClientRoot>{children}</ClientRoot>
-        <Script id="sw-register" strategy="afterInteractive">
-          {`
-            if ('serviceWorker' in navigator) {
-              window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                  .then(() => console.log('Service Worker registered'))
-                  .catch(err => console.error('SW registration failed', err));
-              });
-            }
-          `}
-        </Script>
       </body>
     </html>
   );
