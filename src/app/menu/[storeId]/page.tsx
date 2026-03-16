@@ -50,7 +50,11 @@ import {
   ShoppingBag,
   Package,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  CookingPot,
+  MapPin,
+  LocateFixed,
+  X
 } from 'lucide-react';
 
 import {
@@ -100,6 +104,18 @@ import { useCart } from '@/lib/cart';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
+// --- HELPERS ---
+function toDateSafe(d: any): Date {
+    if (!d) return new Date();
+    if (d instanceof Date) return d;
+    if (d instanceof Timestamp) return d.toDate();
+    if (typeof d === 'string') return new Date(d);
+    if (typeof d === 'object' && d.seconds) return new Date(d.seconds * 1000);
+    return new Date();
+}
+
+// --- SUB-COMPONENTS ---
+
 function OrderStatusTimeline({ status, theme }: { status: Order['status'], theme?: MenuTheme }) {
     const steps = [
         { label: 'Placed', icon: Package, s: 1 },
@@ -141,6 +157,96 @@ function OrderStatusTimeline({ status, theme }: { status: Order['status'], theme
                 <div className="h-full transition-all duration-1000 bg-primary" style={{ width: `${Math.min(100, Math.max(0, (currentStep - 1) * 33.33))}%`, backgroundColor: theme?.primaryColor }} />
             </div>
         </div>
+    );
+}
+
+function DeliveryDetailsDialog({ isOpen, onOpenChange, onSave, initialData, theme }: any) {
+    const [name, setName] = useState(initialData.name || '');
+    const [phone, setPhone] = useState(initialData.phone || '');
+    const [address, setAddress] = useState(initialData.address || '');
+    const [lat, setLat] = useState<number | null>(null);
+    const [lng, setLng] = useState<number | null>(null);
+    const [isLocating, setIsLocating] = useState(false);
+
+    const handleGetLocation = () => {
+        setIsLocating(true);
+        navigator.geolocation.getCurrentPosition((pos) => {
+            setLat(pos.coords.latitude);
+            setLng(pos.coords.longitude);
+            setAddress(`GPS (${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)})`);
+            setIsLocating(false);
+        }, () => setIsLocating(false));
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl">
+                <DialogHeader>
+                    <DialogTitle className="text-xl font-black uppercase">Delivery Info</DialogTitle>
+                    <DialogDescription>Where should we send your order?</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="space-y-1"><Label className="text-[10px] uppercase font-black opacity-40">Your Name</Label><Input value={name} onChange={e => setName(e.target.value)} placeholder="Full Name" className="rounded-xl" /></div>
+                    <div className="space-y-1"><Label className="text-[10px] uppercase font-black opacity-40">Mobile Number</Label><Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="10-digit number" className="rounded-xl" /></div>
+                    <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-black opacity-40">Full Address</Label>
+                        <div className="flex gap-2">
+                            <Input value={address} onChange={e => setAddress(e.target.value)} placeholder="Street, Building, Area" className="rounded-xl flex-1" />
+                            <Button variant="outline" size="icon" className="rounded-xl h-10 w-10 shrink-0" onClick={handleGetLocation} disabled={isLocating}>
+                                {isLocating ? <Loader2 className="h-4 w-4 animate-spin"/> : <LocateFixed className="h-4 w-4" />}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button onClick={() => onSave({ name, phone, address, lat, lng })} disabled={!name || !phone || !address} className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>Confirm Delivery Details</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function ModeSelectionDialog({ isOpen, onOpenChange, onSelectMode, currentMode, theme, isSalon }: any) {
+    const [tableNum, setTableNum] = useState('');
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl">
+                <DialogHeader><DialogTitle className="text-xl font-black uppercase">Service Mode</DialogTitle></DialogHeader>
+                <div className="grid grid-cols-2 gap-4 py-6">
+                    <Button variant={currentMode === 'table' ? 'default' : 'outline'} className="h-24 rounded-2xl flex-col gap-2 font-black uppercase text-[10px]" onClick={() => {}} style={currentMode === 'table' ? { backgroundColor: theme?.primaryColor } : {}}>
+                        <Utensils className="h-6 w-6" /> {isSalon ? 'In-Chair' : 'Dine-In'}
+                    </Button>
+                    <Button variant={currentMode === 'delivery' ? 'default' : 'outline'} className="h-24 rounded-2xl flex-col gap-2 font-black uppercase text-[10px]" onClick={() => onSelectMode('delivery')}>
+                        <Truck className="h-6 w-6" /> Home {isSalon ? 'Service' : 'Delivery'}
+                    </Button>
+                </div>
+                {currentMode === 'table' && (
+                    <div className="space-y-4">
+                        <div className="space-y-1"><Label className="text-[10px] uppercase font-black opacity-40">Enter {isSalon ? 'Chair' : 'Table'} Number</Label><Input value={tableNum} onChange={e => setTableNum(e.target.value)} placeholder="e.g., 5" className="h-12 rounded-xl text-center text-lg font-black" /></div>
+                        <Button className="w-full h-12 rounded-xl font-black uppercase" disabled={!tableNum} onClick={() => onSelectMode('table', tableNum)}>Confirm {isSalon ? 'Chair' : 'Table'}</Button>
+                    </div>
+                )}
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function UPIPaymentDialog({ isOpen, onOpenChange, total, store, theme }: any) {
+    const upiUrl = `upi://pay?pa=${store.upiId}&pn=${encodeURIComponent(store.name)}&am=${total}&cu=INR`;
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-sm rounded-[2.5rem] border-0 shadow-2xl flex flex-col items-center p-8">
+                <DialogHeader className="text-center mb-4"><DialogTitle className="text-xl font-black uppercase">Scan & Pay</DialogTitle></DialogHeader>
+                <div className="p-6 bg-white rounded-3xl shadow-inner border-4 border-black/5 mb-6">
+                    <QRCode value={upiUrl} size={200} level="H" includeMargin={true} />
+                </div>
+                <div className="text-center space-y-1 mb-6">
+                    <p className="text-[10px] font-black uppercase opacity-40">Total Amount</p>
+                    <p className="text-3xl font-black text-primary">₹{total.toFixed(2)}</p>
+                </div>
+                <Button className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest" onClick={() => onOpenChange(false)}>I have Paid</Button>
+            </DialogContent>
+        </Dialog>
     );
 }
 
@@ -298,6 +404,8 @@ function MenuCard({ item, onAdd, onShowDetails, isAdding, recentlyAdded, current
     );
 }
 
+// --- MAIN PAGE ---
+
 export default function PublicMenuPage() {
   const { storeId } = useParams<{ storeId: string }>();
   const searchParams = useSearchParams(); const { firestore } = useFirebase(); const { toast } = useToast();
@@ -386,8 +494,8 @@ export default function PublicMenuPage() {
   return (
     <>
       {selectedItemForIngredients && <IngredientsDialog open={!!selectedItemForIngredients} onClose={() => setSelectedItemForIngredients(null)} dishName={selectedItemForIngredients.name} price={selectedItemForIngredients.price} isLoading={isFetchingIngredients} calories={ingredientsData?.nutrition?.calories || 0} protein={ingredientsData?.nutrition?.protein || 0} ingredients={(ingredientsData?.components as any) || []} itemType={ingredientsData?.itemType} onAdd={() => { handleAddItem(selectedItemForIngredients); setSelectedItemForIngredients(null); }} />}
-      <DeliveryDetailsDialog isOpen={isDeliveryDetailsOpen} onOpenChange={setIsDeliveryDetailsOpen} onSave={(d) => { setCustomerName(d.name); setPhone(d.phone); setDeliveryAddress(d.address); if(d.lat) setDeliveryCoords({lat:d.lat, lng:d.lng}); localStorage.setItem(`last_name_${storeId}`, d.name); localStorage.setItem(`last_phone_${storeId}`, d.phone); localStorage.setItem(`last_address_${storeId}`, d.address); }} initialData={{ name: customerName, phone, address: deliveryAddress }} theme={theme} />
-      <ModeSelectionDialog isOpen={isModeDialogOpen} onOpenChange={setIsModeDialogOpen} onSelectMode={(m, v) => { if(m==='delivery') setTableNumber(null); else if(v) setTableNumber(v); handleStartNewOrder(); }} currentMode={tableNumber ? 'table' : 'delivery'} theme={theme} isSalon={isSalon} />
+      <DeliveryDetailsDialog isOpen={isDeliveryDetailsOpen} onOpenChange={setIsDeliveryDetailsOpen} onSave={(d: any) => { setCustomerName(d.name); setPhone(d.phone); setDeliveryAddress(d.address); if(d.lat) setDeliveryCoords({lat:d.lat, lng:d.lng}); localStorage.setItem(`last_name_${storeId}`, d.name); localStorage.setItem(`last_phone_${storeId}`, d.phone); localStorage.setItem(`last_address_${storeId}`, d.address); setIsDeliveryDetailsOpen(false); }} initialData={{ name: customerName, phone, address: deliveryAddress }} theme={theme} />
+      <ModeSelectionDialog isOpen={isModeDialogOpen} onOpenChange={setIsModeDialogOpen} onSelectMode={(m: any, v: any) => { if(m==='delivery') setTableNumber(null); else if(v) setTableNumber(v); setIsModeDialogOpen(false); handleStartNewOrder(); }} currentMode={tableNumber ? 'table' : 'delivery'} theme={theme} isSalon={isSalon} />
       {placedOrders && <UPIPaymentDialog isOpen={isUpiDialogOpen} onOpenChange={setIsUpiDialogOpen} total={placedOrders.reduce((acc, o) => acc + o.totalAmount, 0)} store={store} theme={theme} />}
       
       <div className="min-h-screen pb-24" style={{ backgroundColor: theme?.backgroundColor || '#1A1616' }}>
@@ -482,13 +590,4 @@ export default function PublicMenuPage() {
         </div>
     </>
   );
-}
-
-function toDateSafe(d: any): Date {
-    if (!d) return new Date();
-    if (d instanceof Date) return d;
-    if (d instanceof Timestamp) return d.toDate();
-    if (typeof d === 'string') return new Date(d);
-    if (typeof d === 'object' && d.seconds) return new Date(d.seconds * 1000);
-    return new Date();
 }
