@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -463,63 +464,62 @@ function MenuCard({ item, onAdd, onShowDetails, isAdding, recentlyAdded, theme }
     const [qty, setQty] = useState(1);
     
     return (
-        <Card className="flex gap-4 p-4 shadow-2xl rounded-[2.5rem] border-0 overflow-hidden group hover:scale-[1.02] transition-all duration-300" style={{ backgroundColor: '#2D2424' }}>
-            {/* Left Column: Image & Qty Pill */}
-            <div className="flex flex-col gap-3 shrink-0">
-                <div 
-                    className="relative h-32 w-32 rounded-[2rem] overflow-hidden border-2 cursor-pointer shadow-inner" 
-                    style={{ borderColor: theme?.primaryColor + '20' }}
-                    onClick={() => onShowDetails(item)}
-                >
-                    <Image src={item.imageUrl || ADIRES_LOGO} alt={item.name} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
-                    <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors" />
-                </div>
+        <Card className="flex flex-col shadow-xl rounded-[2rem] border-0 overflow-hidden group hover:scale-[1.02] transition-all duration-300" style={{ backgroundColor: '#2D2424' }}>
+            {/* Top Section: Image */}
+            <div 
+                className="relative aspect-square w-full rounded-t-[2rem] overflow-hidden cursor-pointer" 
+                onClick={() => onShowDetails(item)}
+            >
+                <Image src={item.imageUrl || ADIRES_LOGO} alt={item.name} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
+                <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors" />
                 
-                {/* Quantity Selector Pill */}
-                <div className="flex items-center justify-between h-10 w-32 rounded-full bg-black/40 border border-white/10 px-1 overflow-hidden">
-                    <button 
-                        onClick={() => setQty(Math.max(1, qty - 1))}
-                        className="h-8 w-8 rounded-full flex items-center justify-center text-white hover:bg-white/10 transition-colors"
-                    >
-                        <Minus className="h-3 w-3" />
-                    </button>
-                    <span className="text-sm font-black text-white">{qty}</span>
-                    <button 
-                        onClick={() => setQty(qty + 1)}
-                        className="h-8 w-8 rounded-full flex items-center justify-center text-white hover:bg-white/10 transition-colors"
-                    >
-                        <Plus className="h-3 w-3" />
-                    </button>
+                {/* Price Overlay */}
+                <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
+                    <p className="text-xs font-black" style={{ color: theme?.primaryColor || '#FBC02D' }}>₹{item.price.toFixed(0)}</p>
                 </div>
             </div>
 
-            {/* Right Column: Details & Action */}
-            <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
-                <div>
-                    <h3 className="font-black text-xl leading-tight text-white mb-1 truncate">{item.name}</h3>
-                    <p className="text-2xl font-black mb-1" style={{ color: theme?.primaryColor || '#FBC02D' }}>₹{item.price.toFixed(0)}</p>
-                    
-                    {/* Status Badge */}
-                    <div className="flex items-center gap-1.5 opacity-60">
-                        <Sparkles className="h-3 w-3 text-primary" style={{ color: theme?.primaryColor || '#FBC02D' }} />
-                        <span className="text-[9px] font-black uppercase tracking-widest text-white">Popular</span>
+            {/* Bottom Section: Details & Action */}
+            <div className="p-3 flex flex-col gap-3 flex-1 min-w-0">
+                <div className="min-w-0">
+                    <h3 className="font-black text-sm leading-tight text-white mb-1 truncate">{item.name}</h3>
+                    <div className="flex items-center gap-1 opacity-40">
+                        <Sparkles className="h-2.5 w-2.5" style={{ color: theme?.primaryColor || '#FBC02D' }} />
+                        <span className="text-[8px] font-black uppercase tracking-widest text-white">Popular</span>
                     </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-2 mt-2">
+                {/* Quantity Selector Pill - Compact */}
+                <div className="flex items-center justify-between h-8 w-full rounded-full bg-black/40 border border-white/10 px-1 overflow-hidden">
+                    <button 
+                        onClick={() => setQty(Math.max(1, qty - 1))}
+                        className="h-6 w-6 rounded-full flex items-center justify-center text-white hover:bg-white/10"
+                    >
+                        <Minus className="h-2.5 w-2.5" />
+                    </button>
+                    <span className="text-xs font-black text-white">{qty}</span>
+                    <button 
+                        onClick={() => setQty(qty + 1)}
+                        className="h-6 w-6 rounded-full flex items-center justify-center text-white hover:bg-white/10"
+                    >
+                        <Plus className="h-2.5 w-2.5" />
+                    </button>
+                </div>
+
+                <div className="flex items-center gap-2">
                     <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="h-10 w-10 rounded-full opacity-40 hover:opacity-100 bg-white/5 hover:bg-white/10" 
+                        className="h-8 w-8 rounded-full opacity-40 hover:opacity-100 bg-white/5" 
                         onClick={() => onShowDetails(item)}
                     >
-                        <Eye className="h-5 w-5 text-white" />
+                        <Eye className="h-4 w-4 text-white" />
                     </Button>
                     <Button 
                         onClick={() => onAdd(item, qty)} 
                         disabled={isAdding || recentlyAdded} 
                         className={cn(
-                            "flex-1 h-12 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl transition-all active:scale-95",
+                            "flex-1 h-9 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95",
                             recentlyAdded ? "bg-green-600 text-white" : ""
                         )} 
                         style={{ 
@@ -527,8 +527,7 @@ function MenuCard({ item, onAdd, onShowDetails, isAdding, recentlyAdded, theme }
                             color: recentlyAdded ? '' : (theme?.backgroundColor || '#1A1616') 
                         }}
                     >
-                        {recentlyAdded ? <Check className="mr-2 h-4 w-4" /> : null}
-                        {recentlyAdded ? 'Added' : 'Add to Order'}
+                        {recentlyAdded ? <Check className="h-3 w-3" /> : 'Add'}
                     </Button>
                 </div>
             </div>
@@ -706,7 +705,7 @@ export default function PublicMenuPage() {
                             {Object.entries(groupedMenu).map(([category, items]) => (
                                 <section key={category} className="space-y-4">
                                     <h2 className="text-[11px] font-black uppercase tracking-[0.3em] opacity-40 px-2" style={{ color: theme?.textColor || '#fff' }}>{category}</h2>
-                                    <div className="grid gap-6">
+                                    <div className="grid grid-cols-2 gap-3">
                                         {items.map((item) => (
                                             <MenuCard 
                                                 key={item.id} 
