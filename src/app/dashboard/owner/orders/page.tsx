@@ -31,7 +31,9 @@ import {
   Coffee,
   RefreshCw,
   FileEdit,
-  Clock
+  Clock,
+  BellRing,
+  CheckCircle2
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -44,7 +46,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from '@/components/ui/dialog';
-import { markSessionAsPaid, confirmOrderSession } from '@/app/actions';
+import { markSessionAsPaid, confirmOrderSession, dismissTableService } from '@/app/actions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Calendar } from '@/components/ui/calendar';
@@ -69,6 +71,8 @@ interface Session {
   totalAmount: number;
   status: Order['status'];
   lastActivity: Date;
+  needsService?: boolean;
+  serviceType?: string;
 }
 
 function ViewOrderDetailsDialog({ 
@@ -133,7 +137,7 @@ function EmptyTableCard({ tableNumber }: { tableNumber: string }) {
     )
 }
 
-function SessionCard({ session, isUpdating }: { session: Session; isUpdating: boolean }) {
+function SessionCard({ session, isUpdating, onDismissService }: { session: Session; isUpdating: boolean; onDismissService: (id: string) => void }) {
   const { toast } = useToast();
   const [isProcessing, startAction] = useTransition();
 
@@ -150,7 +154,7 @@ function SessionCard({ session, isUpdating }: { session: Session; isUpdating: bo
 
         if (result.success) {
             const msg = session.status === 'Billed' ? 'Payment Confirmed' : 'Kitchen Notified';
-            toast({ title: msg, description: `Order for table ${session.tableNumber} updated.`});
+            toast({ title: msg });
         } else {
             toast({ variant: 'destructive', title: 'Update Failed', description: result.error });
         }
@@ -162,14 +166,23 @@ function SessionCard({ session, isUpdating }: { session: Session; isUpdating: bo
 
   return (
     <Card className={cn(
-        "rounded-[2rem] transition-all overflow-hidden h-full flex flex-col border-0 shadow-xl",
-        session.status === 'Billed' ? 'ring-4 ring-green-500 bg-green-50' : (session.status === 'Draft' ? 'opacity-80 bg-slate-50 border-2 border-dashed' : 'bg-white')
+        "rounded-[2rem] transition-all overflow-hidden h-full flex flex-col border-0 shadow-xl relative",
+        session.status === 'Billed' ? 'ring-4 ring-green-500 bg-green-50' : (session.status === 'Draft' ? 'opacity-80 bg-slate-50 border-2 border-dashed' : 'bg-white'),
+        session.needsService && 'ring-4 ring-red-500 animate-pulse'
     )}>
-      <CardHeader className="pb-2">
+      {session.needsService && (
+          <div className="absolute top-0 left-0 w-full h-8 bg-red-600 flex items-center justify-between px-4 z-10">
+              <span className="text-[10px] font-black uppercase text-white flex items-center gap-2">
+                  <BellRing className="h-3 w-3 animate-bounce" /> {session.serviceType || 'Service'} Requested!
+              </span>
+              <button onClick={() => onDismissService(session.orders[0].id)} className="text-white hover:scale-110"><CheckCircle2 className="h-4 w-4" /></button>
+          </div>
+      )}
+      <CardHeader className={cn("pb-2", session.needsService && "pt-10")}>
         <div className="flex justify-between items-start">
             <div>
                  <CardTitle className="text-xl text-primary font-black">Table {session.tableNumber || 'N/A'}</CardTitle>
-                 <CardDescription className="text-[10px] font-mono opacity-40">Session: {session.id.slice(-6)}</CardDescription>
+                 <CardDescription className="text-[10px] font-mono opacity-40">Session: {session.id.split('-').pop()}</CardDescription>
             </div>
              <Badge variant={meta?.variant || 'secondary'} className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest">
                 {meta.label}
@@ -219,7 +232,7 @@ function SessionCard({ session, isUpdating }: { session: Session; isUpdating: bo
   )
 }
 
-function DeliveryOrderCard({ order, store, onStatusChange, isUpdating }: { order: Order; store?: Store; onStatusChange: (id: string, status: Order['status']) => void; isUpdating: boolean }) {
+function DeliveryOrderCard({ order, store, onStatusChange, isUpdating, onDismissService }: { order: Order; store?: Store; onStatusChange: (id: string, status: Order['status']) => void; isUpdating: boolean; onDismissService: (id: string) => void }) {
     const meta = STATUS_META[order.status] || STATUS_META.Pending;
 
     const handleOpenMap = () => {
@@ -233,8 +246,19 @@ function DeliveryOrderCard({ order, store, onStatusChange, isUpdating }: { order
     };
 
     return (
-        <Card className="border-0 shadow-2xl overflow-hidden rounded-[2.5rem] bg-white flex flex-col h-full">
-            <CardHeader className="pb-3 bg-blue-50/50 border-b border-blue-100/50">
+        <Card className={cn(
+            "border-0 shadow-2xl overflow-hidden rounded-[2.5rem] bg-white flex flex-col h-full relative",
+            order.needsService && 'ring-4 ring-red-500 animate-pulse'
+        )}>
+            {order.needsService && (
+                <div className="absolute top-0 left-0 w-full h-8 bg-red-600 flex items-center justify-between px-4 z-10">
+                    <span className="text-[10px] font-black uppercase text-white flex items-center gap-2">
+                        <BellRing className="h-3 w-3 animate-bounce" /> Home Support Requested!
+                    </span>
+                    <button onClick={() => onDismissService(order.id)} className="text-white hover:scale-110"><CheckCircle2 className="h-4 w-4" /></button>
+                </div>
+            )}
+            <CardHeader className={cn("pb-3 bg-blue-50/50 border-b border-blue-100/50", order.needsService && "pt-10")}>
                 <div className="flex justify-between items-start">
                     <div>
                         <div className="flex items-center gap-2 mb-1">
@@ -321,6 +345,18 @@ export default function StoreOrdersPage() {
 
   const { data: activeOrders, isLoading: ordersLoading, refetch } = useCollection<Order>(activeOrdersQuery);
 
+  // Audio effect for new orders
+  const prevOrderCountRef = useRef(0);
+  useEffect(() => {
+      if (activeOrders && activeOrders.length > prevOrderCountRef.current) {
+          if (prevOrderCountRef.current > 0) {
+              const audio = new Audio('https://storage.googleapis.com/localbasket-audio/order-chime.mp3');
+              audio.play().catch(() => console.log('Audio blocked by browser'));
+          }
+      }
+      prevOrderCountRef.current = activeOrders?.length || 0;
+  }, [activeOrders]);
+
   const fetchHistory = useCallback(() => {
     if (!firestore || !myStore || !selectedDate) return;
     
@@ -344,10 +380,10 @@ export default function StoreOrdersPage() {
             const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Order));
             const filtered = data.filter(o => !o.isActive);
             setHistoryHistoryOrders(filtered);
-            toast({ title: "History Loaded", description: `Found ${filtered.length} records.`});
+            toast({ title: "History Loaded" });
         } catch (e) {
             console.error("History fetch error:", e);
-            toast({ variant: 'destructive', title: "Load Failed", description: "Could not retrieve historical data."});
+            toast({ variant: 'destructive', title: "Load Failed" });
         }
     });
   }, [firestore, myStore, selectedDate, toast]);
@@ -378,11 +414,16 @@ export default function StoreOrdersPage() {
                     orders: [], 
                     totalAmount: 0, 
                     status: 'Pending', 
-                    lastActivity: new Date(0) 
+                    lastActivity: new Date(0),
+                    needsService: false
                 };
             }
             tableSessions[sid].orders.push(order);
             tableSessions[sid].totalAmount += order.totalAmount;
+            if (order.needsService) {
+                tableSessions[sid].needsService = true;
+                tableSessions[sid].serviceType = order.serviceType;
+            }
             if (orderDate > tableSessions[sid].lastActivity) {
                 tableSessions[sid].lastActivity = orderDate;
                 tableSessions[sid].status = order.status;
@@ -416,10 +457,17 @@ export default function StoreOrdersPage() {
                   updatedAt: serverTimestamp(),
                   isActive: !finalized 
               });
-              toast({ title: "Order Updated", description: `Changed to ${newStatus}.` });
+              toast({ title: "Order Updated" });
           } catch (e) { toast({ variant: 'destructive', title: "Update Failed" }); }
       });
   }
+
+  const handleDismissService = (orderId: string) => {
+      startUpdateTransition(async () => {
+          const res = await dismissTableService(orderId);
+          if (res.success) toast({ title: "Service Handled" });
+      });
+  };
 
   const activeSessionsByTable = useMemo(() => {
       const map: Record<string, Session> = {};
@@ -463,7 +511,7 @@ export default function StoreOrdersPage() {
                 <h2 className="text-2xl font-black font-headline tracking-tight uppercase mb-8 border-l-8 border-blue-600 pl-4 text-blue-600">Home Delivery & Services</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {homeDeliveries.map(order => (
-                        <DeliveryOrderCard key={order.id} order={order} store={myStore || undefined} onStatusChange={handleOrderUpdate} isUpdating={isUpdating} />
+                        <DeliveryOrderCard key={order.id} order={order} store={myStore || undefined} onStatusChange={handleOrderUpdate} isUpdating={isUpdating} onDismissService={handleDismissService} />
                     ))}
                     {homeDeliveries.length === 0 && <p className="text-muted-foreground opacity-40 text-xs font-black uppercase tracking-widest">No active deliveries</p>}
                 </div>
@@ -476,7 +524,7 @@ export default function StoreOrdersPage() {
                         const norm = tableId.toLowerCase().replace('table ', '').trim();
                         const activeSession = activeSessionsByTable[norm];
                         return activeSession ? (
-                            <SessionCard key={activeSession.id} session={activeSession} isUpdating={isUpdating} />
+                            <SessionCard key={activeSession.id} session={activeSession} isUpdating={isUpdating} onDismissService={handleDismissService} />
                         ) : (
                             <EmptyTableCard key={tableId} tableNumber={tableId} />
                         )
@@ -489,7 +537,7 @@ export default function StoreOrdersPage() {
                     <h2 className="text-2xl font-black font-headline tracking-tight uppercase mb-8 border-l-8 border-amber-600 pl-4 text-amber-600">Other Active Sessions</h2>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
                         {otherSessions.map(session => (
-                            <SessionCard key={session.id} session={session} isUpdating={isUpdating} />
+                            <SessionCard key={session.id} session={session} isUpdating={isUpdating} onDismissService={handleDismissService} />
                         ))}
                     </div>
                 </section>

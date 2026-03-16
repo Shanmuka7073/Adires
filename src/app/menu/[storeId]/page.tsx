@@ -62,6 +62,7 @@ import {
   Store as StoreIcon,
   Sparkles,
   ShoppingBag,
+  BellRing
 } from 'lucide-react';
 
 import {
@@ -91,7 +92,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { addRestaurantOrderItem, confirmOrderSession, getIngredientsForDish } from '@/app/actions';
+import { addRestaurantOrderItem, confirmOrderSession, getIngredientsForDish, requestTableService } from '@/app/actions';
 import { useInstall } from '@/components/install-provider';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import IngredientsDialog from '@/components/IngredientsDialog';
@@ -102,7 +103,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import QRCode from 'qrcode.react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import ProductCard from '@/components/product-card';
 import { useAppStore } from '@/lib/store';
 import { useCart } from '@/lib/cart';
 
@@ -115,99 +115,6 @@ function toDateSafe(d: any): Date {
     if (typeof d === 'string') return new Date(d);
     if (typeof d === 'object' && d.seconds) return new Date(d.seconds * 1000);
     return new Date();
-}
-
-function DateScroller({ value, onChange, theme }: { value: Date, onChange: (val: Date) => void, theme: MenuTheme | undefined }) {
-    const dates = useMemo(() => {
-        return Array.from({ length: 7 }, (_, i) => addDays(new Date(), i));
-    }, []);
-
-    return (
-        <ScrollArea className="w-full whitespace-nowrap pb-2">
-            <div className="flex gap-3 px-1">
-                {dates.map((date) => {
-                    const isSelected = isSameDay(date, value);
-                    return (
-                        <button
-                            key={date.toISOString()}
-                            onClick={() => onChange(date)}
-                            className={cn(
-                                "flex flex-col items-center justify-center min-w-[64px] h-20 rounded-2xl border-2 transition-all duration-200",
-                                isSelected ? "shadow-lg scale-105" : "opacity-40"
-                            )}
-                            style={{ 
-                                backgroundColor: isSelected ? theme?.primaryColor : 'transparent',
-                                borderColor: theme?.primaryColor + (isSelected ? '' : '20'),
-                                color: isSelected ? theme?.backgroundColor : theme?.textColor
-                            }}
-                        >
-                            <span className="text-[10px] font-black uppercase tracking-widest">{format(date, 'EEE')}</span>
-                            <span className="text-xl font-black">{format(date, 'dd')}</span>
-                        </button>
-                    );
-                })}
-            </div>
-            <ScrollBar orientation="horizontal" className="opacity-0" />
-        </ScrollArea>
-    );
-}
-
-function TimePicker({ value, onChange, theme }: { value: string, onChange: (val: string) => void, theme: MenuTheme | undefined }) {
-    const [h, m, p] = useMemo(() => {
-        if (!value) return ["10", "00", "AM"];
-        const match = value.match(/(\d+):(\d+)\s*(AM|PM)/i);
-        return match ? [match[1], match[2], match[3].toUpperCase()] : ["10", "00", "AM"];
-    }, [value]);
-
-    const update = (newH: string, newM: string, newP: string) => {
-        onChange(`${newH}:${newM} ${newP}`);
-    };
-
-    const hours = Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, '0'));
-    const minutes = ["00", "15", "30", "45"];
-
-    return (
-        <div className="flex items-center justify-center gap-3 py-2">
-            <div className="flex flex-col items-center gap-1.5">
-                <p className="text-[8px] font-black uppercase opacity-40" style={{ color: theme?.textColor || '#fff' }}>Hour</p>
-                <Select value={h} onValueChange={(v) => update(v, m, p)}>
-                    <SelectTrigger className="w-20 h-14 rounded-xl border-2 text-xl font-black bg-black/5" style={{ borderColor: theme?.primaryColor + '40', color: theme?.textColor || '#fff' }}>
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {hours.map(hr => <SelectItem key={hr} value={hr}>{hr}</SelectItem>)}
-                    </SelectContent>
-                </Select>
-            </div>
-            <span className="text-2xl font-black mt-5" style={{ color: theme?.textColor || '#fff' }}>:</span>
-            <div className="flex flex-col items-center gap-1.5">
-                <p className="text-[8px] font-black uppercase opacity-40" style={{ color: theme?.textColor || '#fff' }}>Min</p>
-                <Select value={m} onValueChange={(v) => update(h, v, p)}>
-                    <SelectTrigger className="w-20 h-14 rounded-xl border-2 text-xl font-black bg-black/5" style={{ borderColor: theme?.primaryColor + '40', color: theme?.textColor || '#fff' }}>
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {minutes.map(min => <SelectItem key={min} value={min}>{min}</SelectItem>)}
-                    </SelectContent>
-                </Select>
-            </div>
-            <div className="flex flex-col items-center gap-1.5 ml-2">
-                <p className="text-[8px] font-black uppercase opacity-40" style={{ color: theme?.textColor || '#fff' }}>Period</p>
-                <div className="flex border-2 rounded-xl overflow-hidden h-14 bg-black/5" style={{ borderColor: theme?.primaryColor + '40' }}>
-                    <button 
-                        className={cn("px-4 text-xs font-black transition-all", p === 'AM' ? "shadow-inner" : "opacity-30")}
-                        style={{ backgroundColor: p === 'AM' ? theme?.primaryColor : 'transparent', color: p === 'AM' ? theme?.backgroundColor : theme?.textColor || '#fff' }}
-                        onClick={() => update(h, m, 'AM')}
-                    >AM</button>
-                    <button 
-                        className={cn("px-4 text-xs font-black transition-all", p === 'PM' ? "shadow-inner" : "opacity-30")}
-                        style={{ backgroundColor: p === 'PM' ? theme?.primaryColor : 'transparent', color: p === 'PM' ? theme?.backgroundColor : theme?.textColor || '#fff' }}
-                        onClick={() => update(h, m, 'PM')}
-                    >PM</button>
-                </div>
-            </div>
-        </div>
-    );
 }
 
 function UPIPaymentDialog({ isOpen, onOpenChange, total, store, theme }: { isOpen: boolean; onOpenChange: (open: boolean) => void; total: number; store: Store; theme: MenuTheme | undefined; }) {
@@ -466,17 +373,40 @@ function LiveBillSheet({
   );
 }
 
-function MenuCard({ item, onAdd, onShowDetails, isAdding, recentlyAdded, theme }: { item: MenuItem, onAdd: (item: MenuItem, qty: number) => void, onShowDetails: (item: MenuItem) => void, isAdding: boolean, recentlyAdded: boolean, theme: MenuTheme | undefined }) {
+function MenuCard({ item, onAdd, onShowDetails, isAdding, recentlyAdded, currentQuantityInOrder, theme }: { item: MenuItem, onAdd: (item: MenuItem, qty: number) => void, onShowDetails: (item: MenuItem) => void, isAdding: boolean, recentlyAdded: boolean, currentQuantityInOrder: number, theme: MenuTheme | undefined }) {
     const [qty, setQty] = useState(1);
     
     return (
-        <Card className="flex flex-col shadow-xl rounded-[1.2rem] border-0 overflow-hidden group hover:scale-[1.02] transition-all duration-300" style={{ backgroundColor: '#2D2424' }}>
+        <Card className={cn(
+            "flex flex-col shadow-xl rounded-[1.2rem] border-0 overflow-hidden group hover:scale-[1.02] transition-all duration-300 relative",
+            !item.isAvailable && "opacity-50 grayscale pointer-events-none"
+        )} style={{ backgroundColor: '#2D2424' }}>
             <div className="relative aspect-video w-full rounded-t-[1.2rem] overflow-hidden cursor-pointer" onClick={() => onShowDetails(item)}>
                 <Image src={item.imageUrl || ADIRES_LOGO} alt={item.name} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
                 <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors" />
+                
+                {/* Dietary Indicator */}
+                {item.dietary && (
+                    <div className="absolute top-1.5 left-1.5 h-4 w-4 bg-white/90 rounded-sm flex items-center justify-center p-0.5 shadow-sm">
+                        <div className={cn("h-full w-full rounded-full border-2", item.dietary === 'veg' ? 'border-green-600 bg-green-600' : 'border-red-600 bg-red-600')}></div>
+                    </div>
+                )}
+
+                {/* "In Order" Badge */}
+                {currentQuantityInOrder > 0 && (
+                    <div className="absolute top-1.5 right-1.5 bg-green-600 text-white text-[7px] font-black uppercase px-1.5 py-0.5 rounded-full shadow-lg">
+                        {currentQuantityInOrder} in order
+                    </div>
+                )}
+
                 <div className="absolute bottom-1.5 left-1.5 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10">
                     <p className="text-[10px] font-black" style={{ color: theme?.primaryColor || '#FBC02D' }}>₹{item.price.toFixed(0)}</p>
                 </div>
+                {!item.isAvailable && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                        <Badge variant="destructive" className="font-black uppercase text-[10px]">Sold Out</Badge>
+                    </div>
+                )}
             </div>
             <div className="p-2 flex flex-col gap-2 flex-1 min-w-0">
                 <div className="min-w-0">
@@ -493,7 +423,7 @@ function MenuCard({ item, onAdd, onShowDetails, isAdding, recentlyAdded, theme }
                 </div>
                 <div className="flex items-center gap-1.5">
                     <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full opacity-40 hover:opacity-100 bg-white/5" onClick={() => onShowDetails(item)}><Eye className="h-3.5 w-3.5 text-white" /></Button>
-                    <Button onClick={() => onAdd(item, qty)} disabled={isAdding} className={cn("flex-1 h-8 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95", recentlyAdded ? "bg-green-600 text-white" : "")} style={{ backgroundColor: recentlyAdded ? '' : (theme?.primaryColor || '#FBC02D'), color: recentlyAdded ? '' : (theme?.backgroundColor || '#1A1616') }}>
+                    <Button onClick={() => onAdd(item, qty)} disabled={isAdding || !item.isAvailable} className={cn("flex-1 h-8 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95", recentlyAdded ? "bg-green-600 text-white" : "")} style={{ backgroundColor: recentlyAdded ? '' : (theme?.primaryColor || '#FBC02D'), color: recentlyAdded ? '' : (theme?.backgroundColor || '#1A1616') }}>
                         {recentlyAdded ? <Check className="h-2.5 w-2.5" /> : 'Add'}
                     </Button>
                 </div>
@@ -525,12 +455,12 @@ export default function PublicMenuPage() {
     if (sA) setDeliveryAddress(sA); if (sN) setCustomerName(sN); if (sP) setPhone(sP);
   }, [searchParams, storeId]);
 
+  // Session ID logic: Persistent for collaboration
   const sessionId = useMemo(() => {
     const dS = `${new Date().getFullYear()}-${new Date().getMonth() + 1}-${new Date().getDate()}`;
-    const sS = typeof window !== 'undefined' ? localStorage.getItem(`sub_session_${storeId}`) || '1' : '1';
-    if (tableNumber) return `table-${tableNumber}-${dS}-${sS}`;
+    if (tableNumber) return `table-${tableNumber}-${dS}-${storeId}`;
     let dId = localStorage.getItem(`device_session_${storeId}`); if (!dId) { dId = Math.random().toString(36).substring(2, 15); localStorage.setItem(`device_session_${storeId}`, dId); }
-    return `home-${dId}-${dS}-${sS}`;
+    return `home-${dId}-${dS}`;
   }, [tableNumber, storeId]);
 
   const ordersQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'orders'), where('sessionId', '==', sessionId), where('isActive', '==', true)) : null), [firestore, sessionId]);
@@ -547,6 +477,16 @@ export default function PublicMenuPage() {
     if (selectedCategory) filtered = filtered.filter(i => i.category === selectedCategory);
     return filtered.reduce((acc, i) => { const c = i.category || 'Other'; if(!acc[c]) acc[c] = []; acc[c].push(i); return acc; }, {} as Record<string, MenuItem[]>);
   }, [menu, searchTerm, selectedCategory]);
+
+  const currentOrderedCounts = useMemo(() => {
+      const counts: Record<string, number> = {};
+      placedOrders?.forEach(order => {
+          order.items.forEach(item => {
+              counts[item.productName] = (counts[item.productName] || 0) + item.quantity;
+          });
+      });
+      return counts;
+  }, [placedOrders]);
 
   const handleAddItem = (item: MenuItem, qty: number = 1) => {
     const product: Product = {
@@ -585,6 +525,15 @@ export default function PublicMenuPage() {
       startAdding(async () => {
           const result = await confirmOrderSession(sessionId);
           if (result.success) toast({ title: 'Bill Requested' });
+      });
+  };
+
+  const handleCallWaiter = (serviceType: string) => {
+      startAdding(async () => {
+          const result = await requestTableService(sessionId, serviceType);
+          if (result.success) {
+              toast({ title: 'Request Sent', description: `Staff notified for ${serviceType}.` });
+          }
       });
   };
 
@@ -663,7 +612,16 @@ export default function PublicMenuPage() {
                             <h2 className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40 px-1" style={{ color: theme?.textColor || '#fff' }}>{category}</h2>
                             <div className="grid grid-cols-2 gap-2">
                                 {items.map((item) => (
-                                    <MenuCard key={item.id} item={item} onAdd={handleAddItem} onShowDetails={handleShowIngredients} isAdding={isAdding} recentlyAdded={recentlyAdded.has(item.id)} theme={theme} />
+                                    <MenuCard 
+                                        key={item.id} 
+                                        item={item} 
+                                        onAdd={handleAddItem} 
+                                        onShowDetails={handleShowIngredients} 
+                                        isAdding={isAdding} 
+                                        recentlyAdded={recentlyAdded.has(item.id)} 
+                                        currentQuantityInOrder={currentOrderedCounts[item.name] || 0}
+                                        theme={theme} 
+                                    />
                                 ))}
                             </div>
                         </section>
@@ -674,6 +632,21 @@ export default function PublicMenuPage() {
           </div>
 
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[400px] px-4 flex gap-2">
+              {tableNumber && placedOrders && placedOrders.length > 0 && (
+                  <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                          <Button variant="outline" className="h-12 w-12 rounded-xl shadow-2xl border-2 shrink-0 bg-white/10 text-white" style={{ borderColor: theme?.primaryColor || '#FBC02D' }}>
+                              <BellRing className="h-5 w-5" />
+                          </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-48 rounded-2xl p-2">
+                          <DropdownMenuLabel className="text-[10px] uppercase font-black opacity-40">Call Staff For:</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => handleCallWaiter('Water')} className="rounded-xl font-bold">Glass of Water</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleCallWaiter('Cleaning')} className="rounded-xl font-bold">Table Cleaning</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleCallWaiter('Assistance')} className="rounded-xl font-bold">General Help</DropdownMenuItem>
+                      </DropdownMenuContent>
+                  </DropdownMenu>
+              )}
               {cartItems.length > 0 && (
                   <Button onClick={handlePlaceOrder} disabled={isAdding} className="h-12 flex-1 rounded-xl shadow-2xl text-[10px] font-black uppercase tracking-[0.1em] border border-white/10" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>
                       {isAdding ? <Loader2 className="animate-spin h-4 w-4"/> : <PlusCircle className="mr-2 h-4 w-4" />}

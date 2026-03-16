@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
@@ -8,7 +9,7 @@ import type { Store, Menu, MenuItem, MenuTheme } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Trash2, Sparkles, Loader2, Save, QrCode, Printer, Copy, AlertTriangle, List, PlusCircle, Edit, ImageIcon, Check, Upload as UploadIcon, Link2 } from 'lucide-react';
+import { Trash2, Sparkles, Loader2, Save, QrCode, Printer, Copy, AlertTriangle, List, PlusCircle, Edit, ImageIcon, Check, Upload as UploadIcon, Link2, SwitchCamera, CheckCircle2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -28,6 +29,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
@@ -50,6 +53,8 @@ const menuItemSchema = z.object({
   price: z.coerce.number().min(0, "Price must be a positive number."),
   category: z.string().min(2, "Category is required."),
   imageUrl: z.string().url("Please enter a valid URL").optional().or(z.literal('')),
+  dietary: z.enum(['veg', 'non-veg']).optional(),
+  isAvailable: z.boolean().default(true),
 });
 type MenuItemFormValues = z.infer<typeof menuItemSchema>;
 
@@ -68,7 +73,7 @@ function EditMenuItemDialog({
 }) {
   const form = useForm<MenuItemFormValues>({
     resolver: zodResolver(menuItemSchema),
-    defaultValues: existingItem || { name: '', price: 0, category: '', description: '', imageUrl: '' },
+    defaultValues: existingItem || { name: '', price: 0, category: '', description: '', imageUrl: '', dietary: 'veg', isAvailable: true },
   });
   
   const [isSaving, startSave] = useTransition();
@@ -79,7 +84,7 @@ function EditMenuItemDialog({
   const { storage } = useFirebase();
 
   useEffect(() => {
-    form.reset(existingItem || { name: '', price: 0, category: '', description: '', imageUrl: '' });
+    form.reset(existingItem || { name: '', price: 0, category: '', description: '', imageUrl: '', dietary: 'veg', isAvailable: true });
   }, [existingItem, form]);
 
   const handleSubmit = (data: MenuItemFormValues) => {
@@ -143,7 +148,7 @@ function EditMenuItemDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl rounded-[2.5rem] border-0 shadow-2xl overflow-hidden">
+      <DialogContent className="max-w-3xl rounded-[2.5rem] border-0 shadow-2xl overflow-hidden">
         <DialogHeader className="p-6 pb-0">
           <DialogTitle className="text-2xl font-black uppercase tracking-tight">Edit Menu Item</DialogTitle>
           <DialogDescription className="font-bold opacity-60">
@@ -161,8 +166,36 @@ function EditMenuItemDialog({
                         <FormField control={form.control} name="category" render={({ field }) => (
                             <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Category</FormLabel><FormControl><Input {...field} placeholder="e.g., Main Course" className="rounded-xl h-12 border-2" /></FormControl><FormMessage /></FormItem>
                         )} />
-                        <FormField control={form.control} name="price" render={({ field }) => (
-                            <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Price (₹)</FormLabel><FormControl><Input type="number" step="0.01" {...field} className="rounded-xl h-12 border-2" /></FormControl><FormMessage /></FormItem>
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField control={form.control} name="price" render={({ field }) => (
+                                <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Price (₹)</FormLabel><FormControl><Input type="number" step="0.01" {...field} className="rounded-xl h-12 border-2" /></FormControl><FormMessage /></FormItem>
+                            )} />
+                            <FormField control={form.control} name="isAvailable" render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel className="text-[10px] font-black uppercase opacity-40">Availability</FormLabel>
+                                    <div className="flex items-center h-12 gap-2 px-2 border-2 rounded-xl bg-muted/20">
+                                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                        <span className="text-[10px] font-bold uppercase">{field.value ? 'In Stock' : 'Sold Out'}</span>
+                                    </div>
+                                </FormItem>
+                            )} />
+                        </div>
+                        <FormField control={form.control} name="dietary" render={({ field }) => (
+                            <FormItem className="space-y-2">
+                                <FormLabel className="text-[10px] font-black uppercase opacity-40">Dietary Preference</FormLabel>
+                                <FormControl>
+                                    <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4">
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="veg" id="veg" />
+                                            <Label htmlFor="veg" className="text-xs font-bold uppercase">Vegetarian</Label>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="non-veg" id="non-veg" />
+                                            <Label htmlFor="non-veg" className="text-xs font-bold uppercase">Non-Veg</Label>
+                                        </div>
+                                    </RadioGroup>
+                                </FormControl>
+                            </FormItem>
                         )} />
                     </div>
                     
@@ -194,10 +227,6 @@ function EditMenuItemDialog({
                                     {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 text-primary" />}
                                 </Button>
                             </div>
-                            <div className="relative">
-                                <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-                                <div className="relative flex justify-center text-[8px] font-black uppercase"><span className="bg-background px-2 text-muted-foreground">Or</span></div>
-                            </div>
                             <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" className="hidden" />
                             <Button type="button" variant="secondary" className="w-full h-10 rounded-xl font-black text-[10px] uppercase tracking-widest" onClick={() => fileInputRef.current?.click()} disabled={isUploading || isGenerating}>
                                 <UploadIcon className="mr-2 h-4 w-4" /> Upload from Device
@@ -227,90 +256,6 @@ function EditMenuItemDialog({
   );
 }
 
-function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (data: { items: MenuItem[], theme: MenuTheme }) => void }) {
-    const { toast } = useToast();
-    const [isProcessing, startProcessing] = useTransition();
-    const [menuImage, setMenuImage] = useState<string | null>(null);
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files?.[0]) {
-            const file = e.target.files[0];
-            const reader = new FileReader();
-            reader.onload = (event) => setMenuImage(event.target?.result as string);
-            reader.readAsDataURL(file);
-        }
-    };
-
-    const handleExtract = () => {
-        if (!menuImage) { toast({ variant: 'destructive', title: 'Select image' }); return; }
-        startProcessing(async () => {
-            try {
-                const result = await extractMenuItems({ menuImage });
-                if (result.items?.length > 0) {
-                    onMenuExtracted({ items: result.items as any, theme: result.theme as any });
-                    toast({ title: 'Menu Extracted!', description: `Found ${result.items.length} items.` });
-                } else {
-                    toast({ variant: 'destructive', title: 'No Items Found' });
-                }
-            } catch (error) { toast({ variant: 'destructive', title: 'Extraction Failed' }); }
-        });
-    };
-
-    return (
-        <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden">
-            <CardHeader className="bg-primary/5 border-b border-black/5 pb-6"><CardTitle className="text-xl font-black uppercase tracking-tight">1. Create Your Menu</CardTitle><CardDescription className="text-xs font-bold opacity-40 uppercase">Upload photo & AI will digitize it</CardDescription></CardHeader>
-            <CardContent className="space-y-6 pt-6">
-                <div className="w-full aspect-video relative rounded-[2rem] overflow-hidden border-2 bg-muted flex items-center justify-center">
-                    {menuImage ? <Image src={menuImage} alt="Menu preview" fill className="object-contain" /> : (
-                        <div className="text-center opacity-20">
-                            <ImageIcon className="h-12 w-12 mx-auto mb-2" />
-                            <p className="text-[10px] font-black uppercase">No Photo Selected</p>
-                        </div>
-                    )}
-                </div>
-                <Input type="file" accept="image/*" onChange={handleFileChange} disabled={isProcessing} className="rounded-xl border-2 cursor-pointer" />
-                <Button onClick={handleExtract} disabled={!menuImage || isProcessing} className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20">
-                    {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Sparkles className="mr-2 h-5 w-5" />}
-                    {isProcessing ? 'Analyzing Menu...' : 'Extract Menu with AI'}
-                </Button>
-            </CardContent>
-        </Card>
-    );
-}
-
-function QRCodeDialog({ table, storeId }: { table: string, storeId: string }) {
-    const [menuUrl, setMenuUrl] = useState('');
-    const { toast } = useToast();
-    useEffect(() => { if (typeof window !== 'undefined') setMenuUrl(`${window.location.origin}/menu/${storeId}?table=${encodeURIComponent(table)}`); }, [storeId, table]);
-    
-    const handlePrint = () => {
-        const qrCodeElement = document.getElementById(`qr-code-container-${table}`);
-        if (qrCodeElement) {
-            const pW = window.open('', '', 'height=600,width=800');
-            pW?.document.write(`<html><head><title>QR ${table}</title><style>body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; font-family: sans-serif; } .qr-container { padding: 40px; border: 4px solid black; border-radius: 40px; }</style></head><body><h1>Scan for ${table}</h1><div class="qr-container">${qrCodeElement.innerHTML}</div></body></html>`);
-            pW?.document.close(); pW?.focus(); pW?.print();
-        }
-    };
-    
-    return (
-        <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl p-8 flex flex-col items-center text-center max-w-sm mx-auto">
-            <DialogHeader className="mb-4">
-                <DialogTitle className="text-xl font-black uppercase tracking-tight text-center">QR Code: {table}</DialogTitle>
-            </DialogHeader>
-            <div className="flex flex-col items-center gap-6">
-                 <div id={`qr-code-container-${table}`} className="p-6 bg-white rounded-[2.5rem] border-4 border-black relative shadow-inner">
-                    {menuUrl ? <QRCode value={menuUrl} size={200} /> : <div className="w-[200px] h-[200px] bg-gray-200 animate-pulse" />}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-4 py-2 rounded-xl border-4 border-black shadow-lg"><span className="text-3xl font-black text-black">{table}</span></div>
-                </div>
-                <div className="grid grid-cols-2 gap-4 w-full">
-                    <Button onClick={() => navigator.clipboard.writeText(menuUrl).then(() => toast({title:'Copied'}))} variant="outline" className="rounded-xl font-black text-[10px] uppercase border-2 h-12">Copy Link</Button>
-                    <Button onClick={handlePrint} className="rounded-xl font-black text-[10px] uppercase shadow-lg h-12">Print QR</Button>
-                </div>
-            </div>
-        </DialogContent>
-    )
-}
-
 function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, menu: Menu, onReplace: () => void }) {
     const { toast } = useToast(); const { firestore } = useFirebase(); const [isGenerating, startGeneration] = useTransition(); const [menu, setMenu] = useState(initialMenu);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false); const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
@@ -337,6 +282,12 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
          if (!(await persistMenu(uM))) setMenu(menu); else toast({ title: "Deleted" });
     }
 
+    const toggleAvailability = async (it: MenuItem) => {
+        const uI = menu.items.map(i => i.id === it.id ? { ...i, isAvailable: !i.isAvailable } : i);
+        const uM = { ...menu, items: uI }; setMenu(uM);
+        if (!(await persistMenu(uM))) { setMenu(menu); toast({ variant: 'destructive', title: 'Toggle Failed' }); }
+    };
+
     const handleGenerateIngredients = async (item: MenuItem) => {
         startGeneration(async () => {
             try {
@@ -353,17 +304,25 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
                 <CardHeader className="bg-primary/5 border-b border-black/5 pb-6"><div className="flex justify-between items-center"><CardTitle className="text-xl font-black uppercase tracking-tight">Active Menu</CardTitle><Button size="sm" variant="outline" className="rounded-xl font-black text-[9px] uppercase border-2 h-8 px-4" onClick={() => { setEditingItem(null); setIsEditDialogOpen(true); }}>Add Item</Button></div></CardHeader>
                 <CardContent className="p-0">
                      <Table>
-                        <TableHeader className="bg-black/5"><TableRow><TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Item</TableHead><TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Status</TableHead><TableHead className="text-right text-[10px] font-black uppercase tracking-widest opacity-40">Edit</TableHead></TableRow></TableHeader>
+                        <TableHeader className="bg-black/5"><TableRow><TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Item</TableHead><TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Stock</TableHead><TableHead className="text-right text-[10px] font-black uppercase tracking-widest opacity-40">Edit</TableHead></TableRow></TableHeader>
                         <TableBody>
                             {menu.items.map((it) => (
-                                <TableRow key={it.id} className="hover:bg-muted/30">
+                                <TableRow key={it.id} className={cn("hover:bg-muted/30", !it.isAvailable && "opacity-50")}>
                                     <TableCell className="py-4">
                                         <div className="flex items-center gap-3">
                                             <div className="relative h-10 w-10 rounded-xl overflow-hidden border bg-muted shrink-0"><Image src={it.imageUrl || ADIRES_LOGO} alt={it.name} fill className="object-cover" /></div>
-                                            <div><p className="font-bold text-sm leading-tight">{it.name}</p><p className="text-[10px] font-black text-primary opacity-60">₹{it.price.toFixed(0)}</p></div>
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-1.5">
+                                                    <p className="font-bold text-sm leading-tight truncate">{it.name}</p>
+                                                    {it.dietary && <div className={cn("h-2.5 w-2.5 rounded-sm border-2", it.dietary === 'veg' ? 'border-green-600 bg-green-600' : 'border-red-600 bg-red-600')}></div>}
+                                                </div>
+                                                <p className="text-[10px] font-black text-primary opacity-60">₹{it.price.toFixed(0)}</p>
+                                            </div>
                                         </div>
                                     </TableCell>
-                                    <TableCell>{cachedStatus[it.id] ? <Badge className="rounded-md bg-green-500 text-white text-[8px] font-black uppercase">Cached</Badge> : <Button size="sm" variant="ghost" className="h-7 text-[8px] font-black uppercase tracking-widest opacity-40" onClick={() => handleGenerateIngredients(it)} disabled={isGenerating}>{isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Cache'}</Button>}</TableCell>
+                                    <TableCell>
+                                        <Switch checked={it.isAvailable} onCheckedChange={() => toggleAvailability(it)} />
+                                    </TableCell>
                                     <TableCell className="text-right"><Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => { setEditingItem(it); setIsEditDialogOpen(true); }}><Edit className="h-4 w-4" /></Button></TableCell>
                                 </TableRow>
                             ))}

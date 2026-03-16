@@ -311,6 +311,46 @@ export async function confirmOrderSession(sessionId: string): Promise<{ success:
   }
 }
 
+/**
+ * Requests service (waiter) for a specific session.
+ */
+export async function requestTableService(sessionId: string, type: string = 'assistance'): Promise<{ success: boolean; error?: string }> {
+    try {
+        const { db } = await getAdminServices();
+        const snapshot = await db.collection('orders').where('sessionId', '==', sessionId).where('isActive', '==', true).limit(1).get();
+        
+        if (snapshot.empty) return { success: false, error: 'No active session found.' };
+        
+        const orderRef = snapshot.docs[0].ref;
+        await orderRef.update({ 
+            needsService: true, 
+            serviceType: type,
+            updatedAt: FieldValue.serverTimestamp() 
+        });
+        
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Dismisses service request for a specific order.
+ */
+export async function dismissTableService(orderId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        const { db } = await getAdminServices();
+        await db.collection('orders').doc(orderId).update({
+            needsService: false,
+            serviceType: null,
+            updatedAt: FieldValue.serverTimestamp()
+        });
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
 export async function markSessionAsPaid(sessionId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const { db } = await getAdminServices();

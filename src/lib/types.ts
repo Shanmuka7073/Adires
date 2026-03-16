@@ -128,6 +128,8 @@ export type Order = {
   updatedAt?: any;
   zoneId?: string; // Geographic partition ID derived from pincode
   appointmentTime?: string; // NEW: For salons
+  needsService?: boolean; // NEW: Waiter call flag
+  serviceType?: string; // NEW: Reason for waiter call
 };
 
 
@@ -325,6 +327,8 @@ export type MenuItem = {
   category: string;
   ingredients?: Ingredient[];
   imageUrl?: string; // URL for AI-generated dish image
+  dietary?: 'veg' | 'non-veg'; // NEW: Dietary indicator
+  isAvailable: boolean; // NEW: Stock toggle
 };
 
 export type MenuTheme = {
