@@ -7,7 +7,6 @@ import {
   query,
   where,
   doc,
-  deleteDoc,
   limit,
   Timestamp,
   orderBy,
@@ -25,11 +24,11 @@ import type {
   ProductVariant,
 } from '@/lib/types';
 
-import { useParams, useSearchParams, useRouter } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { format, addDays, isSameDay, isToday, isAfter, set } from 'date-fns';
+import { format } from 'date-fns';
 
 import {
   Utensils,
@@ -40,30 +39,18 @@ import {
   Check,
   Clock,
   Search,
-  X,
   Download,
   Eye,
-  Home,
-  MapPin,
-  Save,
-  Video,
-  Truck,
-  CheckCircle,
-  PlusCircle,
-  LocateFixed,
-  Trash2,
   Smartphone,
-  Zap,
   CreditCard,
-  QrCode,
-  Info,
-  CalendarDays,
-  AlertTriangle,
+  PlusCircle,
+  BellRing,
   ArrowLeft,
-  Store as StoreIcon,
   Sparkles,
   ShoppingBag,
-  BellRing
+  Package,
+  CheckCircle,
+  AlertTriangle
 } from 'lucide-react';
 
 import {
@@ -95,11 +82,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { addRestaurantOrderItem, confirmOrderSession, getIngredientsForDish, requestTableService } from '@/app/actions';
 import { useInstall } from '@/components/install-provider';
@@ -109,143 +94,53 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import QRCode from 'qrcode.react';
 import { useAppStore } from '@/lib/store';
 import { useCart } from '@/lib/cart';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
-function toDateSafe(d: any): Date {
-    if (!d) return new Date();
-    if (d instanceof Date) return d;
-    if (d instanceof Timestamp) return d.toDate();
-    if (typeof d === 'string') return new Date(d);
-    if (typeof d === 'object' && d.seconds) return new Date(d.seconds * 1000);
-    return new Date();
-}
+function OrderStatusTimeline({ status, theme }: { status: Order['status'], theme?: MenuTheme }) {
+    const steps = [
+        { label: 'Placed', icon: Package, s: 1 },
+        { label: 'Kitchen', icon: CookingPot, s: 2 },
+        { label: 'Ready', icon: Receipt, s: 3 },
+        { label: 'Served', icon: Check, s: 4 },
+    ];
 
-function UPIPaymentDialog({ isOpen, onOpenChange, total, store, theme }: { isOpen: boolean; onOpenChange: (open: boolean) => void; total: number; store: Store; theme: MenuTheme | undefined; }) {
-    if (!store.upiId) return null;
-    const upiUrl = `upi://pay?pa=${encodeURIComponent(store.upiId)}&pn=${encodeURIComponent(store.name)}&am=${total.toFixed(2)}&cu=INR`;
-    return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl p-8 flex flex-col items-center text-center max-w-sm mx-auto" style={{ backgroundColor: theme?.backgroundColor || '#1A1616' }}>
-                <DialogHeader className="mb-4">
-                    <DialogTitle className="text-xl font-black uppercase tracking-tight" style={{ color: theme?.primaryColor || '#FBC02D' }}>Pay Total Bill</DialogTitle>
-                    <DialogDescription style={{ color: theme?.textColor || '#fff', opacity: 0.6 }}>Scan or tap to pay your session total.</DialogDescription>
-                </DialogHeader>
-                <div className="p-6 bg-white rounded-[2.5rem] shadow-inner border-4 border-black/5 mb-6">
-                    <QRCode value={upiUrl} size={180} level="H" includeMargin={true} />
-                    <p className="mt-4 text-[10px] font-black uppercase tracking-widest opacity-40">Scan QR to Pay</p>
-                </div>
-                <div className="w-full space-y-4">
-                    <div className="space-y-1">
-                        <p className="text-[10px] font-black opacity-40 uppercase tracking-widest" style={{ color: theme?.textColor || '#fff' }}>Amount to Pay</p>
-                        <p className="text-4xl font-black" style={{ color: theme?.primaryColor || '#FBC02D' }}>₹{total.toFixed(2)}</p>
-                    </div>
-                    <Button onClick={() => window.location.href = upiUrl} className="w-full h-14 rounded-2xl text-xs font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/20 flex items-center justify-center gap-3" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>
-                        <Smartphone className="h-5 w-5" /> Open UPI App
-                    </Button>
-                    <Button variant="ghost" className="w-full font-bold opacity-40" onClick={() => onOpenChange(false)}>Close</Button>
-                </div>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-function DeliveryDetailsDialog({ isOpen, onOpenChange, onSave, initialData, theme }: { isOpen: boolean; onOpenChange: (open: boolean) => void; onSave: (data: { name: string, phone: string, address: string, lat?: number, lng?: number }) => void; initialData: { name: string, phone: string, address: string }; theme: MenuTheme | undefined; }) {
-    const [name, setName] = useState(initialData.name);
-    const [phone, setPhone] = useState(initialData.phone);
-    const [address, setAddress] = useState(initialData.address);
-    const [coords, setCoords] = useState<{lat: number, lng: number} | null>(null);
-    const [isLocating, setIsLocating] = useState(false);
-    const { toast } = useToast();
-
-    useEffect(() => {
-        if (isOpen) {
-            setName(initialData.name);
-            setPhone(initialData.phone);
-            setAddress(initialData.address);
-        }
-    }, [isOpen, initialData]);
-
-    const handleGetLocation = () => {
-        if (!navigator.geolocation) {
-            toast({ variant: 'destructive', title: 'Not Supported', description: 'Geolocation is not supported by your browser.' });
-            return;
-        }
-        setIsLocating(true);
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                const { latitude, longitude } = pos.coords;
-                setCoords({ lat: latitude, longitude: longitude });
-                setAddress(`GPS (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`);
-                setIsLocating(false);
-                toast({ title: 'Location Captured!', description: 'Your current location has been set as the delivery address.' });
-            },
-            (err) => {
-                console.error("GPS Capture failed", err);
-                setIsLocating(false);
-                toast({ variant: 'destructive', title: 'Location Error', description: 'Could not retrieve your location. Please check your browser permissions.' });
-            },
-            { timeout: 10000 }
-        );
+    const getStep = (s: string) => {
+        if (s === 'Pending') return 1;
+        if (s === 'Processing') return 2;
+        if (['Billed', 'Out for Delivery'].includes(s)) return 3;
+        if (['Completed', 'Delivered'].includes(s)) return 4;
+        return 0;
     };
 
-    return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="rounded-[2rem] border-0 shadow-2xl p-6" style={{ backgroundColor: theme?.backgroundColor || '#1A1616' }}>
-                <DialogHeader className="mb-4">
-                    <DialogTitle className="text-xl font-black uppercase tracking-tight" style={{ color: theme?.primaryColor || '#FBC02D' }}>Your Details</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                    <div className="space-y-1.5">
-                        <Label className="text-[10px] uppercase font-black opacity-40 ml-1" style={{ color: theme?.textColor || '#fff' }}>Your Name</Label>
-                        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full Name" className="rounded-xl h-12 border-2 bg-black/20 text-white" style={{ borderColor: theme?.primaryColor + '20' }} />
-                    </div>
-                    <div className="space-y-1.5">
-                        <Label className="text-[10px] uppercase font-black opacity-40 ml-1" style={{ color: theme?.textColor || '#fff' }}>Phone</Label>
-                        <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Mobile Number" className="rounded-xl h-12 border-2 bg-black/20 text-white" style={{ borderColor: theme?.primaryColor + '20' }} />
-                    </div>
-                    <div className="space-y-1.5">
-                        <Label className="text-[10px] uppercase font-black opacity-40 ml-1" style={{ color: theme?.textColor || '#fff' }}>Address (For Delivery Only)</Label>
-                        <div className="flex gap-2">
-                            <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="House No, Street..." className="rounded-xl h-12 border-2 flex-1 bg-black/20 text-white" style={{ borderColor: theme?.primaryColor + '20' }} />
-                            <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl border-2" style={{ borderColor: theme?.primaryColor + '40', color: theme?.primaryColor || '#FBC02D' }} onClick={handleGetLocation} disabled={isLocating}>
-                                {isLocating ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-                <DialogFooter className="pt-4">
-                    <Button disabled={!name.trim() || !phone.trim() || isLocating} onClick={() => { onSave({ name, phone, address, lat: coords?.lat, lng: coords?.lng }); onOpenChange(false); }} className="w-full h-14 rounded-2xl uppercase font-black tracking-widest text-xs shadow-xl" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>
-                        Confirm & Start
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-}
+    const currentStep = getStep(status);
+    if (status === 'Cancelled') return <Badge variant="destructive" className="rounded-xl w-full py-2 justify-center font-black">ORDER CANCELLED</Badge>;
 
-function ModeSelectionDialog({ isOpen, onOpenChange, onSelectMode, currentMode, theme, isSalon }: { isOpen: boolean; onOpenChange: (open: boolean) => void; onSelectMode: (mode: 'table' | 'delivery', value?: string) => void; currentMode: 'table' | 'delivery'; theme: MenuTheme | undefined; isSalon: boolean; }) {
-    const [tableVal, setTableVal] = useState('');
     return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="rounded-[2rem] border-0 shadow-2xl p-6" style={{ backgroundColor: theme?.backgroundColor || '#1A1616' }}>
-                <DialogHeader><DialogTitle className="text-xl uppercase font-black" style={{ color: theme?.primaryColor || '#FBC02D' }}>{isSalon ? 'Service Type' : 'Order Mode'}</DialogTitle></DialogHeader>
-                <div className="grid gap-4">
-                    <Button variant={currentMode === 'delivery' ? 'default' : 'outline'} className="h-20 rounded-2xl flex flex-col border-2" style={{ backgroundColor: currentMode === 'delivery' ? theme?.primaryColor || '#FBC02D' : 'transparent', color: currentMode === 'delivery' ? theme?.backgroundColor || '#1A1616' : theme?.primaryColor || '#FBC02D', borderColor: theme?.primaryColor || '#FBC02D' }} onClick={() => { onSelectMode('delivery'); onOpenChange(false); }}>
-                        <div className="flex items-center gap-2 font-black text-xs uppercase"><Truck className="h-4 w-4"/> {isSalon ? 'Home Service' : 'Home Delivery'}</div>
-                    </Button>
-                    <div className="relative py-2"><div className="absolute inset-0 flex items-center"><span className="w-full border-t border-black/10" /></div><div className="relative flex justify-center text-[8px] font-black uppercase"><span className="px-2" style={{ backgroundColor: theme?.backgroundColor || '#1A1616', color: theme?.textColor || '#fff', opacity: 0.4 }}>Or</span></div></div>
-                    <div className="space-y-3">
-                        <Label className="text-[10px] uppercase font-black opacity-40 ml-1" style={{ color: theme?.textColor || '#fff' }}>{isSalon ? 'At Salon' : 'Dine-in Table No.'}</Label>
-                        <div className="flex gap-2"><Input placeholder={isSalon ? "Chair No. (Optional)" : "Table No."} value={tableVal} onChange={(e) => setTableVal(e.target.value)} className="rounded-xl h-12 border-2 text-center bg-black/20 text-white" style={{ borderColor: theme?.primaryColor + '20' }} /><Button disabled={!isSalon && !tableVal.trim()} onClick={() => { onSelectMode('table', tableVal); onOpenChange(false); }} className="h-12 rounded-xl px-6 font-black uppercase text-[10px]" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>Set</Button></div>
-                    </div>
-                </div>
-            </DialogContent>
-        </Dialog>
+        <div className="relative py-4">
+            <div className="flex justify-between items-center relative z-10">
+                {steps.map((step, idx) => {
+                    const isActive = currentStep >= step.s;
+                    return (
+                        <div key={idx} className="flex flex-col items-center gap-1.5">
+                            <div className={cn(
+                                "h-8 w-8 rounded-full flex items-center justify-center border-2 transition-all",
+                                isActive ? "bg-primary border-primary text-white scale-110 shadow-lg" : "bg-black/20 border-white/10 text-white/20"
+                            )} style={{ backgroundColor: isActive ? theme?.primaryColor : '', borderColor: isActive ? theme?.primaryColor : '' }}>
+                                <step.icon className="h-4 w-4" />
+                            </div>
+                            <span className="text-[7px] font-black uppercase tracking-tighter text-white/40">{step.label}</span>
+                        </div>
+                    )
+                })}
+            </div>
+            <div className="absolute top-[30px] left-[10%] right-[10%] h-[2px] bg-white/5 -z-0">
+                <div className="h-full transition-all duration-1000 bg-primary" style={{ width: `${Math.min(100, Math.max(0, (currentStep - 1) * 33.33))}%`, backgroundColor: theme?.primaryColor }} />
+            </div>
+        </div>
     );
 }
 
@@ -268,13 +163,8 @@ function LiveBillSheet({
     isLoadingOrders: boolean;
     onFinalizeBill: () => void;
 }) {
-  const { cartItems, cartTotal } = useCart();
-  const [closing, startClose] = useTransition();
-
-  const sessionTotal = useMemo(() => {
-      return placedOrders.reduce((acc, order) => acc + order.totalAmount, 0);
-  }, [placedOrders]);
-
+  const { cartItems } = useCart();
+  const sessionTotal = useMemo(() => placedOrders.reduce((acc, order) => acc + order.totalAmount, 0), [placedOrders]);
   const isBilled = placedOrders.some(o => o.status === 'Billed');
   const isFinalized = placedOrders.length > 0 && placedOrders.every(o => ['Completed', 'Delivered'].includes(o.status));
 
@@ -284,25 +174,27 @@ function LiveBillSheet({
     <div className="flex flex-col h-full" style={{ backgroundColor: theme?.backgroundColor || '#1A1616' }}>
         <SheetHeader className='p-5 border-b' style={{ borderColor: theme?.primaryColor + '20' }}>
             <SheetTitle className="flex items-center gap-2 text-lg font-bold" style={{ color: theme?.primaryColor || '#FBC02D' }}>
-                <Receipt className="h-5 w-5" /> {isSalon ? 'Booking & History' : 'Live Bill'}
+                <Receipt className="h-5 w-5" /> {isSalon ? 'Booking & History' : 'Live Order Progress'}
             </SheetTitle>
         </SheetHeader>
         
         <div className="flex-1 overflow-y-auto p-5 space-y-8">
-             {/* 1. PLACED ORDERS HISTORY */}
              {placedOrders.length > 0 && (
                  <div className="space-y-6">
                     {placedOrders.sort((a,b) => toDateSafe(a.orderDate).getTime() - toDateSafe(b.orderDate).getTime()).map((order, idx) => (
-                        <div key={order.id} className="space-y-3">
-                            <div className="flex justify-between items-center px-1">
-                                <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor || '#fff' }}>Order #{idx + 1}</h4>
+                        <div key={order.id} className="space-y-3 p-4 rounded-3xl border-2 bg-black/10" style={{ borderColor: theme?.primaryColor + '10' }}>
+                            <div className="flex justify-between items-center">
+                                <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor || '#fff' }}>Order Batch #{idx + 1}</h4>
                                 <Badge variant="outline" className="text-[8px] font-black uppercase border-primary/20" style={{ color: theme?.primaryColor || '#FBC02D' }}>{order.status}</Badge>
                             </div>
-                            <div className="p-4 rounded-2xl border-2 bg-black/10 space-y-2" style={{ borderColor: theme?.primaryColor + '10' }}>
+                            
+                            <OrderStatusTimeline status={order.status} theme={theme} />
+
+                            <div className="space-y-1 pt-2">
                                 {order.items.map((it, iIdx) => (
-                                    <div key={iIdx} className="flex justify-between text-xs" style={{ color: theme?.textColor || '#fff' }}>
-                                        <span className="opacity-80">{it.productName} x{it.quantity}</span>
-                                        <span className="font-bold">₹{it.price * it.quantity}</span>
+                                    <div key={iIdx} className="flex justify-between text-[11px]" style={{ color: theme?.textColor || '#fff' }}>
+                                        <span className="opacity-80 font-bold">{it.productName} x{it.quantity}</span>
+                                        <span className="font-black">₹{it.price * it.quantity}</span>
                                     </div>
                                 ))}
                             </div>
@@ -311,44 +203,35 @@ function LiveBillSheet({
                  </div>
              )}
 
-             {/* 2. DRAFT / CURRENT SELECTION */}
              {cartItems.length > 0 && (
                  <div className="space-y-3">
-                    <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor || '#fff' }}>Current Selection (Unplaced)</h4>
-                    <div className="p-4 rounded-2xl border-2 border-dashed bg-white/5 space-y-2" style={{ borderColor: theme?.primaryColor + '30' }}>
+                    <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor || '#fff' }}>New Selection (Not Placed)</h4>
+                    <div className="p-4 rounded-3xl border-2 border-dashed bg-white/5 space-y-2" style={{ borderColor: theme?.primaryColor + '30' }}>
                         {cartItems.map((it, idx) => (
                             <div key={idx} className="flex justify-between text-xs" style={{ color: theme?.textColor || '#fff' }}>
                                 <span className="opacity-80 font-bold">{it.product.name} x{it.quantity}</span>
                                 <span className="font-black">₹{(it.variant.price * it.quantity).toFixed(0)}</span>
                             </div>
                         ))}
-                        <p className="text-[9px] font-bold text-center mt-2 opacity-40" style={{ color: theme?.textColor || '#fff' }}>Click &quot;Place Order&quot; on the menu to send these to kitchen.</p>
                     </div>
-                 </div>
-             )}
-
-             {placedOrders.length === 0 && cartItems.length === 0 && (
-                 <div className="text-center py-20 opacity-20">
-                    <ShoppingBag className="h-12 w-12 mx-auto mb-4 text-white" />
-                    <p className="text-xs font-black uppercase tracking-widest text-white">No items yet</p>
                  </div>
              )}
         </div>
 
         <div className="p-6 border-t space-y-4 bg-black/20" style={{ borderColor: theme?.primaryColor + '20' }}>
             <div className="flex justify-between items-baseline mb-2">
-                <span className="text-sm font-bold uppercase tracking-widest opacity-60" style={{ color: theme?.textColor || '#fff' }}>Total Placed Bill</span>
+                <span className="text-sm font-bold uppercase tracking-widest opacity-60" style={{ color: theme?.textColor || '#fff' }}>Total Session Bill</span>
                 <span className="text-2xl font-black" style={{ color: theme?.primaryColor || '#FBC02D' }}>₹{sessionTotal.toFixed(2)}</span>
             </div>
             
             <div className="pt-2">
               {isFinalized ? (
                  <div className="text-center p-5 bg-primary/10 rounded-2xl border-2" style={{ borderColor: theme?.primaryColor + '30' }}>
-                    <Check className="mx-auto h-8 w-8 mb-2" style={{ color: theme?.primaryColor || '#FBC02D' }} />
-                    <p className="font-black text-xs uppercase" style={{ color: theme?.textColor || '#fff' }}>Session Completed</p>
+                    <CheckCircle className="mx-auto h-8 w-8 mb-2" style={{ color: theme?.primaryColor || '#FBC02D' }} />
+                    <p className="font-black text-xs uppercase" style={{ color: theme?.textColor || '#fff' }}>Visit Completed</p>
                 </div>
               ) : isBilled && store.upiId ? (
-                  <Button onClick={onShowUpi} className="w-full h-14 rounded-2xl uppercase font-black tracking-widest bg-green-600 hover:bg-green-700 text-white shadow-xl shadow-green-900/20">
+                  <Button onClick={onShowUpi} className="w-full h-14 rounded-2xl uppercase font-black tracking-widest bg-green-600 hover:bg-green-700 text-white shadow-xl">
                     <CreditCard className="mr-2 h-5 w-5" /> Pay ₹{sessionTotal.toFixed(0)} with UPI
                   </Button>
               ) : isBilled ? (
@@ -359,19 +242,11 @@ function LiveBillSheet({
               ) : placedOrders.length > 0 ? (
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
-                        <Button className="w-full h-14 rounded-2xl text-base font-black uppercase tracking-widest shadow-xl" variant="destructive">
-                            Finalize Bill & Pay
-                        </Button>
+                        <Button className="w-full h-14 rounded-2xl text-base font-black uppercase tracking-widest shadow-xl" variant="destructive">Finalize Bill & Pay</Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent className="rounded-[2rem] border-0 shadow-2xl" style={{ backgroundColor: theme?.backgroundColor || '#1A1616' }}>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle className="text-xl font-black uppercase tracking-tight" style={{ color: theme?.primaryColor || '#FBC02D' }}>Request Total Bill?</AlertDialogTitle>
-                            <AlertDialogDescription style={{ color: theme?.textColor || '#fff', opacity: 0.7 }}>This will finalize your session. You can still pay via UPI or at the counter.</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter className="gap-2">
-                            <AlertDialogCancel className="rounded-xl font-bold">Back</AlertDialogCancel>
-                            <AlertDialogAction onClick={onFinalizeBill} className="rounded-xl font-bold bg-primary" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>Confirm</AlertDialogAction>
-                        </AlertDialogFooter>
+                        <AlertDialogHeader><AlertDialogTitle className="text-xl font-black uppercase" style={{ color: theme?.primaryColor || '#FBC02D' }}>Finalize Visit?</AlertDialogTitle><AlertDialogDescription style={{ color: theme?.textColor || '#fff', opacity: 0.7 }}>This will close your ordering session and generate the final bill.</AlertDialogDescription></AlertDialogHeader>
+                        <AlertDialogFooter className="gap-2"><AlertDialogCancel className="rounded-xl font-bold">Back</AlertDialogCancel><AlertDialogAction onClick={onFinalizeBill} className="rounded-xl font-bold" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>Finalize</AlertDialogAction></AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
               ) : null}
@@ -392,39 +267,21 @@ function MenuCard({ item, onAdd, onShowDetails, isAdding, recentlyAdded, current
         )} style={{ backgroundColor: '#2D2424' }}>
             <div className="relative aspect-video w-full rounded-t-[1.2rem] overflow-hidden cursor-pointer" onClick={() => onShowDetails(item)}>
                 <Image src={item.imageUrl || ADIRES_LOGO} alt={item.name} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
-                <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors" />
-                
-                {/* Dietary Indicator */}
                 {item.dietary && (
                     <div className="absolute top-1.5 left-1.5 h-4 w-4 bg-white/90 rounded-sm flex items-center justify-center p-0.5 shadow-sm">
                         <div className={cn("h-full w-full rounded-full border-2", item.dietary === 'veg' ? 'border-green-600 bg-green-600' : 'border-red-600 bg-red-600')}></div>
                     </div>
                 )}
-
-                {/* "In Order" Badge */}
                 {currentQuantityInOrder > 0 && (
-                    <div className="absolute top-1.5 right-1.5 bg-green-600 text-white text-[7px] font-black uppercase px-1.5 py-0.5 rounded-full shadow-lg">
-                        {currentQuantityInOrder} in order
-                    </div>
+                    <div className="absolute top-1.5 right-1.5 bg-green-600 text-white text-[7px] font-black uppercase px-1.5 py-0.5 rounded-full shadow-lg">{currentQuantityInOrder} in order</div>
                 )}
-
                 <div className="absolute bottom-1.5 left-1.5 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10">
                     <p className="text-[10px] font-black" style={{ color: theme?.primaryColor || '#FBC02D' }}>₹{item.price.toFixed(0)}</p>
                 </div>
-                {isOutOfStock && (
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                        <Badge variant="destructive" className="font-black uppercase text-[10px]">Sold Out</Badge>
-                    </div>
-                )}
+                {isOutOfStock && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><Badge variant="destructive" className="font-black uppercase text-[10px]">Sold Out</Badge></div>}
             </div>
             <div className="p-2 flex flex-col gap-2 flex-1 min-w-0">
-                <div className="min-w-0">
-                    <h3 className="font-black text-[11px] leading-tight text-white mb-0.5 truncate">{item.name}</h3>
-                    <div className="flex items-center gap-1.5 opacity-60">
-                        <Sparkles className="h-3 w-3 text-primary" style={{ color: theme?.primaryColor || '#FBC02D' }} />
-                        <span className="text-[9px] font-black uppercase tracking-widest text-white">Popular</span>
-                    </div>
-                </div>
+                <div className="min-w-0"><h3 className="font-black text-[11px] leading-tight text-white mb-0.5 truncate">{item.name}</h3><div className="flex items-center gap-1.5 opacity-60"><Sparkles className="h-3 w-3" style={{ color: theme?.primaryColor || '#FBC02D' }} /><span className="text-[9px] font-black uppercase tracking-widest text-white">Popular</span></div></div>
                 <div className="flex items-center justify-between h-7 w-full rounded-full bg-black/40 border border-white/10 px-1 overflow-hidden">
                     <button onClick={() => setQty(Math.max(1, qty - 1))} className="h-5 w-5 rounded-full flex items-center justify-center text-white hover:bg-white/10"><Minus className="h-2 w-2" /></button>
                     <span className="text-[10px] font-black text-white">{qty}</span>
@@ -450,7 +307,7 @@ export default function PublicMenuPage() {
   const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null); const [ingredientsData, setIngredientsData] = useState<GetIngredientsOutput | null>(null); const [isFetchingIngredients, startFetchingIngredients] = useTransition(); const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
   const { canInstall, triggerInstall } = useInstall();
   const { isInitialized, fetchInitialData } = useAppStore();
-  const { cartItems, addItem, clearCart, cartTotal } = useCart();
+  const { cartItems, addItem, clearCart } = useCart();
 
   const { data: store, isLoading: storeLoading } = useDoc<Store>(useMemoFirebase(() => firestore ? doc(firestore, 'stores', storeId) : null, [firestore, storeId]));
   const { data: menus, isLoading: menuLoading } = useCollection<Menu>(useMemoFirebase(() => firestore ? query(collection(firestore, `stores/${storeId}/menus`)) : null, [firestore, storeId]));
@@ -459,12 +316,11 @@ export default function PublicMenuPage() {
   useEffect(() => { if (firestore && !isInitialized) fetchInitialData(firestore); }, [firestore, isInitialized, fetchInitialData]);
 
   useEffect(() => {
-    const urlTable = searchParams.get('table'); if (urlTable) { setTableNumber(urlTable); }
+    const urlTable = searchParams.get('table'); if (urlTable) setTableNumber(urlTable);
     const sA = localStorage.getItem(`last_address_${storeId}`); const sN = localStorage.getItem(`last_name_${storeId}`); const sP = localStorage.getItem(`last_phone_${storeId}`);
     if (sA) setDeliveryAddress(sA); if (sN) setCustomerName(sN); if (sP) setPhone(sP);
   }, [searchParams, storeId]);
 
-  // Session ID logic: Persistent for collaboration
   const sessionId = useMemo(() => {
     const dS = `${new Date().getFullYear()}-${new Date().getMonth() + 1}-${new Date().getDate()}`;
     if (tableNumber) return `table-${tableNumber}-${dS}-${storeId}`;
@@ -477,7 +333,6 @@ export default function PublicMenuPage() {
 
   const activeItemCount = useMemo(() => placedOrders?.reduce((acc, o) => acc + o.items.length, 0) || 0, [placedOrders]);
   const isSalon = useMemo(() => store?.businessType === 'salon' || store?.name.toLowerCase().includes('salon'), [store]);
-
   const availableCategories = useMemo(() => menu?.items ? Array.from(new Set(menu.items.map(i => i.category))).sort() : [], [menu]);
   
   const groupedMenu = useMemo(() => {
@@ -489,31 +344,13 @@ export default function PublicMenuPage() {
 
   const currentOrderedCounts = useMemo(() => {
       const counts: Record<string, number> = {};
-      placedOrders?.forEach(order => {
-          order.items.forEach(item => {
-              counts[item.productName] = (counts[item.productName] || 0) + item.quantity;
-          });
-      });
+      placedOrders?.forEach(order => { order.items.forEach(item => { counts[item.productName] = (counts[item.productName] || 0) + item.quantity; }); });
       return counts;
   }, [placedOrders]);
 
   const handleAddItem = (item: MenuItem, qty: number = 1) => {
-    const product: Product = {
-        id: item.id,
-        storeId: storeId,
-        name: item.name,
-        description: item.description || '',
-        imageId: 'cat-restaurant',
-        isMenuItem: true,
-        price: item.price,
-        imageUrl: item.imageUrl,
-    };
-    const variant: ProductVariant = {
-        sku: `${item.id}-default`,
-        weight: '1 pc',
-        price: item.price,
-        stock: 999,
-    };
+    const product: Product = { id: item.id, storeId: storeId, name: item.name, description: item.description || '', imageId: 'cat-restaurant', isMenuItem: true, price: item.price, imageUrl: item.imageUrl };
+    const variant: ProductVariant = { sku: `${item.id}-default`, weight: '1 pc', price: item.price, stock: 999 };
     addItem(product, variant, qty);
     setRecentlyAdded(prev => new Set(prev).add(item.id));
     setTimeout(() => setRecentlyAdded(prev => { const n = new Set(prev); n.delete(item.id); return n; }), 2000);
@@ -523,28 +360,12 @@ export default function PublicMenuPage() {
     if (!tableNumber && (!deliveryAddress || !customerName || !phone)) { setIsDeliveryDetailsOpen(true); return; }
     startAdding(async () => {
       const res = await addRestaurantOrderItem({ storeId, sessionId, tableNumber, items: cartItems, deliveryAddress, customerName, phone, deliveryLat: deliveryCoords?.lat, deliveryLng: deliveryCoords?.lng });
-      if (res.success) {
-        toast({ title: 'Sent to Kitchen!', description: 'Your order is being prepared.' });
-        clearCart();
-      }
+      if (res.success) { toast({ title: 'Sent to Kitchen!' }); clearCart(); }
     });
   };
 
-  const handleFinalizeBill = async () => {
-      startAdding(async () => {
-          const result = await confirmOrderSession(sessionId);
-          if (result.success) toast({ title: 'Bill Requested' });
-      });
-  };
-
-  const handleCallWaiter = (serviceType: string) => {
-      startAdding(async () => {
-          const result = await requestTableService(sessionId, serviceType);
-          if (result.success) {
-              toast({ title: 'Request Sent', description: `Staff notified for ${serviceType}.` });
-          }
-      });
-  };
+  const handleFinalizeBill = () => { startAdding(async () => { const result = await confirmOrderSession(sessionId); if (result.success) toast({ title: 'Bill Requested' }); }); };
+  const handleCallWaiter = (type: string) => { startAdding(async () => { const result = await requestTableService(sessionId, type); if (result.success) toast({ title: 'Request Sent' }); }); };
 
   const handleShowIngredients = (item: MenuItem) => {
     setIngredientsData(null); setSelectedItemForIngredients(item);
@@ -554,10 +375,7 @@ export default function PublicMenuPage() {
     });
   };
 
-  const handleStartNewOrder = () => {
-    const cS = parseInt(localStorage.getItem(`sub_session_${storeId}`) || '1', 10);
-    localStorage.setItem(`sub_session_${storeId}`, (cS + 1).toString()); window.location.reload();
-  };
+  const handleStartNewOrder = () => { window.location.reload(); };
 
   if (storeLoading || menuLoading || ordersLoading) return <div className="p-12 flex items-center justify-center bg-[#1A1616] min-h-screen"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
   if (!store) return <div className="p-12 text-center bg-[#1A1616] min-h-screen text-white">Store not found.</div>;
@@ -569,7 +387,7 @@ export default function PublicMenuPage() {
     <>
       {selectedItemForIngredients && <IngredientsDialog open={!!selectedItemForIngredients} onClose={() => setSelectedItemForIngredients(null)} dishName={selectedItemForIngredients.name} price={selectedItemForIngredients.price} isLoading={isFetchingIngredients} calories={ingredientsData?.nutrition?.calories || 0} protein={ingredientsData?.nutrition?.protein || 0} ingredients={(ingredientsData?.components as any) || []} itemType={ingredientsData?.itemType} onAdd={() => { handleAddItem(selectedItemForIngredients); setSelectedItemForIngredients(null); }} />}
       <DeliveryDetailsDialog isOpen={isDeliveryDetailsOpen} onOpenChange={setIsDeliveryDetailsOpen} onSave={(d) => { setCustomerName(d.name); setPhone(d.phone); setDeliveryAddress(d.address); if(d.lat) setDeliveryCoords({lat:d.lat, lng:d.lng}); localStorage.setItem(`last_name_${storeId}`, d.name); localStorage.setItem(`last_phone_${storeId}`, d.phone); localStorage.setItem(`last_address_${storeId}`, d.address); }} initialData={{ name: customerName, phone, address: deliveryAddress }} theme={theme} />
-      <ModeSelectionDialog isOpen={isModeDialogOpen} onOpenChange={setIsModeDialogOpen} onSelectMode={(m, v) => { if(m==='delivery'){ setTableNumber(null); } else if(v){ setTableNumber(v); } handleStartNewOrder(); }} currentMode={tableNumber ? 'table' : 'delivery'} theme={theme} isSalon={isSalon} />
+      <ModeSelectionDialog isOpen={isModeDialogOpen} onOpenChange={setIsModeDialogOpen} onSelectMode={(m, v) => { if(m==='delivery') setTableNumber(null); else if(v) setTableNumber(v); handleStartNewOrder(); }} currentMode={tableNumber ? 'table' : 'delivery'} theme={theme} isSalon={isSalon} />
       {placedOrders && <UPIPaymentDialog isOpen={isUpiDialogOpen} onOpenChange={setIsUpiDialogOpen} total={placedOrders.reduce((acc, o) => acc + o.totalAmount, 0)} store={store} theme={theme} />}
       
       <div className="min-h-screen pb-24" style={{ backgroundColor: theme?.backgroundColor || '#1A1616' }}>
@@ -595,42 +413,28 @@ export default function PublicMenuPage() {
 
               {isSessionFinalized ? (
                   <Card className="rounded-[2.5rem] border-0 shadow-2xl text-center py-16 px-6" style={{ backgroundColor: '#2D2424' }}>
-                      <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-white/5 border-4 border-white/10 shadow-inner"><Check className="h-10 w-10 text-primary" style={{ color: theme?.primaryColor || '#FBC02D' }} /></div>
+                      <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-white/5 border-4 border-white/10 shadow-inner"><CheckCircle className="h-10 w-10" style={{ color: theme?.primaryColor || '#FBC02D' }} /></div>
                       <h2 className="text-2xl font-black mb-4 text-white tracking-tight uppercase">Visit Completed</h2>
-                      <Button onClick={handleStartNewOrder} className="rounded-xl h-12 px-8 uppercase font-black text-[10px] tracking-[0.2em] shadow-2xl transition-transform active:scale-95" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>Start New Session</Button>
+                      <Button onClick={handleStartNewOrder} className="rounded-xl h-12 px-8 uppercase font-black text-[10px] tracking-[0.2em] shadow-2xl" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>Start New Session</Button>
                   </Card>
               ) : (
                 <div className="space-y-6">
                     <ScrollArea className="w-full whitespace-nowrap pb-1">
                         <div className="flex gap-2 px-1">
-                            <button onClick={() => setSelectedCategory(null)} className={cn("rounded-lg px-4 h-8 font-black text-[9px] uppercase tracking-widest border transition-all duration-300", !selectedCategory ? "shadow-lg scale-105" : "opacity-40")} style={{ backgroundColor: !selectedCategory ? (theme?.primaryColor || '#FBC02D') : 'transparent', color: !selectedCategory ? (theme?.backgroundColor || '#1A1616') : (theme?.primaryColor || '#FBC02D'), borderColor: theme?.primaryColor || '#FBC02D' }}>All</button>
+                            <button onClick={() => setSelectedCategory(null)} className={cn("rounded-lg px-4 h-8 font-black text-[9px] uppercase tracking-widest border transition-all", !selectedCategory ? "shadow-lg scale-105" : "opacity-40")} style={{ backgroundColor: !selectedCategory ? (theme?.primaryColor || '#FBC02D') : 'transparent', color: !selectedCategory ? (theme?.backgroundColor || '#1A1616') : (theme?.primaryColor || '#FBC02D'), borderColor: theme?.primaryColor || '#FBC02D' }}>All</button>
                             {availableCategories.map(cat => (
-                                <button key={cat} onClick={() => setSelectedCategory(cat)} className={cn("rounded-lg px-4 h-8 font-black text-[9px] uppercase tracking-widest border transition-all duration-300", selectedCategory === cat ? "shadow-lg scale-105" : "opacity-40")} style={{ backgroundColor: selectedCategory === cat ? (theme?.primaryColor || '#FBC02D') : 'transparent', color: selectedCategory === cat ? (theme?.backgroundColor || '#1A1616') : (theme?.primaryColor || '#FBC02D'), borderColor: theme?.primaryColor || '#FBC02D' }}>{cat}</button>
+                                <button key={cat} onClick={() => setSelectedCategory(cat)} className={cn("rounded-lg px-4 h-8 font-black text-[9px] uppercase tracking-widest border transition-all", selectedCategory === cat ? "shadow-lg scale-105" : "opacity-40")} style={{ backgroundColor: selectedCategory === cat ? (theme?.primaryColor || '#FBC02D') : 'transparent', color: selectedCategory === cat ? (theme?.backgroundColor || '#1A1616') : (theme?.primaryColor || '#FBC02D'), borderColor: theme?.primaryColor || '#FBC02D' }}>{cat}</button>
                             ))}
                         </div>
                         <ScrollBar orientation="horizontal" className="opacity-0" />
                     </ScrollArea>
-
-                    <div className="relative">
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 opacity-30 text-white" />
-                        <Input placeholder="Search dishes..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-11 rounded-xl bg-white/5 border pl-10 text-xs text-white placeholder:text-white/20" style={{ borderColor: theme?.primaryColor + '10' }} />
-                    </div>
-
+                    <div className="relative"><Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 opacity-30 text-white" /><Input placeholder="Search dishes..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-11 rounded-xl bg-white/5 border pl-10 text-xs text-white placeholder:text-white/20" style={{ borderColor: theme?.primaryColor + '10' }} /></div>
                     {Object.entries(groupedMenu).map(([category, items]) => (
                         <section key={category} className="space-y-3">
                             <h2 className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40 px-1" style={{ color: theme?.textColor || '#fff' }}>{category}</h2>
                             <div className="grid grid-cols-2 gap-2">
                                 {items.map((item) => (
-                                    <MenuCard 
-                                        key={item.id} 
-                                        item={item} 
-                                        onAdd={handleAddItem} 
-                                        onShowDetails={handleShowIngredients} 
-                                        isAdding={isAdding} 
-                                        recentlyAdded={recentlyAdded.has(item.id)} 
-                                        currentQuantityInOrder={currentOrderedCounts[item.name] || 0}
-                                        theme={theme} 
-                                    />
+                                    <MenuCard key={item.id} item={item} onAdd={handleAddItem} onShowDetails={handleShowIngredients} isAdding={isAdding} recentlyAdded={recentlyAdded.has(item.id)} currentQuantityInOrder={currentOrderedCounts[item.name] || 0} theme={theme} />
                                 ))}
                             </div>
                         </section>
@@ -643,11 +447,7 @@ export default function PublicMenuPage() {
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[400px] px-4 flex gap-2">
               {tableNumber && placedOrders && placedOrders.length > 0 && (
                   <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="h-12 w-12 rounded-xl shadow-2xl border-2 shrink-0 bg-white/10 text-white" style={{ borderColor: theme?.primaryColor || '#FBC02D' }}>
-                              <BellRing className="h-5 w-5" />
-                          </Button>
-                      </DropdownMenuTrigger>
+                      <DropdownMenuTrigger asChild><Button variant="outline" className="h-12 w-12 rounded-xl shadow-2xl border-2 shrink-0 bg-white/10 text-white" style={{ borderColor: theme?.primaryColor || '#FBC02D' }}><BellRing className="h-5 w-5" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="start" className="w-48 rounded-2xl p-2">
                           <DropdownMenuLabel className="text-[10px] uppercase font-black opacity-40">Call Staff For:</DropdownMenuLabel>
                           <DropdownMenuItem onClick={() => handleCallWaiter('Water')} className="rounded-xl font-bold">Glass of Water</DropdownMenuItem>
@@ -673,14 +473,7 @@ export default function PublicMenuPage() {
                       </SheetTrigger>
                       <SheetContent side="bottom" className="h-[80vh] rounded-t-[2.5rem] p-0 border-0 overflow-hidden shadow-2xl">
                           <LiveBillSheet 
-                            sessionId={sessionId} 
-                            theme={theme} 
-                            store={store} 
-                            onShowUpi={() => setIsUpiDialogOpen(true)} 
-                            isSalon={isSalon}
-                            placedOrders={placedOrders || []}
-                            isLoadingOrders={ordersLoading}
-                            onFinalizeBill={handleFinalizeBill}
+                            sessionId={sessionId} theme={theme} store={store} onShowUpi={() => setIsUpiDialogOpen(true)} isSalon={isSalon} placedOrders={placedOrders || []} isLoadingOrders={ordersLoading} onFinalizeBill={handleFinalizeBill}
                           />
                       </SheetContent>
                   </Sheet>
@@ -689,4 +482,13 @@ export default function PublicMenuPage() {
         </div>
     </>
   );
+}
+
+function toDateSafe(d: any): Date {
+    if (!d) return new Date();
+    if (d instanceof Date) return d;
+    if (d instanceof Timestamp) return d.toDate();
+    if (typeof d === 'string') return new Date(d);
+    if (typeof d === 'object' && d.seconds) return new Date(d.seconds * 1000);
+    return new Date();
 }

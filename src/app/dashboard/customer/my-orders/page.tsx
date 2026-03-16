@@ -4,7 +4,7 @@
 import { useFirebase, errorEmitter, useCollection, useMemoFirebase } from '@/firebase';
 import { Order, Store } from '@/lib/types';
 import {
-  Card, CardContent, CardHeader, CardTitle
+  Card, CardContent, CardHeader, CardTitle, CardDescription
 } from '@/components/ui/card';
 import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger
@@ -20,45 +20,80 @@ import {
   CheckCircle,
   AlertTriangle,
   Truck,
-  CookingPot
+  CookingPot,
+  Receipt,
+  Package,
+  Clock,
+  Check
 } from 'lucide-react';
 import Link from 'next/link';
 import {
-  collection, query, where, orderBy, doc, writeBatch, increment
+  collection, query, where, orderBy, doc, writeBatch, increment, Timestamp
 } from 'firebase/firestore';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { getStores } from '@/lib/data';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { cn } from '@/lib/utils';
 
 const DELIVERY_FEE = 30;
 
-/* ---------------- STATUS UI ---------------- */
-
 const statusMeta: Record<string, any> = {
-  Pending: { color: 'secondary', icon: CookingPot },
-  Processing: { color: 'secondary', icon: CookingPot },
-  'Out for Delivery': { color: 'outline', icon: Truck },
-  Delivered: { color: 'default', icon: CheckCircle },
-  Cancelled: { color: 'destructive', icon: AlertTriangle },
+  Pending: { color: 'secondary', icon: CookingPot, step: 1 },
+  Processing: { color: 'secondary', icon: CookingPot, step: 2 },
+  'Out for Delivery': { color: 'outline', icon: Truck, step: 3 },
+  Billed: { color: 'default', icon: Receipt, step: 3 },
+  Delivered: { color: 'default', icon: CheckCircle, step: 4 },
+  Completed: { color: 'default', icon: CheckCircle, step: 4 },
+  Cancelled: { color: 'destructive', icon: AlertTriangle, step: 0 },
 };
 
-const playAlarm = () => {
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    if (!audioContext) return;
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // A5 note
-    gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-    
-    oscillator.start();
-    oscillator.stop(audioContext.currentTime + 1); // Play for 1 second
-};
+function OrderStatusTimeline({ status }: { status: Order['status'] }) {
+    const meta = statusMeta[status] || statusMeta.Pending;
+    const currentStep = meta.step;
 
+    if (status === 'Cancelled') return (
+        <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-xl border border-red-100 text-xs font-bold uppercase">
+            <AlertTriangle className="h-4 w-4" /> This order was cancelled
+        </div>
+    );
+
+    const steps = [
+        { label: 'Received', icon: Package, s: 1 },
+        { label: 'Kitchen', icon: CookingPot, s: 2 },
+        { label: 'Ready', icon: Receipt, s: 3 },
+        { label: 'Served', icon: Check, s: 4 },
+    ];
+
+    return (
+        <div className="relative pt-2 pb-6 px-2">
+            <div className="flex justify-between items-center relative z-10">
+                {steps.map((step, idx) => {
+                    const isActive = currentStep >= step.s;
+                    const isNext = currentStep + 1 === step.s;
+                    return (
+                        <div key={idx} className="flex flex-col items-center gap-2">
+                            <div className={cn(
+                                "h-10 w-10 rounded-full flex items-center justify-center border-2 transition-all duration-500",
+                                isActive ? "bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-110" : "bg-white border-gray-200 text-gray-300",
+                                isNext && "animate-pulse border-primary text-primary"
+                            )}>
+                                <step.icon className="h-5 w-5" />
+                            </div>
+                            <span className={cn("text-[9px] font-black uppercase tracking-widest transition-colors", isActive ? "text-primary" : "text-gray-300")}>{step.label}</span>
+                        </div>
+                    )
+                })}
+            </div>
+            {/* Progress Track */}
+            <div className="absolute top-[28px] left-[10%] right-[10%] h-0.5 bg-gray-100 -z-0">
+                <div 
+                    className="h-full bg-primary transition-all duration-1000 ease-in-out" 
+                    style={{ width: `${Math.min(100, Math.max(0, (currentStep - 1) * 33.33))}%` }}
+                />
+            </div>
+        </div>
+    );
+}
 
 export default function MyOrdersPage() {
   const { user, isUserLoading, firestore } = useFirebase();
@@ -77,12 +112,8 @@ export default function MyOrdersPage() {
 
   const { data: allOrders, isLoading: ordersLoading, error: ordersError } = useCollection<Order>(ordersQuery);
 
-  const prevOrdersRef = useRef<Map<string, Order>>(new Map());
-
   useEffect(() => {
-    if(firestore) {
-      getStores(firestore).then(setStores);
-    }
+    if(firestore) getStores(firestore).then(setStores);
   }, [firestore]);
   
   const ordersWithStores = useMemo(() => {
@@ -94,237 +125,74 @@ export default function MyOrdersPage() {
     }));
   }, [allOrders, stores]);
 
-  useEffect(() => {
-    if (ordersWithStores && ordersWithStores.length > 0) {
-      const currentOrdersMap = new Map(ordersWithStores.map(order => [order.id, order]));
-      
-      currentOrdersMap.forEach((currentOrder, orderId) => {
-        const prevOrder = prevOrdersRef.current.get(orderId);
-        
-        if (prevOrder && prevOrder.status !== currentOrder.status) {
-          const toastMessage = `Your order #${currentOrder.id.substring(0, 7)} is now "${currentOrder.status}".`;
-          toast({
-            title: "Order Status Updated",
-            description: toastMessage,
-          });
-          
-          if (currentOrder.status === 'Out for Delivery' || currentOrder.status === 'Delivered') {
-            playAlarm();
-          }
-        }
-      });
-
-      prevOrdersRef.current = currentOrdersMap;
-    }
-  }, [ordersWithStores, toast]);
-
-  const handleConfirmDelivery = (order: Order) => {
-    if (!firestore || !user?.uid || !order.deliveryPartnerId) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not confirm delivery. Partner information is missing.' });
-        return;
-    }
-
-    startUpdateTransition(async () => {
-        const orderRef = doc(firestore, 'orders', order.id);
-        const partnerRef = doc(firestore, 'deliveryPartners', order.deliveryPartnerId!);
-
-        try {
-            const batch = writeBatch(firestore);
-
-            batch.update(orderRef, { status: 'Delivered' });
-            batch.set(partnerRef, {
-                totalEarnings: increment(DELIVERY_FEE),
-            }, { merge: true });
-
-            await batch.commit();
-
-            toast({
-                title: "Order Confirmed!",
-                description: "Thank you for confirming your delivery."
-            });
-        } catch (error) {
-            console.error("Failed to confirm delivery by customer:", error);
-            const permissionError = new FirestorePermissionError({
-                path: orderRef.path,
-                operation: 'update',
-                requestResourceData: { status: 'Delivered' },
-            });
-            errorEmitter.emit('permission-error', permissionError);
-        }
-    });
-  };
-
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-        case 'Delivered': return 'default';
-        case 'Processing': return 'secondary';
-        case 'Out for Delivery': return 'outline';
-        case 'Pending': return 'secondary';
-        case 'Cancelled': return 'destructive';
-        default: return 'secondary';
-    }
-  }
-
-  const effectiveLoading = isUserLoading || ordersLoading;
-
   const formatDate = (date: any) => {
     if (!date) return '—';
-    if (date.seconds) {
-      return format(new Date(date.seconds * 1000), 'PPP p');
-    }
-    if (typeof date === 'string') {
-        try {
-            return format(parseISO(date), 'PPP p');
-        } catch (e) {
-             try {
-                return format(new Date(date), 'PPP p');
-             } catch(e2) {
-                return 'Invalid Date';
-             }
-        }
-    }
-    if (date instanceof Date) {
-        return format(date, 'PPP p');
-    }
-    return 'N/A';
+    const jsDate = date instanceof Timestamp ? date.toDate() : new Date(date);
+    return format(jsDate, 'p, PPP');
   }
 
-  const renderContent = () => {
-    if (effectiveLoading) {
-      return <p>Loading your orders...</p>;
-    }
-    if (ordersError) {
-        return (
-             <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Could Not Load Orders</AlertTitle>
-                <AlertDescription>
-                    There was an error fetching your order history. This may be due to a temporary network issue or exceeded usage quotas. Please try again later.
-                </AlertDescription>
-            </Alert>
-        )
-    }
-    if (!user) {
-        return (
-             <div className="text-center py-12">
-                <p className="text-muted-foreground mb-4">Please log in to see your orders.</p>
-                <Button asChild>
-                    <Link href="/login">Login</Link>
-                </Button>
-            </div>
-        )
-    }
-     if (ordersWithStores.length === 0) {
-        return (
-            <div className="text-center py-12">
-                <p className="text-muted-foreground mb-4">You haven't placed any orders yet.</p>
-                <Button asChild>
-                    <Link href="/stores">Start Shopping</Link>
-                </Button>
-            </div>
-        )
-    }
-    return (
-        <Accordion type="single" collapsible className="w-full space-y-4">
-            {ordersWithStores.map((order) => {
-                const meta = statusMeta[order.status] || statusMeta.Pending;
-                const Icon = meta.icon;
-                return (
-                    <AccordionItem value={order.id} key={order.id} className="border-b-0">
-                        <AccordionTrigger className="rounded-lg border px-4 py-3 hover:bg-muted/50 hover:no-underline [&[data-state=open]]:rounded-b-none">
-                            <div className="flex justify-between items-center w-full">
-                                <div className="text-left space-y-1">
-                                    <p className="font-semibold">
-                                    Order #${order.id.slice(0, 6)}
-                                    </p>
-                                    <p className="text-sm text-muted-foreground flex gap-1 items-center">
-                                    <StoreIcon className="h-4 w-4" /> {order.storeName}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                    {formatDate(order.orderDate)}
-                                    </p>
-                                </div>
-                                <div className="text-right space-y-1">
-                                    <Badge variant={meta.color} className="flex gap-1 items-center">
-                                    <Icon className="h-3 w-3" />
-                                    {order.status}
-                                    </Badge>
-                                    <p className="font-bold">₹{order.totalAmount.toFixed(2)}</p>
-                                </div>
-                            </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="border border-t-0 rounded-b-lg">
-                            <div className="p-4 bg-muted/20 space-y-4">
-                            {order.items?.length > 0 ? (
-                                <>
-                                <h4 className="font-semibold">Items</h4>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Item</TableHead>
-                                            <TableHead>Qty</TableHead>
-                                            <TableHead className="text-right">Price</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {order.items.map((i, idx) => (
-                                            <TableRow key={idx}>
-                                                <TableCell>{i.productName}</TableCell>
-                                                <TableCell>{i.quantity}</TableCell>
-                                                <TableCell className="text-right">
-                                                    ₹{i.price.toFixed(2)}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                                </>
-                            ) : (
-                                <p>No items listed.</p>
-                            )}
-
-                            <div className="flex justify-end font-bold border-t pt-2">
-                                Total: ₹{order.totalAmount.toFixed(2)}
-                            </div>
-
-                            <div>
-                                <p className="font-semibold">Delivery Address</p>
-                                <p className="text-sm text-muted-foreground">
-                                {order.deliveryAddress}
-                                </p>
-                            </div>
-
-                            {order.status === 'Out for Delivery' && (
-                                <div className="text-center pt-4 border-t">
-                                <Button onClick={() => handleConfirmDelivery(order)} disabled={isUpdating}>
-                                    <CheckCircle className="mr-2 h-4 w-4" />
-                                    Confirm Delivery
-                                </Button>
-                                </div>
-                            )}
-
-                            </div>
-                        </AccordionContent>
-                    </AccordionItem>
-                )
-            })}
-        </Accordion>
-    );
-  }
+  if (isUserLoading || ordersLoading) return <div className="p-12 text-center"><Loader2 className="animate-spin mx-auto h-8 w-8 opacity-20" /></div>;
 
   return (
-    <div className="container mx-auto py-12 px-4 md:px-6">
-      <h1 className="text-4xl font-bold mb-8 font-headline">My Orders</h1>
-      <Card>
-        <CardHeader>
-          <CardTitle>Your Order History</CardTitle>
-        </CardHeader>
-        <CardContent>
-            {renderContent()}
-        </CardContent>
-      </Card>
+    <div className="container mx-auto py-12 px-4 md:px-6 max-w-2xl">
+      <div className="mb-10">
+        <h1 className="text-4xl font-black font-headline tracking-tighter">My Activity</h1>
+        <p className="text-muted-foreground font-bold text-xs uppercase tracking-widest opacity-60">Track your current and past visits</p>
+      </div>
+
+      {ordersWithStores.length === 0 ? (
+          <Card className="rounded-[2.5rem] border-0 shadow-xl p-12 text-center opacity-40">
+              <ShoppingBag className="h-16 w-16 mx-auto mb-4" />
+              <p className="font-black uppercase tracking-widest text-sm">No orders yet</p>
+              <Button asChild variant="link" className="mt-4"><Link href="/stores">Start Shopping</Link></Button>
+          </Card>
+      ) : (
+        <div className="space-y-6">
+            {ordersWithStores.map((order) => {
+                const meta = statusMeta[order.status] || statusMeta.Pending;
+                return (
+                    <Card key={order.id} className="rounded-[2rem] border-0 shadow-lg overflow-hidden bg-white">
+                        <div className="p-6 space-y-6">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <div className="flex items-center gap-2 text-primary">
+                                        <StoreIcon className="h-4 w-4" />
+                                        <h3 className="font-black uppercase text-sm tracking-tight">{order.storeName}</h3>
+                                    </div>
+                                    <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest">{formatDate(order.orderDate)}</p>
+                                </div>
+                                <Badge variant={meta.color} className="rounded-md font-black uppercase text-[9px] tracking-widest px-2 py-0.5">{meta.label}</Badge>
+                            </div>
+
+                            {!['Completed', 'Delivered', 'Cancelled'].includes(order.status) && (
+                                <OrderStatusTimeline status={order.status} />
+                            )}
+
+                            <Accordion type="single" collapsible className="w-full">
+                                <AccordionItem value="items" className="border-0">
+                                    <AccordionTrigger className="p-0 font-black uppercase text-[10px] tracking-widest opacity-40 hover:no-underline">View Items</AccordionTrigger>
+                                    <AccordionContent className="pt-4">
+                                        <div className="space-y-2">
+                                            {order.items.map((it, idx) => (
+                                                <div key={idx} className="flex justify-between text-xs font-bold text-gray-700">
+                                                    <span>{it.productName} x{it.quantity}</span>
+                                                    <span>₹{(it.price * it.quantity).toFixed(0)}</span>
+                                                </div>
+                                            ))}
+                                            <div className="pt-2 border-t border-dashed flex justify-between items-baseline">
+                                                <span className="text-[9px] font-black uppercase opacity-40">Grand Total</span>
+                                                <span className="text-lg font-black text-primary">₹{order.totalAmount.toFixed(2)}</span>
+                                            </div>
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            </Accordion>
+                        </div>
+                    </Card>
+                )
+            })}
+        </div>
+      )}
     </div>
   );
 }
-
-    
