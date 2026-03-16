@@ -40,6 +40,7 @@ export async function getCachedRecipe(db: Firestore, dishName: string, language:
             };
         }
         
+        // Fallback to English cache if Telugu is missing
         if (language !== 'en') {
             const englishDocId = `${normalizedDishName}_en`;
             const englishDocRef = db.collection('cachedRecipes').doc(englishDocId);
@@ -65,14 +66,13 @@ export async function getCachedRecipe(db: Firestore, dishName: string, language:
 }
 
 /**
- * Caches a new result in Firestore.
+ * Caches a new result in Firestore to prevent future AI calls.
  */
 export async function cacheRecipe(db: Firestore, dishName: string, language: 'en' | 'te', data: GetIngredientsOutput): Promise<void> {
     const normalizedDishName = createSlug(dishName);
     const docId = `${normalizedDishName}_${language}`;
     const docRef = db.collection('cachedRecipes').doc(docId);
 
-    // FIX: Map correctly to components and steps to avoid 'undefined' crash.
     const recipeData: CachedRecipe = {
         id: docId,
         dishName: data.title || dishName,

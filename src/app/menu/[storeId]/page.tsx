@@ -8,7 +8,6 @@ import {
   where,
   doc,
   setDoc,
-  deleteDoc,
   updateDoc,
   limit,
   Timestamp,

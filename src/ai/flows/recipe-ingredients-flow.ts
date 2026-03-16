@@ -50,18 +50,20 @@ const prompt = ai.definePrompt(
 export async function getIngredientsForDishFlow(input: { dishName: string; language: 'en' | 'te', existingRecipe?: GetIngredientsOutput }): Promise<GetIngredientsOutput> {
   const { db } = await getAdminServices();
   
-  // 1. Check cache first
-  const cachedData = await getCachedRecipe(db, input.dishName, input.language);
+  const language = input.language || 'en';
+
+  // 1. Check cache first (Directly fetch from catalogue)
+  const cachedData = await getCachedRecipe(db, input.dishName, language);
   if (cachedData) {
     return cachedData as any;
   }
   
-  // 2. If not in cache, call the AI
-  const { output } = await prompt(input);
+  // 2. If not in cache, ask AI to generate
+  const { output } = await prompt({ ...input, language });
   
-  // 3. If AI call is successful, cache the new recipe for future use
+  // 3. If AI call is successful, add same details to catalogue for next time
   if (output && output.isSuccess) {
-    await cacheRecipe(db, input.dishName, input.language, output as any);
+    await cacheRecipe(db, input.dishName, language, output as any);
   } else if (!output) {
       return {
           isSuccess: false,
