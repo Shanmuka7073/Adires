@@ -31,6 +31,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { cn } from '@/lib/utils';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
@@ -57,6 +58,143 @@ const menuItemSchema = z.object({
   isAvailable: z.boolean().default(true),
 });
 type MenuItemFormValues = z.infer<typeof menuItemSchema>;
+
+function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (data: { items: MenuItem[], theme: MenuTheme }) => void }) {
+    const [isProcessing, startProcessing] = useTransition();
+    const { toast } = useToast();
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        startProcessing(async () => {
+            try {
+                const reader = new FileReader();
+                const imageData = await new Promise<string>((resolve) => {
+                    reader.onload = (e) => resolve(e.target?.result as string);
+                    reader.readAsDataURL(file);
+                });
+
+                const result = await extractMenuItems({ menuImage: imageData });
+                if (result && result.items) {
+                    // Normalize items to match our interface
+                    const normalizedItems = result.items.map(item => ({
+                        ...item,
+                        id: createSlug(item.name),
+                        isAvailable: true
+                    }));
+                    onMenuExtracted({ items: normalizedItems, theme: result.theme });
+                    toast({ title: "Menu Extracted!", description: `Found ${result.items.length} items.` });
+                } else {
+                    throw new Error("No items found in image.");
+                }
+            } catch (error: any) {
+                toast({ variant: 'destructive', title: 'Extraction Failed', description: error.message });
+            }
+        });
+    };
+
+    return (
+        <Card className="rounded-3xl border-0 shadow-xl overflow-hidden bg-primary/5 border-2 border-dashed border-primary/20">
+            <CardHeader className="text-center pb-2">
+                <CardTitle className="text-xl font-black uppercase tracking-tight">AI Menu Scanner</CardTitle>
+                <CardDescription className="text-xs font-bold opacity-40 uppercase">Upload a photo of your paper menu</CardDescription>
+            </CardHeader>
+            <CardContent className="p-8 flex flex-col items-center">
+                <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+                    <ImageIcon className="h-10 w-10 text-primary" />
+                </div>
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
+                <Button 
+                    onClick={() => fileInputRef.current?.click()} 
+                    disabled={isProcessing}
+                    className="w-full h-14 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20"
+                >
+                    {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <UploadIcon className="mr-2 h-5 w-5" />}
+                    {isProcessing ? 'AI is Reading Menu...' : 'Upload Menu Photo'}
+                </Button>
+                <p className="mt-4 text-[10px] font-black uppercase tracking-widest opacity-30 text-center">
+                    Gemini AI will extract all dish names, prices, and your menu theme instantly.
+                </p>
+            </CardContent>
+        </Card>
+    );
+}
+
+function QRCodeDialog({ table, storeId }: { table: string, storeId: string }) {
+    const [baseUrl, setBaseUrl] = useState('');
+    const { toast } = useToast();
+
+    useEffect(() => {
+        setBaseUrl(window.location.origin);
+    }, []);
+
+    const qrUrl = `${baseUrl}/menu/${storeId}?table=${encodeURIComponent(table)}`;
+
+    const handlePrint = () => {
+        const win = window.open('', '_blank');
+        if (!win) return;
+        const canvas = document.getElementById(`qr-${table}`) as HTMLCanvasElement;
+        if (!canvas) return;
+        
+        win.document.write(`
+            <html>
+                <head>
+                    <title>Table ${table} QR Code</title>
+                    <style>
+                        body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; text-align: center; }
+                        .container { border: 4px solid #000; padding: 40px; border-radius: 40px; }
+                        h1 { font-size: 48px; margin-bottom: 10px; }
+                        p { font-size: 24px; margin-bottom: 30px; opacity: 0.6; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h1>Table ${table}</h1>
+                        <p>Scan to Order</p>
+                        <img src="${canvas.toDataURL()}" width="400" height="400" />
+                    </div>
+                    <script>window.onload = () => { window.print(); window.close(); }</script>
+                </body>
+            </html>
+        `);
+    };
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(qrUrl).then(() => {
+            toast({ title: "Link Copied!" });
+        });
+    };
+
+    return (
+        <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl p-8 max-w-sm mx-auto text-center">
+            <DialogHeader className="mb-4">
+                <DialogTitle className="text-xl font-black uppercase tracking-tight">Table {table}</DialogTitle>
+                <DialogDescription>Place this QR code on the table for guests to scan and order.</DialogDescription>
+            </DialogHeader>
+            
+            <div className="p-6 bg-white rounded-[2.5rem] shadow-inner border-4 border-black/5 mb-6 flex justify-center">
+                <QRCode 
+                    id={`qr-${table}`}
+                    value={qrUrl} 
+                    size={200} 
+                    level="H" 
+                    includeMargin={true} 
+                />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+                <Button onClick={handlePrint} className="h-12 rounded-xl font-black text-[10px] uppercase tracking-widest">
+                    <Printer className="mr-2 h-4 w-4" /> Print
+                </Button>
+                <Button onClick={handleCopy} variant="outline" className="h-12 rounded-xl font-black text-[10px] uppercase tracking-widest border-2">
+                    <Copy className="mr-2 h-4 w-4" /> Link
+                </Button>
+            </div>
+        </DialogContent>
+    );
+}
 
 function EditMenuItemDialog({
   isOpen,
@@ -304,7 +442,7 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
                 <CardHeader className="bg-primary/5 border-b border-black/5 pb-6"><div className="flex justify-between items-center"><CardTitle className="text-xl font-black uppercase tracking-tight">Active Menu</CardTitle><Button size="sm" variant="outline" className="rounded-xl font-black text-[9px] uppercase border-2 h-8 px-4" onClick={() => { setEditingItem(null); setIsEditDialogOpen(true); }}>Add Item</Button></div></CardHeader>
                 <CardContent className="p-0">
                      <Table>
-                        <TableHeader className="bg-black/5"><TableRow><TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Item</TableHead><TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Stock</TableHead><TableHead className="text-right text-[10px] font-black uppercase tracking-widest opacity-40">Edit</TableHead></TableRow></TableHeader>
+                        <TableHeader className="bg-black/5"><TableRow><TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Item</TableHead><TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Stock</TableHead><TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Specialist</TableHead><TableHead className="text-right text-[10px] font-black uppercase tracking-widest opacity-40">Edit</TableHead></TableRow></TableHeader>
                         <TableBody>
                             {menu.items.map((it) => (
                                 <TableRow key={it.id} className={cn("hover:bg-muted/30", !it.isAvailable && "opacity-50")}>
@@ -323,6 +461,21 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
                                     <TableCell>
                                         <Switch checked={it.isAvailable} onCheckedChange={() => toggleAvailability(it)} />
                                     </TableCell>
+                                    <TableCell>
+                                        {cachedStatus[it.id] ? (
+                                            <Badge className="rounded-md bg-green-500 text-white text-[8px] font-black uppercase">Cached</Badge>
+                                        ) : (
+                                            <Button 
+                                                size="sm" 
+                                                variant="ghost" 
+                                                className="h-7 text-[8px] font-black uppercase tracking-widest opacity-40"
+                                                onClick={() => handleGenerateIngredients(it)}
+                                                disabled={isGenerating}
+                                            >
+                                                {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Cache'}
+                                            </Button>
+                                        )}
+                                    </TableCell>
                                     <TableCell className="text-right"><Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => { setEditingItem(it); setIsEditDialogOpen(true); }}><Edit className="h-4 w-4" /></Button></TableCell>
                                 </TableRow>
                             ))}
@@ -337,7 +490,15 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
                     {store.tables?.length ? (
                         <div className="grid grid-cols-2 gap-3">
                             {store.tables.map(t => (
-                                <Dialog key={t}><DialogTrigger asChild><Button variant="outline" className="h-14 rounded-2xl border-2 justify-between px-4 font-black uppercase text-[10px] tracking-widest"><span>{t}</span><QrCode className="h-4 w-4 opacity-20" /></Button></DialogTrigger><QRCodeDialog table={t} storeId={store.id} /></Dialog>
+                                <Dialog key={t}>
+                                    <DialogTrigger asChild>
+                                        <Button variant="outline" className="h-14 rounded-2xl border-2 justify-between px-4 font-black uppercase text-[10px] tracking-widest">
+                                            <span>{t}</span>
+                                            <QrCode className="h-4 w-4 opacity-20" />
+                                        </Button>
+                                    </DialogTrigger>
+                                    <QRCodeDialog table={t} storeId={store.id} />
+                                </Dialog>
                             ))}
                         </div>
                     ) : <div className="text-center py-10 opacity-30"><p className="text-xs font-black uppercase tracking-widest mb-4">No tables found</p><Button asChild variant="secondary" className="rounded-xl font-black text-[10px] uppercase h-10 px-6"><Link href="/dashboard/owner/my-store">Go to Store Details</Link></Button></div>}
@@ -348,9 +509,14 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
 }
 
 export default function MenuManagerPage() {
-    const { user, firestore } = useFirebase(); const [extractedData, setExtractedData] = useState<{items: MenuItem[], theme: MenuTheme} | null>(null); const { toast } = useToast(); const [isSaving, startSave] = useTransition();
+    const { user, firestore } = useFirebase(); 
+    const [extractedData, setExtractedData] = useState<{items: MenuItem[], theme: MenuTheme} | null>(null); 
+    const { toast } = useToast(); 
+    const [isSaving, startSave] = useTransition();
+    
     const { data: stores, isLoading: sL } = useCollection<Store>(useMemoFirebase(() => (firestore && user ? query(collection(firestore, 'stores'), where('ownerId', '==', user.uid), limit(1)) : null), [firestore, user]));
     const store = stores?.[0];
+    
     const { data: menus, isLoading: mL, refetch: rM } = useCollection<Menu>(useMemoFirebase(() => (firestore && store ? query(collection(firestore, `stores/${store.id}/menus`)) : null), [firestore, store]));
     const existingMenu = menus?.[0];
     
