@@ -324,6 +324,7 @@ export type MenuItem = {
   price: number;
   category: string;
   ingredients?: Ingredient[];
+  imageUrl?: string; // URL for AI-generated dish image
 };
 
 export type MenuTheme = {
@@ -338,11 +339,6 @@ export type Menu = {
   items: MenuItem[];
   theme?: MenuTheme;
 };
-
-export type InstructionStep = {
-    title: string;
-    actions: string[];
-}
 
 export type UnidentifiedCartItem = {
     id: string;

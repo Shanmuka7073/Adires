@@ -22,6 +22,7 @@ import type {
   OrderItem,
   MenuTheme,
   GetIngredientsOutput,
+  Product,
 } from '@/lib/types';
 
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
@@ -57,6 +58,8 @@ import {
   Info,
   CalendarDays,
   AlertTriangle,
+  ArrowLeft,
+  Store as StoreIcon,
 } from 'lucide-react';
 
 import {
@@ -97,6 +100,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import QRCode from 'qrcode.react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import ProductCard from '@/components/product-card';
+import { useAppStore } from '@/lib/store';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
@@ -246,7 +251,6 @@ function DeliveryDetailsDialog({ isOpen, onOpenChange, onSave, initialData, them
     const [isLocating, setIsLocating] = useState(false);
     const { toast } = useToast();
 
-    // Sync state with props when dialog opens to reflect last saved/entered data
     useEffect(() => {
         if (isOpen) {
             setName(initialData.name);
@@ -265,7 +269,6 @@ function DeliveryDetailsDialog({ isOpen, onOpenChange, onSave, initialData, them
             (pos) => {
                 const { latitude, longitude } = pos.coords;
                 setCoords({ lat: latitude, lng: longitude });
-                // Force update address field with GPS data
                 setAddress(`GPS (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`);
                 setIsLocating(false);
                 toast({ title: 'Location Captured!', description: 'Your current location has been set as the delivery address.' });
@@ -344,18 +347,13 @@ function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId:
   const isPastTime = useMemo(() => {
     if (!isSalon) return false;
     if (!isToday(selectedDate)) return false;
-    
-    // Parse selectedTime "HH:MM AM/PM"
     const match = selectedTime.match(/(\d+):(\d+)\s*(AM|PM)/i);
     if (!match) return false;
-    
     let hours = parseInt(match[1]);
     const minutes = parseInt(match[2]);
     const period = match[3].toUpperCase();
-    
     if (period === 'PM' && hours < 12) hours += 12;
     if (period === 'AM' && hours === 12) hours = 0;
-    
     const appointmentDateTime = set(selectedDate, { hours, minutes, seconds: 0, milliseconds: 0 });
     return !isAfter(appointmentDateTime, new Date());
   }, [selectedDate, selectedTime, isSalon]);
@@ -386,7 +384,6 @@ function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId:
   if (!order || !order.items?.length) return <div className="p-8 text-center"><p className="opacity-60 text-sm font-medium">Your {isSalon ? 'booking' : 'bill'} is empty.</p></div>;
   
   const isDraft = order.status === 'Draft'; 
-  const isBilled = order.status === 'Billed'; 
   const isLocked = ['Pending', 'Processing', 'Out for Delivery', 'Billed'].includes(order.status);
   const isFinalized = ['Completed', 'Delivered'].includes(order.status);
   
@@ -410,7 +407,6 @@ function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId:
                             </div>
                         )}
                     </div>
-
                     <div className="space-y-3">
                         <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor }}>{isDraft ? 'Select Time' : 'Confirmed Arrival'}</h4>
                         {isDraft ? (
@@ -420,7 +416,7 @@ function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId:
                                     <Alert variant="destructive" className="rounded-xl border-2 py-2">
                                         <AlertTriangle className="h-4 w-4" />
                                         <AlertTitle className="text-xs font-black uppercase">Time Already Passed</AlertTitle>
-                                        <AlertDescription className="text-[10px]">Please select a future time slot for today.</AlertDescription>
+                                        <AlertDescription className="text-[10px]">Please select a future time slot.</AlertDescription>
                                     </Alert>
                                 )}
                             </>
@@ -436,7 +432,6 @@ function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId:
                     </div>
                  </div>
              )}
-
              <div className="space-y-3">
                 <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor }}>{isSalon ? 'Selected Services' : 'Order Items'}</h4>
                 {order.items.map((it, idx) => (
@@ -473,18 +468,21 @@ export default function PublicMenuPage() {
   const [tableNumber, setTableNumber] = useState<string | null>(null); const [deliveryAddress, setDeliveryAddress] = useState(''); const [customerName, setCustomerName] = useState(''); const [phone, setPhone] = useState(''); const [deliveryCoords, setDeliveryCoords] = useState<{lat: number, lng: number} | null>(null);
   const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null); const [ingredientsData, setIngredientsData] = useState<GetIngredientsOutput | null>(null); const [isFetchingIngredients, startFetchingIngredients] = useTransition(); const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
   const { canInstall, triggerInstall } = useInstall();
+  const { masterProducts, productPrices, fetchInitialData, isInitialized } = useAppStore();
 
   const { data: store, isLoading: storeLoading } = useDoc<Store>(useMemoFirebase(() => firestore ? doc(firestore, 'stores', storeId) : null, [firestore, storeId]));
   const { data: menus, isLoading: menuLoading } = useCollection<Menu>(useMemoFirebase(() => firestore ? query(collection(firestore, `stores/${storeId}/menus`)) : null, [firestore, storeId]));
   const menu = menus?.[0];
 
-  const isSalon = useMemo(() => {
-      if (!store) return false;
-      return store.businessType === 'salon' || store.name.toLowerCase().includes('salon') || store.name.toLowerCase().includes('saloon');
-  }, [store]);
+  const productsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'stores', storeId, 'products') : null, [firestore, storeId]);
+  const { data: products, isLoading: productsLoading } = useCollection<Product>(productsQuery);
+
+  const isSalon = useMemo(() => store?.businessType === 'salon' || store?.name.toLowerCase().includes('salon'), [store]);
+
+  useEffect(() => { if (firestore && !isInitialized) fetchInitialData(firestore); }, [firestore, isInitialized, fetchInitialData]);
 
   useEffect(() => {
-    const urlTable = searchParams.get('table'); if (urlTable) { setTableNumber(urlTable); localStorage.setItem(`last_table_${storeId}`, urlTable); } else { setTableNumber(null); }
+    const urlTable = searchParams.get('table'); if (urlTable) { setTableNumber(urlTable); }
     const sA = localStorage.getItem(`last_address_${storeId}`); const sN = localStorage.getItem(`last_name_${storeId}`); const sP = localStorage.getItem(`last_phone_${storeId}`);
     if (sA) setDeliveryAddress(sA); if (sN) setCustomerName(sN); if (sP) setPhone(sP);
   }, [searchParams, storeId]);
@@ -502,9 +500,10 @@ export default function PublicMenuPage() {
   const itemCount = order?.items?.length || 0;
 
   const availableCategories = useMemo(() => menu?.items ? Array.from(new Set(menu.items.map(i => i.category))).sort() : [], [menu]);
+  
   const groupedMenu = useMemo(() => {
     if (!menu?.items) return {};
-    let filtered = menu.items.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()) || i.category.toLowerCase().includes(searchTerm.toLowerCase()));
+    let filtered = menu.items.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
     if (selectedCategory) filtered = filtered.filter(i => i.category === selectedCategory);
     return filtered.reduce((acc, i) => { const c = i.category || 'Other'; if(!acc[c]) acc[c] = []; acc[c].push(i); return acc; }, {} as Record<string, MenuItem[]>);
   }, [menu, searchTerm, selectedCategory]);
@@ -530,45 +529,90 @@ export default function PublicMenuPage() {
     localStorage.setItem(`sub_session_${storeId}`, (cS + 1).toString()); window.location.reload();
   };
 
-  if (storeLoading || menuLoading || orderLoading) return <div className="p-6 space-y-6"><Skeleton className="h-16 w-16 rounded-2xl" /><Skeleton className="h-10 w-full" /></div>;
-  if (!store || !menu) return <div className="p-12 text-center opacity-50">Menu unavailable.</div>;
+  if (storeLoading || menuLoading || orderLoading || productsLoading) return <div className="p-12 flex items-center justify-center"><Loader2 className="animate-spin h-8 w-8 opacity-20" /></div>;
   
-  const theme = menu.theme;
+  if (!store) return <div className="p-12 text-center opacity-50">Store not found.</div>;
+
+  const theme = menu?.theme;
 
   return (
     <>
       {selectedItemForIngredients && <IngredientsDialog open={!!selectedItemForIngredients} onClose={() => setSelectedItemForIngredients(null)} dishName={selectedItemForIngredients.name} price={selectedItemForIngredients.price} isLoading={isFetchingIngredients} calories={ingredientsData?.nutrition?.calories || 0} protein={ingredientsData?.nutrition?.protein || 0} ingredients={(ingredientsData?.components as any) || []} itemType={ingredientsData?.itemType} onAdd={() => { handleAddItem(selectedItemForIngredients); setSelectedItemForIngredients(null); }} />}
       <DeliveryDetailsDialog isOpen={isDeliveryDetailsOpen} onOpenChange={setIsDeliveryDetailsOpen} onSave={(d) => { setCustomerName(d.name); setPhone(d.phone); setDeliveryAddress(d.address); if(d.lat) setDeliveryCoords({lat:d.lat, lng:d.lng}); localStorage.setItem(`last_name_${storeId}`, d.name); localStorage.setItem(`last_phone_${storeId}`, d.phone); localStorage.setItem(`last_address_${storeId}`, d.address); }} initialData={{ name: customerName, phone, address: deliveryAddress }} theme={theme} />
-      <ModeSelectionDialog isOpen={isModeDialogOpen} onOpenChange={setIsModeDialogOpen} onSelectMode={(m, v) => { if(m==='delivery'){ setTableNumber(null); localStorage.removeItem(`last_table_${storeId}`); } else if(v){ setTableNumber(v); localStorage.setItem(`last_table_${storeId}`, v); } handleStartNewOrder(); }} currentMode={tableNumber ? 'table' : 'delivery'} theme={theme} isSalon={isSalon} />
+      <ModeSelectionDialog isOpen={isModeDialogOpen} onOpenChange={setIsModeDialogOpen} onSelectMode={(m, v) => { if(m==='delivery'){ setTableNumber(null); } else if(v){ setTableNumber(v); } handleStartNewOrder(); }} currentMode={tableNumber ? 'table' : 'delivery'} theme={theme} isSalon={isSalon} />
       {order && <UPIPaymentDialog isOpen={isUpiDialogOpen} onOpenChange={setIsUpiDialogOpen} order={order} store={store} theme={theme} />}
-      <div className="min-h-screen pb-24" style={{ backgroundColor: theme?.backgroundColor }}>
+      <div className="min-h-screen pb-24" style={{ backgroundColor: theme?.backgroundColor || '#f8fafc' }}>
           <div className="container mx-auto py-6 px-4 max-w-2xl">
             <div className="space-y-6">
               <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 min-w-0"><div className="relative h-12 w-12 rounded-2xl overflow-hidden border shadow-sm"><Image src={store.imageUrl || ADIRES_LOGO} alt={store.name} fill className="object-cover" /></div><div className="min-w-0"><h1 className="text-base font-black truncate" style={{ color: theme?.primaryColor }}>{store.name}</h1><div className="flex items-center gap-2">{tableNumber ? <Badge className="px-1.5 py-0 text-[8px] uppercase" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>{isSalon ? `Chair ${tableNumber}` : `Table ${tableNumber}`}</Badge> : <Badge className="px-1.5 py-0 text-[8px] uppercase bg-blue-600 text-white">{isSalon ? 'Home Service' : 'Delivery'}</Badge>}<button onClick={() => setIsModeDialogOpen(true)} className="text-[8px] uppercase underline opacity-40" style={{ color: theme?.textColor }}>Change</button></div></div></div>
-                  <div className="flex items-center gap-2">{store.liveVideoUrl && <Button asChild variant="outline" size="sm" className="h-8 rounded-xl border-2 px-3 font-black text-[8px] uppercase animate-pulse" style={{ color: theme?.primaryColor, borderColor: theme?.primaryColor }}><Link href={`/live-order/${orderId}`}><Video className="mr-1 h-3 w-3" /> Live Feed</Link></Button>}<Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => {}}><Search className="h-3.5 w-3.5" style={{ color: theme?.primaryColor }} /></Button></div>
+                  <div className="flex items-center gap-3 min-w-0">
+                      <Button asChild variant="ghost" size="icon" className="rounded-full"><Link href="/"><ArrowLeft className="h-5 w-5" /></Link></Button>
+                      <div className="relative h-12 w-12 rounded-2xl overflow-hidden border shadow-sm"><Image src={store.imageUrl || ADIRES_LOGO} alt={store.name} fill className="object-cover" /></div>
+                      <div className="min-w-0">
+                          <h1 className="text-base font-black truncate" style={{ color: theme?.primaryColor || '#000' }}>{store.name}</h1>
+                          <div className="flex items-center gap-2">
+                              {tableNumber ? <Badge className="px-1.5 py-0 text-[8px] uppercase" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>{isSalon ? `Chair ${tableNumber}` : `Table ${tableNumber}`}</Badge> : <Badge className="px-1.5 py-0 text-[8px] uppercase bg-blue-600 text-white">{isSalon ? 'Home Service' : 'Delivery'}</Badge>}
+                              <button onClick={() => setIsModeDialogOpen(true)} className="text-[8px] uppercase underline opacity-40" style={{ color: theme?.textColor || '#666' }}>Change</button>
+                          </div>
+                      </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                      {store.liveVideoUrl && <Button asChild variant="outline" size="sm" className="h-8 rounded-xl border-2 px-3 font-black text-[8px] uppercase animate-pulse" style={{ color: theme?.primaryColor || '#000', borderColor: theme?.primaryColor || '#000' }}><Link href={`/live-order/${orderId}`}><Video className="mr-1 h-3 w-3" /> Live Feed</Link></Button>}
+                      {canInstall && <Button variant="ghost" size="icon" onClick={triggerInstall} className="rounded-full"><Download className="h-4 w-4" /></Button>}
+                  </div>
               </div>
-              <div className="space-y-6">
-                {['Completed', 'Delivered'].includes(order?.status || '') ? (
-                    <Card className="rounded-[2.5rem] border-0 shadow-2xl text-center py-16 px-8" style={{ backgroundColor: '#fafafa' }}><div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-white"><Check className="h-10 w-10 text-primary" style={{ color: theme?.primaryColor }} /></div><h2 className="text-2xl font-black mb-3">Thank You!</h2><Button onClick={handleStartNewOrder} className="rounded-xl h-12 px-8 uppercase font-black text-[10px] tracking-widest shadow-lg" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>{isSalon ? 'Book Again' : 'Start New Order'}</Button></Card>
-                ) : (
-                    <>
-                        <ScrollArea className="w-full whitespace-nowrap pb-2"><div className="flex gap-2"><Button variant="ghost" size="sm" className={cn("rounded-lg px-3 h-7 font-black text-[9px] uppercase tracking-widest border", !selectedCategory ? "shadow-md" : "opacity-40")} style={{ backgroundColor: !selectedCategory ? theme?.primaryColor : 'transparent', color: !selectedCategory ? theme?.backgroundColor : theme?.primaryColor }} onClick={() => setSelectedCategory(null)}>All</Button>{availableCategories.map(cat => <Button key={cat} variant="ghost" size="sm" className={cn("rounded-lg px-3 h-7 font-black text-[9px] uppercase tracking-widest border", selectedCategory === cat ? "shadow-md" : "opacity-40")} style={{ backgroundColor: selectedCategory === cat ? theme?.primaryColor : 'transparent', color: selectedCategory === cat ? theme?.backgroundColor : theme?.primaryColor }} onClick={() => setSelectedCategory(cat)}>{cat}</Button>)}</div></ScrollArea>
-                        {Object.entries(groupedMenu).map(([category, items]) => (
-                            <div key={category} className="space-y-2">
-                                <h2 className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40 px-1" style={{ color: theme?.textColor }}>{category}</h2>
-                                <div className="grid gap-2">{items.map((item) => (
-                                        <Card key={item.id} className="flex justify-between items-center p-3 shadow-sm rounded-xl border" style={{ backgroundColor: 'transparent', borderColor: theme?.primaryColor + '15' }}><div className="flex-1 pr-4 min-w-0"><p className="font-bold text-xs truncate mb-0.5" style={{ color: theme?.textColor }}>{item.name}</p><p className="text-[10px] font-black" style={{color: theme?.primaryColor}}>₹{item.price.toFixed(2)}</p></div><div className="flex items-center gap-2"><Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => handleShowIngredients(item)}><Eye className="h-4 w-4" style={{ color: theme?.textColor }} /></Button><Button onClick={() => handleAddItem(item)} disabled={isAdding || recentlyAdded.has(item.id)} className={cn("w-16 h-8 rounded-lg text-[9px] uppercase font-black", recentlyAdded.has(item.id) ? "bg-green-600" : "")} style={{ backgroundColor: recentlyAdded.has(item.id) ? '' : theme?.primaryColor, color: theme?.backgroundColor }}>{recentlyAdded.has(item.id) ? <Check className="h-3 w-3" /> : (isSalon ? 'Select' : 'Add')}</Button></div></Card>
-                                ))}</div>
-                            </div>
-                        ))}
-                    </>
-                )}
-              </div>
+
+              {!menu && products && products.length > 0 ? (
+                  <div className="space-y-8">
+                      <Alert className="bg-primary/5 border-primary/20 rounded-3xl"><Info className="h-4 w-4"/><AlertTitle className="font-black text-xs uppercase tracking-widest">Catalog Mode</AlertTitle><AlertDescription className="text-xs">Digital menu is not set up. Showing retail products instead.</AlertDescription></Alert>
+                      <div className="grid grid-cols-2 gap-4">
+                          {products.map(p => <ProductCard key={p.id} product={p} priceData={productPrices[p.name.toLowerCase()]} />)}
+                      </div>
+                  </div>
+              ) : !menu ? (
+                  <div className="text-center py-20 opacity-20"><Utensils className="h-12 w-12 mx-auto mb-4" /><p className="font-bold uppercase tracking-widest text-xs">No Items Available</p></div>
+              ) : (
+                <div className="space-y-6">
+                    {['Completed', 'Delivered'].includes(order?.status || '') ? (
+                        <Card className="rounded-[2.5rem] border-0 shadow-2xl text-center py-16 px-8" style={{ backgroundColor: '#fafafa' }}><div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-white"><Check className="h-10 w-10 text-primary" style={{ color: theme?.primaryColor }} /></div><h2 className="text-2xl font-black mb-3">Order Finalized</h2><Button onClick={handleStartNewOrder} className="rounded-xl h-12 px-8 uppercase font-black text-[10px] tracking-widest shadow-lg" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>Start New Session</Button></Card>
+                    ) : (
+                        <>
+                            <ScrollArea className="w-full whitespace-nowrap pb-2"><div className="flex gap-2"><Button variant="ghost" size="sm" className={cn("rounded-lg px-3 h-7 font-black text-[9px] uppercase tracking-widest border", !selectedCategory ? "shadow-md" : "opacity-40")} style={{ backgroundColor: !selectedCategory ? theme?.primaryColor : 'transparent', color: !selectedCategory ? theme?.backgroundColor : theme?.primaryColor }} onClick={() => setSelectedCategory(null)}>All</Button>{availableCategories.map(cat => <Button key={cat} variant="ghost" size="sm" className={cn("rounded-lg px-3 h-7 font-black text-[9px] uppercase tracking-widest border", selectedCategory === cat ? "shadow-md" : "opacity-40")} style={{ backgroundColor: selectedCategory === cat ? theme?.primaryColor : 'transparent', color: selectedCategory === cat ? theme?.backgroundColor : theme?.primaryColor }} onClick={() => setSelectedCategory(cat)}>{cat}</Button>)}</div></ScrollArea>
+                            {Object.entries(groupedMenu).map(([category, items]) => (
+                                <div key={category} className="space-y-3">
+                                    <h2 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 px-1" style={{ color: theme?.textColor || '#000' }}>{category}</h2>
+                                    <div className="grid gap-3">
+                                        {items.map((item) => (
+                                            <Card key={item.id} className="flex gap-4 p-3 shadow-md rounded-[1.5rem] border-0 bg-white group hover:shadow-xl transition-all">
+                                                <div className="relative h-20 w-20 rounded-2xl overflow-hidden bg-muted shrink-0 border">
+                                                    <Image src={item.imageUrl || ADIRES_LOGO} alt={item.name} fill className="object-cover group-hover:scale-110 transition-transform" />
+                                                </div>
+                                                <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                                                    <div>
+                                                        <p className="font-black text-sm truncate mb-0.5" style={{ color: theme?.textColor || '#000' }}>{item.name}</p>
+                                                        <p className="text-[10px] opacity-40 line-clamp-2 leading-tight" style={{ color: theme?.textColor }}>{item.description}</p>
+                                                    </div>
+                                                    <div className="flex items-center justify-between">
+                                                        <p className="text-sm font-black" style={{color: theme?.primaryColor || '#000'}}>₹{item.price.toFixed(2)}</p>
+                                                        <div className="flex items-center gap-1">
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full opacity-40 hover:opacity-100" onClick={() => handleShowIngredients(item)}><Eye className="h-4 w-4" style={{ color: theme?.textColor }} /></Button>
+                                                            <Button onClick={() => handleAddItem(item)} disabled={isAdding || recentlyAdded.has(item.id)} className={cn("h-8 rounded-xl text-[9px] uppercase font-black min-w-[60px]", recentlyAdded.has(item.id) ? "bg-green-600" : "")} style={{ backgroundColor: recentlyAdded.has(item.id) ? '' : theme?.primaryColor, color: theme?.backgroundColor }}>{recentlyAdded.has(item.id) ? <Check className="h-3 w-3" /> : (isSalon ? 'Book' : 'Add')}</Button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </Card>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </>
+                    )}
+                </div>
+              )}
             </div>
           </div>
           {itemCount > 0 && ['Pending', 'Processing', 'Out for Delivery', 'Billed', 'Draft'].includes(order?.status || '') && (
-               <Sheet><SheetTrigger asChild><div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[200px] px-4"><Button className="h-12 w-full rounded-xl shadow-2xl text-[10px] font-black uppercase tracking-widest" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}><Receipt className="mr-2 h-4 w-4" /> {isSalon ? 'Summary' : 'View Bill'} <Badge className="ml-2 h-5 min-w-[20px] rounded-md text-[9px] font-black" style={{ backgroundColor: theme?.backgroundColor, color: theme?.primaryColor }}>{itemCount}</Badge></Button></div></SheetTrigger><SheetContent side="bottom" className="h-[75vh] rounded-t-[2.5rem] p-0 border-0 overflow-hidden"><LiveBillSheet orderId={order!.id} theme={theme} store={store} onShowUpi={() => setIsUpiDialogOpen(true)} isSalon={isSalon} /></SheetContent></Sheet>
+               <Sheet><SheetTrigger asChild><div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[200px] px-4"><Button className="h-12 w-full rounded-xl shadow-2xl text-[10px] font-black uppercase tracking-widest" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}><Receipt className="mr-2 h-4 w-4" /> View {isSalon ? 'Booking' : 'Bill'} <Badge className="ml-2 h-5 min-w-[20px] rounded-md text-[9px] font-black" style={{ backgroundColor: theme?.backgroundColor, color: theme?.primaryColor }}>{itemCount}</Badge></Button></div></SheetTrigger><SheetContent side="bottom" className="h-[75vh] rounded-t-[2.5rem] p-0 border-0 overflow-hidden"><LiveBillSheet orderId={order!.id} theme={theme} store={store} onShowUpi={() => setIsUpiDialogOpen(true)} isSalon={isSalon} /></SheetContent></Sheet>
           )}
         </div>
     </>
