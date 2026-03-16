@@ -18,6 +18,7 @@ import { useVoiceCommanderContext } from './voice-commander-context';
 import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
 import { runNLU, extractQuantityAndProduct } from '@/lib/nlu/voice-integration';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
+import { chatWithAsha } from '@/ai/flows/asha-flow';
 
 export interface Command {
   command: string;
@@ -38,7 +39,6 @@ interface VoiceCommanderProps {
   onStatusUpdate: (status: string) => void;
   onOpenCart: () => void;
   onCloseCart: () => void;
-  isCartOpen: boolean;
   cartItems: CartItem[];
   voiceTrigger: number;
   triggerVoicePrompt: () => void;
@@ -66,6 +66,7 @@ type Intent =
   | { type: 'SHOW_DETAILS', target: string, originalText: string, lang: string }
   | { type: 'GET_KNOWLEDGE', topic: string, originalText: string, lang: string }
   | { type: 'MATH', originalText: string, lang: string }
+  | { type: 'ASK_ASHA', originalText: string, lang: string }
   | { type: 'UNKNOWN', originalText: string, lang: string };
 
 const intentKeywords = {
@@ -79,6 +80,7 @@ const intentKeywords = {
   SHOW_DETAILS: ['details for', 'show details', 'view details', 'వివరాలు చూపించు'],
   GET_KNOWLEDGE: ['what is', 'what are', 'tell me about', 'who is', 'explain'],
   MATH: ['+', '-', '*', '/', 'plus', 'minus', 'times', 'divided by'],
+  ASK_ASHA: ['asha', 'hey asha', 'hi asha', 'ask asha'],
 };
 
 export function VoiceCommander({
@@ -99,9 +101,9 @@ export function VoiceCommander({
   const { firestore, user } = useFirebase();
   const { clearCart, addItem: addItemToCart, removeItem, activeStoreId, setActiveStoreId, cartTotal } = useCart();
   const { showPriceCheck, hidePriceCheck } = useVoiceCommanderContext();
-  const { isRestaurantOwner } = useAdminAuth();
+  const { isRestaurantOwner, isAdmin } = useAdminAuth();
 
-  const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, getAllAliases, locales, commands, loading: isAppStoreLoading } = useAppStore();
+  const { stores, masterProducts, productPrices, fetchProductPrices, getProductName, language, setLanguage, getAllAliases, locales, commands, loading: isAppStoreLoading } = useAppStore();
 
   const { form: profileForm } = useProfileFormStore();
   const { saveInventoryBtnRef } = useMyStorePageStore();
@@ -246,7 +248,7 @@ export function VoiceCommander({
 
   useEffect(() => {
     isEnabledRef.current = enabled;
-    if (recognition && !isRestaurantOwner) {
+    if (recognition) {
         if (enabled) {
             recognition.lang = 'en-IN';
             recognition.continuous = false;
@@ -257,7 +259,7 @@ export function VoiceCommander({
             recognition.stop();
         }
     }
-}, [enabled, isRestaurantOwner]);
+}, [enabled]);
 
  const speak = useCallback((textOrReply: any | string, lang: string, onEndCallback?: (() => void) | boolean) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -283,7 +285,7 @@ export function VoiceCommander({
     const onEnd = () => {
         isSpeakingRef.current = false;
         if (typeof onEndCallback === 'function') onEndCallback();
-        if (isEnabledRef.current && recognition && !isRestaurantOwner) {
+        if (isEnabledRef.current && recognition) {
             try { recognition.start(); } catch(e) {}
         }
     };
@@ -306,7 +308,7 @@ export function VoiceCommander({
     if (voice) utterance.voice = voice;
     utterance.onend = onEnd;
     window.speechSynthesis.speak(utterance);
-  }, [speechSynthesisVoices, isRestaurantOwner]);
+  }, [speechSynthesisVoices]);
 
   const runCheckoutPrompt = useCallback(() => {
       if (pathname !== '/checkout' || !hasMounted || !enabled || hasRunCheckoutPrompt || isSpeakingRef.current) return;
@@ -458,6 +460,9 @@ export function VoiceCommander({
     const knowledgeKeyword = intentKeywords.GET_KNOWLEDGE.find(kw => lowerText.startsWith(kw));
     if (knowledgeKeyword) return { type: 'GET_KNOWLEDGE', topic: lowerText.substring(knowledgeKeyword.length).trim(), originalText: text, lang: spokenLang };
 
+    const ashaKeyword = intentKeywords.ASK_ASHA.find(kw => lowerText.includes(kw));
+    if (ashaKeyword) return { type: 'ASK_ASHA', originalText: text, lang: spokenLang };
+
     let bestCommandMatch: { key: string, similarity: number } | null = null;
     for (const key in commands) {
       const commandAliases = getAllAliases(key);
@@ -528,6 +533,18 @@ export function VoiceCommander({
 
     const intent = recognizeIntent(commandText, spokenLang);
     switch (intent.type) {
+        case 'ASK_ASHA': {
+            const role = isAdmin ? 'admin' : (isRestaurantOwner ? 'owner' : 'customer');
+            speak("Thinking...", langWithRegion, false);
+            const reply = await chatWithAsha({
+                history: [],
+                message: commandText,
+                role: role,
+                storeId: activeStoreId || undefined
+            });
+            speak(reply, langWithRegion);
+            break;
+        }
         case 'NAVIGATE':
         case 'CONVERSATIONAL': {
             const key = intent.type === 'NAVIGATE' ? intent.destination : intent.commandKey;
@@ -546,7 +563,7 @@ export function VoiceCommander({
             break;
         }
     }
-  }, [firestore, user, language, determinePhraseLanguage, speak, resetAllContext, findProductAndVariant, addItemToCart, onOpenCart, t, locales, commands, getAllAliases, recognizeIntent, aiConfig, handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setActiveStoreId, storeAliasMap, profileForm, router, stores, productPrices, showPriceCheck, hidePriceCheck, masterProducts]);
+  }, [firestore, user, language, determinePhraseLanguage, speak, resetAllContext, findProductAndVariant, addItemToCart, onOpenCart, t, locales, commands, getAllAliases, recognizeIntent, aiConfig, handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setActiveStoreId, storeAliasMap, profileForm, router, stores, productPrices, showPriceCheck, hidePriceCheck, masterProducts, isAdmin, isRestaurantOwner, activeStoreId]);
 
   useEffect(() => {
     if (!recognition) return;

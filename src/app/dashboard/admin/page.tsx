@@ -14,58 +14,130 @@ import {
   FileCode,
   Video,
   QrCode,
-  AlertTriangle,
   Server,
-  FileText,
   FileSignature,
-  Fingerprint,
   Voicemail,
   KeyRound,
-  Bug,
   Package,
-  BookOpen,
   HelpCircle,
   BrainCircuit,
-  BarChart3,
-  ChefHat,
   TrendingUp,
   UserPlus,
   ArrowRight,
-  Edit,
-  Search,
-  Download,
   Database,
   ZapOff,
   Truck,
   PackageSearch,
-  FileJson,
   Smartphone,
   Briefcase,
   Binary,
-  MessageSquarePlus
+  MessageSquarePlus,
+  Sparkles,
+  Send,
+  Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, updateDoc } from 'firebase/firestore';
-import { useMemo, useEffect, useState, useTransition } from 'react';
+import { collection, query, where, doc } from 'firebase/firestore';
+import { useMemo, useEffect, useState, useTransition, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
-import type { Order, Store as StoreType, User, ProductPrice, ProductVariant, Product } from '@/lib/types';
+import type { Order, Store as StoreType, User } from '@/lib/types';
 import { t } from '@/lib/locales';
 import { Button } from '@/components/ui/button';
 import { createRestaurantUserAndStore } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Loader2 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { chatWithAsha } from '@/ai/flows/asha-flow';
+import { cn } from '@/lib/utils';
 
+const ADMIN_EMAIL = 'admin@gmail.com';
+
+function AshaMonitor() {
+    const [messages, setMessages] = useState<Array<{role: 'user' | 'model', text: string}>>([
+        { role: 'model', text: "Hello Admin! I'm Asha. I'm monitoring the entire platform. Ask me anything about users, stores, or order trends." }
+    ]);
+    const [input, setInput] = useState("");
+    const [isThinking, startThinking] = useTransition();
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (scrollRef.current) scrollRef.current.scrollTo(0, scrollRef.current.scrollHeight);
+    }, [messages]);
+
+    const handleSend = () => {
+        if (!input.trim() || isThinking) return;
+        const userMsg = input.trim();
+        setInput("");
+        setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+
+        startThinking(async () => {
+            try {
+                const reply = await chatWithAsha({
+                    history: messages,
+                    message: userMsg,
+                    role: 'admin'
+                });
+                setMessages(prev => [...prev, { role: 'model', text: reply }]);
+            } catch (e) {
+                setMessages(prev => [...prev, { role: 'model', text: "I'm having trouble accessing the monitoring data right now. Please try again." }]);
+            }
+        });
+    };
+
+    return (
+        <Card className="border-2 border-primary/20 shadow-xl rounded-[2.5rem] overflow-hidden bg-primary/5">
+            <CardHeader className="bg-primary/10 border-b border-primary/10">
+                <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-white shadow-lg animate-pulse">
+                        <Sparkles className="h-6 w-6" />
+                    </div>
+                    <div>
+                        <CardTitle className="text-xl font-black uppercase tracking-tight">Asha Intelligence Monitor</CardTitle>
+                        <CardDescription className="text-[10px] font-bold uppercase opacity-60">Real-time Platform Insights Agent</CardDescription>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent className="p-0 flex flex-col h-[400px]">
+                <ScrollArea className="flex-1 p-6" ref={scrollRef}>
+                    <div className="space-y-4">
+                        {messages.map((m, i) => (
+                            <div key={i} className={cn(
+                                "flex flex-col max-w-[80%] rounded-2xl p-3 text-xs font-bold leading-relaxed",
+                                m.role === 'user' ? "ml-auto bg-primary text-white" : "bg-white border-2 border-primary/10 text-gray-800"
+                            )}>
+                                {m.text}
+                            </div>
+                        ))}
+                        {isThinking && (
+                            <div className="bg-white border-2 border-primary/10 text-gray-400 p-3 rounded-2xl text-xs font-bold animate-pulse w-fit">
+                                Asha is querying the platform data...
+                            </div>
+                        )}
+                    </div>
+                </ScrollArea>
+                <div className="p-4 bg-white border-t border-primary/10 flex gap-2">
+                    <Input 
+                        placeholder="e.g. How many orders were completed today?" 
+                        value={input}
+                        onChange={e => setInput(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleSend()}
+                        className="rounded-xl border-2"
+                    />
+                    <Button size="icon" className="rounded-xl shrink-0 h-10 w-10 shadow-lg shadow-primary/20" onClick={handleSend} disabled={isThinking}>
+                        <Send className="h-4 w-4" />
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
 
 function CreateRestaurantUserForm() {
     const { toast } = useToast();
@@ -101,13 +173,13 @@ function CreateRestaurantUserForm() {
     };
 
     return (
-        <Card>
+        <Card className="rounded-3xl shadow-md border-0 bg-white">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     <UserPlus className="h-6 w-6 text-primary" />
                     Create Restaurant Account
                 </CardTitle>
-                <CardDescription>Quickly create a new user and an associated store for a restaurant owner.</CardDescription>
+                <CardDescription>Quickly create a new user and an associated store.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -122,7 +194,7 @@ function CreateRestaurantUserForm() {
                     <Label htmlFor="res-name">Restaurant Name</Label>
                     <Input id="res-name" placeholder="e.g., Paradise Biryani" value={restaurantName} onChange={(e) => setRestaurantName(e.target.value)} disabled={isCreating} />
                 </div>
-                <Button onClick={handleCreate} disabled={isCreating} className="w-full">
+                <Button onClick={handleCreate} disabled={isCreating} className="w-full h-12 rounded-xl font-bold">
                     {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
                     Create Account & Store
                 </Button>
@@ -133,13 +205,13 @@ function CreateRestaurantUserForm() {
 
 function StatCard({ title, value, icon: Icon, loading }: any) {
   return (
-    <Card>
+    <Card className="rounded-3xl border-0 shadow-lg bg-white">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm text-muted-foreground">{t(title)}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
+        <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t(title)}</CardTitle>
+        <Icon className="h-4 w-4 text-primary opacity-20" />
       </CardHeader>
       <CardContent>
-        {loading ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{value}</div>}
+        {loading ? <Skeleton className="h-8 w-20" /> : <div className="text-3xl font-black text-gray-950 tracking-tighter">{value}</div>}
       </CardContent>
     </Card>
   );
@@ -158,12 +230,14 @@ function ActionCard({
 }) {
   return (
     <Link href={href}>
-      <Card className="hover:shadow-md transition h-full border-primary/10 hover:border-primary/30">
+      <Card className="hover:shadow-md transition h-full border-primary/10 hover:border-primary/30 rounded-3xl group">
         <CardHeader className="flex flex-row gap-4 items-center">
-          <Icon className="h-8 w-8 text-primary" />
+          <div className="h-12 w-12 rounded-2xl bg-primary/5 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors shadow-inner">
+            <Icon className="h-6 w-6" />
+          </div>
           <div>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
+            <CardTitle className="text-lg font-bold">{title}</CardTitle>
+            <CardDescription className="text-xs">{description}</CardDescription>
           </div>
         </CardHeader>
       </Card>
@@ -220,26 +294,34 @@ export default function AdminDashboardPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-10 space-y-16">
+    <div className="container mx-auto px-4 py-10 space-y-16 max-w-7xl">
 
       {/* ================= HEADER ================= */}
-      <div className="text-center space-y-2">
-        <h1 className="text-4xl font-bold font-headline">Admin Control Center</h1>
-        <p className="text-muted-foreground">
-          Platform-wide health, operations, and feature documentation.
-        </p>
+      <div className="flex flex-col md:flex-row justify-between items-end gap-6 border-b pb-10 border-black/5">
+        <div>
+            <h1 className="text-6xl font-black font-headline tracking-tighter">Admin Hub</h1>
+            <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">System-wide Authority</p>
+        </div>
+        <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-primary bg-primary/5 px-4 py-2 rounded-full border border-primary/10">
+            <Server className="h-3 w-3" /> System Health: Operational
+        </div>
       </div>
 
-      {/* ================= STATS ================= */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatCard title="Total Users" value={stats.totalUsers} icon={Users} loading={statsLoading} />
-        <StatCard title="Active Stores" value={stats.totalStores} icon={Store} loading={statsLoading} />
-        <StatCard title="Orders Completed" value={stats.totalOrdersDelivered} icon={ShoppingBag} loading={statsLoading} />
-      </div>
+      {/* ================= ASHA MONITOR ================= */}
+      <section className="grid lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2">
+              <AshaMonitor />
+          </div>
+          <div className="space-y-4">
+              <StatCard title="Total Users" value={stats.totalUsers} icon={Users} loading={statsLoading} />
+              <StatCard title="Active Stores" value={stats.totalStores} icon={Store} loading={statsLoading} />
+              <StatCard title="Completed Orders" value={stats.totalOrdersDelivered} icon={ShoppingBag} loading={statsLoading} />
+          </div>
+      </section>
 
       {/* ================= OPERATIONS ================= */}
       <section className="space-y-6">
-        <h2 className="text-2xl font-bold flex items-center gap-2">
+        <h2 className="text-2xl font-black font-headline uppercase tracking-tight flex items-center gap-2">
             <Briefcase className="h-6 w-6 text-primary" />
             Operations & Onboarding
         </h2>
@@ -257,43 +339,37 @@ export default function AdminDashboardPage() {
             href="/dashboard/owner/my-store"
             icon={Store}
           />
-           <ActionCard
-            title="Restaurant Ingredient Costs"
-            description="Set standard cost prices for raw materials used in recipes."
-            href="/dashboard/admin/restaurant-inventory"
-            icon={ChefHat}
-          />
         </div>
       </section>
 
       {/* ================= GUIDES & DOCUMENTATION ================= */}
-      <section className="space-y-6 bg-primary/5 p-8 rounded-[2.5rem] border border-primary/10">
-        <h2 className="text-2xl font-bold flex items-center gap-2">
+      <section className="space-y-6 bg-primary/5 p-10 rounded-[3rem] border border-primary/10">
+        <h2 className="text-2xl font-black font-headline uppercase tracking-tight flex items-center gap-2">
             <HelpCircle className="h-6 w-6 text-primary" />
-            Features: How It Works
+            Infrastructure Docs
         </h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           <ActionCard
             title="App Overview"
-            description="A complete guide to Restaurant POS, KDS, and PWA features."
+            description="Complete guide to Restaurant POS, KDS, and PWA features."
             href="/dashboard/admin/app-overview"
             icon={FileSignature}
           />
           <ActionCard
             title="Home Delivery Guide"
-            description="Details on GPS pinning, live tracking, and the 20-min countdown."
+            description="Details on GPS pinning, live tracking, and countdowns."
             href="/dashboard/admin/deliveries-help"
             icon={Truck}
           />
           <ActionCard
             title="Economics Breakdown"
-            description="Learn how the app calculates Gross Profit and Table Efficiency."
+            description="Learn how we calculate Gross Profit and Efficiency."
             href="/dashboard/admin/economics-breakdown"
             icon={TrendingUp}
           />
           <ActionCard
             title="PWA & App Install"
-            description="How we create standalone restaurant apps using dynamic manifests."
+            description="Standalone restaurant apps using dynamic manifests."
             href="/dashboard/admin/manifest-help"
             icon={Smartphone}
           />
@@ -302,7 +378,7 @@ export default function AdminDashboardPage() {
 
       {/* ================= AI & VOICE TRAINING ================= */}
       <section className="space-y-6">
-        <h2 className="text-2xl font-bold flex items-center gap-2">
+        <h2 className="text-2xl font-black font-headline uppercase tracking-tight flex items-center gap-2">
             <BrainCircuit className="h-6 w-6 text-primary" />
             AI Training & Maintenance
         </h2>
@@ -315,7 +391,7 @@ export default function AdminDashboardPage() {
           />
           <ActionCard
             title="Voice Error Center"
-            description="Review logs of failed commands and teach the AI new aliases."
+            description="Review logs of failed commands and teach new aliases."
             href="/dashboard/admin/failed-commands"
             icon={Bot}
           />
@@ -330,40 +406,16 @@ export default function AdminDashboardPage() {
 
       {/* ================= SYSTEM & INFRASTRUCTURE ================= */}
       <section className="space-y-6">
-        <h2 className="text-2xl font-bold flex items-center gap-2">
+        <h2 className="text-2xl font-black font-headline uppercase tracking-tight flex items-center gap-2">
             <Server className="h-6 w-6 text-primary" />
             System & Performance
         </h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-           <ActionCard
-            title="AI Support Prompt"
-            description="Copy a comprehensive context prompt to seek help from an AI assistant."
-            href="/dashboard/admin/support-prompt"
-            icon={MessageSquarePlus}
-          />
-           <ActionCard
-            title="System Health"
-            description="Monitor service availability and API status."
-            href="/dashboard/admin/system-status"
-            icon={Server}
-          />
           <ActionCard
             title="Performance Audit"
             description="Track Firestore read/write patterns and optimize costs."
             href="/dashboard/admin/performance-audit"
             icon={BarChart3}
-          />
-          <ActionCard
-            title="Counter Calculation Logic"
-            description="View source code for real-time R/W performance tracking."
-            href="/dashboard/admin/counter-logic-help"
-            icon={Binary}
-          />
-          <ActionCard
-            title="Order Logic Source"
-            description="View high-performance Atomic Upsert logic for kitchen POS."
-            href="/dashboard/admin/order-logic-help"
-            icon={PackageSearch}
           />
           <ActionCard
             title="Security Policy"
@@ -377,20 +429,30 @@ export default function AdminDashboardPage() {
             href="/dashboard/admin/initial-data-help"
             icon={Database}
           />
-          <ActionCard
-            title="Read Explosion Fix"
-            description="Technical analysis of N+1 query optimization strategies."
-            href="/dashboard/admin/read-explosion-help"
-            icon={ZapOff}
-          />
-           <ActionCard
-            title="WebAuthn API"
-            description="Source code for secure biometric and fingerprint login routes."
-            href="/dashboard/admin/webauthn-api-help"
-            icon={Fingerprint}
-          />
         </div>
       </section>
     </div>
   );
+}
+
+function BarChart3(props: any) {
+    return (
+        <svg
+            {...props}
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="M3 3v18h18" />
+            <path d="M18 17V9" />
+            <path d="M13 17V5" />
+            <path d="M8 17v-3" />
+        </svg>
+    )
 }
