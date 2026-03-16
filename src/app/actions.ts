@@ -211,12 +211,14 @@ export async function updateManifest(newData: any): Promise<{ success: boolean; 
     }
 }
 
+/**
+ * Places a batch of items as a distinct order within a restaurant session.
+ */
 export async function addRestaurantOrderItem({
   storeId,
   tableNumber,
   sessionId,
-  item,
-  quantity,
+  items,
   deliveryAddress,
   customerName,
   phone,
@@ -227,31 +229,35 @@ export async function addRestaurantOrderItem({
   storeId: string;
   tableNumber: string | null;
   sessionId: string;
-  item: MenuItem;
-  quantity: number;
+  items: CartItem[];
   deliveryAddress?: string;
   customerName?: string;
   phone?: string;
   deliveryLat?: number;
   deliveryLng?: number;
   zoneId?: string;
-}): Promise<{ success: boolean; error?: string }> {
+}): Promise<{ success: boolean; error?: string; orderId?: string }> {
   try {
     const { db } = await getAdminServices();
-    const orderId = `${storeId}_${sessionId}`;
-    const orderDocRef = db.collection('orders').doc(orderId);
+    
+    // Each distinct "Place Order" click creates a unique order document.
+    // They are linked via the sessionId.
+    const orderDocRef = db.collection('orders').doc();
+    const orderId = orderDocRef.id;
 
-    const orderItem: OrderItem = {
+    const orderItems: OrderItem[] = items.map(item => ({
       id: uuidv4(), 
       orderId: orderId,
-      productId: `${storeId}-${createSlug(item.name)}`,
-      menuItemId: item.id, // Store the reference to the original menu item
-      productName: item.name, 
-      variantSku: 'default',
-      variantWeight: '1 pc', 
-      quantity, 
-      price: item.price,
-    };
+      productId: item.product.id,
+      menuItemId: item.product.id, 
+      productName: item.product.name, 
+      variantSku: item.variant.sku,
+      variantWeight: item.variant.weight, 
+      quantity: item.quantity, 
+      price: item.variant.price,
+    }));
+
+    const totalAmount = orderItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
     await orderDocRef.set({
       id: orderId, 
@@ -265,34 +271,44 @@ export async function addRestaurantOrderItem({
       deliveryLng: deliveryLng || 0,
       zoneId: zoneId || 'local-service',
       phone: phone || '',
-      status: 'Draft', 
+      status: 'Pending', // New orders go straight to Pending
       isActive: true, 
       orderDate: FieldValue.serverTimestamp(), 
       updatedAt: FieldValue.serverTimestamp(),
-      items: FieldValue.arrayUnion(orderItem),
-      totalAmount: FieldValue.increment(orderItem.price * orderItem.quantity),
-    }, { merge: true });
+      items: orderItems,
+      totalAmount: totalAmount,
+    });
 
-    return { success: true };
+    return { success: true, orderId };
   } catch (error: any) {
     console.error("Robust POS add failed:", error);
     return { success: false, error: error.message };
   }
 }
 
-export async function confirmOrderSession(orderId: string): Promise<{ success: boolean; error?: string }> {
+/**
+ * Finalizes all active orders in a session for payment.
+ */
+export async function confirmOrderSession(sessionId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const { db } = await getAdminServices();
-    const orderRef = db.collection('orders').doc(orderId);
-    const orderSnap = await orderRef.get();
-    if (!orderSnap.exists) return { success: false, error: 'Order not found' };
-    const orderData = orderSnap.data();
-    let currentStatus = orderData?.status;
-    if (['Completed', 'Delivered', 'Cancelled'].includes(currentStatus)) return { success: false, error: 'Order is already finalized.' };
-    let nextStatus = currentStatus === 'Draft' ? (orderData?.tableNumber ? 'Processing' : 'Pending') : (orderData?.tableNumber ? 'Billed' : currentStatus);
-    await orderRef.update({ status: nextStatus, updatedAt: FieldValue.serverTimestamp() });
+    const snapshot = await db.collection('orders').where('sessionId', '==', sessionId).where('isActive', '==', true).get();
+    
+    if (snapshot.empty) return { success: false, error: 'No active orders found for this session.' };
+    
+    const batch = db.batch();
+    snapshot.docs.forEach(doc => {
+      batch.update(doc.ref, { 
+          status: 'Billed', 
+          updatedAt: FieldValue.serverTimestamp() 
+      });
+    });
+    
+    await batch.commit();
     return { success: true };
-  } catch (error: any) { return { success: false, error: error.message }; }
+  } catch (error: any) { 
+      return { success: false, error: error.message }; 
+  }
 }
 
 export async function markSessionAsPaid(sessionId: string): Promise<{ success: boolean; error?: string }> {
