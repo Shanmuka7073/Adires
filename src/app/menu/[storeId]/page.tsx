@@ -41,19 +41,18 @@ import {
   Search,
   Download,
   Eye,
-  Smartphone,
   CreditCard,
   PlusCircle,
   BellRing,
   ArrowLeft,
   Sparkles,
-  ShoppingBag,
   Package,
   CheckCircle,
   AlertTriangle,
   CookingPot,
-  MapPin,
   LocateFixed,
+  Video,
+  Truck,
   X
 } from 'lucide-react';
 
@@ -514,7 +513,11 @@ export default function PublicMenuPage() {
                       </div>
                   </div>
                   <div className="flex items-center gap-1.5">
-                      {store.liveVideoUrl && <Button asChild variant="outline" size="sm" className="h-7 rounded-lg border px-2 font-black text-[8px] uppercase tracking-widest animate-pulse" style={{ color: theme?.primaryColor || '#FBC02D', borderColor: theme?.primaryColor || '#FBC02D' }}><Link href={`/live-order/live`}><Video className="mr-1 h-3 w-3" /> Live</Link></Button>}
+                      {store.liveVideoUrl && placedOrders && placedOrders.length > 0 && (
+                        <Button asChild variant="outline" size="sm" className="h-7 rounded-lg border px-2 font-black text-[8px] uppercase tracking-widest animate-pulse" style={{ color: theme?.primaryColor || '#FBC02D', borderColor: theme?.primaryColor || '#FBC02D' }}>
+                            <Link href={`/live-order/${placedOrders[0].id}`}><Video className="mr-1 h-3 w-3" /> Live</Link>
+                        </Button>
+                      )}
                       {canInstall && <Button variant="ghost" size="icon" onClick={triggerInstall} className="h-8 w-8 rounded-full hover:bg-white/10 text-white"><Download className="h-4 w-4" /></Button>}
                   </div>
               </div>
