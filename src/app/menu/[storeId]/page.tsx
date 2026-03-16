@@ -394,13 +394,13 @@ function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId:
              {isSalon && (
                  <div className="space-y-6">
                     <div className="space-y-3">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor }}>Select Date</h4>
+                        <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor || '#fff' }}>Select Date</h4>
                         {isDraft ? (
                             <DateScroller value={selectedDate} onChange={setSelectedDate} theme={theme} />
                         ) : (
                             <div className="p-4 rounded-2xl border-2 bg-primary/5 flex items-center justify-between" style={{ borderColor: theme?.primaryColor + '30' }}>
                                 <div>
-                                    <p className="text-[8px] font-black uppercase opacity-40 mb-0.5" style={{ color: theme?.textColor }}>Appointment Date</p>
+                                    <p className="text-[8px] font-black uppercase opacity-40 mb-0.5" style={{ color: theme?.textColor || '#fff' }}>Appointment Date</p>
                                     <p className="text-lg font-black" style={{ color: theme?.primaryColor }}>{format(toDateSafe(order.orderDate), 'PPP')}</p>
                                 </div>
                                 <CalendarDays className="h-6 w-6" style={{ color: theme?.primaryColor }} />
@@ -408,7 +408,7 @@ function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId:
                         )}
                     </div>
                     <div className="space-y-3">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor }}>{isDraft ? 'Select Time' : 'Confirmed Arrival'}</h4>
+                        <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor || '#fff' }}>{isDraft ? 'Select Time' : 'Confirmed Arrival'}</h4>
                         {isDraft ? (
                             <>
                                 <TimePicker value={selectedTime} onChange={setSelectedTime} theme={theme} />
@@ -423,7 +423,7 @@ function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId:
                         ) : order.appointmentTime ? (
                             <div className="p-4 rounded-2xl border-2 bg-primary/5 flex items-center justify-between" style={{ borderColor: theme?.primaryColor + '30' }}>
                                 <div>
-                                    <p className="text-[8px] font-black uppercase opacity-40 mb-0.5" style={{ color: theme?.textColor }}>Confirmed Time</p>
+                                    <p className="text-[8px] font-black uppercase opacity-40 mb-0.5" style={{ color: theme?.textColor || '#fff' }}>Confirmed Time</p>
                                     <p className="text-lg font-black" style={{ color: theme?.primaryColor }}>{order.appointmentTime.split(' at ')[1]}</p>
                                 </div>
                                 <Clock className="h-6 w-6" style={{ color: theme?.primaryColor }} />
@@ -433,9 +433,9 @@ function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId:
                  </div>
              )}
              <div className="space-y-3">
-                <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor }}>{isSalon ? 'Selected Services' : 'Order Items'}</h4>
+                <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor || '#fff' }}>{isSalon ? 'Selected Services' : 'Order Items'}</h4>
                 {order.items.map((it, idx) => (
-                <div key={idx} className="flex justify-between items-start text-sm pb-3 border-b last:border-0" style={{borderColor: theme?.primaryColor + '10', color: theme?.textColor}}>
+                <div key={idx} className="flex justify-between items-start text-sm pb-3 border-b last:border-0" style={{borderColor: theme?.primaryColor + '10', color: theme?.textColor || '#fff'}}>
                     <div className="flex-1 pr-4 min-w-0"><span className="font-bold block truncate">{it.productName}</span><span className="text-[10px] opacity-60 font-bold uppercase">Qty: {it.quantity}</span></div>
                     <div className="flex items-center gap-3"><div className="text-right font-bold">₹{(it.price * it.quantity).toFixed(2)}</div>{isDraft && <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(it)}><Trash2 className="h-4 w-4" /></Button>}</div>
                 </div>
@@ -443,16 +443,16 @@ function LiveBillSheet({ orderId, theme, store, onShowUpi, isSalon }: { orderId:
              </div>
         </div>
         <div className="p-6 border-t space-y-4 bg-black/5" style={{ borderColor: theme?.primaryColor + '20' }}>
-            <div className="flex justify-between items-baseline mb-2"><span className="text-sm font-bold uppercase tracking-widest opacity-60" style={{ color: theme?.textColor }}>Total</span><span className="text-2xl font-black" style={{ color: theme?.primaryColor }}>₹{order.totalAmount.toFixed(2)}</span></div>
+            <div className="flex justify-between items-baseline mb-2"><span className="text-sm font-bold uppercase tracking-widest opacity-60" style={{ color: theme?.textColor || '#fff' }}>Total</span><span className="text-2xl font-black" style={{ color: theme?.primaryColor }}>₹{order.totalAmount.toFixed(2)}</span></div>
             <div className="pt-2">
               {isFinalized ? (
-                 <div className="text-center p-5 bg-primary/10 rounded-2xl border-2" style={{ borderColor: theme?.primaryColor + '30' }}><Check className="mx-auto h-8 w-8 mb-2" style={{ color: theme?.primaryColor }} /><p className="font-black text-xs uppercase" style={{ color: theme?.textColor }}>{isSalon ? 'Booking Finalized' : 'Order Finalized'}</p></div>
+                 <div className="text-center p-5 bg-primary/10 rounded-2xl border-2" style={{ borderColor: theme?.primaryColor + '30' }}><Check className="mx-auto h-8 w-8 mb-2" style={{ color: theme?.primaryColor }} /><p className="font-black text-xs uppercase" style={{ color: theme?.textColor || '#fff' }}>{isSalon ? 'Booking Finalized' : 'Order Finalized'}</p></div>
               ) : store.upiId && isLocked ? (
                   <Button onClick={onShowUpi} className="w-full h-14 rounded-2xl uppercase font-black tracking-widest bg-green-600 hover:bg-green-700 text-white shadow-xl shadow-green-900/20"><CreditCard className="mr-2 h-5 w-5" /> Pay Now with UPI</Button>
               ) : isLocked ? (
-                 <div className="text-center p-5 bg-primary/10 rounded-2xl border-2" style={{ borderColor: theme?.primaryColor + '30' }}><Clock className="mx-auto h-8 w-8 mb-2" style={{ color: theme?.primaryColor }} /><p className="font-black text-xs uppercase" style={{ color: theme?.textColor }}>{isSalon ? 'Booking Confirmed' : 'Order Confirmed'}</p></div>
+                 <div className="text-center p-5 bg-primary/10 rounded-2xl border-2" style={{ borderColor: theme?.primaryColor + '30' }}><Clock className="mx-auto h-8 w-8 mb-2" style={{ color: theme?.primaryColor }} /><p className="font-black text-xs uppercase" style={{ color: theme?.textColor || '#fff' }}>{isSalon ? 'Booking Confirmed' : 'Order Confirmed'}</p></div>
               ) : (
-                <AlertDialog><AlertDialogTrigger asChild><Button className="w-full h-14 rounded-2xl text-base font-black uppercase tracking-widest shadow-xl" variant="destructive" disabled={closing || isPastTime}>{closing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}{isDraft ? (isSalon ? 'Book Appointment' : 'Place Order') : 'Request Bill'}</Button></AlertDialogTrigger><AlertDialogContent className="rounded-[2rem] border-0 shadow-2xl" style={{ backgroundColor: theme?.backgroundColor }}><AlertDialogHeader><AlertDialogTitle className="text-xl font-black uppercase tracking-tight" style={{ color: theme?.primaryColor }}>{isDraft ? (isSalon ? 'Confirm Booking?' : 'Place Order?') : 'Request Final Bill?'}</AlertDialogTitle><AlertDialogDescription style={{ color: theme?.textColor, opacity: 0.7 }}>This will notify the staff to start preparation.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter className="gap-2"><AlertDialogCancel className="rounded-xl font-bold">Not yet</AlertDialogCancel><AlertDialogAction onClick={closeBill} className="rounded-xl font-bold bg-primary hover:bg-primary/90">Yes, Confirm</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+                <AlertDialog><AlertDialogTrigger asChild><Button className="w-full h-14 rounded-2xl text-base font-black uppercase tracking-widest shadow-xl" variant="destructive" disabled={closing || isPastTime}>{closing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}{isDraft ? (isSalon ? 'Book Appointment' : 'Place Order') : 'Request Bill'}</Button></AlertDialogTrigger><AlertDialogContent className="rounded-[2rem] border-0 shadow-2xl" style={{ backgroundColor: theme?.backgroundColor }}><AlertDialogHeader><AlertDialogTitle className="text-xl font-black uppercase tracking-tight" style={{ color: theme?.primaryColor }}>{isDraft ? (isSalon ? 'Confirm Booking?' : 'Place Order?') : 'Request Final Bill?'}</AlertDialogTitle><AlertDialogDescription style={{ color: theme?.textColor || '#fff', opacity: 0.7 }}>This will notify the staff to start preparation.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter className="gap-2"><AlertDialogCancel className="rounded-xl font-bold">Not yet</AlertDialogCancel><AlertDialogAction onClick={closeBill} className="rounded-xl font-bold bg-primary hover:bg-primary/90">Yes, Confirm</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
               )}
             </div>
         </div>
@@ -517,6 +517,7 @@ export default function PublicMenuPage() {
   };
 
   const handleShowIngredients = (item: MenuItem) => {
+    setIngredientsData(null); // Clear previous to ensure loader shows or content updates
     setSelectedItemForIngredients(item);
     startFetchingIngredients(async () => {
       const res = await getIngredientsForDish({ dishName: item.name, language: 'en' });
@@ -552,7 +553,7 @@ export default function PublicMenuPage() {
                           <h1 className="text-base font-black truncate" style={{ color: theme?.primaryColor || '#000' }}>{store.name}</h1>
                           <div className="flex items-center gap-2">
                               {tableNumber ? <Badge className="px-1.5 py-0 text-[8px] uppercase" style={{ backgroundColor: theme?.primaryColor, color: theme?.backgroundColor }}>{isSalon ? `Chair ${tableNumber}` : `Table ${tableNumber}`}</Badge> : <Badge className="px-1.5 py-0 text-[8px] uppercase bg-blue-600 text-white">{isSalon ? 'Home Service' : 'Delivery'}</Badge>}
-                              <button onClick={() => setIsModeDialogOpen(true)} className="text-[8px] uppercase underline opacity-40" style={{ color: theme?.textColor || '#666' }}>Change</button>
+                              <button onClick={() => setIsModeDialogOpen(true)} className="text-[8px] uppercase underline opacity-40" style={{ color: theme?.textColor || '#fff' }}>Change</button>
                           </div>
                       </div>
                   </div>
@@ -580,7 +581,7 @@ export default function PublicMenuPage() {
                             <ScrollArea className="w-full whitespace-nowrap pb-2"><div className="flex gap-2"><Button variant="ghost" size="sm" className={cn("rounded-lg px-3 h-7 font-black text-[9px] uppercase tracking-widest border", !selectedCategory ? "shadow-md" : "opacity-40")} style={{ backgroundColor: !selectedCategory ? theme?.primaryColor : 'transparent', color: !selectedCategory ? theme?.backgroundColor : theme?.primaryColor }} onClick={() => setSelectedCategory(null)}>All</Button>{availableCategories.map(cat => <Button key={cat} variant="ghost" size="sm" className={cn("rounded-lg px-3 h-7 font-black text-[9px] uppercase tracking-widest border", selectedCategory === cat ? "shadow-md" : "opacity-40")} style={{ backgroundColor: selectedCategory === cat ? theme?.primaryColor : 'transparent', color: selectedCategory === cat ? theme?.backgroundColor : theme?.primaryColor }} onClick={() => setSelectedCategory(cat)}>{cat}</Button>)}</div></ScrollArea>
                             {Object.entries(groupedMenu).map(([category, items]) => (
                                 <div key={category} className="space-y-3">
-                                    <h2 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 px-1" style={{ color: theme?.textColor || '#000' }}>{category}</h2>
+                                    <h2 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 px-1" style={{ color: theme?.textColor || '#fff' }}>{category}</h2>
                                     <div className="grid gap-3">
                                         {items.map((item) => (
                                             <Card key={item.id} className="flex gap-4 p-3 shadow-md rounded-[1.5rem] border-0 bg-white group hover:shadow-xl transition-all">
@@ -589,13 +590,13 @@ export default function PublicMenuPage() {
                                                 </div>
                                                 <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
                                                     <div>
-                                                        <p className="font-black text-sm truncate mb-0.5" style={{ color: theme?.textColor || '#000' }}>{item.name}</p>
-                                                        <p className="text-[10px] opacity-40 line-clamp-2 leading-tight" style={{ color: theme?.textColor }}>{item.description}</p>
+                                                        <p className="font-black text-sm truncate mb-0.5 text-slate-900">{item.name}</p>
+                                                        <p className="text-[10px] text-slate-500 line-clamp-2 leading-tight">{item.description}</p>
                                                     </div>
                                                     <div className="flex items-center justify-between">
                                                         <p className="text-sm font-black" style={{color: theme?.primaryColor || '#000'}}>₹{item.price.toFixed(2)}</p>
                                                         <div className="flex items-center gap-1">
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full opacity-40 hover:opacity-100" onClick={() => handleShowIngredients(item)}><Eye className="h-4 w-4" style={{ color: theme?.textColor }} /></Button>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full opacity-40 hover:opacity-100" onClick={() => handleShowIngredients(item)}><Eye className="h-4 w-4 text-slate-900" /></Button>
                                                             <Button onClick={() => handleAddItem(item)} disabled={isAdding || recentlyAdded.has(item.id)} className={cn("h-8 rounded-xl text-[9px] uppercase font-black min-w-[60px]", recentlyAdded.has(item.id) ? "bg-green-600" : "")} style={{ backgroundColor: recentlyAdded.has(item.id) ? '' : theme?.primaryColor, color: theme?.backgroundColor }}>{recentlyAdded.has(item.id) ? <Check className="h-3 w-3" /> : (isSalon ? 'Book' : 'Add')}</Button>
                                                         </div>
                                                     </div>
