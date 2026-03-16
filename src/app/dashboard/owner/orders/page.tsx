@@ -149,7 +149,7 @@ function SessionCard({ session, isUpdating, onDismissService }: { session: Sessi
         } else {
             const orderId = session.orders[0]?.id;
             if (!orderId) return;
-            result = await confirmOrderSession(orderId);
+            result = await confirmOrderSession(session.id);
         }
 
         if (result.success) {
@@ -171,11 +171,21 @@ function SessionCard({ session, isUpdating, onDismissService }: { session: Sessi
         session.needsService && 'ring-4 ring-red-500 animate-pulse'
     )}>
       {session.needsService && (
-          <div className="absolute top-0 left-0 w-full h-8 bg-red-600 flex items-center justify-between px-4 z-10">
-              <span className="text-[10px] font-black uppercase text-white flex items-center gap-2">
-                  <BellRing className="h-3 w-3 animate-bounce" /> {session.serviceType || 'Service'} Requested!
-              </span>
-              <button onClick={() => onDismissService(session.orders[0].id)} className="text-white hover:scale-110"><CheckCircle2 className="h-4 w-4" /></button>
+          <div className="absolute top-0 left-0 w-full h-10 bg-red-600 flex items-center justify-between px-4 z-10 shadow-lg">
+              <div className="flex items-center gap-2">
+                  <BellRing className="h-4 w-4 text-white animate-bounce" />
+                  <span className="text-[11px] font-black uppercase text-white tracking-tight">
+                      {session.serviceType || 'Service'}
+                  </span>
+              </div>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="h-7 rounded-lg bg-white/20 border-white/40 text-white hover:bg-white/40 hover:text-white border-2 font-bold text-[9px] uppercase px-2"
+                onClick={() => onDismissService(session.orders.find(o => o.needsService)?.id || session.orders[0].id)}
+              >
+                  Resolved
+              </Button>
           </div>
       )}
       <CardHeader className={cn("pb-2", session.needsService && "pt-10")}>
@@ -251,11 +261,19 @@ function DeliveryOrderCard({ order, store, onStatusChange, isUpdating, onDismiss
             order.needsService && 'ring-4 ring-red-500 animate-pulse'
         )}>
             {order.needsService && (
-                <div className="absolute top-0 left-0 w-full h-8 bg-red-600 flex items-center justify-between px-4 z-10">
-                    <span className="text-[10px] font-black uppercase text-white flex items-center gap-2">
-                        <BellRing className="h-3 w-3 animate-bounce" /> Home Support Requested!
-                    </span>
-                    <button onClick={() => onDismissService(order.id)} className="text-white hover:scale-110"><CheckCircle2 className="h-4 w-4" /></button>
+                <div className="absolute top-0 left-0 w-full h-10 bg-red-600 flex items-center justify-between px-4 z-10 shadow-lg">
+                    <div className="flex items-center gap-2">
+                        <BellRing className="h-4 w-4 text-white animate-bounce" />
+                        <span className="text-[11px] font-black uppercase text-white tracking-tight">Support Call</span>
+                    </div>
+                    <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="h-7 rounded-lg bg-white/20 border-white/40 text-white hover:bg-white/40 hover:text-white border-2 font-bold text-[9px] uppercase px-2"
+                        onClick={() => onDismissService(order.id)}
+                    >
+                        Resolved
+                    </Button>
                 </div>
             )}
             <CardHeader className={cn("pb-3 bg-blue-50/50 border-b border-blue-100/50", order.needsService && "pt-10")}>
@@ -465,7 +483,7 @@ export default function StoreOrdersPage() {
   const handleDismissService = (orderId: string) => {
       startUpdateTransition(async () => {
           const res = await dismissTableService(orderId);
-          if (res.success) toast({ title: "Service Handled" });
+          if (res.success) toast({ title: "Resolved" });
       });
   };
 

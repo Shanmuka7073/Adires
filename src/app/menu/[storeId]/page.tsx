@@ -179,7 +179,7 @@ function DeliveryDetailsDialog({ isOpen, onOpenChange, onSave, initialData, them
         navigator.geolocation.getCurrentPosition(
             (pos) => {
                 const { latitude, longitude } = pos.coords;
-                setCoords({ lat: latitude, lng: longitude });
+                setCoords({ lat: latitude, longitude: longitude });
                 setAddress(`GPS (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`);
                 setIsLocating(false);
                 toast({ title: 'Location Captured!', description: 'Your current location has been set as the delivery address.' });
@@ -420,9 +420,9 @@ function MenuCard({ item, onAdd, onShowDetails, isAdding, recentlyAdded, current
             <div className="p-2 flex flex-col gap-2 flex-1 min-w-0">
                 <div className="min-w-0">
                     <h3 className="font-black text-[11px] leading-tight text-white mb-0.5 truncate">{item.name}</h3>
-                    <div className="flex items-center gap-1 opacity-40">
-                        <Sparkles className="h-2 w-2" style={{ color: theme?.primaryColor || '#FBC02D' }} />
-                        <span className="text-[7px] font-black uppercase tracking-widest text-white">Popular</span>
+                    <div className="flex items-center gap-1.5 opacity-60">
+                        <Sparkles className="h-3 w-3 text-primary" style={{ color: theme?.primaryColor || '#FBC02D' }} />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-white">Popular</span>
                     </div>
                 </div>
                 <div className="flex items-center justify-between h-7 w-full rounded-full bg-black/40 border border-white/10 px-1 overflow-hidden">

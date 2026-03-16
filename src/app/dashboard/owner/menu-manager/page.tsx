@@ -81,7 +81,7 @@ function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (data: { items: Me
                     const normalizedItems = result.items.map(item => ({
                         ...item,
                         id: createSlug(item.name),
-                        isAvailable: true
+                        isAvailable: true // Ensure initial availability is true
                     }));
                     onMenuExtracted({ items: normalizedItems, theme: result.theme });
                     toast({ title: "Menu Extracted!", description: `Found ${result.items.length} items.` });
@@ -311,8 +311,8 @@ function EditMenuItemDialog({
                                 <FormItem className="flex flex-col">
                                     <FormLabel className="text-[10px] font-black uppercase opacity-40">Availability</FormLabel>
                                     <div className="flex items-center h-12 gap-2 px-2 border-2 rounded-xl bg-muted/20">
-                                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                        <span className="text-[10px] font-bold uppercase">{field.value ? 'In Stock' : 'Sold Out'}</span>
+                                        <Switch checked={field.value !== false} onCheckedChange={field.onChange} />
+                                        <span className="text-[10px] font-bold uppercase">{field.value !== false ? 'In Stock' : 'Sold Out'}</span>
                                     </div>
                                 </FormItem>
                             )} />
@@ -407,7 +407,7 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
 
     const handleSaveItem = async (itemData: MenuItem, isNew: boolean) => {
         let uI;
-        if (isNew) { uI = [...menu.items, { ...itemData, id: createSlug(itemData.name) }]; } 
+        if (isNew) { uI = [...menu.items, { ...itemData, id: createSlug(itemData.name), isAvailable: true }]; } 
         else { uI = menu.items.map(i => i.id === editingItem?.id ? { ...i, ...itemData } : i); }
         const uM = { ...menu, items: uI }; setMenu(uM);
         if (!(await persistMenu(uM))) setMenu(menu); else toast({ title: "Saved!" });
@@ -420,7 +420,7 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
     }
 
     const toggleAvailability = async (it: MenuItem) => {
-        const currentStatus = it.isAvailable !== false;
+        const currentStatus = it.isAvailable !== false; // Default to available
         const uI = menu.items.map(i => i.id === it.id ? { ...i, isAvailable: !currentStatus } : i);
         const uM = { ...menu, items: uI }; setMenu(uM);
         if (!(await persistMenu(uM))) { setMenu(menu); toast({ variant: 'destructive', title: 'Toggle Failed' }); }
@@ -524,7 +524,7 @@ export default function MenuManagerPage() {
         if (!firestore || !store || !extractedData) return;
         startSave(async () => {
             const mR = existingMenu ? doc(firestore, `stores/${store.id}/menus`, existingMenu.id) : doc(collection(firestore, `stores/${store.id}/menus`));
-            const mD: Menu = { id: mR.id, storeId: store.id, items: extractedData.items.map(i => ({...i, id: i.id || createSlug(i.name), isAvailable: i.isAvailable ?? true })), theme: extractedData.theme };
+            const mD: Menu = { id: mR.id, storeId: store.id, items: extractedData.items.map(i => ({...i, id: i.id || createSlug(i.name), isAvailable: true })), theme: extractedData.theme };
             try { await setDoc(mR, mD, { merge: true }); toast({ title: 'Menu Saved!' }); setExtractedData(null); rM?.(); } catch (e) { toast({ variant: 'destructive', title: 'Save Failed' }); }
         });
     };
