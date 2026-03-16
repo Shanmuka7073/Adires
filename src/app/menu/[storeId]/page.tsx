@@ -22,6 +22,7 @@ import type {
   MenuTheme,
   GetIngredientsOutput,
   Product,
+  ProductVariant,
 } from '@/lib/types';
 
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
@@ -86,6 +87,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -102,7 +111,6 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import QRCode from 'qrcode.react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAppStore } from '@/lib/store';
 import { useCart } from '@/lib/cart';
 
@@ -268,7 +276,7 @@ function LiveBillSheet({
   }, [placedOrders]);
 
   const isBilled = placedOrders.some(o => o.status === 'Billed');
-  const isFinalized = placedOrders.every(o => ['Completed', 'Delivered'].includes(o.status));
+  const isFinalized = placedOrders.length > 0 && placedOrders.every(o => ['Completed', 'Delivered'].includes(o.status));
 
   if (isLoadingOrders) return <div className="flex justify-center p-12 bg-[#1A1616]"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
   
@@ -375,11 +383,12 @@ function LiveBillSheet({
 
 function MenuCard({ item, onAdd, onShowDetails, isAdding, recentlyAdded, currentQuantityInOrder, theme }: { item: MenuItem, onAdd: (item: MenuItem, qty: number) => void, onShowDetails: (item: MenuItem) => void, isAdding: boolean, recentlyAdded: boolean, currentQuantityInOrder: number, theme: MenuTheme | undefined }) {
     const [qty, setQty] = useState(1);
+    const isOutOfStock = item.isAvailable === false;
     
     return (
         <Card className={cn(
             "flex flex-col shadow-xl rounded-[1.2rem] border-0 overflow-hidden group hover:scale-[1.02] transition-all duration-300 relative",
-            !item.isAvailable && "opacity-50 grayscale pointer-events-none"
+            isOutOfStock && "opacity-50 grayscale pointer-events-none"
         )} style={{ backgroundColor: '#2D2424' }}>
             <div className="relative aspect-video w-full rounded-t-[1.2rem] overflow-hidden cursor-pointer" onClick={() => onShowDetails(item)}>
                 <Image src={item.imageUrl || ADIRES_LOGO} alt={item.name} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
@@ -402,7 +411,7 @@ function MenuCard({ item, onAdd, onShowDetails, isAdding, recentlyAdded, current
                 <div className="absolute bottom-1.5 left-1.5 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10">
                     <p className="text-[10px] font-black" style={{ color: theme?.primaryColor || '#FBC02D' }}>₹{item.price.toFixed(0)}</p>
                 </div>
-                {!item.isAvailable && (
+                {isOutOfStock && (
                     <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                         <Badge variant="destructive" className="font-black uppercase text-[10px]">Sold Out</Badge>
                     </div>
@@ -423,7 +432,7 @@ function MenuCard({ item, onAdd, onShowDetails, isAdding, recentlyAdded, current
                 </div>
                 <div className="flex items-center gap-1.5">
                     <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full opacity-40 hover:opacity-100 bg-white/5" onClick={() => onShowDetails(item)}><Eye className="h-3.5 w-3.5 text-white" /></Button>
-                    <Button onClick={() => onAdd(item, qty)} disabled={isAdding || !item.isAvailable} className={cn("flex-1 h-8 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95", recentlyAdded ? "bg-green-600 text-white" : "")} style={{ backgroundColor: recentlyAdded ? '' : (theme?.primaryColor || '#FBC02D'), color: recentlyAdded ? '' : (theme?.backgroundColor || '#1A1616') }}>
+                    <Button onClick={() => onAdd(item, qty)} disabled={isAdding || isOutOfStock} className={cn("flex-1 h-8 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95", recentlyAdded ? "bg-green-600 text-white" : "")} style={{ backgroundColor: recentlyAdded ? '' : (theme?.primaryColor || '#FBC02D'), color: recentlyAdded ? '' : (theme?.backgroundColor || '#1A1616') }}>
                         {recentlyAdded ? <Check className="h-2.5 w-2.5" /> : 'Add'}
                     </Button>
                 </div>

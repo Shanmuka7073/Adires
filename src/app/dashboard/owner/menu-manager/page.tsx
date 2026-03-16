@@ -78,7 +78,6 @@ function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (data: { items: Me
 
                 const result = await extractMenuItems({ menuImage: imageData });
                 if (result && result.items) {
-                    // Normalize items to match our interface
                     const normalizedItems = result.items.map(item => ({
                         ...item,
                         id: createSlug(item.name),
@@ -168,7 +167,7 @@ function QRCodeDialog({ table, storeId }: { table: string, storeId: string }) {
     };
 
     return (
-        <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl p-8 max-w-sm mx-auto text-center">
+        <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl p-8 flex flex-col items-center text-center max-w-sm mx-auto">
             <DialogHeader className="mb-4">
                 <DialogTitle className="text-xl font-black uppercase tracking-tight">Table {table}</DialogTitle>
                 <DialogDescription>Place this QR code on the table for guests to scan and order.</DialogDescription>
@@ -184,7 +183,7 @@ function QRCodeDialog({ table, storeId }: { table: string, storeId: string }) {
                 />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 w-full">
                 <Button onClick={handlePrint} className="h-12 rounded-xl font-black text-[10px] uppercase tracking-widest">
                     <Printer className="mr-2 h-4 w-4" /> Print
                 </Button>
@@ -421,7 +420,8 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
     }
 
     const toggleAvailability = async (it: MenuItem) => {
-        const uI = menu.items.map(i => i.id === it.id ? { ...i, isAvailable: !i.isAvailable } : i);
+        const currentStatus = it.isAvailable !== false;
+        const uI = menu.items.map(i => i.id === it.id ? { ...i, isAvailable: !currentStatus } : i);
         const uM = { ...menu, items: uI }; setMenu(uM);
         if (!(await persistMenu(uM))) { setMenu(menu); toast({ variant: 'destructive', title: 'Toggle Failed' }); }
     };
@@ -445,7 +445,7 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
                         <TableHeader className="bg-black/5"><TableRow><TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Item</TableHead><TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Stock</TableHead><TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Specialist</TableHead><TableHead className="text-right text-[10px] font-black uppercase tracking-widest opacity-40">Edit</TableHead></TableRow></TableHeader>
                         <TableBody>
                             {menu.items.map((it) => (
-                                <TableRow key={it.id} className={cn("hover:bg-muted/30", !it.isAvailable && "opacity-50")}>
+                                <TableRow key={it.id} className={cn("hover:bg-muted/30", it.isAvailable === false && "opacity-50")}>
                                     <TableCell className="py-4">
                                         <div className="flex items-center gap-3">
                                             <div className="relative h-10 w-10 rounded-xl overflow-hidden border bg-muted shrink-0"><Image src={it.imageUrl || ADIRES_LOGO} alt={it.name} fill className="object-cover" /></div>
@@ -459,7 +459,7 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                        <Switch checked={it.isAvailable} onCheckedChange={() => toggleAvailability(it)} />
+                                        <Switch checked={it.isAvailable !== false} onCheckedChange={() => toggleAvailability(it)} />
                                     </TableCell>
                                     <TableCell>
                                         {cachedStatus[it.id] ? (
@@ -524,7 +524,7 @@ export default function MenuManagerPage() {
         if (!firestore || !store || !extractedData) return;
         startSave(async () => {
             const mR = existingMenu ? doc(firestore, `stores/${store.id}/menus`, existingMenu.id) : doc(collection(firestore, `stores/${store.id}/menus`));
-            const mD: Menu = { id: mR.id, storeId: store.id, items: extractedData.items.map(i => ({...i, id: i.id || createSlug(i.name) })), theme: extractedData.theme };
+            const mD: Menu = { id: mR.id, storeId: store.id, items: extractedData.items.map(i => ({...i, id: i.id || createSlug(i.name), isAvailable: i.isAvailable ?? true })), theme: extractedData.theme };
             try { await setDoc(mR, mD, { merge: true }); toast({ title: 'Menu Saved!' }); setExtractedData(null); rM?.(); } catch (e) { toast({ variant: 'destructive', title: 'Save Failed' }); }
         });
     };
@@ -541,7 +541,7 @@ export default function MenuManagerPage() {
                  <div className="grid md:grid-cols-2 gap-8">
                      <MenuUploader onMenuExtracted={setExtractedData} />
                      {extractedData && (
-                        <Card className="rounded-3xl border-0 shadow-2xl overflow-hidden h-fit">
+                        <Card className="rounded-3xl border-0 shadow-xl overflow-hidden h-fit">
                             <CardHeader className="bg-primary/5 border-b border-black/5 pb-6"><CardTitle className="text-xl font-black uppercase tracking-tight">Review Extraction</CardTitle><CardDescription className="text-xs font-bold opacity-40 uppercase">AI extracted {extractedData.items.length} items</CardDescription></CardHeader>
                             <CardContent className="p-0">
                                 <ScrollArea className="max-h-[50vh]"><Table><TableHeader className="bg-black/5"><TableRow><TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Category</TableHead><TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Item</TableHead><TableHead className="text-right text-[10px] font-black uppercase tracking-widest opacity-40">Price</TableHead></TableRow></TableHeader><TableBody>{extractedData.items.map((i, idx) => (<TableRow key={idx}><TableCell className="text-[10px] font-bold opacity-60">{i.category}</TableCell><TableCell className="font-black text-xs">{i.name}</TableCell><TableCell className="text-right font-black text-xs">₹{i.price.toFixed(0)}</TableCell></TableRow>))}</TableBody></Table></ScrollArea>
