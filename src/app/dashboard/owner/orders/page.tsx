@@ -46,6 +46,7 @@ import { useAppStore } from '@/lib/store';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { playTickSound } from '@/lib/cart';
+import Link from 'next/link';
 
 const STATUS_META: Record<string, any> = {
   Draft: { icon: Clock, variant: 'outline', color: 'text-gray-400', label: 'Draft' },
@@ -140,19 +141,32 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { s
                         </div>
                     </div>
                     <ScrollArea className="flex-1">
-                        <div className="p-3 md:p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
-                            {filteredItems.map(it => (
-                                <button 
-                                    key={it.id} 
-                                    onClick={() => addToCart(it)}
-                                    className="p-2 md:p-3 bg-white border-2 border-black/5 rounded-xl md:rounded-2xl text-left hover:border-primary transition-all active:scale-95 group shadow-sm flex flex-col h-full"
-                                >
-                                    <p className="text-[8px] md:text-[10px] font-black uppercase opacity-40 mb-1 leading-none truncate">{it.category}</p>
-                                    <p className="font-bold text-[11px] md:text-xs leading-tight mb-1 md:mb-2 line-clamp-2 flex-1">{it.name}</p>
-                                    <p className="font-black text-primary text-xs md:text-sm mt-auto">₹{it.price.toFixed(0)}</p>
-                                </button>
-                            ))}
-                        </div>
+                        {menuItems.length > 0 ? (
+                            <div className="p-3 md:p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
+                                {filteredItems.map(it => (
+                                    <button 
+                                        key={it.id} 
+                                        onClick={() => addToCart(it)}
+                                        className="p-2 md:p-3 bg-white border-2 border-black/5 rounded-xl md:rounded-2xl text-left hover:border-primary transition-all active:scale-95 group shadow-sm flex flex-col h-full"
+                                    >
+                                        <p className="text-[8px] md:text-[10px] font-black uppercase opacity-40 mb-1 leading-none truncate">{it.category}</p>
+                                        <p className="font-bold text-[11px] md:text-xs leading-tight mb-1 md:mb-2 line-clamp-2 flex-1">{it.name}</p>
+                                        <p className="font-black text-primary text-xs md:text-sm mt-auto">₹{it.price.toFixed(0)}</p>
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="p-12 text-center flex flex-col items-center justify-center gap-4 opacity-40">
+                                <Utensils className="h-12 w-12" />
+                                <div className="space-y-1">
+                                    <p className="font-black uppercase tracking-widest text-xs">No menu items found</p>
+                                    <p className="text-[10px] font-bold">Please set up your digital menu first.</p>
+                                </div>
+                                <Button asChild variant="outline" className="rounded-xl font-black text-[10px] uppercase h-10 px-6 border-2">
+                                    <Link href="/dashboard/owner/menu-manager">Open Menu Manager</Link>
+                                </Button>
+                            </div>
+                        )}
                         <ScrollBar orientation="vertical" />
                     </ScrollArea>
                 </div>
@@ -381,7 +395,7 @@ export default function StoreOrdersPage() {
   [firestore, myStore]);
 
   const { data: activeOrders, isLoading: ordersLoading } = useCollection<Order>(activeOrdersQuery);
-  const { data: menus } = useCollection<Menu>(menuQuery);
+  const { data: menus, isLoading: menusLoading } = useCollection<Menu>(menuQuery);
   const menuItems = useMemo(() => menus?.[0]?.items || [], [menus]);
 
   const { sessions, homeDeliveries } = useMemo(() => {
@@ -434,7 +448,7 @@ export default function StoreOrdersPage() {
       startUpdate(async () => { await dismissTableService(orderId); toast({ title: "Resolved" }); });
   };
 
-  if (isAppLoading || ordersLoading) return <div className="p-12 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto opacity-20" /></div>;
+  if (isAppLoading || ordersLoading || menusLoading) return <div className="p-12 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto opacity-20" /></div>;
 
   return (
     <div className={cn("min-h-screen py-4 px-3 max-w-7xl mx-auto transition-colors duration-500", isKitchenMode ? "bg-slate-950" : "bg-slate-50")}>

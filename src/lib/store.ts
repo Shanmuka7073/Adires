@@ -3,8 +3,8 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Firestore, collection, getDocs, query, where, limit } from 'firebase/firestore';
-import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
+import { Firestore, collection, getDocs, query, where, limit, doc, getDoc } from 'firebase/firestore';
+import { Store, Product, ProductPrice, VoiceAliasGroup, User } from './types';
 import { getStores, getMasterProducts } from './data';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
@@ -93,18 +93,12 @@ export const useAppStore = create<AppState>()(
         set({ activeStoreId: storeId });
       },
 
-      /**
-       * OPTIMIZED PROGRESSIVE LOAD:
-       * 1. Fetches "Core" data (Stores, Commands) to unlock UI immediately.
-       * 2. Triggers "Extended" data (Products, Aliases) in the background.
-       */
       fetchInitialData: async (db: Firestore, userId?: string) => {
         if (get().loading) return;
 
         set({ loading: true, error: null });
         
         try {
-          // STEP 1: Core Platform Data (High Priority)
           const [stores, commandDocs] = await Promise.all([
             getStores(db),
             getDocs(collection(db, 'voiceCommands'))
@@ -112,10 +106,24 @@ export const useAppStore = create<AppState>()(
           
           let userStore = null;
           if (userId) {
-              const userStoreQuery = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
-              const userStoreSnap = await getDocs(userStoreQuery);
-              if (!userStoreSnap.empty) {
-                  userStore = { id: userStoreSnap.docs[0].id, ...userStoreSnap.docs[0].data() } as Store;
+              // 1. Try to find store where user is the owner
+              const ownerQuery = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
+              const ownerSnap = await getDocs(ownerQuery);
+              
+              if (!ownerSnap.empty) {
+                  userStore = { id: ownerSnap.docs[0].id, ...ownerSnap.docs[0].data() } as Store;
+              } else {
+                  // 2. If not an owner, check if they are an employee assigned to a store
+                  const userDoc = await getDoc(doc(db, 'users', userId));
+                  if (userDoc.exists()) {
+                      const userData = userDoc.data() as User;
+                      if (userData.storeId) {
+                          const storeDoc = await getDoc(doc(db, 'stores', userData.storeId));
+                          if (storeDoc.exists()) {
+                              userStore = { id: storeDoc.id, ...storeDoc.data() } as Store;
+                          }
+                      }
+                  }
               }
           }
 
@@ -126,7 +134,6 @@ export const useAppStore = create<AppState>()(
           
           const enrichedCommands = { ...defaultGeneralCommands, ...dbCommands };
 
-          // UNLOCK UI: Set initialized once we have basic branding and commands
           set({
             stores,
             userStore,
@@ -135,12 +142,10 @@ export const useAppStore = create<AppState>()(
             loading: false,
           });
 
-          // STEP 2: Background Load (Heavier Data)
           get().fetchExtendedData(db);
           
         } catch (error) {
           console.error("Failed to fetch initial app data:", error);
-          // Unlock even on error to prevent total blackout
           set({ error: error as Error, loading: false, isInitialized: true });
         }
       },
@@ -159,7 +164,6 @@ export const useAppStore = create<AppState>()(
 
               set({ masterProducts, locales });
 
-              // Deep fetch pricing in background
               if (masterProducts.length > 0) {
                 await get().fetchProductPrices(db, masterProducts.map(p => p.name));
               }
@@ -170,11 +174,22 @@ export const useAppStore = create<AppState>()(
 
       fetchUserStore: async (db: Firestore, userId: string) => {
           try {
-              const userStoreQuery = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
-              const userStoreSnap = await getDocs(userStoreQuery);
-              if (!userStoreSnap.empty) {
-                  const userStore = { id: userStoreSnap.docs[0].id, ...userStoreSnap.docs[0].data() } as Store;
+              const ownerQuery = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
+              const ownerSnap = await getDocs(ownerQuery);
+              if (!ownerSnap.empty) {
+                  const userStore = { id: ownerSnap.docs[0].id, ...ownerSnap.docs[0].data() } as Store;
                   set({ userStore });
+              } else {
+                  const userDoc = await getDoc(doc(db, 'users', userId));
+                  if (userDoc.exists()) {
+                      const userData = userDoc.data() as User;
+                      if (userData.storeId) {
+                          const storeDoc = await getDoc(doc(db, 'stores', userData.storeId));
+                          if (storeDoc.exists()) {
+                              set({ userStore: { id: storeDoc.id, ...storeDoc.data() } as Store });
+                          }
+                      }
+                  }
               }
           } catch (error) {
               console.error("Failed to fetch user store specifically:", error);
@@ -249,7 +264,6 @@ export const useInitializeApp = () => {
     const { fetchInitialData, isInitialized, loading } = useAppStore();
 
     useEffect(() => {
-        // Fetch core data regardless of user (public menus/marketplace access)
         if (firestore && !isInitialized && !loading) {
             fetchInitialData(firestore, user?.uid);
         }
