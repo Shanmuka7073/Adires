@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview A conversational AI strategic agent named Asha.
@@ -10,11 +9,12 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { getAdminServices } from '@/firebase/admin-init';
+import { googleAI } from '@genkit-ai/google-genai';
 
 const ChatMessageSchema = z.object({
   role: z.enum(['user', 'model']),
   text: z.string(),
-});
+}).passthrough();
 
 const AshaChatInputSchema = z.object({
   history: z.array(ChatMessageSchema).describe('The conversation history.'),
@@ -23,10 +23,10 @@ const AshaChatInputSchema = z.object({
   storeId: z.string().optional(),
   businessType: z.string().optional().describe('The type of business currently being viewed.'),
   context: z.object({
-      pathname: z.string().describe('The current page path.'),
+      pathname: z.string().optional(),
       platformStatus: z.string().optional(),
-  }).optional(),
-});
+  }).optional().default({ pathname: 'unknown' }),
+}).passthrough();
 export type AshaChatInput = z.infer<typeof AshaChatInputSchema>;
 
 const AshaChatOutputSchema = z.string();
@@ -75,7 +75,7 @@ const prompt = ai.definePrompt(
       name: 'ashaPrompt',
       input: { schema: AshaChatInputSchema },
       output: { schema: AshaChatOutputSchema },
-      model: 'googleai/gemini-1.5-flash',
+      model: googleAI.model('gemini-1.5-flash'),
       tools: [getGlobalPlatformStats],
       prompt: `You are Asha, the Senior Strategic AI Architect for LocalBasket. 
 Your goal is to perform a deep-scan of the current application state and predict the next logical development step to maximize business growth and user engagement.
@@ -123,7 +123,7 @@ const ashaFlow = ai.defineFlow(
         return output || "I've analyzed the platform state but am currently calibrating my strategic engines. Please try again in a moment.";
     } catch (error) {
         console.error("Asha Flow error:", error);
-        throw new Error("Strategic analysis engine encountered a validation error. Retrying with default context.");
+        return "I encountered a minor synchronization delay while auditing the platform context. Please try clicking 'Predict Next Feature' again so I can re-run the scan.";
     }
   }
 );

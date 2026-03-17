@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useRef, useEffect } from 'react';
@@ -35,12 +34,15 @@ export function AshaStrategicOverlay() {
     const handlePredict = () => {
         const message = `Asha, perform a strategic audit of ${pathname} for a ${role} in the ${businessType} vertical.`;
         
+        // Ensure we only pass role and text to avoid Zod validation errors on the server
+        const sanitizedHistory = history.slice(-4).map(({ role, text }) => ({ role, text }));
+        
         setHistory(prev => [...prev, { role: 'user', text: "Strategic Audit Request" }]);
         
         startThinking(async () => {
             try {
                 const response = await chatWithAsha({
-                    history: history.slice(-4), // Limit history for context window efficiency
+                    history: sanitizedHistory,
                     message: message,
                     role: role,
                     businessType: businessType,
