@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Order, Store, OrderItem } from '@/lib/types';
+import { Order, Store, OrderItem, Menu, MenuItem } from '@/lib/types';
 import {
   Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter
 } from '@/components/ui/card';
@@ -24,19 +24,26 @@ import {
   ChefHat,
   Utensils,
   ShoppingBag,
-  Calculator
+  Calculator,
+  Plus,
+  PlusCircle,
+  X,
+  Search
 } from 'lucide-react';
 import {
   collection, query, where, orderBy, doc, updateDoc, serverTimestamp, Timestamp, limit
 } from 'firebase/firestore';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useState, useTransition, useEffect } from 'react';
 import {
   AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogDescription
 } from '@/components/ui/alert-dialog';
-import { markSessionAsPaid, confirmOrderSession, dismissTableService, updateOrderStatus } from '@/app/actions';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { markSessionAsPaid, confirmOrderSession, dismissTableService, updateOrderStatus, addRestaurantOrderItem } from '@/app/actions';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const STATUS_META: Record<string, any> = {
   Draft: { icon: Clock, variant: 'outline', color: 'text-gray-400', label: 'Ordering...' },
@@ -61,6 +68,138 @@ interface Session {
   serviceType?: string;
 }
 
+function QuickCounterSaleDialog({ storeId, menuItems, onComplete }: { storeId: string, menuItems: MenuItem[], onComplete: () => void }) {
+    const { toast } = useToast();
+    const [isProcessing, startAction] = useTransition();
+    const [cart, setCart] = useState<{item: MenuItem, qty: number}[]>([]);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const filteredItems = useMemo(() => {
+        return menuItems.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    }, [menuItems, searchTerm]);
+
+    const addToCart = (item: MenuItem) => {
+        setCart(prev => {
+            const existing = prev.find(i => i.item.id === item.id);
+            if (existing) return prev.map(i => i.item.id === item.id ? { ...i, qty: i.qty + 1 } : i);
+            return [...prev, { item, qty: 1 }];
+        });
+    };
+
+    const total = cart.reduce((acc, i) => acc + (i.item.price * i.qty), 0);
+
+    const handleGenerateBill = () => {
+        if (cart.length === 0) return;
+        startAction(async () => {
+            const items: any[] = cart.map(c => ({
+                product: { id: c.item.id, name: c.item.name },
+                variant: { sku: `${c.item.id}-default`, weight: '1 pc', price: c.item.price },
+                quantity: c.qty
+            }));
+
+            const res = await addRestaurantOrderItem({
+                storeId,
+                tableNumber: 'Counter',
+                sessionId: `counter-${Date.now()}`,
+                items,
+                status: 'Billed'
+            });
+
+            if (res.success) {
+                toast({ title: "Bill Generated!" });
+                setCart([]);
+                onComplete();
+            } else {
+                toast({ variant: 'destructive', title: 'Error', description: res.error });
+            }
+        });
+    };
+
+    return (
+        <DialogContent className="max-w-4xl rounded-[2.5rem] border-0 shadow-2xl h-[90vh] flex flex-col p-0 overflow-hidden">
+            <div className="p-6 bg-primary/5 border-b border-black/5 shrink-0">
+                <DialogTitle className="text-2xl font-black uppercase tracking-tight">Quick Counter POS</DialogTitle>
+                <DialogDescription className="text-xs font-bold opacity-40 uppercase">Two-touch billing for walk-ins & parcels</DialogDescription>
+            </div>
+
+            <div className="flex-1 flex min-h-0">
+                {/* Menu Side */}
+                <div className="flex-1 border-r border-black/5 flex flex-col min-w-0">
+                    <div className="p-4 border-b border-black/5 bg-white/50">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-30" />
+                            <Input 
+                                placeholder="Search items..." 
+                                value={searchTerm} 
+                                onChange={e => setSearchTerm(e.target.value)}
+                                className="pl-10 h-11 rounded-xl border-2"
+                            />
+                        </div>
+                    </div>
+                    <ScrollArea className="flex-1 p-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            {filteredItems.map(it => (
+                                <button 
+                                    key={it.id} 
+                                    onClick={() => addToCart(it)}
+                                    className="p-3 bg-white border-2 border-black/5 rounded-2xl text-left hover:border-primary transition-all active:scale-95 group shadow-sm"
+                                >
+                                    <p className="text-[10px] font-black uppercase opacity-40 mb-1 leading-none">{it.category}</p>
+                                    <p className="font-bold text-xs leading-tight mb-2 line-clamp-2">{it.name}</p>
+                                    <p className="font-black text-primary text-sm">₹{it.price.toFixed(0)}</p>
+                                </button>
+                            ))}
+                        </div>
+                    </ScrollArea>
+                </div>
+
+                {/* Cart Side */}
+                <div className="w-[300px] bg-black/5 flex flex-col shrink-0">
+                    <div className="p-4 border-b border-black/5 flex justify-between items-center">
+                        <h3 className="font-black text-[10px] uppercase tracking-widest opacity-40">Your Selection</h3>
+                        <Button variant="ghost" size="sm" className="h-6 text-[8px] font-black uppercase" onClick={() => setCart([])}>Clear All</Button>
+                    </div>
+                    <ScrollArea className="flex-1 p-4">
+                        <div className="space-y-3">
+                            {cart.map((c, idx) => (
+                                <div key={idx} className="flex justify-between items-start gap-2 bg-white p-3 rounded-xl shadow-sm">
+                                    <div className="min-w-0 flex-1">
+                                        <p className="font-bold text-xs truncate leading-none">{c.item.name}</p>
+                                        <p className="text-[9px] font-black opacity-40 mt-1 uppercase">₹{c.item.price} x {c.qty}</p>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 font-black text-xs">
+                                        <button onClick={() => {
+                                            if(c.qty > 1) setCart(p => p.map(i => i.item.id === c.item.id ? {...i, qty: i.qty - 1} : i));
+                                            else setCart(p => p.filter(i => i.item.id !== c.item.id));
+                                        }} className="h-5 w-5 rounded-md bg-black/5 flex items-center justify-center">-</button>
+                                        <span className="w-4 text-center">{c.qty}</span>
+                                        <button onClick={() => addToCart(c.item)} className="h-5 w-5 rounded-md bg-black/5 flex items-center justify-center">+</button>
+                                    </div>
+                                </div>
+                            ))}
+                            {cart.length === 0 && <div className="text-center py-20 opacity-20"><ShoppingBag className="h-10 w-10 mx-auto mb-2"/><p className="text-[8px] font-black uppercase">No items added</p></div>}
+                        </div>
+                    </ScrollArea>
+                    <div className="p-6 bg-white border-t border-black/5 space-y-4">
+                        <div className="flex justify-between items-baseline">
+                            <span className="text-[10px] font-black uppercase opacity-40">Grand Total</span>
+                            <span className="text-2xl font-black text-primary">₹{total.toFixed(0)}</span>
+                        </div>
+                        <Button 
+                            className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-primary/20" 
+                            disabled={cart.length === 0 || isProcessing}
+                            onClick={handleGenerateBill}
+                        >
+                            {isProcessing ? <Loader2 className="animate-spin h-4 w-4" /> : <Receipt className="mr-2 h-4 w-4" />}
+                            Generate Bill
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </DialogContent>
+    );
+}
+
 function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, store }: { session: Session; isUpdating: boolean; onDismissService: (id: string) => void; isKitchenMode: boolean; store: Store }) {
   const { toast } = useToast();
   const [isProcessing, startAction] = useTransition();
@@ -72,6 +211,49 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
         else result = await confirmOrderSession(session.id);
         if (result.success) toast({ title: 'Success' });
     });
+  };
+
+  const handlePrint = () => {
+      const win = window.open('', '_blank');
+      if (!win) return;
+      
+      const itemsHtml = session.orders.flatMap(o => o.items).map(it => `
+          <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 5px;">
+              <span>${it.productName} x${it.quantity}</span>
+              <span>₹${(it.price * it.quantity).toFixed(0)}</span>
+          </div>
+      `).join('');
+
+      win.document.write(`
+          <html>
+              <head>
+                  <title>Bill #${session.id.slice(-4)}</title>
+                  <style>
+                      body { font-family: monospace; padding: 20px; width: 300px; }
+                      .header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
+                      .footer { border-top: 1px dashed #000; padding-top: 10px; margin-top: 10px; text-align: center; }
+                      .total { font-size: 18px; font-weight: bold; margin-top: 10px; }
+                  </style>
+              </head>
+              <body>
+                  <div class="header">
+                      <h2 style="margin: 0;">${store.name}</h2>
+                      <p style="font-size: 10px;">${store.address}</p>
+                      <p style="font-size: 12px;">Bill: #${session.id.slice(-4)} | Table: ${session.tableNumber || 'Counter'}</p>
+                  </div>
+                  <div class="items">${itemsHtml}</div>
+                  <div class="total" style="display: flex; justify-content: space-between;">
+                      <span>TOTAL</span>
+                      <span>₹${session.totalAmount.toFixed(0)}</span>
+                  </div>
+                  <div class="footer">
+                      <p>Thank you! Visit Again.</p>
+                      <p style="font-size: 8px;">Generated by LocalBasket</p>
+                  </div>
+                  <script>window.onload = () => { window.print(); window.close(); }</script>
+              </body>
+          </html>
+      `);
   };
 
   const meta = STATUS_META[session.status] || STATUS_META.Pending;
@@ -100,7 +282,10 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
                     <CardDescription className="text-[7px] opacity-40">#{session.id.slice(-4)}</CardDescription>
                  </div>
             </div>
-             <Badge className="text-[7px] font-black uppercase h-4 px-1.5" variant={meta.variant}>{meta.label}</Badge>
+             <div className="flex gap-1">
+                {session.status === 'Billed' && <Button variant="ghost" size="icon" className="h-5 w-5 rounded-md hover:bg-black/5" onClick={handlePrint}><Printer className="h-3 w-3"/></Button>}
+                <Badge className="text-[7px] font-black uppercase h-4 px-1.5" variant={meta.variant}>{meta.label}</Badge>
+             </div>
         </div>
       </CardHeader>
       <CardContent className="p-2 pt-1 space-y-1">
@@ -169,6 +354,7 @@ export default function StoreOrdersPage() {
   const { firestore } = useFirebase();
   const [isUpdating, startUpdate] = useTransition();
   const [isKitchenMode, setIsKitchenMode] = useState(false);
+  const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
   const { toast } = useToast();
   const { stores, userStore, loading: isStoreLoading } = useAppStore();
 
@@ -178,14 +364,19 @@ export default function StoreOrdersPage() {
     firestore && myStore ? query(collection(firestore, 'orders'), where('storeId', '==', myStore.id), where('isActive', '==', true), orderBy('orderDate', 'desc'), limit(50)) : null,
   [firestore, myStore]);
 
+  const menuQuery = useMemoFirebase(() => 
+    firestore && myStore ? query(collection(firestore, `stores/${myStore.id}/menus`), limit(1)) : null,
+  [firestore, myStore]);
+
   const { data: activeOrders, isLoading: ordersLoading } = useCollection<Order>(activeOrdersQuery);
+  const { data: menus } = useCollection<Menu>(menuQuery);
+  const menuItems = useMemo(() => menus?.[0]?.items || [], [menus]);
 
   const { sessions, homeDeliveries } = useMemo(() => {
     const tableSessions: Record<string, Session> = {};
     const onlineJobs: Order[] = [];
     if (!activeOrders) return { sessions: {}, homeDeliveries: [] };
     activeOrders.forEach(o => {
-        // COUNTER and DINE-IN go to the right side (Table & Counter)
         if (o.orderType === 'dine-in' || o.orderType === 'counter') {
             if (o.sessionId) {
                 if (!tableSessions[o.sessionId]) {
@@ -214,7 +405,6 @@ export default function StoreOrdersPage() {
                 }
             }
         } else {
-            // DELIVERY or TAKEAWAY (from online) go to left side
             onlineJobs.push(o);
         }
     });
@@ -236,6 +426,14 @@ export default function StoreOrdersPage() {
 
   return (
     <div className={cn("min-h-screen py-4 px-3 max-w-7xl mx-auto transition-colors duration-500", isKitchenMode ? "bg-slate-950" : "bg-slate-50")}>
+        <Dialog open={isNewSaleOpen} onOpenChange={setIsNewSaleOpen}>
+            <QuickCounterSaleDialog 
+                storeId={myStore!.id} 
+                menuItems={menuItems} 
+                onComplete={() => setIsNewSaleOpen(false)}
+            />
+        </Dialog>
+
         <div className="flex justify-between items-center mb-6 border-b pb-3 border-black/10">
             <div>
                 <h1 className={cn("text-xl font-black tracking-tighter", isKitchenMode ? "text-white" : "text-gray-900")}>OP CENTER</h1>
@@ -258,7 +456,12 @@ export default function StoreOrdersPage() {
             </section>
 
             <section className="space-y-3">
-                <h2 className="text-[10px] font-black uppercase tracking-widest text-green-600 flex items-center gap-1.5"><Utensils className="h-3 w-3"/> Table & Counter</h2>
+                <div className="flex justify-between items-center">
+                    <h2 className="text-[10px] font-black uppercase tracking-widest text-green-600 flex items-center gap-1.5"><Utensils className="h-3 w-3"/> Table & Counter</h2>
+                    <Button onClick={() => setIsNewSaleOpen(true)} size="sm" variant="outline" className="h-7 px-3 rounded-lg font-black text-[8px] uppercase border-2 border-green-600/30 text-green-600">
+                        <PlusCircle className="h-3 w-3 mr-1"/> New Sale
+                    </Button>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {Object.values(sessions).map(s => <SessionCard key={s.id} session={s} isUpdating={isUpdating} onDismissService={handleDismissService} isKitchenMode={isKitchenMode} store={myStore!} />)}
                     {Object.values(sessions).length === 0 && <p className="text-[8px] opacity-30 uppercase font-black py-8 text-center border-2 border-dashed rounded-xl">No active sessions</p>}
