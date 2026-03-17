@@ -9,11 +9,10 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { getAdminServices } from '@/firebase/admin-init';
-import { googleAI } from '@genkit-ai/google-genai';
 
 const ChatMessageSchema = z.object({
-  role: z.enum(['user', 'model']),
-  text: z.string(),
+  role: z.string().describe('The role of the message sender (user or model).'),
+  text: z.string().describe('The content of the message.'),
 }).passthrough();
 
 const AshaChatInputSchema = z.object({
@@ -75,7 +74,7 @@ const prompt = ai.definePrompt(
       name: 'ashaPrompt',
       input: { schema: AshaChatInputSchema },
       output: { schema: AshaChatOutputSchema },
-      model: googleAI.model('gemini-1.5-flash'),
+      model: 'googleai/gemini-1.5-flash',
       tools: [getGlobalPlatformStats],
       prompt: `You are Asha, the Senior Strategic AI Architect for LocalBasket. 
 Your goal is to perform a deep-scan of the current application state and predict the next logical development step to maximize business growth and user engagement.
