@@ -119,37 +119,37 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { s
     };
 
     return (
-        <DialogContent className="max-w-5xl rounded-[2.5rem] border-0 shadow-2xl h-[90vh] flex flex-col p-0 overflow-hidden">
-            <div className="p-6 bg-primary/5 border-b border-black/5 shrink-0">
-                <DialogTitle className="text-2xl font-black uppercase tracking-tight">Quick {isSalon ? 'Checkout' : 'Counter POS'}</DialogTitle>
-                <DialogDescription className="text-xs font-bold opacity-40 uppercase">Two-touch billing for walk-ins</DialogDescription>
+        <DialogContent className="max-w-5xl w-[95vw] rounded-[2rem] md:rounded-[2.5rem] border-0 shadow-2xl h-[95vh] md:h-[90vh] flex flex-col p-0 overflow-hidden">
+            <div className="p-4 md:p-6 bg-primary/5 border-b border-black/5 shrink-0">
+                <DialogTitle className="text-xl md:text-2xl font-black uppercase tracking-tight">Quick {isSalon ? 'Checkout' : 'Counter POS'}</DialogTitle>
+                <DialogDescription className="text-[10px] md:text-xs font-bold opacity-40 uppercase">Two-touch billing for walk-ins</DialogDescription>
             </div>
 
-            <div className="flex-1 flex min-h-0">
+            <div className="flex-1 flex flex-col md:flex-row min-h-0">
                 {/* Menu Side */}
-                <div className="flex-1 border-r border-black/5 flex flex-col min-w-0">
-                    <div className="p-4 border-b border-black/5 bg-white/50">
+                <div className="flex-1 border-b md:border-b-0 md:border-r border-black/5 flex flex-col min-h-0">
+                    <div className="p-3 md:p-4 border-b border-black/5 bg-white/50">
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-30" />
                             <Input 
                                 placeholder="Search items..." 
                                 value={searchTerm} 
                                 onChange={e => setSearchTerm(e.target.value)}
-                                className="pl-10 h-11 rounded-xl border-2"
+                                className="pl-10 h-10 md:h-11 rounded-xl border-2"
                             />
                         </div>
                     </div>
                     <ScrollArea className="flex-1">
-                        <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                        <div className="p-3 md:p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
                             {filteredItems.map(it => (
                                 <button 
                                     key={it.id} 
                                     onClick={() => addToCart(it)}
-                                    className="p-3 bg-white border-2 border-black/5 rounded-2xl text-left hover:border-primary transition-all active:scale-95 group shadow-sm flex flex-col h-full"
+                                    className="p-2 md:p-3 bg-white border-2 border-black/5 rounded-xl md:rounded-2xl text-left hover:border-primary transition-all active:scale-95 group shadow-sm flex flex-col h-full"
                                 >
-                                    <p className="text-[10px] font-black uppercase opacity-40 mb-1 leading-none truncate">{it.category}</p>
-                                    <p className="font-bold text-xs leading-tight mb-2 line-clamp-2 flex-1">{it.name}</p>
-                                    <p className="font-black text-primary text-sm mt-auto">₹{it.price.toFixed(0)}</p>
+                                    <p className="text-[8px] md:text-[10px] font-black uppercase opacity-40 mb-1 leading-none truncate">{it.category}</p>
+                                    <p className="font-bold text-[11px] md:text-xs leading-tight mb-1 md:mb-2 line-clamp-2 flex-1">{it.name}</p>
+                                    <p className="font-black text-primary text-xs md:text-sm mt-auto">₹{it.price.toFixed(0)}</p>
                                 </button>
                             ))}
                         </div>
@@ -158,50 +158,50 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { s
                 </div>
 
                 {/* Cart Side */}
-                <div className="w-[320px] bg-black/5 flex flex-col shrink-0">
-                    <div className="p-4 border-b border-black/5 flex justify-between items-center">
-                        <h3 className="font-black text-[10px] uppercase tracking-widest opacity-40">Selection</h3>
+                <div className="h-[280px] md:h-auto md:w-[320px] bg-black/5 flex flex-col shrink-0">
+                    <div className="p-3 md:p-4 border-b border-black/5 flex justify-between items-center bg-white/50 md:bg-transparent">
+                        <h3 className="font-black text-[9px] md:text-[10px] uppercase tracking-widest opacity-40">Current Selection</h3>
                         <Button variant="ghost" size="sm" className="h-6 text-[8px] font-black uppercase" onClick={() => setCart([])}>Clear</Button>
                     </div>
                     <ScrollArea className="flex-1">
-                        <div className="p-4 space-y-3">
+                        <div className="p-3 md:p-4 space-y-2 md:space-y-3">
                             {cart.map((c, idx) => (
-                                <div key={idx} className="flex justify-between items-start gap-2 bg-white p-3 rounded-xl shadow-sm border border-black/5">
+                                <div key={idx} className="flex justify-between items-start gap-2 bg-white p-2 md:p-3 rounded-xl shadow-sm border border-black/5">
                                     <div className="min-w-0 flex-1">
-                                        <p className="font-bold text-xs truncate leading-none">{c.item.name}</p>
-                                        <p className="text-[9px] font-black opacity-40 mt-1 uppercase">₹{c.item.price} x {c.qty}</p>
+                                        <p className="font-bold text-[11px] md:text-xs truncate leading-none">{c.item.name}</p>
+                                        <p className="text-[8px] md:text-[9px] font-black opacity-40 mt-1 uppercase">₹{c.item.price} x {c.qty}</p>
                                     </div>
-                                    <div className="flex items-center gap-1.5 font-black text-xs shrink-0">
+                                    <div className="flex items-center gap-1.5 font-black text-[10px] md:text-xs shrink-0">
                                         <button onClick={() => {
                                             playTickSound();
                                             if(c.qty > 1) setCart(p => p.map(i => i.item.id === c.item.id ? {...i, qty: i.qty - 1} : i));
-                                            else setCart(p => p.filter(i => i.item.id !== i.item.id));
-                                        }} className="h-6 w-6 rounded-md bg-black/5 flex items-center justify-center hover:bg-black/10">-</button>
-                                        <span className="w-4 text-center">{c.qty}</span>
-                                        <button onClick={() => addToCart(c.item)} className="h-6 w-6 rounded-md bg-black/5 flex items-center justify-center hover:bg-black/10">+</button>
+                                            else setCart(p => p.filter(i => i.item.id !== c.item.id));
+                                        }} className="h-5 w-5 md:h-6 md:w-6 rounded-md bg-black/5 flex items-center justify-center hover:bg-black/10">-</button>
+                                        <span className="w-3 md:w-4 text-center">{c.qty}</span>
+                                        <button onClick={() => addToCart(c.item)} className="h-5 w-5 md:h-6 md:w-6 rounded-md bg-black/5 flex items-center justify-center hover:bg-black/10">+</button>
                                     </div>
                                 </div>
                             ))}
                             {cart.length === 0 && (
-                                <div className="text-center py-32 opacity-20">
-                                    <ShoppingBag className="h-12 w-12 mx-auto mb-2"/>
-                                    <p className="text-[10px] font-black uppercase tracking-widest">No items selected</p>
+                                <div className="text-center py-12 md:py-32 opacity-20">
+                                    <ShoppingBag className="h-8 w-8 md:h-12 md:w-12 mx-auto mb-2"/>
+                                    <p className="text-[8px] md:text-[10px] font-black uppercase tracking-widest">No items selected</p>
                                 </div>
                             )}
                         </div>
                         <ScrollBar orientation="vertical" />
                     </ScrollArea>
-                    <div className="p-6 bg-white border-t border-black/5 space-y-4">
+                    <div className="p-4 md:p-6 bg-white border-t border-black/5 space-y-3 md:space-y-4">
                         <div className="flex justify-between items-baseline">
-                            <span className="text-[10px] font-black uppercase opacity-40">Total</span>
-                            <span className="text-2xl font-black text-primary">₹{total.toFixed(0)}</span>
+                            <span className="text-[9px] md:text-[10px] font-black uppercase opacity-40">Total Amount</span>
+                            <span className="text-xl md:text-2xl font-black text-primary">₹{total.toFixed(0)}</span>
                         </div>
                         <Button 
-                            className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20" 
+                            className="w-full h-12 md:h-14 rounded-xl md:rounded-2xl font-black uppercase tracking-widest text-[10px] md:text-xs shadow-xl shadow-primary/20" 
                             disabled={cart.length === 0 || isProcessing}
                             onClick={handleGenerateBill}
                         >
-                            {isProcessing ? <Loader2 className="animate-spin h-4 w-4" /> : <Receipt className="mr-2 h-5 w-5" />}
+                            {isProcessing ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Receipt className="mr-2 h-4 w-4 md:h-5 md:w-5" />}
                             Generate Bill
                         </Button>
                     </div>
