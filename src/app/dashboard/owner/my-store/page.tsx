@@ -90,7 +90,6 @@ const storeSchema = z.object({
   tables: z.array(z.string()).optional(),
   liveVideoUrl: z.string().url('Please enter a valid URL').optional().or(z.literal('')),
   upiId: z.string().optional().refine((val) => !val || val.includes('@'), { message: "Invalid UPI ID format" }),
-  businessType: z.enum(['restaurant', 'salon', 'grocery']),
 });
 
 const locationSchema = z.object({
@@ -121,6 +120,7 @@ const createSlug = (text: string) => {
     if(!text) return '';
     return text
       .toLowerCase()
+      .trim()
       .replace(/\s+/g, '-') 
       .replace(/[^\w-]+/g, '') 
       .replace(/--+/g, '-') 
@@ -132,7 +132,6 @@ function StoreImageUploader({ store }: { store: Store }) {
     const { toast } = useToast();
     const [isSaving, startSaveTransition] = useTransition();
     const [imageUrl, setImageUrl] = useState(store.imageUrl || '');
-    const { setUserStore } = useAppStore();
 
     useEffect(() => {
         setImageUrl(store.imageUrl || '');
@@ -149,8 +148,6 @@ function StoreImageUploader({ store }: { store: Store }) {
 
             if (result.success) {
                 toast({ title: 'Image URL Updated!' });
-                // Note: userStore update should ideally happen via Firestore listener, 
-                // but we update state here for immediate feedback if needed.
             } else {
                 toast({
                     variant: 'destructive',
@@ -503,7 +500,6 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
             longitude: store.longitude || 0,
             liveVideoUrl: store.liveVideoUrl || '',
             upiId: store.upiId || '',
-            businessType: store.businessType || 'grocery',
         },
     });
     
@@ -561,29 +557,6 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                                                 <FormControl>
                                                     <Input {...field} disabled={store.name === 'LocalBasket'} />
                                                 </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="businessType"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Business Vertical</FormLabel>
-                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                    <FormControl>
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Select business type" />
-                                                        </SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent>
-                                                        <SelectItem value="grocery">Grocery / Retail Shop</SelectItem>
-                                                        <SelectItem value="restaurant">Restaurant / Hotel</SelectItem>
-                                                        <SelectItem value="salon">Salon / Beauty Parlour</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                                <FormDescription>This determines if customers see a Menu or a Product list.</FormDescription>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -698,83 +671,6 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
     );
 }
 
-function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Product; storeId: string; onEdit: () => void; onDelete: () => void; }) {
-    const { firestore } = useFirebase();
-    const { getProductName, language, getAllAliases } = useAppStore();
-
-    const priceDocRef = useMemoFirebase(() => {
-        if (!firestore || !product.name) return null;
-        return doc(firestore, 'productPrices', product.name.toLowerCase());
-    }, [firestore, product.name]);
-
-    const { data: priceData, isLoading: pricesLoading } = useDoc<ProductPrice>(priceDocRef);
-    
-    const productAliases = useMemo(() => {
-        const key = createSlug(product.name);
-        return getAllAliases(key);
-    }, [product.name, getAllAliases]);
-
-    const variantsString = useMemo(() => {
-        if (pricesLoading) return "Loading prices...";
-        if (!priceData || !priceData.variants || priceData.variants.length === 0) return 'N/A';
-        return priceData.variants.map(v => `${v.weight} (₹${v.price}, Stock: ${v.stock})`).join(' | ');
-    }, [priceData, pricesLoading]);
-
-    return (
-        <TableRow>
-            <TableCell>
-                 <div className="flex items-start gap-4">
-                    <Image
-                        src={product.imageUrl || 'https://placehold.co/40x40/E2E8F0/64748B?text=?'}
-                        alt={product.name}
-                        width={40}
-                        height={40}
-                        className="rounded-sm object-cover mt-1"
-                    />
-                    <div>
-                        <span className="font-semibold">{getProductName(product)}</span>
-                         <div className="flex flex-wrap gap-1 mt-1">
-                            {Object.entries(productAliases).flatMap(([lang, aliases]) => 
-                                aliases.map(alias => (
-                                    <Badge key={`${lang}-${alias}`} variant="outline">{alias} ({lang})</Badge>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </TableCell>
-            <TableCell>{t(product.category?.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</TableCell>
-            <TableCell>{variantsString}</TableCell>
-            <TableCell className="text-right">
-                <Button variant="ghost" size="icon" onClick={onEdit}>
-                    <Edit className="h-4 w-4" />
-                    <span className="sr-only">Edit {product.name}</span>
-                </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <Trash2 className="h-4 w-4" />
-                      <span className="sr-only">Delete {product.name}</span>
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>{t('are-you-sure')}</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently delete the master product "{product.name}" and its pricing from the entire platform. This cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
-                      <AlertDialogAction onClick={onDelete} className="bg-destructive hover:bg-destructive/90">{t('delete')}</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-            </TableCell>
-        </TableRow>
-    );
-}
-
 function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdmin: boolean, adminStoreId?: string; }) {
     const { firestore, user } = useFirebase();
     const { toast } = useToast();
@@ -784,28 +680,8 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
     const userDocRef = useMemoFirebase(() => (!firestore || !user) ? null : doc(firestore, 'users', user.uid), [firestore, user]);
     const { data: userData } = useDoc<AppUser>(userDocRef);
 
-    // Proactive Auto-Repair: Strictly align businessType with owner accountType
-    useEffect(() => {
-        if (userData?.accountType && firestore && !isRepairing) {
-            const inferredType = userData.accountType === 'restaurant' ? 'restaurant' : 'grocery';
-            
-            // Only trigger update if it's missing or mismatched
-            if (!store.businessType || store.businessType !== inferredType) {
-                startRepair(async () => {
-                    try {
-                        await updateDoc(doc(firestore, 'stores', store.id), { businessType: inferredType });
-                        toast({ 
-                            title: "Business profile synced", 
-                            description: `We've updated your store to ${inferredType} mode to match your ${userData.accountType} account.` 
-                        });
-                    } catch (e) {
-                        console.error("Auto-repair failed", e);
-                    }
-                });
-            }
-        }
-    }, [store.businessType, store.id, userData?.accountType, firestore, isRepairing, toast]);
-
+    // Auto-repair logic removed from manual sync, now strictly AI-decided via Menu Manager
+    
     if (store.isClosed) {
         return (
             <Alert variant="destructive">
@@ -867,25 +743,22 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
     )
 }
 
-function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; isAdmin: boolean; profile?: AppUser | null; onAutoCreate: (coords: { lat: number; lng: number, businessType: 'restaurant' | 'salon' | 'grocery' }) => void; }) {
+function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; isAdmin: boolean; profile?: AppUser | null; onAutoCreate: (coords: { lat: number; lng: number }) => void; }) {
     const { toast } = useToast();
     const [isPending, startTransition] = useTransition();
     const { firestore } = useFirebase();
     const [isLocationConfirmOpen, setIsLocationConfirmOpen] = useState(false);
     const [capturedCoords, setCapturedCoords] = useState<{ lat: number; lng: number } | null>(null);
 
-    const defaultBusinessType = profile?.accountType === 'restaurant' ? 'restaurant' : 'grocery';
-
     const form = useForm<StoreFormValues>({
         resolver: zodResolver(storeSchema),
         defaultValues: {
             name: isAdmin ? 'LocalBasket' : (profile ? `${profile.firstName}'s Store` : ''),
-            description: isAdmin ? 'The master store for setting canonical product prices.' : (profile ? `${profile.accountType === 'restaurant' ? 'Fresh meals and services' : 'Groceries and goods'} from ${profile.firstName}'s Store.` : ''),
+            description: isAdmin ? 'The master store for setting canonical product prices.' : (profile ? `Groceries and goods from ${profile.firstName}'s Store.` : ''),
             address: isAdmin ? 'Platform-wide' : (profile?.address || ''),
             latitude: 0,
             longitude: 0,
             teluguName: '',
-            businessType: defaultBusinessType,
         },
     });
 
@@ -926,7 +799,7 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
     const handleConfirmLocation = (confirmed: boolean) => {
         setIsLocationConfirmOpen(false);
         if (confirmed && capturedCoords) {
-            onAutoCreate({ ...capturedCoords, businessType: form.getValues('businessType') });
+            onAutoCreate(capturedCoords);
         } else {
             toast({ title: 'Automatic Creation Cancelled', description: 'Please create your store manually from your store location.' });
         }
@@ -977,29 +850,6 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="businessType"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Business Vertical</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select business type" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="grocery">Grocery / Retail Shop</SelectItem>
-                                            <SelectItem value="restaurant">Restaurant / Hotel</SelectItem>
-                                            <SelectItem value="salon">Salon / Beauty Parlour</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormDescription>This determines if your storefront shows a Menu or a Product catalog.</FormDescription>
-                                    <FormMessage />
-                                </FormItem>
                             )}
                         />
                          <FormField
@@ -1101,7 +951,7 @@ export default function MyStorePage() {
         }
     }, [isUserLoading, user, router]);
 
-    const handleAutoCreateStore = (coords: { lat: number; lng: number, businessType: 'restaurant' | 'salon' | 'grocery' }) => {
+    const handleAutoCreateStore = (coords: { lat: number; lng: number }) => {
         if (!user || !firestore || !userProfile) {
              toast({ variant: 'destructive', title: 'Error', description: 'User profile not found.' });
              return;
@@ -1111,14 +961,14 @@ export default function MyStorePage() {
              const storeData = {
                 name: `${userProfile.firstName}'s Store`,
                 teluguName: `${userProfile.firstName} గారి స్టోర్`,
-                description: `${coords.businessType === 'restaurant' ? 'Fresh meals and services' : 'Groceries and goods'} from ${userProfile.firstName}'s Store.`,
+                description: `Fresh services and goods from ${userProfile.firstName}'s Store.`,
                 address: userProfile.address,
                 latitude: coords.lat,
                 longitude: coords.lng,
                 ownerId: user.uid,
                 imageId: `store-${Math.floor(Math.random() * 3) + 1}`,
                 isClosed: false,
-                businessType: coords.businessType,
+                businessType: userProfile.accountType === 'restaurant' ? 'restaurant' : 'grocery',
             };
             addDoc(collection(firestore, 'stores'), storeData)
                 .then(() => {

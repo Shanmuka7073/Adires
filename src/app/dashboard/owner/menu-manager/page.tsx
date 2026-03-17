@@ -3,7 +3,7 @@
 
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, setDoc, limit, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
+import { collection, query, where, doc, setDoc, limit, updateDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import type { Store, Menu, MenuItem, MenuTheme } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -59,7 +59,7 @@ const menuItemSchema = z.object({
 });
 type MenuItemFormValues = z.infer<typeof menuItemSchema>;
 
-function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (data: { items: MenuItem[], theme: MenuTheme }) => void }) {
+function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (data: { items: MenuItem[], theme: MenuTheme, businessType: 'restaurant' | 'salon' | 'grocery' }) => void }) {
     const [isProcessing, startProcessing] = useTransition();
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -81,10 +81,14 @@ function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (data: { items: Me
                     const normalizedItems = result.items.map(item => ({
                         ...item,
                         id: createSlug(item.name),
-                        isAvailable: true // Ensure initial availability is true
+                        isAvailable: true 
                     }));
-                    onMenuExtracted({ items: normalizedItems, theme: result.theme });
-                    toast({ title: "Menu Extracted!", description: `Found ${result.items.length} items.` });
+                    onMenuExtracted({ 
+                        items: normalizedItems, 
+                        theme: result.theme, 
+                        businessType: result.businessType 
+                    });
+                    toast({ title: "Menu Extracted!", description: `Identified as a ${result.businessType} business.` });
                 } else {
                     throw new Error("No items found in image.");
                 }
@@ -114,7 +118,7 @@ function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (data: { items: Me
                     {isProcessing ? 'AI is Reading Menu...' : 'Upload Menu Photo'}
                 </Button>
                 <p className="mt-4 text-[10px] font-black uppercase tracking-widest opacity-30 text-center">
-                    Gemini AI will extract all dish names, prices, and your menu theme instantly.
+                    Gemini AI will extract all dish names, prices, and your business vertical instantly.
                 </p>
             </CardContent>
         </Card>
@@ -510,7 +514,7 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
 
 export default function MenuManagerPage() {
     const { user, firestore } = useFirebase(); 
-    const [extractedData, setExtractedData] = useState<{items: MenuItem[], theme: MenuTheme} | null>(null); 
+    const [extractedData, setExtractedData] = useState<{items: MenuItem[], theme: MenuTheme, businessType: 'restaurant' | 'salon' | 'grocery'} | null>(null); 
     const { toast } = useToast(); 
     const [isSaving, startSave] = useTransition();
     
@@ -523,9 +527,25 @@ export default function MenuManagerPage() {
     const handleSaveMenu = () => {
         if (!firestore || !store || !extractedData) return;
         startSave(async () => {
+            const batch = writeBatch(firestore);
+            
+            // 1. Save Menu
             const mR = existingMenu ? doc(firestore, `stores/${store.id}/menus`, existingMenu.id) : doc(collection(firestore, `stores/${store.id}/menus`));
             const mD: Menu = { id: mR.id, storeId: store.id, items: extractedData.items.map(i => ({...i, id: i.id || createSlug(i.name), isAvailable: true })), theme: extractedData.theme };
-            try { await setDoc(mR, mD, { merge: true }); toast({ title: 'Menu Saved!' }); setExtractedData(null); rM?.(); } catch (e) { toast({ variant: 'destructive', title: 'Save Failed' }); }
+            batch.set(mR, mD, { merge: true });
+
+            // 2. Update Store Business Type (AI decided)
+            const sR = doc(firestore, 'stores', store.id);
+            batch.update(sR, { businessType: extractedData.businessType });
+
+            try { 
+                await batch.commit(); 
+                toast({ title: 'Menu Saved!', description: `Store updated to ${extractedData.businessType} mode.` }); 
+                setExtractedData(null); 
+                rM?.(); 
+            } catch (e) { 
+                toast({ variant: 'destructive', title: 'Save Failed' }); 
+            }
         });
     };
 
@@ -536,16 +556,19 @@ export default function MenuManagerPage() {
         <div className="container mx-auto py-12 px-4 md:px-6">
             <div className="mb-12 border-b pb-10 border-black/5"><h1 className="text-5xl font-black font-headline tracking-tighter">Menu Control Center</h1><p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">STORE: {store.name}</p></div>
             {existingMenu && !extractedData ? (
-                <MenuDisplay store={store} menu={existingMenu} onReplace={() => setExtractedData({ items: [], theme: existingMenu.theme || { backgroundColor: '#ffffff', primaryColor: '#000000', textColor: '#000000' } })} />
+                <MenuDisplay store={store} menu={existingMenu} onReplace={() => setExtractedData({ items: [], theme: existingMenu.theme || { backgroundColor: '#ffffff', primaryColor: '#000000', textColor: '#000000' }, businessType: store.businessType || 'restaurant' })} />
             ) : (
                  <div className="grid md:grid-cols-2 gap-8">
                      <MenuUploader onMenuExtracted={setExtractedData} />
                      {extractedData && (
                         <Card className="rounded-3xl border-0 shadow-xl overflow-hidden h-fit">
-                            <CardHeader className="bg-primary/5 border-b border-black/5 pb-6"><CardTitle className="text-xl font-black uppercase tracking-tight">Review Extraction</CardTitle><CardDescription className="text-xs font-bold opacity-40 uppercase">AI extracted {extractedData.items.length} items</CardDescription></CardHeader>
+                            <CardHeader className="bg-primary/5 border-b border-black/5 pb-6">
+                                <CardTitle className="text-xl font-black uppercase tracking-tight">Review Extraction</CardTitle>
+                                <CardDescription className="text-xs font-bold opacity-40 uppercase">AI identified a <strong>{extractedData.businessType}</strong> menu</CardDescription>
+                            </CardHeader>
                             <CardContent className="p-0">
                                 <ScrollArea className="max-h-[50vh]"><Table><TableHeader className="bg-black/5"><TableRow><TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Category</TableHead><TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Item</TableHead><TableHead className="text-right text-[10px] font-black uppercase tracking-widest opacity-40">Price</TableHead></TableRow></TableHeader><TableBody>{extractedData.items.map((i, idx) => (<TableRow key={idx}><TableCell className="text-[10px] font-bold opacity-60">{i.category}</TableCell><TableCell className="font-black text-xs">{i.name}</TableCell><TableCell className="text-right font-black text-xs">₹{i.price.toFixed(0)}</TableCell></TableRow>))}</TableBody></Table></ScrollArea>
-                                <div className="p-6 bg-black/5 border-t border-black/5"><Button onClick={handleSaveMenu} disabled={isSaving || extractedData.items.length === 0} className="w-full rounded-2xl h-14 font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20">{isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}{existingMenu ? 'Replace with New Menu' : 'Create Digital Menu'}</Button><Button variant="ghost" onClick={() => setExtractedData(null)} className="w-full mt-4 text-[10px] font-black uppercase tracking-widest opacity-40">Cancel</Button></div>
+                                <div className="p-6 bg-black/5 border-t border-black/5"><Button onClick={handleSaveMenu} disabled={isSaving || extractedData.items.length === 0} className="w-full rounded-2xl h-14 font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20">{isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}{existingMenu ? 'Update Menu & Sync Vertical' : 'Create Digital Menu'}</Button><Button variant="ghost" onClick={() => setExtractedData(null)} className="w-full mt-4 text-[10px] font-black uppercase tracking-widest opacity-40">Cancel</Button></div>
                             </CardContent>
                         </Card>
                      )}
