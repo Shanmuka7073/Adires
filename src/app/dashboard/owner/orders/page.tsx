@@ -326,12 +326,17 @@ export default function StoreOrdersPage() {
 
   const { userStore: myStore, loading: storeLoading } = useAppStore();
 
+  /**
+   * OPTIMIZED: Operation Center Query
+   * Uses the 'isActive' flag to prevent reading 1000s of historical records.
+   * Linear cost protection for active restaurant operations.
+   */
   const activeOrdersQuery = useMemoFirebase(() =>
     firestore && myStore
       ? query(
           collection(firestore, 'orders'),
           where('storeId', '==', myStore.id),
-          where('isActive', '==', true),
+          where('isActive', '==', true), // THE OPTIMIZATION
           orderBy('orderDate', 'desc'),
           limit(50) 
         )

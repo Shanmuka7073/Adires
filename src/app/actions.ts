@@ -8,8 +8,6 @@ import path from 'path';
 import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient, EmployeeProfile, SalarySlip, Store, AttendanceRecord, ReasonEntry, User, CartItem } from '@/lib/types';
 import { getApps } from 'firebase-admin/app';
 import { v4 as uuidv4 } from 'uuid';
-import { ai } from '@/ai/genkit';
-import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
 
 export async function getFirebaseConfig() {
   try {
@@ -213,6 +211,7 @@ export async function updateManifest(newData: any): Promise<{ success: boolean; 
 
 /**
  * Places a batch of items as a distinct order within a restaurant session.
+ * OPTIMIZED: Includes 'isActive' flag and 'zoneId' partition.
  */
 export async function addRestaurantOrderItem({
   storeId,
@@ -227,7 +226,7 @@ export async function addRestaurantOrderItem({
   zoneId,
 }: {
   storeId: string;
-  tableNumber: string | null;
+tableNumber: string | null;
   sessionId: string;
   items: CartItem[];
   deliveryAddress?: string;
@@ -240,8 +239,6 @@ export async function addRestaurantOrderItem({
   try {
     const { db } = await getAdminServices();
     
-    // Each distinct "Place Order" click creates a unique order document.
-    // They are linked via the sessionId.
     const orderDocRef = db.collection('orders').doc();
     const orderId = orderDocRef.id;
 
@@ -259,7 +256,7 @@ export async function addRestaurantOrderItem({
 
     const totalAmount = orderItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
-    await orderDocRef.set({
+    const orderData = {
       id: orderId, 
       storeId: storeId, 
       tableNumber: tableNumber ? String(tableNumber) : null,
@@ -271,13 +268,15 @@ export async function addRestaurantOrderItem({
       deliveryLng: deliveryLng || 0,
       zoneId: zoneId || 'local-service',
       phone: phone || '',
-      status: 'Pending', // New orders go straight to Pending
-      isActive: true, 
+      status: 'Pending',
+      isActive: true, // For Operational Indexing optimization
       orderDate: FieldValue.serverTimestamp(), 
       updatedAt: FieldValue.serverTimestamp(),
       items: orderItems,
       totalAmount: totalAmount,
-    });
+    };
+
+    await orderDocRef.set(orderData);
 
     return { success: true, orderId };
   } catch (error: any) {
@@ -434,10 +433,6 @@ export async function bulkUploadRecipes(csvText: string): Promise<{ success: boo
         if (count > 0) await batch.commit();
         return { success: true, count };
     } catch (e: any) { return { success: false, count: 0, error: e.message }; }
-}
-
-export async function getIngredientsForDish(input: { dishName: string; language: 'en' | 'te', existingRecipe?: GetIngredientsOutput }): Promise<GetIngredientsOutput> {
-  return getIngredientsForDishFlow(input);
 }
 
 export async function addIngredientsToCatalog(ingredients: Omit<RestaurantIngredient, 'id'>[]): Promise<{ success: boolean, count: number, error?: string }> {

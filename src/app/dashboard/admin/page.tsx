@@ -30,16 +30,12 @@ import {
   PackageSearch,
   Smartphone,
   Briefcase,
-  Binary,
-  MessageSquarePlus,
-  Sparkles,
-  Send,
-  Loader2
+  Binary
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc } from 'firebase/firestore';
-import { useMemo, useEffect, useState, useTransition, useRef } from 'react';
+import { useMemo, useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -53,91 +49,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useAppStore } from '@/lib/store';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { chatWithAsha } from '@/ai/flows/asha-flow';
-import { cn } from '@/lib/utils';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
-
-function AshaMonitor() {
-    const [messages, setMessages] = useState<Array<{role: 'user' | 'model', text: string}>>([
-        { role: 'model', text: "Hello Admin! I'm Asha. I'm monitoring the entire platform. Ask me anything about users, stores, or order trends." }
-    ]);
-    const [input, setInput] = useState("");
-    const [isThinking, startThinking] = useTransition();
-    const scrollRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        if (scrollRef.current) scrollRef.current.scrollTo(0, scrollRef.current.scrollHeight);
-    }, [messages]);
-
-    const handleSend = () => {
-        if (!input.trim() || isThinking) return;
-        const userMsg = input.trim();
-        setInput("");
-        setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
-
-        startThinking(async () => {
-            try {
-                const reply = await chatWithAsha({
-                    history: messages,
-                    message: userMsg,
-                    role: 'admin'
-                });
-                setMessages(prev => [...prev, { role: 'model', text: reply }]);
-            } catch (e) {
-                setMessages(prev => [...prev, { role: 'model', text: "I'm having trouble accessing the monitoring data right now. Please try again." }]);
-            }
-        });
-    };
-
-    return (
-        <Card className="border-2 border-primary/20 shadow-xl rounded-[2.5rem] overflow-hidden bg-primary/5">
-            <CardHeader className="bg-primary/10 border-b border-primary/10">
-                <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-white shadow-lg animate-pulse">
-                        <Sparkles className="h-6 w-6" />
-                    </div>
-                    <div>
-                        <CardTitle className="text-xl font-black uppercase tracking-tight">Asha Intelligence Monitor</CardTitle>
-                        <CardDescription className="text-[10px] font-bold uppercase opacity-60">Real-time Platform Insights Agent</CardDescription>
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent className="p-0 flex flex-col h-[400px]">
-                <ScrollArea className="flex-1 p-6" ref={scrollRef}>
-                    <div className="space-y-4">
-                        {messages.map((m, i) => (
-                            <div key={i} className={cn(
-                                "flex flex-col max-w-[80%] rounded-2xl p-3 text-xs font-bold leading-relaxed",
-                                m.role === 'user' ? "ml-auto bg-primary text-white" : "bg-white border-2 border-primary/10 text-gray-800"
-                            )}>
-                                {m.text}
-                            </div>
-                        ))}
-                        {isThinking && (
-                            <div className="bg-white border-2 border-primary/10 text-gray-400 p-3 rounded-2xl text-xs font-bold animate-pulse w-fit">
-                                Asha is querying the platform data...
-                            </div>
-                        )}
-                    </div>
-                </ScrollArea>
-                <div className="p-4 bg-white border-t border-primary/10 flex gap-2">
-                    <Input 
-                        placeholder="e.g. How many orders were completed today?" 
-                        value={input}
-                        onChange={e => setInput(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handleSend()}
-                        className="rounded-xl border-2"
-                    />
-                    <Button size="icon" className="rounded-xl shrink-0 h-10 w-10 shadow-lg shadow-primary/20" onClick={handleSend} disabled={isThinking}>
-                        <Send className="h-4 w-4" />
-                    </Button>
-                </div>
-            </CardContent>
-        </Card>
-    );
-}
 
 function CreateRestaurantUserForm() {
     const { toast } = useToast();
@@ -307,16 +220,11 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* ================= ASHA MONITOR ================= */}
-      <section className="grid lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
-              <AshaMonitor />
-          </div>
-          <div className="space-y-4">
-              <StatCard title="Total Users" value={stats.totalUsers} icon={Users} loading={statsLoading} />
-              <StatCard title="Active Stores" value={stats.totalStores} icon={Store} loading={statsLoading} />
-              <StatCard title="Completed Orders" value={stats.totalOrdersDelivered} icon={ShoppingBag} loading={statsLoading} />
-          </div>
+      {/* ================= STATS ================= */}
+      <section className="grid md:grid-cols-3 gap-8">
+        <StatCard title="Total Users" value={stats.totalUsers} icon={Users} loading={statsLoading} />
+        <StatCard title="Active Stores" value={stats.totalStores} icon={Store} loading={statsLoading} />
+        <StatCard title="Completed Orders" value={stats.totalOrdersDelivered} icon={ShoppingBag} loading={statsLoading} />
       </section>
 
       {/* ================= OPERATIONS ================= */}

@@ -127,6 +127,7 @@ export type Order = {
   paymentMode?: string;
   updatedAt?: any;
   zoneId?: string; // Geographic partition ID derived from pincode
+  isActive?: boolean; // NEW: Flag for Operational Indexing optimization
   appointmentTime?: string; // NEW: For salons
   needsService?: boolean; // NEW: Waiter call flag
   serviceType?: string; // NEW: Reason for waiter call
