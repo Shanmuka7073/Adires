@@ -11,19 +11,18 @@ import { z } from 'genkit';
 import { getAdminServices } from '@/firebase/admin-init';
 
 const ChatMessageSchema = z.object({
-  role: z.string().describe('The role of the message sender (user or model).'),
-  text: z.string().describe('The content of the message.'),
+  role: z.enum(['user', 'model']),
+  text: z.string(),
 }).passthrough();
 
 const AshaChatInputSchema = z.object({
-  history: z.array(ChatMessageSchema).describe('The conversation history.'),
-  message: z.string().describe('The latest message from the user.'),
+  history: z.array(z.any()).optional().default([]),
+  message: z.string(),
   role: z.string().optional().default('customer'),
   storeId: z.string().optional(),
-  businessType: z.string().optional().describe('The type of business currently being viewed.'),
+  businessType: z.string().optional(),
   context: z.object({
       pathname: z.string().optional(),
-      platformStatus: z.string().optional(),
   }).optional().default({ pathname: 'unknown' }),
 }).passthrough();
 export type AshaChatInput = z.infer<typeof AshaChatInputSchema>;
@@ -33,6 +32,7 @@ export type AshaChatOutput = z.infer<typeof AshaChatOutputSchema>;
 
 /**
  * TOOL: Fetches global platform statistics for Admin monitoring.
+ * Optimized with robust error handling to prevent flow crashes.
  */
 const getGlobalPlatformStats = ai.defineTool(
   {
@@ -48,6 +48,8 @@ const getGlobalPlatformStats = ai.defineTool(
   async () => {
     try {
         const { db } = await getAdminServices();
+        if (!db) throw new Error("Database not initialized");
+
         const [users, stores, orders] = await Promise.all([
           db.collection('users').count().get(),
           db.collection('stores').count().get(),
@@ -59,7 +61,7 @@ const getGlobalPlatformStats = ai.defineTool(
           totalOrders: orders.data().count || 0,
         };
     } catch (e) {
-        console.error("Tool getGlobalPlatformStats failed:", e);
+        console.error("Tool getGlobalPlatformStats failed (Using Fallback):", e);
         return { totalUsers: 0, totalStores: 0, totalOrders: 0 };
     }
   }
@@ -121,7 +123,7 @@ const ashaFlow = ai.defineFlow(
         const { output } = await prompt(input);
         return output || "I've analyzed the platform state but am currently calibrating my strategic engines. Please try again in a moment.";
     } catch (error) {
-        console.error("Asha Flow error:", error);
+        console.error("Asha Flow internal error:", error);
         return "I encountered a minor synchronization delay while auditing the platform context. Please try clicking 'Predict Next Feature' again so I can re-run the scan.";
     }
   }

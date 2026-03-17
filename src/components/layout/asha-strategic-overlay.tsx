@@ -34,8 +34,11 @@ export function AshaStrategicOverlay() {
     const handlePredict = () => {
         const message = `Asha, perform a strategic audit of ${pathname} for a ${role} in the ${businessType} vertical.`;
         
-        // Ensure we only pass role and text to avoid Zod validation errors on the server
-        const sanitizedHistory = history.slice(-4).map(({ role, text }) => ({ role, text }));
+        // Strictly sanitize history to only include schema-valid fields
+        const sanitizedHistory = history.slice(-6).map(msg => ({
+            role: msg.role === 'user' ? 'user' : 'model',
+            text: msg.text
+        }));
         
         setHistory(prev => [...prev, { role: 'user', text: "Strategic Audit Request" }]);
         
@@ -51,10 +54,10 @@ export function AshaStrategicOverlay() {
                 
                 setHistory(prev => [...prev, { role: 'model', text: response }]);
             } catch (error) {
-                console.error("Asha Chat Error:", error);
+                console.error("Asha Action Error:", error);
                 setHistory(prev => [...prev, { 
                     role: 'model', 
-                    text: "I encountered a synchronization error while connecting to the platform core. I'm re-calibrating my models. Please try clicking 'Predict Next Feature' again." 
+                    text: "I encountered a minor synchronization delay while auditing the platform context. Please try clicking 'Predict Next Feature' again so I can re-run the scan." 
                 }]);
             }
         });
