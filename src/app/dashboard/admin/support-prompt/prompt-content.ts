@@ -1,11 +1,6 @@
 
 'use client';
 
-/**
- * @fileOverview This file constructs the comprehensive system prompt for AI support.
- * It pulls together architecture, data schema, and operational logic.
- */
-
 import { rulesText } from '../security-rules/rules-text';
 import { overviewText } from '../app-overview/overview-text';
 import { auditText } from '../performance-audit/audit-text';
@@ -14,52 +9,34 @@ export function generateSupportPrompt() {
   return `
 # APPLICATION CONTEXT FOR AI SUPPORT
 Role: Senior Firebase & Next.js Developer
-App Name: LocalBasket (Multi-Vertical Platform)
+App Name: LocalBasket
 
-## 1. TECH STACK & ARCHITECTURE
+## 1. TECH STACK
 - Framework: Next.js 14 (App Router)
-- UI: Tailwind CSS, ShadCN, Lucide Icons, Framer Motion
-- State: Zustand (with Persistence)
-- Backend: Firebase (Auth, Firestore, Storage)
-- Generative AI: Genkit (Gemini 1.5 Flash)
+- UI: Tailwind CSS, ShadCN
+- State: Zustand (Persisted)
+- Backend: Firebase Client SDK ONLY
 
-## 2. DATA STRATEGY (CRITICAL)
-The platform uses **Behavioral Discrimination** instead of business-specific collections:
-- **Retail Vertical (Grocery/Dairy)**: Uses the \`products\` subcollection. Items have weights, stock, and variants.
-- **Service Vertical (Restaurant/Salon)**: Uses the \`menus\` subcollection. Items have "Components" and "Steps."
-- **Unified Orders**: All transactions live in \`/orders\`. A \`businessType\` check determines if the UI shows "Book Appointment" (Salon) or "Place Order" (Restaurant/Retail).
+## 2. OPTIMIZED DATA STRATEGY (CRITICAL)
+The platform uses "Operational Indexing" to protect the Firestore budget:
+- **isActive: true**: Used in /orders. dashboards only listen to active orders.
+- **Embedded Arrays**: Menu items are stored directly inside Order documents to solve the N+1 read problem.
+- **Geographic Partitioning**: orders use 'zoneId' (pincode) so delivery partners only see relevant jobs.
 
-## 3. BUSINESS IDENTIFICATION LOGIC
-The app identifies a "Restaurant" or "Salon" vs a "Grocery" store using 3 layers:
-1. **Explicit Field**: \`store.businessType\` (\`restaurant\` | \`salon\` | \`grocery\`).
-2. **Account Sync**: Stores automatically update their type to match the owner's \`accountType\` upon dashboard visit.
-3. **Keyword Heuristics**: Fallback logic scans name/description for keywords (Hotel, Mess, Biryani, Dhaba, Salon, etc.) to apply correct Badges and Routing.
+## 3. IDENTIFICATION LOGIC
+- Restaurant/Salon detection is via 'store.businessType' or heuristic keyword matching in name/description.
 
-## 4. CORE OPERATIONAL MODES
-- **Dine-in / At-Salon**: Triggered via QR codes with \`?table=X\`. Uses table-based session IDs to group orders into a single bill.
-- **Appointment Booking**: Specifically for Salons. Requires Date/Time selection and captures \`appointmentTime\` in the Order document.
-- **Home Delivery**: Requires Name, Phone, and Address (pinned via One-Tap GPS) before checkout.
-- **Biometric Identity**: Uses WebAuthn (Fingerprint) and Voice ID for secure authentication.
-
-## 5. KEY DATA ENTITIES
-- /users/{userId}: Profile + accountType.
-- /stores/{storeId}: Metadata, locations, tables, and UPI IDs for payment.
-- /orders/{orderId}: Transaction records. Statuses: Draft, Pending, Processing, Billed, Delivered, Completed.
-- /productPrices/{productName}: Canonical pricing source for Retail items.
-- /restaurantIngredients: Master cost catalog for calculating Gross Profit.
-
-## 6. CURRENT SYSTEM OVERVIEW
-${overviewText}
-
-## 7. PERFORMANCE AUDIT & BOTTLENECKS
-${auditText}
-
-## 8. ACTIVE SECURITY RULES
+## 4. SECURITY RULES
 \`\`\`rules
 ${rulesText}
 \`\`\`
 
-## 9. SPECIFIC PROBLEM CONTEXT
-[USER: PLEASE PASTE YOUR SPECIFIC ERROR MESSAGE OR QUESTION HERE]
+## 5. RECENT ARCHITECTURE UPDATES
+${overviewText}
+
+## 6. PERFORMANCE STATUS
+${auditText}
+
+[USER: PASTE YOUR PROBLEM OR QUESTION HERE]
 `.trim();
 }

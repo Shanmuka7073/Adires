@@ -1,10 +1,11 @@
+
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient, EmployeeProfile, SalarySlip, Store, AttendanceRecord, ReasonEntry, User, CartItem } from '@/lib/types';
+import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient, EmployeeProfile, SalarySlip, Store, AttendanceRecord, User, CartItem } from '@/lib/types';
 import { getApps } from 'firebase-admin/app';
 import { v4 as uuidv4 } from 'uuid';
 import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
@@ -211,7 +212,6 @@ export async function updateManifest(newData: any): Promise<{ success: boolean; 
 
 /**
  * Places a batch of items as a distinct order within a restaurant session.
- * OPTIMIZED: Includes 'isActive' flag and 'zoneId' partition.
  */
 export async function addRestaurantOrderItem({
   storeId,
@@ -226,7 +226,7 @@ export async function addRestaurantOrderItem({
   zoneId,
 }: {
   storeId: string;
-tableNumber: string | null;
+  tableNumber: string | null;
   sessionId: string;
   items: CartItem[];
   deliveryAddress?: string;
@@ -269,7 +269,7 @@ tableNumber: string | null;
       zoneId: zoneId || 'local-service',
       phone: phone || '',
       status: 'Pending',
-      isActive: true, // For Operational Indexing optimization
+      isActive: true, 
       orderDate: FieldValue.serverTimestamp(), 
       updatedAt: FieldValue.serverTimestamp(),
       items: orderItems,
@@ -285,15 +285,12 @@ tableNumber: string | null;
   }
 }
 
-/**
- * Finalizes all active orders in a session for payment.
- */
 export async function confirmOrderSession(sessionId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const { db } = await getAdminServices();
     const snapshot = await db.collection('orders').where('sessionId', '==', sessionId).where('isActive', '==', true).get();
     
-    if (snapshot.empty) return { success: false, error: 'No active orders found for this session.' };
+    if (snapshot.empty) return { success: false, error: 'No active orders found.' };
     
     const batch = db.batch();
     snapshot.docs.forEach(doc => {
@@ -310,9 +307,6 @@ export async function confirmOrderSession(sessionId: string): Promise<{ success:
   }
 }
 
-/**
- * Requests service (waiter) for a specific session.
- */
 export async function requestTableService(sessionId: string, type: string = 'assistance'): Promise<{ success: boolean; error?: string }> {
     try {
         const { db } = await getAdminServices();
@@ -333,9 +327,6 @@ export async function requestTableService(sessionId: string, type: string = 'ass
     }
 }
 
-/**
- * Dismisses service request for a specific order.
- */
 export async function dismissTableService(orderId: string): Promise<{ success: boolean; error?: string }> {
     try {
         const { db } = await getAdminServices();
@@ -357,7 +348,7 @@ export async function markSessionAsPaid(sessionId: string): Promise<{ success: b
     if (snapshot.empty) return { success: true };
     const batch = db.batch();
     snapshot.docs.forEach(doc => {
-      batch.update(doc.ref, { status: 'Completed', isActive: false, paidAt: Timestamp.now(), paymentMode: 'UPI' });
+      batch.update(doc.ref, { status: 'Completed', isActive: false, paidAt: Timestamp.now() });
     });
     await batch.commit();
     return { success: true };
@@ -466,17 +457,6 @@ export async function getSalarySlipData(slipId: string, userId: string, storeId?
         const [employeeSnap, userSnap] = await Promise.all([db.collection('employeeProfiles').doc(slip.employeeId).get(), db.collection('users').doc(slip.employeeId).get()]);
         return { slip: { ...slip, generatedAt: (slip.generatedAt as Timestamp).toDate().toISOString() }, employee: { ...userSnap.data(), ...employeeSnap.data() }, store, attendance: { presentDays: 22, totalDays: 30, absentDays: 8 } };
     } catch { return null; }
-}
-
-export async function createRestaurantUserAndStore(email: string, password: string, restaurantName: string) {
-    const { auth, db } = await getAdminServices();
-    try {
-        const user = await auth.createUser({ email, password, displayName: restaurantName });
-        await db.collection('users').doc(user.uid).set({ id: user.uid, email, firstName: restaurantName, accountType: 'restaurant' });
-        const storeRef = db.collection('stores').doc();
-        await storeRef.set({ id: storeRef.id, name: restaurantName, ownerId: user.uid, isClosed: false, imageId: 'store-1', latitude: 0, longitude: 0 });
-        return { success: true };
-    } catch (e: any) { return { success: false, error: e.message }; }
 }
 
 export async function approveRegularization(recordId: string, storeId: string, isApproved: boolean, reason?: string) {

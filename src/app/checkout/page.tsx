@@ -1,9 +1,10 @@
+
 'use client';
 
 import { useCart } from '@/lib/cart';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -18,15 +19,12 @@ import {
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { getProductImage, getStore } from '@/lib/data';
+import { getProductImage } from '@/lib/data';
 import { useTransition, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useFirebase, errorEmitter, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { MapPin, Loader2, AlertCircle, Store as StoreIcon, Home, LocateFixed } from 'lucide-react';
-import Link from 'next/link';
 import type { User as AppUser, Order } from '@/lib/types';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAppStore } from '@/lib/store';
 import { t } from '@/lib/locales';
 import { useVoiceCommanderContext } from '@/components/layout/voice-commander-context';
@@ -76,11 +74,10 @@ export default function CheckoutPage() {
   const [images, setImages] = useState<Record<string, {imageUrl: string, imageHint: string}>>({});
   const placeOrderBtnRef = useRef<HTMLButtonElement>(null);
   
-  const { allStores, fetchInitialData } = useAppStore();
-  const localBasketStore = useMemo(() => allStores.find(s => s.name === 'LocalBasket'), [allStores]);
+  const { stores, fetchInitialData } = useAppStore();
+  const localBasketStore = useMemo(() => stores.find(s => s.name === 'LocalBasket'), [stores]);
 
   const { 
-      isWaitingForQuickOrderConfirmation, 
       setPlaceOrderBtnRef,
       shouldPlaceOrderDirectly,
       setShouldPlaceOrderDirectly,
@@ -128,7 +125,7 @@ export default function CheckoutPage() {
     if (!firestore || !user || !activeStoreId) return;
     startPlaceOrderTransition(async () => {
         const orderDocRef = doc(collection(firestore, 'orders'));
-        const orderData: Partial<Order> = {
+        const orderData: any = {
             id: orderDocRef.id,
             userId: user.uid,
             storeId: activeStoreId,
@@ -138,6 +135,8 @@ export default function CheckoutPage() {
             deliveryLng: deliveryCoords?.lng || 0,
             orderDate: serverTimestamp(),
             status: 'Pending',
+            isActive: true,
+            orderType: 'delivery',
             totalAmount: cartTotal + DELIVERY_FEE,
             items: cartItems.map(item => ({ id: crypto.randomUUID(), orderId: orderDocRef.id, productId: item.product.id, productName: item.product.name, variantSku: item.variant.sku, variantWeight: item.variant.weight, quantity: item.quantity, price: item.variant.price })),
         };
@@ -165,9 +164,13 @@ export default function CheckoutPage() {
                 </Card>
                 <Card><CardHeader><CardTitle>Delivery Details</CardTitle></CardHeader>
                     <CardContent className="space-y-6">
-                        <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Full Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="name" render={({ field }) => (
+                            <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
                         <div className="grid grid-cols-2 gap-4"><Button type="button" onClick={handleUseHomeAddress}>Home</Button><Button type="button" onClick={handleUseCurrentLocation}>GPS</Button></div>
-                        <FormField control={form.control} name="deliveryAddress" render={({ field }) => (<FormItem><FormControl><Input placeholder="Address" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="deliveryAddress" render={({ field }) => (
+                            <FormItem><FormControl><Input placeholder="Address" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
                         <Button ref={placeOrderBtnRef} type="submit" disabled={isPlacingOrder} className="w-full">{isPlacingOrder ? 'Placing Order...' : 'Place Order'}</Button>
                     </CardContent>
                 </Card>
