@@ -1,31 +1,30 @@
 
 'use server';
 /**
- * @fileOverview A conversational AI diagnostic agent named Asha, enhanced for Strategic Development Prediction.
+ * @fileOverview A conversational AI strategic agent named Asha.
  *
- * - chatWithAsha - A function that handles a single turn in a conversation with Asha.
- * - AshaChatInput - The input type for the chatWithAsha function.
- * - AshaChatOutput - The return type for the chatWithAsha function.
+ * - chatWithAsha - A function that handles strategic product auditing.
+ * - AshaChatInput - The input type including page context and business vertical.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { getAdminServices } from '@/firebase/admin-init';
 
-// Use simple schemas for the chat turn
 const ChatMessageSchema = z.object({
   role: z.enum(['user', 'model']),
   text: z.string(),
 });
 
 const AshaChatInputSchema = z.object({
-  history: z.array(ChatMessageSchema).describe('The conversation history so far.'),
+  history: z.array(ChatMessageSchema).describe('The conversation history.'),
   message: z.string().describe('The latest message from the user.'),
-  role: z.enum(['admin', 'owner', 'customer']).optional().default('customer').describe('The role of the user asking the question.'),
-  storeId: z.string().optional().describe('The ID of the store if in owner mode.'),
+  role: z.enum(['admin', 'owner', 'customer']).optional().default('customer'),
+  storeId: z.string().optional(),
+  businessType: z.enum(['restaurant', 'salon', 'grocery']).optional().describe('The type of business currently being viewed.'),
   context: z.object({
-      pathname: z.string().describe('The current page path the user is viewing.'),
-      platformStatus: z.string().optional().describe('Current status of the system.'),
+      pathname: z.string().describe('The current page path.'),
+      platformStatus: z.string().optional(),
   }).optional(),
 });
 export type AshaChatInput = z.infer<typeof AshaChatInputSchema>;
@@ -39,7 +38,7 @@ export type AshaChatOutput = z.infer<typeof AshaChatOutputSchema>;
 const getGlobalPlatformStats = ai.defineTool(
   {
     name: 'getGlobalPlatformStats',
-    description: 'Retrieves total user count, store count, and order summary for the entire platform.',
+    description: 'Retrieves platform-wide counts for users, stores, and orders.',
     inputSchema: z.object({}),
     outputSchema: z.object({
       totalUsers: z.number(),
@@ -48,17 +47,22 @@ const getGlobalPlatformStats = ai.defineTool(
     }),
   },
   async () => {
-    const { db } = await getAdminServices();
-    const [users, stores, orders] = await Promise.all([
-      db.collection('users').get(),
-      db.collection('stores').get(),
-      db.collection('orders').where('status', 'in', ['Delivered', 'Completed']).get(),
-    ]);
-    return {
-      totalUsers: users.size,
-      totalStores: stores.size,
-      totalOrders: orders.size,
-    };
+    try {
+        const { db } = await getAdminServices();
+        const [users, stores, orders] = await Promise.all([
+          db.collection('users').count().get(),
+          db.collection('stores').count().get(),
+          db.collection('orders').count().get(),
+        ]);
+        return {
+          totalUsers: users.data().count,
+          totalStores: stores.data().count,
+          totalOrders: orders.data().count,
+        };
+    } catch (e) {
+        console.error("Tool getGlobalPlatformStats failed:", e);
+        return { totalUsers: 0, totalStores: 0, totalOrders: 0 };
+    }
   }
 );
 
@@ -71,35 +75,35 @@ const prompt = ai.definePrompt(
       name: 'ashaPrompt',
       input: { schema: AshaChatInputSchema },
       output: { schema: AshaChatOutputSchema },
-      model: 'googleai/gemini-2.0-flash-lite-preview-02-05',
+      model: 'googleai/gemini-1.5-flash',
       tools: [getGlobalPlatformStats],
-      prompt: `You are Asha, a highly intelligent Strategic AI Consultant and Product Architect for the LocalBasket platform.
-Your mission is to help the user grow the platform by predicting required developments and explaining the "Why" behind them.
+      prompt: `You are Asha, the Senior Strategic AI Architect for LocalBasket. 
+Your goal is to audit the current page and predict the next logical development step to grow the business.
 
-CURRENT CONTEXT:
-- Page Path: {{context.pathname}}
+CURRENT STATE:
+- User is on page: {{context.pathname}}
 - User Role: {{role}}
-{{#if storeId}}- Target Store ID: {{storeId}}{{/if}}
+{{#if businessType}}- Business Vertical: {{businessType}}{{/if}}
 
-STRATEGIC GUIDELINES:
-1. **Predict Development**: Based on the page the user is currently viewing ({{context.pathname}}), identify 1-2 critical features or technical improvements that should be built next.
-2. **Explain the "Why"**: Don't just list features. Explain the economic or operational impact (e.g., "Building a real-time table map will reduce order wait time by 15% and increase table turnover").
-3. **Role-Awareness**:
-   - If user is ADMIN: Focus on scalability, security, and platform-wide revenue analytics.
-   - If user is OWNER: Focus on operational efficiency, customer retention, and upsell opportunities.
-   - If user is CUSTOMER: Focus on frictionless ordering, personalization, and discovery.
+STRATEGIC DIRECTIVES:
+1. **Identify the Gap**: Look at what is likely missing on the page {{context.pathname}} given the role of {{role}}.
+2. **Predict Development**: Propose one specific feature or technical optimization.
+3. **Explain the "Why"**: Link the proposal to economic impact (e.g., "Implementing X will reduce churn by Y%").
+4. **Be Vertical-Specific**: If {{businessType}} is 'salon', suggest beauty-specific tech (e.g., 'Stylist Slot Optimization'). If 'restaurant', suggest kitchen tech (e.g., 'Ticket Wait-Time Forecasting').
 
-Keep your responses conversational but highly professional and data-driven.
+Format your response with:
+🚀 **Prediction**: [The feature name]
+💡 **Strategic "Why"**: [The business/technical reasoning]
 
-Conversation History:
+Keep it concise, professional, and visionary.
+
+History:
 {{#each history}}
 - {{role}}: {{text}}
 {{/each}}
 
-New Message:
+Message:
 {{message}}
-
-Your Strategic Response:
 `,
     }
   );
@@ -112,6 +116,6 @@ const ashaFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await prompt(input);
-    return output!;
+    return output || "I've analyzed the platform state but am currently calibrating my strategic engines. Please try again in a moment.";
   }
 );
