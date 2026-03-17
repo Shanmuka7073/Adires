@@ -125,6 +125,7 @@ export async function addRestaurantOrderItem({
   deliveryLat,
   deliveryLng,
   zoneId,
+  status = 'Pending',
 }: {
   storeId: string;
   tableNumber: string | null;
@@ -136,6 +137,7 @@ export async function addRestaurantOrderItem({
   deliveryLat?: number;
   deliveryLng?: number;
   zoneId?: string;
+  status?: Order['status'];
 }): Promise<{ success: boolean; error?: string; orderId?: string }> {
   try {
     const { db } = await getAdminServices();
@@ -158,7 +160,7 @@ export async function addRestaurantOrderItem({
     const totalAmount = orderItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
     // Determine the type based on context
-    let orderType: Order['orderType'] = tableNumber ? 'dine-in' : (deliveryAddress ? 'delivery' : 'takeaway');
+    let orderType: Order['orderType'] = tableNumber === 'Counter' ? 'counter' : (tableNumber ? 'dine-in' : (deliveryAddress ? 'delivery' : 'takeaway'));
 
     const orderData = {
       id: orderId, 
@@ -166,13 +168,13 @@ export async function addRestaurantOrderItem({
       tableNumber: tableNumber ? String(tableNumber) : null,
       sessionId: sessionId,
       userId: 'guest',
-      customerName: customerName || (tableNumber ? `Table ${tableNumber}` : 'Guest'),
+      customerName: customerName || (tableNumber === 'Counter' ? 'Walk-in Guest' : (tableNumber ? `Table ${tableNumber}` : 'Guest')),
       deliveryAddress: deliveryAddress || (tableNumber ? 'In-store dining' : 'TBD'),
       deliveryLat: deliveryLat || 0,
       deliveryLng: deliveryLng || 0,
       zoneId: zoneId || 'local-service',
       phone: phone || '',
-      status: 'Pending',
+      status: status,
       orderType: orderType,
       isActive: true, 
       orderDate: FieldValue.serverTimestamp(), 

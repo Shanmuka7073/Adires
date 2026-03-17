@@ -53,7 +53,9 @@ import {
   LocateFixed,
   Video,
   Truck,
-  X
+  X,
+  Calculator,
+  ShoppingBag
 } from 'lucide-react';
 
 import {
@@ -210,13 +212,16 @@ function ModeSelectionDialog({ isOpen, onOpenChange, onSelectMode, currentMode, 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl">
-                <DialogHeader><DialogTitle className="text-xl font-black uppercase">Service Mode</DialogTitle></DialogHeader>
-                <div className="grid grid-cols-2 gap-4 py-6">
-                    <Button variant={currentMode === 'table' ? 'default' : 'outline'} className="h-24 rounded-2xl flex-col gap-2 font-black uppercase text-[10px]" onClick={() => {}} style={currentMode === 'table' ? { backgroundColor: theme?.primaryColor } : {}}>
-                        <Utensils className="h-6 w-6" /> {isSalon ? 'In-Chair' : 'Dine-In'}
+                <DialogHeader><DialogTitle className="text-xl font-black uppercase text-center">Select Order Mode</DialogTitle></DialogHeader>
+                <div className="grid grid-cols-3 gap-3 py-6">
+                    <Button variant={currentMode === 'table' ? 'default' : 'outline'} className="h-20 rounded-2xl flex-col gap-1 font-black uppercase text-[8px] tracking-tight" onClick={() => {}} style={currentMode === 'table' ? { backgroundColor: theme?.primaryColor } : {}}>
+                        <Utensils className="h-5 w-5" /> {isSalon ? 'In-Chair' : 'Dine-In'}
                     </Button>
-                    <Button variant={currentMode === 'delivery' ? 'default' : 'outline'} className="h-24 rounded-2xl flex-col gap-2 font-black uppercase text-[10px]" onClick={() => onSelectMode('delivery')}>
-                        <Truck className="h-6 w-6" /> Home {isSalon ? 'Service' : 'Delivery'}
+                    <Button variant={currentMode === 'counter' ? 'default' : 'outline'} className="h-20 rounded-2xl flex-col gap-1 font-black uppercase text-[8px] tracking-tight" onClick={() => onSelectMode('counter', 'Counter')} style={currentMode === 'counter' ? { backgroundColor: theme?.primaryColor } : {}}>
+                        <Calculator className="h-5 w-5" /> Counter Sale
+                    </Button>
+                    <Button variant={currentMode === 'delivery' ? 'default' : 'outline'} className="h-20 rounded-2xl flex-col gap-1 font-black uppercase text-[8px] tracking-tight" onClick={() => onSelectMode('delivery')} style={currentMode === 'delivery' ? { backgroundColor: theme?.primaryColor } : {}}>
+                        <Truck className="h-5 w-5" /> Delivery
                     </Button>
                 </div>
                 {currentMode === 'table' && (
@@ -430,6 +435,7 @@ export default function PublicMenuPage() {
 
   const sessionId = useMemo(() => {
     const dS = `${new Date().getFullYear()}-${new Date().getMonth() + 1}-${new Date().getDate()}`;
+    if (tableNumber === 'Counter') return `counter-${Date.now()}-${storeId}`; // UNIQUE FOR EVERY COUNTER SALE
     if (tableNumber) return `table-${tableNumber}-${dS}-${storeId}`;
     let dId = localStorage.getItem(`device_session_${storeId}`); if (!dId) { dId = Math.random().toString(36).substring(2, 15); localStorage.setItem(`device_session_${storeId}`, dId); }
     return `home-${dId}-${dS}`;
@@ -466,8 +472,24 @@ export default function PublicMenuPage() {
   const handlePlaceOrder = () => {
     if (!tableNumber && (!deliveryAddress || !customerName || !phone)) { setIsDeliveryDetailsOpen(true); return; }
     startAdding(async () => {
-      const res = await addRestaurantOrderItem({ storeId, sessionId, tableNumber, items: cartItems, deliveryAddress, customerName, phone, deliveryLat: deliveryCoords?.lat, deliveryLng: deliveryCoords?.lng });
-      if (res.success) { toast({ title: 'Sent to Kitchen!' }); clearCart(); }
+      const isCounter = tableNumber === 'Counter';
+      const res = await addRestaurantOrderItem({ 
+          storeId, 
+          sessionId, 
+          tableNumber, 
+          items: cartItems, 
+          deliveryAddress, 
+          customerName, 
+          phone, 
+          deliveryLat: deliveryCoords?.lat, 
+          deliveryLng: deliveryCoords?.lng,
+          status: isCounter ? 'Billed' : 'Pending' // FAST BILL FOR COUNTER
+      });
+      if (res.success) { 
+          toast({ title: isCounter ? 'Bill Generated!' : 'Sent to Kitchen!' }); 
+          clearCart(); 
+          if(isCounter) handleStartNewOrder(); 
+      }
     });
   };
 
@@ -494,7 +516,7 @@ export default function PublicMenuPage() {
     <>
       {selectedItemForIngredients && <IngredientsDialog open={!!selectedItemForIngredients} onClose={() => setSelectedItemForIngredients(null)} dishName={selectedItemForIngredients.name} price={selectedItemForIngredients.price} isLoading={isFetchingIngredients} calories={ingredientsData?.nutrition?.calories || 0} protein={ingredientsData?.nutrition?.protein || 0} ingredients={(ingredientsData?.components as any) || []} itemType={ingredientsData?.itemType} onAdd={() => { handleAddItem(selectedItemForIngredients); setSelectedItemForIngredients(null); }} />}
       <DeliveryDetailsDialog isOpen={isDeliveryDetailsOpen} onOpenChange={setIsDeliveryDetailsOpen} onSave={(d: any) => { setCustomerName(d.name); setPhone(d.phone); setDeliveryAddress(d.address); if(d.lat) setDeliveryCoords({lat:d.lat, lng:d.lng}); localStorage.setItem(`last_name_${storeId}`, d.name); localStorage.setItem(`last_phone_${storeId}`, d.phone); localStorage.setItem(`last_address_${storeId}`, d.address); setIsDeliveryDetailsOpen(false); }} initialData={{ name: customerName, phone, address: deliveryAddress }} theme={theme} />
-      <ModeSelectionDialog isOpen={isModeDialogOpen} onOpenChange={setIsModeDialogOpen} onSelectMode={(m: any, v: any) => { if(m==='delivery') setTableNumber(null); else if(v) setTableNumber(v); setIsModeDialogOpen(false); handleStartNewOrder(); }} currentMode={tableNumber ? 'table' : 'delivery'} theme={theme} isSalon={isSalon} />
+      <ModeSelectionDialog isOpen={isModeDialogOpen} onOpenChange={setIsModeDialogOpen} onSelectMode={(m: any, v: any) => { if(m==='delivery') setTableNumber(null); else if(v) setTableNumber(v); setIsModeDialogOpen(false); handleStartNewOrder(); }} currentMode={tableNumber === 'Counter' ? 'counter' : (tableNumber ? 'table' : 'delivery')} theme={theme} isSalon={isSalon} />
       {placedOrders && <UPIPaymentDialog isOpen={isUpiDialogOpen} onOpenChange={setIsUpiDialogOpen} total={placedOrders.reduce((acc, o) => acc + o.totalAmount, 0)} store={store} theme={theme} />}
       
       <div className="min-h-screen pb-24" style={{ backgroundColor: theme?.backgroundColor || '#1A1616' }}>
@@ -507,7 +529,7 @@ export default function PublicMenuPage() {
                       <div className="min-w-0">
                           <h1 className="text-base font-black truncate leading-tight" style={{ color: theme?.primaryColor || '#FBC02D' }}>{store.name}</h1>
                           <div className="flex items-center gap-1.5 mt-0.5">
-                              {tableNumber ? <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>{isSalon ? `Chair ${tableNumber}` : `T-${tableNumber}`}</Badge> : <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest bg-blue-600 text-white border-0">{isSalon ? 'Home' : 'Delivery'}</Badge>}
+                              {tableNumber === 'Counter' ? <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest bg-green-600 text-white border-0">Counter Sale</Badge> : tableNumber ? <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>{isSalon ? `Chair ${tableNumber}` : `T-${tableNumber}`}</Badge> : <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest bg-blue-600 text-white border-0">{isSalon ? 'Home' : 'Delivery'}</Badge>}
                               <button onClick={() => setIsModeDialogOpen(true)} className="text-[8px] font-black uppercase tracking-widest underline opacity-40 hover:opacity-100 transition-opacity" style={{ color: theme?.textColor || '#fff' }}>Change</button>
                           </div>
                       </div>
@@ -556,7 +578,7 @@ export default function PublicMenuPage() {
           </div>
 
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[400px] px-4 flex gap-2">
-              {tableNumber && placedOrders && placedOrders.length > 0 && (
+              {tableNumber && tableNumber !== 'Counter' && placedOrders && placedOrders.length > 0 && (
                   <DropdownMenu>
                       <DropdownMenuTrigger asChild><Button variant="outline" className="h-12 w-12 rounded-xl shadow-2xl border-2 shrink-0 bg-white/10 text-white" style={{ borderColor: theme?.primaryColor || '#FBC02D' }}><BellRing className="h-5 w-5" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="start" className="w-48 rounded-2xl p-2">
@@ -570,15 +592,15 @@ export default function PublicMenuPage() {
               {cartItems.length > 0 && (
                   <Button onClick={handlePlaceOrder} disabled={isAdding} className="h-12 flex-1 rounded-xl shadow-2xl text-[10px] font-black uppercase tracking-[0.1em] border border-white/10" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>
                       {isAdding ? <Loader2 className="animate-spin h-4 w-4"/> : <PlusCircle className="mr-2 h-4 w-4" />}
-                      Place Order ({cartItems.length})
+                      {tableNumber === 'Counter' ? `Generate Bill (${cartItems.length})` : `Place Order (${cartItems.length})`}
                   </Button>
               )}
               {(activeItemCount > 0 || cartItems.length > 0) && (
                   <Sheet>
                       <SheetTrigger asChild>
-                          <Button variant="outline" className={cn("h-12 rounded-xl shadow-2xl text-[10px] font-black uppercase tracking-[0.1em] border-2", cartItems.length === 0 ? "flex-1" : "px-4")} style={{ borderColor: theme?.primaryColor || '#FBC02D', color: theme?.primaryColor || '#FBC02D', backgroundColor: theme?.backgroundColor || '#1A1616' }}>
+                          <Button variant="outline" className={cn("h-12 rounded-xl shadow-2xl text-[10px] font-black uppercase tracking-[0.1em] border-2", (cartItems.length === 0 || tableNumber === 'Counter') ? "flex-1" : "px-4")} style={{ borderColor: theme?.primaryColor || '#FBC02D', color: theme?.primaryColor || '#FBC02D', backgroundColor: theme?.backgroundColor || '#1A1616' }}>
                               <Receipt className={cn(cartItems.length === 0 && "mr-2", "h-4 w-4")} /> 
-                              {cartItems.length === 0 && "View Bill"}
+                              {(cartItems.length === 0 || tableNumber === 'Counter') && "View Bill"}
                               {activeItemCount > 0 && <Badge className="ml-2 h-5 min-w-[20px] rounded-md text-[9px] font-black" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>{activeItemCount}</Badge>}
                           </Button>
                       </SheetTrigger>

@@ -96,7 +96,7 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
             <div className="flex items-center gap-1.5">
                  <div className="opacity-20">{titleIcon}</div>
                  <div>
-                    <CardTitle className="text-sm font-black">{session.tableNumber ? `Table ${session.tableNumber}` : 'Online'}</CardTitle>
+                    <CardTitle className="text-sm font-black">{session.tableNumber || 'Walking'}</CardTitle>
                     <CardDescription className="text-[7px] opacity-40">#{session.id.slice(-4)}</CardDescription>
                  </div>
             </div>
@@ -238,9 +238,11 @@ export default function StoreOrdersPage() {
                 <h1 className={cn("text-xl font-black tracking-tighter", isKitchenMode ? "text-white" : "text-gray-900")}>OP CENTER</h1>
                 <p className={cn("text-[8px] font-bold uppercase opacity-40", isKitchenMode ? "text-primary" : "text-muted-foreground")}>{myStore?.name}</p>
             </div>
-            <Button onClick={() => setIsKitchenMode(!isKitchenMode)} variant="outline" size="sm" className={cn("h-8 px-3 rounded-lg font-black text-[9px] uppercase border-2", isKitchenMode && "bg-primary text-white border-primary")}>
-                {isKitchenMode ? <Monitor className="h-3 w-3 mr-1.5"/> : <ChefHat className="h-3 w-3 mr-1.5"/>} {isKitchenMode ? 'POS' : 'KDS'}
-            </Button>
+            <div className="flex gap-2">
+                <Button onClick={() => setIsKitchenMode(!isKitchenMode)} variant="outline" size="sm" className={cn("h-8 px-3 rounded-lg font-black text-[9px] uppercase border-2", isKitchenMode && "bg-primary text-white border-primary")}>
+                    {isKitchenMode ? <Monitor className="h-3 w-3 mr-1.5"/> : <ChefHat className="h-3 w-3 mr-1.5"/>} {isKitchenMode ? 'POS' : 'KDS'}
+                </Button>
+            </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
