@@ -45,6 +45,7 @@ import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { playTickSound } from '@/lib/cart';
 
 const STATUS_META: Record<string, any> = {
   Draft: { icon: Clock, variant: 'outline', color: 'text-gray-400', label: 'Draft' },
@@ -80,6 +81,7 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { s
     }, [menuItems, searchTerm]);
 
     const addToCart = (item: MenuItem) => {
+        playTickSound();
         setCart(prev => {
             const existing = prev.find(i => i.item.id === item.id);
             if (existing) return prev.map(i => i.item.id === item.id ? { ...i, qty: i.qty + 1 } : i);
@@ -171,8 +173,9 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { s
                                     </div>
                                     <div className="flex items-center gap-1.5 font-black text-xs shrink-0">
                                         <button onClick={() => {
+                                            playTickSound();
                                             if(c.qty > 1) setCart(p => p.map(i => i.item.id === c.item.id ? {...i, qty: i.qty - 1} : i));
-                                            else setCart(p => p.filter(i => i.item.id !== c.item.id));
+                                            else setCart(p => p.filter(i => i.item.id !== i.item.id));
                                         }} className="h-6 w-6 rounded-md bg-black/5 flex items-center justify-center hover:bg-black/10">-</button>
                                         <span className="w-4 text-center">{c.qty}</span>
                                         <button onClick={() => addToCart(c.item)} className="h-6 w-6 rounded-md bg-black/5 flex items-center justify-center hover:bg-black/10">+</button>
@@ -311,7 +314,7 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
             </div>
             <div className="flex gap-1 w-full">
                 <Button className="w-full h-7 rounded-lg text-[8px] font-black uppercase shadow-sm" onClick={handleAction} disabled={isUpdating || isProcessing}>
-                    {session.status === 'Billed' ? 'Confirm Payment' : (isSalon ? 'Start Service' : 'Send to Kitchen')}
+                    {session.status === 'Billed' ? 'Cash Received' : (isSalon ? 'Start Service' : 'Send to Kitchen')}
                 </Button>
             </div>
       </CardFooter>

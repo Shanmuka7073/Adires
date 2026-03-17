@@ -47,6 +47,36 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+// Utility to play a crisp "tick" sound using Web Audio API
+export const playTickSound = () => {
+  if (typeof window === 'undefined') return;
+  try {
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContext) return;
+    
+    const audioCtx = new AudioContext();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    oscillator.type = 'sine';
+    // Short high frequency for a "tick"
+    oscillator.frequency.setValueAtTime(1500, audioCtx.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.05);
+
+    gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 0.05);
+  } catch (e) {
+    // Fail silently if audio is blocked by browser policy
+  }
+};
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const { auth, firestore, user } = useFirebase();
@@ -64,6 +94,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       tableNumber?: string,
       sessionId?: string
     ) => {
+      // Play interaction sound
+      playTickSound();
+
       setCartItems(prev => {
         const key = `${product.id}_${variant.sku}`;
         const existing = prev.find(
