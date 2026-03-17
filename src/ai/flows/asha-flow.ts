@@ -10,13 +10,11 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { getAdminServices } from '@/firebase/admin-init';
 
-const ChatMessageSchema = z.object({
-  role: z.enum(['user', 'model']),
-  text: z.string(),
-}).passthrough();
-
 const AshaChatInputSchema = z.object({
-  history: z.array(z.any()).optional().default([]),
+  history: z.array(z.object({
+    role: z.string(),
+    text: z.string()
+  })).optional().default([]),
   message: z.string(),
   role: z.string().optional().default('customer'),
   storeId: z.string().optional(),
@@ -27,12 +25,14 @@ const AshaChatInputSchema = z.object({
 }).passthrough();
 export type AshaChatInput = z.infer<typeof AshaChatInputSchema>;
 
-const AshaChatOutputSchema = z.string();
-export type AshaChatOutput = z.infer<typeof AshaChatOutputSchema>;
+// Changed to an object for more reliable JSON generation
+const AshaChatOutputSchema = z.object({
+    analysis: z.string().describe("The strategic analysis and prediction text.")
+});
+export type AshaChatOutput = string;
 
 /**
  * TOOL: Fetches global platform statistics for Admin monitoring.
- * Optimized with robust error handling to prevent flow crashes.
  */
 const getGlobalPlatformStats = ai.defineTool(
   {
@@ -76,7 +76,8 @@ const prompt = ai.definePrompt(
       name: 'ashaPrompt',
       input: { schema: AshaChatInputSchema },
       output: { schema: AshaChatOutputSchema },
-      model: 'googleai/gemini-2.5-flash',
+      // Switched to stable 1.5-flash for more reliable structured output
+      model: 'googleai/gemini-1.5-flash',
       tools: [getGlobalPlatformStats],
       prompt: `You are Asha, the Senior Strategic AI Architect for LocalBasket. 
 Your goal is to perform a deep-scan of the current application state and predict the next logical development step to maximize business growth and user engagement.
@@ -95,7 +96,7 @@ STRATEGIC DIRECTIVES:
    - If 'restaurant', suggest kitchen ticket forecasting or digital waste management.
    - If 'grocery', suggest expiration date tracking or bulk-buy incentives.
 
-Format your response exactly as:
+Format the 'analysis' field exactly as:
 🚀 **Prediction**: [The name of the feature or fix]
 💡 **Strategic "Why"**: [The technical and business justification]
 
@@ -116,15 +117,16 @@ const ashaFlow = ai.defineFlow(
   {
     name: 'ashaFlow',
     inputSchema: AshaChatInputSchema,
-    outputSchema: AshaChatOutputSchema,
+    outputSchema: z.string(),
   },
   async (input) => {
     try {
         const { output } = await prompt(input);
-        return output || "I've analyzed the platform state but am currently calibrating my strategic engines. Please try again in a moment.";
+        return output?.analysis || "I've analyzed the platform state but am currently re-calibrating. Please try the scan again.";
     } catch (error: any) {
-        console.error("Asha Flow internal error:", error);
-        return `Asha Audit Error: ${error.message || String(error)}. technical_context: ${input.context?.pathname || 'none'}`;
+        console.error("Asha Flow Error:", error);
+        // Providing specific technical feedback for debugging if it happens again
+        return `Asha Audit Error: ${error.message || String(error)}. Context: ${input.context?.pathname}. Please retry.`;
     }
   }
 );
