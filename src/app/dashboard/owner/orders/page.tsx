@@ -28,7 +28,8 @@ import {
   Plus,
   PlusCircle,
   X,
-  Search
+  Search,
+  Scissors
 } from 'lucide-react';
 import {
   collection, query, where, orderBy, doc, updateDoc, serverTimestamp, Timestamp, limit
@@ -46,11 +47,11 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const STATUS_META: Record<string, any> = {
-  Draft: { icon: Clock, variant: 'outline', color: 'text-gray-400', label: 'Ordering...' },
+  Draft: { icon: Clock, variant: 'outline', color: 'text-gray-400', label: 'Draft' },
   Pending: { icon: AlertTriangle, variant: 'secondary', color: 'text-amber-600', label: 'New' },
-  Processing: { icon: CookingPot, variant: 'secondary', color: 'text-blue-600', label: 'Kitchen' },
+  Processing: { icon: CookingPot, variant: 'secondary', color: 'text-blue-600', label: 'Processing' },
   'Out for Delivery': { icon: Truck, variant: 'outline', color: 'text-purple-600', label: 'Delivery' },
-  Billed: { icon: Check, variant: 'default', color: 'text-green-600', label: 'Ready' },
+  Billed: { icon: Check, variant: 'default', color: 'text-green-600', label: 'Billed' },
   Completed: { icon: CheckCircle, variant: 'default', color: 'text-gray-600', label: 'Paid' },
   Delivered: { icon: CheckCircle, variant: 'default', color: 'text-gray-600', label: 'Done' },
   Cancelled: { icon: AlertTriangle, variant: 'destructive', color: 'text-red-600', label: 'Void' },
@@ -68,7 +69,7 @@ interface Session {
   serviceType?: string;
 }
 
-function QuickCounterSaleDialog({ storeId, menuItems, onComplete }: { storeId: string, menuItems: MenuItem[], onComplete: () => void }) {
+function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { storeId: string, menuItems: MenuItem[], onComplete: () => void, isSalon: boolean }) {
     const { toast } = useToast();
     const [isProcessing, startAction] = useTransition();
     const [cart, setCart] = useState<{item: MenuItem, qty: number}[]>([]);
@@ -118,8 +119,8 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete }: { storeId: s
     return (
         <DialogContent className="max-w-4xl rounded-[2.5rem] border-0 shadow-2xl h-[90vh] flex flex-col p-0 overflow-hidden">
             <div className="p-6 bg-primary/5 border-b border-black/5 shrink-0">
-                <DialogTitle className="text-2xl font-black uppercase tracking-tight">Quick Counter POS</DialogTitle>
-                <DialogDescription className="text-xs font-bold opacity-40 uppercase">Two-touch billing for walk-ins & parcels</DialogDescription>
+                <DialogTitle className="text-2xl font-black uppercase tracking-tight">Quick {isSalon ? 'Checkout' : 'Counter POS'}</DialogTitle>
+                <DialogDescription className="text-xs font-bold opacity-40 uppercase">Two-touch billing for walk-ins</DialogDescription>
             </div>
 
             <div className="flex-1 flex min-h-0">
@@ -156,8 +157,8 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete }: { storeId: s
                 {/* Cart Side */}
                 <div className="w-[300px] bg-black/5 flex flex-col shrink-0">
                     <div className="p-4 border-b border-black/5 flex justify-between items-center">
-                        <h3 className="font-black text-[10px] uppercase tracking-widest opacity-40">Your Selection</h3>
-                        <Button variant="ghost" size="sm" className="h-6 text-[8px] font-black uppercase" onClick={() => setCart([])}>Clear All</Button>
+                        <h3 className="font-black text-[10px] uppercase tracking-widest opacity-40">Selection</h3>
+                        <Button variant="ghost" size="sm" className="h-6 text-[8px] font-black uppercase" onClick={() => setCart([])}>Clear</Button>
                     </div>
                     <ScrollArea className="flex-1 p-4">
                         <div className="space-y-3">
@@ -177,12 +178,12 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete }: { storeId: s
                                     </div>
                                 </div>
                             ))}
-                            {cart.length === 0 && <div className="text-center py-20 opacity-20"><ShoppingBag className="h-10 w-10 mx-auto mb-2"/><p className="text-[8px] font-black uppercase">No items added</p></div>}
+                            {cart.length === 0 && <div className="text-center py-20 opacity-20"><ShoppingBag className="h-10 w-10 mx-auto mb-2"/><p className="text-[8px] font-black uppercase">No items</p></div>}
                         </div>
                     </ScrollArea>
                     <div className="p-6 bg-white border-t border-black/5 space-y-4">
                         <div className="flex justify-between items-baseline">
-                            <span className="text-[10px] font-black uppercase opacity-40">Grand Total</span>
+                            <span className="text-[10px] font-black uppercase opacity-40">Total</span>
                             <span className="text-2xl font-black text-primary">₹{total.toFixed(0)}</span>
                         </div>
                         <Button 
@@ -200,7 +201,7 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete }: { storeId: s
     );
 }
 
-function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, store }: { session: Session; isUpdating: boolean; onDismissService: (id: string) => void; isKitchenMode: boolean; store: Store }) {
+function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, store, isSalon }: { session: Session; isUpdating: boolean; onDismissService: (id: string) => void; isKitchenMode: boolean; store: Store; isSalon: boolean }) {
   const { toast } = useToast();
   const [isProcessing, startAction] = useTransition();
 
@@ -239,7 +240,7 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
                   <div class="header">
                       <h2 style="margin: 0;">${store.name}</h2>
                       <p style="font-size: 10px;">${store.address}</p>
-                      <p style="font-size: 12px;">Bill: #${session.id.slice(-4)} | Table: ${session.tableNumber || 'Counter'}</p>
+                      <p style="font-size: 12px;">Bill: #${session.id.slice(-4)} | ${isSalon ? 'Chair' : 'Table'}: ${session.tableNumber || 'Counter'}</p>
                   </div>
                   <div class="items">${itemsHtml}</div>
                   <div class="total" style="display: flex; justify-content: space-between;">
@@ -259,7 +260,7 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
   const meta = STATUS_META[session.status] || STATUS_META.Pending;
   if (isKitchenMode && !['Pending', 'Processing'].includes(session.status)) return null;
 
-  const titleIcon = session.orderType === 'takeaway' ? <ShoppingBag className="h-4 w-4" /> : session.orderType === 'counter' ? <Calculator className="h-4 w-4" /> : <Utensils className="h-4 w-4" />;
+  const titleIcon = session.orderType === 'takeaway' ? <ShoppingBag className="h-4 w-4" /> : session.orderType === 'counter' ? <Calculator className="h-4 w-4" /> : (isSalon ? <Scissors className="h-4 w-4" /> : <Utensils className="h-4 w-4" />);
 
   return (
     <Card className={cn(
@@ -278,7 +279,7 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
             <div className="flex items-center gap-1.5">
                  <div className="opacity-20">{titleIcon}</div>
                  <div>
-                    <CardTitle className="text-sm font-black">{session.tableNumber || 'Walking'}</CardTitle>
+                    <CardTitle className="text-sm font-black">{isSalon ? 'Chair' : ''} {session.tableNumber || 'Walking'}</CardTitle>
                     <CardDescription className="text-[7px] opacity-40">#{session.id.slice(-4)}</CardDescription>
                  </div>
             </div>
@@ -303,7 +304,7 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
             </div>
             <div className="flex gap-1 w-full">
                 <Button className="w-full h-7 rounded-lg text-[8px] font-black uppercase" onClick={handleAction} disabled={isUpdating || isProcessing}>
-                    {session.status === 'Billed' ? 'Cash Received' : 'To Kitchen'}
+                    {session.status === 'Billed' ? 'Cash Received' : (isSalon ? 'Start Service' : 'To Kitchen')}
                 </Button>
             </div>
       </CardFooter>
@@ -343,7 +344,7 @@ function DeliveryOrderCard({ order, onStatusChange, isUpdating, isKitchenMode }:
             </CardContent>
             <CardFooter className="p-2 pt-1 bg-black/5">
                 <Button className="w-full h-7 rounded-lg text-[8px] font-black uppercase" onClick={() => onStatusChange(order.id, getNextStatus(order.status))} disabled={isUpdating}>
-                    {order.status === 'Pending' ? 'Start Prep' : 'Next Step'}
+                    {order.status === 'Pending' ? 'Process Job' : 'Next Step'}
                 </Button>
             </CardFooter>
         </Card>
@@ -359,6 +360,7 @@ export default function StoreOrdersPage() {
   const { stores, userStore, loading: isStoreLoading } = useAppStore();
 
   const myStore = useMemo(() => userStore || stores[0], [userStore, stores]);
+  const isSalon = useMemo(() => myStore?.businessType === 'salon' || myStore?.name.toLowerCase().includes('salon'), [myStore]);
 
   const activeOrdersQuery = useMemoFirebase(() =>
     firestore && myStore ? query(collection(firestore, 'orders'), where('storeId', '==', myStore.id), where('isActive', '==', true), orderBy('orderDate', 'desc'), limit(50)) : null,
@@ -431,24 +433,27 @@ export default function StoreOrdersPage() {
                 storeId={myStore!.id} 
                 menuItems={menuItems} 
                 onComplete={() => setIsNewSaleOpen(false)}
+                isSalon={isSalon}
             />
         </Dialog>
 
         <div className="flex justify-between items-center mb-6 border-b pb-3 border-black/10">
             <div>
                 <h1 className={cn("text-xl font-black tracking-tighter", isKitchenMode ? "text-white" : "text-gray-900")}>OP CENTER</h1>
-                <p className={cn("text-[8px] font-bold uppercase opacity-40", isKitchenMode ? "text-primary" : "text-muted-foreground")}>{myStore?.name}</p>
+                <p className={cn("text-[8px] font-bold uppercase opacity-40", isKitchenMode ? "text-primary" : "text-muted-foreground")}>{myStore?.name} • {isSalon ? 'SALON' : 'RESTAURANT'}</p>
             </div>
             <div className="flex gap-2">
-                <Button onClick={() => setIsKitchenMode(!isKitchenMode)} variant="outline" size="sm" className={cn("h-8 px-3 rounded-lg font-black text-[9px] uppercase border-2", isKitchenMode && "bg-primary text-white border-primary")}>
-                    {isKitchenMode ? <Monitor className="h-3 w-3 mr-1.5"/> : <ChefHat className="h-3 w-3 mr-1.5"/>} {isKitchenMode ? 'POS' : 'KDS'}
-                </Button>
+                {!isSalon && (
+                    <Button onClick={() => setIsKitchenMode(!isKitchenMode)} variant="outline" size="sm" className={cn("h-8 px-3 rounded-lg font-black text-[9px] uppercase border-2", isKitchenMode && "bg-primary text-white border-primary")}>
+                        {isKitchenMode ? <Monitor className="h-3 w-3 mr-1.5"/> : <ChefHat className="h-3 w-3 mr-1.5"/>} {isKitchenMode ? 'POS' : 'KDS'}
+                    </Button>
+                )}
             </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <section className="space-y-3">
-                <h2 className="text-[10px] font-black uppercase tracking-widest text-blue-600 flex items-center gap-1.5"><Truck className="h-3 w-3"/> Home Delivery & Online</h2>
+                <h2 className="text-[10px] font-black uppercase tracking-widest text-blue-600 flex items-center gap-1.5"><Truck className="h-3 w-3"/> Out-Call & Online</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {homeDeliveries.map(o => <DeliveryOrderCard key={o.id} order={o} onStatusChange={handleOrderUpdate} isUpdating={isUpdating} isKitchenMode={isKitchenMode} />)}
                     {homeDeliveries.length === 0 && <p className="text-[8px] opacity-30 uppercase font-black py-8 text-center border-2 border-dashed rounded-xl">No active jobs</p>}
@@ -457,13 +462,13 @@ export default function StoreOrdersPage() {
 
             <section className="space-y-3">
                 <div className="flex justify-between items-center">
-                    <h2 className="text-[10px] font-black uppercase tracking-widest text-green-600 flex items-center gap-1.5"><Utensils className="h-3 w-3"/> Table & Counter</h2>
+                    <h2 className="text-[10px] font-black uppercase tracking-widest text-green-600 flex items-center gap-1.5">{isSalon ? <Scissors className="h-3 w-3"/> : <Utensils className="h-3 w-3"/>} {isSalon ? 'Chair & Counter' : 'Table & Counter'}</h2>
                     <Button onClick={() => setIsNewSaleOpen(true)} size="sm" variant="outline" className="h-7 px-3 rounded-lg font-black text-[8px] uppercase border-2 border-green-600/30 text-green-600">
-                        <PlusCircle className="h-3 w-3 mr-1"/> New Sale
+                        <PlusCircle className="h-3 w-3 mr-1"/> New Checkout
                     </Button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {Object.values(sessions).map(s => <SessionCard key={s.id} session={s} isUpdating={isUpdating} onDismissService={handleDismissService} isKitchenMode={isKitchenMode} store={myStore!} />)}
+                    {Object.values(sessions).map(s => <SessionCard key={s.id} session={s} isUpdating={isUpdating} onDismissService={handleDismissService} isKitchenMode={isKitchenMode} store={myStore!} isSalon={isSalon} />)}
                     {Object.values(sessions).length === 0 && <p className="text-[8px] opacity-30 uppercase font-black py-8 text-center border-2 border-dashed rounded-xl">No active sessions</p>}
                 </div>
             </section>

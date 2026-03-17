@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowRight, Store, ShoppingCart, CheckCircle, XCircle, Users, FileText } from 'lucide-react';
+import { ArrowRight, Store, ShoppingBag, CheckCircle, XCircle, Users, FileText, Scissors, Utensils } from 'lucide-react';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -14,8 +14,9 @@ import type { Store as StoreType } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { useAppStore } from '@/lib/store';
 
-const restaurantLinks = [
+const serviceLinks = [
     {
         title: 'my-store',
         description: 'manage-your-store-products-and-incoming-orders',
@@ -26,7 +27,7 @@ const restaurantLinks = [
         title: 'store-orders',
         description: 'view-and-manage-live-orders-from-your-tables',
         href: '/dashboard/owner/orders',
-        icon: ShoppingCart,
+        icon: ShoppingBag,
     },
     {
         title: 'Manage Employees',
@@ -52,11 +53,11 @@ function PWAChecklist({ store }: { store: StoreType }) {
     const allComplete = checklistItems.every(item => item.completed);
 
     return (
-        <Card className="mt-8 bg-green-50 border-green-200">
+        <Card className="mt-8 bg-green-50 border-green-200 rounded-[2rem]">
             <CardHeader>
                 <CardTitle>PWA (Installable App) Readiness</CardTitle>
                 <CardDescription>
-                    Complete these steps to allow customers to add your restaurant's menu to their home screen like a native app.
+                    Complete these steps to allow customers to add your business to their home screen like a native app.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -86,45 +87,49 @@ function PWAChecklist({ store }: { store: StoreType }) {
     )
 }
 
-export default function RestaurantDashboardPage() {
+export default function ServiceDashboardPage() {
     const { user } = useFirebase();
     const { isRestaurantOwner, isLoading: isAuthLoading } = useAdminAuth();
     const router = useRouter();
     const { firestore } = useFirebase();
+    const { userStore } = useAppStore();
 
     const storeQuery = useMemoFirebase(() => 
         user && isRestaurantOwner ? query(collection(firestore, 'stores'), where('ownerId', '==', user.uid)) : null
     , [user, isRestaurantOwner, firestore]);
 
     const { data: stores, isLoading: isStoreLoading } = useCollection<StoreType>(storeQuery);
-    const store = useMemo(() => stores?.[0], [stores]);
+    const store = useMemo(() => userStore || stores?.[0], [userStore, stores]);
 
     const isLoading = isAuthLoading || isStoreLoading;
 
     useLayoutEffect(() => {
-        // Only redirect if loading is finished and the user is confirmed NOT a restaurant owner.
         if (!isLoading && !isRestaurantOwner) {
             router.replace('/dashboard');
         }
     }, [isLoading, isRestaurantOwner, router]);
     
-    // While loading, or if the user is not a restaurant owner (and will be redirected),
-    // show a simple loading message to prevent any UI flashing.
     if (isLoading || !isRestaurantOwner) {
-        return <div className="container mx-auto py-12 text-center">Loading restaurant dashboard...</div>;
+        return <div className="container mx-auto py-12 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto opacity-20" /></div>;
     }
 
-    // Render the correct dashboard for the restaurant owner
+    const isSalon = store?.businessType === 'salon' || store?.name.toLowerCase().includes('salon');
+    const dashboardTitle = isSalon ? 'Salon Dashboard' : 'Restaurant Dashboard';
+    const dashboardIcon = isSalon ? Scissors : Utensils;
+
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
             <div className="text-center mb-12">
-                <h1 className="text-4xl font-bold font-headline">Restaurant Dashboard</h1>
-                <p className="text-lg text-muted-foreground mt-2">Manage your restaurant's digital operations.</p>
+                <div className="flex items-center justify-center gap-3 mb-2">
+                    <dashboardIcon className="h-10 w-10 text-primary" />
+                    <h1 className="text-4xl font-black font-headline tracking-tighter uppercase">{dashboardTitle}</h1>
+                </div>
+                <p className="text-lg text-muted-foreground font-bold opacity-60">Manage your business's digital operations.</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-                {restaurantLinks.map((card) => (
-                    <Link href={card.href} key={card.href} className="group block rounded-lg overflow-hidden h-full">
-                        <Card className="h-full flex flex-col transition-all group-hover:shadow-xl group-hover:-translate-y-1">
+                {serviceLinks.map((card) => (
+                    <Link href={card.href} key={card.href} className="group block rounded-[2.5rem] overflow-hidden h-full">
+                        <Card className="h-full flex flex-col transition-all group-hover:shadow-xl group-hover:-translate-y-1 border-0 shadow-lg">
                             <CardHeader>
                                 <CardTitle className="text-xl font-bold font-headline flex items-center gap-2">
                                     <card.icon className="h-6 w-6 text-primary" />
@@ -142,8 +147,8 @@ export default function RestaurantDashboardPage() {
                     </Link>
                 ))}
             </div>
-             <div className="max-w-4xl mx-auto">
-                {store ? <PWAChecklist store={store} /> : <Skeleton className="h-48 w-full mt-8" />}
+             <div className="max-w-4xl mx-auto mt-8">
+                {store ? <PWAChecklist store={store} /> : <Skeleton className="h-48 w-full mt-8 rounded-[2rem]" />}
             </div>
         </div>
     );
