@@ -1,7 +1,7 @@
 
 'use server';
 /**
- * @fileOverview A conversational AI diagnostic agent named Asha, enhanced for Admin Monitoring.
+ * @fileOverview A conversational AI diagnostic agent named Asha, enhanced for Strategic Development Prediction.
  *
  * - chatWithAsha - A function that handles a single turn in a conversation with Asha.
  * - AshaChatInput - The input type for the chatWithAsha function.
@@ -10,10 +10,9 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import type { ChatMessage } from '@/lib/types';
 import { getAdminServices } from '@/firebase/admin-init';
 
-// Use the existing ChatMessage type for consistency
+// Use simple schemas for the chat turn
 const ChatMessageSchema = z.object({
   role: z.enum(['user', 'model']),
   text: z.string(),
@@ -24,10 +23,13 @@ const AshaChatInputSchema = z.object({
   message: z.string().describe('The latest message from the user.'),
   role: z.enum(['admin', 'owner', 'customer']).optional().default('customer').describe('The role of the user asking the question.'),
   storeId: z.string().optional().describe('The ID of the store if in owner mode.'),
+  context: z.object({
+      pathname: z.string().describe('The current page path the user is viewing.'),
+      platformStatus: z.string().optional().describe('Current status of the system.'),
+  }).optional(),
 });
 export type AshaChatInput = z.infer<typeof AshaChatInputSchema>;
 
-// Output is just a string for the model's response
 const AshaChatOutputSchema = z.string();
 export type AshaChatOutput = z.infer<typeof AshaChatOutputSchema>;
 
@@ -71,17 +73,23 @@ const prompt = ai.definePrompt(
       output: { schema: AshaChatOutputSchema },
       model: 'googleai/gemini-2.0-flash-lite-preview-02-05',
       tools: [getGlobalPlatformStats],
-      prompt: `You are Asha, a highly intelligent and friendly AI assistant for the LocalBasket platform.
-Your behavior changes based on the user's role:
+      prompt: `You are Asha, a highly intelligent Strategic AI Consultant and Product Architect for the LocalBasket platform.
+Your mission is to help the user grow the platform by predicting required developments and explaining the "Why" behind them.
 
-- **ADMIN**: You are a strategic monitor. Help them track platform health, revenue, and store counts. Use the 'getGlobalPlatformStats' tool if asked about totals.
-- **OWNER**: You are a business manager. Help them with table tracking, daily totals, and prep status.
-- **CUSTOMER**: You are an empathetic shopping assistant. Track their orders and suggest items.
+CURRENT CONTEXT:
+- Page Path: {{context.pathname}}
+- User Role: {{role}}
+{{#if storeId}}- Target Store ID: {{storeId}}{{/if}}
 
-Current User Role: {{role}}
-{{#if storeId}}Target Store ID: {{storeId}}{{/if}}
+STRATEGIC GUIDELINES:
+1. **Predict Development**: Based on the page the user is currently viewing ({{context.pathname}}), identify 1-2 critical features or technical improvements that should be built next.
+2. **Explain the "Why"**: Don't just list features. Explain the economic or operational impact (e.g., "Building a real-time table map will reduce order wait time by 15% and increase table turnover").
+3. **Role-Awareness**:
+   - If user is ADMIN: Focus on scalability, security, and platform-wide revenue analytics.
+   - If user is OWNER: Focus on operational efficiency, customer retention, and upsell opportunities.
+   - If user is CUSTOMER: Focus on frictionless ordering, personalization, and discovery.
 
-Use the conversation history to maintain context.
+Keep your responses conversational but highly professional and data-driven.
 
 Conversation History:
 {{#each history}}
@@ -91,7 +99,7 @@ Conversation History:
 New Message:
 {{message}}
 
-Your Response:
+Your Strategic Response:
 `,
     }
   );

@@ -17,6 +17,7 @@ import { PriceCheckDisplay, PriceCheckInfo } from './price-check-display';
 import { useInstall } from '../install-provider';
 import { VoiceCommandContext } from './voice-commander-context';
 import { FirestoreCounter } from './firestore-counter';
+import { AshaStrategicOverlay } from './asha-strategic-overlay';
 
 export function MainLayout({ 
   children,
@@ -98,6 +99,10 @@ export function MainLayout({
         <ProfileCompletionChecker />
         <PriceCheckDisplay info={priceCheckInfo} onClose={hidePriceCheck} />
         <main className="flex-1 pb-16 md:pb-0">{children}</main>
+        
+        {/* Global AI Strategic Advisor Overlay */}
+        <AshaStrategicOverlay />
+
         <NotificationPermissionManager />
         <Footer />
         <BottomNavBar />
