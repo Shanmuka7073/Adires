@@ -3,7 +3,11 @@
 import { getClientFirebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, initializeFirestore } from 'firebase/firestore';
+import { 
+  initializeFirestore, 
+  persistentLocalCache, 
+  persistentMultipleTabManager 
+} from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 // Keep a client-side cache of the initialized app
@@ -31,6 +35,8 @@ export function getSdks(firebaseApp: FirebaseApp) {
     firebaseApp,
     auth: getAuth(firebaseApp),
     firestore: initializeFirestore(firebaseApp, {
+        // Enable persistent local cache for sub-200ms perceived speed and lower costs
+        localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
         ignoreUndefinedProperties: true,
         experimentalForceLongPolling: true,
     }),

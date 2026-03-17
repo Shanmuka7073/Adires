@@ -40,6 +40,7 @@ export interface AppState {
   setActiveStoreId: (storeId: string | null) => void;
   setUserStore: (store: Store | null) => void;
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
+  fetchExtendedData: (db: Firestore) => Promise<void>;
   fetchUserStore: (db: Firestore, userId: string) => Promise<void>;
   fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
   getProductName: (product: Product) => string;
@@ -92,10 +93,9 @@ export const useAppStore = create<AppState>()(
       },
 
       /**
-       * OPTIMIZED: The primary data loading function.
-       * 1. Fetches core platform data in parallel.
-       * 2. Removes the previous N+3 menu-fetching loop.
-       * 3. Unlocks the UI immediately once core data is ready.
+       * OPTIMIZED PROGRESSIVE LOAD:
+       * 1. Fetches "Core" data (Stores, Commands) to unlock UI immediately.
+       * 2. Triggers "Extended" data (Products, Aliases) in the background.
        */
       fetchInitialData: async (db: Firestore, userId?: string) => {
         if (get().loading) return;
@@ -103,11 +103,9 @@ export const useAppStore = create<AppState>()(
         set({ loading: true, error: null });
         
         try {
-          // Parallel fetch of core platform data (3 lean reads)
-          const [stores, masterProducts, aliasDocs, commandDocs] = await Promise.all([
+          // STEP 1: Core Platform Data (High Priority)
+          const [stores, commandDocs] = await Promise.all([
             getStores(db),
-            getMasterProducts(db),
-            getDocs(collection(db, 'voiceAliasGroups')),
             getDocs(collection(db, 'voiceCommands'))
           ]);
           
@@ -120,9 +118,6 @@ export const useAppStore = create<AppState>()(
               }
           }
 
-          const voiceAliasGroups = aliasDocs.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
-          const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
-          
           const dbCommands = commandDocs.docs.reduce((acc, doc) => {
               acc[doc.id] = doc.data() as CommandGroup;
               return acc;
@@ -130,27 +125,46 @@ export const useAppStore = create<AppState>()(
           
           const enrichedCommands = { ...defaultGeneralCommands, ...dbCommands };
 
-          initializeTranslations(locales); 
-
+          // UNLOCK UI: Set initialized once we have basic branding and commands
           set({
             stores,
-            masterProducts,
             userStore,
-            locales,
             commands: enrichedCommands,
             isInitialized: true,
             loading: false,
           });
 
-          // Kick off background pricing fetch for the product catalog
-          if (masterProducts.length > 0) {
-            await get().fetchProductPrices(db, masterProducts.map(p => p.name));
-          }
+          // STEP 2: Background Load (Heavier Data)
+          get().fetchExtendedData(db);
           
         } catch (error) {
           console.error("Failed to fetch initial app data:", error);
+          // Unlock even on error to prevent total blackout
           set({ error: error as Error, loading: false, isInitialized: true });
         }
+      },
+
+      fetchExtendedData: async (db: Firestore) => {
+          try {
+              const [masterProducts, aliasDocs] = await Promise.all([
+                getMasterProducts(db),
+                getDocs(collection(db, 'voiceAliasGroups')),
+              ]);
+
+              const voiceAliasGroups = aliasDocs.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
+              const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
+              
+              initializeTranslations(locales); 
+
+              set({ masterProducts, locales });
+
+              // Deep fetch pricing in background
+              if (masterProducts.length > 0) {
+                await get().fetchProductPrices(db, masterProducts.map(p => p.name));
+              }
+          } catch (e) {
+              console.error("Background extended data fetch failed:", e);
+          }
       },
 
       fetchUserStore: async (db: Firestore, userId: string) => {
@@ -228,6 +242,20 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
+
+export const useInitializeApp = () => {
+    const { firestore, user } = useFirebase();
+    const { fetchInitialData, isInitialized, loading } = useAppStore();
+
+    useEffect(() => {
+        // Fetch core data regardless of user (public menus/marketplace access)
+        if (firestore && !isInitialized && !loading) {
+            fetchInitialData(firestore, user?.uid);
+        }
+    }, [firestore, user?.uid, isInitialized, loading, fetchInitialData]);
+
+    return { isLoading: !isInitialized && loading };
+};
 
 interface ProfileFormState {
   form: UseFormReturn<ProfileFormValues> | null;
