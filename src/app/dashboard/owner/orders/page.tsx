@@ -26,7 +26,9 @@ import {
   Printer,
   Monitor,
   ChefHat,
-  Utensils
+  Utensils,
+  ShoppingBag,
+  Calculator
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -61,6 +63,7 @@ interface Session {
   orders: Order[];
   totalAmount: number;
   status: Order['status'];
+  orderType: Order['orderType'];
   lastActivity: Date;
   needsService?: boolean;
   serviceType?: string;
@@ -95,8 +98,14 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
   const meta = STATUS_META[session.status] || STATUS_META.Pending;
   if (isKitchenMode && !['Pending', 'Processing'].includes(session.status)) return null;
 
+  const titleIcon = session.orderType === 'takeaway' ? <ShoppingBag className="h-5 w-5" /> : session.orderType === 'counter' ? <Calculator className="h-5 w-5" /> : <Utensils className="h-5 w-5" />;
+
   return (
-    <Card className={cn("rounded-2xl shadow-lg border-0 relative transition-all", session.status === 'Billed' && "bg-green-50 ring-2 ring-green-500", session.needsService && "ring-2 ring-red-500 animate-pulse")}>
+    <Card className={cn(
+        "rounded-2xl shadow-lg border-0 relative transition-all", 
+        session.status === 'Billed' && "bg-green-50 ring-2 ring-green-500", 
+        session.needsService && "ring-2 ring-red-500 animate-pulse"
+    )}>
       {session.needsService && (
           <div className="absolute top-0 left-0 w-full h-8 bg-red-600 flex items-center justify-between px-3 rounded-t-2xl z-10">
               <span className="text-[10px] font-black uppercase text-white flex items-center gap-1"><BellRing className="h-3 w-3"/> {session.serviceType || 'Service'}</span>
@@ -105,11 +114,14 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
       )}
       <CardHeader className={cn("p-3 pb-1", session.needsService && "pt-9")}>
         <div className="flex justify-between items-start">
-            <div>
-                 <CardTitle className="text-lg font-black">Table {session.tableNumber || '?'}</CardTitle>
-                 <CardDescription className="text-[8px] opacity-40">#{session.id.slice(-4)}</CardDescription>
+            <div className="flex items-center gap-2">
+                 <div className="opacity-20">{titleIcon}</div>
+                 <div>
+                    <CardTitle className="text-lg font-black">{session.tableNumber ? `Table ${session.tableNumber}` : 'Online'}</CardTitle>
+                    <CardDescription className="text-[8px] opacity-40">#{session.id.slice(-4)}</CardDescription>
+                 </div>
             </div>
-             <Badge className="text-[8px] font-black uppercase h-5">{meta.label}</Badge>
+             <Badge className="text-[8px] font-black uppercase h-5" variant={meta.variant}>{meta.label}</Badge>
         </div>
       </CardHeader>
       <CardContent className="p-3 pt-1 space-y-2">
@@ -175,7 +187,6 @@ export default function StoreOrdersPage() {
   const [isUpdating, startUpdate] = useTransition();
   const [isKitchenMode, setIsKitchenMode] = useState(false);
   const { toast } = useToast();
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const { userStore: myStore, loading: isStoreLoading } = useAppStore();
 
   const activeOrdersQuery = useMemoFirebase(() =>
@@ -189,11 +200,39 @@ export default function StoreOrdersPage() {
     const onlineJobs: Order[] = [];
     if (!activeOrders) return { sessions: {}, homeDeliveries: [] };
     activeOrders.forEach(o => {
-        if (o.tableNumber && o.sessionId) {
-            if (!tableSessions[o.sessionId]) tableSessions[o.sessionId] = { id: o.sessionId, tableNumber: o.tableNumber, orders: [], totalAmount: 0, status: 'Pending', lastActivity: new Date(0), needsService: o.needsService, serviceType: o.serviceType };
+        const isTableOrTakeaway = !!(o.tableNumber && o.sessionId) || o.orderType === 'takeaway' || o.orderType === 'counter';
+        if (isTableOrTakeaway && o.sessionId) {
+            if (!tableSessions[o.sessionId]) {
+                tableSessions[o.sessionId] = { 
+                    id: o.sessionId, 
+                    tableNumber: o.tableNumber, 
+                    orders: [], 
+                    totalAmount: 0, 
+                    status: o.status, 
+                    orderType: o.orderType,
+                    lastActivity: toDateSafe(o.orderDate), 
+                    needsService: o.needsService, 
+                    serviceType: o.serviceType 
+                };
+            }
             tableSessions[o.sessionId].orders.push(o);
             tableSessions[o.sessionId].totalAmount += o.totalAmount;
-        } else onlineJobs.push(o);
+            
+            // Priority: Billed > Processing > Pending > Draft
+            const statusWeights: Record<string, number> = {
+                'Draft': 1, 'Pending': 2, 'Processing': 3, 'Billed': 4
+            };
+            if (statusWeights[o.status] > (statusWeights[tableSessions[o.sessionId].status] || 0)) {
+                tableSessions[o.sessionId].status = o.status;
+            }
+
+            if (o.needsService) {
+                tableSessions[o.sessionId].needsService = true;
+                tableSessions[o.sessionId].serviceType = o.serviceType;
+            }
+        } else {
+            onlineJobs.push(o);
+        }
     });
     return { sessions: tableSessions, homeDeliveries: onlineJobs };
   }, [activeOrders]);

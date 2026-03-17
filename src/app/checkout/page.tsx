@@ -135,8 +135,8 @@ export default function CheckoutPage() {
             deliveryLng: deliveryCoords?.lng || 0,
             orderDate: serverTimestamp(),
             status: 'Pending',
-            isActive: true,
             orderType: 'delivery',
+            isActive: true,
             totalAmount: cartTotal + DELIVERY_FEE,
             items: cartItems.map(item => ({ id: crypto.randomUUID(), orderId: orderDocRef.id, productId: item.product.id, productName: item.product.name, variantSku: item.variant.sku, variantWeight: item.variant.weight, quantity: item.quantity, price: item.variant.price })),
         };

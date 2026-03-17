@@ -115,6 +115,7 @@ export type Order = {
   items: OrderItem[];
   totalAmount: number;
   status: 'Pending' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled' | 'Completed' | 'Billed' | 'Draft';
+  orderType: 'dine-in' | 'takeaway' | 'delivery' | 'counter';
   orderDate: Timestamp | Date | string;
   phone: string;
   email: string;

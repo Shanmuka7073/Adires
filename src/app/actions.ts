@@ -269,6 +269,7 @@ export async function addRestaurantOrderItem({
       zoneId: zoneId || 'local-service',
       phone: phone || '',
       status: 'Pending',
+      orderType: tableNumber ? 'dine-in' : 'takeaway',
       isActive: true, 
       orderDate: FieldValue.serverTimestamp(), 
       updatedAt: FieldValue.serverTimestamp(),
@@ -512,7 +513,7 @@ export async function updateSiteConfig(configId: string, data: Partial<SiteConfi
         const { db } = await getAdminServices();
         await db.collection('siteConfig').doc(configId).set(data, { merge: true });
         return { success: true };
-    } catch (error: any) {
+    } catch (error) {
         console.error("Error updating site config:", error);
         return { success: false, error: error.message };
     }
