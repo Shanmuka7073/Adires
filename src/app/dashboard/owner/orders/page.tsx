@@ -357,7 +357,7 @@ export default function StoreOrdersPage() {
   const [isKitchenMode, setIsKitchenMode] = useState(false);
   const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
   const { toast } = useToast();
-  const { stores, userStore, loading: isStoreLoading } = useAppStore();
+  const { stores, userStore, loading: isAppLoading } = useAppStore();
 
   const myStore = useMemo(() => userStore || stores[0], [userStore, stores]);
   const isSalon = useMemo(() => myStore?.businessType === 'salon' || myStore?.name.toLowerCase().includes('salon'), [myStore]);
@@ -424,7 +424,7 @@ export default function StoreOrdersPage() {
       startUpdate(async () => { await dismissTableService(orderId); toast({ title: "Resolved" }); });
   };
 
-  if (isStoreLoading || ordersLoading) return <div className="p-12 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto opacity-20" /></div>;
+  if (isAppLoading || ordersLoading) return <div className="p-12 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto opacity-20" /></div>;
 
   return (
     <div className={cn("min-h-screen py-4 px-3 max-w-7xl mx-auto transition-colors duration-500", isKitchenMode ? "bg-slate-950" : "bg-slate-50")}>
@@ -464,7 +464,7 @@ export default function StoreOrdersPage() {
                 <div className="flex justify-between items-center">
                     <h2 className="text-[10px] font-black uppercase tracking-widest text-green-600 flex items-center gap-1.5">{isSalon ? <Scissors className="h-3 w-3"/> : <Utensils className="h-3 w-3"/>} {isSalon ? 'Chair & Counter' : 'Table & Counter'}</h2>
                     <Button onClick={() => setIsNewSaleOpen(true)} size="sm" variant="outline" className="h-7 px-3 rounded-lg font-black text-[8px] uppercase border-2 border-green-600/30 text-green-600">
-                        <PlusCircle className="h-3 w-3 mr-1"/> New Checkout
+                        <PlusCircle className="h-3 w-3 mr-1"/> {isSalon ? 'New Checkout' : 'New Sale'}
                     </Button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
