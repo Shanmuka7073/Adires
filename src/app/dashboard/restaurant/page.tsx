@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowRight, Store, ShoppingBag, CheckCircle, XCircle, Users, FileText, Scissors, Utensils, Loader2 } from 'lucide-react';
+import { ArrowRight, Store, ShoppingBag, CheckCircle, XCircle, Users, FileText, Scissors, Utensils, Loader2, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -28,6 +28,12 @@ const serviceLinks = [
         description: 'view-and-manage-live-orders-from-your-tables',
         href: '/dashboard/owner/orders',
         icon: ShoppingBag,
+    },
+    {
+        title: 'Sales Report',
+        description: 'View detailed sales and profitability analytics.',
+        href: '/dashboard/owner/sales-report',
+        icon: BarChart3,
     },
     {
         title: 'Manage Employees',

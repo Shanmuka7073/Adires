@@ -5,7 +5,7 @@ import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient, EmployeeProfile, SalarySlip, Store, AttendanceRecord, User, CartItem } from '@/lib/types';
+import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient, EmployeeProfile, SalarySlip, Store, AttendanceRecord, User, CartItem, ReportData } from '@/lib/types';
 import { getApps } from 'firebase-admin/app';
 import { v4 as uuidv4 } from 'uuid';
 import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
@@ -102,18 +102,6 @@ export async function getSystemStatus() {
     }
 }
 
-const createSlug = (text: string) => {
-    if(!text) return '';
-    return text
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, '-')
-      .replace(/[^\w-]+/g, '')
-      .replace(/--+/g, '-')
-      .replace(/^-+/, '')
-      .replace(/-+$/, '');
-};
-
 export async function addRestaurantOrderItem({
   storeId,
   tableNumber,
@@ -159,7 +147,6 @@ export async function addRestaurantOrderItem({
 
     const totalAmount = orderItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
-    // Determine the type based on context
     let orderType: Order['orderType'] = tableNumber === 'Counter' ? 'counter' : (tableNumber ? 'dine-in' : (deliveryAddress ? 'delivery' : 'takeaway'));
 
     const orderData = {
@@ -334,4 +321,92 @@ export async function getMealDbRecipe(dishName: string): Promise<{ ingredients?:
     } catch (e: any) {
         return { error: e.message };
     }
+}
+
+/**
+ * Robust Sales Reporting Logic
+ */
+export async function getStoreSalesReport({
+  storeId,
+  period,
+}: {
+  storeId: string;
+  period: 'daily' | 'weekly' | 'monthly';
+}): Promise<{ success: boolean; report?: ReportData; error?: string }> {
+  try {
+    const { db } = await getAdminServices();
+    const now = new Date();
+    let startDate: Date;
+
+    if (period === 'daily') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    } else if (period === 'weekly') {
+      startDate = new Date(now.setDate(now.getDate() - 7));
+    } else {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+
+    const startTimestamp = Timestamp.fromDate(startDate);
+
+    const ordersSnapshot = await db.collection('orders')
+      .where('storeId', '==', storeId)
+      .where('status', 'in', ['Delivered', 'Completed'])
+      .where('orderDate', '>=', startTimestamp)
+      .get();
+
+    const orders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+
+    let totalSales = 0;
+    let totalItems = 0;
+    const productStats = new Map<string, { count: number; totalRevenue: number }>();
+    const tableStats = new Map<string, { totalSales: number; orderCount: number }>();
+
+    orders.forEach(order => {
+      totalSales += order.totalAmount;
+      const tableKey = order.tableNumber || 'Delivery';
+      const tStat = tableStats.get(tableKey) || { totalSales: 0, orderCount: 0 };
+      tStat.totalSales += order.totalAmount;
+      tStat.orderCount += 1;
+      tableStats.set(tableKey, tStat);
+
+      order.items.forEach(item => {
+        totalItems += item.quantity;
+        const pStat = productStats.get(item.productName) || { count: 0, totalRevenue: 0 };
+        pStat.count += item.quantity;
+        pStat.totalRevenue += (item.price * item.quantity);
+        productStats.set(item.productName, pStat);
+      });
+    });
+
+    const report: ReportData = {
+      totalSales,
+      totalItems,
+      totalOrders: orders.length,
+      topProducts: Array.from(productStats.entries())
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, 5)
+        .map(([name, stat]) => ({ name, count: stat.count })),
+      topProfitableProducts: Array.from(productStats.entries())
+        .sort((a, b) => b[1].totalRevenue - a[1].totalRevenue)
+        .slice(0, 5)
+        .map(([name, stat]) => ({ name, totalProfit: stat.totalRevenue, profitPerUnit: stat.totalRevenue / stat.count, count: stat.count })),
+      ingredientUsage: [], // Requires recipe snapshots which might not be in every order yet
+      ingredientCost: 0,
+      costDrivers: [],
+      optimizationHint: null,
+      salesByTable: Array.from(tableStats.entries()).map(([table, stat]) => ({
+        tableNumber: table,
+        totalSales: stat.totalSales,
+        orderCount: stat.orderCount,
+        totalCost: 0,
+        profitPerOrder: stat.totalSales / stat.orderCount,
+        grossProfit: stat.totalSales,
+        profitPercentage: 100,
+      })),
+    };
+
+    return { success: true, report };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
 }

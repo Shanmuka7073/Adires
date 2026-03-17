@@ -29,7 +29,8 @@ import {
   Smartphone,
   Briefcase,
   Cog,
-  Sparkles
+  Sparkles,
+  BarChart3
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -181,10 +182,10 @@ export default function AdminDashboardPage() {
             System & Operations
         </h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <ActionCard title="Sales Reports" description="Aggregate revenue and volume data." href="/dashboard/admin/sales-report" icon={BarChart3} />
           <ActionCard title="Master Catalog" description="Global product database." href="/dashboard/owner/my-store" icon={Store} />
           <ActionCard title="Voice Commands" description="Natural language mapping." href="/dashboard/voice-commands" icon={Mic} />
           <ActionCard title="Security Rules" description="Firestore protection policy." href="/dashboard/admin/security-rules" icon={Shield} />
-          <ActionCard title="System Status" description="Cloud health dashboard." href="/dashboard/admin/system-status" icon={Server} />
         </div>
       </section>
     </div>
