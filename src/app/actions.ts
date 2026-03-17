@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -8,6 +7,7 @@ import path from 'path';
 import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient, EmployeeProfile, SalarySlip, Store, AttendanceRecord, ReasonEntry, User, CartItem } from '@/lib/types';
 import { getApps } from 'firebase-admin/app';
 import { v4 as uuidv4 } from 'uuid';
+import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
 
 export async function getFirebaseConfig() {
   try {
@@ -502,4 +502,63 @@ export async function updateEmployee(userId: string, data: any): Promise<{ succe
         await batch.commit();
         return { success: true };
     } catch (e: any) { return { success: false, error: e.message || "Unknown server error" }; }
+}
+
+export async function getIngredientsForDish(input: { dishName: string; language: 'en' | 'te', existingRecipe?: GetIngredientsOutput }) {
+    try {
+        return await getIngredientsForDishFlow(input);
+    } catch (error: any) {
+        console.error("Action error: getIngredientsForDish:", error);
+        throw error;
+    }
+}
+
+export async function getSiteConfig(configId: string): Promise<SiteConfig | null> {
+    try {
+        const { db } = await getAdminServices();
+        const docSnap = await db.collection('siteConfig').doc(configId).get();
+        if (docSnap.exists) {
+            return docSnap.data() as SiteConfig;
+        }
+        return null;
+    } catch (error) {
+        console.error("Error getting site config:", error);
+        return null;
+    }
+}
+
+export async function updateSiteConfig(configId: string, data: Partial<SiteConfig>): Promise<{ success: boolean; error?: string }> {
+    try {
+        const { db } = await getAdminServices();
+        await db.collection('siteConfig').doc(configId).set(data, { merge: true });
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error updating site config:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function getMealDbRecipe(dishName: string): Promise<{ ingredients?: string[]; instructions?: string[]; error?: string }> {
+    try {
+        const response = await fetch(`https://www.themealdb.com/api/json/v1/1/search.php?s=${encodeURIComponent(dishName)}`);
+        const data = await response.json();
+        if (data.meals && data.meals.length > 0) {
+            const meal = data.meals[0];
+            const ingredients: string[] = [];
+            for (let i = 1; i <= 20; i++) {
+                const ingredient = meal[`strIngredient${i}`];
+                const measure = meal[`strMeasure${i}`];
+                if (ingredient && ingredient.trim()) {
+                    ingredients.push(`${measure} ${ingredient}`.trim());
+                }
+            }
+            return {
+                ingredients,
+                instructions: meal.strInstructions.split('\r\n').filter((s: string) => s.trim())
+            };
+        }
+        return { error: "Recipe not found." };
+    } catch (e: any) {
+        return { error: e.message };
+    }
 }
