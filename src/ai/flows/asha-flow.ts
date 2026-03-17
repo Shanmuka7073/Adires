@@ -25,11 +25,10 @@ const AshaChatInputSchema = z.object({
 }).passthrough();
 export type AshaChatInput = z.infer<typeof AshaChatInputSchema>;
 
-// Changed to an object for more reliable JSON generation
+// Use a structured object for more reliable output validation
 const AshaChatOutputSchema = z.object({
     analysis: z.string().describe("The strategic analysis and prediction text.")
 });
-export type AshaChatOutput = string;
 
 /**
  * TOOL: Fetches global platform statistics for Admin monitoring.
@@ -67,7 +66,7 @@ const getGlobalPlatformStats = ai.defineTool(
   }
 );
 
-export async function chatWithAsha(input: AshaChatInput): Promise<AshaChatOutput> {
+export async function chatWithAsha(input: AshaChatInput): Promise<string> {
   return ashaFlow(input);
 }
 
@@ -76,8 +75,8 @@ const prompt = ai.definePrompt(
       name: 'ashaPrompt',
       input: { schema: AshaChatInputSchema },
       output: { schema: AshaChatOutputSchema },
-      // Switched to stable 1.5-flash for more reliable structured output
-      model: 'googleai/gemini-1.5-flash',
+      // Aligned with the menu extraction model
+      model: 'googleai/gemini-2.5-flash',
       tools: [getGlobalPlatformStats],
       prompt: `You are Asha, the Senior Strategic AI Architect for LocalBasket. 
 Your goal is to perform a deep-scan of the current application state and predict the next logical development step to maximize business growth and user engagement.
@@ -122,11 +121,14 @@ const ashaFlow = ai.defineFlow(
   async (input) => {
     try {
         const { output } = await prompt(input);
-        return output?.analysis || "I've analyzed the platform state but am currently re-calibrating. Please try the scan again.";
+        if (!output || !output.analysis) {
+            throw new Error("The AI failed to generate a structured analysis. This may be due to a temporary model timeout or safety filter. Please try the scan again.");
+        }
+        return output.analysis;
     } catch (error: any) {
         console.error("Asha Flow Error:", error);
-        // Providing specific technical feedback for debugging if it happens again
-        return `Asha Audit Error: ${error.message || String(error)}. Context: ${input.context?.pathname}. Please retry.`;
+        // Providing specific technical feedback for debugging
+        return `Asha Audit Error: ${error.message || String(error)}. Technical Path: ${input.context?.pathname}. Action: Please verify your internet connection and try the prediction again.`;
     }
   }
 );
