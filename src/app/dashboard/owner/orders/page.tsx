@@ -8,7 +8,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
 import {
   CookingPot,
   Truck,
@@ -18,9 +17,6 @@ import {
   Check,
   Package,
   Receipt,
-  History,
-  Calendar as CalendarIcon,
-  RefreshCw,
   Clock,
   BellRing,
   Printer,
@@ -30,20 +26,16 @@ import {
   ShoppingBag,
   Calculator
 } from 'lucide-react';
-import Link from 'next/link';
 import {
-  collection, query, where, orderBy, doc, updateDoc, serverTimestamp, Timestamp, getDocs, limit
+  collection, query, where, orderBy, doc, updateDoc, serverTimestamp, Timestamp, limit
 } from 'firebase/firestore';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { useEffect, useMemo, useRef, useState, useTransition, useCallback } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
-} from '@/components/ui/dialog';
-import { markSessionAsPaid, confirmOrderSession, dismissTableService } from '@/app/actions';
-import { ScrollArea } from '@/components/ui/scroll-area';
+  AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogDescription
+} from '@/components/ui/alert-dialog';
+import { markSessionAsPaid, confirmOrderSession, dismissTableService, updateOrderStatus } from '@/app/actions';
 import { cn } from '@/lib/utils';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useAppStore } from '@/lib/store';
 
 const STATUS_META: Record<string, any> = {
@@ -69,19 +61,6 @@ interface Session {
   serviceType?: string;
 }
 
-function handlePrintReceipt(session: Session, store: Store) {
-    const win = window.open('', '_blank');
-    if (!win) return;
-    const date = format(new Date(), 'dd/MM/yyyy HH:mm');
-    const itemsHtml = session.orders.flatMap(o => o.items).map(it => `
-        <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 4px;">
-            <span>${it.productName} x ${it.quantity}</span>
-            <span>${(it.price * it.quantity).toFixed(2)}</span>
-        </div>
-    `).join('');
-    win.document.write(`<html><body style="width:300px;padding:20px;font-family:monospace;"><h2>${store.name}</h2><p>${store.address}</p><hr/>${itemsHtml}<hr/>TOTAL: ₹${session.totalAmount.toFixed(2)}<script>window.onload=()=>window.print()</script></body></html>`);
-}
-
 function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, store }: { session: Session; isUpdating: boolean; onDismissService: (id: string) => void; isKitchenMode: boolean; store: Store }) {
   const { toast } = useToast();
   const [isProcessing, startAction] = useTransition();
@@ -98,50 +77,47 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
   const meta = STATUS_META[session.status] || STATUS_META.Pending;
   if (isKitchenMode && !['Pending', 'Processing'].includes(session.status)) return null;
 
-  const titleIcon = session.orderType === 'takeaway' ? <ShoppingBag className="h-5 w-5" /> : session.orderType === 'counter' ? <Calculator className="h-5 w-5" /> : <Utensils className="h-5 w-5" />;
+  const titleIcon = session.orderType === 'takeaway' ? <ShoppingBag className="h-4 w-4" /> : session.orderType === 'counter' ? <Calculator className="h-4 w-4" /> : <Utensils className="h-4 w-4" />;
 
   return (
     <Card className={cn(
-        "rounded-2xl shadow-lg border-0 relative transition-all", 
-        session.status === 'Billed' && "bg-green-50 ring-2 ring-green-500", 
+        "rounded-xl shadow-md border-0 relative transition-all", 
+        session.status === 'Billed' && "bg-green-50 ring-1 ring-green-500", 
         session.needsService && "ring-2 ring-red-500 animate-pulse"
     )}>
       {session.needsService && (
-          <div className="absolute top-0 left-0 w-full h-8 bg-red-600 flex items-center justify-between px-3 rounded-t-2xl z-10">
-              <span className="text-[10px] font-black uppercase text-white flex items-center gap-1"><BellRing className="h-3 w-3"/> {session.serviceType || 'Service'}</span>
-              <button onClick={() => onDismissService(session.orders[0].id)} className="text-[10px] font-black text-white underline">Resolved</button>
+          <div className="absolute top-0 left-0 w-full h-6 bg-red-600 flex items-center justify-between px-2 rounded-t-xl z-10">
+              <span className="text-[8px] font-black uppercase text-white flex items-center gap-1"><BellRing className="h-2.5 w-2.5"/> {session.serviceType || 'Service'}</span>
+              <button onClick={() => onDismissService(session.orders[0].id)} className="text-[8px] font-black text-white underline">Done</button>
           </div>
       )}
-      <CardHeader className={cn("p-3 pb-1", session.needsService && "pt-9")}>
+      <CardHeader className={cn("p-2 pb-1", session.needsService && "pt-7")}>
         <div className="flex justify-between items-start">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
                  <div className="opacity-20">{titleIcon}</div>
                  <div>
-                    <CardTitle className="text-lg font-black">{session.tableNumber ? `Table ${session.tableNumber}` : 'Online'}</CardTitle>
-                    <CardDescription className="text-[8px] opacity-40">#{session.id.slice(-4)}</CardDescription>
+                    <CardTitle className="text-sm font-black">{session.tableNumber ? `Table ${session.tableNumber}` : 'Online'}</CardTitle>
+                    <CardDescription className="text-[7px] opacity-40">#{session.id.slice(-4)}</CardDescription>
                  </div>
             </div>
-             <Badge className="text-[8px] font-black uppercase h-5" variant={meta.variant}>{meta.label}</Badge>
+             <Badge className="text-[7px] font-black uppercase h-4 px-1.5" variant={meta.variant}>{meta.label}</Badge>
         </div>
       </CardHeader>
-      <CardContent className="p-3 pt-1 space-y-2">
+      <CardContent className="p-2 pt-1 space-y-1">
           {session.orders.flatMap(o => o.items).map((it, i) => (
-              <div key={i} className="flex justify-between items-center text-[10px] font-bold py-1 border-b border-black/5 last:border-0">
+              <div key={i} className="flex justify-between items-center text-[9px] font-bold py-0.5 border-b border-black/5 last:border-0">
                   <span className="truncate pr-2">{it.productName} <span className="opacity-40">x{it.quantity}</span></span>
                   <span className="shrink-0">₹{(it.price * it.quantity).toFixed(0)}</span>
               </div>
           ))}
       </CardContent>
-      <CardFooter className="p-3 pt-2 flex flex-col gap-2 bg-black/5 rounded-b-2xl">
-            <div className="flex justify-between w-full text-[10px] font-black uppercase">
+      <CardFooter className="p-2 pt-1 flex flex-col gap-1.5 bg-black/5 rounded-b-xl">
+            <div className="flex justify-between w-full text-[8px] font-black uppercase">
                 <span className="opacity-40">Total</span>
                 <span className="text-primary">₹{session.totalAmount.toFixed(0)}</span>
             </div>
-            <div className="flex gap-1.5 w-full">
-                {session.status === 'Billed' && (
-                    <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg shrink-0" onClick={() => handlePrintReceipt(session, store)}><Printer className="h-3.5 w-3.5"/></Button>
-                )}
-                <Button className="h-8 flex-1 rounded-lg text-[9px] font-black uppercase" onClick={handleAction} disabled={isUpdating || isProcessing}>
+            <div className="flex gap-1 w-full">
+                <Button className="h-7 flex-1 rounded-lg text-[8px] font-black uppercase" onClick={handleAction} disabled={isUpdating || isProcessing}>
                     {session.status === 'Billed' ? 'Cash Received' : 'To Kitchen'}
                 </Button>
             </div>
@@ -154,28 +130,35 @@ function DeliveryOrderCard({ order, onStatusChange, isUpdating, isKitchenMode }:
     if (isKitchenMode && !['Pending', 'Processing'].includes(order.status)) return null;
     const meta = STATUS_META[order.status] || STATUS_META.Pending;
 
+    const getNextStatus = (current: string) => {
+        if (current === 'Pending') return 'Processing';
+        if (current === 'Processing') return 'Out for Delivery';
+        if (current === 'Out for Delivery') return 'Delivered';
+        return current;
+    };
+
     return (
-        <Card className="rounded-2xl shadow-lg border-0 overflow-hidden bg-white">
-            <CardHeader className="p-3 pb-1 bg-blue-50/50">
+        <Card className="rounded-xl shadow-md border-0 overflow-hidden bg-white">
+            <CardHeader className="p-2 pb-1 bg-blue-50/50">
                 <div className="flex justify-between items-start">
                     <div className="min-w-0 pr-2">
-                        <CardTitle className="text-xs font-black uppercase truncate">{order.customerName}</CardTitle>
-                        <CardDescription className="text-[8px] truncate">{order.deliveryAddress}</CardDescription>
+                        <CardTitle className="text-[10px] font-black uppercase truncate">{order.customerName}</CardTitle>
+                        <CardDescription className="text-[7px] truncate">{order.deliveryAddress}</CardDescription>
                     </div>
-                    <Badge variant="outline" className="text-[8px] font-black uppercase shrink-0">{meta.label}</Badge>
+                    <Badge variant="outline" className="text-[7px] font-black uppercase shrink-0 h-4">{meta.label}</Badge>
                 </div>
             </CardHeader>
-            <CardContent className="p-3 pt-2 space-y-1">
+            <CardContent className="p-2 pt-1 space-y-0.5">
                 {order.items.map((it, idx) => (
-                    <div key={idx} className="flex justify-between text-[10px] font-bold">
+                    <div key={idx} className="flex justify-between text-[9px] font-bold">
                         <span className="truncate pr-2">{it.productName} <span className="opacity-40">x{it.quantity}</span></span>
                         <span>₹{(it.price * it.quantity).toFixed(0)}</span>
                     </div>
                 ))}
             </CardContent>
-            <CardFooter className="p-3 pt-2 bg-black/5">
-                <Button className="w-full h-8 rounded-lg text-[9px] font-black uppercase" onClick={() => onStatusChange(order.id, 'Processing')} disabled={isUpdating}>
-                    {order.status === 'Pending' ? 'Start Delivery Prep' : 'Next Step'}
+            <CardFooter className="p-2 pt-1 bg-black/5">
+                <Button className="w-full h-7 rounded-lg text-[8px] font-black uppercase" onClick={() => onStatusChange(order.id, getNextStatus(order.status))} disabled={isUpdating}>
+                    {order.status === 'Pending' ? 'Start Prep' : 'Next Step'}
                 </Button>
             </CardFooter>
         </Card>
@@ -200,12 +183,14 @@ export default function StoreOrdersPage() {
     const onlineJobs: Order[] = [];
     if (!activeOrders) return { sessions: {}, homeDeliveries: [] };
     activeOrders.forEach(o => {
-        const isTableOrTakeaway = !!(o.tableNumber && o.sessionId) || o.orderType === 'takeaway' || o.orderType === 'counter';
-        if (isTableOrTakeaway && o.sessionId) {
+        // DELIVERY or TAKEAWAY (from online) go to left side
+        if (o.orderType === 'delivery' || (o.orderType === 'takeaway' && !o.tableNumber)) {
+            onlineJobs.push(o);
+        } else if (o.sessionId) {
             if (!tableSessions[o.sessionId]) {
                 tableSessions[o.sessionId] = { 
                     id: o.sessionId, 
-                    tableNumber: o.tableNumber, 
+                    tableNumber: o.tableNumber || null, 
                     orders: [], 
                     totalAmount: 0, 
                     status: o.status, 
@@ -218,14 +203,10 @@ export default function StoreOrdersPage() {
             tableSessions[o.sessionId].orders.push(o);
             tableSessions[o.sessionId].totalAmount += o.totalAmount;
             
-            // Priority: Billed > Processing > Pending > Draft
-            const statusWeights: Record<string, number> = {
-                'Draft': 1, 'Pending': 2, 'Processing': 3, 'Billed': 4
-            };
+            const statusWeights: Record<string, number> = { 'Draft': 1, 'Pending': 2, 'Processing': 3, 'Billed': 4 };
             if (statusWeights[o.status] > (statusWeights[tableSessions[o.sessionId].status] || 0)) {
                 tableSessions[o.sessionId].status = o.status;
             }
-
             if (o.needsService) {
                 tableSessions[o.sessionId].needsService = true;
                 tableSessions[o.sessionId].serviceType = o.serviceType;
@@ -238,10 +219,9 @@ export default function StoreOrdersPage() {
   }, [activeOrders]);
 
   const handleOrderUpdate = (orderId: string, status: any) => {
-      if (!firestore) return;
       startUpdate(async () => {
-          await updateDoc(doc(firestore, 'orders', orderId), { status, updatedAt: serverTimestamp(), isActive: !['Delivered', 'Completed', 'Cancelled'].includes(status) });
-          toast({ title: "Updated" });
+          const res = await updateOrderStatus(orderId, status);
+          if (res.success) toast({ title: "Updated" });
       });
   }
 
@@ -252,33 +232,31 @@ export default function StoreOrdersPage() {
   if (isStoreLoading || ordersLoading) return <div className="p-12 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto opacity-20" /></div>;
 
   return (
-    <div className={cn("min-h-screen py-6 px-4 max-w-7xl mx-auto transition-colors duration-500", isKitchenMode ? "bg-slate-950" : "bg-slate-50")}>
-        <div className="flex justify-between items-center mb-8 border-b pb-4 border-black/10">
+    <div className={cn("min-h-screen py-4 px-3 max-w-7xl mx-auto transition-colors duration-500", isKitchenMode ? "bg-slate-950" : "bg-slate-50")}>
+        <div className="flex justify-between items-center mb-6 border-b pb-3 border-black/10">
             <div>
-                <h1 className={cn("text-2xl font-black tracking-tighter", isKitchenMode ? "text-white" : "text-gray-900")}>OPERATION CENTER</h1>
-                <p className={cn("text-[9px] font-bold uppercase opacity-40", isKitchenMode ? "text-primary" : "text-muted-foreground")}>{myStore?.name}</p>
+                <h1 className={cn("text-xl font-black tracking-tighter", isKitchenMode ? "text-white" : "text-gray-900")}>OP CENTER</h1>
+                <p className={cn("text-[8px] font-bold uppercase opacity-40", isKitchenMode ? "text-primary" : "text-muted-foreground")}>{myStore?.name}</p>
             </div>
-            <div className="flex gap-2">
-                <Button onClick={() => setIsKitchenMode(!isKitchenMode)} variant="outline" className={cn("h-10 px-4 rounded-xl font-black text-[10px] uppercase border-2", isKitchenMode && "bg-primary text-white border-primary")}>
-                    {isKitchenMode ? <Monitor className="h-4 w-4 mr-2"/> : <ChefHat className="h-4 w-4 mr-2"/>} {isKitchenMode ? 'POS Mode' : 'Kitchen Mode'}
-                </Button>
-            </div>
+            <Button onClick={() => setIsKitchenMode(!isKitchenMode)} variant="outline" size="sm" className={cn("h-8 px-3 rounded-lg font-black text-[9px] uppercase border-2", isKitchenMode && "bg-primary text-white border-primary")}>
+                {isKitchenMode ? <Monitor className="h-3 w-3 mr-1.5"/> : <ChefHat className="h-3 w-3 mr-1.5"/>} {isKitchenMode ? 'POS' : 'KDS'}
+            </Button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <section className="space-y-4">
-                <h2 className="text-xs font-black uppercase tracking-widest text-blue-600 flex items-center gap-2"><Truck className="h-4 w-4"/> Home Delivery & Online</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <section className="space-y-3">
+                <h2 className="text-[10px] font-black uppercase tracking-widest text-blue-600 flex items-center gap-1.5"><Truck className="h-3 w-3"/> Delivery & Online</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {homeDeliveries.map(o => <DeliveryOrderCard key={o.id} order={o} onStatusChange={handleOrderUpdate} isUpdating={isUpdating} isKitchenMode={isKitchenMode} />)}
-                    {homeDeliveries.length === 0 && <p className="text-[10px] opacity-30 uppercase font-black py-10 text-center border-2 border-dashed rounded-2xl">No online jobs</p>}
+                    {homeDeliveries.length === 0 && <p className="text-[8px] opacity-30 uppercase font-black py-8 text-center border-2 border-dashed rounded-xl">No active jobs</p>}
                 </div>
             </section>
 
-            <section className="space-y-4">
-                <h2 className="text-xs font-black uppercase tracking-widest text-green-600 flex items-center gap-2"><Utensils className="h-4 w-4"/> Floor Activity (Tables)</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <section className="space-y-3">
+                <h2 className="text-[10px] font-black uppercase tracking-widest text-green-600 flex items-center gap-1.5"><Utensils className="h-3 w-3"/> Table & Counter</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {Object.values(sessions).map(s => <SessionCard key={s.id} session={s} isUpdating={isUpdating} onDismissService={handleDismissService} isKitchenMode={isKitchenMode} store={myStore!} />)}
-                    {Object.values(sessions).length === 0 && <p className="text-[10px] opacity-30 uppercase font-black py-10 text-center border-2 border-dashed rounded-2xl">No active tables</p>}
+                    {Object.values(sessions).length === 0 && <p className="text-[8px] opacity-30 uppercase font-black py-8 text-center border-2 border-dashed rounded-xl">No active sessions</p>}
                 </div>
             </section>
         </div>

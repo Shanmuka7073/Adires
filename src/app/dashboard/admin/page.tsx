@@ -28,7 +28,8 @@ import {
   Truck,
   Smartphone,
   Briefcase,
-  Cog
+  Cog,
+  Sparkles
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -43,10 +44,6 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 import type { Order, Store as StoreType, User } from '@/lib/types';
 import { t } from '@/lib/locales';
 import { Button } from '@/components/ui/button';
-import { createRestaurantUserAndStore } from '@/app/actions';
-import { useToast } from '@/hooks/use-toast';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 
 function StatCard({ title, value, icon: Icon, loading }: any) {
   return (
