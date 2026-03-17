@@ -78,7 +78,11 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { s
     const [searchTerm, setSearchTerm] = useState('');
 
     const filteredItems = useMemo(() => {
-        return menuItems.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
+        // Filter out unavailable items and search term
+        return menuItems.filter(i => 
+            i.isAvailable !== false && 
+            i.name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
     }, [menuItems, searchTerm]);
 
     const addToCart = (item: MenuItem) => {
@@ -159,8 +163,8 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { s
                             <div className="p-12 text-center flex flex-col items-center justify-center gap-4 opacity-40">
                                 <Utensils className="h-12 w-12" />
                                 <div className="space-y-1">
-                                    <p className="font-black uppercase tracking-widest text-xs">No menu items found</p>
-                                    <p className="text-[10px] font-bold">Please set up your digital menu first.</p>
+                                    <p className="font-black uppercase tracking-widest text-xs">No items found</p>
+                                    <p className="text-[10px] font-bold">Please set up your digital menu items first.</p>
                                 </div>
                                 <Button asChild variant="outline" className="rounded-xl font-black text-[10px] uppercase h-10 px-6 border-2">
                                     <Link href="/dashboard/owner/menu-manager">Open Menu Manager</Link>
@@ -376,14 +380,19 @@ function DeliveryOrderCard({ order, onStatusChange, isUpdating, isKitchenMode }:
 }
 
 export default function StoreOrdersPage() {
-  const { firestore } = useFirebase();
+  const { firestore, user } = useFirebase();
   const [isUpdating, startUpdate] = useTransition();
   const [isKitchenMode, setIsKitchenMode] = useState(false);
   const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
   const { toast } = useToast();
   const { stores, userStore, loading: isAppLoading } = useAppStore();
 
-  const myStore = useMemo(() => userStore || stores[0], [userStore, stores]);
+  // FIX: Better store identification
+  const myStore = useMemo(() => {
+      if (userStore) return userStore;
+      return stores.find(s => s.ownerId === user?.uid) || null;
+  }, [userStore, stores, user?.uid]);
+
   const isSalon = useMemo(() => myStore?.businessType === 'salon' || myStore?.name.toLowerCase().includes('salon'), [myStore]);
 
   const activeOrdersQuery = useMemoFirebase(() =>
@@ -449,12 +458,13 @@ export default function StoreOrdersPage() {
   };
 
   if (isAppLoading || ordersLoading || menusLoading) return <div className="p-12 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto opacity-20" /></div>;
+  if (!myStore) return <div className="p-12 text-center"><p className="font-black uppercase tracking-widest text-xs opacity-40">Store information not found.</p></div>;
 
   return (
     <div className={cn("min-h-screen py-4 px-3 max-w-7xl mx-auto transition-colors duration-500", isKitchenMode ? "bg-slate-950" : "bg-slate-50")}>
         <Dialog open={isNewSaleOpen} onOpenChange={setIsNewSaleOpen}>
             <QuickCounterSaleDialog 
-                storeId={myStore!.id} 
+                storeId={myStore.id} 
                 menuItems={menuItems} 
                 onComplete={() => setIsNewSaleOpen(false)}
                 isSalon={isSalon}
@@ -464,7 +474,7 @@ export default function StoreOrdersPage() {
         <div className="flex justify-between items-center mb-6 border-b pb-3 border-black/10">
             <div>
                 <h1 className={cn("text-2xl font-black tracking-tighter", isKitchenMode ? "text-white" : "text-gray-900")}>OP CENTER</h1>
-                <p className={cn("text-[8px] font-black uppercase tracking-widest opacity-40", isKitchenMode ? "text-primary" : "text-muted-foreground")}>{myStore?.name} • {isSalon ? 'SALON' : 'RESTAURANT'}</p>
+                <p className={cn("text-[8px] font-black uppercase tracking-widest opacity-40", isKitchenMode ? "text-primary" : "text-muted-foreground")}>{myStore.name} • {isSalon ? 'SALON' : 'RESTAURANT'}</p>
             </div>
             <div className="flex gap-2">
                 {!isSalon && (
@@ -496,7 +506,7 @@ export default function StoreOrdersPage() {
                 </div>
                 <ScrollArea className="flex-1">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-4 pb-10">
-                        {Object.values(sessions).map(s => <SessionCard key={s.id} session={s} isUpdating={isUpdating} onDismissService={handleDismissService} isKitchenMode={isKitchenMode} store={myStore!} isSalon={isSalon} />)}
+                        {Object.values(sessions).map(s => <SessionCard key={s.id} session={s} isUpdating={isUpdating} onDismissService={handleDismissService} isKitchenMode={isKitchenMode} store={myStore} isSalon={isSalon} />)}
                         {Object.values(sessions).length === 0 && <div className="col-span-full text-center py-20 border-2 border-dashed border-black/5 rounded-3xl opacity-30"><Monitor className="h-8 w-8 mx-auto mb-2"/><p className="text-[9px] font-black uppercase">No active sessions</p></div>}
                     </div>
                     <ScrollBar orientation="vertical" />
