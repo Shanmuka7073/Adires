@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -536,11 +535,13 @@ export function VoiceCommander({
         case 'ASK_ASHA': {
             const role = isAdmin ? 'admin' : (isRestaurantOwner ? 'owner' : 'customer');
             speak("Thinking...", langWithRegion, false);
+            const question = commandText.toLowerCase().replace(/asha|hey|hi|ask/g, '').trim();
             const reply = await chatWithAsha({
                 history: [],
-                message: commandText,
+                message: question || commandText,
                 role: role,
-                storeId: activeStoreId || undefined
+                storeId: activeStoreId || undefined,
+                context: { pathname }
             });
             speak(reply, langWithRegion);
             break;
@@ -563,7 +564,7 @@ export function VoiceCommander({
             break;
         }
     }
-  }, [firestore, user, language, determinePhraseLanguage, speak, resetAllContext, findProductAndVariant, addItemToCart, onOpenCart, t, locales, commands, getAllAliases, recognizeIntent, aiConfig, handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setActiveStoreId, storeAliasMap, profileForm, router, stores, productPrices, showPriceCheck, hidePriceCheck, masterProducts, isAdmin, isRestaurantOwner, activeStoreId]);
+  }, [firestore, user, language, determinePhraseLanguage, speak, resetAllContext, findProductAndVariant, addItemToCart, onOpenCart, t, locales, commands, getAllAliases, recognizeIntent, aiConfig, handleUseHomeAddress, handleUseCurrentLocation, triggerVoicePrompt, setActiveStoreId, storeAliasMap, profileForm, router, stores, productPrices, showPriceCheck, hidePriceCheck, masterProducts, isAdmin, isRestaurantOwner, activeStoreId, pathname]);
 
   useEffect(() => {
     if (!recognition) return;

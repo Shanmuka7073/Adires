@@ -2,8 +2,7 @@
 /**
  * @fileOverview A conversational AI strategic agent named Asha.
  *
- * - chatWithAsha - A function that handles strategic product auditing.
- * - AshaChatInput - The input type including page context and business vertical.
+ * - chatWithAsha - A function that handles strategic product auditing and conversational Q&A.
  */
 
 import { ai } from '@/ai/genkit';
@@ -25,9 +24,8 @@ const AshaChatInputSchema = z.object({
 }).passthrough();
 export type AshaChatInput = z.infer<typeof AshaChatInputSchema>;
 
-// Use a structured object for more reliable output validation
 const AshaChatOutputSchema = z.object({
-    analysis: z.string().describe("The strategic analysis and prediction text.")
+    analysis: z.string().describe("The conversational response or strategic analysis text.")
 });
 
 /**
@@ -75,11 +73,18 @@ const prompt = ai.definePrompt(
       name: 'ashaPrompt',
       input: { schema: AshaChatInputSchema },
       output: { schema: AshaChatOutputSchema },
-      // Aligned with the menu extraction model
       model: 'googleai/gemini-2.5-flash',
       tools: [getGlobalPlatformStats],
       prompt: `You are Asha, the Senior Strategic AI Architect for LocalBasket. 
-Your goal is to perform a deep-scan of the current application state and predict the next logical development step to maximize business growth and user engagement.
+Your goal is to perform deep-scans of the application state and answer user questions about development, growth, and technical behavior.
+
+TECHNICAL CONTEXT (Internal Knowledge):
+- Framework: Next.js 14 App Router.
+- Backend: Firebase Client SDK exclusively.
+- State Management: Zustand with localStorage persistence.
+- Page Load Behavior: The 'ClientRoot' uses a 'useInitializeApp' hook that fetches core data (Stores, Products, Voice Aliases) before unlocking the UI.
+- Performance: "Operational Indexing" is used to keep Firestore reads low.
+- Navigation: Moving between pages might show a Global Loader if the Firebase Auth state or data store is re-validating.
 
 CURRENT STATE:
 - User is on page: {{context.pathname}}
@@ -87,26 +92,18 @@ CURRENT STATE:
 {{#if businessType}}- Business Vertical: {{businessType}}{{/if}}
 
 STRATEGIC DIRECTIVES:
-1. **Identify the Gap**: Look at what is likely missing on the page {{context.pathname}} given the role of {{role}}. Think about high-conversion features (e.g., personalized bundles, loyalty rewards, or automated inventory syncing).
-2. **Predict Technical Debt**: Propose a specific optimization (e.g., "Implement Firestore Query Caching for this list" or "Move to subcollections for order items to reduce document size").
-3. **Explain the Economic Impact**: Link every proposal to a specific KPI (e.g., "Implementing X will increase Table Turnover by 12%" or "This fix will reduce Firestore Read costs by 40%").
-4. **Be Industry-Specific**: 
-   - If {{businessType}} is 'salon', suggest time-slot optimization or stylist performance tracking.
-   - If 'restaurant', suggest kitchen ticket forecasting or digital waste management.
-   - If 'grocery', suggest expiration date tracking or bulk-buy incentives.
+1. **Identify the Gap**: If the user asks for a prediction, look at what is likely missing on {{context.pathname}} given the role of {{role}}.
+2. **Technical Clarity**: If the user asks about performance or "why something is happening", explain it using the internal knowledge provided above (e.g., explaining that page load delays are often due to Firebase initialization or parallel data fetching in the Zustand store).
+3. **Economic Impact**: Link technical choices to business KPIs (e.g., "Implementing X reduces read costs by 40%").
 
-Format the 'analysis' field exactly as:
-🚀 **Prediction**: [The name of the feature or fix]
-💡 **Strategic "Why"**: [The technical and business justification]
-
-Keep your tone professional, visionary, and concise.
+Format your response in 'analysis'. If it's a strategic prediction, use the 🚀 and 💡 icons. If it's a direct answer to a question, be professional, helpful, and concise.
 
 History:
 {{#each history}}
 - {{role}}: {{text}}
 {{/each}}
 
-Latest Message:
+User Question:
 {{message}}
 `,
     }
@@ -122,13 +119,12 @@ const ashaFlow = ai.defineFlow(
     try {
         const { output } = await prompt(input);
         if (!output || !output.analysis) {
-            throw new Error("The AI failed to generate a structured analysis. This may be due to a temporary model timeout or safety filter. Please try the scan again.");
+            throw new Error("Asha is currently calibrating. Please try re-sending your question.");
         }
         return output.analysis;
     } catch (error: any) {
         console.error("Asha Flow Error:", error);
-        // Providing specific technical feedback for debugging
-        return `Asha Audit Error: ${error.message || String(error)}. Technical Path: ${input.context?.pathname}. Action: Please verify your internet connection and try the prediction again.`;
+        return `Asha Error: ${error.message || String(error)}. Path: ${input.context?.pathname}. Action: Please check your internet and try again.`;
     }
   }
 );
