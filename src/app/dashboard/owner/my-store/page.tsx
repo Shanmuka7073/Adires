@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import type { Store, Product, ProductPrice, User as AppUser, ProductVariant } from '@/lib/types';
-import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirebase, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { updateStoreImageUrl } from '@/app/actions';
 import { useRouter } from 'next/navigation';
@@ -340,6 +340,7 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
     const { firestore } = useFirebase();
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
+    const [isLocating, setIsLocating] = useState(false);
 
     const form = useForm<LocationFormValues>({
         resolver: zodResolver(locationSchema),
@@ -351,15 +352,19 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
 
     const handleGetLocation = () => {
         if (navigator.geolocation) {
+            setIsLocating(true);
             navigator.geolocation.getCurrentPosition(
                 (position) => {
-                    form.setValue('latitude', position.coords.latitude);
-                    form.setValue('longitude', position.coords.longitude);
+                    form.setValue('latitude', position.coords.latitude, { shouldValidate: true });
+                    form.setValue('longitude', position.coords.longitude, { shouldValidate: true });
                     toast({ title: "Location Fetched!", description: "Your current location has been filled in." });
+                    setIsLocating(false);
                 },
                 () => {
                     toast({ variant: 'destructive', title: "Location Error", description: "Could not retrieve your location. Please enter it manually." });
-                }
+                    setIsLocating(false);
+                },
+                { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
             );
         } else {
             toast({ variant: 'destructive', title: "Not Supported", description: "Geolocation is not supported by your browser." });
@@ -397,14 +402,15 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
                     <div className="flex items-end gap-4">
                         <div className="grid grid-cols-2 gap-4 flex-1">
                             <FormField control={form.control} name="latitude" render={({ field }) => (
-                                <FormItem><FormLabel className="text-xs text-muted-foreground">{t('latitude')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem><FormLabel className="text-xs text-muted-foreground">{t('latitude')}</FormLabel><FormControl><Input type="number" step="any" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                             <FormField control={form.control} name="longitude" render={({ field }) => (
-                                <FormItem><FormLabel className="text-xs text-muted-foreground">{t('longitude')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem><FormLabel className="text-xs text-muted-foreground">{t('longitude')}</FormLabel><FormControl><Input type="number" step="any" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                         </div>
-                         <Button type="button" variant="outline" onClick={handleGetLocation}>
-                            <MapPin className="mr-2 h-4 w-4" /> {t('get-current-location')}
+                         <Button type="button" variant="outline" onClick={handleGetLocation} disabled={isLocating}>
+                            {isLocating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />}
+                            {isLocating ? 'Locating...' : t('get-current-location')}
                         </Button>
                     </div>
                      <Button type="submit" disabled={isPending}>
@@ -675,13 +681,7 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
     const { firestore, user } = useFirebase();
     const { toast } = useToast();
     const [isOpening, startOpenTransition] = useTransition();
-    const [isRepairing, startRepair] = useTransition();
 
-    const userDocRef = useMemoFirebase(() => (!firestore || !user) ? null : doc(firestore, 'users', user.uid), [firestore, user]);
-    const { data: userData } = useDoc<AppUser>(userDocRef);
-
-    // Auto-repair logic removed from manual sync, now strictly AI-decided via Menu Manager
-    
     if (store.isClosed) {
         return (
             <Alert variant="destructive">
@@ -749,22 +749,28 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
     const { firestore } = useFirebase();
     const [isLocationConfirmOpen, setIsLocationConfirmOpen] = useState(false);
     const [capturedCoords, setCapturedCoords] = useState<{ lat: number; lng: number } | null>(null);
+    const [isLocating, setIsLocating] = useState(false);
 
     const form = useForm<StoreFormValues>({
         resolver: zodResolver(storeSchema),
         defaultValues: {
             name: isAdmin ? 'LocalBasket' : (profile ? `${profile.firstName}'s Store` : ''),
-            description: isAdmin ? 'The master store for setting canonical product prices.' : (profile ? `Groceries and goods from ${profile.firstName}'s Store.` : ''),
+            description: isAdmin ? 'The master store for setting canonical product prices.' : (profile ? `Fresh services and goods from ${profile.firstName}'s Store.` : ''),
             address: isAdmin ? 'Platform-wide' : (profile?.address || ''),
-            latitude: 0,
-            longitude: 0,
+            latitude: profile?.latitude || 0,
+            longitude: profile?.longitude || 0,
             teluguName: '',
         },
     });
 
     useEffect(() => {
         if (!isAdmin && profile) {
-            handleGetLocation(true); 
+            if (profile.latitude && profile.longitude) {
+                form.setValue('latitude', profile.latitude, { shouldValidate: true });
+                form.setValue('longitude', profile.longitude, { shouldValidate: true });
+            } else {
+                handleGetLocation(true); 
+            }
         }
     }, [isAdmin, profile]);
     
@@ -774,6 +780,7 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
             return;
         }
 
+        setIsLocating(true);
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
@@ -781,10 +788,11 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                     setCapturedCoords(coords);
                     setIsLocationConfirmOpen(true);
                 } else {
-                    form.setValue('latitude', coords.lat);
-                    form.setValue('longitude', coords.lng);
+                    form.setValue('latitude', coords.lat, { shouldValidate: true, shouldDirty: true });
+                    form.setValue('longitude', coords.lng, { shouldValidate: true, shouldDirty: true });
                     toast({ title: "Location Fetched!", description: "Your current location has been filled in." });
                 }
+                setIsLocating(false);
             },
             () => {
                 if (isAuto) {
@@ -792,7 +800,9 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                 } else {
                     toast({ variant: 'destructive', title: "Location Error", description: "Could not retrieve your location. Please enter it manually." });
                 }
-            }
+                setIsLocating(false);
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     };
 
@@ -894,14 +904,15 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                                     <div className="flex items-end gap-4">
                                         <div className="grid grid-cols-2 gap-4 flex-1">
                                             <FormField control={form.control} name="latitude" render={({ field }) => (
-                                                <FormItem><FormLabel className="text-xs text-muted-foreground">{t('latitude')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 19.0760" {...field} /></FormControl><FormMessage /></FormItem>
+                                                <FormItem><FormLabel className="text-xs text-muted-foreground">{t('latitude')}</FormLabel><FormControl><Input type="number" step="any" placeholder="e.g., 19.0760" {...field} /></FormControl><FormMessage /></FormItem>
                                             )} />
                                             <FormField control={form.control} name="longitude" render={({ field }) => (
-                                                <FormItem><FormLabel className="text-xs text-muted-foreground">{t('longitude')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 72.8777" {...field} /></FormControl><FormMessage /></FormItem>
+                                                <FormItem><FormLabel className="text-xs text-muted-foreground">{t('longitude')}</FormLabel><FormControl><Input type="number" step="any" placeholder="e.g., 72.8777" {...field} /></FormControl><FormMessage /></FormItem>
                                             )} />
                                         </div>
-                                        <Button type="button" variant="outline" onClick={() => handleGetLocation(false)}>
-                                            <MapPin className="mr-2 h-4 w-4" /> {t('get-current-location')}
+                                        <Button type="button" variant="outline" onClick={() => handleGetLocation(false)} disabled={isLocating}>
+                                            {isLocating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />}
+                                            {isLocating ? 'Locating...' : t('get-current-location')}
                                         </Button>
                                     </div>
                             </div>
