@@ -19,9 +19,9 @@ const ChatMessageSchema = z.object({
 const AshaChatInputSchema = z.object({
   history: z.array(ChatMessageSchema).describe('The conversation history.'),
   message: z.string().describe('The latest message from the user.'),
-  role: z.enum(['admin', 'owner', 'customer']).optional().default('customer'),
+  role: z.string().optional().default('customer'),
   storeId: z.string().optional(),
-  businessType: z.enum(['restaurant', 'salon', 'grocery']).optional().describe('The type of business currently being viewed.'),
+  businessType: z.string().optional().describe('The type of business currently being viewed.'),
   context: z.object({
       pathname: z.string().describe('The current page path.'),
       platformStatus: z.string().optional(),
@@ -55,9 +55,9 @@ const getGlobalPlatformStats = ai.defineTool(
           db.collection('orders').count().get(),
         ]);
         return {
-          totalUsers: users.data().count,
-          totalStores: stores.data().count,
-          totalOrders: orders.data().count,
+          totalUsers: users.data().count || 0,
+          totalStores: stores.data().count || 0,
+          totalOrders: orders.data().count || 0,
         };
     } catch (e) {
         console.error("Tool getGlobalPlatformStats failed:", e);
@@ -78,7 +78,7 @@ const prompt = ai.definePrompt(
       model: 'googleai/gemini-1.5-flash',
       tools: [getGlobalPlatformStats],
       prompt: `You are Asha, the Senior Strategic AI Architect for LocalBasket. 
-Your goal is to audit the current page and predict the next logical development step to grow the business.
+Your goal is to perform a deep-scan of the current application state and predict the next logical development step to maximize business growth and user engagement.
 
 CURRENT STATE:
 - User is on page: {{context.pathname}}
@@ -86,23 +86,26 @@ CURRENT STATE:
 {{#if businessType}}- Business Vertical: {{businessType}}{{/if}}
 
 STRATEGIC DIRECTIVES:
-1. **Identify the Gap**: Look at what is likely missing on the page {{context.pathname}} given the role of {{role}}.
-2. **Predict Development**: Propose one specific feature or technical optimization.
-3. **Explain the "Why"**: Link the proposal to economic impact (e.g., "Implementing X will reduce churn by Y%").
-4. **Be Vertical-Specific**: If {{businessType}} is 'salon', suggest beauty-specific tech (e.g., 'Stylist Slot Optimization'). If 'restaurant', suggest kitchen tech (e.g., 'Ticket Wait-Time Forecasting').
+1. **Identify the Gap**: Look at what is likely missing on the page {{context.pathname}} given the role of {{role}}. Think about high-conversion features (e.g., personalized bundles, loyalty rewards, or automated inventory syncing).
+2. **Predict Technical Debt**: Propose a specific optimization (e.g., "Implement Firestore Query Caching for this list" or "Move to subcollections for order items to reduce document size").
+3. **Explain the Economic Impact**: Link every proposal to a specific KPI (e.g., "Implementing X will increase Table Turnover by 12%" or "This fix will reduce Firestore Read costs by 40%").
+4. **Be Industry-Specific**: 
+   - If {{businessType}} is 'salon', suggest time-slot optimization or stylist performance tracking.
+   - If 'restaurant', suggest kitchen ticket forecasting or digital waste management.
+   - If 'grocery', suggest expiration date tracking or bulk-buy incentives.
 
-Format your response with:
-🚀 **Prediction**: [The feature name]
-💡 **Strategic "Why"**: [The business/technical reasoning]
+Format your response exactly as:
+🚀 **Prediction**: [The name of the feature or fix]
+💡 **Strategic "Why"**: [The technical and business justification]
 
-Keep it concise, professional, and visionary.
+Keep your tone professional, visionary, and concise.
 
 History:
 {{#each history}}
 - {{role}}: {{text}}
 {{/each}}
 
-Message:
+Latest Message:
 {{message}}
 `,
     }
@@ -115,7 +118,12 @@ const ashaFlow = ai.defineFlow(
     outputSchema: AshaChatOutputSchema,
   },
   async (input) => {
-    const { output } = await prompt(input);
-    return output || "I've analyzed the platform state but am currently calibrating my strategic engines. Please try again in a moment.";
+    try {
+        const { output } = await prompt(input);
+        return output || "I've analyzed the platform state but am currently calibrating my strategic engines. Please try again in a moment.";
+    } catch (error) {
+        console.error("Asha Flow error:", error);
+        throw new Error("Strategic analysis engine encountered a validation error. Retrying with default context.");
+    }
   }
 );

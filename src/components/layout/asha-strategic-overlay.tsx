@@ -4,7 +4,7 @@
 import { useState, useTransition, useRef, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, X, MessageSquare, Loader2, Lightbulb, Cpu } from 'lucide-react';
+import { Sparkles, X, MessageSquare, Loader2, Lightbulb, Cpu, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -35,22 +35,25 @@ export function AshaStrategicOverlay() {
     const handlePredict = () => {
         const message = `Asha, perform a strategic audit of ${pathname} for a ${role} in the ${businessType} vertical.`;
         
-        setHistory(prev => [...prev, { role: 'user', text: "Strategic Audit" }]);
+        setHistory(prev => [...prev, { role: 'user', text: "Strategic Audit Request" }]);
         
         startThinking(async () => {
             try {
                 const response = await chatWithAsha({
-                    history: history.slice(-5),
+                    history: history.slice(-4), // Limit history for context window efficiency
                     message: message,
                     role: role,
-                    businessType: businessType as any,
+                    businessType: businessType,
                     context: { pathname }
                 });
                 
                 setHistory(prev => [...prev, { role: 'model', text: response }]);
             } catch (error) {
                 console.error("Asha Chat Error:", error);
-                setHistory(prev => [...prev, { role: 'model', text: "I'm currently updating my market analysis models. Please give me a moment to reconnect to the platform core." }]);
+                setHistory(prev => [...prev, { 
+                    role: 'model', 
+                    text: "I encountered a synchronization error while connecting to the platform core. I'm re-calibrating my models. Please try clicking 'Predict Next Feature' again." 
+                }]);
             }
         });
     };
@@ -69,20 +72,20 @@ export function AshaStrategicOverlay() {
                             <CardHeader className="bg-primary/5 border-b border-black/5 pb-4">
                                 <div className="flex justify-between items-center">
                                     <div className="flex items-center gap-2">
-                                        <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-white shadow-lg animate-pulse">
+                                        <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
                                             <Sparkles className="h-5 w-5" />
                                         </div>
                                         <div>
-                                            <CardTitle className="text-sm font-black uppercase tracking-tight">Asha Strategic Advisor</CardTitle>
-                                            <CardDescription className="text-[10px] font-bold opacity-40 uppercase">Audit Mode: {businessType}</CardDescription>
+                                            <CardTitle className="text-sm font-black uppercase tracking-tight">Asha AI Strategist</CardTitle>
+                                            <CardDescription className="text-[10px] font-bold opacity-40 uppercase">Context: {businessType}</CardDescription>
                                         </div>
                                     </div>
-                                    <Button variant="ghost" size="icon" className="rounded-full h-8 w-8" onClick={() => setIsOpen(false)}>
+                                    <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 hover:bg-black/5" onClick={() => setIsOpen(false)}>
                                         <X className="h-4 w-4" />
                                     </Button>
                                 </div>
                             </CardHeader>
-                            <CardContent className="p-0 h-[450px] flex flex-col">
+                            <CardContent className="p-0 h-[400px] md:h-[450px] flex flex-col">
                                 <ScrollArea className="flex-1 p-6" ref={scrollRef}>
                                     <div className="space-y-6">
                                         {history.length === 0 && (
@@ -90,9 +93,9 @@ export function AshaStrategicOverlay() {
                                                 <div className="h-16 w-16 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
                                                     <Cpu className="h-8 w-8 text-primary opacity-40" />
                                                 </div>
-                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Platform Context Locked</p>
+                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Architecting Growth</p>
                                                 <p className="text-xs font-bold text-gray-600 leading-relaxed italic">
-                                                    "Analyze the current interface to unlock predicted developmental paths."
+                                                    "Click below to analyze this page and see the predicted next stage of development."
                                                 </p>
                                             </div>
                                         )}
@@ -118,7 +121,7 @@ export function AshaStrategicOverlay() {
                                                     <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:0.2s]" />
                                                     <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:0.4s]" />
                                                 </div>
-                                                Architecting Prediction...
+                                                Running Strategic Scan...
                                             </div>
                                         )}
                                     </div>
@@ -128,7 +131,7 @@ export function AshaStrategicOverlay() {
                                 <Button 
                                     onClick={handlePredict} 
                                     disabled={isThinking}
-                                    className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 transition-all hover:scale-[1.02]"
+                                    className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95"
                                 >
                                     <Lightbulb className="mr-2 h-5 w-5" />
                                     Predict Next Feature
