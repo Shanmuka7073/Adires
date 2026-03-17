@@ -117,7 +117,7 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
                 <span className="text-primary">₹{session.totalAmount.toFixed(0)}</span>
             </div>
             <div className="flex gap-1 w-full">
-                <Button className="h-7 flex-1 rounded-lg text-[8px] font-black uppercase" onClick={handleAction} disabled={isUpdating || isProcessing}>
+                <Button className="w-full h-7 rounded-lg text-[8px] font-black uppercase" onClick={handleAction} disabled={isUpdating || isProcessing}>
                     {session.status === 'Billed' ? 'Cash Received' : 'To Kitchen'}
                 </Button>
             </div>
@@ -170,7 +170,9 @@ export default function StoreOrdersPage() {
   const [isUpdating, startUpdate] = useTransition();
   const [isKitchenMode, setIsKitchenMode] = useState(false);
   const { toast } = useToast();
-  const { userStore: myStore, loading: isStoreLoading } = useAppStore();
+  const { stores, userStore, loading: isStoreLoading } = useAppStore();
+
+  const myStore = useMemo(() => userStore || stores[0], [userStore, stores]);
 
   const activeOrdersQuery = useMemoFirebase(() =>
     firestore && myStore ? query(collection(firestore, 'orders'), where('storeId', '==', myStore.id), where('isActive', '==', true), orderBy('orderDate', 'desc'), limit(50)) : null,
@@ -183,35 +185,36 @@ export default function StoreOrdersPage() {
     const onlineJobs: Order[] = [];
     if (!activeOrders) return { sessions: {}, homeDeliveries: [] };
     activeOrders.forEach(o => {
-        // DELIVERY or TAKEAWAY (from online) go to left side
-        if (o.orderType === 'delivery' || (o.orderType === 'takeaway' && !o.tableNumber)) {
-            onlineJobs.push(o);
-        } else if (o.sessionId) {
-            if (!tableSessions[o.sessionId]) {
-                tableSessions[o.sessionId] = { 
-                    id: o.sessionId, 
-                    tableNumber: o.tableNumber || null, 
-                    orders: [], 
-                    totalAmount: 0, 
-                    status: o.status, 
-                    orderType: o.orderType,
-                    lastActivity: toDateSafe(o.orderDate), 
-                    needsService: o.needsService, 
-                    serviceType: o.serviceType 
-                };
-            }
-            tableSessions[o.sessionId].orders.push(o);
-            tableSessions[o.sessionId].totalAmount += o.totalAmount;
-            
-            const statusWeights: Record<string, number> = { 'Draft': 1, 'Pending': 2, 'Processing': 3, 'Billed': 4 };
-            if (statusWeights[o.status] > (statusWeights[tableSessions[o.sessionId].status] || 0)) {
-                tableSessions[o.sessionId].status = o.status;
-            }
-            if (o.needsService) {
-                tableSessions[o.sessionId].needsService = true;
-                tableSessions[o.sessionId].serviceType = o.serviceType;
+        // COUNTER and DINE-IN go to the right side (Table & Counter)
+        if (o.orderType === 'dine-in' || o.orderType === 'counter') {
+            if (o.sessionId) {
+                if (!tableSessions[o.sessionId]) {
+                    tableSessions[o.sessionId] = { 
+                        id: o.sessionId, 
+                        tableNumber: o.tableNumber || 'Counter', 
+                        orders: [], 
+                        totalAmount: 0, 
+                        status: o.status, 
+                        orderType: o.orderType,
+                        lastActivity: toDateSafe(o.orderDate), 
+                        needsService: o.needsService, 
+                        serviceType: o.serviceType 
+                    };
+                }
+                tableSessions[o.sessionId].orders.push(o);
+                tableSessions[o.sessionId].totalAmount += o.totalAmount;
+                
+                const statusWeights: Record<string, number> = { 'Draft': 1, 'Pending': 2, 'Processing': 3, 'Billed': 4 };
+                if (statusWeights[o.status] > (statusWeights[tableSessions[o.sessionId].status] || 0)) {
+                    tableSessions[o.sessionId].status = o.status;
+                }
+                if (o.needsService) {
+                    tableSessions[o.sessionId].needsService = true;
+                    tableSessions[o.sessionId].serviceType = o.serviceType;
+                }
             }
         } else {
+            // DELIVERY or TAKEAWAY (from online) go to left side
             onlineJobs.push(o);
         }
     });
@@ -247,7 +250,7 @@ export default function StoreOrdersPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <section className="space-y-3">
-                <h2 className="text-[10px] font-black uppercase tracking-widest text-blue-600 flex items-center gap-1.5"><Truck className="h-3 w-3"/> Delivery & Online</h2>
+                <h2 className="text-[10px] font-black uppercase tracking-widest text-blue-600 flex items-center gap-1.5"><Truck className="h-3 w-3"/> Home Delivery & Online</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {homeDeliveries.map(o => <DeliveryOrderCard key={o.id} order={o} onStatusChange={handleOrderUpdate} isUpdating={isUpdating} isKitchenMode={isKitchenMode} />)}
                     {homeDeliveries.length === 0 && <p className="text-[8px] opacity-30 uppercase font-black py-8 text-center border-2 border-dashed rounded-xl">No active jobs</p>}
