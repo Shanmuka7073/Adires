@@ -60,8 +60,8 @@ const getGlobalPlatformStats = ai.defineTool(
           totalStores: stores.data().count || 0,
           totalOrders: orders.data().count || 0,
         };
-    } catch (e) {
-        console.error("Tool getGlobalPlatformStats failed (Using Fallback):", e);
+    } catch (e: any) {
+        console.error("Tool getGlobalPlatformStats failed:", e);
         return { totalUsers: 0, totalStores: 0, totalOrders: 0 };
     }
   }
@@ -76,7 +76,7 @@ const prompt = ai.definePrompt(
       name: 'ashaPrompt',
       input: { schema: AshaChatInputSchema },
       output: { schema: AshaChatOutputSchema },
-      model: 'googleai/gemini-1.5-flash',
+      model: 'googleai/gemini-2.5-flash',
       tools: [getGlobalPlatformStats],
       prompt: `You are Asha, the Senior Strategic AI Architect for LocalBasket. 
 Your goal is to perform a deep-scan of the current application state and predict the next logical development step to maximize business growth and user engagement.
@@ -122,9 +122,9 @@ const ashaFlow = ai.defineFlow(
     try {
         const { output } = await prompt(input);
         return output || "I've analyzed the platform state but am currently calibrating my strategic engines. Please try again in a moment.";
-    } catch (error) {
+    } catch (error: any) {
         console.error("Asha Flow internal error:", error);
-        return "I encountered a minor synchronization delay while auditing the platform context. Please try clicking 'Predict Next Feature' again so I can re-run the scan.";
+        return `Asha Audit Error: ${error.message || String(error)}. technical_context: ${input.context?.pathname || 'none'}`;
     }
   }
 );

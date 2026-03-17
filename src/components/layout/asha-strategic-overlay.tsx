@@ -34,7 +34,7 @@ export function AshaStrategicOverlay() {
     const handlePredict = () => {
         const message = `Asha, perform a strategic audit of ${pathname} for a ${role} in the ${businessType} vertical.`;
         
-        // Strictly sanitize history to only include schema-valid fields
+        // strictly filter history to avoid serialization/schema issues
         const sanitizedHistory = history.slice(-6).map(msg => ({
             role: msg.role === 'user' ? 'user' : 'model',
             text: msg.text
@@ -53,11 +53,12 @@ export function AshaStrategicOverlay() {
                 });
                 
                 setHistory(prev => [...prev, { role: 'model', text: response }]);
-            } catch (error) {
+            } catch (error: any) {
                 console.error("Asha Action Error:", error);
+                const errorMessage = error?.message || "Internal server error connecting to Genkit flow.";
                 setHistory(prev => [...prev, { 
                     role: 'model', 
-                    text: "I encountered a minor synchronization delay while auditing the platform context. Please try clicking 'Predict Next Feature' again so I can re-run the scan." 
+                    text: `❌ **Synchronization Error**: ${errorMessage}. \n\nThis usually happens when the AI service is overloaded or the server-side Genkit flow encounters an unhandled exception. Please try again.` 
                 }]);
             }
         });
