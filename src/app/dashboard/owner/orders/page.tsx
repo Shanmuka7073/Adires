@@ -43,7 +43,7 @@ import {
 import {
   collection, query, where, orderBy, doc, updateDoc, serverTimestamp, Timestamp, limit, getDocs, setDoc, writeBatch
 } from 'firebase/firestore';
-import { useFirebase, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { useMemo, useState, useTransition, useEffect, useCallback, useRef } from 'react';
 import {
   AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogDescription
@@ -93,7 +93,6 @@ interface Session {
 function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { storeId: string, menuItems: MenuItem[], onComplete: () => void, isSalon: boolean }) {
     const { toast } = useToast();
     const { firestore } = useFirebase();
-    const [isProcessing, startAction] = useTransition();
     const [cart, setCart] = useState<{item: MenuItem, qty: number}[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -118,53 +117,52 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { s
     const handleGenerateBill = () => {
         if (cart.length === 0 || !firestore) return;
         
-        startAction(async () => {
-            const orderId = `counter-${Date.now()}`;
-            const orderRef = doc(firestore, 'orders', orderId);
-            
-            const orderItems: OrderItem[] = cart.map(c => ({
-                id: crypto.randomUUID(),
-                orderId: orderId,
-                productId: c.item.id,
-                menuItemId: c.item.id,
-                productName: c.item.name,
-                variantSku: `${c.item.id}-default`,
-                variantWeight: '1 pc',
-                quantity: c.qty,
-                price: c.item.price
-            }));
+        // Generate a highly unique ID for offline resilience
+        const orderId = `counter-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        const orderRef = doc(firestore, 'orders', orderId);
+        
+        const orderItems: OrderItem[] = cart.map(c => ({
+            id: crypto.randomUUID(),
+            orderId: orderId,
+            productId: c.item.id,
+            menuItemId: c.item.id,
+            productName: c.item.name,
+            variantSku: `${c.item.id}-default`,
+            variantWeight: '1 pc',
+            quantity: c.qty,
+            price: c.item.price
+        }));
 
-            const orderData = {
-                id: orderId,
-                storeId: storeId,
-                tableNumber: 'Counter',
-                sessionId: orderId,
-                userId: 'guest',
-                customerName: 'Walk-in Guest',
-                deliveryAddress: 'In-store counter',
-                status: 'Billed',
-                orderType: 'counter',
-                isActive: true,
-                orderDate: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-                items: orderItems,
-                totalAmount: total,
-            };
+        const orderData = {
+            id: orderId,
+            storeId: storeId,
+            tableNumber: 'Counter',
+            sessionId: orderId,
+            userId: 'guest',
+            customerName: 'Walk-in Guest',
+            deliveryAddress: 'In-store counter',
+            status: 'Billed',
+            orderType: 'counter',
+            isActive: true,
+            orderDate: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            items: orderItems,
+            totalAmount: total,
+        };
 
-            try {
-                // Use client SDK for offline support
-                await setDoc(orderRef, orderData);
-                toast({ title: "Bill Generated!" });
-                setCart([]);
-                onComplete();
-            } catch (e) {
-                errorEmitter.emit('permission-error', new FirestorePermissionError({
-                    path: orderRef.path,
-                    operation: 'create',
-                    requestResourceData: orderData
-                }));
-            }
+        // NON-BLOCKING: No await here to allow multiple bills offline
+        setDoc(orderRef, orderData).catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: orderRef.path,
+                operation: 'create',
+                requestResourceData: orderData
+            });
+            errorEmitter.emit('permission-error', permissionError);
         });
+
+        toast({ title: "Bill Generated!" });
+        setCart([]);
+        onComplete();
     };
 
     return (
@@ -258,10 +256,10 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { s
                         </div>
                         <Button 
                             className="w-full h-12 md:h-14 rounded-xl md:rounded-2xl font-black uppercase tracking-widest text-[10px] md:text-xs shadow-xl shadow-primary/20" 
-                            disabled={cart.length === 0 || isProcessing}
+                            disabled={cart.length === 0}
                             onClick={handleGenerateBill}
                         >
-                            {isProcessing ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Receipt className="mr-2 h-4 w-4 md:h-5 md:w-5" />}
+                            <Receipt className="mr-2 h-4 w-4 md:h-5 md:w-5" />
                             Generate Bill
                         </Button>
                     </div>
@@ -271,33 +269,29 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { s
     );
 }
 
-function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, store, isSalon }: { session: Session; isUpdating: boolean; onDismissService: (id: string) => void; isKitchenMode: boolean; store: Store; isSalon: boolean }) {
+function SessionCard({ session, store, isSalon }: { session: Session; store: Store; isSalon: boolean }) {
   const { toast } = useToast();
   const { firestore } = useFirebase();
-  const [isProcessing, startAction] = useTransition();
 
   const handleAction = () => {
     if (!firestore) return;
-    startAction(async () => {
-        const batch = writeBatch(firestore);
-        const isBilled = session.status === 'Billed';
-        
-        session.orders.forEach(order => {
-            const orderRef = doc(firestore, 'orders', order.id);
-            if (isBilled) {
-                batch.update(orderRef, { status: 'Completed', isActive: false, updatedAt: serverTimestamp() });
-            } else {
-                batch.update(orderRef, { status: 'Billed', updatedAt: serverTimestamp() });
-            }
-        });
-
-        try {
-            await batch.commit();
-            toast({ title: 'Success' });
-        } catch (e) {
-            toast({ variant: 'destructive', title: 'Action Failed' });
+    const batch = writeBatch(firestore);
+    const isBilled = session.status === 'Billed';
+    
+    session.orders.forEach(order => {
+        const orderRef = doc(firestore, 'orders', order.id);
+        if (isBilled) {
+            batch.update(orderRef, { status: 'Completed', isActive: false, updatedAt: serverTimestamp() });
+        } else {
+            batch.update(orderRef, { status: 'Billed', updatedAt: serverTimestamp() });
         }
     });
+
+    // NON-BLOCKING: No await
+    batch.commit().catch(async (e) => {
+        toast({ variant: 'destructive', title: 'Action Failed' });
+    });
+    toast({ title: 'Success' });
   };
 
   const handlePrint = () => {
@@ -346,33 +340,25 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
   const meta = STATUS_META[session.status] || STATUS_META.Pending;
   const isBilled = session.status === 'Billed';
   
-  if (isKitchenMode && !['Pending', 'Processing', 'Billed'].includes(session.status)) return null;
-
   const titleIcon = session.orderType === 'takeaway' ? <ShoppingBag className="h-4 w-4" /> : session.orderType === 'counter' ? <Calculator className="h-4 w-4" /> : (isSalon ? <Scissors className="h-4 w-4" /> : <Utensils className="h-4 w-4" />);
-
-  const titleColor = isBilled ? "text-gray-950" : (isKitchenMode ? "text-white" : "text-gray-950");
-  const itemTextColor = isBilled ? "text-gray-800" : (isKitchenMode ? "text-white/90" : "text-gray-700");
-  const priceColor = isBilled ? "text-gray-950" : (isKitchenMode ? "text-white" : "text-gray-600");
-  const footerLabelColor = isBilled ? "text-black" : (isKitchenMode ? "text-white" : "text-black");
 
   return (
     <Card className={cn(
         "rounded-xl shadow-md border-0 relative transition-all", 
-        isBilled ? "bg-green-50 ring-1 ring-green-500" : (isKitchenMode ? "bg-slate-900 ring-1 ring-white/10" : "bg-white"),
+        isBilled ? "bg-green-50 ring-1 ring-green-500" : "bg-white",
         session.needsService && "ring-2 ring-red-500 animate-pulse"
     )}>
       {session.needsService && (
           <div className="absolute top-0 left-0 w-full h-6 bg-red-600 flex items-center justify-between px-2 rounded-t-xl z-10">
               <span className="text-[8px] font-black uppercase text-white flex items-center gap-1"><BellRing className="h-2.5 w-2.5"/> {session.serviceType || 'Service'}</span>
-              <button onClick={() => onDismissService(session.orders[0].id)} className="text-[8px] font-black text-white underline">Done</button>
           </div>
       )}
       <CardHeader className={cn("p-2 pb-1", session.needsService && "pt-7")}>
         <div className="flex justify-between items-start">
             <div className="flex items-center gap-1.5 min-w-0">
-                 <div className="opacity-20 shrink-0" style={{ color: (isKitchenMode && !isBilled) ? 'white' : 'inherit' }}>{titleIcon}</div>
+                 <div className="opacity-20 shrink-0">{titleIcon}</div>
                  <div className="min-w-0">
-                    <CardTitle className={cn("text-sm font-black truncate", titleColor)}>{isSalon ? 'Chair' : ''} {session.tableNumber || 'Walking'}</CardTitle>
+                    <CardTitle className={cn("text-sm font-black truncate", isBilled ? "text-gray-950" : "text-gray-900")}>{isSalon ? 'Chair' : ''} {session.tableNumber || 'Walking'}</CardTitle>
                     <CardDescription className="text-[7px] opacity-40">#{session.id.slice(-4)}</CardDescription>
                  </div>
             </div>
@@ -384,19 +370,19 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
       </CardHeader>
       <CardContent className="p-2 pt-1 space-y-1">
           {session.orders.flatMap(o => o.items).map((it, i) => (
-              <div key={i} className={cn("flex justify-between items-center text-[9px] font-bold py-1 px-2 rounded-md mb-0.5", isBilled ? "bg-black/5" : (isKitchenMode ? "bg-white/5" : "bg-black/5"))}>
-                  <span className={cn("truncate pr-2", itemTextColor)}>{it.productName} <span className="opacity-40 font-black">x{it.quantity}</span></span>
-                  <span className={cn("shrink-0 font-black", priceColor)}>₹{(it.price * it.quantity).toFixed(0)}</span>
+              <div key={i} className={cn("flex justify-between items-center text-[9px] font-bold py-1 px-2 rounded-md mb-0.5", isBilled ? "bg-black/5" : "bg-black/5")}>
+                  <span className={cn("truncate pr-2", isBilled ? "text-gray-800" : "text-gray-700")}>{it.productName} <span className="opacity-40 font-black">x{it.quantity}</span></span>
+                  <span className={cn("shrink-0 font-black", isBilled ? "text-gray-950" : "text-gray-600")}>₹{(it.price * it.quantity).toFixed(0)}</span>
               </div>
           ))}
       </CardContent>
-      <CardFooter className={cn("p-2 pt-1 flex flex-col gap-1.5 rounded-b-xl", (isKitchenMode && !isBilled) ? "bg-white/5" : "bg-black/5")}>
+      <CardFooter className={cn("p-2 pt-1 flex flex-col gap-1.5 rounded-b-xl bg-black/5")}>
             <div className="flex justify-between w-full text-[8px] font-black uppercase">
-                <span className={cn("opacity-40", footerLabelColor)}>Total Session</span>
+                <span className={cn("opacity-40", isBilled ? "text-black" : "text-black")}>Total Session</span>
                 <span className={cn("font-black", isBilled ? "text-gray-950" : "text-primary")}>₹{session.totalAmount.toFixed(0)}</span>
             </div>
             <div className="flex gap-1 w-full">
-                <Button className="w-full h-7 rounded-lg text-[8px] font-black uppercase shadow-sm" onClick={handleAction} disabled={isUpdating || isProcessing}>
+                <Button className="w-full h-7 rounded-lg text-[8px] font-black uppercase shadow-sm" onClick={handleAction}>
                     {isBilled ? 'Cash Received' : (isSalon ? 'Start Service' : 'Send to Kitchen')}
                 </Button>
             </div>
@@ -405,8 +391,7 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
   )
 }
 
-function DeliveryOrderCard({ order, onStatusChange, isUpdating, isKitchenMode }: { order: Order; onStatusChange: (id: string, s: any) => void; isUpdating: boolean; isKitchenMode: boolean }) {
-    if (isKitchenMode && !['Pending', 'Processing', 'Billed'].includes(order.status)) return null;
+function DeliveryOrderCard({ order, onStatusChange }: { order: Order; onStatusChange: (id: string, s: any) => void; }) {
     const meta = STATUS_META[order.status] || STATUS_META.Pending;
     const isBilled = order.status === 'Billed';
 
@@ -417,34 +402,30 @@ function DeliveryOrderCard({ order, onStatusChange, isUpdating, isKitchenMode }:
         return current;
     };
 
-    const titleColor = isBilled ? "text-gray-950" : (isKitchenMode ? "text-white" : "text-gray-950");
-    const itemTextColor = isBilled ? "text-gray-800" : (isKitchenMode ? "text-white/90" : "text-gray-700");
-    const priceColor = isBilled ? "text-gray-950" : (isKitchenMode ? "text-white" : "text-gray-600");
-
     return (
         <Card className={cn(
             "rounded-xl shadow-md border-0 overflow-hidden relative transition-all", 
-            isBilled ? "bg-green-50 ring-1 ring-green-500" : (isKitchenMode ? "bg-slate-900 ring-1 ring-white/10" : "bg-white")
+            isBilled ? "bg-green-50 ring-1 ring-green-500" : "bg-white"
         )}>
-            <CardHeader className={cn("p-2 pb-1 border-b border-black/5", isBilled ? "bg-green-100/50" : (isKitchenMode ? "bg-blue-900/20" : "bg-blue-50/50"))}>
+            <CardHeader className={cn("p-2 pb-1 border-b border-black/5", isBilled ? "bg-green-100/50" : "bg-blue-50/50")}>
                 <div className="flex justify-between items-start">
                     <div className="min-w-0 pr-2">
-                        <CardTitle className={cn("text-[10px] font-black uppercase truncate", titleColor)}>{order.customerName}</CardTitle>
-                        <CardDescription className={cn("text-[7px] truncate font-bold opacity-60", isKitchenMode && !isBilled ? "text-white/60" : "text-gray-600")}>{order.deliveryAddress}</CardDescription>
+                        <CardTitle className={cn("text-[10px] font-black uppercase truncate", isBilled ? "text-gray-950" : "text-gray-950")}>{order.customerName}</CardTitle>
+                        <CardDescription className={cn("text-[7px] truncate font-bold opacity-60", "text-gray-600")}>{order.deliveryAddress}</CardDescription>
                     </div>
                     <Badge variant="outline" className="text-[7px] font-black uppercase shrink-0 h-4 border-primary/20">{meta.label}</Badge>
                 </div>
             </CardHeader>
             <CardContent className="p-2 pt-1 space-y-0.5">
                 {order.items.map((it, idx) => (
-                    <div key={idx} className={cn("flex justify-between items-center text-[9px] font-bold py-1 px-2 rounded-md mb-0.5", isBilled ? "bg-black/5" : (isKitchenMode ? "bg-white/5" : "bg-black/5"))}>
-                        <span className={cn("truncate pr-2", itemTextColor)}>{it.productName} <span className="opacity-40 font-black">x{it.quantity}</span></span>
-                        <span className={cn("font-black", priceColor)}>₹{(it.price * it.quantity).toFixed(0)}</span>
+                    <div key={idx} className={cn("flex justify-between items-center text-[9px] font-bold py-1 px-2 rounded-md mb-0.5", isBilled ? "bg-black/5" : "bg-black/5")}>
+                        <span className={cn("truncate pr-2", isBilled ? "text-gray-800" : "text-gray-700")}>{it.productName} <span className="opacity-40 font-black">x{it.quantity}</span></span>
+                        <span className={cn("font-black", isBilled ? "text-gray-950" : "text-gray-600")}>₹{(it.price * it.quantity).toFixed(0)}</span>
                     </div>
                 ))}
             </CardContent>
-            <CardFooter className={cn("p-2 pt-1 flex gap-1", isKitchenMode && !isBilled ? "bg-white/5" : "bg-black/5")}>
-                <Button className="flex-1 h-7 rounded-lg text-[8px] font-black uppercase shadow-sm" onClick={() => onStatusChange(order.id, getNextStatus(order.status))} disabled={isUpdating}>
+            <CardFooter className={cn("p-2 pt-1 flex gap-1", "bg-black/5")}>
+                <Button className="flex-1 h-7 rounded-lg text-[8px] font-black uppercase shadow-sm" onClick={() => onStatusChange(order.id, getNextStatus(order.status))}>
                     {order.status === 'Pending' ? 'Process Job' : 'Next Step'}
                 </Button>
                 <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-black/5"><UserPlus className="h-3 w-3" /></Button>
@@ -550,7 +531,7 @@ function HistoryAndInsightsCenter({ storeId }: { storeId: string }) {
                                 <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto h-8 w-8 opacity-20" /></div>
                             ) : history.length > 0 ? (
                                 <Table>
-                                    <TableHeader className="bg-black/5">
+                                    <TableHeader>
                                         <TableRow>
                                             <TableHead className="text-[9px] font-black uppercase tracking-widest">Customer</TableHead>
                                             <TableHead className="text-[9px] font-black uppercase tracking-widest">Total</TableHead>
@@ -609,7 +590,6 @@ function HistoryAndInsightsCenter({ storeId }: { storeId: string }) {
 
 export default function StoreOrdersPage() {
   const { firestore, user } = useFirebase();
-  const [isUpdating, startUpdate] = useTransition();
   const [isKitchenMode, setIsKitchenMode] = useState(false);
   const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('live');
@@ -703,40 +683,31 @@ export default function StoreOrdersPage() {
       const orderRef = doc(firestore, 'orders', orderId);
       const isActive = !['Delivered', 'Completed', 'Cancelled'].includes(status);
       
-      startUpdate(async () => {
-          // Optimized for offline support via Client SDK
-          try {
-              await updateDoc(orderRef, {
-                  status,
-                  isActive,
-                  updatedAt: serverTimestamp()
-              });
-              toast({ title: "Updated" });
-          } catch (e) {
-              errorEmitter.emit('permission-error', new FirestorePermissionError({
-                  path: orderRef.path,
-                  operation: 'update',
-                  requestResourceData: { status }
-              }));
-          }
+      // NON-BLOCKING: No await for offline responsiveness
+      updateDoc(orderRef, {
+          status,
+          isActive,
+          updatedAt: serverTimestamp()
+      }).catch(async (e) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+              path: orderRef.path,
+              operation: 'update',
+              requestResourceData: { status }
+          }));
       });
+      toast({ title: "Updated" });
   }
 
   const handleDismissService = (orderId: string) => {
       if (!firestore) return;
       const orderRef = doc(firestore, 'orders', orderId);
-      startUpdate(async () => { 
-          try {
-              await updateDoc(orderRef, { 
-                  needsService: false, 
-                  serviceType: null, 
-                  updatedAt: serverTimestamp() 
-              });
-              toast({ title: "Resolved" }); 
-          } catch (e) {
-              toast({ variant: 'destructive', title: "Failed to dismiss" });
-          }
-      });
+      // NON-BLOCKING
+      updateDoc(orderRef, { 
+          needsService: false, 
+          serviceType: null, 
+          updatedAt: serverTimestamp() 
+      }).catch(e => toast({ variant: 'destructive', title: "Failed to dismiss" }));
+      toast({ title: "Resolved" }); 
   };
 
   const playNewOrderSound = useCallback(() => {
@@ -883,7 +854,7 @@ export default function StoreOrdersPage() {
                         <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 flex items-center gap-2 mb-4 shrink-0"><Truck className="h-3.5 w-3.5"/> Out-Call & Online</h2>
                         <ScrollArea className="flex-1">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-4">
-                                {homeDeliveries.map(o => <DeliveryOrderCard key={o.id} order={o} onStatusChange={handleOrderUpdate} isUpdating={isUpdating} isKitchenMode={isKitchenMode} />)}
+                                {homeDeliveries.map(o => <DeliveryOrderCard key={o.id} order={o} onStatusChange={handleOrderUpdate} />)}
                                 {homeDeliveries.length === 0 && (
                                     <div className={cn(
                                         "col-span-full text-center py-20 border-2 border-dashed rounded-3xl opacity-60",
@@ -904,7 +875,7 @@ export default function StoreOrdersPage() {
                         </div>
                         <ScrollArea className="flex-1">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-4 pb-10">
-                                {Object.values(sessions).map(s => <SessionCard key={s.id} session={s} isUpdating={isUpdating} onDismissService={handleDismissService} isKitchenMode={isKitchenMode} store={myStore} isSalon={isSalon} />)}
+                                {Object.values(sessions).map(s => <SessionCard key={s.id} session={s} onDismissService={handleDismissService} isKitchenMode={isKitchenMode} store={myStore} isSalon={isSalon} />)}
                                 {Object.values(sessions).length === 0 && (
                                     <div className={cn(
                                         "col-span-full text-center py-20 border-2 border-dashed rounded-3xl opacity-60",

@@ -123,31 +123,32 @@ export default function CheckoutPage() {
 
   const onSubmit = (data: CheckoutFormValues) => {
     if (!firestore || !user || !activeStoreId) return;
-    startPlaceOrderTransition(async () => {
-        const orderDocRef = doc(collection(firestore, 'orders'));
-        const orderData: any = {
-            id: orderDocRef.id,
-            userId: user.uid,
-            storeId: activeStoreId,
-            customerName: data.name,
-            deliveryAddress: data.deliveryAddress,
-            deliveryLat: deliveryCoords?.lat || 0,
-            deliveryLng: deliveryCoords?.lng || 0,
-            orderDate: serverTimestamp(),
-            status: 'Pending',
-            orderType: 'delivery',
-            isActive: true,
-            totalAmount: cartTotal + DELIVERY_FEE,
-            items: cartItems.map(item => ({ id: crypto.randomUUID(), orderId: orderDocRef.id, productId: item.product.id, productName: item.product.name, variantSku: item.variant.sku, variantWeight: item.variant.weight, quantity: item.quantity, price: item.variant.price })),
-        };
-        try {
-            await setDoc(orderDocRef, orderData);
-            clearCart();
-            router.push(`/order-confirmation?orderId=${orderDocRef.id}`);
-        } catch (e) {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: orderDocRef.path, operation: 'create', requestResourceData: orderData }));
-        }
+    
+    const orderId = doc(collection(firestore, 'orders')).id;
+    const orderDocRef = doc(firestore, 'orders', orderId);
+    const orderData: any = {
+        id: orderId,
+        userId: user.uid,
+        storeId: activeStoreId,
+        customerName: data.name,
+        deliveryAddress: data.deliveryAddress,
+        deliveryLat: deliveryCoords?.lat || 0,
+        deliveryLng: deliveryCoords?.lng || 0,
+        orderDate: serverTimestamp(),
+        status: 'Pending',
+        orderType: 'delivery',
+        isActive: true,
+        totalAmount: cartTotal + DELIVERY_FEE,
+        items: cartItems.map(item => ({ id: crypto.randomUUID(), orderId: orderId, productId: item.product.id, productName: item.product.name, variantSku: item.variant.sku, variantWeight: item.variant.weight, quantity: item.quantity, price: item.variant.price })),
+    };
+
+    // NON-BLOCKING: Initiate write and move on for offline responsiveness
+    setDoc(orderDocRef, orderData).catch(async (e) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: orderDocRef.path, operation: 'create', requestResourceData: orderData }));
     });
+
+    clearCart();
+    router.push(`/order-confirmation?orderId=${orderId}`);
   };
 
   useEffect(() => { if (shouldPlaceOrderDirectly && form.formState.isValid && placeOrderBtnRef.current) { placeOrderBtnRef.current.click(); setShouldPlaceOrderDirectly(false); } }, [shouldPlaceOrderDirectly, form.formState.isValid, setShouldPlaceOrderDirectly]);

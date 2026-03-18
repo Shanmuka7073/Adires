@@ -12,7 +12,8 @@ import {
   orderBy,
   setDoc,
   serverTimestamp,
-  updateDoc
+  updateDoc,
+  writeBatch
 } from 'firebase/firestore';
 
 import type {
@@ -105,6 +106,8 @@ import { Label } from '@/components/ui/label';
 import QRCode from 'qrcode.react';
 import { useAppStore } from '@/lib/store';
 import { useCart } from '@/lib/cart';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
@@ -369,7 +372,7 @@ function LiveBillSheet({
   );
 }
 
-function MenuCard({ item, onAdd, onShowDetails, isAdding, recentlyAdded, currentQuantityInOrder, theme }: { item: MenuItem, onAdd: (item: MenuItem, qty: number) => void, onShowDetails: (item: MenuItem) => void, isAdding: boolean, recentlyAdded: boolean, currentQuantityInOrder: number, theme: MenuTheme | undefined }) {
+function MenuCard({ item, onAdd, onShowDetails, recentlyAdded, currentQuantityInOrder, theme }: { item: MenuItem, onAdd: (item: MenuItem, qty: number) => void, onShowDetails: (item: MenuItem) => void, recentlyAdded: boolean, currentQuantityInOrder: number, theme: MenuTheme | undefined }) {
     const [qty, setQty] = useState(1);
     const isOutOfStock = item.isAvailable === false;
     
@@ -402,7 +405,7 @@ function MenuCard({ item, onAdd, onShowDetails, isAdding, recentlyAdded, current
                 </div>
                 <div className="flex items-center gap-1.5">
                     <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full opacity-40 hover:opacity-100 bg-white/5" onClick={() => onShowDetails(item)}><Eye className="h-3.5 w-3.5 text-white" /></Button>
-                    <Button onClick={() => onAdd(item, qty)} disabled={isAdding || isOutOfStock} className={cn("flex-1 h-8 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95", recentlyAdded ? "bg-green-600 text-white" : "")} style={{ backgroundColor: recentlyAdded ? '' : (theme?.primaryColor || '#FBC02D'), color: recentlyAdded ? '' : (theme?.backgroundColor || '#1A1616') }}>
+                    <Button onClick={() => onAdd(item, qty)} disabled={isOutOfStock} className={cn("flex-1 h-8 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95", recentlyAdded ? "bg-green-600 text-white" : "")} style={{ backgroundColor: recentlyAdded ? '' : (theme?.primaryColor || '#FBC02D'), color: recentlyAdded ? '' : (theme?.backgroundColor || '#1A1616') }}>
                         {recentlyAdded ? <Check className="h-2.5 w-2.5" /> : 'Add'}
                     </Button>
                 </div>
@@ -416,7 +419,7 @@ function MenuCard({ item, onAdd, onShowDetails, isAdding, recentlyAdded, current
 export default function PublicMenuPage() {
   const { storeId } = useParams<{ storeId: string }>();
   const searchParams = useSearchParams(); const { firestore } = useFirebase(); const { toast } = useToast();
-  const [isAdding, startAdding] = useTransition(); const [searchTerm, setSearchTerm] = useState(''); const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState(''); const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isDeliveryDetailsOpen, setIsDeliveryDetailsOpen] = useState(false); const [isModeDialogOpen, setIsModeDialogOpen] = useState(false); const [isUpiDialogOpen, setIsUpiDialogOpen] = useState(false);
   const [tableNumber, setTableNumber] = useState<string | null>(null); const [deliveryAddress, setDeliveryAddress] = useState(''); const [customerName, setCustomerName] = useState(''); const [phone, setPhone] = useState(''); const [deliveryCoords, setDeliveryCoords] = useState<{lat: number, lng: number} | null>(null);
   const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null); const [ingredientsData, setIngredientsData] = useState<GetIngredientsOutput | null>(null); const [isFetchingIngredients, startFetchingIngredients] = useTransition(); const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
@@ -476,88 +479,78 @@ export default function PublicMenuPage() {
     if (!tableNumber && (!deliveryAddress || !customerName || !phone)) { setIsDeliveryDetailsOpen(true); return; }
     if (!firestore) return;
 
-    startAdding(async () => {
-      const isCounter = tableNumber === 'Counter';
-      const orderId = doc(collection(firestore, 'orders')).id;
-      const orderRef = doc(firestore, 'orders', orderId);
+    const isCounter = tableNumber === 'Counter';
+    const orderId = doc(collection(firestore, 'orders')).id;
+    const orderRef = doc(firestore, 'orders', orderId);
 
-      const orderItems: OrderItem[] = cartItems.map(item => ({
-        id: crypto.randomUUID(), 
-        orderId: orderId,
-        productId: item.product.id,
-        menuItemId: item.product.id, 
-        productName: item.product.name, 
-        variantSku: item.variant.sku,
-        variantWeight: item.variant.weight, 
-        quantity: item.quantity, 
-        price: item.variant.price,
-      }));
+    const orderItems: OrderItem[] = cartItems.map(item => ({
+      id: crypto.randomUUID(), 
+      orderId: orderId,
+      productId: item.product.id,
+      menuItemId: item.product.id, 
+      productName: item.product.name, 
+      variantSku: item.variant.sku,
+      variantWeight: item.variant.weight, 
+      quantity: item.quantity, 
+      price: item.variant.price,
+    }));
 
-      const totalAmount = orderItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    const totalAmount = orderItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
-      const orderData = {
-        id: orderId, 
-        storeId: storeId, 
-        tableNumber: tableNumber ? String(tableNumber) : null,
-        sessionId: sessionId,
-        userId: 'guest',
-        customerName: customerName || (tableNumber === 'Counter' ? 'Walk-in Guest' : (tableNumber ? `Table ${tableNumber}` : 'Guest')),
-        deliveryAddress: deliveryAddress || (tableNumber ? 'In-store dining' : 'TBD'),
-        deliveryLat: deliveryCoords?.lat || 0,
-        deliveryLng: deliveryCoords?.lng || 0,
-        phone: phone || '',
-        status: isCounter ? 'Billed' : 'Pending',
-        orderType: tableNumber === 'Counter' ? 'counter' : (tableNumber ? 'dine-in' : 'delivery'),
-        isActive: true, 
-        orderDate: serverTimestamp(), 
-        updatedAt: serverTimestamp(),
-        items: orderItems,
-        totalAmount: totalAmount,
-      };
+    const orderData = {
+      id: orderId, 
+      storeId: storeId, 
+      tableNumber: tableNumber ? String(tableNumber) : null,
+      sessionId: sessionId,
+      userId: 'guest',
+      customerName: customerName || (tableNumber === 'Counter' ? 'Walk-in Guest' : (tableNumber ? `Table ${tableNumber}` : 'Guest')),
+      deliveryAddress: deliveryAddress || (tableNumber ? 'In-store dining' : 'TBD'),
+      deliveryLat: deliveryCoords?.lat || 0,
+      deliveryLng: deliveryCoords?.lng || 0,
+      phone: phone || '',
+      status: isCounter ? 'Billed' : 'Pending',
+      orderType: tableNumber === 'Counter' ? 'counter' : (tableNumber ? 'dine-in' : 'delivery'),
+      isActive: true, 
+      orderDate: serverTimestamp(), 
+      updatedAt: serverTimestamp(),
+      items: orderItems,
+      totalAmount: totalAmount,
+    };
 
-      try {
-          // Robust client-side creation for offline support
-          await setDoc(orderRef, orderData);
-          toast({ title: isCounter ? 'Bill Generated!' : 'Sent to Kitchen!' }); 
-          clearCart(); 
-          if(isCounter) handleStartNewOrder(); 
-      } catch (e) {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
-              path: orderRef.path,
-              operation: 'create',
-              requestResourceData: orderData
-          }));
-      }
+    // NON-BLOCKING for offline resilience
+    setDoc(orderRef, orderData).catch(async (e) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: orderRef.path,
+            operation: 'create',
+            requestResourceData: orderData
+        }));
     });
+    
+    toast({ title: isCounter ? 'Bill Generated!' : 'Sent to Kitchen!' }); 
+    clearCart(); 
+    if(isCounter) handleStartNewOrder(); 
   };
 
   const handleFinalizeBill = () => { 
     if (!firestore || !placedOrders?.length) return;
-    startAdding(async () => { 
-        const batch = writeBatch(firestore);
-        placedOrders.forEach(order => {
-            batch.update(doc(firestore, 'orders', order.id), { status: 'Billed', updatedAt: serverTimestamp() });
-        });
-        try {
-            await batch.commit();
-            toast({ title: 'Bill Requested' });
-        } catch (e) {
-            toast({ variant: 'destructive', title: 'Action Failed' });
-        }
-    }); 
+    const batch = writeBatch(firestore);
+    placedOrders.forEach(order => {
+        batch.update(doc(firestore, 'orders', order.id), { status: 'Billed', updatedAt: serverTimestamp() });
+    });
+    
+    // NON-BLOCKING
+    batch.commit().catch(e => toast({ variant: 'destructive', title: 'Action Failed' }));
+    toast({ title: 'Bill Requested' });
   };
 
   const handleCallWaiter = (type: string) => { 
     if (!firestore || !placedOrders?.length) return;
-    startAdding(async () => { 
-        const orderRef = doc(firestore, 'orders', placedOrders[0].id);
-        try {
-            await updateDoc(orderRef, { needsService: true, serviceType: type, updatedAt: serverTimestamp() });
-            toast({ title: 'Request Sent' }); 
-        } catch (e) {
-            toast({ variant: 'destructive', title: 'Request Failed' });
-        }
-    }); 
+    const orderRef = doc(firestore, 'orders', placedOrders[0].id);
+    
+    // NON-BLOCKING
+    updateDoc(orderRef, { needsService: true, serviceType: type, updatedAt: serverTimestamp() })
+        .catch(e => toast({ variant: 'destructive', title: 'Request Failed' }));
+    toast({ title: 'Request Sent' }); 
   };
 
   const handleShowIngredients = (item: MenuItem) => {
@@ -631,7 +624,7 @@ export default function PublicMenuPage() {
                             <h2 className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40 px-1" style={{ color: theme?.textColor || '#fff' }}>{category}</h2>
                             <div className="grid grid-cols-2 gap-2">
                                 {items.map((item) => (
-                                    <MenuCard key={item.id} item={item} onAdd={handleAddItem} onShowDetails={handleShowIngredients} isAdding={isAdding} recentlyAdded={recentlyAdded.has(item.id)} currentQuantityInOrder={currentOrderedCounts[item.name] || 0} theme={theme} />
+                                    <MenuCard key={item.id} item={item} onAdd={handleAddItem} onShowDetails={handleShowIngredients} recentlyAdded={recentlyAdded.has(item.id)} currentQuantityInOrder={currentOrderedCounts[item.name] || 0} theme={theme} />
                                 ))}
                             </div>
                         </section>
@@ -654,7 +647,7 @@ export default function PublicMenuPage() {
                   </DropdownMenu>
               )}
               {cartItems.length > 0 && (
-                  <Button onClick={handlePlaceOrder} disabled={isAdding} className="h-12 flex-1 rounded-xl shadow-2xl text-[10px] font-black uppercase tracking-[0.1em] border border-white/10" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>
+                  <Button onClick={handlePlaceOrder} className="h-12 flex-1 rounded-xl shadow-2xl text-[10px] font-black uppercase tracking-[0.1em] border border-white/10" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>
                       {isAdding ? <Loader2 className="animate-spin h-4 w-4"/> : <PlusCircle className="mr-2 h-4 w-4" />}
                       {tableNumber === 'Counter' ? `Generate Bill (${cartItems.length})` : `Place Order (${cartItems.length})`}
                   </Button>

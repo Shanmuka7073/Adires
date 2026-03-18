@@ -196,21 +196,19 @@ function PayoutSettingsCard({ partnerData, isLoading, partnerId }: { partnerData
             zoneId: `zone-${data.pincode}`, 
         };
         
-        startSaveTransition(async () => {
-            const partnerRef = doc(firestore, 'deliveryPartners', partnerId);
-            try {
-                await setDoc(partnerRef, updateData, { merge: true });
-                toast({ title: "Profile saved!", description: "Your payment and zone information has been updated." });
-                setIsEditing(false);
-            } catch (error) {
-                const permissionError = new FirestorePermissionError({
-                    path: partnerRef.path,
-                    operation: 'update',
-                    requestResourceData: updateData,
-                });
-                errorEmitter.emit('permission-error', permissionError);
-            }
+        const partnerRef = doc(firestore, 'deliveryPartners', partnerId);
+        // NON-BLOCKING for offline resilience
+        setDoc(partnerRef, updateData, { merge: true }).catch(error => {
+            const permissionError = new FirestorePermissionError({
+                path: partnerRef.path,
+                operation: 'update',
+                requestResourceData: updateData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
         });
+        
+        toast({ title: "Profile saved!", description: "Your payment and zone information has been updated." });
+        setIsEditing(false);
     };
     
     const hasDetails = partnerData?.zoneId;
@@ -320,14 +318,6 @@ function PayoutSettingsCard({ partnerData, isLoading, partnerId }: { partnerData
 }
 
 function PayoutCard({ partnerData, isLoading, onPayout }: { partnerData: DeliveryPartner | null, isLoading: boolean, onPayout: () => void }) {
-    const [isCashingOut, startCashOutTransition] = useTransition();
-
-    const handlePayout = () => {
-        startCashOutTransition(() => {
-            onPayout();
-        });
-    }
-
     const totalEarnings = partnerData?.totalEarnings || 0;
     const hasPayoutDetails = partnerData && (partnerData.bankDetails?.accountNumber || partnerData.upiId);
 
@@ -353,11 +343,11 @@ function PayoutCard({ partnerData, isLoading, onPayout }: { partnerData: Deliver
                 </div>
                 <Button
                     size="lg"
-                    onClick={handlePayout}
-                    disabled={isCashingOut || isLoading || totalEarnings <= 0 || !hasPayoutDetails}
+                    onClick={onPayout}
+                    disabled={isLoading || totalEarnings <= 0 || !hasPayoutDetails}
                     title={!hasPayoutDetails ? "Please set up your payout details first" : ""}
                 >
-                    {isCashingOut ? 'Processing...' : 'Request Payout'}
+                    Request Payout
                 </Button>
             </CardContent>
         </Card>
@@ -430,7 +420,7 @@ function PayoutHistoryCard({ partnerId }: { partnerId: string }) {
     )
 }
 
-function MyActiveDeliveriesCard({ order, handleMarkAsDelivered, isUpdating, onShowDetails }: { order: Order, handleMarkAsDelivered: (order: Order) => void, isUpdating: boolean, onShowDetails: (order: Order) => void }) {
+function MyActiveDeliveriesCard({ order, handleMarkAsDelivered, onShowDetails }: { order: Order, handleMarkAsDelivered: (order: Order) => void, onShowDetails: (order: Order) => void }) {
     
     return (
         <Card key={order.id} className="p-4 space-y-4">
@@ -456,9 +446,9 @@ function MyActiveDeliveriesCard({ order, handleMarkAsDelivered, isUpdating, onSh
                 <AlertDialogTrigger asChild>
                     <Button 
                         className="w-full"
-                        disabled={isUpdating || !order.deliveryLat || !order.deliveryLng}
+                        disabled={!order.deliveryLat || !order.deliveryLng}
                     >
-                        {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                        <Check className="mr-2 h-4 w-4" />
                         Mark as Delivered
                     </Button>
                 </AlertDialogTrigger>
@@ -483,7 +473,6 @@ function MyActiveDeliveriesCard({ order, handleMarkAsDelivered, isUpdating, onSh
 export default function DeliveriesPage() {
   const { firestore, user } = useFirebase();
   const [stores, setStores] = useState<Store[]>([]);
-  const [isUpdating, startUpdateTransition] = useTransition();
   const { toast } = useToast();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedOrderDistance, setSelectedOrderDistance] = useState<number | undefined>(undefined);
@@ -564,25 +553,22 @@ export default function DeliveriesPage() {
   const handleConfirmPickup = (orderId: string) => {
     if (!firestore || !user?.uid) return;
      
-     startUpdateTransition(async () => {
-        const orderRef = doc(firestore, 'orders', orderId);
-        try {
-            // Use Client SDK for offline support
-            await updateDoc(orderRef, { 
-                deliveryPartnerId: user.uid,
-                status: 'Out for Delivery',
-                updatedAt: serverTimestamp()
-            });
-            toast({
-                title: `Job Accepted!`,
-                description: `You are now assigned to deliver this order.`
-            });
-            fetchAvailableJobs();
-        } catch (error) {
-             console.error("Failed to confirm pickup:", error);
-             toast({ variant: 'destructive', title: "Accept Failed", description: "Could not accept the selected job."})
-        }
-     });
+    const orderRef = doc(firestore, 'orders', orderId);
+    // NON-BLOCKING
+    updateDoc(orderRef, { 
+        deliveryPartnerId: user.uid,
+        status: 'Out for Delivery',
+        updatedAt: serverTimestamp()
+    }).catch(error => {
+         console.error("Failed to confirm pickup:", error);
+         toast({ variant: 'destructive', title: "Accept Failed", description: "Could not accept the selected job."})
+    });
+    
+    toast({
+        title: `Job Accepted!`,
+        description: `You are now assigned to deliver this order.`
+    });
+    fetchAvailableJobs();
   };
 
   const handleMarkAsDelivered = (order: Order) => {
@@ -591,84 +577,80 @@ export default function DeliveriesPage() {
         return;
     }
 
-    startUpdateTransition(async () => {
-        navigator.geolocation.getCurrentPosition(
-            async (position) => {
-                const { latitude: partnerLat, longitude: partnerLng } = position.coords;
-                const distance = haversineDistance(partnerLat, partnerLng, order.deliveryLat, order.deliveryLng);
+    navigator.geolocation.getCurrentPosition(
+        async (position) => {
+            const { latitude: partnerLat, longitude: partnerLng } = position.coords;
+            const distance = haversineDistance(partnerLat, partnerLng, order.deliveryLat, order.deliveryLng);
 
-                if (distance > DELIVERY_PROXIMITY_THRESHOLD_KM) {
-                    toast({
-                        variant: 'destructive',
-                        title: 'Too Far Away',
-                        description: `You must be within ${DELIVERY_PROXIMITY_THRESHOLD_KM * 1000} meters of the delivery location.`,
-                    });
-                    return;
-                }
-
-                if (!firestore || !user?.uid) return;
-
-                const orderRef = doc(firestore, 'orders', order.id);
-                const partnerRef = doc(firestore, 'deliveryPartners', user.uid);
-
-                try {
-                    const batch = writeBatch(firestore);
-
-                    batch.update(orderRef, { status: 'Delivered', updatedAt: serverTimestamp() });
-                    batch.set(partnerRef, {
-                        totalEarnings: increment(DELIVERY_FEE),
-                        userId: user.uid,
-                        payoutsEnabled: true,
-                    }, { merge: true });
-
-                    await batch.commit();
-
-                    toast({
-                        title: "Delivery Complete!",
-                        description: `₹${DELIVERY_FEE.toFixed(2)} added to your earnings.`
-                    });
-                } catch (error) {
-                    console.error("Failed to mark as delivered:", error);
-                    toast({ variant: 'destructive', title: 'Update Failed', description: 'Could not update the order status.' });
-                }
-            },
-            (error) => {
-                toast({ variant: 'destructive', title: 'Location Error', description: 'Could not get your current location.' });
+            if (distance > DELIVERY_PROXIMITY_THRESHOLD_KM) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Too Far Away',
+                    description: `You must be within ${DELIVERY_PROXIMITY_THRESHOLD_KM * 1000} meters of the delivery location.`,
+                });
+                return;
             }
-        );
-    });
+
+            if (!firestore || !user?.uid) return;
+
+            const orderRef = doc(firestore, 'orders', order.id);
+            const partnerRef = doc(firestore, 'deliveryPartners', user.uid);
+
+            const batch = writeBatch(firestore);
+            batch.update(orderRef, { status: 'Delivered', updatedAt: serverTimestamp() });
+            batch.set(partnerRef, {
+                totalEarnings: increment(DELIVERY_FEE),
+                userId: user.uid,
+                payoutsEnabled: true,
+            }, { merge: true });
+
+            // NON-BLOCKING
+            batch.commit().catch(error => {
+                console.error("Failed to mark as delivered:", error);
+                toast({ variant: 'destructive', title: 'Update Failed', description: 'Could not update the order status.' });
+            });
+
+            toast({
+                title: "Delivery Complete!",
+                description: `₹${DELIVERY_FEE.toFixed(2)} added to your earnings.`
+            });
+        },
+        (error) => {
+            toast({ variant: 'destructive', title: 'Location Error', description: 'Could not get your current location.' });
+        }
+    );
   };
 
-  const handlePayoutRequest = async () => {
+  const handlePayoutRequest = () => {
       if (!firestore || !user || !partnerData || partnerData.totalEarnings <= 0) return;
       
       const payoutAmount = partnerData.totalEarnings;
       const payoutDetails = partnerData.payoutMethod === 'upi' ? { upiId: partnerData.upiId } : { bankDetails: partnerData.bankDetails };
 
-      try {
-        const batch = writeBatch(firestore);
-        const newPayoutRef = doc(collection(firestore, `deliveryPartners/${user.uid}/payouts`));
-        batch.set(newPayoutRef, {
-            id: newPayoutRef.id,
-            amount: payoutAmount,
-            partnerId: user.uid,
-            requestDate: Timestamp.now(),
-            status: 'pending',
-            payoutMethod: partnerData.payoutMethod,
-            payoutDetails: payoutDetails,
-        });
+      const batch = writeBatch(firestore);
+      const newPayoutRef = doc(collection(firestore, `deliveryPartners/${user.uid}/payouts`));
+      batch.set(newPayoutRef, {
+          id: newPayoutRef.id,
+          amount: payoutAmount,
+          partnerId: user.uid,
+          requestDate: Timestamp.now(),
+          status: 'pending',
+          payoutMethod: partnerData.payoutMethod,
+          payoutDetails: payoutDetails,
+      });
 
-        const partnerRef = doc(firestore, 'deliveryPartners', user.uid);
-        batch.update(partnerRef, {
-            totalEarnings: 0,
-            lastPayoutDate: Timestamp.now(),
-        });
+      const partnerRef = doc(firestore, 'deliveryPartners', user.uid);
+      batch.update(partnerRef, {
+          totalEarnings: 0,
+          lastPayoutDate: Timestamp.now(),
+      });
 
-        await batch.commit();
-        toast({ title: 'Payout Requested!', description: `Request for ₹${payoutAmount.toFixed(2)} submitted.` });
-      } catch (error) {
+      // NON-BLOCKING
+      batch.commit().catch(error => {
           toast({ variant: 'destructive', title: 'Payout Failed', description: 'Error submitting request.' });
-      }
+      });
+      
+      toast({ title: 'Payout Requested!', description: `Request for ₹${payoutAmount.toFixed(2)} submitted.` });
   };
 
   const handleOptimizedRoute = () => {
@@ -733,7 +715,6 @@ export default function DeliveriesPage() {
                     <MyActiveDeliveriesCard 
                         key={order.id} order={order}
                         handleMarkAsDelivered={handleMarkAsDelivered}
-                        isUpdating={isUpdating}
                         onShowDetails={handleShowDetails}
                     />
                   ))}
@@ -781,8 +762,8 @@ export default function DeliveriesPage() {
                                 <TableCell>{order.store?.name}</TableCell>
                                 <TableCell>₹{order.totalAmount.toFixed(2)}</TableCell>
                                 <TableCell className="text-right">
-                                    <Button size="sm" onClick={() => handleConfirmPickup(order.id)} disabled={isUpdating}>
-                                        {isUpdating ? 'Accepting...' : 'Accept Job'}
+                                    <Button size="sm" onClick={() => handleConfirmPickup(order.id)}>
+                                        Accept Job
                                     </Button>
                                 </TableCell>
                             </TableRow>
