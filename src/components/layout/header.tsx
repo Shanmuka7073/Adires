@@ -1,16 +1,9 @@
+
 'use client';
 
 import Link from 'next/link';
-import { Menu, UserCircle, ShoppingBag, Truck, LayoutDashboard, Mic, MicOff, Globe, LogOut, Download } from 'lucide-react';
+import { UserCircle, Mic, MicOff, Globe, LogOut, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-  SheetHeader,
-  SheetTitle,
-  SheetClose,
-} from '@/components/ui/sheet';
 import { CartIcon } from '@/components/cart/cart-icon';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -44,8 +37,8 @@ function LanguageSwitcher() {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon">
-                    <Globe className="h-5 w-5" />
+                <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl">
+                    <Globe className="h-4 w-4" />
                     <span className="sr-only">Change language</span>
                 </Button>
             </DropdownMenuTrigger>
@@ -76,12 +69,12 @@ function UserMenu() {
   };
 
   if (isUserLoading) {
-    return <Skeleton className="h-10 w-10 rounded-full" />;
+    return <Skeleton className="h-9 w-9 rounded-full" />;
   }
 
   if (!user) {
     return (
-      <Button asChild variant="outline">
+      <Button asChild variant="outline" size="sm" className="rounded-xl">
         <Link href="/login">{t('login')}</Link>
       </Button>
     );
@@ -90,29 +83,29 @@ function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="icon" className="rounded-full">
+        <Button variant="secondary" size="icon" className="rounded-full h-9 w-9 border-2 border-primary/10">
           <UserCircle className="h-5 w-5" />
           <span className="sr-only">Toggle user menu</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel>{t('my-account')}</DropdownMenuLabel>
-        <DropdownMenuItem disabled>{user.email}</DropdownMenuItem>
+      <DropdownMenuContent align="end" className="w-56 rounded-2xl">
+        <DropdownMenuLabel className="font-bold">{t('my-account')}</DropdownMenuLabel>
+        <DropdownMenuItem disabled className="text-xs opacity-60">{user.email}</DropdownMenuItem>
         <DropdownMenuSeparator />
         <Link href={dashboardHref} passHref>
-          <DropdownMenuItem>
+          <DropdownMenuItem className="rounded-lg cursor-pointer">
               <LayoutDashboard className="mr-2 h-4 w-4" />
               <span>{t('dashboard')}</span>
           </DropdownMenuItem>
         </Link>
         <DropdownMenuSeparator />
         {canInstall && (
-          <DropdownMenuItem onClick={triggerInstall}>
+          <DropdownMenuItem onClick={triggerInstall} className="rounded-lg cursor-pointer">
             <Download className="mr-2 h-4 w-4" />
             <span>Install App</span>
           </DropdownMenuItem>
         )}
-         <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
+         <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:bg-destructive/10 focus:text-destructive rounded-lg cursor-pointer">
             <LogOut className="mr-2 h-4 w-4" />
             <span>{t('logout')}</span>
         </DropdownMenuItem>
@@ -122,7 +115,7 @@ function UserMenu() {
 }
 
 interface HeaderProps {
-  suggestedCommands: any[];
+  suggestedCommands?: any[];
 }
 
 export function Header({ suggestedCommands }: HeaderProps) {
@@ -145,32 +138,50 @@ export function Header({ suggestedCommands }: HeaderProps) {
   const brandName = userStore?.name || "Adires";
 
   return (
-    <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
-      <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
-        <Link href={homeHref} className="flex items-center gap-2 text-lg font-semibold md:text-base">
-          <div className="relative w-8 h-8 rounded-full overflow-hidden border bg-white shadow-sm">
-            <Image src={logoUrl} alt={brandName} fill className="object-cover" />
-          </div>
-          <span className="font-headline font-bold text-primary">{brandName}</span>
-        </Link>
-      </nav>
+    <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-md px-4 md:px-6">
+      {/* Branding Section: Logo and Name (Now always visible) */}
+      <Link href={homeHref} className="flex items-center gap-2.5 group shrink-0">
+        <div className="relative w-9 h-9 rounded-full overflow-hidden border-2 border-primary/20 bg-white shadow-sm transition-transform group-hover:scale-105 group-active:scale-95">
+          <Image src={logoUrl} alt={brandName} fill className="object-cover" priority />
+        </div>
+        <div className="flex flex-col">
+            <span className="font-headline font-black text-gray-950 text-sm leading-none tracking-tight truncate max-w-[100px] md:max-w-[200px] uppercase italic">
+                {brandName}
+            </span>
+            <span className="text-[8px] font-black text-primary uppercase tracking-[0.2em] mt-0.5 opacity-60">Verified Store</span>
+        </div>
+      </Link>
       
-      <div className="flex w-full items-center justify-end gap-2 md:ml-auto md:gap-2 lg:gap-4">
+      {/* Navigation Spacer */}
+      <div className="flex-1" />
+
+      {/* Control Center: Right aligned icons */}
+      <div className="flex items-center gap-1.5 md:gap-3">
         {showShoppingControls && <LanguageSwitcher />}
         {showShoppingControls && (
-            <Button variant={voiceEnabled ? 'secondary' : 'outline'} size="icon" onClick={onToggleVoice} className="relative">
-              {voiceEnabled ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-              {voiceEnabled && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>}
+            <Button 
+                variant={voiceEnabled ? 'secondary' : 'outline'} 
+                size="icon" 
+                onClick={onToggleVoice} 
+                className={cn(
+                    "relative h-9 w-9 rounded-xl transition-all",
+                    voiceEnabled ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "border-2"
+                )}
+            >
+              {voiceEnabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4 opacity-40" />}
+              {voiceEnabled && <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-red-500 border-2 border-white animate-pulse"></span>}
             </Button>
         )}
         {showShoppingControls && <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />}
         <UserMenu />
       </div>
-        {hasMounted && voiceEnabled && showShoppingControls && (
-            <div className="absolute top-16 left-0 w-full bg-secondary text-secondary-foreground text-center py-1 text-sm font-mono z-40">
-                {voiceStatus}
-            </div>
-        )}
+
+      {/* Voice Status Overlay */}
+      {hasMounted && voiceEnabled && showShoppingControls && (
+          <div className="absolute top-16 left-0 w-full bg-primary text-white text-center py-1 text-[10px] font-black uppercase tracking-widest z-40 shadow-lg">
+              {voiceStatus}
+          </div>
+      )}
     </header>
   );
 }
