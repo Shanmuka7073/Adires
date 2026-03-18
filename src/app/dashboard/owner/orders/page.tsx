@@ -39,7 +39,7 @@ import { useMemo, useState, useTransition, useEffect } from 'react';
 import {
   AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogDescription
 } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { markSessionAsPaid, confirmOrderSession, dismissTableService, updateOrderStatus, addRestaurantOrderItem } from '@/app/actions';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
@@ -104,7 +104,6 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { s
                 quantity: c.qty
             }));
 
-            // Force status to Billed so it shows up in both POS and KDS as ready-for-cash/processing
             const res = await addRestaurantOrderItem({
                 storeId,
                 tableNumber: 'Counter',
@@ -284,18 +283,23 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
   };
 
   const meta = STATUS_META[session.status] || STATUS_META.Pending;
+  const isBilled = session.status === 'Billed';
   
-  // FIXED: In Kitchen Mode, we must also show 'Billed' orders, especially from the counter, 
-  // so the kitchen staff know what's active and paid for.
   if (isKitchenMode && !['Pending', 'Processing', 'Billed'].includes(session.status)) return null;
 
   const titleIcon = session.orderType === 'takeaway' ? <ShoppingBag className="h-4 w-4" /> : session.orderType === 'counter' ? <Calculator className="h-4 w-4" /> : (isSalon ? <Scissors className="h-4 w-4" /> : <Utensils className="h-4 w-4" />);
+
+  // Visibility variables
+  const titleColor = isBilled ? "text-gray-950" : (isKitchenMode ? "text-white" : "text-gray-950");
+  const itemTextColor = isBilled ? "text-gray-700" : (isKitchenMode ? "text-white/80" : "text-gray-700");
+  const priceColor = isBilled ? "text-gray-600" : (isKitchenMode ? "text-white" : "text-gray-600");
+  const footerLabelColor = isBilled ? "text-black" : (isKitchenMode ? "text-white" : "text-black");
 
   return (
     <Card className={cn(
         "rounded-xl shadow-md border-0 relative transition-all", 
         isKitchenMode ? "bg-slate-900 ring-1 ring-white/10" : "bg-white",
-        session.status === 'Billed' && "bg-green-50 ring-1 ring-green-500", 
+        isBilled && "bg-green-50 ring-1 ring-green-500", 
         session.needsService && "ring-2 ring-red-500 animate-pulse"
     )}>
       {session.needsService && (
@@ -307,14 +311,14 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
       <CardHeader className={cn("p-2 pb-1", session.needsService && "pt-7")}>
         <div className="flex justify-between items-start">
             <div className="flex items-center gap-1.5 min-w-0">
-                 <div className="opacity-20 shrink-0" style={{ color: isKitchenMode ? 'white' : 'inherit' }}>{titleIcon}</div>
+                 <div className="opacity-20 shrink-0" style={{ color: (isKitchenMode && !isBilled) ? 'white' : 'inherit' }}>{titleIcon}</div>
                  <div className="min-w-0">
-                    <CardTitle className={cn("text-sm font-black truncate", isKitchenMode ? "text-white" : "text-gray-950")}>{isSalon ? 'Chair' : ''} {session.tableNumber || 'Walking'}</CardTitle>
+                    <CardTitle className={cn("text-sm font-black truncate", titleColor)}>{isSalon ? 'Chair' : ''} {session.tableNumber || 'Walking'}</CardTitle>
                     <CardDescription className="text-[7px] opacity-40">#{session.id.slice(-4)}</CardDescription>
                  </div>
             </div>
              <div className="flex gap-1 shrink-0">
-                {session.status === 'Billed' && <Button variant="ghost" size="icon" className="h-5 w-5 rounded-md hover:bg-black/5" onClick={handlePrint}><Printer className="h-3 w-3"/></Button>}
+                {isBilled && <Button variant="ghost" size="icon" className="h-5 w-5 rounded-md hover:bg-black/5" onClick={handlePrint}><Printer className="h-3 w-3"/></Button>}
                 <Badge className="text-[7px] font-black uppercase h-4 px-1.5" variant={meta.variant}>{meta.label}</Badge>
              </div>
         </div>
@@ -322,19 +326,19 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
       <CardContent className="p-2 pt-1 space-y-1">
           {session.orders.flatMap(o => o.items).map((it, i) => (
               <div key={i} className="flex justify-between items-center text-[9px] font-bold py-0.5 border-b border-black/5 last:border-0">
-                  <span className={cn("truncate pr-2", isKitchenMode ? "text-white/80" : "text-gray-700")}>{it.productName} <span className="opacity-40 font-black">x{it.quantity}</span></span>
-                  <span className={cn("shrink-0 font-black", isKitchenMode ? "text-white" : "text-gray-600")}>₹{(it.price * it.quantity).toFixed(0)}</span>
+                  <span className={cn("truncate pr-2", itemTextColor)}>{it.productName} <span className="opacity-40 font-black">x{it.quantity}</span></span>
+                  <span className={cn("shrink-0 font-black", priceColor)}>₹{(it.price * it.quantity).toFixed(0)}</span>
               </div>
           ))}
       </CardContent>
-      <CardFooter className={cn("p-2 pt-1 flex flex-col gap-1.5 rounded-b-xl", isKitchenMode ? "bg-white/5" : "bg-black/5")}>
+      <CardFooter className={cn("p-2 pt-1 flex flex-col gap-1.5 rounded-b-xl", (isKitchenMode && !isBilled) ? "bg-white/5" : "bg-black/5")}>
             <div className="flex justify-between w-full text-[8px] font-black uppercase">
-                <span className={cn("opacity-40", isKitchenMode ? "text-white" : "text-black")}>Total Session</span>
+                <span className={cn("opacity-40", footerLabelColor)}>Total Session</span>
                 <span className="text-primary font-black">₹{session.totalAmount.toFixed(0)}</span>
             </div>
             <div className="flex gap-1 w-full">
                 <Button className="w-full h-7 rounded-lg text-[8px] font-black uppercase shadow-sm" onClick={handleAction} disabled={isUpdating || isProcessing}>
-                    {session.status === 'Billed' ? 'Cash Received' : (isSalon ? 'Start Service' : 'Send to Kitchen')}
+                    {isBilled ? 'Cash Received' : (isSalon ? 'Start Service' : 'Send to Kitchen')}
                 </Button>
             </div>
       </CardFooter>
@@ -359,7 +363,7 @@ function DeliveryOrderCard({ order, onStatusChange, isUpdating, isKitchenMode }:
                 <div className="flex justify-between items-start">
                     <div className="min-w-0 pr-2">
                         <CardTitle className={cn("text-[10px] font-black uppercase truncate", isKitchenMode ? "text-white" : "text-gray-950")}>{order.customerName}</CardTitle>
-                        <CardDescription className="text-[7px] truncate font-bold opacity-60">{order.deliveryAddress}</CardDescription>
+                        <CardDescription className={cn("text-[7px] truncate font-bold opacity-60", isKitchenMode && "text-white/60")}>{order.deliveryAddress}</CardDescription>
                     </div>
                     <Badge variant="outline" className="text-[7px] font-black uppercase shrink-0 h-4 border-primary/20">{meta.label}</Badge>
                 </div>
