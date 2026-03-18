@@ -1,8 +1,7 @@
-
 'use client';
 
 import Link from 'next/link';
-import { Menu, UserCircle, ShoppingBag, Truck, LayoutDashboard, Mic, MicOff, Globe, LogOut, Monitor, Download } from 'lucide-react';
+import { Menu, UserCircle, ShoppingBag, Truck, LayoutDashboard, Mic, MicOff, Globe, LogOut, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -142,7 +141,6 @@ export function Header({ suggestedCommands }: HeaderProps) {
   const showShoppingControls = !isRestaurantOwner && !isEmployee;
   const homeHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : (isEmployee ? '/dashboard/employee/attendance' : '/'));
   
-  // Brand details: show restaurant specifics if available
   const logoUrl = userStore?.imageUrl || ADIRES_LOGO;
   const brandName = userStore?.name || "Adires";
 

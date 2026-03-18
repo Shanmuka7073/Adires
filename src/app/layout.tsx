@@ -10,8 +10,8 @@ const ptSans = PT_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "LocalBasket",
-  description: "Your local grocery delivery app.",
+  title: "Adires | Unified Local Market",
+  description: "Your unified local market for groceries, restaurants, and salons.",
   manifest: "/manifest.webmanifest",
   icons: {
     apple: "/apple-touch-icon.png",

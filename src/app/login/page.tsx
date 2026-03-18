@@ -1,4 +1,3 @@
-
 'use client';
 import {
   Card,
@@ -23,13 +22,12 @@ import {
     signInWithCustomToken,
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
-import { Fingerprint, Loader2, AlertCircle, Info, KeyRound } from 'lucide-react';
+import { Fingerprint, Loader2, AlertCircle, KeyRound } from 'lucide-react';
 import { startAuthentication } from '@simplewebauthn/browser';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { User as AppUser } from '@/lib/types';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import Link from 'next/link';
+import { t } from '@/lib/locales';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 const CHICKEN_ADMIN_EMAIL = 'chickenadmin@gmail.com';
@@ -69,9 +67,7 @@ export default function LoginPage() {
        } else if (user.email === CHICKEN_ADMIN_EMAIL) {
             router.push('/dashboard/chicken-admin');
        } else if (userData.accountType === 'restaurant') {
-            router.push('/dashboard/restaurant'); // Restaurant owners go to their dash
-       } else if (userData.accountType === 'groceries') {
-            router.push('/'); // Grocery users go to the marketplace immediately
+            router.push('/dashboard/restaurant');
        } else {
             router.push(redirectTo);
        }
@@ -90,8 +86,6 @@ export default function LoginPage() {
     setError(null);
     startWebAuthnTransition(async () => {
       try {
-        // PASSKEY FLOW: Request authentication options from our API.
-        // We pass the email if typed, but it's not required for a Passkey login.
         const respOptions = await fetch('/api/auth/webauthn/generate-authentication-options', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -104,10 +98,8 @@ export default function LoginPage() {
           throw new Error(options.error || 'Could not initiate biometric login.');
         }
         
-        // Trigger the phone's native pattern/biometric/pin prompt.
         const assertion = await startAuthentication(options);
 
-        // Verify the signature on our backend.
         const verificationResp = await fetch('/api/auth/webauthn/verify-authentication', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -118,7 +110,6 @@ export default function LoginPage() {
         
         if (verificationJSON && verificationJSON.verified) {
             if (!auth) throw new Error("Authentication service not available.");
-            // Sign into Firebase using the custom token issued by our secure API.
             await signInWithCustomToken(auth, verificationJSON.customToken);
             toast({ title: 'Welcome back!', description: 'Successfully signed in with your device lock.' });
         } else {
@@ -188,15 +179,15 @@ export default function LoginPage() {
 
   return (
     <div className="container mx-auto flex min-h-[calc(100vh-200px)] items-center justify-center py-12 px-4">
-      <Card className="w-full max-w-md shadow-xl border-t-4 border-t-primary">
+      <Card className="w-full max-w-md shadow-xl border-t-4 border-t-primary rounded-3xl overflow-hidden">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-headline font-bold">
-            {isSignUp ? 'Create an Account' : 'Welcome Back'}
+            {isSignUp ? 'Join Adires' : 'Welcome Back'}
           </CardTitle>
           <CardDescription>
             {isSignUp
-              ? 'Enter your details to get started with LocalBasket.'
-              : 'Sign in to continue to your dashboard.'}
+              ? 'Create an account to start shopping or managing your business.'
+              : 'Sign in to access your Adires dashboard.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -207,7 +198,7 @@ export default function LoginPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      className="w-full h-20 text-lg border-2 border-primary/20 hover:bg-primary/5 hover:border-primary/50 transition-all group flex flex-col gap-1 items-center justify-center"
+                      className="w-full h-20 text-lg border-2 border-primary/20 hover:bg-primary/5 hover:border-primary/50 transition-all rounded-2xl group flex flex-col gap-1 items-center justify-center"
                       onClick={handleWebAuthnLogin}
                       disabled={isWebAuthnPending}
                     >
@@ -216,7 +207,7 @@ export default function LoginPage() {
                       ) : (
                         <Fingerprint className="h-8 w-8 text-primary group-hover:scale-110 transition-transform" />
                       )}
-                      <span className="font-bold">One-Tap Biometric Login</span>
+                      <span className="font-bold">One-Tap Login</span>
                     </Button>
                     
                     <div className="relative">
@@ -224,7 +215,7 @@ export default function LoginPage() {
                             <span className="w-full border-t" />
                         </div>
                         <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-background px-2 text-muted-foreground font-semibold text-[10px]">Or use your email</span>
+                            <span className="bg-background px-2 text-muted-foreground font-black text-[9px] tracking-widest">Or use email</span>
                         </div>
                     </div>
                 </div>
@@ -235,9 +226,9 @@ export default function LoginPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel className="text-[10px] font-black uppercase opacity-40">Email</FormLabel>
                     <FormControl>
-                        <Input id="email" type="email" placeholder="m@example.com" {...field} className="h-12" />
+                        <Input id="email" type="email" placeholder="m@example.com" {...field} className="h-12 rounded-xl" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -249,9 +240,9 @@ export default function LoginPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel className="text-[10px] font-black uppercase opacity-40">Password</FormLabel>
                     <FormControl>
-                        <Input id="password" type="password" {...field} className="h-12" />
+                        <Input id="password" type="password" {...field} className="h-12 rounded-xl" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -264,16 +255,16 @@ export default function LoginPage() {
                   name="accountType"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>I am joining as a...</FormLabel>
+                      <FormLabel className="text-[10px] font-black uppercase opacity-40">I am joining as a...</FormLabel>
                        <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
-                          <SelectTrigger className="h-12">
+                          <SelectTrigger className="h-12 rounded-xl">
                             <SelectValue placeholder="Select an account type" />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent>
-                          <SelectItem value="groceries">Grocery Customer / Store Owner</SelectItem>
-                          <SelectItem value="restaurant">Restaurant Owner</SelectItem>
+                        <SelectContent className="rounded-2xl">
+                          <SelectItem value="groceries">Personal Account (Shop & Order)</SelectItem>
+                          <SelectItem value="restaurant">Business Account (Store, Restaurant, Salon)</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -283,41 +274,41 @@ export default function LoginPage() {
               )}
 
               {error && (
-                <div className="flex items-center gap-2 text-destructive bg-destructive/10 p-3 rounded-md">
+                <div className="flex items-center gap-2 text-destructive bg-destructive/10 p-3 rounded-xl">
                     <AlertCircle className="h-5 w-5 shrink-0" />
                     <p className="text-sm font-medium">{error}</p>
                 </div>
               )}
 
-              <Button type="submit" className="w-full h-12 text-lg font-bold bg-primary hover:bg-primary/90" disabled={isPending || isUserLoading}>
+              <Button type="submit" className="w-full h-14 text-lg font-black uppercase tracking-widest bg-primary hover:bg-primary/90 rounded-2xl shadow-xl shadow-primary/20" disabled={isPending || isUserLoading}>
                 {isPending
-                  ? 'Please wait...'
+                  ? 'Processing...'
                   : isSignUp
                   ? 'Create My Account'
-                  : 'Sign In with Password'}
+                  : 'Sign In'}
               </Button>
             </form>
           </Form>
           
           <div className="mt-8 pt-6 border-t text-center text-sm">
             {isSignUp ? (
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground font-medium">
                 Already have an account?{' '}
                 <button 
                     onClick={() => setIsSignUp(false)}
-                    className="text-primary font-bold hover:underline ml-1"
+                    className="text-primary font-black uppercase text-xs hover:underline ml-1"
                 >
-                  Sign In here
+                  Sign In
                 </button>
               </p>
             ) : (
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground font-medium">
                 Don't have an account?{' '}
                 <button 
                     onClick={() => setIsSignUp(true)}
-                    className="text-primary font-bold hover:underline ml-1"
+                    className="text-primary font-black uppercase text-xs hover:underline ml-1"
                 >
-                  Sign Up for free
+                  Sign Up Free
                 </button>
               </p>
             )}
