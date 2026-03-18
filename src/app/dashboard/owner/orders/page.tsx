@@ -78,7 +78,6 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { s
     const [searchTerm, setSearchTerm] = useState('');
 
     const filteredItems = useMemo(() => {
-        // Filter out unavailable items and search term
         return menuItems.filter(i => 
             i.isAvailable !== false && 
             i.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -131,7 +130,6 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { s
             </div>
 
             <div className="flex-1 flex flex-col md:flex-row min-h-0">
-                {/* Menu Side */}
                 <div className="flex-1 border-b md:border-b-0 md:border-r border-black/5 flex flex-col min-h-0">
                     <div className="p-3 md:p-4 border-b border-black/5 bg-white/50">
                         <div className="relative">
@@ -144,7 +142,7 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { s
                             />
                         </div>
                     </div>
-                    <ScrollArea className="flex-1">
+                    <ScrollArea className="flex-1 bg-white">
                         {menuItems.length > 0 ? (
                             <div className="p-3 md:p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
                                 {filteredItems.map(it => (
@@ -175,7 +173,6 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { s
                     </ScrollArea>
                 </div>
 
-                {/* Cart Side */}
                 <div className="h-[280px] md:h-auto md:w-[320px] bg-black/5 flex flex-col shrink-0">
                     <div className="p-3 md:p-4 border-b border-black/5 flex justify-between items-center bg-white/50 md:bg-transparent">
                         <h3 className="font-black text-[9px] md:text-[10px] uppercase tracking-widest opacity-40">Current Selection</h3>
@@ -293,6 +290,7 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
   return (
     <Card className={cn(
         "rounded-xl shadow-md border-0 relative transition-all", 
+        isKitchenMode ? "bg-slate-900 ring-1 ring-white/10" : "bg-white",
         session.status === 'Billed' && "bg-green-50 ring-1 ring-green-500", 
         session.needsService && "ring-2 ring-red-500 animate-pulse"
     )}>
@@ -305,9 +303,9 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
       <CardHeader className={cn("p-2 pb-1", session.needsService && "pt-7")}>
         <div className="flex justify-between items-start">
             <div className="flex items-center gap-1.5 min-w-0">
-                 <div className="opacity-20 shrink-0">{titleIcon}</div>
+                 <div className="opacity-20 shrink-0" style={{ color: isKitchenMode ? 'white' : 'inherit' }}>{titleIcon}</div>
                  <div className="min-w-0">
-                    <CardTitle className="text-sm font-black truncate">{isSalon ? 'Chair' : ''} {session.tableNumber || 'Walking'}</CardTitle>
+                    <CardTitle className={cn("text-sm font-black truncate", isKitchenMode ? "text-white" : "text-gray-950")}>{isSalon ? 'Chair' : ''} {session.tableNumber || 'Walking'}</CardTitle>
                     <CardDescription className="text-[7px] opacity-40">#{session.id.slice(-4)}</CardDescription>
                  </div>
             </div>
@@ -320,12 +318,12 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
       <CardContent className="p-2 pt-1 space-y-1">
           {session.orders.flatMap(o => o.items).map((it, i) => (
               <div key={i} className="flex justify-between items-center text-[9px] font-bold py-0.5 border-b border-black/5 last:border-0">
-                  <span className="truncate pr-2">{it.productName} <span className="opacity-40 font-black">x{it.quantity}</span></span>
-                  <span className="shrink-0 font-black text-gray-600">₹{(it.price * it.quantity).toFixed(0)}</span>
+                  <span className={cn("truncate pr-2", isKitchenMode ? "text-white/80" : "text-gray-700")}>{it.productName} <span className="opacity-40 font-black">x{it.quantity}</span></span>
+                  <span className={cn("shrink-0 font-black", isKitchenMode ? "text-white" : "text-gray-600")}>₹{(it.price * it.quantity).toFixed(0)}</span>
               </div>
           ))}
       </CardContent>
-      <CardFooter className="p-2 pt-1 flex flex-col gap-1.5 bg-black/5 rounded-b-xl">
+      <CardFooter className={cn("p-2 pt-1 flex flex-col gap-1.5 rounded-b-xl", isKitchenMode ? "bg-white/5" : "bg-black/5")}>
             <div className="flex justify-between w-full text-[8px] font-black uppercase">
                 <span className="opacity-40">Total Session</span>
                 <span className="text-primary font-black">₹{session.totalAmount.toFixed(0)}</span>
@@ -352,11 +350,11 @@ function DeliveryOrderCard({ order, onStatusChange, isUpdating, isKitchenMode }:
     };
 
     return (
-        <Card className="rounded-xl shadow-md border-0 overflow-hidden bg-white">
-            <CardHeader className="p-2 pb-1 bg-blue-50/50 border-b border-black/5">
+        <Card className={cn("rounded-xl shadow-md border-0 overflow-hidden", isKitchenMode ? "bg-slate-900 ring-1 ring-white/10" : "bg-white")}>
+            <CardHeader className={cn("p-2 pb-1 border-b border-black/5", isKitchenMode ? "bg-blue-900/20" : "bg-blue-50/50")}>
                 <div className="flex justify-between items-start">
                     <div className="min-w-0 pr-2">
-                        <CardTitle className="text-[10px] font-black uppercase truncate">{order.customerName}</CardTitle>
+                        <CardTitle className={cn("text-[10px] font-black uppercase truncate", isKitchenMode ? "text-white" : "text-gray-950")}>{order.customerName}</CardTitle>
                         <CardDescription className="text-[7px] truncate font-bold opacity-60">{order.deliveryAddress}</CardDescription>
                     </div>
                     <Badge variant="outline" className="text-[7px] font-black uppercase shrink-0 h-4 border-primary/20">{meta.label}</Badge>
@@ -365,12 +363,12 @@ function DeliveryOrderCard({ order, onStatusChange, isUpdating, isKitchenMode }:
             <CardContent className="p-2 pt-1 space-y-0.5">
                 {order.items.map((it, idx) => (
                     <div key={idx} className="flex justify-between text-[9px] font-bold py-0.5 border-b border-black/5 last:border-0">
-                        <span className="truncate pr-2">{it.productName} <span className="opacity-40 font-black">x{it.quantity}</span></span>
-                        <span className="font-black text-gray-600">₹{(it.price * it.quantity).toFixed(0)}</span>
+                        <span className={cn("truncate pr-2", isKitchenMode ? "text-white/80" : "text-gray-700")}>{it.productName} <span className="opacity-40 font-black">x{it.quantity}</span></span>
+                        <span className={cn("font-black", isKitchenMode ? "text-white" : "text-gray-600")}>₹{(it.price * it.quantity).toFixed(0)}</span>
                     </div>
                 ))}
             </CardContent>
-            <CardFooter className="p-2 pt-1 bg-black/5">
+            <CardFooter className={cn("p-2 pt-1", isKitchenMode ? "bg-white/5" : "bg-black/5")}>
                 <Button className="w-full h-7 rounded-lg text-[8px] font-black uppercase shadow-sm" onClick={() => onStatusChange(order.id, getNextStatus(order.status))} disabled={isUpdating}>
                     {order.status === 'Pending' ? 'Process Job' : 'Next Step'}
                 </Button>
@@ -387,7 +385,6 @@ export default function StoreOrdersPage() {
   const { toast } = useToast();
   const { stores, userStore, loading: isAppLoading } = useAppStore();
 
-  // FIX: Better store identification
   const myStore = useMemo(() => {
       if (userStore) return userStore;
       return stores.find(s => s.ownerId === user?.uid) || null;
@@ -491,7 +488,15 @@ export default function StoreOrdersPage() {
                 <ScrollArea className="flex-1">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-4">
                         {homeDeliveries.map(o => <DeliveryOrderCard key={o.id} order={o} onStatusChange={handleOrderUpdate} isUpdating={isUpdating} isKitchenMode={isKitchenMode} />)}
-                        {homeDeliveries.length === 0 && <div className="col-span-full text-center py-20 border-2 border-dashed border-black/5 rounded-3xl opacity-30"><ShoppingBag className="h-8 w-8 mx-auto mb-2"/><p className="text-[9px] font-black uppercase">No active jobs</p></div>}
+                        {homeDeliveries.length === 0 && (
+                            <div className={cn(
+                                "col-span-full text-center py-20 border-2 border-dashed rounded-3xl opacity-60",
+                                isKitchenMode ? "border-white/10 text-white" : "border-black/5 text-gray-400"
+                            )}>
+                                <ShoppingBag className="h-8 w-8 mx-auto mb-2"/>
+                                <p className="text-[9px] font-black uppercase tracking-widest">No active jobs</p>
+                            </div>
+                        )}
                     </div>
                     <ScrollBar orientation="vertical" />
                 </ScrollArea>
@@ -507,7 +512,15 @@ export default function StoreOrdersPage() {
                 <ScrollArea className="flex-1">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-4 pb-10">
                         {Object.values(sessions).map(s => <SessionCard key={s.id} session={s} isUpdating={isUpdating} onDismissService={handleDismissService} isKitchenMode={isKitchenMode} store={myStore} isSalon={isSalon} />)}
-                        {Object.values(sessions).length === 0 && <div className="col-span-full text-center py-20 border-2 border-dashed border-black/5 rounded-3xl opacity-30"><Monitor className="h-8 w-8 mx-auto mb-2"/><p className="text-[9px] font-black uppercase">No active sessions</p></div>}
+                        {Object.values(sessions).length === 0 && (
+                            <div className={cn(
+                                "col-span-full text-center py-20 border-2 border-dashed rounded-3xl opacity-60",
+                                isKitchenMode ? "border-white/10 text-white" : "border-black/5 text-gray-400"
+                            )}>
+                                <Monitor className="h-8 w-8 mx-auto mb-2"/>
+                                <p className="text-[9px] font-black uppercase tracking-widest">No active sessions</p>
+                            </div>
+                        )}
                     </div>
                     <ScrollBar orientation="vertical" />
                 </ScrollArea>
