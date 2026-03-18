@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowRight, Store, ShoppingBag, CheckCircle, XCircle, Users, FileText, Scissors, Utensils, Loader2, BarChart3 } from 'lucide-react';
+import { ArrowRight, Store, ShoppingBag, CheckCircle, XCircle, Users, FileText, Scissors, Utensils, Loader2, BarChart3, LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -115,19 +115,47 @@ export default function ServiceDashboardPage() {
         }
     }, [isLoading, isRestaurantOwner, router]);
     
+    const { isSalon, isRestaurant, dashboardTitle, dashboardIcon } = useMemo(() => {
+        if (!store) return { isSalon: false, isRestaurant: false, dashboardTitle: 'Business Dashboard', dashboardIcon: Store };
+        
+        // 1. Check explicit businessType
+        if (store.businessType === 'salon') {
+            return { isSalon: true, isRestaurant: false, dashboardTitle: 'Salon Dashboard', dashboardIcon: Scissors };
+        }
+        if (store.businessType === 'restaurant') {
+            return { isSalon: false, isRestaurant: true, dashboardTitle: 'Restaurant Dashboard', dashboardIcon: Utensils };
+        }
+
+        // 2. Fuzzy Keyword Match Fallback
+        const searchPool = `${store.name} ${store.description}`.toLowerCase();
+        const salonKeywords = ['salon', 'saloon', 'parlour', 'beauty', 'hair', 'cut', 'spa', 'massage', 'style', 'makeup', 'barber', 'nails'];
+        const isS = salonKeywords.some(kw => searchPool.includes(kw));
+        
+        const restaurantKeywords = [
+            'restaurant', 'restuarent', 'hotel', 'biryani', 'tiffin', 'mess', 
+            'canteen', 'dhaba', 'food', 'meals', 'sweets', 'bakery', 'kitchen', 
+            'cafe', 'bakers', 'grand', 'deluxe', 'paradise', 'pantry', 'grill', 
+            'bbq', 'fry', 'kabab', 'fast food', 'curry'
+        ];
+        const isR = restaurantKeywords.some(kw => searchPool.includes(kw));
+
+        if (isS) return { isSalon: true, isRestaurant: false, dashboardTitle: 'Salon Dashboard', dashboardIcon: Scissors };
+        if (isR) return { isSalon: false, isRestaurant: true, dashboardTitle: 'Restaurant Dashboard', dashboardIcon: Utensils };
+        
+        return { isSalon: false, isRestaurant: false, dashboardTitle: 'Business Dashboard', dashboardIcon: LayoutGrid };
+    }, [store]);
+
     if (isLoading || !isRestaurantOwner) {
         return <div className="container mx-auto py-12 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto opacity-20" /></div>;
     }
-
-    const isSalon = store?.businessType === 'salon' || store?.name.toLowerCase().includes('salon');
-    const dashboardTitle = isSalon ? 'Salon Dashboard' : 'Restaurant Dashboard';
-    const dashboardIcon = isSalon ? Scissors : Utensils;
 
     return (
         <div className="container mx-auto py-12 px-4 md:px-6">
             <div className="text-center mb-12">
                 <div className="flex items-center justify-center gap-3 mb-2">
-                    <dashboardIcon className="h-10 w-10 text-primary" />
+                    <div className="h-16 w-16 rounded-3xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
+                        {dashboardIcon && <dashboardIcon className="h-8 w-8" />}
+                    </div>
                     <h1 className="text-4xl font-black font-headline tracking-tighter uppercase">{dashboardTitle}</h1>
                 </div>
                 <p className="text-lg text-muted-foreground font-bold opacity-60">Manage your business's digital operations.</p>

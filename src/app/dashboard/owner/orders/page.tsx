@@ -582,7 +582,14 @@ export default function StoreOrdersPage() {
       return stores.find(s => s.ownerId === user?.uid) || null;
   }, [userStore, stores, user?.uid]);
 
-  const isSalon = useMemo(() => myStore?.businessType === 'salon' || myStore?.name.toLowerCase().includes('salon'), [myStore]);
+  const { isSalon, isRestaurant } = useMemo(() => {
+    if (!myStore) return { isSalon: false, isRestaurant: false };
+    if (myStore.businessType === 'salon') return { isSalon: true, isRestaurant: false };
+    if (myStore.businessType === 'restaurant') return { isSalon: false, isRestaurant: true };
+    const pool = `${myStore.name} ${myStore.description}`.toLowerCase();
+    const isS = ['salon', 'saloon', 'parlour', 'beauty', 'hair', 'cut', 'spa', 'massage', 'style', 'makeup', 'barber'].some(kw => pool.includes(kw));
+    return { isSalon: isS, isRestaurant: !isS };
+  }, [myStore]);
 
   const activeOrdersQuery = useMemoFirebase(() =>
     firestore && myStore ? query(collection(firestore, 'orders'), where('storeId', '==', myStore.id), where('isActive', '==', true), orderBy('orderDate', 'desc'), limit(100)) : null,
@@ -604,7 +611,6 @@ export default function StoreOrdersPage() {
     const searchLower = liveSearch.toLowerCase();
 
     activeOrders.forEach(o => {
-        // Apply Global Search
         const matchesSearch = 
             o.customerName.toLowerCase().includes(searchLower) || 
             o.tableNumber?.toLowerCase().includes(searchLower) ||
@@ -612,7 +618,6 @@ export default function StoreOrdersPage() {
         
         if (liveSearch && !matchesSearch) return;
 
-        // Apply Status Quick Filters
         if (liveFilter === 'new' && o.status !== 'Pending') return;
         if (liveFilter === 'processing' && o.status !== 'Processing') return;
         if (liveFilter === 'delivery' && o.status !== 'Out for Delivery') return;
@@ -721,19 +726,13 @@ export default function StoreOrdersPage() {
 
     if (newService.length > 0) {
       playServiceRequestSound();
-      toast({ variant: 'destructive', title: "Service Required!", description: "A table is calling for assistance." });
+      toast({ variant: 'destructive', title: "Service Required!", description: "A customer is calling for assistance." });
       if (Notification.permission === 'granted') {
           new Notification("Service Required", { body: "A customer is calling for assistance." });
       }
     }
     prevServiceIds.current = currentService;
   }, [activeOrders, toast, playNewOrderSound, playServiceRequestSound]);
-
-  useEffect(() => {
-      if ("Notification" in window && Notification.permission === "default") {
-          Notification.requestPermission();
-      }
-  }, []);
 
   if (isAppLoading || ordersLoading || menusLoading) return <div className="p-12 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto opacity-20" /></div>;
   if (!myStore) return <div className="p-12 text-center"><p className="font-black uppercase tracking-widest text-xs opacity-40">Store information not found.</p></div>;
@@ -777,7 +776,6 @@ export default function StoreOrdersPage() {
 
         <Tabs value={activeTab} className="w-full">
             <TabsContent value="live" className="mt-0">
-                {/* Advanced Search & Filter Bar */}
                 <div className="flex flex-col md:flex-row gap-4 mb-6">
                     <div className="relative flex-1">
                         <Search className={cn("absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4", isKitchenMode ? "text-white/20" : "text-black/20")} />

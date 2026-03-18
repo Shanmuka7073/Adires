@@ -32,6 +32,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
+import { useAppStore } from '@/lib/store';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
@@ -517,6 +518,7 @@ export default function MenuManagerPage() {
     const [extractedData, setExtractedData] = useState<{items: MenuItem[], theme: MenuTheme, businessType: 'restaurant' | 'salon' | 'grocery'} | null>(null); 
     const { toast } = useToast(); 
     const [isSaving, startSave] = useTransition();
+    const { setUserStore } = useAppStore();
     
     const { data: stores, isLoading: sL } = useCollection<Store>(useMemoFirebase(() => (firestore && user ? query(collection(firestore, 'stores'), where('ownerId', '==', user.uid), limit(1)) : null), [firestore, user]));
     const store = stores?.[0];
@@ -536,11 +538,16 @@ export default function MenuManagerPage() {
 
             // 2. Update Store Business Type (AI decided)
             const sR = doc(firestore, 'stores', store.id);
-            batch.update(sR, { businessType: extractedData.businessType });
+            const updatedStoreData = { businessType: extractedData.businessType };
+            batch.update(sR, updatedStoreData);
 
             try { 
                 await batch.commit(); 
                 toast({ title: 'Menu Saved!', description: `Store updated to ${extractedData.businessType} mode.` }); 
+                
+                // CRITICAL: Update local Zustand state so the dashboard reflects the new vertical immediately
+                setUserStore({ ...store, ...updatedStoreData });
+                
                 setExtractedData(null); 
                 rM?.(); 
             } catch (e) { 
