@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
@@ -18,6 +17,7 @@ import { useInstall } from '../install-provider';
 import { VoiceCommandContext } from './voice-commander-context';
 import { FirestoreCounter } from './firestore-counter';
 import { AshaStrategicOverlay } from './asha-strategic-overlay';
+import { AshaProvider } from './asha-context';
 
 export function MainLayout({ 
   children,
@@ -65,50 +65,52 @@ export function MainLayout({
   }, []);
 
   return (
-    <VoiceCommandContext.Provider value={{ 
-        triggerVoicePrompt, 
-        retryCommand, 
-        showPriceCheck, 
-        hidePriceCheck,
-        onCartOpenChange: setIsCartOpen,
-        isCartOpen,
-        voiceEnabled,
-        voiceStatus,
-        onToggleVoice: () => setVoiceEnabled(prev => !prev),
-    }}>
-        <div className="relative flex min-h-dvh flex-col bg-background">
-        <Header 
-            suggestedCommands={[]} // Suggestions handled inside VoiceCommander internally
-        />
-        {user && isInitialized && (
-            <VoiceCommander 
-                enabled={voiceEnabled} 
-                onStatusUpdate={setVoiceStatus}
-                onSuggestions={() => {}} // Suggestions handled via internal state now
-                onOpenCart={() => setIsCartOpen(true)}
-                onCloseCart={() => setIsCartOpen(false)}
-                isCartOpen={isCartOpen}
-                cartItems={cartItems}
-                voiceTrigger={voiceTrigger}
-                triggerVoicePrompt={triggerVoicePrompt}
-                retryCommandText={retryCommandText}
-                onRetryHandled={() => setRetryCommandText(null)}
-                onInstallApp={triggerInstall}
+    <AshaProvider>
+        <VoiceCommandContext.Provider value={{ 
+            triggerVoicePrompt, 
+            retryCommand, 
+            showPriceCheck, 
+            hidePriceCheck,
+            onCartOpenChange: setIsCartOpen,
+            isCartOpen,
+            voiceEnabled,
+            voiceStatus,
+            onToggleVoice: () => setVoiceEnabled(prev => !prev),
+        }}>
+            <div className="relative flex min-h-dvh flex-col bg-background">
+            <Header 
+                suggestedCommands={[]} // Suggestions handled inside VoiceCommander internally
             />
-        )}
-        <ProfileCompletionChecker />
-        <PriceCheckDisplay info={priceCheckInfo} onClose={hidePriceCheck} />
-        <main className="flex-1 pb-16 md:pb-0">{children}</main>
-        
-        {/* Global AI Strategic Advisor Overlay */}
-        <AshaStrategicOverlay />
+            {user && isInitialized && (
+                <VoiceCommander 
+                    enabled={voiceEnabled} 
+                    onStatusUpdate={setVoiceStatus}
+                    onSuggestions={() => {}} // Suggestions handled via internal state now
+                    onOpenCart={() => setIsCartOpen(true)}
+                    onCloseCart={() => setIsCartOpen(false)}
+                    isCartOpen={isCartOpen}
+                    cartItems={cartItems}
+                    voiceTrigger={voiceTrigger}
+                    triggerVoicePrompt={triggerVoicePrompt}
+                    retryCommandText={retryCommandText}
+                    onRetryHandled={() => setRetryCommandText(null)}
+                    onInstallApp={triggerInstall}
+                />
+            )}
+            <ProfileCompletionChecker />
+            <PriceCheckDisplay info={priceCheckInfo} onClose={hidePriceCheck} />
+            <main className="flex-1 pb-16 md:pb-0">{children}</main>
+            
+            {/* Global AI Strategic Advisor Overlay */}
+            <AshaStrategicOverlay />
 
-        <NotificationPermissionManager />
-        <Footer />
-        <BottomNavBar />
-        <FirestoreCounter />
-        </div>
-    </VoiceCommandContext.Provider>
+            <NotificationPermissionManager />
+            <Footer />
+            <BottomNavBar />
+            <FirestoreCounter />
+            </div>
+        </VoiceCommandContext.Provider>
+    </AshaProvider>
   );
 }
 

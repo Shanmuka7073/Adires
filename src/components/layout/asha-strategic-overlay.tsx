@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useTransition, useRef, useEffect } from 'react';
+import { useState, useTransition, useRef, useEffect, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, X, MessageSquare, Loader2, Lightbulb, Cpu, Send, Code2, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -15,9 +14,10 @@ import type { ChatMessage } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
+import { useAsha } from './asha-context';
 
 export function AshaStrategicOverlay() {
-    const [isOpen, setIsOpen] = useState(false);
+    const { isOpen, setIsOpen, externalMessage, setExternalMessage } = useAsha();
     const [history, setHistory] = useState<ChatMessage[]>([]);
     const [inputText, setInputText] = useState('');
     const [isThinking, startThinking] = useTransition();
@@ -39,7 +39,7 @@ export function AshaStrategicOverlay() {
         }
     }, [history, isThinking]);
 
-    const handleSendMessage = (customMessage?: string) => {
+    const handleSendMessage = useCallback((customMessage?: string) => {
         const message = customMessage || inputText;
         if (!message.trim() || isThinking) return;
 
@@ -76,18 +76,21 @@ export function AshaStrategicOverlay() {
                 }]);
             }
         });
-    };
+    }, [inputText, isThinking, history, role, businessType, pathname]);
+
+    // Handle external triggers (e.g., from the Admin Hub "Design" button)
+    useEffect(() => {
+        if (externalMessage) {
+            handleSendMessage(externalMessage);
+            setExternalMessage(null);
+        }
+    }, [externalMessage, handleSendMessage, setExternalMessage]);
 
     const handleApplyCode = (code: string, path: string) => {
-        // Since we (the developer) are the ones who apply XML, we emit a message
-        // that the user sees and confirms.
         toast({
             title: "Change Request Emitted",
             description: "Asha has proposed a change. As your dev partner, I will apply this in the next turn.",
         });
-        
-        // In this environment, the "Apply" button actually just informs me (the LLM)
-        // by adding a special system-like message to the history.
         handleSendMessage(`I approve the changes to ${path}. Please apply the XML now.`);
     };
 

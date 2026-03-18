@@ -1,4 +1,3 @@
-
 import {
   Users,
   Store,
@@ -21,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { getGlobalPlatformStats } from './actions';
+import { DesignButton } from './design-button';
 
 function StatCard({ title, value, icon: Icon }: any) {
   return (
@@ -83,9 +83,7 @@ export default async function AdminDashboardPage() {
             <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">System-wide Authority</p>
         </div>
         <div className="flex gap-3">
-            <Button variant="outline" className="rounded-full h-12 px-6 border-2 font-black uppercase text-[10px] tracking-widest text-primary border-primary/20 bg-primary/5 hover:bg-primary/10">
-                <Wand2 className="mr-2 h-4 w-4" /> ✨ Design UI with Asha
-            </Button>
+            <DesignButton />
             <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-primary bg-primary/5 px-4 py-2 rounded-full border border-primary/10">
                 <Server className="h-3 w-3" /> System Health: Operational
             </div>
@@ -143,6 +141,7 @@ export default async function AdminDashboardPage() {
           <ActionCard title="Master Catalog" description="Global product database." href="/dashboard/owner/my-store" icon={Store} />
           <ActionCard title="Voice Commands" description="Natural language mapping." href="/dashboard/voice-commands" icon={Mic} />
           <ActionCard title="Security Rules" description="Firestore protection policy." href="/dashboard/admin/security-rules" icon={Shield} />
+          <ActionCard title="Admin Dashboard UI/UX Code" description="View the source code for this admin dashboard page itself." href="/dashboard/admin/dashboard-help" icon={FileCode} />
         </div>
       </section>
     </div>
