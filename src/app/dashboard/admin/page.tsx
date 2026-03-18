@@ -1,54 +1,28 @@
 
-'use client';
-
 import {
   Users,
   Store,
   ShoppingBag,
   Mic,
   Bot,
-  Lightbulb,
-  Beaker,
   Shield,
-  ImageIcon,
   FileCode,
-  Video,
-  QrCode,
   Server,
-  FileSignature,
-  Voicemail,
-  KeyRound,
-  Package,
-  HelpCircle,
-  BrainCircuit,
   TrendingUp,
-  UserPlus,
   ArrowRight,
-  Database,
-  Truck,
-  Smartphone,
-  Briefcase,
   Cog,
   Sparkles,
   BarChart3,
-  MagicWand,
   Wand2
 } from 'lucide-react';
 import Link from 'next/link';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
-import { useMemo, useEffect, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useAdminAuth } from '@/hooks/use-admin-auth';
-import type { Order, Store as StoreType, User } from '@/lib/types';
-import { t } from '@/lib/locales';
 import { Button } from '@/components/ui/button';
+import { getGlobalPlatformStats } from './actions';
 
-function StatCard({ title, value, icon: Icon, loading }: any) {
+function StatCard({ title, value, icon: Icon }: any) {
   return (
     <Card className="rounded-3xl border-0 shadow-lg bg-white">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -56,7 +30,7 @@ function StatCard({ title, value, icon: Icon, loading }: any) {
         <Icon className="h-4 w-4 text-primary opacity-20" />
       </CardHeader>
       <CardContent>
-        {loading ? <Skeleton className="h-8 w-20" /> : <div className="text-3xl font-black text-gray-950 tracking-tighter">{value}</div>}
+        <div className="text-3xl font-black text-gray-950 tracking-tighter">{value}</div>
       </CardContent>
     </Card>
   );
@@ -98,32 +72,8 @@ function ActionCard({
   );
 }
 
-export default function AdminDashboardPage() {
-  const { firestore } = useFirebase();
-  const router = useRouter();
-  const { isAdmin, isLoading } = useAdminAuth();
-
-  const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
-  const storesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'stores') : null, [firestore]);
-  const ordersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'orders'), where('status', 'in', ['Delivered', 'Completed'])) : null, [firestore]);
-
-  const { data: users, isLoading: usersLoading } = useCollection(usersQuery);
-  const { data: stores, isLoading: storesLoading } = useCollection<StoreType>(storesQuery);
-  const { data: orders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
-
-  useEffect(() => {
-    if (!isLoading && !isAdmin) router.replace('/dashboard');
-  }, [isLoading, isAdmin, router]);
-
-  const stats = useMemo(() => ({
-    totalUsers: users?.length ?? 0,
-    totalStores: stores?.length ?? 0,
-    totalOrdersDelivered: orders?.length ?? 0,
-  }), [users, stores, orders]);
-
-  const statsLoading = isLoading || usersLoading || storesLoading || ordersLoading;
-
-  if (isLoading || !isAdmin) return <div className="container mx-auto p-10"><Skeleton className="h-64 w-full rounded-3xl" /></div>;
+export default async function AdminDashboardPage() {
+  const stats = await getGlobalPlatformStats();
 
   return (
     <div className="container mx-auto px-4 py-10 space-y-16 max-w-7xl">
@@ -143,9 +93,9 @@ export default function AdminDashboardPage() {
       </div>
 
       <section className="grid md:grid-cols-3 gap-8">
-        <StatCard title="Total Users" value={stats.totalUsers} icon={Users} loading={statsLoading} />
-        <StatCard title="Active Stores" value={stats.totalStores} icon={Store} loading={statsLoading} />
-        <StatCard title="Completed Orders" value={stats.totalOrdersDelivered} icon={ShoppingBag} loading={statsLoading} />
+        <StatCard title="Total Users" value={stats.totalUsers} icon={Users} />
+        <StatCard title="Active Stores" value={stats.totalStores} icon={Store} />
+        <StatCard title="Completed Orders" value={stats.totalOrdersDelivered} icon={ShoppingBag} />
       </section>
 
       <section className="space-y-6">

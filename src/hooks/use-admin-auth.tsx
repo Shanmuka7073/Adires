@@ -1,37 +1,57 @@
 'use client';
 
-import { useUser, useDoc, useMemoFirebase } from '@/firebase';
+import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import type { User as AppUser } from '@/lib/types';
-import { useFirebase } from '@/firebase';
 import { useMemo } from 'react';
 
-export function useAdminAuth() {
-  const { user, isUserLoading } = useUser();
-  const { firestore } = useFirebase();
+const ADMIN_EMAILS = ['admin@gmail.com', 'admin2@gmail.com'];
+const CHICKEN_ADMIN_EMAIL = 'chickenadmin@gmail.com';
 
+/**
+ * A hook to determine the current user's role and authorization status.
+ * It checks the user's email against hardcoded admin lists and the 
+ * Firestore user profile for business-specific roles.
+ */
+export function useAdminAuth() {
+  const { user, isUserLoading, firestore } = useFirebase();
+
+  // Reference to the user's profile document in Firestore
   const userDocRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
 
+  // Real-time listener for the user profile data
   const { data: userData, isLoading: isProfileLoading } = useDoc<AppUser>(userDocRef);
 
-  const isLoading = isUserLoading || (user && !userData);
+  // Platform Admins (System-wide authority)
+  const isAdmin = useMemo(() => {
+    return !!(user && ADMIN_EMAILS.includes(user.email || ''));
+  }, [user]);
 
-  const { isAdmin, isChickenAdmin, isRestaurantOwner, isEmployee } = useMemo(() => {
-    if (isLoading || !user || !userData) {
-      return { isAdmin: false, isChickenAdmin: false, isRestaurantOwner: false, isEmployee: false };
-    }
-    
-    const admin = user.email === 'admin@gmail.com' || user.email === 'admin2@gmail.com';
-    const chickenAdmin = user.email === 'chickenadmin@gmail.com';
-    const restaurantOwner = userData?.accountType === 'restaurant';
-    const employee = userData?.accountType === 'employee';
+  // Specialized Admin for Chicken price management
+  const isChickenAdmin = useMemo(() => {
+    return !!(user && user.email === CHICKEN_ADMIN_EMAIL);
+  }, [user]);
 
-    return { isAdmin: admin, isChickenAdmin: chickenAdmin, isRestaurantOwner: restaurantOwner, isEmployee: employee };
+  // Business Owner role (Restaurants, Salons, etc.)
+  const isRestaurantOwner = useMemo(() => {
+    return userData?.accountType === 'restaurant';
+  }, [userData]);
 
-  }, [isLoading, user, userData]);
-  
-  return { isAdmin, isChickenAdmin, isRestaurantOwner, isEmployee, isLoading };
+  // Employee role
+  const isEmployee = useMemo(() => {
+    return userData?.accountType === 'employee';
+  }, [userData]);
+
+  return {
+    isAdmin,
+    isChickenAdmin,
+    isRestaurantOwner,
+    isEmployee,
+    isLoading: isUserLoading || isProfileLoading,
+    user,
+    userData,
+  };
 }

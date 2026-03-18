@@ -92,7 +92,7 @@ const prompt = ai.definePrompt(
       name: 'ashaPrompt',
       input: { schema: AshaChatInputSchema },
       output: { schema: AshaChatOutputSchema },
-      model: 'googleai/gemini-1.5-flash',
+      model: 'googleai/gemini-2.5-flash',
       tools: [getGlobalPlatformStats, readSourceCode],
       config: { temperature: 0 },
       prompt: `You are Asha, the Senior Strategic AI Architect for Adires (formerly LocalBasket).
