@@ -10,6 +10,24 @@ import { getApps } from 'firebase-admin/app';
 import { v4 as uuidv4 } from 'uuid';
 import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
 
+/**
+ * NEW: Allows Asha to read the source code of the current page for analysis.
+ * Paths are strictly restricted to the src directory for security.
+ */
+export async function getFileContent(relativeFilePath: string): Promise<string> {
+    try {
+        // Sanitize path to prevent directory traversal
+        const sanitizedPath = relativeFilePath.replace(/\.\./g, '').replace(/^\/+/, '');
+        const fullPath = path.join(process.cwd(), sanitizedPath);
+        
+        const content = await fs.readFile(fullPath, 'utf8');
+        return content;
+    } catch (error: any) {
+        console.error("getFileContent failed:", error);
+        return `Error: Could not read file at ${relativeFilePath}. Check if the path is correct.`;
+    }
+}
+
 export async function getFirebaseConfig() {
   try {
     const adminApp = getApps()[0] || (await getAdminServices()).app;

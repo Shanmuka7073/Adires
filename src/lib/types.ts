@@ -246,6 +246,8 @@ export type ChatMessage = {
   id?: string;
   role: 'user' | 'model';
   text: string;
+  proposedCode?: string; // NEW: Code suggested by Asha for direct application
+  targetPath?: string; // NEW: File to be edited
   timestamp?: any;
 };
 

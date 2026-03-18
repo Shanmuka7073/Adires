@@ -30,7 +30,9 @@ import {
   Briefcase,
   Cog,
   Sparkles,
-  BarChart3
+  BarChart3,
+  MagicWand,
+  Wand2
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -130,8 +132,13 @@ export default function AdminDashboardPage() {
             <h1 className="text-6xl font-black font-headline tracking-tighter">Admin Hub</h1>
             <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">System-wide Authority</p>
         </div>
-        <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-primary bg-primary/5 px-4 py-2 rounded-full border border-primary/10">
-            <Server className="h-3 w-3" /> System Health: Operational
+        <div className="flex gap-3">
+            <Button variant="outline" className="rounded-full h-12 px-6 border-2 font-black uppercase text-[10px] tracking-widest text-primary border-primary/20 bg-primary/5 hover:bg-primary/10">
+                <Wand2 className="mr-2 h-4 w-4" /> ✨ Design UI with Asha
+            </Button>
+            <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-primary bg-primary/5 px-4 py-2 rounded-full border border-primary/10">
+                <Server className="h-3 w-3" /> System Health: Operational
+            </div>
         </div>
       </div>
 

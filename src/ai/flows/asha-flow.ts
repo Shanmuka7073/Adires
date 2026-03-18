@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A conversational AI strategic agent named Asha.
@@ -8,6 +9,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { getAdminServices } from '@/firebase/admin-init';
+import { getFileContent } from '@/app/actions';
 
 const AshaChatInputSchema = z.object({
   history: z.array(z.object({
@@ -25,7 +27,9 @@ const AshaChatInputSchema = z.object({
 export type AshaChatInput = z.infer<typeof AshaChatInputSchema>;
 
 const AshaChatOutputSchema = z.object({
-    analysis: z.string().describe("The conversational response or strategic analysis text.")
+    analysis: z.string().describe("The conversational response or strategic analysis text."),
+    proposedCode: z.string().optional().describe("A full React/TypeScript code block if a UI change is suggested."),
+    targetPath: z.string().optional().describe("The relative path of the file to be edited (e.g., 'src/app/page.tsx').")
 });
 
 /**
@@ -64,7 +68,22 @@ const getGlobalPlatformStats = ai.defineTool(
   }
 );
 
-export async function chatWithAsha(input: AshaChatInput): Promise<string> {
+/**
+ * TOOL: Allows Asha to see the code of the page she is analyzing.
+ */
+const readSourceCode = ai.defineTool(
+    {
+        name: 'readSourceCode',
+        description: 'Reads the content of a source file given its path.',
+        inputSchema: z.object({ path: z.string() }),
+        outputSchema: z.string(),
+    },
+    async (input) => {
+        return await getFileContent(input.path);
+    }
+);
+
+export async function chatWithAsha(input: AshaChatInput): Promise<z.infer<typeof AshaChatOutputSchema>> {
   return ashaFlow(input);
 }
 
@@ -73,37 +92,35 @@ const prompt = ai.definePrompt(
       name: 'ashaPrompt',
       input: { schema: AshaChatInputSchema },
       output: { schema: AshaChatOutputSchema },
-      model: 'googleai/gemini-2.5-flash',
-      tools: [getGlobalPlatformStats],
-      prompt: `You are Asha, the Senior Strategic AI Architect for LocalBasket. 
-Your goal is to perform deep-scans of the application state and answer user questions about development, growth, and technical behavior.
+      model: 'googleai/gemini-1.5-flash',
+      tools: [getGlobalPlatformStats, readSourceCode],
+      config: { temperature: 0 },
+      prompt: `You are Asha, the Senior Strategic AI Architect for Adires (formerly LocalBasket).
+Your goal is to perform deep-scans of the application state and assist with growth, performance, and AUTOMATED CODING.
 
-TECHNICAL CONTEXT (Internal Knowledge):
+TECHNICAL CONTEXT:
 - Framework: Next.js 14 App Router.
-- Backend: Firebase Client SDK exclusively.
-- State Management: Zustand with localStorage persistence.
-- Page Load Behavior: The 'ClientRoot' uses a 'useInitializeApp' hook that fetches core data (Stores, Products, Voice Aliases) before unlocking the UI.
-- Performance: "Operational Indexing" is used to keep Firestore reads low.
-- Navigation: Moving between pages might show a Global Loader if the Firebase Auth state or data store is re-validating.
+- Styling: Tailwind CSS & ShadCN.
+- Backend: Firebase Client SDK.
+- Optimization: Operational Indexing & Persistent Cache.
+
+DIRECTIVES:
+1. **Analyze Code**: If the user asks to "edit" or "fix" something on the current page, use the 'readSourceCode' tool to inspect the file at the path related to {{context.pathname}}.
+2. **Propose Changes**: If a UI adjustment is needed, provide the FULL, final refactored code in 'proposedCode' and the file path in 'targetPath'.
+3. **Strategic Insight**: Always explain WHY you are making a change in 'analysis'.
+4. **Format**: Return ONLY a JSON object matching the output schema.
 
 CURRENT STATE:
-- User is on page: {{context.pathname}}
-- User Role: {{role}}
-{{#if businessType}}- Business Vertical: {{businessType}}{{/if}}
-
-STRATEGIC DIRECTIVES:
-1. **Identify the Gap**: If the user asks for a prediction, look at what is likely missing on {{context.pathname}} given the role of {{role}}.
-2. **Technical Clarity**: If the user asks about performance or "why something is happening", explain it using the internal knowledge provided above (e.g., explaining that page load delays are often due to Firebase initialization or parallel data fetching in the Zustand store).
-3. **Economic Impact**: Link technical choices to business KPIs (e.g., "Implementing X reduces read costs by 40%").
-
-Format your response in 'analysis'. If it's a strategic prediction, use the 🚀 and 💡 icons. If it's a direct answer to a question, be professional, helpful, and concise.
+- Page: {{context.pathname}}
+- Role: {{role}}
+- Vertical: {{businessType}}
 
 History:
 {{#each history}}
 - {{role}}: {{text}}
 {{/each}}
 
-User Question:
+User Request:
 {{message}}
 `,
     }
@@ -113,7 +130,7 @@ const ashaFlow = ai.defineFlow(
   {
     name: 'ashaFlow',
     inputSchema: AshaChatInputSchema,
-    outputSchema: z.string(),
+    outputSchema: AshaChatOutputSchema,
   },
   async (input) => {
     try {
@@ -121,10 +138,12 @@ const ashaFlow = ai.defineFlow(
         if (!output || !output.analysis) {
             throw new Error("Asha is currently calibrating. Please try re-sending your question.");
         }
-        return output.analysis;
+        return output;
     } catch (error: any) {
         console.error("Asha Flow Error:", error);
-        return `Asha Error: ${error.message || String(error)}. Path: ${input.context?.pathname}. Action: Please check your internet and try again.`;
+        return {
+            analysis: `Asha Error: ${error.message || String(error)}. Action: Please try again.`,
+        };
     }
   }
 );
