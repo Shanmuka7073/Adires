@@ -29,13 +29,19 @@ import {
   PlusCircle,
   X,
   Search,
-  Scissors
+  Scissors,
+  Calendar as CalendarIcon,
+  BarChart3,
+  History,
+  TrendingUp,
+  ArrowRight,
+  Sparkles
 } from 'lucide-react';
 import {
-  collection, query, where, orderBy, doc, updateDoc, serverTimestamp, Timestamp, limit
+  collection, query, where, orderBy, doc, updateDoc, serverTimestamp, Timestamp, limit, getDocs, startAt, endAt
 } from 'firebase/firestore';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { useMemo, useState, useTransition, useEffect } from 'react';
+import { useMemo, useState, useTransition, useEffect, useCallback } from 'react';
 import {
   AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogDescription
 } from '@/components/ui/alert-dialog';
@@ -47,6 +53,17 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { playTickSound } from '@/lib/cart';
 import Link from 'next/link';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { format, startOfDay, endOfDay, subDays } from 'date-fns';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table"
+
 
 const STATUS_META: Record<string, any> = {
   Draft: { icon: Clock, variant: 'outline', color: 'text-gray-400', label: 'Draft' },
@@ -289,7 +306,6 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
 
   const titleIcon = session.orderType === 'takeaway' ? <ShoppingBag className="h-4 w-4" /> : session.orderType === 'counter' ? <Calculator className="h-4 w-4" /> : (isSalon ? <Scissors className="h-4 w-4" /> : <Utensils className="h-4 w-4" />);
 
-  // Visibility variables - Strictly enforce dark text for Billed status to ensure contrast on light green bg
   const titleColor = isBilled ? "text-gray-950" : (isKitchenMode ? "text-white" : "text-gray-950");
   const itemTextColor = isBilled ? "text-gray-800" : (isKitchenMode ? "text-white/90" : "text-gray-700");
   const priceColor = isBilled ? "text-gray-950" : (isKitchenMode ? "text-white" : "text-gray-600");
@@ -357,7 +373,6 @@ function DeliveryOrderCard({ order, onStatusChange, isUpdating, isKitchenMode }:
         return current;
     };
 
-    // Color logic similar to SessionCard for consistency
     const titleColor = isBilled ? "text-gray-950" : (isKitchenMode ? "text-white" : "text-gray-950");
     const itemTextColor = isBilled ? "text-gray-800" : (isKitchenMode ? "text-white/90" : "text-gray-700");
     const priceColor = isBilled ? "text-gray-950" : (isKitchenMode ? "text-white" : "text-gray-600");
@@ -393,11 +408,166 @@ function DeliveryOrderCard({ order, onStatusChange, isUpdating, isKitchenMode }:
     );
 }
 
+function HistoryAndInsightsCenter({ storeId }: { storeId: string }) {
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+    const [history, setHistory] = useState<Order[]>([]);
+    const [isLoading, startLoading] = useTransition();
+    const [days, setDays] = useState(7);
+
+    const fetchHistory = useCallback(async () => {
+        if (!firestore) return;
+        startLoading(async () => {
+            try {
+                const start = startOfDay(subDays(new Date(), days));
+                const q = query(
+                    collection(firestore, 'orders'),
+                    where('storeId', '==', storeId),
+                    where('orderDate', '>=', Timestamp.fromDate(start)),
+                    orderBy('orderDate', 'desc'),
+                    limit(50)
+                );
+                const snap = await getDocs(q);
+                setHistory(snap.docs.map(d => ({ id: d.id, ...d.data() } as Order)));
+            } catch (e) {
+                console.error(e);
+                toast({ variant: 'destructive', title: 'Fetch Error', description: 'Failed to load history.' });
+            }
+        });
+    }, [firestore, storeId, days, toast]);
+
+    useEffect(() => { fetchHistory(); }, [fetchHistory]);
+
+    const stats = useMemo(() => {
+        const completed = history.filter(o => ['Completed', 'Delivered'].includes(o.status));
+        const totalSales = completed.reduce((acc, o) => acc + o.totalAmount, 0);
+        const aov = completed.length > 0 ? totalSales / completed.length : 0;
+        
+        const itemMap = new Map<string, number>();
+        completed.forEach(o => o.items.forEach(i => {
+            itemMap.set(i.productName, (itemMap.get(i.productName) || 0) + i.quantity);
+        }));
+        
+        const topItems = Array.from(itemMap.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5);
+
+        return { totalSales, aov, orderCount: completed.length, topItems };
+    }, [history]);
+
+    return (
+        <div className="space-y-8 animate-in fade-in duration-500">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="rounded-3xl border-0 shadow-lg bg-white">
+                    <CardHeader className="pb-2 flex flex-row justify-between items-center">
+                        <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Total Revenue</span>
+                        <TrendingUp className="h-4 w-4 text-green-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-3xl font-black tracking-tighter text-gray-950">₹{stats.totalSales.toFixed(0)}</p>
+                        <p className="text-[10px] font-bold opacity-40 uppercase mt-1">From {stats.orderCount} orders</p>
+                    </CardContent>
+                </Card>
+                <Card className="rounded-3xl border-0 shadow-lg bg-white">
+                    <CardHeader className="pb-2 flex flex-row justify-between items-center">
+                        <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Avg Order Value</span>
+                        <Calculator className="h-4 w-4 text-blue-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-3xl font-black tracking-tighter text-gray-950">₹{stats.aov.toFixed(0)}</p>
+                        <p className="text-[10px] font-bold opacity-40 uppercase mt-1">Per visit profit driver</p>
+                    </CardContent>
+                </Card>
+                <Card className="rounded-3xl border-0 shadow-lg bg-white">
+                    <CardHeader className="pb-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Historical Filter</span>
+                    </CardHeader>
+                    <CardContent className="flex gap-2">
+                        {[7, 14, 30].map(d => (
+                            <Button key={d} variant={days === d ? 'default' : 'outline'} size="sm" onClick={() => setDays(d)} className="rounded-xl font-black text-[10px] h-8 flex-1">
+                                {d}D
+                            </Button>
+                        ))}
+                    </CardContent>
+                </Card>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-8">
+                <Card className="rounded-3xl border-0 shadow-xl overflow-hidden bg-white">
+                    <CardHeader className="bg-primary/5 border-b border-black/5">
+                        <CardTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
+                            <History className="h-5 w-5 text-primary" /> Past Orders
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        <ScrollArea className="h-[400px]">
+                            {isLoading ? (
+                                <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto h-8 w-8 opacity-20" /></div>
+                            ) : history.length > 0 ? (
+                                <Table>
+                                    <TableHeader className="bg-black/5">
+                                        <TableRow>
+                                            <TableHead className="text-[9px] font-black uppercase tracking-widest">Customer</TableHead>
+                                            <TableHead className="text-[9px] font-black uppercase tracking-widest">Total</TableHead>
+                                            <TableHead className="text-right text-[9px] font-black uppercase tracking-widest">Status</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {history.map(o => (
+                                            <TableRow key={o.id} className="hover:bg-muted/30">
+                                                <TableCell className="py-3">
+                                                    <p className="font-bold text-xs">{o.customerName || 'Walk-in'}</p>
+                                                    <p className="text-[8px] opacity-40 uppercase">{format(toDateSafe(o.orderDate), 'dd MMM, p')}</p>
+                                                </TableCell>
+                                                <TableCell className="font-black text-xs text-primary">₹{o.totalAmount.toFixed(0)}</TableCell>
+                                                <TableCell className="text-right">
+                                                    <Badge variant={STATUS_META[o.status]?.variant || 'outline'} className="text-[8px] font-black uppercase px-1.5 h-4">
+                                                        {STATUS_META[o.status]?.label || o.status}
+                                                    </Badge>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            ) : <div className="p-20 text-center opacity-30"><p className="text-[10px] font-black uppercase tracking-widest">No history for this range</p></div>}
+                        </ScrollArea>
+                    </CardContent>
+                </Card>
+
+                <Card className="rounded-3xl border-0 shadow-xl overflow-hidden bg-white">
+                    <CardHeader className="bg-primary/5 border-b border-black/5">
+                        <CardTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
+                            <Sparkles className="h-5 w-5 text-primary" /> Popular Items
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                        <div className="space-y-4">
+                            {stats.topItems.map(([name, count]) => (
+                                <div key={name} className="flex justify-between items-center p-4 bg-muted/30 rounded-2xl border-2 border-transparent hover:border-primary/20 transition-all">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary text-xs">
+                                            {count}
+                                        </div>
+                                        <span className="font-bold text-xs uppercase tracking-tight">{name}</span>
+                                    </div>
+                                    <ArrowRight className="h-4 w-4 opacity-20" />
+                                </div>
+                            ))}
+                            {stats.topItems.length === 0 && <p className="text-center py-20 text-[10px] font-black uppercase opacity-30 tracking-widest">Data processing...</p>}
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    );
+}
+
 export default function StoreOrdersPage() {
   const { firestore, user } = useFirebase();
   const [isUpdating, startUpdate] = useTransition();
   const [isKitchenMode, setIsKitchenMode] = useState(false);
   const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('live');
   const { toast } = useToast();
   const { stores, userStore, loading: isAppLoading } = useAppStore();
 
@@ -474,7 +644,7 @@ export default function StoreOrdersPage() {
   if (!myStore) return <div className="p-12 text-center"><p className="font-black uppercase tracking-widest text-xs opacity-40">Store information not found.</p></div>;
 
   return (
-    <div className={cn("min-h-screen py-4 px-3 max-w-7xl mx-auto transition-colors duration-500", isKitchenMode ? "bg-slate-950" : "bg-slate-50")}>
+    <div className={cn("min-h-screen py-4 px-3 max-w-7xl mx-auto transition-colors duration-500", isKitchenMode && activeTab === 'live' ? "bg-slate-950" : "bg-slate-50")}>
         <Dialog open={isNewSaleOpen} onOpenChange={setIsNewSaleOpen}>
             <QuickCounterSaleDialog 
                 storeId={myStore.id} 
@@ -484,64 +654,81 @@ export default function StoreOrdersPage() {
             />
         </Dialog>
 
-        <div className="flex justify-between items-center mb-6 border-b pb-3 border-black/10">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 border-b pb-3 border-black/10 gap-4">
             <div>
-                <h1 className={cn("text-2xl font-black tracking-tighter", isKitchenMode ? "text-white" : "text-gray-900")}>OP CENTER</h1>
-                <p className={cn("text-[8px] font-black uppercase tracking-widest opacity-40", isKitchenMode ? "text-primary" : "text-muted-foreground")}>{myStore.name} • {isSalon ? 'SALON' : 'RESTAURANT'}</p>
+                <h1 className={cn("text-2xl font-black tracking-tighter", isKitchenMode && activeTab === 'live' ? "text-white" : "text-gray-900")}>OP CENTER</h1>
+                <p className={cn("text-[8px] font-black uppercase tracking-widest opacity-40", isKitchenMode && activeTab === 'live' ? "text-primary" : "text-muted-foreground")}>{myStore.name} • {isSalon ? 'SALON' : 'RESTAURANT'}</p>
             </div>
-            <div className="flex gap-2">
-                {!isSalon && (
-                    <Button onClick={() => setIsKitchenMode(!isKitchenMode)} variant="outline" size="sm" className={cn("h-9 px-4 rounded-xl font-black text-[10px] uppercase tracking-widest border-2", isKitchenMode && "bg-primary text-white border-primary")}>
-                        {isKitchenMode ? <Monitor className="h-4 w-4 mr-2"/> : <ChefHat className="h-4 w-4 mr-2"/>} {isKitchenMode ? 'POS VIEW' : 'KITCHEN VIEW'}
+            
+            <div className="flex gap-2 w-full sm:w-auto">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="bg-black/5 p-1 rounded-xl border">
+                    <TabsList className="bg-transparent h-8 p-0 gap-1">
+                        <TabsTrigger value="live" className="rounded-lg font-black text-[9px] uppercase h-6 px-4">Live Hub</TabsTrigger>
+                        <TabsTrigger value="history" className="rounded-lg font-black text-[9px] uppercase h-6 px-4">Insights</TabsTrigger>
+                    </TabsList>
+                </Tabs>
+                
+                {activeTab === 'live' && !isSalon && (
+                    <Button onClick={() => setIsKitchenMode(!isKitchenMode)} variant="outline" size="sm" className={cn("h-10 px-4 rounded-xl font-black text-[10px] uppercase tracking-widest border-2", isKitchenMode && "bg-primary text-white border-primary")}>
+                        {isKitchenMode ? <Monitor className="h-4 w-4 mr-2"/> : <ChefHat className="h-4 w-4 mr-2"/>} {isKitchenMode ? 'POS VIEW' : 'KITCHEN'}
                     </Button>
                 )}
+                
+                <Button onClick={() => setIsNewSaleOpen(true)} size="sm" variant="outline" className="h-10 px-4 rounded-xl font-black text-[9px] uppercase tracking-widest border-2 border-green-600/30 text-green-600 hover:bg-green-50 shadow-sm">
+                    <PlusCircle className="h-3.5 w-3.5 mr-1.5"/> New Sale
+                </Button>
             </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-[calc(100vh-140px)] overflow-hidden">
-            <section className="flex flex-col h-full min-h-0">
-                <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 flex items-center gap-2 mb-4 shrink-0"><Truck className="h-3.5 w-3.5"/> Out-Call & Online</h2>
-                <ScrollArea className="flex-1">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-4">
-                        {homeDeliveries.map(o => <DeliveryOrderCard key={o.id} order={o} onStatusChange={handleOrderUpdate} isUpdating={isUpdating} isKitchenMode={isKitchenMode} />)}
-                        {homeDeliveries.length === 0 && (
-                            <div className={cn(
-                                "col-span-full text-center py-20 border-2 border-dashed rounded-3xl opacity-60",
-                                isKitchenMode ? "border-white/10 text-white" : "border-black/5 text-gray-400"
-                            )}>
-                                <ShoppingBag className="h-8 w-8 mx-auto mb-2"/>
-                                <p className={cn("text-[9px] font-black uppercase tracking-widest", isKitchenMode ? "text-white" : "text-black")}>No active jobs</p>
+        <Tabs value={activeTab} className="w-full">
+            <TabsContent value="live" className="mt-0">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-[calc(100vh-160px)] overflow-hidden">
+                    <section className="flex flex-col h-full min-h-0">
+                        <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 flex items-center gap-2 mb-4 shrink-0"><Truck className="h-3.5 w-3.5"/> Out-Call & Online</h2>
+                        <ScrollArea className="flex-1">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-4">
+                                {homeDeliveries.map(o => <DeliveryOrderCard key={o.id} order={o} onStatusChange={handleOrderUpdate} isUpdating={isUpdating} isKitchenMode={isKitchenMode} />)}
+                                {homeDeliveries.length === 0 && (
+                                    <div className={cn(
+                                        "col-span-full text-center py-20 border-2 border-dashed rounded-3xl opacity-60",
+                                        isKitchenMode ? "border-white/10 text-white" : "border-black/5 text-gray-400"
+                                    )}>
+                                        <ShoppingBag className="h-8 w-8 mx-auto mb-2"/>
+                                        <p className={cn("text-[9px] font-black uppercase tracking-widest", isKitchenMode ? "text-white" : "text-black")}>No active jobs</p>
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </div>
-                    <ScrollBar orientation="vertical" />
-                </ScrollArea>
-            </section>
+                            <ScrollBar orientation="vertical" />
+                        </ScrollArea>
+                    </section>
 
-            <section className="flex flex-col h-full min-h-0">
-                <div className="flex justify-between items-center mb-4 shrink-0">
-                    <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-green-600 flex items-center gap-2">{isSalon ? <Scissors className="h-3.5 w-3.5"/> : <Utensils className="h-3.5 w-3.5"/>} {isSalon ? 'Chair & Counter' : 'Table & Counter'}</h2>
-                    <Button onClick={() => setIsNewSaleOpen(true)} size="sm" variant="outline" className="h-8 px-4 rounded-xl font-black text-[9px] uppercase tracking-widest border-2 border-green-600/30 text-green-600 hover:bg-green-50">
-                        <PlusCircle className="h-3.5 w-3.5 mr-1.5"/> {isSalon ? 'New Checkout' : 'New Sale'}
-                    </Button>
-                </div>
-                <ScrollArea className="flex-1">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-4 pb-10">
-                        {Object.values(sessions).map(s => <SessionCard key={s.id} session={s} isUpdating={isUpdating} onDismissService={handleDismissService} isKitchenMode={isKitchenMode} store={myStore} isSalon={isSalon} />)}
-                        {Object.values(sessions).length === 0 && (
-                            <div className={cn(
-                                "col-span-full text-center py-20 border-2 border-dashed rounded-3xl opacity-60",
-                                isKitchenMode ? "border-white/10 text-white" : "border-black/5 text-gray-400"
-                            )}>
-                                <Monitor className="h-8 w-8 mx-auto mb-2"/>
-                                <p className={cn("text-[9px] font-black uppercase tracking-widest", isKitchenMode ? "text-white" : "text-black")}>No active sessions</p>
+                    <section className="flex flex-col h-full min-h-0">
+                        <div className="flex justify-between items-center mb-4 shrink-0">
+                            <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-green-600 flex items-center gap-2">{isSalon ? <Scissors className="h-3.5 w-3.5"/> : <Utensils className="h-3.5 w-3.5"/>} {isSalon ? 'Chair & Counter' : 'Table & Counter'}</h2>
+                        </div>
+                        <ScrollArea className="flex-1">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-4 pb-10">
+                                {Object.values(sessions).map(s => <SessionCard key={s.id} session={s} isUpdating={isUpdating} onDismissService={handleDismissService} isKitchenMode={isKitchenMode} store={myStore} isSalon={isSalon} />)}
+                                {Object.values(sessions).length === 0 && (
+                                    <div className={cn(
+                                        "col-span-full text-center py-20 border-2 border-dashed rounded-3xl opacity-60",
+                                        isKitchenMode ? "border-white/10 text-white" : "border-black/5 text-gray-400"
+                                    )}>
+                                        <Monitor className="h-8 w-8 mx-auto mb-2"/>
+                                        <p className={cn("text-[9px] font-black uppercase tracking-widest", isKitchenMode ? "text-white" : "text-black")}>No active sessions</p>
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </div>
-                    <ScrollBar orientation="vertical" />
-                </ScrollArea>
-            </section>
-        </div>
+                            <ScrollBar orientation="vertical" />
+                        </ScrollArea>
+                    </section>
+                </div>
+            </TabsContent>
+            
+            <TabsContent value="history" className="mt-0">
+                <HistoryAndInsightsCenter storeId={myStore.id} />
+            </TabsContent>
+        </Tabs>
     </div>
   );
 }
