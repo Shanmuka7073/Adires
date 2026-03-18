@@ -15,6 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useAppStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 const serviceLinks = [
     {
