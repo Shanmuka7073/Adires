@@ -1,3 +1,4 @@
+
 import type { Metadata, Viewport } from "next";
 import { PT_Sans } from "next/font/google";
 import "./globals.css";
@@ -12,7 +13,7 @@ const ptSans = PT_Sans({
 export const metadata: Metadata = {
   title: "Adires | Unified Local Market",
   description: "Your unified local market for groceries, restaurants, and salons.",
-  manifest: "/manifest.webmanifest",
+  manifest: "/manifest.json",
   icons: {
     apple: "/apple-touch-icon.png",
   },

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
@@ -18,6 +19,7 @@ import { VoiceCommandContext } from './voice-commander-context';
 import { FirestoreCounter } from './firestore-counter';
 import { AshaStrategicOverlay } from './asha-strategic-overlay';
 import { AshaProvider } from './asha-context';
+import { OfflineStatus } from './offline-status';
 
 export function MainLayout({ 
   children,
@@ -78,14 +80,15 @@ export function MainLayout({
             onToggleVoice: () => setVoiceEnabled(prev => !prev),
         }}>
             <div className="relative flex min-h-dvh flex-col bg-background">
+            <OfflineStatus />
             <Header 
-                suggestedCommands={[]} // Suggestions handled inside VoiceCommander internally
+                suggestedCommands={[]} 
             />
             {user && isInitialized && (
                 <VoiceCommander 
                     enabled={voiceEnabled} 
                     onStatusUpdate={setVoiceStatus}
-                    onSuggestions={() => {}} // Suggestions handled via internal state now
+                    onSuggestions={() => {}} 
                     onOpenCart={() => setIsCartOpen(true)}
                     onCloseCart={() => setIsCartOpen(false)}
                     isCartOpen={isCartOpen}
@@ -101,7 +104,6 @@ export function MainLayout({
             <PriceCheckDisplay info={priceCheckInfo} onClose={hidePriceCheck} />
             <main className="flex-1 pb-16 md:pb-0">{children}</main>
             
-            {/* Global AI Strategic Advisor Overlay */}
             <AshaStrategicOverlay />
 
             <NotificationPermissionManager />
@@ -111,13 +113,5 @@ export function MainLayout({
             </div>
         </VoiceCommandContext.Provider>
     </AshaProvider>
-  );
-}
-
-export function MenuLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="relative min-h-dvh bg-background">
-        {children}
-    </div>
   );
 }
