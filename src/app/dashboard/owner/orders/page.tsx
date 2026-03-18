@@ -35,13 +35,14 @@ import {
   History,
   TrendingUp,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  Volume2
 } from 'lucide-react';
 import {
   collection, query, where, orderBy, doc, updateDoc, serverTimestamp, Timestamp, limit, getDocs, startAt, endAt
 } from 'firebase/firestore';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { useMemo, useState, useTransition, useEffect, useCallback } from 'react';
+import { useMemo, useState, useTransition, useEffect, useCallback, useRef } from 'react';
 import {
   AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogDescription
 } from '@/components/ui/alert-dialog';
@@ -639,6 +640,79 @@ export default function StoreOrdersPage() {
   const handleDismissService = (orderId: string) => {
       startUpdate(async () => { await dismissTableService(orderId); toast({ title: "Resolved" }); });
   };
+
+  // --- NOTIFICATION LOGIC ---
+  const playNewOrderSound = useCallback(() => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+      oscillator.frequency.exponentialRampToValueAtTime(1109, audioCtx.currentTime + 0.1); // C#6
+      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.5);
+    } catch (e) {}
+  }, []);
+
+  const playServiceRequestSound = useCallback(() => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillator.type = 'triangle';
+      oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
+      oscillator.frequency.setValueAtTime(660, audioCtx.currentTime + 0.2);
+      oscillator.frequency.setValueAtTime(440, audioCtx.currentTime + 0.4);
+      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.8);
+    } catch (e) {}
+  }, []);
+
+  const prevOrderIds = useRef<Set<string>>(new Set());
+  const prevServiceIds = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!activeOrders) return;
+
+    const currentIds = new Set(activeOrders.map(o => o.id));
+    const newIds = activeOrders.filter(o => !prevOrderIds.current.has(o.id));
+
+    if (newIds.length > 0 && prevOrderIds.current.size > 0) {
+      playNewOrderSound();
+      toast({ title: "New Order Received!", description: `You have ${newIds.length} new items.` });
+      if (Notification.permission === 'granted') {
+          new Notification("New Order", { body: `Received ${newIds.length} new order(s).` });
+      }
+    }
+    prevOrderIds.current = currentIds;
+
+    const currentService = new Set(activeOrders.filter(o => o.needsService).map(o => o.id));
+    const newService = activeOrders.filter(o => o.needsService && !prevServiceIds.current.has(o.id));
+
+    if (newService.length > 0) {
+      playServiceRequestSound();
+      toast({ variant: 'destructive', title: "Service Required!", description: "A table is calling for assistance." });
+      if (Notification.permission === 'granted') {
+          new Notification("Service Required", { body: "A customer is calling for assistance." });
+      }
+    }
+    prevServiceIds.current = currentService;
+  }, [activeOrders, toast, playNewOrderSound, playServiceRequestSound]);
+
+  useEffect(() => {
+      if ("Notification" in window && Notification.permission === "default") {
+          Notification.requestPermission();
+      }
+  }, []);
 
   if (isAppLoading || ordersLoading || menusLoading) return <div className="p-12 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto opacity-20" /></div>;
   if (!myStore) return <div className="p-12 text-center"><p className="font-black uppercase tracking-widest text-xs opacity-40">Store information not found.</p></div>;
