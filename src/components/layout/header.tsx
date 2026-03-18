@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { UserCircle, Mic, MicOff, Globe, LogOut, Download } from 'lucide-react';
+import { UserCircle, Mic, MicOff, Globe, LogOut, Download, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CartIcon } from '@/components/cart/cart-icon';
 import { usePathname } from 'next/navigation';
@@ -139,7 +139,7 @@ export function Header({ suggestedCommands }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-md px-4 md:px-6">
-      {/* Branding Section: Logo and Name (Now always visible) */}
+      {/* Branding Section: Logo and Name */}
       <Link href={homeHref} className="flex items-center gap-2.5 group shrink-0">
         <div className="relative w-9 h-9 rounded-full overflow-hidden border-2 border-primary/20 bg-white shadow-sm transition-transform group-hover:scale-105 group-active:scale-95">
           <Image src={logoUrl} alt={brandName} fill className="object-cover" priority />
