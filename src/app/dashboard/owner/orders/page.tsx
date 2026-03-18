@@ -41,15 +41,14 @@ import {
   UserPlus
 } from 'lucide-react';
 import {
-  collection, query, where, orderBy, doc, updateDoc, serverTimestamp, Timestamp, limit, getDocs
+  collection, query, where, orderBy, doc, updateDoc, serverTimestamp, Timestamp, limit, getDocs, setDoc, writeBatch
 } from 'firebase/firestore';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { useMemo, useState, useTransition, useEffect, useCallback, useRef } from 'react';
 import {
   AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogDescription
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { markSessionAsPaid, confirmOrderSession, dismissTableService, updateOrderStatus, addRestaurantOrderItem } from '@/app/actions';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
 import { Input } from '@/components/ui/input';
@@ -93,6 +92,7 @@ interface Session {
 
 function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { storeId: string, menuItems: MenuItem[], onComplete: () => void, isSalon: boolean }) {
     const { toast } = useToast();
+    const { firestore } = useFirebase();
     const [isProcessing, startAction] = useTransition();
     const [cart, setCart] = useState<{item: MenuItem, qty: number}[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -116,28 +116,53 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { s
     const total = cart.reduce((acc, i) => acc + (i.item.price * i.qty), 0);
 
     const handleGenerateBill = () => {
-        if (cart.length === 0) return;
+        if (cart.length === 0 || !firestore) return;
+        
         startAction(async () => {
-            const items: any[] = cart.map(c => ({
-                product: { id: c.item.id, name: c.item.name },
-                variant: { sku: `${c.item.id}-default`, weight: '1 pc', price: c.item.price },
-                quantity: c.qty
+            const orderId = `counter-${Date.now()}`;
+            const orderRef = doc(firestore, 'orders', orderId);
+            
+            const orderItems: OrderItem[] = cart.map(c => ({
+                id: crypto.randomUUID(),
+                orderId: orderId,
+                productId: c.item.id,
+                menuItemId: c.item.id,
+                productName: c.item.name,
+                variantSku: `${c.item.id}-default`,
+                variantWeight: '1 pc',
+                quantity: c.qty,
+                price: c.item.price
             }));
 
-            const res = await addRestaurantOrderItem({
-                storeId,
+            const orderData = {
+                id: orderId,
+                storeId: storeId,
                 tableNumber: 'Counter',
-                sessionId: `counter-${Date.now()}`,
-                items,
-                status: 'Billed'
-            });
+                sessionId: orderId,
+                userId: 'guest',
+                customerName: 'Walk-in Guest',
+                deliveryAddress: 'In-store counter',
+                status: 'Billed',
+                orderType: 'counter',
+                isActive: true,
+                orderDate: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+                items: orderItems,
+                totalAmount: total,
+            };
 
-            if (res.success) {
+            try {
+                // Use client SDK for offline support
+                await setDoc(orderRef, orderData);
                 toast({ title: "Bill Generated!" });
                 setCart([]);
                 onComplete();
-            } else {
-                toast({ variant: 'destructive', title: 'Error', description: res.error });
+            } catch (e) {
+                errorEmitter.emit('permission-error', new FirestorePermissionError({
+                    path: orderRef.path,
+                    operation: 'create',
+                    requestResourceData: orderData
+                }));
             }
         });
     };
@@ -248,14 +273,30 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { s
 
 function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, store, isSalon }: { session: Session; isUpdating: boolean; onDismissService: (id: string) => void; isKitchenMode: boolean; store: Store; isSalon: boolean }) {
   const { toast } = useToast();
+  const { firestore } = useFirebase();
   const [isProcessing, startAction] = useTransition();
 
   const handleAction = () => {
+    if (!firestore) return;
     startAction(async () => {
-        let result;
-        if (session.status === 'Billed') result = await markSessionAsPaid(session.id);
-        else result = await confirmOrderSession(session.id);
-        if (result.success) toast({ title: 'Success' });
+        const batch = writeBatch(firestore);
+        const isBilled = session.status === 'Billed';
+        
+        session.orders.forEach(order => {
+            const orderRef = doc(firestore, 'orders', order.id);
+            if (isBilled) {
+                batch.update(orderRef, { status: 'Completed', isActive: false, updatedAt: serverTimestamp() });
+            } else {
+                batch.update(orderRef, { status: 'Billed', updatedAt: serverTimestamp() });
+            }
+        });
+
+        try {
+            await batch.commit();
+            toast({ title: 'Success' });
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Action Failed' });
+        }
     });
   };
 
@@ -658,14 +699,44 @@ export default function StoreOrdersPage() {
   }, [activeOrders, liveSearch, liveFilter]);
 
   const handleOrderUpdate = (orderId: string, status: any) => {
+      if (!firestore) return;
+      const orderRef = doc(firestore, 'orders', orderId);
+      const isActive = !['Delivered', 'Completed', 'Cancelled'].includes(status);
+      
       startUpdate(async () => {
-          const res = await updateOrderStatus(orderId, status);
-          if (res.success) toast({ title: "Updated" });
+          // Optimized for offline support via Client SDK
+          try {
+              await updateDoc(orderRef, {
+                  status,
+                  isActive,
+                  updatedAt: serverTimestamp()
+              });
+              toast({ title: "Updated" });
+          } catch (e) {
+              errorEmitter.emit('permission-error', new FirestorePermissionError({
+                  path: orderRef.path,
+                  operation: 'update',
+                  requestResourceData: { status }
+              }));
+          }
       });
   }
 
   const handleDismissService = (orderId: string) => {
-      startUpdate(async () => { await dismissTableService(orderId); toast({ title: "Resolved" }); });
+      if (!firestore) return;
+      const orderRef = doc(firestore, 'orders', orderId);
+      startUpdate(async () => { 
+          try {
+              await updateDoc(orderRef, { 
+                  needsService: false, 
+                  serviceType: null, 
+                  updatedAt: serverTimestamp() 
+              });
+              toast({ title: "Resolved" }); 
+          } catch (e) {
+              toast({ variant: 'destructive', title: "Failed to dismiss" });
+          }
+      });
   };
 
   const playNewOrderSound = useCallback(() => {

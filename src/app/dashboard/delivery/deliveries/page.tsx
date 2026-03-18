@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MapPin, Check, Banknote, History, Landmark, Receipt, CreditCard, ChevronDown, ChevronUp, Route, Package, Bot, Info, Loader2, LocateFixed, RefreshCw } from 'lucide-react';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, query, where, doc, updateDoc, Timestamp, increment, writeBatch, orderBy, setDoc, getDocs, limit } from 'firebase/firestore';
+import { collection, query, where, doc, updateDoc, Timestamp, increment, writeBatch, orderBy, setDoc, getDocs, limit, serverTimestamp } from 'firebase/firestore';
 import { useEffect, useState, useMemo, useTransition, useCallback } from 'react';
 import { getStores } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
@@ -22,8 +22,7 @@ import { z } from 'zod';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 
 const DELIVERY_FEE = 30;
@@ -508,11 +507,6 @@ export default function DeliveriesPage() {
   
   const { data: myActiveDeliveries, isLoading: activeDeliveriesLoading } = useCollection<Order>(myActiveDeliveriesQuery);
 
-  /**
-   * OPTIMIZED: Delivery Job Fetching
-   * We use getDocs + zoneId partition to keep reads extremely low.
-   * Refreshing is manual or periodic, not heavy real-time.
-   */
   const fetchAvailableJobs = useCallback(async () => {
     if (!firestore || !partnerData?.zoneId) return;
     setAvailableLoading(true);
@@ -573,15 +567,17 @@ export default function DeliveriesPage() {
      startUpdateTransition(async () => {
         const orderRef = doc(firestore, 'orders', orderId);
         try {
+            // Use Client SDK for offline support
             await updateDoc(orderRef, { 
                 deliveryPartnerId: user.uid,
-                status: 'Out for Delivery' 
+                status: 'Out for Delivery',
+                updatedAt: serverTimestamp()
             });
             toast({
                 title: `Job Accepted!`,
                 description: `You are now assigned to deliver this order.`
             });
-            fetchAvailableJobs(); // Refresh jobs
+            fetchAvailableJobs();
         } catch (error) {
              console.error("Failed to confirm pickup:", error);
              toast({ variant: 'destructive', title: "Accept Failed", description: "Could not accept the selected job."})
@@ -605,7 +601,7 @@ export default function DeliveriesPage() {
                     toast({
                         variant: 'destructive',
                         title: 'Too Far Away',
-                        description: `You must be within ${DELIVERY_PROXIMITY_THRESHOLD_KM * 1000} meters of the delivery location. You are currently ${Math.round(distance * 1000)}m away.`,
+                        description: `You must be within ${DELIVERY_PROXIMITY_THRESHOLD_KM * 1000} meters of the delivery location.`,
                     });
                     return;
                 }
@@ -629,7 +625,7 @@ export default function DeliveriesPage() {
 
                     toast({
                         title: "Delivery Complete!",
-                        description: `Order #${order.id.substring(0, 7)} marked as delivered. ₹${DELIVERY_FEE.toFixed(2)} added to your earnings.`
+                        description: `₹${DELIVERY_FEE.toFixed(2)} added to your earnings.`
                     });
                 } catch (error) {
                     console.error("Failed to mark as delivered:", error);
@@ -644,15 +640,8 @@ export default function DeliveriesPage() {
   };
 
   const handlePayoutRequest = async () => {
-      if (!firestore || !user || !partnerData || partnerData.totalEarnings <= 0) {
-          toast({ variant: 'destructive', title: 'Payout Error', description: 'No balance available.' });
-          return;
-      }
-       if (!partnerData.payoutMethod || (!partnerData.upiId && !partnerData.bankDetails?.accountNumber)) {
-        toast({ variant: 'destructive', title: 'Payout Details Missing', description: 'Please set up your details first.' });
-        return;
-      }
-
+      if (!firestore || !user || !partnerData || partnerData.totalEarnings <= 0) return;
+      
       const payoutAmount = partnerData.totalEarnings;
       const payoutDetails = partnerData.payoutMethod === 'upi' ? { upiId: partnerData.upiId } : { bankDetails: partnerData.bankDetails };
 

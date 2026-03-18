@@ -10,6 +10,9 @@ import {
   limit,
   Timestamp,
   orderBy,
+  setDoc,
+  serverTimestamp,
+  updateDoc
 } from 'firebase/firestore';
 
 import type {
@@ -91,7 +94,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { addRestaurantOrderItem, confirmOrderSession, getIngredientsForDish, requestTableService } from '@/app/actions';
+import { getIngredientsForDish } from '@/app/actions';
 import { useInstall } from '@/components/install-provider';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import IngredientsDialog from '@/components/IngredientsDialog';
@@ -435,7 +438,7 @@ export default function PublicMenuPage() {
 
   const sessionId = useMemo(() => {
     const dS = `${new Date().getFullYear()}-${new Date().getMonth() + 1}-${new Date().getDate()}`;
-    if (tableNumber === 'Counter') return `counter-${Date.now()}-${storeId}`; // UNIQUE FOR EVERY COUNTER SALE
+    if (tableNumber === 'Counter') return `counter-${Date.now()}-${storeId}`; 
     if (tableNumber) return `table-${tableNumber}-${dS}-${storeId}`;
     let dId = localStorage.getItem(`device_session_${storeId}`); if (!dId) { dId = Math.random().toString(36).substring(2, 15); localStorage.setItem(`device_session_${storeId}`, dId); }
     return `home-${dId}-${dS}`;
@@ -471,30 +474,91 @@ export default function PublicMenuPage() {
 
   const handlePlaceOrder = () => {
     if (!tableNumber && (!deliveryAddress || !customerName || !phone)) { setIsDeliveryDetailsOpen(true); return; }
+    if (!firestore) return;
+
     startAdding(async () => {
       const isCounter = tableNumber === 'Counter';
-      const res = await addRestaurantOrderItem({ 
-          storeId, 
-          sessionId, 
-          tableNumber, 
-          items: cartItems, 
-          deliveryAddress, 
-          customerName, 
-          phone, 
-          deliveryLat: deliveryCoords?.lat, 
-          deliveryLng: deliveryCoords?.lng,
-          status: isCounter ? 'Billed' : 'Pending' // FAST BILL FOR COUNTER
-      });
-      if (res.success) { 
+      const orderId = doc(collection(firestore, 'orders')).id;
+      const orderRef = doc(firestore, 'orders', orderId);
+
+      const orderItems: OrderItem[] = cartItems.map(item => ({
+        id: crypto.randomUUID(), 
+        orderId: orderId,
+        productId: item.product.id,
+        menuItemId: item.product.id, 
+        productName: item.product.name, 
+        variantSku: item.variant.sku,
+        variantWeight: item.variant.weight, 
+        quantity: item.quantity, 
+        price: item.variant.price,
+      }));
+
+      const totalAmount = orderItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+
+      const orderData = {
+        id: orderId, 
+        storeId: storeId, 
+        tableNumber: tableNumber ? String(tableNumber) : null,
+        sessionId: sessionId,
+        userId: 'guest',
+        customerName: customerName || (tableNumber === 'Counter' ? 'Walk-in Guest' : (tableNumber ? `Table ${tableNumber}` : 'Guest')),
+        deliveryAddress: deliveryAddress || (tableNumber ? 'In-store dining' : 'TBD'),
+        deliveryLat: deliveryCoords?.lat || 0,
+        deliveryLng: deliveryCoords?.lng || 0,
+        phone: phone || '',
+        status: isCounter ? 'Billed' : 'Pending',
+        orderType: tableNumber === 'Counter' ? 'counter' : (tableNumber ? 'dine-in' : 'delivery'),
+        isActive: true, 
+        orderDate: serverTimestamp(), 
+        updatedAt: serverTimestamp(),
+        items: orderItems,
+        totalAmount: totalAmount,
+      };
+
+      try {
+          // Robust client-side creation for offline support
+          await setDoc(orderRef, orderData);
           toast({ title: isCounter ? 'Bill Generated!' : 'Sent to Kitchen!' }); 
           clearCart(); 
           if(isCounter) handleStartNewOrder(); 
+      } catch (e) {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+              path: orderRef.path,
+              operation: 'create',
+              requestResourceData: orderData
+          }));
       }
     });
   };
 
-  const handleFinalizeBill = () => { startAdding(async () => { const result = await confirmOrderSession(sessionId); if (result.success) toast({ title: 'Bill Requested' }); }); };
-  const handleCallWaiter = (type: string) => { startAdding(async () => { const result = await requestTableService(sessionId, type); if (result.success) toast({ title: 'Request Sent' }); }); };
+  const handleFinalizeBill = () => { 
+    if (!firestore || !placedOrders?.length) return;
+    startAdding(async () => { 
+        const batch = writeBatch(firestore);
+        placedOrders.forEach(order => {
+            batch.update(doc(firestore, 'orders', order.id), { status: 'Billed', updatedAt: serverTimestamp() });
+        });
+        try {
+            await batch.commit();
+            toast({ title: 'Bill Requested' });
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Action Failed' });
+        }
+    }); 
+  };
+
+  const handleCallWaiter = (type: string) => { 
+    if (!firestore || !placedOrders?.length) return;
+    startAdding(async () => { 
+        const orderRef = doc(firestore, 'orders', placedOrders[0].id);
+        try {
+            await updateDoc(orderRef, { needsService: true, serviceType: type, updatedAt: serverTimestamp() });
+            toast({ title: 'Request Sent' }); 
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Request Failed' });
+        }
+    }); 
+  };
 
   const handleShowIngredients = (item: MenuItem) => {
     setIngredientsData(null); setSelectedItemForIngredients(item);
