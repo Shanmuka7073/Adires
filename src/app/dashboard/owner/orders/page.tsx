@@ -36,10 +36,12 @@ import {
   TrendingUp,
   ArrowRight,
   Sparkles,
-  Volume2
+  Volume2,
+  Filter,
+  UserPlus
 } from 'lucide-react';
 import {
-  collection, query, where, orderBy, doc, updateDoc, serverTimestamp, Timestamp, limit, getDocs, startAt, endAt
+  collection, query, where, orderBy, doc, updateDoc, serverTimestamp, Timestamp, limit, getDocs
 } from 'firebase/firestore';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useMemo, useState, useTransition, useEffect, useCallback, useRef } from 'react';
@@ -400,10 +402,11 @@ function DeliveryOrderCard({ order, onStatusChange, isUpdating, isKitchenMode }:
                     </div>
                 ))}
             </CardContent>
-            <CardFooter className={cn("p-2 pt-1", isKitchenMode && !isBilled ? "bg-white/5" : "bg-black/5")}>
-                <Button className="w-full h-7 rounded-lg text-[8px] font-black uppercase shadow-sm" onClick={() => onStatusChange(order.id, getNextStatus(order.status))} disabled={isUpdating}>
+            <CardFooter className={cn("p-2 pt-1 flex gap-1", isKitchenMode && !isBilled ? "bg-white/5" : "bg-black/5")}>
+                <Button className="flex-1 h-7 rounded-lg text-[8px] font-black uppercase shadow-sm" onClick={() => onStatusChange(order.id, getNextStatus(order.status))} disabled={isUpdating}>
                     {order.status === 'Pending' ? 'Process Job' : 'Next Step'}
                 </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-black/5"><UserPlus className="h-3 w-3" /></Button>
             </CardFooter>
         </Card>
     );
@@ -569,6 +572,8 @@ export default function StoreOrdersPage() {
   const [isKitchenMode, setIsKitchenMode] = useState(false);
   const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('live');
+  const [liveSearch, setLiveSearch] = useState('');
+  const [liveFilter, setLiveFilter] = useState('all');
   const { toast } = useToast();
   const { stores, userStore, loading: isAppLoading } = useAppStore();
 
@@ -595,7 +600,24 @@ export default function StoreOrdersPage() {
     const tableSessions: Record<string, Session> = {};
     const onlineJobs: Order[] = [];
     if (!activeOrders) return { sessions: {}, homeDeliveries: [] };
+
+    const searchLower = liveSearch.toLowerCase();
+
     activeOrders.forEach(o => {
+        // Apply Global Search
+        const matchesSearch = 
+            o.customerName.toLowerCase().includes(searchLower) || 
+            o.tableNumber?.toLowerCase().includes(searchLower) ||
+            o.id.toLowerCase().includes(searchLower);
+        
+        if (liveSearch && !matchesSearch) return;
+
+        // Apply Status Quick Filters
+        if (liveFilter === 'new' && o.status !== 'Pending') return;
+        if (liveFilter === 'processing' && o.status !== 'Processing') return;
+        if (liveFilter === 'delivery' && o.status !== 'Out for Delivery') return;
+        if (liveFilter === 'billed' && o.status !== 'Billed') return;
+
         if (o.orderType === 'dine-in' || o.orderType === 'counter') {
             if (o.sessionId) {
                 if (!tableSessions[o.sessionId]) {
@@ -628,7 +650,7 @@ export default function StoreOrdersPage() {
         }
     });
     return { sessions: tableSessions, homeDeliveries: onlineJobs };
-  }, [activeOrders]);
+  }, [activeOrders, liveSearch, liveFilter]);
 
   const handleOrderUpdate = (orderId: string, status: any) => {
       startUpdate(async () => {
@@ -641,7 +663,6 @@ export default function StoreOrdersPage() {
       startUpdate(async () => { await dismissTableService(orderId); toast({ title: "Resolved" }); });
   };
 
-  // --- NOTIFICATION LOGIC ---
   const playNewOrderSound = useCallback(() => {
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -756,7 +777,39 @@ export default function StoreOrdersPage() {
 
         <Tabs value={activeTab} className="w-full">
             <TabsContent value="live" className="mt-0">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-[calc(100vh-160px)] overflow-hidden">
+                {/* Advanced Search & Filter Bar */}
+                <div className="flex flex-col md:flex-row gap-4 mb-6">
+                    <div className="relative flex-1">
+                        <Search className={cn("absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4", isKitchenMode ? "text-white/20" : "text-black/20")} />
+                        <Input 
+                            placeholder="Search active sessions, tables, or customers..." 
+                            value={liveSearch}
+                            onChange={e => setLiveSearch(e.target.value)}
+                            className={cn(
+                                "h-11 rounded-xl border-2 pl-10",
+                                isKitchenMode ? "bg-white/5 border-white/10 text-white placeholder:text-white/20" : "bg-white border-black/5"
+                            )}
+                        />
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                        {['all', 'new', 'processing', 'delivery', 'billed'].map(f => (
+                            <button
+                                key={f}
+                                onClick={() => setLiveFilter(f)}
+                                className={cn(
+                                    "px-4 h-11 rounded-xl font-black text-[10px] uppercase tracking-widest border-2 transition-all shrink-0",
+                                    liveFilter === f 
+                                        ? "bg-primary border-primary text-white" 
+                                        : (isKitchenMode ? "bg-white/5 border-white/10 text-white/40" : "bg-white border-black/5 text-black/40")
+                                )}
+                            >
+                                {f}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-[calc(100vh-220px)] overflow-hidden">
                     <section className="flex flex-col h-full min-h-0">
                         <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 flex items-center gap-2 mb-4 shrink-0"><Truck className="h-3.5 w-3.5"/> Out-Call & Online</h2>
                         <ScrollArea className="flex-1">
