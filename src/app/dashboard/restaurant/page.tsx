@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowRight, Store, ShoppingBag, CheckCircle, XCircle, Users, FileText, Scissors, Utensils, Loader2, BarChart3, LayoutGrid } from 'lucide-react';
+import { ArrowRight, Store, ShoppingBag, CheckCircle, XCircle, Users, FileText, Scissors, Utensils, Loader2, BarChart3, LayoutGrid, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -30,10 +30,11 @@ const serviceLinks = [
         icon: ShoppingBag,
     },
     {
-        title: 'Sales Report',
-        description: 'View detailed sales and profitability analytics.',
+        title: 'Advanced Analytics',
+        description: 'Deep-dive into sales, profit margins, and cost drivers.',
         href: '/dashboard/owner/sales-report',
         icon: BarChart3,
+        highlight: true,
     },
     {
         title: 'Manage Employees',
@@ -59,11 +60,11 @@ function PWAChecklist({ store }: { store: StoreType }) {
     const allComplete = checklistItems.every(item => item.completed);
 
     return (
-        <Card className="mt-8 bg-green-50 border-green-200 rounded-[2rem]">
+        <Card className="mt-8 bg-green-50 border-green-200 rounded-[2.5rem] shadow-inner">
             <CardHeader>
-                <CardTitle>PWA (Installable App) Readiness</CardTitle>
-                <CardDescription>
-                    Complete these steps to allow customers to add your business to their home screen like a native app.
+                <CardTitle className="text-xl font-black uppercase tracking-tight text-green-900">PWA Readiness</CardTitle>
+                <CardDescription className="font-bold text-green-800/60">
+                    Allow customers to "Install" your restaurant on their phone.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -71,22 +72,20 @@ function PWAChecklist({ store }: { store: StoreType }) {
                     {checklistItems.map((item, index) => (
                         <li key={index} className="flex items-center gap-3">
                             {item.completed ? (
-                                <CheckCircle className="h-5 w-5 text-green-500" />
+                                <CheckCircle className="h-5 w-5 text-green-600" />
                             ) : (
-                                <XCircle className="h-5 w-5 text-red-500" />
+                                <XCircle className="h-5 w-5 text-red-400" />
                             )}
-                            <span className={item.completed ? 'text-muted-foreground line-through' : 'font-semibold'}>
+                            <span className={cn("text-xs font-black uppercase tracking-tight", item.completed ? 'text-green-800/40 line-through' : 'text-green-900')}>
                                 {item.label}
                             </span>
                         </li>
                     ))}
                 </ul>
                 {!allComplete && (
-                     <Link href="/dashboard/owner/my-store" passHref>
-                        <button className="mt-4 text-sm font-semibold text-primary hover:underline">
-                            Go to "My Store" to complete setup →
-                        </button>
-                    </Link>
+                     <Button asChild variant="link" className="mt-4 p-0 h-auto font-black uppercase text-[10px] tracking-widest text-primary">
+                        <Link href="/dashboard/owner/my-store">Complete Setup <ArrowRight className="ml-1 h-3 w-3" /></Link>
+                    </Button>
                 )}
             </CardContent>
         </Card>
@@ -117,32 +116,9 @@ export default function ServiceDashboardPage() {
     
     const { isSalon, isRestaurant, dashboardTitle, dashboardIcon } = useMemo(() => {
         if (!store) return { isSalon: false, isRestaurant: false, dashboardTitle: 'Business Dashboard', dashboardIcon: Store };
-        
-        // 1. Check explicit businessType
-        if (store.businessType === 'salon') {
-            return { isSalon: true, isRestaurant: false, dashboardTitle: 'Salon Dashboard', dashboardIcon: Scissors };
-        }
-        if (store.businessType === 'restaurant') {
-            return { isSalon: false, isRestaurant: true, dashboardTitle: 'Restaurant Dashboard', dashboardIcon: Utensils };
-        }
-
-        // 2. Fuzzy Keyword Match Fallback
-        const searchPool = `${store.name} ${store.description}`.toLowerCase();
-        const salonKeywords = ['salon', 'saloon', 'parlour', 'beauty', 'hair', 'cut', 'spa', 'massage', 'style', 'makeup', 'barber', 'nails'];
-        const isS = salonKeywords.some(kw => searchPool.includes(kw));
-        
-        const restaurantKeywords = [
-            'restaurant', 'restuarent', 'hotel', 'biryani', 'tiffin', 'mess', 
-            'canteen', 'dhaba', 'food', 'meals', 'sweets', 'bakery', 'kitchen', 
-            'cafe', 'bakers', 'grand', 'deluxe', 'paradise', 'pantry', 'grill', 
-            'bbq', 'fry', 'kabab', 'fast food', 'curry'
-        ];
-        const isR = restaurantKeywords.some(kw => searchPool.includes(kw));
-
-        if (isS) return { isSalon: true, isRestaurant: false, dashboardTitle: 'Salon Dashboard', dashboardIcon: Scissors };
-        if (isR) return { isSalon: false, isRestaurant: true, dashboardTitle: 'Restaurant Dashboard', dashboardIcon: Utensils };
-        
-        return { isSalon: false, isRestaurant: false, dashboardTitle: 'Business Dashboard', dashboardIcon: LayoutGrid };
+        if (store.businessType === 'salon') return { isSalon: true, isRestaurant: false, dashboardTitle: 'Salon Hub', dashboardIcon: Scissors };
+        if (store.businessType === 'restaurant') return { isSalon: false, isRestaurant: true, dashboardTitle: 'Restaurant Hub', dashboardIcon: Utensils };
+        return { isSalon: false, isRestaurant: false, dashboardTitle: 'Owner Hub', dashboardIcon: LayoutGrid };
     }, [store]);
 
     if (isLoading || !isRestaurantOwner) {
@@ -150,30 +126,50 @@ export default function ServiceDashboardPage() {
     }
 
     return (
-        <div className="container mx-auto py-12 px-4 md:px-6">
-            <div className="text-center mb-12">
-                <div className="flex items-center justify-center gap-3 mb-2">
-                    <div className="h-16 w-16 rounded-3xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
-                        {dashboardIcon && <dashboardIcon className="h-8 w-8" />}
+        <div className="container mx-auto py-12 px-4 md:px-6 max-w-6xl">
+            <div className="flex flex-col md:flex-row justify-between items-end gap-6 border-b pb-10 border-black/5 mb-12">
+                <div className="space-y-1">
+                    <div className="flex items-center gap-3">
+                        <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
+                            {dashboardIcon && <dashboardIcon className="h-6 w-6" />}
+                        </div>
+                        <h1 className="text-5xl font-black font-headline tracking-tighter uppercase italic">{dashboardTitle}</h1>
                     </div>
-                    <h1 className="text-4xl font-black font-headline tracking-tighter uppercase">{dashboardTitle}</h1>
+                    <p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">OPERATIONAL AUTHORITY</p>
                 </div>
-                <p className="text-lg text-muted-foreground font-bold opacity-60">Manage your business's digital operations.</p>
+                <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-primary bg-primary/5 px-4 py-2 rounded-full border border-primary/10">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                    Business Status: Online
+                </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {serviceLinks.map((card) => (
-                    <Link href={card.href} key={card.href} className="group block rounded-[2.5rem] overflow-hidden h-full">
-                        <Card className="h-full flex flex-col transition-all group-hover:shadow-xl group-hover:-translate-y-1 border-0 shadow-lg">
-                            <CardHeader>
-                                <CardTitle className="text-xl font-bold font-headline flex items-center gap-2">
-                                    <card.icon className="h-6 w-6 text-primary" />
-                                    {t(card.title)}
+                    <Link href={card.href} key={card.href} className="group h-full">
+                        <Card className={cn(
+                            "h-full rounded-[2.5rem] border-0 shadow-lg transition-all group-hover:shadow-2xl group-hover:-translate-y-1 overflow-hidden",
+                            card.highlight ? "bg-primary/5 ring-2 ring-primary/20" : "bg-white"
+                        )}>
+                            <CardHeader className="p-8">
+                                <div className="flex justify-between items-start">
+                                    <div className={cn(
+                                        "h-14 w-14 rounded-2xl flex items-center justify-center transition-colors shadow-inner",
+                                        card.highlight ? "bg-primary text-white" : "bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white"
+                                    )}>
+                                        <card.icon className="h-7 w-7" />
+                                    </div>
+                                    {card.highlight && <Badge className="rounded-md font-black uppercase text-[8px] tracking-widest">New & Pro</Badge>}
+                                </div>
+                                <CardTitle className="text-xl font-black uppercase tracking-tight mt-6 leading-tight">
+                                    {card.title === 'Advanced Analytics' ? 'Analytics Hub' : t(card.title)}
                                 </CardTitle>
+                                <CardDescription className="font-bold text-xs opacity-60 mt-2">
+                                    {card.description}
+                                </CardDescription>
                             </CardHeader>
-                            <CardContent className="flex-1 flex flex-col justify-between">
-                                <CardDescription>{t(card.description)}</CardDescription>
-                                <div className="flex items-center text-primary font-semibold mt-4">
-                                    <span>{t('go-to')} {t(card.title)}</span>
+                            <CardContent className="px-8 pb-8">
+                                <div className="flex items-center text-primary font-black uppercase text-[10px] tracking-widest mt-4">
+                                    <span>Enter Module</span>
                                     <ArrowRight className="ml-2 h-4 w-4" />
                                 </div>
                             </CardContent>
@@ -181,8 +177,9 @@ export default function ServiceDashboardPage() {
                     </Link>
                 ))}
             </div>
-             <div className="max-w-4xl mx-auto mt-8">
-                {store ? <PWAChecklist store={store} /> : <Skeleton className="h-48 w-full mt-8 rounded-[2rem]" />}
+
+             <div className="max-w-2xl mx-auto mt-16">
+                {store ? <PWAChecklist store={store} /> : <Skeleton className="h-48 w-full rounded-[2.5rem]" />}
             </div>
         </div>
     );
