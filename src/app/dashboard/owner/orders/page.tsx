@@ -104,6 +104,7 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { s
                 quantity: c.qty
             }));
 
+            // Force status to Billed so it shows up in both POS and KDS as ready-for-cash/processing
             const res = await addRestaurantOrderItem({
                 storeId,
                 tableNumber: 'Counter',
@@ -283,7 +284,10 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
   };
 
   const meta = STATUS_META[session.status] || STATUS_META.Pending;
-  if (isKitchenMode && !['Pending', 'Processing'].includes(session.status)) return null;
+  
+  // FIXED: In Kitchen Mode, we must also show 'Billed' orders, especially from the counter, 
+  // so the kitchen staff know what's active and paid for.
+  if (isKitchenMode && !['Pending', 'Processing', 'Billed'].includes(session.status)) return null;
 
   const titleIcon = session.orderType === 'takeaway' ? <ShoppingBag className="h-4 w-4" /> : session.orderType === 'counter' ? <Calculator className="h-4 w-4" /> : (isSalon ? <Scissors className="h-4 w-4" /> : <Utensils className="h-4 w-4" />);
 
@@ -325,7 +329,7 @@ function SessionCard({ session, isUpdating, onDismissService, isKitchenMode, sto
       </CardContent>
       <CardFooter className={cn("p-2 pt-1 flex flex-col gap-1.5 rounded-b-xl", isKitchenMode ? "bg-white/5" : "bg-black/5")}>
             <div className="flex justify-between w-full text-[8px] font-black uppercase">
-                <span className="opacity-40">Total Session</span>
+                <span className={cn("opacity-40", isKitchenMode ? "text-white" : "text-black")}>Total Session</span>
                 <span className="text-primary font-black">₹{session.totalAmount.toFixed(0)}</span>
             </div>
             <div className="flex gap-1 w-full">
@@ -494,7 +498,7 @@ export default function StoreOrdersPage() {
                                 isKitchenMode ? "border-white/10 text-white" : "border-black/5 text-gray-400"
                             )}>
                                 <ShoppingBag className="h-8 w-8 mx-auto mb-2"/>
-                                <p className="text-[9px] font-black uppercase tracking-widest">No active jobs</p>
+                                <p className={cn("text-[9px] font-black uppercase tracking-widest", isKitchenMode ? "text-white" : "text-black")}>No active jobs</p>
                             </div>
                         )}
                     </div>
@@ -518,7 +522,7 @@ export default function StoreOrdersPage() {
                                 isKitchenMode ? "border-white/10 text-white" : "border-black/5 text-gray-400"
                             )}>
                                 <Monitor className="h-8 w-8 mx-auto mb-2"/>
-                                <p className="text-[9px] font-black uppercase tracking-widest">No active sessions</p>
+                                <p className={cn("text-[9px] font-black uppercase tracking-widest", isKitchenMode ? "text-white" : "text-black")}>No active sessions</p>
                             </div>
                         )}
                     </div>
