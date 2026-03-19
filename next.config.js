@@ -48,7 +48,7 @@ const withPWA = require('next-pwa')({
           maxEntries: 32,
           maxAgeSeconds: 24 * 60 * 60, // 24 Hours
         },
-        networkTimeoutSeconds: 3, // Fast fallback to cache if internet is table/slow
+        networkTimeoutSeconds: 3, // Fast fallback to cache if internet is unstable/slow
       },
     },
   ],
