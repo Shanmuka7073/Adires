@@ -23,7 +23,8 @@ import {
   Fingerprint,
   Zap,
   Globe,
-  FileSignature
+  FileSignature,
+  Drama
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
@@ -108,7 +109,7 @@ function ActionCard({
   description: string;
   href: string;
   icon: any;
-  variant?: 'default' | 'highlight' | 'warning' | 'pro';
+  variant?: 'default' | 'highlight' | 'warning' | 'pro' | 'investor';
 }) {
   return (
     <Link href={href}>
@@ -117,6 +118,7 @@ function ActionCard({
           variant === 'highlight' ? "bg-primary/5 border-primary/20" : 
           variant === 'warning' ? "bg-amber-50 border-amber-200" :
           variant === 'pro' ? "bg-slate-900 border-primary/30 text-white" :
+          variant === 'investor' ? "bg-indigo-900 border-indigo-400 text-white shadow-xl shadow-indigo-500/20" :
           "border-black/5 hover:border-primary/30"
       )}>
         <CardHeader className="flex flex-row gap-4 items-center">
@@ -125,15 +127,19 @@ function ActionCard({
               variant === 'highlight' ? "bg-primary text-white" : 
               variant === 'warning' ? "bg-amber-500 text-white" :
               variant === 'pro' ? "bg-primary text-white" :
+              variant === 'investor' ? "bg-white text-indigo-900" :
               "bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white"
           )}>
             <Icon className="h-6 w-6" />
           </div>
-          <div>
-            <CardTitle className="text-lg font-bold">{title}</CardTitle>
+          <div className="flex-1">
+            <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-lg font-bold">{title}</CardTitle>
+                {variant === 'investor' && <Sparkles className="h-3 w-3 text-indigo-300 animate-pulse" />}
+            </div>
             <CardDescription className={cn(
                 "text-[10px] font-bold uppercase opacity-40",
-                variant === 'pro' && "text-primary/60 opacity-100"
+                (variant === 'pro' || variant === 'investor') && "text-white/60 opacity-100"
             )}>{description}</CardDescription>
           </div>
         </CardHeader>
@@ -162,6 +168,33 @@ export default async function AdminDashboardPage() {
       <Suspense fallback={<StatsSkeleton />}>
         <StatsGrid />
       </Suspense>
+
+      {/* STRATEGIC AUDIT - NEW INVESTOR SECTION */}
+      <section className="space-y-6">
+        <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-black font-headline uppercase tracking-tight flex items-center gap-2">
+                <Drama className="h-6 w-6 text-indigo-600" />
+                Strategic Founders Audit
+            </h2>
+            <Badge variant="outline" className="rounded-full border-indigo-600 text-indigo-600 px-4 py-1 font-black text-[10px] tracking-widest uppercase">Investor Ready</Badge>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <ActionCard 
+                title="CTO/PM/Investor Audit" 
+                description="Deep-scan of architecture, features, and roadmap." 
+                href="/dashboard/admin/strategic-audit" 
+                icon={Drama} 
+                variant="investor"
+            />
+            <ActionCard 
+                title="AI Support context" 
+                description="Export system blueprint for AI collaboration." 
+                href="/dashboard/admin/support-prompt" 
+                icon={Bot} 
+                variant="highlight"
+            />
+        </div>
+      </section>
 
       {/* Advanced Capabilities Section */}
       <section className="space-y-6">
