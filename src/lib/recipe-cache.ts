@@ -11,6 +11,7 @@ const createSlug = (text: string): string => {
     if (!text) return '';
     return text
         .toLowerCase()
+        .trim()
         .replace(/\s+/g, '-')
         .replace(/[^\w-]+/g, '')
         .replace(/--+/g, '-')
@@ -20,6 +21,7 @@ const createSlug = (text: string): string => {
 
 /**
  * Retrieves a cached result from Firestore.
+ * Optimized to handle documents with partial data fields.
  */
 export async function getCachedRecipe(db: Firestore, dishName: string, language: 'en' | 'te'): Promise<GetIngredientsOutput | null> {
     const normalizedDishName = createSlug(dishName);
@@ -28,12 +30,15 @@ export async function getCachedRecipe(db: Firestore, dishName: string, language:
     
     try {
         const docSnap = await targetDocRef.get();
+        
         if (docSnap.exists) {
-            const data = docSnap.data() as CachedRecipe;
+            const data = docSnap.data() as any;
+            
+            // Resilience Fix: Ensure we return a valid object even if fields like dishName are missing
             return {
                 isSuccess: true,
                 itemType: data.itemType || 'food',
-                title: data.dishName,
+                title: data.dishName || dishName, // Fallback to provided name
                 components: data.components || [],
                 steps: data.steps || [],
                 nutrition: data.nutrition || { calories: 0, protein: 0 },
@@ -46,11 +51,11 @@ export async function getCachedRecipe(db: Firestore, dishName: string, language:
             const englishDocRef = db.collection('cachedRecipes').doc(englishDocId);
             const englishDocSnap = await englishDocRef.get();
             if (englishDocSnap.exists()) {
-                 const data = englishDocSnap.data() as CachedRecipe;
+                 const data = englishDocSnap.data() as any;
                  return {
                     isSuccess: true,
                     itemType: data.itemType || 'food',
-                    title: data.dishName,
+                    title: data.dishName || dishName,
                     components: data.components || [],
                     steps: data.steps || [],
                     nutrition: data.nutrition || { calories: 0, protein: 0 },
