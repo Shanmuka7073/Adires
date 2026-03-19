@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Suspense, useState, useEffect, useTransition } from 'react';
@@ -34,6 +33,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
