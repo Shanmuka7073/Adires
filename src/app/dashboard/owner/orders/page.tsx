@@ -71,6 +71,8 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 
 
+const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
+
 const STATUS_META: Record<string, any> = {
   Draft: { icon: Clock, variant: 'outline', color: 'text-gray-400', label: 'Draft' },
   Pending: { icon: AlertTriangle, variant: 'secondary', color: 'text-amber-600', label: 'New', animate: true },
@@ -771,7 +773,9 @@ export default function StoreOrdersPage() {
 
   const playNewOrderSound = useCallback(() => {
     try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if(!AudioContext) return;
+      const audioCtx = new AudioContext();
       const oscillator = audioCtx.createOscillator();
       const gainNode = audioCtx.createGain();
       oscillator.connect(gainNode);
@@ -788,7 +792,9 @@ export default function StoreOrdersPage() {
 
   const playServiceRequestSound = useCallback(() => {
     try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if(!AudioContext) return;
+      const audioCtx = new AudioContext();
       const oscillator = audioCtx.createOscillator();
       const gainNode = audioCtx.createGain();
       oscillator.connect(gainNode);
@@ -804,13 +810,34 @@ export default function StoreOrdersPage() {
     } catch (e) {}
   }, []);
 
+  const sendSystemNotification = useCallback(async (title: string, body: string) => {
+      if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) {
+          return;
+      }
+      
+      if (Notification.permission === 'granted') {
+          try {
+              const registration = await navigator.serviceWorker.ready;
+              registration.showNotification(title, {
+                  body,
+                  icon: ADIRES_LOGO,
+                  badge: ADIRES_LOGO,
+                  tag: 'adires-order-alert',
+                  renotify: true
+              });
+          } catch (e) {
+              console.error("Notification failed", e);
+          }
+      }
+  }, []);
+
   const prevOrderIds = useRef<Set<string>>(new Set());
   const prevServiceIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!activeOrders) return;
 
-    if (Notification.permission === 'default') {
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
         Notification.requestPermission();
     }
 
@@ -820,9 +847,7 @@ export default function StoreOrdersPage() {
     if (newIds.length > 0 && prevOrderIds.current.size > 0) {
       playNewOrderSound();
       toast({ title: "New Order Received!", description: `You have ${newIds.length} new items.` });
-      if (Notification.permission === 'granted') {
-          new Notification("New Order", { body: `Received ${newIds.length} new order(s).` });
-      }
+      sendSystemNotification("New Order", `Received ${newIds.length} new order(s).`);
     }
     prevOrderIds.current = currentIds;
 
@@ -832,12 +857,10 @@ export default function StoreOrdersPage() {
     if (newService.length > 0) {
       playServiceRequestSound();
       toast({ variant: 'destructive', title: "Service Required!", description: "A customer is calling for assistance." });
-      if (Notification.permission === 'granted') {
-          new Notification("Service Required", { body: "A customer is calling for assistance." });
-      }
+      sendSystemNotification("Service Required", "A customer is calling for assistance.");
     }
     prevServiceIds.current = currentService;
-  }, [activeOrders, toast, playNewOrderSound, playServiceRequestSound]);
+  }, [activeOrders, toast, playNewOrderSound, playServiceRequestSound, sendSystemNotification]);
 
   if (isAppLoading || ordersLoading || menusLoading) return <div className="p-12 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto opacity-20" /></div>;
   if (!myStore) return <div className="p-12 text-center"><p className="font-black uppercase tracking-widest text-xs opacity-40">Store information not found.</p></div>;
