@@ -43,7 +43,7 @@ import {
 import {
   collection, query, where, orderBy, doc, updateDoc, serverTimestamp, Timestamp, limit, getDocs, setDoc, writeBatch
 } from 'firebase/firestore';
-import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { useMemo, useState, useTransition, useEffect, useCallback, useRef } from 'react';
 import {
   AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogDescription
@@ -269,7 +269,7 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { s
     );
 }
 
-function SessionCard({ session, store, isSalon }: { session: Session; store: Store; isSalon: boolean }) {
+function SessionCard({ session, store, isSalon, onDismissService }: { session: Session; store: Store; isSalon: boolean; onDismissService: (s: Session) => void }) {
   const { toast } = useToast();
   const { firestore } = useFirebase();
 
@@ -351,6 +351,12 @@ function SessionCard({ session, store, isSalon }: { session: Session; store: Sto
       {session.needsService && (
           <div className="absolute top-0 left-0 w-full h-6 bg-red-600 flex items-center justify-between px-2 rounded-t-xl z-10">
               <span className="text-[8px] font-black uppercase text-white flex items-center gap-1"><BellRing className="h-2.5 w-2.5"/> {session.serviceType || 'Service'}</span>
+              <button 
+                onClick={() => onDismissService(session)}
+                className="h-4 px-2 rounded-md bg-white/20 hover:bg-white/40 text-white text-[7px] font-black uppercase transition-colors"
+              >
+                Resolve
+              </button>
           </div>
       )}
       <CardHeader className={cn("p-2 pb-1", session.needsService && "pt-7")}>
@@ -698,16 +704,25 @@ export default function StoreOrdersPage() {
       toast({ title: "Updated" });
   }
 
-  const handleDismissService = (orderId: string) => {
+  const handleDismissService = (session: Session) => {
       if (!firestore) return;
-      const orderRef = doc(firestore, 'orders', orderId);
-      // NON-BLOCKING
-      updateDoc(orderRef, { 
-          needsService: false, 
-          serviceType: null, 
-          updatedAt: serverTimestamp() 
-      }).catch(e => toast({ variant: 'destructive', title: "Failed to dismiss" }));
-      toast({ title: "Resolved" }); 
+      const batch = writeBatch(firestore);
+      let count = 0;
+      session.orders.forEach(order => {
+          if (order.needsService) {
+              batch.update(doc(firestore, 'orders', order.id), { 
+                  needsService: false, 
+                  serviceType: null, 
+                  updatedAt: serverTimestamp() 
+              });
+              count++;
+          }
+      });
+      
+      if (count > 0) {
+          batch.commit().catch(e => toast({ variant: 'destructive', title: "Failed to resolve" }));
+          toast({ title: "Resolved" }); 
+      }
   };
 
   const playNewOrderSound = useCallback(() => {
@@ -875,7 +890,15 @@ export default function StoreOrdersPage() {
                         </div>
                         <ScrollArea className="flex-1">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-4 pb-10">
-                                {Object.values(sessions).map(s => <SessionCard key={s.id} session={s} onDismissService={handleDismissService} isKitchenMode={isKitchenMode} store={myStore} isSalon={isSalon} />)}
+                                {Object.values(sessions).map(s => (
+                                    <SessionCard 
+                                        key={s.id} 
+                                        session={s} 
+                                        onDismissService={handleDismissService} 
+                                        store={myStore} 
+                                        isSalon={isSalon} 
+                                    />
+                                ))}
                                 {Object.values(sessions).length === 0 && (
                                     <div className={cn(
                                         "col-span-full text-center py-20 border-2 border-dashed rounded-3xl opacity-60",
