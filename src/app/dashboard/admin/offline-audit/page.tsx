@@ -16,7 +16,7 @@ import {
     Info, 
     Activity,
     Smartphone,
-    CloudSync,
+    Cloud,
     Loader2
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
@@ -185,7 +185,7 @@ export default function OfflineAuditPage() {
                     <CardHeader className="bg-primary/5 pb-6 border-b border-black/5">
                         <div className="flex justify-between items-center">
                             <CardTitle className="text-lg font-black uppercase tracking-tight">Live Sync Test</CardTitle>
-                            <CloudSync className={cn("h-6 w-6", lastSyncStatus === 'synced' ? "text-green-500" : "opacity-20")} />
+                            <Cloud className={cn("h-6 w-6", lastSyncStatus === 'synced' ? "text-green-500" : "opacity-20")} />
                         </div>
                     </CardHeader>
                     <CardContent className="p-8 space-y-6 text-center">
