@@ -79,7 +79,7 @@ export default function OfflineAuditPage() {
                     setDiag(prev => ({ ...prev, sw: { status: 'active', reason: 'Registered but idle. Refresh to take control.' } }));
                 }
             } else {
-                setDiag(prev => ({ ...prev, sw: { status: 'missing', reason: 'No Service Worker found. Registration failed or disabled in config.' } }));
+                setDiag(prev => ({ ...prev, sw: { status: 'missing', reason: 'No Service Worker found. Force registration by doing a hard refresh (Ctrl+F5).' } }));
             }
         } catch (e) {
             setDiag(prev => ({ ...prev, sw: { status: 'missing', reason: 'Registration check error.' } }));
@@ -101,7 +101,7 @@ export default function OfflineAuditPage() {
         } else if (!isRestaurantOwner) {
             setDiag(prev => ({ ...prev, memory: { storeId: 'not_applicable', reason: 'Shopping role (No store ownership).' } }));
         } else {
-            setDiag(prev => ({ ...prev, memory: { storeId: 'not_saved', reason: 'Store profile fetch failed or not yet initialized.' } }));
+            setDiag(prev => ({ ...prev, memory: { storeId: 'not_saved', reason: 'Identity fetch failed. Ensure you have created a store profile.' } }));
         }
     };
 
@@ -121,8 +121,8 @@ export default function OfflineAuditPage() {
     }, [user, userStore, isAdmin, isRestaurantOwner, isUserLoading]);
 
     const handleManualRefresh = () => {
-        if (firestore && user) {
-            fetchInitialData(firestore, user.uid);
+        if (firestore) {
+            fetchInitialData(firestore, user?.uid);
             checkMemory();
             checkPWA();
             toast({ title: "Diagnostics Refreshed" });
@@ -272,7 +272,7 @@ export default function OfflineAuditPage() {
                                 {lastSyncStatus === 'synced' && <div className="text-green-600 flex items-center justify-center gap-2"><CheckCircle2 className="h-4 w-4" /> Synced</div>}
                             </div>
                         </div>
-                        <Button onClick={handleTestOfflineWrite} disabled={isTesting || !isInitialized} className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-primary/20">
+                        <Button onClick={handleTestOfflineWrite} disabled={isTesting} className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-primary/20">
                             {isTesting ? 'Initiating...' : 'Trigger Sync Check'}
                         </Button>
                     </CardContent>
@@ -287,9 +287,9 @@ export default function OfflineAuditPage() {
                     <div>
                         <h3 className="text-xl font-black uppercase tracking-tight mb-2">How to Fix Red Alerts</h3>
                         <div className="space-y-4 text-xs font-bold text-white/60 leading-relaxed">
-                            <p>1. <strong className="text-white">Service Worker Missing?</strong>: I have forced PWA enablement in the latest update. Please <strong className="text-white">Hard Refresh</strong> (Ctrl+F5) to clear the old cache and register the new shell.</p>
-                            <p>2. <strong className="text-white">Identity Not Saved?</strong>: I have updated the storage engine. If you are an owner, simply refresh the page. The app will now automatically fetch and "lock" your store ID into local memory.</p>
-                            <p>3. <strong className="text-white">Still Missing?</strong>: Visit the Home page once while online. This triggers the initial registration and data fetch for everything else.</p>
+                            <p>1. <strong className="text-white">Service Worker Missing?</strong>: I have forced PWA enablement. Please <strong className="text-white">Hard Refresh</strong> (Ctrl+F5) to clear the old cache and register the new shell.</p>
+                            <p>2. <strong className="text-white">Identity Not Saved?</strong>: I have purged the heavy grocery data. If you are an owner, simply refresh. The app will now only store your lightweight business identity.</p>
+                            <p>3. <strong className="text-white">Still Missing?</strong>: The app now only caches <strong>Restaurants and Salons</strong>. If you are on a grocery-only test account, these features will be disabled by design.</p>
                         </div>
                     </div>
                 </div>

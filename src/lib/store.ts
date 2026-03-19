@@ -5,10 +5,10 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Firestore, collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
-import { getStores, getMasterProducts } from './data';
+import { getStores } from './data';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import { initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups } from '@/lib/locales';
+import { initializeTranslations, Locales, getAllAliases as getAliasesFromLocales } from '@/lib/locales';
 import { generalCommands as defaultGeneralCommands, CommandGroup } from '@/lib/locales/commands';
 import { useFirebase } from '@/firebase';
 
@@ -23,9 +23,7 @@ export interface ProfileFormValues {
 
 export interface AppState {
   stores: Store[];
-  masterProducts: Product[];
   userStore: Store | null; 
-  productPrices: Record<string, ProductPrice | null>;
   locales: Locales;
   commands: Record<string, CommandGroup>;
   loading: boolean;
@@ -43,12 +41,14 @@ export interface AppState {
   setUserStore: (store: Store | null) => void;
   setAppReady: (ready: boolean) => void;
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
-  fetchExtendedData: (db: Firestore) => Promise<void>;
-  fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
-  getProductName: (product: Product) => string;
   getAllAliases: (key: string) => Record<string, string[]>;
   setLocales: (newLocales: Locales) => void;
   setCommands: (newCommands: Record<string, CommandGroup>) => void;
+  // Deprecated/Purged Grocery Methods
+  masterProducts: any[];
+  productPrices: any;
+  fetchProductPrices: any;
+  getProductName: any;
 }
 
 const getInitialLanguage = (): string => {
@@ -93,29 +93,27 @@ export const useAppStore = create<AppState>()(
       setActiveStoreId: (storeId: string | null) => set({ activeStoreId: storeId }),
 
       fetchInitialData: async (db: Firestore, userId?: string) => {
-        // Prevent parallel loads
         if (get().loading) return;
-        
         set({ loading: true, error: null });
         
         try {
-          // Parallel fetch of core platform data
-          // These calls automatically use Firestore's persistent cache (IndexedDB) if offline
-          const [stores, commandDocs] = await Promise.all([
-            getStores(db),
+          const [storesSnap, commandDocs] = await Promise.all([
+            getDocs(collection(db, 'stores')),
             getDocs(collection(db, 'voiceCommands'))
           ]);
           
+          const allStores = storesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Store));
+          
+          // FILTER: Only Restaurants and Salons. We don't cache grocery stores.
+          const businessStores = allStores.filter(s => 
+            s.businessType === 'restaurant' || 
+            s.businessType === 'salon' ||
+            ['hotel', 'mess', 'salon', 'saloon', 'parlour', 'bakery'].some(kw => s.name.toLowerCase().includes(kw))
+          );
+
           let userStore = get().userStore; 
-          // If we have a user but no persisted store profile, or the profile is for a different user, look it up.
           if (userId && (!userStore || userStore.ownerId !== userId)) {
-              const ownerQuery = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
-              const ownerSnap = await getDocs(ownerQuery);
-              if (!ownerSnap.empty) {
-                  userStore = { id: ownerSnap.docs[0].id, ...ownerSnap.docs[0].data() } as Store;
-              } else {
-                  userStore = null;
-              }
+              userStore = businessStores.find(s => s.ownerId === userId) || null;
           }
 
           const dbCommands = commandDocs.docs.reduce((acc, doc) => {
@@ -125,101 +123,38 @@ export const useAppStore = create<AppState>()(
           
           const enrichedCommands = { ...defaultGeneralCommands, ...dbCommands };
 
-          // Update memory state. 
-          // PERSISTENCE NOTE: 'stores' is NOT saved to localStorage anymore to prevent QuotaExceeded errors.
+          initializeTranslations({}); // No aliases cached locally anymore
+
           set({
-            stores,
+            stores: businessStores,
             userStore,
             commands: enrichedCommands,
             isInitialized: true,
             appReady: true,
             loading: false,
+            // Explicitly clear legacy grocery data
+            masterProducts: [],
+            locales: {}
           });
-
-          // Background fetch for heavy data (Aliases, master product names)
-          // This keeps the primary UI unlock very fast.
-          get().fetchExtendedData(db);
           
         } catch (error) {
           console.error("fetchInitialData failed:", error);
-          // Unlock app even on error to prevent total lock-out in bad network conditions
           set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
 
-      fetchExtendedData: async (db: Firestore) => {
-          try {
-              // Large data sets are fetched and kept in memory. 
-              // They are backed by Firestore's persistent cache (100MB+ limit)
-              // instead of localStorage (5MB limit).
-              const [masterProducts, aliasDocs] = await Promise.all([
-                getMasterProducts(db),
-                getDocs(collection(db, 'voiceAliasGroups')),
-              ]);
-
-              const voiceAliasGroups = aliasDocs.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
-              const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
-              initializeTranslations(locales); 
-
-              set({ masterProducts, locales });
-
-              if (masterProducts.length > 0) {
-                await get().fetchProductPrices(db, masterProducts.map(p => p.name));
-              }
-          } catch (e) {
-              console.error("fetchExtendedData failed:", e);
-          }
-      },
-      
-      fetchProductPrices: async (db: Firestore, productNames: string[]) => {
-          const { productPrices, incrementReadCount } = get();
-          const namesToFetch = productNames.filter(name => name && productPrices[name.toLowerCase()] === undefined);
-          if (namesToFetch.length === 0) return;
-          
-          try {
-              const pricesToUpdate: Record<string, ProductPrice | null> = {};
-              const batchSize = 30;
-              let totalReads = 0;
-
-              for (let i = 0; i < namesToFetch.length; i += batchSize) {
-                  const batchNames = namesToFetch.slice(i, i + batchSize).map(n => n.toLowerCase());
-                  if (batchNames.length > 0) {
-                      const priceQuery = query(collection(db, 'productPrices'), where('productName', 'in', batchNames));
-                      const priceSnapshot = await getDocs(priceQuery);
-                      totalReads++;
-                      const fetchedPrices = new Map(priceSnapshot.docs.map(doc => [doc.id, doc.data() as ProductPrice]));
-                      batchNames.forEach(name => {
-                          pricesToUpdate[name] = fetchedPrices.get(name) || null;
-                      });
-                  }
-              }
-
-              incrementReadCount(totalReads);
-              set(state => ({
-                  productPrices: { ...state.productPrices, ...pricesToUpdate }
-              }));
-          } catch (error) {
-              console.error("fetchProductPrices failed:", error);
-          }
-      },
-
-      getProductName: (product: Product) => {
-        if (!product || !product.name) return '';
-        const lang = get().language;
-        const { t } = require('@/lib/locales');
-        return t(product.name.toLowerCase().replace(/ /g, '-'), lang);
-      },
-
       getAllAliases: (key: string) => {
         return getAliasesFromLocales(get().locales, key);
-      }
+      },
+
+      // Purged grocery logic
+      fetchProductPrices: async () => {},
+      fetchExtendedData: async () => {},
+      getProductName: (product: any) => product.name,
     }),
     {
-      name: 'localbasket-app-storage-v2',
+      name: 'localbasket-app-storage-v3',
       storage: createJSONStorage(() => localStorage),
-      // CRITICAL: We only persist lightweight "Identity" and "Settings" data.
-      // Heavy items like 'stores', 'masterProducts', and 'locales' are managed
-      // by Firestore's IndexedDB persistent cache, which has a much larger quota.
       partialize: (state) => ({ 
           userStore: state.userStore,
           language: state.language,
@@ -231,22 +166,18 @@ export const useAppStore = create<AppState>()(
 
 export const useInitializeApp = () => {
     const { firestore, user, isUserLoading } = useFirebase();
-    const { fetchInitialData, isInitialized, loading, userStore, setAppReady } = useAppStore();
+    const { fetchInitialData, loading, userStore, setAppReady } = useAppStore();
 
     useEffect(() => {
-        // If we have a persisted business identity, we can unlock the UI immediately
-        // while the background data fetch handles updating the live state.
         if (userStore) {
             setAppReady(true);
         }
-        
-        // Start the background synchronization
         if (firestore && !isUserLoading && !loading) {
             fetchInitialData(firestore, user?.uid);
         }
     }, [firestore, user?.uid, isUserLoading, loading, fetchInitialData, userStore, setAppReady]);
 
-    return { isLoading: !isInitialized && loading };
+    return { isLoading: loading };
 };
 
 interface ProfileFormState {

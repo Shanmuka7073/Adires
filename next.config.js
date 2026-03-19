@@ -3,7 +3,7 @@ const withPWA = require('next-pwa')({
   dest: 'public',
   register: true,
   skipWaiting: true,
-  disable: false, // Force PWA enabled in dev for offline testing
+  disable: false, // Force enabled for all environments to ensure offline health
   runtimeCaching: [
     {
       urlPattern: /^\/_next\/static\/.*/i,
@@ -11,7 +11,7 @@ const withPWA = require('next-pwa')({
       options: {
         cacheName: 'static-assets',
         expiration: {
-          maxEntries: 64,
+          maxEntries: 128,
           maxAgeSeconds: 30 * 24 * 60 * 60,
         },
       },
@@ -22,7 +22,7 @@ const withPWA = require('next-pwa')({
       options: {
         cacheName: 'unsplash-images',
         expiration: {
-          maxEntries: 100,
+          maxEntries: 50,
           maxAgeSeconds: 30 * 24 * 60 * 60,
         },
       },
@@ -31,7 +31,7 @@ const withPWA = require('next-pwa')({
       urlPattern: /\/dashboard|\/menu/i,
       handler: 'StaleWhileRevalidate',
       options: {
-        cacheName: 'management-routes',
+        cacheName: 'business-logic-routes',
         expiration: {
           maxEntries: 32,
           maxAgeSeconds: 24 * 60 * 60,
