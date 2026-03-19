@@ -37,7 +37,7 @@ export async function getPlatformAnalytics() {
             db.collection('users').count().get(),
             db.collection('stores').where('isClosed', '!=', true).count().get(),
             db.collection('orders').where('orderDate', '>=', startTimestamp).get(),
-            db.collection('orders').where('orderDate', '>=', yesterdayTimestamp).where('orderDate', '<', startTimestamp).get(),
+            db.collection('orders').where('orderDate', '>=', yesterdayTimestamp).where('orderDate', '<', todayStart).get(),
             db.collection('orders').where('isActive', '==', true).count().get(),
             db.collection('orders').where('status', 'in', ['Delivered', 'Completed']).get(),
             db.collection('deliveryPartners').get()
@@ -85,7 +85,7 @@ export async function getPlatformAnalytics() {
                 type: 'warning',
                 title: 'Conversion Drop',
                 message: 'High active sessions but low order conversion. Suggesting flash promo.',
-                action: 'Trigger Site-wide Promo'
+                action: 'Trigger Flash Promo'
             });
         }
 
@@ -135,28 +135,34 @@ export async function executeCommand(commandType: string) {
     try {
         switch (commandType) {
             case 'reward_boost':
-                // Logic to set a global boost multiplier in siteConfig
+            case 'boost_partner_rewards':
                 await db.collection('siteConfig').doc('partnerRewards').set({
                     multiplier: 1.5,
                     active: true,
+                    updatedAt: timestamp,
                     expiresAt: Timestamp.fromDate(new Date(Date.now() + 2 * 60 * 60 * 1000)) // 2 hours
-                });
+                }, { merge: true });
                 return { success: true, message: 'Partner rewards boosted platform-wide.' };
             
             case 'flash_promo':
+            case 'trigger_flash_promo':
                 await db.collection('siteConfig').doc('promotions').set({
                     title: 'Evening Rush: 10% Off',
                     active: true,
                     updatedAt: timestamp
-                });
+                }, { merge: true });
                 return { success: true, message: 'Flash promotion live on all storefronts.' };
 
             case 'maintenance_on':
-                await db.collection('siteConfig').doc('appStatus').update({ isMaintenance: true });
+            case 'maintenance_mode':
+                await db.collection('siteConfig').doc('appStatus').set({ 
+                    isMaintenance: true,
+                    updatedAt: timestamp
+                }, { merge: true });
                 return { success: true, message: 'App set to Maintenance Mode.' };
 
             default:
-                throw new Error("Invalid command");
+                throw new Error(`Command "${commandType}" is not implemented.`);
         }
     } catch (e: any) {
         return { success: false, error: e.message };
