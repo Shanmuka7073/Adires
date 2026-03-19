@@ -127,6 +127,7 @@ export const useAppStore = create<AppState>()(
             loading: false,
           });
 
+          // Background fetch for more heavy data
           get().fetchExtendedData(db);
           
         } catch (error) {
@@ -191,6 +192,7 @@ export const useAppStore = create<AppState>()(
       getProductName: (product: Product) => {
         if (!product || !product.name) return '';
         const lang = get().language;
+        // Import t dynamically to avoid circular issues
         const { t } = require('@/lib/locales');
         return t(product.name.toLowerCase().replace(/ /g, '-'), lang);
       },
@@ -231,3 +233,23 @@ export const useInitializeApp = () => {
 
     return { isLoading: !isInitialized && loading };
 };
+
+interface ProfileFormState {
+  form: UseFormReturn<ProfileFormValues> | null;
+  setForm: (form: UseFormReturn<ProfileFormValues> | null) => void;
+}
+
+export const useProfileFormStore = create<ProfileFormState>((set) => ({
+  form: null,
+  setForm: (form) => set({ form }),
+}));
+
+interface MyStorePageState {
+  saveInventoryBtnRef: RefObject<HTMLButtonElement> | null;
+  setSaveInventoryBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
+}
+
+export const useMyStorePageStore = create<MyStorePageState>((set) => ({
+  saveInventoryBtnRef: null,
+  setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
+}));

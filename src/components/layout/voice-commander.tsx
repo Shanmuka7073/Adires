@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -7,12 +8,10 @@ import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import type { Store, Product, ProductPrice, CartItem, User, FailedVoiceCommand, ProductVariant, SiteConfig, MenuItem, Menu } from '@/lib/types';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
-import { useAppStore } from '@/lib/store';
-import { useMyStorePageStore } from '@/lib/store';
+import { useAppStore, useProfileFormStore, useMyStorePageStore, type ProfileFormValues } from '@/lib/store';
 import { t } from '@/lib/locales';
 import { doc, getDoc, serverTimestamp, addDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { useCheckoutStore } from '@/lib/checkout-store';
-import { useProfileFormStore, ProfileFormValues } from '@/lib/store';
 import { useVoiceCommanderContext } from './voice-commander-context';
 import { getIngredientsForDish } from '@/ai/flows/recipe-ingredients-flow';
 import { runNLU, extractQuantityAndProduct } from '@/lib/nlu/voice-integration';
@@ -543,7 +542,7 @@ export function VoiceCommander({
                 storeId: activeStoreId || undefined,
                 context: { pathname }
             });
-            speak(reply, langWithRegion);
+            speak(reply.analysis, langWithRegion);
             break;
         }
         case 'NAVIGATE':
