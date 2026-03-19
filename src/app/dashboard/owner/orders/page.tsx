@@ -38,7 +38,10 @@ import {
   Sparkles,
   Volume2,
   Filter,
-  UserPlus
+  UserPlus,
+  Phone,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import {
   collection, query, where, orderBy, doc, updateDoc, serverTimestamp, Timestamp, limit, getDocs, setDoc, writeBatch
@@ -65,11 +68,12 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 const STATUS_META: Record<string, any> = {
   Draft: { icon: Clock, variant: 'outline', color: 'text-gray-400', label: 'Draft' },
-  Pending: { icon: AlertTriangle, variant: 'secondary', color: 'text-amber-600', label: 'New' },
+  Pending: { icon: AlertTriangle, variant: 'secondary', color: 'text-amber-600', label: 'New', animate: true },
   Processing: { icon: CookingPot, variant: 'secondary', color: 'text-blue-600', label: 'Processing' },
   'Out for Delivery': { icon: Truck, variant: 'outline', color: 'text-purple-600', label: 'Delivery' },
   Billed: { icon: Check, variant: 'default', color: 'text-green-600', label: 'Billed' },
@@ -88,6 +92,7 @@ interface Session {
   lastActivity: Date;
   needsService?: boolean;
   serviceType?: string;
+  customerPhone?: string;
 }
 
 function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { storeId: string, menuItems: MenuItem[], onComplete: () => void, isSalon: boolean }) {
@@ -117,7 +122,6 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { s
     const handleGenerateBill = () => {
         if (cart.length === 0 || !firestore) return;
         
-        // Generate a highly unique ID for offline resilience
         const orderId = `counter-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
         const orderRef = doc(firestore, 'orders', orderId);
         
@@ -150,7 +154,6 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { s
             totalAmount: total,
         };
 
-        // NON-BLOCKING: No await here to allow multiple bills offline
         setDoc(orderRef, orderData).catch(async (serverError) => {
             const permissionError = new FirestorePermissionError({
                 path: orderRef.path,
@@ -287,7 +290,6 @@ function SessionCard({ session, store, isSalon, onDismissService }: { session: S
         }
     });
 
-    // NON-BLOCKING: No await
     batch.commit().catch(async (e) => {
         toast({ variant: 'destructive', title: 'Action Failed' });
     });
@@ -339,67 +341,68 @@ function SessionCard({ session, store, isSalon, onDismissService }: { session: S
 
   const meta = STATUS_META[session.status] || STATUS_META.Pending;
   const isBilled = session.status === 'Billed';
+  const hasPhone = !!session.customerPhone;
   
   const titleIcon = session.orderType === 'takeaway' ? <ShoppingBag className="h-4 w-4" /> : session.orderType === 'counter' ? <Calculator className="h-4 w-4" /> : (isSalon ? <Scissors className="h-4 w-4" /> : <Utensils className="h-4 w-4" />);
 
   return (
     <Card className={cn(
-        "rounded-xl shadow-md border-0 relative transition-all", 
-        isBilled ? "bg-green-50 ring-1 ring-green-500" : "bg-white",
-        session.needsService && "ring-2 ring-red-500 animate-pulse"
+        "rounded-2xl shadow-lg border-0 relative transition-all group overflow-hidden", 
+        isBilled ? "bg-green-50 ring-2 ring-green-500" : "bg-white",
+        session.needsService && "ring-4 ring-red-500 animate-pulse"
     )}>
       {session.needsService && (
-          <div className="absolute top-0 left-0 w-full h-6 bg-red-600 flex items-center justify-between px-2 rounded-t-xl z-10">
-              <span className="text-[8px] font-black uppercase text-white flex items-center gap-1"><BellRing className="h-2.5 w-2.5"/> {session.serviceType || 'Service'}</span>
+          <div className="absolute top-0 left-0 w-full h-10 bg-red-600 flex items-center justify-between px-3 rounded-t-xl z-10 shadow-lg">
+              <span className="text-[10px] font-black uppercase text-white flex items-center gap-2"><BellRing className="h-4 w-4 animate-bounce"/> {session.serviceType || 'Help Needed'}</span>
               <button 
                 onClick={() => onDismissService(session)}
-                className="h-4 px-2 rounded-md bg-white/20 hover:bg-white/40 text-white text-[7px] font-black uppercase transition-colors"
+                className="h-7 px-4 rounded-lg bg-white text-red-600 text-[9px] font-black uppercase transition-all active:scale-95 shadow-md"
               >
                 Resolve
               </button>
           </div>
       )}
-      <CardHeader className={cn("p-2 pb-1", session.needsService && "pt-7")}>
+      <CardHeader className={cn("p-4 pb-2", session.needsService && "pt-12")}>
         <div className="flex justify-between items-start">
-            <div className="flex items-center gap-1.5 min-w-0">
-                 <div className="opacity-20 shrink-0">{titleIcon}</div>
+            <div className="flex items-center gap-3 min-w-0">
+                 <div className="h-10 w-10 rounded-xl bg-black/5 flex items-center justify-center shrink-0">{titleIcon}</div>
                  <div className="min-w-0">
-                    <CardTitle className={cn("text-sm font-black truncate", isBilled ? "text-gray-950" : "text-gray-900")}>{isSalon ? 'Chair' : ''} {session.tableNumber || 'Walking'}</CardTitle>
-                    <CardDescription className="text-[7px] opacity-40">#{session.id.slice(-4)}</CardDescription>
+                    <CardTitle className={cn("text-lg font-black tracking-tight truncate", isBilled ? "text-gray-950" : "text-gray-900")}>{isSalon ? 'Chair' : ''} {session.tableNumber || 'Walking'}</CardTitle>
+                    <CardDescription className="text-[9px] font-bold uppercase tracking-widest opacity-40">#{session.id.slice(-4)}</CardDescription>
                  </div>
             </div>
-             <div className="flex gap-1 shrink-0">
-                {isBilled && <Button variant="ghost" size="icon" className="h-5 w-5 rounded-md hover:bg-black/5" onClick={handlePrint}><Printer className="h-3 w-3"/></Button>}
-                <Badge className="text-[7px] font-black uppercase h-4 px-1.5" variant={meta.variant}>{meta.label}</Badge>
+             <div className="flex gap-1.5 shrink-0">
+                {hasPhone && <Button variant="ghost" size="icon" asChild className="h-8 w-8 rounded-lg hover:bg-black/5"><Link href={`tel:${session.customerPhone}`}><Phone className="h-4 w-4"/></Link></Button>}
+                {isBilled && <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-black/5" onClick={handlePrint}><Printer className="h-4 w-4"/></Button>}
+                <Badge className={cn("text-[8px] font-black uppercase h-5 px-2", meta.animate && "animate-pulse")} variant={meta.variant}>{meta.label}</Badge>
              </div>
         </div>
       </CardHeader>
-      <CardContent className="p-2 pt-1 space-y-1">
+      <CardContent className="p-4 pt-2 space-y-1.5">
           {session.orders.flatMap(o => o.items).map((it, i) => (
-              <div key={i} className={cn("flex justify-between items-center text-[9px] font-bold py-1 px-2 rounded-md mb-0.5", isBilled ? "bg-black/5" : "bg-black/5")}>
+              <div key={i} className={cn("flex justify-between items-center text-[10px] font-bold py-1.5 px-3 rounded-xl mb-0.5", isBilled ? "bg-black/5" : "bg-black/5")}>
                   <span className={cn("truncate pr-2", isBilled ? "text-gray-800" : "text-gray-700")}>{it.productName} <span className="opacity-40 font-black">x{it.quantity}</span></span>
                   <span className={cn("shrink-0 font-black", isBilled ? "text-gray-950" : "text-gray-600")}>₹{(it.price * it.quantity).toFixed(0)}</span>
               </div>
           ))}
       </CardContent>
-      <CardFooter className={cn("p-2 pt-1 flex flex-col gap-1.5 rounded-b-xl bg-black/5")}>
-            <div className="flex justify-between w-full text-[8px] font-black uppercase">
-                <span className={cn("opacity-40", isBilled ? "text-black" : "text-black")}>Total Session</span>
-                <span className={cn("font-black", isBilled ? "text-gray-950" : "text-primary")}>₹{session.totalAmount.toFixed(0)}</span>
+      <CardFooter className={cn("p-4 pt-2 flex flex-col gap-2 rounded-b-2xl bg-black/5")}>
+            <div className="flex justify-between w-full text-[9px] font-black uppercase">
+                <span className="opacity-40">Current Total</span>
+                <span className={cn("font-black text-sm", isBilled ? "text-gray-950" : "text-primary")}>₹{session.totalAmount.toFixed(0)}</span>
             </div>
-            <div className="flex gap-1 w-full">
-                <Button className="w-full h-7 rounded-lg text-[8px] font-black uppercase shadow-sm" onClick={handleAction}>
-                    {isBilled ? 'Cash Received' : (isSalon ? 'Start Service' : 'Send to Kitchen')}
-                </Button>
-            </div>
+            <Button className="w-full h-10 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95" onClick={handleAction}>
+                {isBilled ? 'Confirm Payment' : (isSalon ? 'Start Service' : 'Confirm Order')}
+            </Button>
       </CardFooter>
     </Card>
   )
 }
 
-function DeliveryOrderCard({ order, onStatusChange }: { order: Order; onStatusChange: (id: string, s: any) => void; }) {
+function DeliveryOrderCard({ order, onStatusChange, isSelected, onToggleSelection }: { order: Order; onStatusChange: (id: string, s: any) => void; isSelected: boolean; onToggleSelection: (id: string) => void }) {
     const meta = STATUS_META[order.status] || STATUS_META.Pending;
     const isBilled = order.status === 'Billed';
+    const hasPhone = !!order.phone;
 
     const getNextStatus = (current: string) => {
         if (current === 'Pending') return 'Processing';
@@ -410,31 +413,43 @@ function DeliveryOrderCard({ order, onStatusChange }: { order: Order; onStatusCh
 
     return (
         <Card className={cn(
-            "rounded-xl shadow-md border-0 overflow-hidden relative transition-all", 
-            isBilled ? "bg-green-50 ring-1 ring-green-500" : "bg-white"
+            "rounded-2xl shadow-lg border-0 overflow-hidden relative transition-all group", 
+            isBilled ? "bg-green-50 ring-2 ring-green-500" : "bg-white",
+            isSelected && "ring-2 ring-primary"
         )}>
-            <CardHeader className={cn("p-2 pb-1 border-b border-black/5", isBilled ? "bg-green-100/50" : "bg-blue-50/50")}>
+            <div className="absolute top-2 left-2 z-10">
+                <Checkbox 
+                    checked={isSelected} 
+                    onCheckedChange={() => onToggleSelection(order.id)}
+                    className="h-5 w-5 rounded-lg border-2 border-black/10 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                />
+            </div>
+            <CardHeader className={cn("p-4 pb-2 border-b border-black/5 pl-10", isBilled ? "bg-green-100/50" : "bg-blue-50/50")}>
                 <div className="flex justify-between items-start">
                     <div className="min-w-0 pr-2">
-                        <CardTitle className={cn("text-[10px] font-black uppercase truncate", isBilled ? "text-gray-950" : "text-gray-950")}>{order.customerName}</CardTitle>
-                        <CardDescription className={cn("text-[7px] truncate font-bold opacity-60", "text-gray-600")}>{order.deliveryAddress}</CardDescription>
+                        <CardTitle className="text-xs font-black uppercase truncate text-gray-950">{order.customerName}</CardTitle>
+                        <CardDescription className="text-[8px] truncate font-bold opacity-60 text-gray-600 uppercase tracking-tight">{order.deliveryAddress}</CardDescription>
                     </div>
-                    <Badge variant="outline" className="text-[7px] font-black uppercase shrink-0 h-4 border-primary/20">{meta.label}</Badge>
+                    <Badge variant="outline" className={cn("text-[8px] font-black uppercase shrink-0 h-5 border-primary/20", meta.animate && "animate-pulse")}>{meta.label}</Badge>
                 </div>
             </CardHeader>
-            <CardContent className="p-2 pt-1 space-y-0.5">
+            <CardContent className="p-4 pt-2 space-y-1">
                 {order.items.map((it, idx) => (
-                    <div key={idx} className={cn("flex justify-between items-center text-[9px] font-bold py-1 px-2 rounded-md mb-0.5", isBilled ? "bg-black/5" : "bg-black/5")}>
-                        <span className={cn("truncate pr-2", isBilled ? "text-gray-800" : "text-gray-700")}>{it.productName} <span className="opacity-40 font-black">x{it.quantity}</span></span>
-                        <span className={cn("font-black", isBilled ? "text-gray-950" : "text-gray-600")}>₹{(it.price * it.quantity).toFixed(0)}</span>
+                    <div key={idx} className="flex justify-between items-center text-[10px] font-bold py-1 px-2 rounded-lg bg-black/5">
+                        <span className="truncate pr-2 text-gray-800">{it.productName} <span className="opacity-40 font-black">x{it.quantity}</span></span>
+                        <span className="font-black text-gray-950">₹{(it.price * it.quantity).toFixed(0)}</span>
                     </div>
                 ))}
             </CardContent>
-            <CardFooter className={cn("p-2 pt-1 flex gap-1", "bg-black/5")}>
-                <Button className="flex-1 h-7 rounded-lg text-[8px] font-black uppercase shadow-sm" onClick={() => onStatusChange(order.id, getNextStatus(order.status))}>
+            <CardFooter className="p-4 pt-2 flex gap-2 bg-black/5">
+                <Button className="flex-1 h-9 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-md transition-all active:scale-95" onClick={() => onStatusChange(order.id, getNextStatus(order.status))}>
                     {order.status === 'Pending' ? 'Process Job' : 'Next Step'}
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-black/5"><UserPlus className="h-3 w-3" /></Button>
+                {hasPhone && (
+                    <Button variant="ghost" size="icon" asChild className="h-9 w-9 rounded-xl hover:bg-black/10 transition-colors">
+                        <Link href={`tel:${order.phone}`}><Phone className="h-4 w-4 text-primary" /></Link>
+                    </Button>
+                )}
             </CardFooter>
         </Card>
     );
@@ -488,35 +503,35 @@ function HistoryAndInsightsCenter({ storeId }: { storeId: string }) {
     }, [history]);
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="rounded-3xl border-0 shadow-lg bg-white">
+        <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="rounded-[2.5rem] border-0 shadow-lg bg-white p-2">
                     <CardHeader className="pb-2 flex flex-row justify-between items-center">
                         <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Total Revenue</span>
-                        <TrendingUp className="h-4 w-4 text-green-500" />
+                        <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center"><TrendingUp className="h-4 w-4 text-green-600" /></div>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-3xl font-black tracking-tighter text-gray-950">₹{stats.totalSales.toFixed(0)}</p>
-                        <p className="text-[10px] font-bold opacity-40 uppercase mt-1">From {stats.orderCount} orders</p>
+                        <p className="text-4xl font-black tracking-tighter text-gray-950">₹{stats.totalSales.toFixed(0)}</p>
+                        <p className="text-[10px] font-bold opacity-40 uppercase mt-1">From {stats.orderCount} visits</p>
                     </CardContent>
                 </Card>
-                <Card className="rounded-3xl border-0 shadow-lg bg-white">
+                <Card className="rounded-[2.5rem] border-0 shadow-lg bg-white p-2">
                     <CardHeader className="pb-2 flex flex-row justify-between items-center">
-                        <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Avg Order Value</span>
-                        <Calculator className="h-4 w-4 text-blue-500" />
+                        <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Session Value</span>
+                        <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center"><Calculator className="h-4 w-4 text-blue-600" /></div>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-3xl font-black tracking-tighter text-gray-950">₹{stats.aov.toFixed(0)}</p>
-                        <p className="text-[10px] font-bold opacity-40 uppercase mt-1">Per visit profit driver</p>
+                        <p className="text-4xl font-black tracking-tighter text-gray-950">₹{stats.aov.toFixed(0)}</p>
+                        <p className="text-[10px] font-bold opacity-40 uppercase mt-1">Average ticket size</p>
                     </CardContent>
                 </Card>
-                <Card className="rounded-3xl border-0 shadow-lg bg-white">
+                <Card className="rounded-[2.5rem] border-0 shadow-lg bg-white p-2">
                     <CardHeader className="pb-2">
-                        <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Historical Filter</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Period Filter</span>
                     </CardHeader>
                     <CardContent className="flex gap-2">
                         {[7, 14, 30].map(d => (
-                            <Button key={d} variant={days === d ? 'default' : 'outline'} size="sm" onClick={() => setDays(d)} className="rounded-xl font-black text-[10px] h-8 flex-1">
+                            <Button key={d} variant={days === d ? 'default' : 'outline'} size="sm" onClick={() => setDays(d)} className="rounded-xl font-black text-[10px] h-10 flex-1 border-2">
                                 {d}D
                             </Button>
                         ))}
@@ -525,35 +540,35 @@ function HistoryAndInsightsCenter({ storeId }: { storeId: string }) {
             </div>
 
             <div className="grid md:grid-cols-2 gap-8">
-                <Card className="rounded-3xl border-0 shadow-xl overflow-hidden bg-white">
-                    <CardHeader className="bg-primary/5 border-b border-black/5">
-                        <CardTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
-                            <History className="h-5 w-5 text-primary" /> Past Orders
+                <Card className="rounded-[3rem] border-0 shadow-xl overflow-hidden bg-white">
+                    <CardHeader className="bg-primary/5 border-b border-black/5 py-6">
+                        <CardTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-3">
+                            <History className="h-6 w-6 text-primary" /> Past Transactions
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="p-0">
-                        <ScrollArea className="h-[400px]">
+                        <ScrollArea className="h-[450px]">
                             {isLoading ? (
-                                <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto h-8 w-8 opacity-20" /></div>
+                                <div className="p-12 text-center"><Loader2 className="animate-spin mx-auto h-10 w-10 opacity-20" /></div>
                             ) : history.length > 0 ? (
                                 <Table>
-                                    <TableHeader>
+                                    <TableHeader className="bg-black/5">
                                         <TableRow>
-                                            <TableHead className="text-[9px] font-black uppercase tracking-widest">Customer</TableHead>
-                                            <TableHead className="text-[9px] font-black uppercase tracking-widest">Total</TableHead>
-                                            <TableHead className="text-right text-[9px] font-black uppercase tracking-widest">Status</TableHead>
+                                            <TableHead className="text-[10px] font-black uppercase tracking-widest">Customer</TableHead>
+                                            <TableHead className="text-[10px] font-black uppercase tracking-widest">Total</TableHead>
+                                            <TableHead className="text-right text-[10px] font-black uppercase tracking-widest">Status</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {history.map(o => (
-                                            <TableRow key={o.id} className="hover:bg-muted/30">
-                                                <TableCell className="py-3">
-                                                    <p className="font-bold text-xs">{o.customerName || 'Walk-in'}</p>
-                                                    <p className="text-[8px] opacity-40 uppercase">{format(toDateSafe(o.orderDate), 'dd MMM, p')}</p>
+                                            <TableRow key={o.id} className="hover:bg-muted/30 border-b border-black/5">
+                                                <TableCell className="py-4">
+                                                    <p className="font-black text-xs uppercase">{o.customerName || 'Walk-in'}</p>
+                                                    <p className="text-[9px] opacity-40 font-bold uppercase">{format(toDateSafe(o.orderDate), 'dd MMM, p')}</p>
                                                 </TableCell>
-                                                <TableCell className="font-black text-xs text-primary">₹{o.totalAmount.toFixed(0)}</TableCell>
+                                                <TableCell className="font-black text-sm text-primary">₹{o.totalAmount.toFixed(0)}</TableCell>
                                                 <TableCell className="text-right">
-                                                    <Badge variant={STATUS_META[o.status]?.variant || 'outline'} className="text-[8px] font-black uppercase px-1.5 h-4">
+                                                    <Badge variant={STATUS_META[o.status]?.variant || 'outline'} className="text-[9px] font-black uppercase px-2 h-5">
                                                         {STATUS_META[o.status]?.label || o.status}
                                                     </Badge>
                                                 </TableCell>
@@ -561,31 +576,31 @@ function HistoryAndInsightsCenter({ storeId }: { storeId: string }) {
                                         ))}
                                     </TableBody>
                                 </Table>
-                            ) : <div className="p-20 text-center opacity-30"><p className="text-[10px] font-black uppercase tracking-widest">No history for this range</p></div>}
+                            ) : <div className="p-32 text-center opacity-20 flex flex-col items-center gap-4"><Package className="h-16 w-16" /><p className="font-black uppercase tracking-widest text-xs">No records found</p></div>}
                         </ScrollArea>
                     </CardContent>
                 </Card>
 
-                <Card className="rounded-3xl border-0 shadow-xl overflow-hidden bg-white">
-                    <CardHeader className="bg-primary/5 border-b border-black/5">
-                        <CardTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
-                            <Sparkles className="h-5 w-5 text-primary" /> Popular Items
+                <Card className="rounded-[3rem] border-0 shadow-xl overflow-hidden bg-white">
+                    <CardHeader className="bg-primary/5 border-b border-black/5 py-6">
+                        <CardTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-3">
+                            <Sparkles className="h-6 w-6 text-primary" /> Popular Items
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="p-6">
+                    <CardContent className="p-8">
                         <div className="space-y-4">
                             {stats.topItems.map(([name, count]) => (
-                                <div key={name} className="flex justify-between items-center p-4 bg-muted/30 rounded-2xl border-2 border-transparent hover:border-primary/20 transition-all">
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary text-xs">
+                                <div key={name} className="flex justify-between items-center p-5 bg-muted/30 rounded-[2rem] border-2 border-transparent hover:border-primary/20 transition-all group shadow-sm">
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center font-black text-primary text-sm group-hover:bg-primary group-hover:text-white transition-colors">
                                             {count}
                                         </div>
-                                        <span className="font-bold text-xs uppercase tracking-tight">{name}</span>
+                                        <span className="font-black text-xs uppercase tracking-tight leading-none">{name}</span>
                                     </div>
-                                    <ArrowRight className="h-4 w-4 opacity-20" />
+                                    <ArrowRight className="h-5 w-5 opacity-20 group-hover:translate-x-1 group-hover:opacity-100 transition-all" />
                                 </div>
                             ))}
-                            {stats.topItems.length === 0 && <p className="text-center py-20 text-[10px] font-black uppercase opacity-30 tracking-widest">Data processing...</p>}
+                            {stats.topItems.length === 0 && <div className="py-32 text-center opacity-20 flex flex-col items-center gap-4"><BarChart3 className="h-16 w-16"/><p className="font-black uppercase tracking-widest text-xs">Awaiting data...</p></div>}
                         </div>
                     </CardContent>
                 </Card>
@@ -601,6 +616,7 @@ export default function StoreOrdersPage() {
   const [activeTab, setActiveTab] = useState('live');
   const [liveSearch, setLiveSearch] = useState('');
   const [liveFilter, setLiveFilter] = useState('all');
+  const [selectedDeliveryIds, setSelectedDeliveryIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const { stores, userStore, loading: isAppLoading } = useAppStore();
 
@@ -662,7 +678,8 @@ export default function StoreOrdersPage() {
                         orderType: o.orderType,
                         lastActivity: toDateSafe(o.orderDate), 
                         needsService: o.needsService, 
-                        serviceType: o.serviceType 
+                        serviceType: o.serviceType,
+                        customerPhone: o.phone
                     };
                 }
                 tableSessions[o.sessionId].orders.push(o);
@@ -689,7 +706,6 @@ export default function StoreOrdersPage() {
       const orderRef = doc(firestore, 'orders', orderId);
       const isActive = !['Delivered', 'Completed', 'Cancelled'].includes(status);
       
-      // NON-BLOCKING: No await for offline responsiveness
       updateDoc(orderRef, {
           status,
           isActive,
@@ -703,6 +719,34 @@ export default function StoreOrdersPage() {
       });
       toast({ title: "Updated" });
   }
+
+  const handleBatchStatusUpdate = (status: Order['status']) => {
+      if (!firestore || selectedDeliveryIds.size === 0) return;
+      const batch = writeBatch(firestore);
+      const isActive = !['Delivered', 'Completed', 'Cancelled'].includes(status);
+      
+      selectedDeliveryIds.forEach(id => {
+          batch.update(doc(firestore, 'orders', id), {
+              status,
+              isActive,
+              updatedAt: serverTimestamp()
+          });
+      });
+
+      batch.commit().then(() => {
+          toast({ title: `Batch Updated!`, description: `Successfully updated ${selectedDeliveryIds.size} orders to ${status}.` });
+          setSelectedDeliveryIds(new Set());
+      }).catch(() => toast({ variant: 'destructive', title: 'Batch Failed' }));
+  };
+
+  const handleToggleDeliverySelection = (id: string) => {
+      setSelectedDeliveryIds(prev => {
+          const next = new Set(prev);
+          if (next.has(id)) next.delete(id);
+          else next.add(id);
+          return next;
+      });
+  };
 
   const handleDismissService = (session: Session) => {
       if (!firestore) return;
@@ -733,8 +777,8 @@ export default function StoreOrdersPage() {
       oscillator.connect(gainNode);
       gainNode.connect(audioCtx.destination);
       oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
-      oscillator.frequency.exponentialRampToValueAtTime(1109, audioCtx.currentTime + 0.1); // C#6
+      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); 
+      oscillator.frequency.exponentialRampToValueAtTime(1109, audioCtx.currentTime + 0.1); 
       gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
       oscillator.start();
@@ -765,6 +809,10 @@ export default function StoreOrdersPage() {
 
   useEffect(() => {
     if (!activeOrders) return;
+
+    if (Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
 
     const currentIds = new Set(activeOrders.map(o => o.id));
     const newIds = activeOrders.filter(o => !prevOrderIds.current.has(o.id));
@@ -864,12 +912,25 @@ export default function StoreOrdersPage() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-[calc(100vh-220px)] overflow-hidden">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-[calc(100vh-220px)] overflow-hidden relative">
                     <section className="flex flex-col h-full min-h-0">
-                        <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 flex items-center gap-2 mb-4 shrink-0"><Truck className="h-3.5 w-3.5"/> Out-Call & Online</h2>
+                        <div className="flex justify-between items-center mb-4 shrink-0 px-1">
+                            <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 flex items-center gap-2"><Truck className="h-3.5 w-3.5"/> Out-Call & Online</h2>
+                            {selectedDeliveryIds.size > 0 && (
+                                <Badge className="bg-primary text-white font-black text-[8px] uppercase px-2">{selectedDeliveryIds.size} Selected</Badge>
+                            )}
+                        </div>
                         <ScrollArea className="flex-1">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-4">
-                                {homeDeliveries.map(o => <DeliveryOrderCard key={o.id} order={o} onStatusChange={handleOrderUpdate} />)}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-4 pb-20">
+                                {homeDeliveries.map(o => (
+                                    <DeliveryOrderCard 
+                                        key={o.id} 
+                                        order={o} 
+                                        onStatusChange={handleOrderUpdate}
+                                        isSelected={selectedDeliveryIds.has(o.id)}
+                                        onToggleSelection={handleToggleDeliverySelection}
+                                    />
+                                ))}
                                 {homeDeliveries.length === 0 && (
                                     <div className={cn(
                                         "col-span-full text-center py-20 border-2 border-dashed rounded-3xl opacity-60",
@@ -885,11 +946,11 @@ export default function StoreOrdersPage() {
                     </section>
 
                     <section className="flex flex-col h-full min-h-0">
-                        <div className="flex justify-between items-center mb-4 shrink-0">
+                        <div className="flex justify-between items-center mb-4 shrink-0 px-1">
                             <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-green-600 flex items-center gap-2">{isSalon ? <Scissors className="h-3.5 w-3.5"/> : <Utensils className="h-3.5 w-3.5"/>} {isSalon ? 'Chair & Counter' : 'Table & Counter'}</h2>
                         </div>
                         <ScrollArea className="flex-1">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-4 pb-10">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-4 pb-20">
                                 {Object.values(sessions).map(s => (
                                     <SessionCard 
                                         key={s.id} 
@@ -912,6 +973,23 @@ export default function StoreOrdersPage() {
                             <ScrollBar orientation="vertical" />
                         </ScrollArea>
                     </section>
+
+                    {/* BATCH ACTION BAR */}
+                    {selectedDeliveryIds.size > 0 && (
+                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%] md:w-[400px] z-50 animate-in slide-in-from-bottom-10 duration-300">
+                            <Card className="rounded-2xl shadow-2xl bg-slate-900 border-0 p-3 flex items-center justify-between">
+                                <div className="flex items-center gap-3 pl-2">
+                                    <div className="h-8 w-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary font-black text-xs">{selectedDeliveryIds.size}</div>
+                                    <span className="text-[9px] font-black uppercase text-white tracking-widest">Jobs Selected</span>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button size="sm" onClick={() => handleBatchStatusUpdate('Processing')} className="h-9 rounded-xl font-black text-[8px] uppercase tracking-widest bg-blue-600 hover:bg-blue-700">Process All</Button>
+                                    <Button size="sm" onClick={() => handleBatchStatusUpdate('Out for Delivery')} className="h-9 rounded-xl font-black text-[8px] uppercase tracking-widest bg-purple-600 hover:bg-purple-700">Dispatch All</Button>
+                                    <Button variant="ghost" size="icon" onClick={() => setSelectedDeliveryIds(new Set())} className="h-9 w-9 rounded-xl text-white/40 hover:text-white hover:bg-white/10"><X className="h-4 w-4"/></Button>
+                                </div>
+                            </Card>
+                        </div>
+                    )}
                 </div>
             </TabsContent>
             
