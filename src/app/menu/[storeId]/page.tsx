@@ -447,6 +447,12 @@ export default function PublicMenuPage() {
   const { data: menus, isLoading: menuLoading } = useCollection<Menu>(useMemoFirebase(() => firestore ? query(collection(firestore, `stores/${storeId}/menus`)) : null, [firestore, storeId]));
   const menu = menus?.[0];
 
+  const upsellItems = useMemo(() => {
+      if (!selectedItemForIngredients || !menu?.items) return [];
+      const recIds = selectedItemForIngredients.recommendations || [];
+      return menu.items.filter(i => recIds.includes(i.id));
+  }, [selectedItemForIngredients, menu?.items]);
+
   const sessionId = useMemo(() => {
     const dS = `${new Date().getFullYear()}-${new Date().getMonth() + 1}-${new Date().getDate()}`;
     if (tableNumber === 'Counter') return `counter-${Date.now()}-${storeId}`; 
@@ -474,13 +480,6 @@ export default function PublicMenuPage() {
       placedOrders?.forEach(order => { order.items.forEach(item => { counts[item.productName] = (counts[item.productName] || 0) + item.quantity; }); });
       return counts;
   }, [placedOrders]);
-
-  // Find related items for the detail dialog
-  const upsellItems = useMemo(() => {
-      if (!selectedItemForIngredients || !menu?.items) return [];
-      const recIds = selectedItemForIngredients.recommendations || [];
-      return menu.items.filter(i => recIds.includes(i.id));
-  }, [selectedItemForIngredients, menu?.items]);
 
   useEffect(() => { if (firestore && !isInitialized) fetchInitialData(firestore); }, [firestore, isInitialized, fetchInitialData]);
 

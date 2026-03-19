@@ -10,6 +10,7 @@ import type { GetIngredientsOutput, MenuItem, CustomizationOption, Customization
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { ScrollArea } from "./ui/scroll-area";
+import { Skeleton } from "./ui/skeleton";
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
@@ -62,8 +63,6 @@ export default function IngredientsDialog({
       return item.price + customsCost;
   }, [item.price, selectedCustoms]);
 
-  const HeaderIcon = isFood ? '🍗' : isService ? <Scissors className="h-6 w-6 text-primary" /> : <Sparkles className="h-6 w-6 text-primary" />;
-  
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="p-0 sm:max-w-2xl rounded-[2.5rem] overflow-hidden border-0 shadow-2xl flex flex-col md:flex-row h-[90vh] md:h-auto">
@@ -80,7 +79,7 @@ export default function IngredientsDialog({
                 </button>
             </div>
             
-            {isFood && !isLoading && (
+            {isFood && (
                 <div className="p-6 grid grid-cols-2 gap-2">
                     <div className="rounded-2xl bg-white p-3 flex flex-col items-center shadow-sm border border-black/5">
                         <Flame className="text-orange-500 h-4 w-4 mb-1" />
@@ -187,18 +186,28 @@ export default function IngredientsDialog({
                     <div className="p-4 bg-muted/30 rounded-2xl space-y-2">
                         <h3 className="text-[9px] font-black uppercase tracking-widest opacity-40">Composition Details</h3>
                         <div className="flex flex-wrap gap-1.5">
-                            {ingredients.map((ing, i) => (
-                                <Badge key={i} variant="secondary" className="rounded-lg px-2 py-0.5 text-[9px] font-bold bg-white/50 border-0">
-                                    {ing.name} {ing.quantity ? `· ${ing.quantity}` : ''}
-                                </Badge>
-                            ))}
+                            {isLoading ? (
+                                <div className="flex gap-2 w-full">
+                                    <Skeleton className="h-4 w-12 rounded-lg" />
+                                    <Skeleton className="h-4 w-20 rounded-lg" />
+                                    <Skeleton className="h-4 w-16 rounded-lg" />
+                                </div>
+                            ) : ingredients.length > 0 ? (
+                                ingredients.map((ing, i) => (
+                                    <Badge key={i} variant="secondary" className="rounded-lg px-2 py-0.5 text-[9px] font-bold bg-white/50 border-0">
+                                        {ing.name} {ing.quantity ? `· ${ing.quantity}` : ''}
+                                    </Badge>
+                                ))
+                            ) : (
+                                <p className="text-[9px] font-bold opacity-30 italic">No specific composition data available.</p>
+                            )}
                         </div>
                     </div>
                 </div>
             </ScrollArea>
 
             {/* FOOTER CTA */}
-            <div className="p-6 pt-2 border-t bg-gray-50 flex flex-col gap-3">
+            <div className="p-6 pt-2 border-t bg-gray-50 flex flex-col gap-3 shrink-0">
                 <div className="flex justify-between items-baseline mb-1">
                     <span className="text-[10px] font-black uppercase opacity-40">Total for Selection</span>
                     <span className="text-xl font-black text-primary">₹{totalPrice.toFixed(0)}</span>
