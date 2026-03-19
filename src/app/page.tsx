@@ -1,18 +1,17 @@
-
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '@/lib/store';
-import { User, Store as StoreType } from '@/lib/types';
+import { User, Store as StoreType, Order } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
-import { Search, Mic, ChevronDown, MapPin, User as UserCircle, Globe, Download, Loader2, Sparkles, ArrowRight, Store as StoreIcon, LayoutGrid, Beef, Scissors, ShoppingBag } from 'lucide-react';
+import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import { Search, Mic, MapPin, User as UserCircle, Download, Loader2, Sparkles, ArrowRight, Store as StoreIcon, LayoutGrid, Beef, Scissors, History, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import StoreCard from '@/components/store-card';
-import { doc } from 'firebase/firestore';
+import { doc, collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { useVoiceCommanderContext } from '@/components/layout/voice-commander-context';
 import { Button } from '@/components/ui/button';
 import { CartIcon } from '@/components/cart/cart-icon';
@@ -40,7 +39,7 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
                         <Image src={logoUrl} alt={brandName} fill className="object-cover" priority />
                     </div>
                     <div>
-                        <p className="text-[8px] font-black text-primary uppercase tracking-widest">Business Hub</p>
+                        <p className="text-[8px] font-black text-primary uppercase tracking-widest">Market Hub</p>
                         <p className="text-lg font-black text-gray-900 leading-none">{brandName}</p>
                     </div>
                 </div>
@@ -61,6 +60,51 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
             </div>
         </header>
     );
+}
+
+function RecentActivity({ orders, stores }: { orders: Order[] | null, stores: StoreType[] }) {
+    if (!orders || orders.length === 0) return null;
+
+    return (
+        <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="flex justify-between items-end px-1">
+                <div>
+                    <h2 className="text-xl font-black font-headline uppercase tracking-tighter text-gray-950">Recent Activity</h2>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Pick up where you left off</p>
+                </div>
+                <Button asChild variant="link" className="h-auto p-0 font-black text-[9px] uppercase tracking-widest text-primary">
+                    <Link href="/dashboard/customer/my-orders">View All <ArrowRight className="ml-1 h-3 w-3" /></Link>
+                </Button>
+            </div>
+            <ScrollArea className="w-full whitespace-nowrap pb-4">
+                <div className="flex gap-4 px-1">
+                    {orders.map(order => {
+                        const store = stores.find(s => s.id === order.storeId);
+                        return (
+                            <Link key={order.id} href={`/menu/${order.storeId}`} className="block w-64 flex-shrink-0 group">
+                                <Card className="rounded-[2rem] border-0 shadow-lg overflow-hidden group-hover:shadow-xl transition-all border-2 border-transparent group-hover:border-primary/20">
+                                    <CardContent className="p-4 flex items-center gap-4">
+                                        <div className="relative h-12 w-12 rounded-2xl overflow-hidden border shrink-0">
+                                            <Image src={store?.imageUrl || ADIRES_LOGO} alt={store?.name || 'Store'} fill className="object-cover" />
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="font-black text-xs uppercase truncate text-gray-900">{store?.name || 'Verified Store'}</p>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <Badge variant={order.status === 'Delivered' || order.status === 'Completed' ? 'default' : 'secondary'} className="text-[7px] font-black uppercase h-4 px-1.5">{order.status}</Badge>
+                                                <span className="text-[9px] font-bold opacity-40">₹{order.totalAmount.toFixed(0)}</span>
+                                            </div>
+                                        </div>
+                                        <ArrowRight className="h-4 w-4 opacity-20 group-hover:translate-x-1 group-hover:opacity-100 transition-all" />
+                                    </CardContent>
+                                </Card>
+                            </Link>
+                        )
+                    })}
+                </div>
+                <ScrollBar orientation="horizontal" className="opacity-0" />
+            </ScrollArea>
+        </section>
+    )
 }
 
 function HubNavigation() {
@@ -86,12 +130,26 @@ export default function LocalBasketHomepage() {
   const { firestore, user } = useFirebase();
   const { isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
   const router = useRouter();
-  const { loading: isAppLoading, isInitialized, stores, fetchInitialData } = useAppStore();
+  const { loading: isAppLoading, isInitialized, stores, deviceId, fetchInitialData } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const { onToggleVoice } = useVoiceCommanderContext();
   
   const userDocRef = useMemoFirebase(() => (!firestore || !user) ? null : doc(firestore, 'users', user.uid), [firestore, user]);
   const { data: userData } = useDoc<User>(userDocRef);
+
+  // HISTORY QUERY: Check by User or Device
+  const historyQuery = useMemoFirebase(() => {
+      if (!firestore) return null;
+      const identifier = user?.uid || deviceId;
+      if (!identifier) return null;
+      return query(
+          collection(firestore, 'orders'),
+          where(user?.uid ? 'userId' : 'deviceId', '==', identifier),
+          orderBy('orderDate', 'desc'),
+          limit(5)
+      );
+  }, [firestore, user?.uid, deviceId]);
+  const { data: recentOrders } = useCollection<Order>(historyQuery);
 
   useEffect(() => { if (firestore && !isInitialized) fetchInitialData(firestore, user?.uid); }, [firestore, isInitialized, fetchInitialData, user?.uid]);
   useEffect(() => { if (!isRoleLoading && isRestaurantOwner) router.replace('/dashboard/restaurant'); }, [isRoleLoading, isRestaurantOwner, router]);
@@ -116,12 +174,14 @@ export default function LocalBasketHomepage() {
                 </div>
             </div>
         ) : (
-             <div className="space-y-8">
+             <div className="space-y-10">
+                {!searchTerm && <RecentActivity orders={recentOrders} stores={stores} />}
+
                 <section className="space-y-4">
                     <div className="flex justify-between items-end px-1">
                         <div>
                             <h2 className="text-xl font-black font-headline uppercase tracking-tighter text-gray-950">Marketplace Hub</h2>
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Verified Business Owners</p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Verified Local Businesses</p>
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

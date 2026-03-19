@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import {
   Store as StoreIcon,
   CheckCircle,
@@ -22,21 +22,19 @@ import {
   CookingPot,
   Receipt,
   Package,
-  Clock,
   Check,
   Loader2,
-  ShoppingBag
+  ShoppingBag,
+  History
 } from 'lucide-react';
 import Link from 'next/link';
 import {
-  collection, query, where, orderBy, doc, writeBatch, increment, Timestamp
+  collection, query, where, orderBy, Timestamp
 } from 'firebase/firestore';
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getStores } from '@/lib/data';
-import { FirestorePermissionError } from '@/firebase/errors';
 import { cn } from '@/lib/utils';
-
-const DELIVERY_FEE = 30;
+import { useAppStore } from '@/lib/store';
 
 const statusMeta: Record<string, any> = {
   Pending: { color: 'secondary', icon: CookingPot, step: 1, label: 'Received' },
@@ -48,7 +46,7 @@ const statusMeta: Record<string, any> = {
   Cancelled: { color: 'destructive', icon: AlertTriangle, step: 0, label: 'Cancelled' },
 };
 
-function OrderStatusTimeline({ status }: { status: Order['status'] }) {
+function OrderStatusTimeline({ status, theme }: { status: Order['status'], theme?: any }) {
     const meta = statusMeta[status] || statusMeta.Pending;
     const currentStep = meta.step;
 
@@ -85,7 +83,6 @@ function OrderStatusTimeline({ status }: { status: Order['status'] }) {
                     )
                 })}
             </div>
-            {/* Progress Track */}
             <div className="absolute top-[28px] left-[10%] right-[10%] h-0.5 bg-gray-100 -z-0">
                 <div 
                     className="h-full bg-primary transition-all duration-1000 ease-in-out" 
@@ -98,31 +95,36 @@ function OrderStatusTimeline({ status }: { status: Order['status'] }) {
 
 export default function MyOrdersPage() {
   const { user, isUserLoading, firestore } = useFirebase();
+  const { deviceId, stores, fetchInitialData } = useAppStore();
   const { toast } = useToast();
-  const [isUpdating, startUpdateTransition] = useTransition();
-  const [stores, setStores] = useState<Store[]>([]);
   
+  // 1. DUAL QUERY STRATEGY: User ID or Device ID
   const ordersQuery = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) return null;
+    if (!firestore) return null;
+    const identifier = user?.uid || deviceId;
+    if (!identifier) return null;
+
     return query(
         collection(firestore, 'orders'),
-        where('userId', '==', user.uid),
-        orderBy('orderDate', 'desc')
+        // If logged in, filter by userId. If guest, filter by deviceId.
+        where(user?.uid ? 'userId' : 'deviceId', '==', identifier),
+        orderBy('orderDate', 'desc'),
+        limit(50)
     );
-  }, [firestore, user?.uid]);
+  }, [firestore, user?.uid, deviceId]);
 
   const { data: allOrders, isLoading: ordersLoading, error: ordersError } = useCollection<Order>(ordersQuery);
 
   useEffect(() => {
-    if(firestore) getStores(firestore).then(setStores);
-  }, [firestore]);
+    if(firestore) fetchInitialData(firestore, user?.uid);
+  }, [firestore, fetchInitialData, user?.uid]);
   
   const ordersWithStores = useMemo(() => {
     if (!allOrders || stores.length === 0) return [];
     const storeMap = new Map(stores.map(s => [s.id, s.name]));
     return allOrders.map(order => ({
         ...order,
-        storeName: storeMap.get(order.storeId) || 'Unknown Store'
+        storeName: storeMap.get(order.storeId) || 'Verified Store'
     }));
   }, [allOrders, stores]);
 
@@ -136,16 +138,25 @@ export default function MyOrdersPage() {
 
   return (
     <div className="container mx-auto py-12 px-4 md:px-6 max-w-2xl">
-      <div className="mb-10">
-        <h1 className="text-4xl font-black font-headline tracking-tighter">My Activity</h1>
-        <p className="text-muted-foreground font-bold text-xs uppercase tracking-widest opacity-60">Track your current and past visits</p>
+      <div className="mb-10 flex justify-between items-end">
+        <div>
+            <h1 className="text-4xl font-black font-headline tracking-tighter">My Activity</h1>
+            <p className="text-muted-foreground font-bold text-xs uppercase tracking-widest opacity-60">
+                {user ? 'Cloud History Secured' : 'Device History (Guest)'}
+            </p>
+        </div>
+        {!user && (
+            <Badge variant="outline" className="rounded-full border-primary/20 text-primary font-black uppercase text-[8px] tracking-widest px-3 py-1">
+                <History className="h-3 w-3 mr-1.5" /> Local Access
+            </Badge>
+        )}
       </div>
 
       {ordersWithStores.length === 0 ? (
           <Card className="rounded-[2.5rem] border-0 shadow-xl p-12 text-center opacity-40">
               <ShoppingBag className="h-16 w-16 mx-auto mb-4" />
               <p className="font-black uppercase tracking-widest text-sm">No orders yet</p>
-              <Button asChild variant="link" className="mt-4"><Link href="/stores">Start Shopping</Link></Button>
+              <Button asChild variant="link" className="mt-4"><Link href="/stores">Find a Hub</Link></Button>
           </Card>
       ) : (
         <div className="space-y-6">
@@ -171,18 +182,24 @@ export default function MyOrdersPage() {
 
                             <Accordion type="single" collapsible className="w-full">
                                 <AccordionItem value="items" className="border-0">
-                                    <AccordionTrigger className="p-0 font-black uppercase text-[10px] tracking-widest opacity-40 hover:no-underline">View Items</AccordionTrigger>
+                                    <AccordionTrigger className="p-0 font-black uppercase text-[10px] tracking-widest opacity-40 hover:no-underline">View Details</AccordionTrigger>
                                     <AccordionContent className="pt-4">
-                                        <div className="space-y-2">
+                                        <div className="space-y-3">
                                             {order.items.map((it, idx) => (
                                                 <div key={idx} className="flex justify-between text-xs font-bold text-gray-700">
                                                     <span>{it.productName} x{it.quantity}</span>
                                                     <span>₹{(it.price * it.quantity).toFixed(0)}</span>
                                                 </div>
                                             ))}
-                                            <div className="pt-2 border-t border-dashed flex justify-between items-baseline">
-                                                <span className="text-[9px] font-black uppercase opacity-40">Grand Total</span>
-                                                <span className="text-lg font-black text-primary">₹{order.totalAmount.toFixed(2)}</span>
+                                            <div className="pt-3 border-t border-dashed space-y-3">
+                                                <div className="flex justify-between items-baseline">
+                                                    <span className="text-[9px] font-black uppercase opacity-40">Total</span>
+                                                    <span className="text-lg font-black text-primary">₹{order.totalAmount.toFixed(2)}</span>
+                                                </div>
+                                                <div className="p-3 rounded-xl bg-muted/30 text-[10px] space-y-1">
+                                                    <p className="font-black uppercase opacity-40">Delivery To:</p>
+                                                    <p className="font-bold text-gray-600 leading-tight">{order.deliveryAddress}</p>
+                                                </div>
                                             </div>
                                         </div>
                                     </AccordionContent>

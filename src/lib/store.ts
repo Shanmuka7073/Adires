@@ -1,4 +1,3 @@
-
 'use client';
 
 import { create } from 'zustand';
@@ -32,6 +31,7 @@ export interface AppState {
   error: Error | null;
   language: string;
   activeStoreId: string | null;
+  deviceId: string | null; // NEW: Persistent individual data key
   readCount: number;
   writeCount: number;
   incrementReadCount: (count?: number) => void;
@@ -40,6 +40,7 @@ export interface AppState {
   setActiveStoreId: (storeId: string | null) => void;
   setUserStore: (store: Store | null) => void;
   setAppReady: (ready: boolean) => void;
+  setDeviceId: (id: string) => void;
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
   getAllAliases: (key: string) => Record<string, string[]>;
   setLocales: (newLocales: Locales) => void;
@@ -73,6 +74,7 @@ export const useAppStore = create<AppState>()(
       error: null,
       language: getInitialLanguage(),
       activeStoreId: null,
+      deviceId: null,
       readCount: 0,
       writeCount: 0,
 
@@ -88,6 +90,7 @@ export const useAppStore = create<AppState>()(
       
       setUserStore: (store: Store | null) => set({ userStore: store }),
       setAppReady: (isReady: boolean) => set({ appReady: isReady }),
+      setDeviceId: (id: string) => set({ deviceId: id }),
       setLocales: (newLocales: Locales) => set({ locales: newLocales }),
       setCommands: (newCommands: Record<string, CommandGroup>) => set({ commands: newCommands }),
       setActiveStoreId: (storeId: string | null) => set({ activeStoreId: storeId }),
@@ -125,6 +128,12 @@ export const useAppStore = create<AppState>()(
 
           initializeTranslations({}); // No aliases cached locally anymore
 
+          // Handle Device ID Persistence
+          if (!get().deviceId) {
+              const newId = Math.random().toString(36).substring(2, 15);
+              set({ deviceId: newId });
+          }
+
           set({
             stores: businessStores,
             userStore,
@@ -159,6 +168,7 @@ export const useAppStore = create<AppState>()(
           userStore: state.userStore,
           language: state.language,
           activeStoreId: state.activeStoreId,
+          deviceId: state.deviceId,
       }),
     }
   )
