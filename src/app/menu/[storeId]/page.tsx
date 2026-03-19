@@ -63,7 +63,9 @@ import {
   Calculator,
   ShoppingBag,
   ArrowRight,
-  History
+  History,
+  Filter,
+  Leaf
 } from 'lucide-react';
 
 import {
@@ -108,6 +110,7 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import QRCode from 'qrcode.react';
 import { useAppStore } from '@/lib/store';
 import { useCart } from '@/lib/cart';
@@ -459,6 +462,7 @@ export default function PublicMenuPage() {
   const { storeId } = useParams<{ storeId: string }>();
   const searchParams = useSearchParams(); const { firestore } = useFirebase(); const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState(''); const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [vegOnly, setVegOnly] = useState(false);
   const [isDeliveryDetailsOpen, setIsDeliveryDetailsOpen] = useState(false); const [isModeDialogOpen, setIsModeDialogOpen] = useState(false); const [isUpiDialogOpen, setIsUpiDialogOpen] = useState(false);
   const [tableNumber, setTableNumber] = useState<string | null>(null); const [deliveryAddress, setDeliveryAddress] = useState(''); const [customerName, setCustomerName] = useState(''); const [phone, setPhone] = useState(''); const [deliveryCoords, setDeliveryCoords] = useState<{lat: number, lng: number} | null>(null);
   const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null); const [ingredientsData, setIngredientsData] = useState<GetIngredientsOutput | null>(null); const [isFetchingIngredients, startFetchingIngredients] = useTransition(); const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
@@ -521,8 +525,10 @@ export default function PublicMenuPage() {
     if (!menu?.items) return {};
     let filtered = menu.items.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
     if (selectedCategory) filtered = filtered.filter(i => i.category === selectedCategory);
+    if (vegOnly) filtered = filtered.filter(i => i.dietary === 'veg');
+    
     return filtered.reduce((acc, i) => { const c = i.category || 'Other'; if(!acc[c]) acc[c] = []; acc[c].push(i); return acc; }, {} as Record<string, MenuItem[]>);
-  }, [menu, searchTerm, selectedCategory]);
+  }, [menu, searchTerm, selectedCategory, vegOnly]);
 
   const currentOrderedCounts = useMemo(() => {
       const counts: Record<string, number> = {};
@@ -716,26 +722,85 @@ export default function PublicMenuPage() {
                   </Card>
               ) : (
                 <div className="space-y-6">
-                    <ScrollArea className="w-full whitespace-nowrap pb-1">
-                        <div className="flex gap-2 px-1">
-                            <button onClick={() => setSelectedCategory(null)} className={cn("rounded-lg px-4 h-8 font-black text-[9px] uppercase tracking-widest border transition-all", !selectedCategory ? "shadow-lg scale-105" : "opacity-40")} style={{ backgroundColor: !selectedCategory ? (theme?.primaryColor || '#FBC02D') : 'transparent', color: !selectedCategory ? (theme?.backgroundColor || '#1A1616') : (theme?.primaryColor || '#FBC02D'), borderColor: theme?.primaryColor || '#FBC02D' }}>All</button>
-                            {availableCategories.map(cat => (
-                                <button key={cat} onClick={() => setSelectedCategory(cat)} className={cn("rounded-lg px-4 h-8 font-black text-[9px] uppercase tracking-widest border transition-all", selectedCategory === cat ? "shadow-lg scale-105" : "opacity-40")} style={{ backgroundColor: selectedCategory === cat ? (theme?.primaryColor || '#FBC02D') : 'transparent', color: selectedCategory === cat ? (theme?.backgroundColor || '#1A1616') : (theme?.primaryColor || '#FBC02D'), borderColor: theme?.primaryColor || '#FBC02D' }}>{cat}</button>
-                            ))}
+                    <div className="flex gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/10 overflow-x-auto no-scrollbar">
+                        <button 
+                            onClick={() => setVegOnly(!vegOnly)}
+                            className={cn(
+                                "flex items-center gap-2 px-4 h-9 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all shrink-0 border-2",
+                                vegOnly ? "bg-green-600 border-green-500 text-white shadow-lg" : "bg-white/5 border-white/5 text-white/40"
+                            )}
+                        >
+                            <Leaf className={cn("h-3 w-3", vegOnly ? "text-white" : "text-green-600")} />
+                            Veg Only
+                        </button>
+                        <Separator orientation="vertical" className="h-9 bg-white/10" />
+                        <button 
+                            onClick={() => setSelectedCategory(null)} 
+                            className={cn(
+                                "px-4 h-9 rounded-xl font-black text-[9px] uppercase tracking-widest border-2 transition-all shrink-0", 
+                                !selectedCategory ? "bg-white/10 border-white/20 text-white" : "bg-transparent border-transparent text-white/40"
+                            )}
+                        >
+                            All
+                        </button>
+                        {availableCategories.map(cat => (
+                            <button 
+                                key={cat} 
+                                onClick={() => setSelectedCategory(cat)} 
+                                className={cn(
+                                    "px-4 h-9 rounded-xl font-black text-[9px] uppercase tracking-widest border-2 transition-all shrink-0", 
+                                    selectedCategory === cat ? "bg-white/10 border-white/20 text-white shadow-md" : "bg-transparent border-transparent text-white/40"
+                                )}
+                            >
+                                {cat}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="relative">
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 opacity-30 text-white" />
+                        <Input 
+                            placeholder="Find a dish..." 
+                            value={searchTerm} 
+                            onChange={(e) => setSearchTerm(e.target.value)} 
+                            className="h-12 rounded-2xl bg-white/5 border-2 pl-10 text-xs text-white placeholder:text-white/20 shadow-inner" 
+                            style={{ borderColor: theme?.primaryColor + '10' }} 
+                        />
+                        {searchTerm && (
+                            <button 
+                                onClick={() => setSearchTerm('')}
+                                className="absolute right-3.5 top-1/2 -translate-y-1/2 h-5 w-5 bg-white/10 rounded-full flex items-center justify-center"
+                            >
+                                <X className="h-3 w-3 text-white/60" />
+                            </button>
+                        )}
+                    </div>
+
+                    {Object.keys(groupedMenu).length > 0 ? (
+                        Object.entries(groupedMenu).map(([category, items]) => (
+                            <section key={category} className="space-y-3">
+                                <h2 className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40 px-1" style={{ color: theme?.textColor || '#fff' }}>{category}</h2>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {items.map((item) => (
+                                        <MenuCard key={item.id} item={item} onAdd={handleAddItem} onShowDetails={handleShowIngredients} recentlyAdded={recentlyAdded.has(item.id)} currentQuantityInOrder={currentOrderedCounts[item.name] || 0} theme={theme} />
+                                    ))}
+                                </div>
+                            </section>
+                        ))
+                    ) : (
+                        <div className="text-center py-24 bg-white/5 rounded-[2.5rem] border-2 border-dashed border-white/10 opacity-40">
+                            <AlertTriangle className="h-10 w-10 mx-auto mb-4 text-white" />
+                            <p className="text-[10px] font-black uppercase tracking-widest text-white">No items found</p>
+                            <Button 
+                                variant="link" 
+                                size="sm" 
+                                className="mt-2 text-primary font-bold uppercase text-[8px] tracking-widest"
+                                onClick={() => { setSearchTerm(''); setSelectedCategory(null); setVegOnly(false); }}
+                            >
+                                Clear All Filters
+                            </Button>
                         </div>
-                        <ScrollBar orientation="horizontal" className="opacity-0" />
-                    </ScrollArea>
-                    <div className="relative"><Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 opacity-30 text-white" /><Input placeholder="Search dishes..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-11 rounded-xl bg-white/5 border pl-10 text-xs text-white placeholder:text-white/20" style={{ borderColor: theme?.primaryColor + '10' }} /></div>
-                    {Object.entries(groupedMenu).map(([category, items]) => (
-                        <section key={category} className="space-y-3">
-                            <h2 className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40 px-1" style={{ color: theme?.textColor || '#fff' }}>{category}</h2>
-                            <div className="grid grid-cols-2 gap-2">
-                                {items.map((item) => (
-                                    <MenuCard key={item.id} item={item} onAdd={handleAddItem} onShowDetails={handleShowIngredients} recentlyAdded={recentlyAdded.has(item.id)} currentQuantityInOrder={currentOrderedCounts[item.name] || 0} theme={theme} />
-                                ))}
-                            </div>
-                        </section>
-                    ))}
+                    )}
                 </div>
               )}
             </div>
