@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -437,6 +438,7 @@ export default function PublicMenuPage() {
   const [isDeliveryDetailsOpen, setIsDeliveryDetailsOpen] = useState(false); const [isModeDialogOpen, setIsModeDialogOpen] = useState(false); const [isUpiDialogOpen, setIsUpiDialogOpen] = useState(false);
   const [tableNumber, setTableNumber] = useState<string | null>(null); const [deliveryAddress, setDeliveryAddress] = useState(''); const [customerName, setCustomerName] = useState(''); const [phone, setPhone] = useState(''); const [deliveryCoords, setDeliveryCoords] = useState<{lat: number, lng: number} | null>(null);
   const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null); const [ingredientsData, setIngredientsData] = useState<GetIngredientsOutput | null>(null); const [isFetchingIngredients, startFetchingIngredients] = useTransition(); const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
+  const [isAdding, startAdding] = useTransition();
   const { canInstall, triggerInstall } = useInstall();
   const { isInitialized, fetchInitialData } = useAppStore();
   const { cartItems, addItem, clearCart } = useCart();
@@ -520,56 +522,58 @@ export default function PublicMenuPage() {
     if (!tableNumber && (!deliveryAddress || !customerName || !phone)) { setIsDeliveryDetailsOpen(true); return; }
     if (!firestore) return;
 
-    const isCounter = tableNumber === 'Counter';
-    const orderId = doc(collection(firestore, 'orders')).id;
-    const orderRef = doc(firestore, 'orders', orderId);
+    startAdding(async () => {
+        const isCounter = tableNumber === 'Counter';
+        const orderId = doc(collection(firestore, 'orders')).id;
+        const orderRef = doc(firestore, 'orders', orderId);
 
-    const orderItems: OrderItem[] = cartItems.map(item => ({
-      id: crypto.randomUUID(), 
-      orderId: orderId,
-      productId: item.product.id,
-      menuItemId: item.product.id, 
-      productName: item.product.name, 
-      variantSku: item.variant.sku,
-      variantWeight: item.variant.weight, 
-      quantity: item.quantity, 
-      price: item.variant.price,
-      selectedCustomizations: item.selectedCustomizations
-    }));
-
-    const totalAmount = orderItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-
-    const orderData = {
-      id: orderId, 
-      storeId: storeId, 
-      tableNumber: tableNumber ? String(tableNumber) : null,
-      sessionId: sessionId,
-      userId: 'guest',
-      customerName: customerName || (tableNumber === 'Counter' ? 'Walk-in Guest' : (tableNumber ? `Table ${tableNumber}` : 'Guest')),
-      deliveryAddress: deliveryAddress || (tableNumber ? 'In-store dining' : 'TBD'),
-      deliveryLat: deliveryCoords?.lat || 0,
-      deliveryLng: deliveryCoords?.lng || 0,
-      phone: phone || '',
-      status: isCounter ? 'Billed' : 'Pending',
-      orderType: tableNumber === 'Counter' ? 'counter' : (tableNumber ? 'dine-in' : 'delivery'),
-      isActive: true, 
-      orderDate: serverTimestamp(), 
-      updatedAt: serverTimestamp(),
-      items: orderItems,
-      totalAmount: totalAmount,
-    };
-
-    setDoc(orderRef, orderData).catch(async (e) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: orderRef.path,
-            operation: 'create',
-            requestResourceData: orderData
+        const orderItems: OrderItem[] = cartItems.map(item => ({
+          id: crypto.randomUUID(), 
+          orderId: orderId,
+          productId: item.product.id,
+          menuItemId: item.product.id, 
+          productName: item.product.name, 
+          variantSku: item.variant.sku,
+          variantWeight: item.variant.weight, 
+          quantity: item.quantity, 
+          price: item.variant.price,
+          selectedCustomizations: item.selectedCustomizations
         }));
+
+        const totalAmount = orderItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+
+        const orderData = {
+          id: orderId, 
+          storeId: storeId, 
+          tableNumber: tableNumber ? String(tableNumber) : null,
+          sessionId: sessionId,
+          userId: 'guest',
+          customerName: customerName || (tableNumber === 'Counter' ? 'Walk-in Guest' : (tableNumber ? `Table ${tableNumber}` : 'Guest')),
+          deliveryAddress: deliveryAddress || (tableNumber ? 'In-store dining' : 'TBD'),
+          deliveryLat: deliveryCoords?.lat || 0,
+          deliveryLng: deliveryCoords?.lng || 0,
+          phone: phone || '',
+          status: isCounter ? 'Billed' : 'Pending',
+          orderType: tableNumber === 'Counter' ? 'counter' : (tableNumber ? 'dine-in' : 'delivery'),
+          isActive: true, 
+          orderDate: serverTimestamp(), 
+          updatedAt: serverTimestamp(),
+          items: orderItems,
+          totalAmount: totalAmount,
+        };
+
+        setDoc(orderRef, orderData).catch(async (e) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: orderRef.path,
+                operation: 'create',
+                requestResourceData: orderData
+            }));
+        });
+        
+        toast({ title: isCounter ? 'Bill Generated!' : 'Sent to Kitchen!' }); 
+        clearCart(); 
+        if(isCounter) handleStartNewOrder(); 
     });
-    
-    toast({ title: isCounter ? 'Bill Generated!' : 'Sent to Kitchen!' }); 
-    clearCart(); 
-    if(isCounter) handleStartNewOrder(); 
   };
 
   const handleFinalizeBill = () => { 
