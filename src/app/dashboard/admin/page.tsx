@@ -14,7 +14,10 @@ import {
   Cog,
   Sparkles,
   BarChart3,
-  PackageCheck
+  PackageCheck,
+  Beaker,
+  Lightbulb,
+  ImageIcon
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -206,6 +209,12 @@ export default async function AdminDashboardPage() {
           <ActionCard title="Master Catalog" description="Global product and price control." href="/dashboard/owner/my-store" icon={Store} />
           <ActionCard title="Voice Commands" description="Natural language mapping." href="/dashboard/voice-commands" icon={Mic} />
           <ActionCard title="Security Rules" description="Firestore protection policy." href="/dashboard/admin/security-rules" icon={Shield} />
+          
+          {/* Restored tools */}
+          <ActionCard title="Item Specialist" description="Recipe and cost engineering." href="/dashboard/admin/recipe-tester" icon={Beaker} />
+          <ActionCard title="Failed Commands" description="AI training from logs." href="/dashboard/admin/failed-commands" icon={Bot} />
+          <ActionCard title="AI Training" description="Alias extraction ground." href="/dashboard/admin/training-ground" icon={Lightbulb} />
+          <ActionCard title="Image Control" description="Manage all platform visuals." href="/dashboard/admin/image-management" icon={ImageIcon} />
         </div>
       </section>
       
