@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Suspense, useState, useEffect, useTransition } from 'react';
@@ -70,18 +71,30 @@ function KPICard({ title, value, subValue, trendValue, icon: Icon, color }: any)
   );
 }
 
-function CommandCard({ title, icon: Icon, color, command, onExecute }: any) {
+function CommandCard({ title, icon: Icon, color, command, onExecute, variant = 'default' }: any) {
+    const isDestructive = variant === 'destructive';
     return (
-        <Card className="rounded-2xl border-0 shadow-md group hover:shadow-xl transition-all overflow-hidden border-2 border-transparent hover:border-black/5 bg-white">
+        <Card className={cn(
+            "rounded-2xl border-0 shadow-md group hover:shadow-xl transition-all overflow-hidden border-2 border-transparent hover:border-black/5 bg-white",
+            isDestructive && "border-red-100 bg-red-50/30"
+        )}>
             <CardContent className="p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center text-white shadow-inner", color)}>
                         <Icon className="h-4 w-4" />
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-tight">{title}</span>
+                    <span className={cn("text-[10px] font-black uppercase tracking-tight", isDestructive && "text-red-900")}>{title}</span>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => onExecute(command)} className="h-8 rounded-lg text-[8px] font-black uppercase bg-black/5 hover:bg-black/10">
-                    Execute
+                <Button 
+                    variant={isDestructive ? 'destructive' : 'ghost'} 
+                    size="sm" 
+                    onClick={() => onExecute(command)} 
+                    className={cn(
+                        "h-8 rounded-lg text-[8px] font-black uppercase",
+                        !isDestructive && "bg-black/5 hover:bg-black/10"
+                    )}
+                >
+                    {isDestructive ? 'Disable' : 'Execute'}
                 </Button>
             </CardContent>
         </Card>
@@ -243,7 +256,11 @@ export default function AdminDashboardPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     <CommandCard title="Boost Partner Rewards" icon={Zap} color="bg-indigo-500" command="reward_boost" onExecute={handleExecute} />
                     <CommandCard title="Trigger Flash Promo" icon={Sparkles} color="bg-primary" command="flash_promo" onExecute={handleExecute} />
-                    <CommandCard title="Maintenance Mode" icon={ZapOff} color="bg-red-500" command="maintenance_on" onExecute={handleExecute} />
+                    {data.isMaintenance ? (
+                        <CommandCard title="Disable Maintenance" icon={ZapOff} color="bg-red-600" command="maintenance_off" onExecute={handleExecute} variant="destructive" />
+                    ) : (
+                        <CommandCard title="Enable Maintenance" icon={ZapOff} color="bg-red-500" command="maintenance_on" onExecute={handleExecute} />
+                    )}
                 </div>
             </div>
 

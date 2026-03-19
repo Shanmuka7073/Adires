@@ -153,7 +153,6 @@ export async function executeCommand(commandType: string) {
                 return { success: true, message: 'App set to Maintenance Mode.' };
 
             case 'maintenance_off':
-            case 'maintenance_off':
                 await db.collection('siteConfig').doc('appStatus').set({ 
                     isMaintenance: false,
                     updatedAt: timestamp
