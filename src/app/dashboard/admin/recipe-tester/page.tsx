@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Beaker, Check, AlertTriangle, ShoppingCart, BookUp, PlusCircle, Sparkles } from 'lucide-react';
+import { Loader2, Beaker, Check, AlertTriangle, ShoppingCart, BookUp, PlusCircle, Sparkles, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getIngredientsForDish, addIngredientsToCatalog } from '@/app/actions';
 import type { GetIngredientsOutput, Ingredient, RestaurantIngredient } from '@/lib/types';
