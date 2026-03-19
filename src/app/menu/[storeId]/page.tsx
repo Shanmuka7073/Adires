@@ -60,7 +60,8 @@ import {
   Truck,
   X,
   Calculator,
-  ShoppingBag
+  ShoppingBag,
+  ArrowRight
 } from 'lucide-react';
 
 import {
@@ -95,6 +96,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { getIngredientsForDish } from '@/app/actions';
 import { useInstall } from '@/components/install-provider';
