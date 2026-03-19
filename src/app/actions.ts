@@ -10,8 +10,6 @@ import { getApps } from 'firebase-admin/app';
 
 /**
  * EXECUTIVE DECISION ENGINE
- * Derives business intelligence from orders, users, and stores.
- * Calculated trend lines and operational risks for the Command Hub.
  */
 export async function getPlatformAnalytics() {
     try {
@@ -24,7 +22,6 @@ export async function getPlatformAnalytics() {
         const startTimestamp = Timestamp.fromDate(todayStart);
         const yesterdayTimestamp = Timestamp.fromDate(yesterdayStart);
 
-        // 1. Parallel Fetch for Core Intelligence
         const [
             userCount, 
             storeCount, 
@@ -32,7 +29,8 @@ export async function getPlatformAnalytics() {
             yesterdayOrdersSnap,
             activeSessionsSnap,
             allSuccessfulOrdersSnap,
-            deliveryPartnersSnap
+            deliveryPartnersSnap,
+            appStatusSnap
         ] = await Promise.all([
             db.collection('users').count().get(),
             db.collection('stores').where('isClosed', '!=', true).count().get(),
@@ -40,28 +38,35 @@ export async function getPlatformAnalytics() {
             db.collection('orders').where('orderDate', '>=', yesterdayTimestamp).where('orderDate', '<', todayStart).get(),
             db.collection('orders').where('isActive', '==', true).count().get(),
             db.collection('orders').where('status', 'in', ['Delivered', 'Completed']).get(),
-            db.collection('deliveryPartners').get()
+            db.collection('deliveryPartners').get(),
+            db.collection('siteConfig').doc('appStatus').get()
         ]);
 
         const todayOrders = todayOrdersSnap.docs.map(d => d.data() as Order);
         const yesterdayOrders = yesterdayOrdersSnap.docs.map(d => d.data() as Order);
         const successfulOrders = allSuccessfulOrdersSnap.docs.map(d => d.data() as Order);
         const partners = deliveryPartnersSnap.docs.map(d => d.data());
+        const appStatus = appStatusSnap.data() || { isMaintenance: false };
 
-        // 2. Revenue & Trend Calculations
         const revenueToday = todayOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
         const revenueYesterday = yesterdayOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
         const revenueTrend = revenueYesterday > 0 ? ((revenueToday - revenueYesterday) / revenueYesterday) * 100 : 0;
 
-        // 3. AOV Logic
         const aov = successfulOrders.length > 0 ? successfulOrders.reduce((acc, o) => acc + o.totalAmount, 0) / successfulOrders.length : 0;
         const aovYesterday = yesterdayOrders.length > 0 ? yesterdayOrders.reduce((acc, o) => acc + o.totalAmount, 0) / yesterdayOrders.length : 0;
         const aovTrend = aovYesterday > 0 ? ((aov - aovYesterday) / aovYesterday) * 100 : 0;
 
-        // 4. Operational Risk Engine (The Decision Layer)
         const decisions = [];
         
-        // Risk: Zone Bottleneck
+        if (appStatus.isMaintenance) {
+            decisions.push({
+                type: 'critical',
+                title: 'Platform Halted',
+                message: 'Maintenance Mode is currently ACTIVE. Standard users are locked out.',
+                action: 'Maintenance Off'
+            });
+        }
+
         const zoneLoad: Record<string, number> = {};
         todayOrders.filter(o => o.status === 'Pending').forEach(o => {
             if (o.zoneId) zoneLoad[o.zoneId] = (zoneLoad[o.zoneId] || 0) + 1;
@@ -79,17 +84,6 @@ export async function getPlatformAnalytics() {
             }
         });
 
-        // Opportunity: Low Conversion
-        if (activeSessionsSnap.data().count > todayOrders.length * 2) {
-            decisions.push({
-                type: 'warning',
-                title: 'Conversion Drop',
-                message: 'High active sessions but low order conversion. Suggesting flash promo.',
-                action: 'Trigger Flash Promo'
-            });
-        }
-
-        // 5. Leaderboard with Depth
         const storeRevenueMap = new Map<string, { revenue: number, orderCount: number, name: string, businessType: string }>();
         successfulOrders.forEach(o => {
             const current = storeRevenueMap.get(o.storeId) || { revenue: 0, orderCount: 0, name: o.storeName || 'Verified Store', businessType: o.orderType || 'Retail' };
@@ -114,20 +108,17 @@ export async function getPlatformAnalytics() {
             activeSessions: activeSessionsSnap.data().count || 0,
             fulfillmentRate: 98.4,
             decisions,
-            topStores
+            topStores,
+            isMaintenance: appStatus.isMaintenance || false
         };
     } catch (error: any) {
         console.error("Platform Analytics failed:", error);
         return {
-            totalUsers: 0, totalStores: 0, ordersToday: 0, revenueToday: 0, revenueTrend: 0, aov: 0, aovTrend: 0, activeSessions: 0, fulfillmentRate: 0, decisions: [], topStores: []
+            totalUsers: 0, totalStores: 0, ordersToday: 0, revenueToday: 0, revenueTrend: 0, aov: 0, aovTrend: 0, activeSessions: 0, fulfillmentRate: 0, decisions: [], topStores: [], isMaintenance: false
         };
     }
 }
 
-/**
- * EXECUTIVE COMMANDS
- * Direct platform-wide execution triggers.
- */
 export async function executeCommand(commandType: string) {
     const { db } = await getAdminServices();
     const timestamp = Timestamp.now();
@@ -140,7 +131,7 @@ export async function executeCommand(commandType: string) {
                     multiplier: 1.5,
                     active: true,
                     updatedAt: timestamp,
-                    expiresAt: Timestamp.fromDate(new Date(Date.now() + 2 * 60 * 60 * 1000)) // 2 hours
+                    expiresAt: Timestamp.fromDate(new Date(Date.now() + 2 * 60 * 60 * 1000))
                 }, { merge: true });
                 return { success: true, message: 'Partner rewards boosted platform-wide.' };
             
@@ -161,6 +152,14 @@ export async function executeCommand(commandType: string) {
                 }, { merge: true });
                 return { success: true, message: 'App set to Maintenance Mode.' };
 
+            case 'maintenance_off':
+            case 'maintenance_off':
+                await db.collection('siteConfig').doc('appStatus').set({ 
+                    isMaintenance: false,
+                    updatedAt: timestamp
+                }, { merge: true });
+                return { success: true, message: 'App is now LIVE again.' };
+
             default:
                 throw new Error(`Command "${commandType}" is not implemented.`);
         }
@@ -169,9 +168,6 @@ export async function executeCommand(commandType: string) {
     }
 }
 
-/**
- * Allows Asha to read the source code of the current page for analysis.
- */
 export async function getFileContent(relativeFilePath: string): Promise<string> {
     try {
         const sanitizedPath = relativeFilePath.replace(/\.\./g, '').replace(/^\/+/, '');

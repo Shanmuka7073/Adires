@@ -12,7 +12,7 @@ import { useAppStore } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
 import { usePathname } from 'next/navigation';
 import { BottomNavBar } from './bottom-nav-bar';
-import { useFirebase } from '@/firebase';
+import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { PriceCheckDisplay, PriceCheckInfo } from './price-check-display';
 import { useInstall } from '../install-provider';
 import { VoiceCommandContext } from './voice-commander-context';
@@ -20,6 +20,51 @@ import { FirestoreCounter } from './firestore-counter';
 import { AshaStrategicOverlay } from './asha-strategic-overlay';
 import { AshaProvider } from './asha-context';
 import { OfflineStatus } from './offline-status';
+import { doc } from 'firebase/firestore';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
+import { Cog, Zap } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+
+/**
+ * Maintenance Screen for standard users.
+ */
+function MaintenanceOverlay() {
+    return (
+        <div className="fixed inset-0 z-[300] bg-background flex items-center justify-center p-6 text-center">
+            <Card className="max-w-md rounded-[3rem] border-0 shadow-2xl p-10 bg-white">
+                <CardHeader className="flex flex-col items-center gap-6">
+                    <div className="h-20 w-20 rounded-[2.5rem] bg-amber-500 flex items-center justify-center text-white shadow-xl shadow-amber-500/20 animate-pulse">
+                        <Cog className="h-10 w-10 animate-spin-slow" />
+                    </div>
+                    <div>
+                        <CardTitle className="text-3xl font-black font-headline tracking-tighter uppercase italic">System Upgrade</CardTitle>
+                        <CardDescription className="font-bold text-gray-500 mt-2">
+                            Adires is briefly offline for platform maintenance.
+                        </CardDescription>
+                    </div>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <p className="text-sm font-medium text-gray-600 leading-relaxed">
+                        We are currently scaling our servers to provide you with a faster, smoother experience. We'll be back online in a few moments!
+                    </p>
+                    <div className="p-4 bg-muted/30 rounded-2xl border border-black/5 flex items-center gap-3">
+                        <Zap className="h-5 w-5 text-primary" />
+                        <p className="text-[10px] font-black uppercase tracking-widest text-primary">Status: Scaling Resources</p>
+                    </div>
+                </CardContent>
+            </Card>
+            <style jsx global>{`
+                @keyframes spin-slow {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+                .animate-spin-slow {
+                    animation: spin-slow 8s linear infinite;
+                }
+            `}</style>
+        </div>
+    );
+}
 
 export function MainLayout({ 
   children,
@@ -28,19 +73,22 @@ export function MainLayout({
 }) {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState('Click the mic to start listening.');
-  const [isCartOpen, setIsCartOpen] = useState(false);
   const { cartItems } = useCart();
-  const { toast } = useToast();
   const pathname = usePathname();
   
-  const { user } = useFirebase();
-  
+  const { user, firestore } = useFirebase();
+  const { isAdmin } = useAdminAuth();
   const { setLanguage, isInitialized } = useAppStore();
   const [priceCheckInfo, setPriceCheckInfo] = useState<PriceCheckInfo | null>(null);
 
   const [voiceTrigger, setVoiceTrigger] = useState(0);
   const [retryCommandText, setRetryCommandText] = useState<string | null>(null);
   const { triggerInstall } = useInstall();
+
+  // Listen for Global Maintenance Mode
+  const statusRef = useMemoFirebase(() => firestore ? doc(firestore, 'siteConfig', 'appStatus') : null, [firestore]);
+  const { data: appStatus } = useDoc<any>(statusRef);
+  const isMaintenanceActive = appStatus?.isMaintenance && !isAdmin;
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -73,13 +121,14 @@ export function MainLayout({
             retryCommand, 
             showPriceCheck, 
             hidePriceCheck,
-            onCartOpenChange: setIsCartOpen,
-            isCartOpen,
+            onCartOpenChange: (open) => {}, // Stub
+            isCartOpen: false, // Stub
             voiceEnabled,
             voiceStatus,
             onToggleVoice: () => setVoiceEnabled(prev => !prev),
         }}>
             <div className="relative flex min-h-dvh flex-col bg-background">
+            {isMaintenanceActive && <MaintenanceOverlay />}
             <OfflineStatus />
             <Header 
                 suggestedCommands={[]} 
@@ -88,10 +137,8 @@ export function MainLayout({
                 <VoiceCommander 
                     enabled={voiceEnabled} 
                     onStatusUpdate={setVoiceStatus}
-                    onSuggestions={() => {}} 
-                    onOpenCart={() => setIsCartOpen(true)}
-                    onCloseCart={() => setIsCartOpen(false)}
-                    isCartOpen={isCartOpen}
+                    onOpenCart={() => {}}
+                    onCloseCart={() => {}}
                     cartItems={cartItems}
                     voiceTrigger={voiceTrigger}
                     triggerVoicePrompt={triggerVoicePrompt}
