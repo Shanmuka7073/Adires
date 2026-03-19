@@ -3,17 +3,16 @@ const withPWA = require('next-pwa')({
   dest: 'public',
   register: true,
   skipWaiting: true,
-  disable: false, // Always enabled for complete offline functionality
+  disable: false, // Force PWA enabled in dev for offline testing
   runtimeCaching: [
     {
-      // Aggressive caching for static assets (JS, CSS, etc.)
       urlPattern: /^\/_next\/static\/.*/i,
       handler: 'CacheFirst',
       options: {
         cacheName: 'static-assets',
         expiration: {
           maxEntries: 64,
-          maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+          maxAgeSeconds: 30 * 24 * 60 * 60,
         },
       },
     },
@@ -24,46 +23,18 @@ const withPWA = require('next-pwa')({
         cacheName: 'unsplash-images',
         expiration: {
           maxEntries: 100,
-          maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
-        },
-      },
-    },
-    {
-      urlPattern: /^https:\/\/i\.ibb\.co\/.*/i,
-      handler: 'CacheFirst',
-      options: {
-        cacheName: 'external-logos',
-        expiration: {
-          maxEntries: 20,
           maxAgeSeconds: 30 * 24 * 60 * 60,
         },
       },
     },
     {
-      urlPattern: /^https:\/\/picsum\.photos\/.*/i,
-      handler: 'CacheFirst',
-      options: {
-        cacheName: 'placeholder-images',
-        expiration: {
-          maxEntries: 50,
-          maxAgeSeconds: 30 * 24 * 60 * 60,
-        },
-      },
-    },
-    {
-      /**
-       * CHANGED TO StaleWhileRevalidate:
-       * This is the secret to instant offline navigation. 
-       * It pulls from the cache immediately (0 seconds wait)
-       * while updating the cache in the background if possible.
-       */
       urlPattern: /\/dashboard|\/menu/i,
       handler: 'StaleWhileRevalidate',
       options: {
         cacheName: 'management-routes',
         expiration: {
           maxEntries: 32,
-          maxAgeSeconds: 24 * 60 * 60, // 24 Hours
+          maxAgeSeconds: 24 * 60 * 60,
         },
       },
     },
@@ -82,40 +53,29 @@ const nextConfig = {
       { protocol: 'https', hostname: 'storage.googleapis.com' },
     ],
   },
-
   experimental: {
     serverActions: {
       bodySizeLimit: '4.5mb',
     },
     esmExternals: false,
   },
-
-  webpack: (
-    config,
-    { buildId, dev, isServer, defaultLoaders, nextRuntime, webpack }
-  ) => {
+  webpack: (config, { isServer }) => {
     if (!isServer) {
-        config.resolve.fallback = {
-            ...config.resolve.fallback,
-            net: false,
-            dns: false,
-            tls: false,
-            fs: false,
-            child_process: false,
-        };
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        net: false,
+        dns: false,
+        tls: false,
+        fs: false,
+        child_process: false,
+      };
     }
-    if (isServer) {
-        config.externals.push('@genkit-ai/google-genai', 'genkit', '@opentelemetry/api');
-    }
-    
     config.module.rules.push({
       test: /\.rules$/,
       type: 'asset/source',
     });
-
-    return config
+    return config;
   },
-
   transpilePackages: [
     'firebase',
     '@firebase/app',

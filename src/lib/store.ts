@@ -3,8 +3,8 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Firestore, collection, getDocs, query, where, limit, doc, getDoc } from 'firebase/firestore';
-import { Store, Product, ProductPrice, VoiceAliasGroup, User } from './types';
+import { Firestore, collection, getDocs, query, where, limit } from 'firebase/firestore';
+import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
 import { getStores, getMasterProducts } from './data';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
@@ -30,7 +30,7 @@ export interface AppState {
   commands: Record<string, CommandGroup>;
   loading: boolean;
   isInitialized: boolean;
-  appReady: boolean; // Flag to indicate if the UI should be unlocked
+  appReady: boolean;
   error: Error | null;
   language: string;
   activeStoreId: string | null;
@@ -44,7 +44,6 @@ export interface AppState {
   setAppReady: (ready: boolean) => void;
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
   fetchExtendedData: (db: Firestore) => Promise<void>;
-  fetchUserStore: (db: Firestore, userId: string) => Promise<void>;
   fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
   getProductName: (product: Product) => string;
   getAllAliases: (key: string) => Record<string, string[]>;
@@ -89,17 +88,12 @@ export const useAppStore = create<AppState>()(
       
       setUserStore: (store: Store | null) => set({ userStore: store }),
       setAppReady: (ready: boolean) => set({ appReady: ready }),
-
       setLocales: (newLocales: Locales) => set({ locales: newLocales }),
       setCommands: (newCommands: Record<string, CommandGroup>) => set({ commands: newCommands }),
-      
-      setActiveStoreId: (storeId: string | null) => {
-        set({ activeStoreId: storeId });
-      },
+      setActiveStoreId: (storeId: string | null) => set({ activeStoreId: storeId }),
 
       fetchInitialData: async (db: Firestore, userId?: string) => {
         if (get().loading) return;
-
         set({ loading: true, error: null });
         
         try {
@@ -109,11 +103,9 @@ export const useAppStore = create<AppState>()(
           ]);
           
           let userStore = get().userStore; 
-          
           if (userId) {
               const ownerQuery = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
               const ownerSnap = await getDocs(ownerQuery);
-              
               if (!ownerSnap.empty) {
                   userStore = { id: ownerSnap.docs[0].id, ...ownerSnap.docs[0].data() } as Store;
               }
@@ -138,8 +130,7 @@ export const useAppStore = create<AppState>()(
           get().fetchExtendedData(db);
           
         } catch (error) {
-          console.error("Failed to fetch initial app data:", error);
-          // UNLOCK even on error to allow offline use of persisted data
+          console.error("fetchInitialData failed:", error);
           set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
@@ -153,7 +144,6 @@ export const useAppStore = create<AppState>()(
 
               const voiceAliasGroups = aliasDocs.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
               const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
-              
               initializeTranslations(locales); 
 
               set({ masterProducts, locales });
@@ -162,27 +152,13 @@ export const useAppStore = create<AppState>()(
                 await get().fetchProductPrices(db, masterProducts.map(p => p.name));
               }
           } catch (e) {
-              console.error("Background extended data fetch failed:", e);
-          }
-      },
-
-      fetchUserStore: async (db: Firestore, userId: string) => {
-          try {
-              const ownerQuery = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
-              const ownerSnap = await getDocs(ownerQuery);
-              if (!ownerSnap.empty) {
-                  const userStore = { id: ownerSnap.docs[0].id, ...ownerSnap.docs[0].data() } as Store;
-                  set({ userStore });
-              }
-          } catch (error) {
-              console.error("Failed to fetch user store specifically:", error);
+              console.error("fetchExtendedData failed:", e);
           }
       },
       
       fetchProductPrices: async (db: Firestore, productNames: string[]) => {
           const { productPrices, incrementReadCount } = get();
           const namesToFetch = productNames.filter(name => name && productPrices[name.toLowerCase()] === undefined);
-
           if (namesToFetch.length === 0) return;
           
           try {
@@ -196,9 +172,7 @@ export const useAppStore = create<AppState>()(
                       const priceQuery = query(collection(db, 'productPrices'), where('productName', 'in', batchNames));
                       const priceSnapshot = await getDocs(priceQuery);
                       totalReads++;
-                      
                       const fetchedPrices = new Map(priceSnapshot.docs.map(doc => [doc.id, doc.data() as ProductPrice]));
-                      
                       batchNames.forEach(name => {
                           pricesToUpdate[name] = fetchedPrices.get(name) || null;
                       });
@@ -210,7 +184,7 @@ export const useAppStore = create<AppState>()(
                   productPrices: { ...state.productPrices, ...pricesToUpdate }
               }));
           } catch (error) {
-              console.error("Failed to fetch product prices:", error);
+              console.error("fetchProductPrices failed:", error);
           }
       },
 
@@ -247,12 +221,9 @@ export const useInitializeApp = () => {
     const { fetchInitialData, isInitialized, loading, stores, userStore, setAppReady } = useAppStore();
 
     useEffect(() => {
-        // STRATEGY: If we already have stores or userStore from localStorage, the app is ready.
-        // This makes navigation instantaneous while offline.
         if (stores.length > 0 || userStore) {
             setAppReady(true);
         }
-
         if (firestore && !isInitialized && !loading) {
             fetchInitialData(firestore, user?.uid);
         }
@@ -260,23 +231,3 @@ export const useInitializeApp = () => {
 
     return { isLoading: !isInitialized && loading };
 };
-
-interface ProfileFormState {
-  form: UseFormReturn<ProfileFormValues> | null;
-  setForm: (form: UseFormReturn<ProfileFormValues> | null) => void;
-}
-
-export const useProfileFormStore = create<ProfileFormState>((set) => ({
-  form: null,
-  setForm: (form) => set({ form }),
-}));
-
-interface MyStorePageState {
-  saveInventoryBtnRef: RefObject<HTMLButtonElement> | null;
-  setSaveInventoryBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
-}
-
-export const useMyStorePageStore = create<MyStorePageState>((set) => ({
-  saveInventoryBtnRef: null,
-  setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
-}));
