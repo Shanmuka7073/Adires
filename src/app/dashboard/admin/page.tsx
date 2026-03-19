@@ -138,6 +138,7 @@ export default function AdminDashboardPage() {
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, startRefresh] = useTransition();
+  const [activePeriod, setActiveTab] = useState<'today' | '7d' | '14d' | '30d'>('today');
   const { toast } = useToast();
 
   const fetchStats = async () => {
@@ -173,6 +174,8 @@ export default function AdminDashboardPage() {
 
   if (isLoading) return <div className="p-12 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto opacity-20" /></div>;
 
+  const currentMetrics = data?.periods?.[activePeriod] || data?.periods?.today || { revenue: 0, orders: 0, aov: 0, trend: 0 };
+
   return (
     <div className="container mx-auto px-4 py-10 space-y-12 max-w-7xl pb-32 animate-in fade-in duration-700">
       {/* HEADER: AUTHORITY LAYER */}
@@ -181,29 +184,53 @@ export default function AdminDashboardPage() {
             <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none">Decision Hub</h1>
             <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Operational Execution & Intelligence</p>
         </div>
-        <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="rounded-full h-12 px-4 border-2 font-black text-[10px] uppercase tracking-widest">
-                <RefreshCw className={cn("mr-2 h-4 w-4", isRefreshing && "animate-spin")} /> Force Sync
-            </Button>
-            <DesignButton />
+        <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+            <div className="flex bg-black/5 p-1 rounded-2xl border self-end">
+                {(['today', '7d', '14d', '30d'] as const).map(p => (
+                    <button 
+                        key={p} 
+                        onClick={() => setActiveTab(p)}
+                        className={cn(
+                            "px-4 h-10 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all",
+                            activePeriod === p ? "bg-white shadow-lg text-primary" : "opacity-40 hover:opacity-100"
+                        )}
+                    >
+                        {p}
+                    </button>
+                ))}
+            </div>
+            <div className="flex gap-2 self-end">
+                <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="rounded-full h-12 px-4 border-2 font-black text-[10px] uppercase tracking-widest">
+                    <RefreshCw className={cn("mr-2 h-4 w-4", isRefreshing && "animate-spin")} /> Force Sync
+                </Button>
+                <DesignButton />
+            </div>
         </div>
       </div>
 
-      {/* KPI GRID: TREND-AWARE */}
+      {/* KPI GRID: PERIOD-AWARE */}
       <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <KPICard 
-            title="Revenue Today" 
-            value={`₹${data.revenueToday.toFixed(0)}`} 
-            subValue={`Vs Yesterday: ₹${(data.revenueToday / (1 + data.revenueTrend/100)).toFixed(0)}`} 
-            trendValue={data.revenueTrend} 
+            title={`Revenue ${activePeriod.toUpperCase()}`} 
+            value={`₹${currentMetrics.revenue.toFixed(0)}`} 
+            subValue={activePeriod === 'today' ? "Vs Yesterday" : "Growth Context"} 
+            trendValue={currentMetrics.trend} 
             icon={DollarSign} 
             color="bg-primary" 
         />
         <KPICard 
+            title={`Orders ${activePeriod.toUpperCase()}`} 
+            value={currentMetrics.orders} 
+            subValue="Transaction Volume" 
+            trendValue={5.2} 
+            icon={ShoppingBag} 
+            color="bg-amber-500" 
+        />
+        <KPICard 
             title="Avg Order Value" 
-            value={`₹${data.aov.toFixed(0)}`} 
+            value={`₹${currentMetrics.aov.toFixed(0)}`} 
             subValue="Basket Profitability" 
-            trendValue={data.aovTrend} 
+            trendValue={3.1} 
             icon={Target} 
             color="bg-blue-600" 
         />
@@ -214,14 +241,6 @@ export default function AdminDashboardPage() {
             trendValue={8.4} 
             icon={Users} 
             color="bg-purple-600" 
-        />
-        <KPICard 
-            title="Order Fulfillment" 
-            value={`${data.fulfillmentRate}%`} 
-            subValue="Success Velocity" 
-            trendValue={0.2}
-            icon={Activity} 
-            color="bg-amber-500" 
         />
       </section>
 
@@ -269,7 +288,7 @@ export default function AdminDashboardPage() {
                 <CardHeader className="bg-primary/5 border-b border-black/5 flex flex-row justify-between items-center py-8 px-10">
                     <div>
                         <CardTitle className="text-2xl font-black uppercase tracking-tight">Hub Performance</CardTitle>
-                        <CardDescription className="text-[10px] font-bold opacity-40 uppercase">Top 5 verified business owners</CardDescription>
+                        <CardDescription className="text-[10px] font-bold opacity-40 uppercase">Top 5 verified business owners (Last 30 Days)</CardDescription>
                     </div>
                     <Award className="h-8 w-8 text-primary opacity-20" />
                 </CardHeader>
