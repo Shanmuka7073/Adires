@@ -21,7 +21,7 @@ const createSlug = (text: string): string => {
 
 /**
  * Retrieves a cached result from Firestore.
- * Optimized to handle documents with partial data fields.
+ * Optimized to handle documents with partial data fields and varying field names.
  */
 export async function getCachedRecipe(db: Firestore, dishName: string, language: 'en' | 'te'): Promise<GetIngredientsOutput | null> {
     const normalizedDishName = createSlug(dishName);
@@ -34,29 +34,32 @@ export async function getCachedRecipe(db: Firestore, dishName: string, language:
         if (docSnap.exists) {
             const data = docSnap.data() as any;
             
-            // Resilience Fix: Ensure we return a valid object even if fields like dishName are missing
+            // Standardize the components list by checking both common field names
+            const components = data.components || data.ingredients || [];
+            
             return {
                 isSuccess: true,
                 itemType: data.itemType || 'food',
                 title: data.dishName || dishName, // Fallback to provided name
-                components: data.components || [],
+                components: components,
                 steps: data.steps || [],
                 nutrition: data.nutrition || { calories: 0, protein: 0 },
             };
         }
         
-        // Fallback to English cache if Telugu is missing
+        // Fallback to English cache if regional language is missing
         if (language !== 'en') {
             const englishDocId = `${normalizedDishName}_en`;
             const englishDocRef = db.collection('cachedRecipes').doc(englishDocId);
             const englishDocSnap = await englishDocRef.get();
-            if (englishDocSnap.exists()) {
+            if (englishDocSnap.exists) {
                  const data = englishDocSnap.data() as any;
+                 const components = data.components || data.ingredients || [];
                  return {
                     isSuccess: true,
                     itemType: data.itemType || 'food',
                     title: data.dishName || dishName,
-                    components: data.components || [],
+                    components: components,
                     steps: data.steps || [],
                     nutrition: data.nutrition || { calories: 0, protein: 0 },
                 };
