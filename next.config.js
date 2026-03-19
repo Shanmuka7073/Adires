@@ -4,6 +4,7 @@ const withPWA = require('next-pwa')({
   register: true,
   skipWaiting: true,
   disable: false, // Force enabled for all environments to ensure offline health
+  buildExcludes: [/middleware-manifest\.json$/],
   runtimeCaching: [
     {
       urlPattern: /^\/_next\/static\/.*/i,

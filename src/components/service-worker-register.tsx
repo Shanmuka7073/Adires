@@ -4,21 +4,36 @@
 import { useEffect } from 'react';
 
 /**
- * Ensures the Service Worker is registered explicitly on the client.
- * This activates PWA features like offline caching and background sync.
+ * Aggressively registers the Service Worker on the client.
+ * This ensures that PWABuilder and browsers detect the worker immediately.
  */
 export default function ServiceWorkerRegister() {
   useEffect(() => {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-          .then((registration) => {
-            console.log('SW Registered: ', registration.scope);
-          })
-          .catch((err) => {
-            console.error('SW Registration Failed: ', err);
+      const register = async () => {
+        try {
+          const registration = await navigator.serviceWorker.register('/sw.js', {
+            scope: '/',
+            updateViaCache: 'none'
           });
-      });
+          
+          console.log('Adires Service Worker registered with scope:', registration.scope);
+          
+          // Signal to our diagnostic tools that registration was attempted
+          window.dispatchEvent(new CustomEvent('sw-registered', { detail: registration }));
+          
+        } catch (error) {
+          console.error('Adires Service Worker registration failed:', error);
+        }
+      };
+
+      // Register immediately if document is already loaded
+      if (document.readyState === 'complete') {
+        register();
+      } else {
+        window.addEventListener('load', register);
+        return () => window.removeEventListener('load', register);
+      }
     }
   }, []);
 
