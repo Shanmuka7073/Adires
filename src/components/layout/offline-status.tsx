@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 
 /**
  * A non-intrusive banner that appears when the user is offline.
- * Intercepts network-dependent actions and provides feedback.
+ * It informs the user that the app is running in "Local-First" mode.
  */
 export function OfflineStatus() {
   const [isOffline, setIsOffline] = useState(false);

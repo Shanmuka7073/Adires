@@ -3,7 +3,7 @@ const withPWA = require('next-pwa')({
   dest: 'public',
   register: true,
   skipWaiting: true,
-  disable: false, // Enabled in development to allow offline testing in preview
+  disable: false, // Keep enabled to ensure route caching is active
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/images\.unsplash\.com\/.*/i,
@@ -11,8 +11,19 @@ const withPWA = require('next-pwa')({
       options: {
         cacheName: 'unsplash-images',
         expiration: {
-          maxEntries: 50,
+          maxEntries: 100,
           maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+        },
+      },
+    },
+    {
+      urlPattern: /^https:\/\/i\.ibb\.co\/.*/i,
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'external-logos',
+        expiration: {
+          maxEntries: 20,
+          maxAgeSeconds: 30 * 24 * 60 * 60,
         },
       },
     },
