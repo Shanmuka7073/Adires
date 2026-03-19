@@ -3,7 +3,31 @@ const withPWA = require('next-pwa')({
   dest: 'public',
   register: true,
   skipWaiting: true,
-  disable: process.env.NODE_ENV === 'development',
+  disable: false, // Enabled in development to allow offline testing in preview
+  runtimeCaching: [
+    {
+      urlPattern: /^https:\/\/images\.unsplash\.com\/.*/i,
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'unsplash-images',
+        expiration: {
+          maxEntries: 50,
+          maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+        },
+      },
+    },
+    {
+      urlPattern: /^https:\/\/picsum\.photos\/.*/i,
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'placeholder-images',
+        expiration: {
+          maxEntries: 50,
+          maxAgeSeconds: 30 * 24 * 60 * 60,
+        },
+      },
+    },
+  ],
 });
 
 /** @type {import('next').NextConfig} */
@@ -23,7 +47,6 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '4.5mb',
     },
-    // Setting to false is often safer for compatibility with various libraries, including Firebase.
     esmExternals: false,
   },
 
@@ -32,7 +55,6 @@ const nextConfig = {
     { buildId, dev, isServer, defaultLoaders, nextRuntime, webpack }
   ) => {
     if (!isServer) {
-        // Prevent bundling of server-only modules on the client
         config.resolve.fallback = {
             ...config.resolve.fallback,
             net: false,
@@ -46,7 +68,6 @@ const nextConfig = {
         config.externals.push('@genkit-ai/google-genai', 'genkit', '@opentelemetry/api');
     }
     
-    // Rule to handle raw file imports for .rules files
     config.module.rules.push({
       test: /\.rules$/,
       type: 'asset/source',
@@ -61,16 +82,6 @@ const nextConfig = {
     '@firebase/auth',
     '@firebase/firestore',
   ],
-
-  typescript: {
-    // Re-enabling build errors is a good practice for production.
-    ignoreBuildErrors: false,
-  },
-
-  eslint: {
-    // Re-enabling linting during builds is a good practice.
-    ignoreDuringBuilds: false,
-  },
 };
 
 module.exports = withPWA(nextConfig);

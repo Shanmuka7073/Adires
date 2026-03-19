@@ -30,6 +30,7 @@ export interface AppState {
   commands: Record<string, CommandGroup>;
   loading: boolean;
   isInitialized: boolean;
+  appReady: boolean; // Flag to indicate if the UI should be unlocked
   error: Error | null;
   language: string;
   activeStoreId: string | null;
@@ -40,6 +41,7 @@ export interface AppState {
   setLanguage: (lang: string) => void;
   setActiveStoreId: (storeId: string | null) => void;
   setUserStore: (store: Store | null) => void;
+  setAppReady: (ready: boolean) => void;
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
   fetchExtendedData: (db: Firestore) => Promise<void>;
   fetchUserStore: (db: Firestore, userId: string) => Promise<void>;
@@ -68,6 +70,7 @@ export const useAppStore = create<AppState>()(
       commands: {},
       loading: false,
       isInitialized: false,
+      appReady: false,
       error: null,
       language: getInitialLanguage(),
       activeStoreId: null,
@@ -85,6 +88,7 @@ export const useAppStore = create<AppState>()(
       },
       
       setUserStore: (store: Store | null) => set({ userStore: store }),
+      setAppReady: (ready: boolean) => set({ appReady: ready }),
 
       setLocales: (newLocales: Locales) => set({ locales: newLocales }),
       setCommands: (newCommands: Record<string, CommandGroup>) => set({ commands: newCommands }),
@@ -106,14 +110,12 @@ export const useAppStore = create<AppState>()(
           
           let userStore = null;
           if (userId) {
-              // 1. Try to find store where user is the owner
               const ownerQuery = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
               const ownerSnap = await getDocs(ownerQuery);
               
               if (!ownerSnap.empty) {
                   userStore = { id: ownerSnap.docs[0].id, ...ownerSnap.docs[0].data() } as Store;
               } else {
-                  // 2. If not an owner, check if they are an employee assigned to a store
                   const userDoc = await getDoc(doc(db, 'users', userId));
                   if (userDoc.exists()) {
                       const userData = userDoc.data() as User;
@@ -139,6 +141,7 @@ export const useAppStore = create<AppState>()(
             userStore,
             commands: enrichedCommands,
             isInitialized: true,
+            appReady: true,
             loading: false,
           });
 
@@ -146,7 +149,7 @@ export const useAppStore = create<AppState>()(
           
         } catch (error) {
           console.error("Failed to fetch initial app data:", error);
-          set({ error: error as Error, loading: false, isInitialized: true });
+          set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
 
@@ -254,6 +257,7 @@ export const useAppStore = create<AppState>()(
           commands: state.commands,
           language: state.language,
           activeStoreId: state.activeStoreId,
+          isInitialized: state.isInitialized,
       }),
     }
   )
@@ -261,13 +265,19 @@ export const useAppStore = create<AppState>()(
 
 export const useInitializeApp = () => {
     const { firestore, user } = useFirebase();
-    const { fetchInitialData, isInitialized, loading } = useAppStore();
+    const { fetchInitialData, isInitialized, loading, stores, setAppReady } = useAppStore();
 
     useEffect(() => {
+        // STRATEGY: If we already have stores from localStorage, the app is ready.
+        // We still fetch updates in the background.
+        if (stores.length > 0) {
+            setAppReady(true);
+        }
+
         if (firestore && !isInitialized && !loading) {
             fetchInitialData(firestore, user?.uid);
         }
-    }, [firestore, user?.uid, isInitialized, loading, fetchInitialData]);
+    }, [firestore, user?.uid, isInitialized, loading, fetchInitialData, stores.length, setAppReady]);
 
     return { isLoading: !isInitialized && loading };
 };

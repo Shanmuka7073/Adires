@@ -17,9 +17,9 @@ import { InstallProvider } from '@/components/install-provider';
  */
 function AppContent({ children }: { children: React.ReactNode }) {
     useInitializeApp();
-    const { isInitialized } = useAppStore();
+    const { appReady } = useAppStore();
 
-    if (!isInitialized) {
+    if (!appReady) {
         return <GlobalLoader />;
     }
 
