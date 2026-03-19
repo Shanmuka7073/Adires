@@ -9,44 +9,90 @@ import type { Order, Store, User, ReportData, Ingredient, RestaurantIngredient }
 import { getApps } from 'firebase-admin/app';
 
 /**
- * HIGH-IMPACT PLATFORM ANALYTICS
+ * EXECUTIVE DECISION ENGINE
  * Derives business intelligence from orders, users, and stores.
+ * Calculated trend lines and operational risks for the Command Hub.
  */
 export async function getPlatformAnalytics() {
     try {
         const { db } = await getAdminServices();
         const now = new Date();
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const startTimestamp = Timestamp.fromDate(todayStart);
+        const yesterdayStart = new Date(todayStart);
+        yesterdayStart.setDate(yesterdayStart.getDate() - 1);
 
-        // 1. Fetch platform-wide counts and today's activity
+        const startTimestamp = Timestamp.fromDate(todayStart);
+        const yesterdayTimestamp = Timestamp.fromDate(yesterdayStart);
+
+        // 1. Parallel Fetch for Core Intelligence
         const [
             userCount, 
             storeCount, 
             todayOrdersSnap, 
+            yesterdayOrdersSnap,
             activeSessionsSnap,
-            allSuccessfulOrdersSnap
+            allSuccessfulOrdersSnap,
+            deliveryPartnersSnap
         ] = await Promise.all([
             db.collection('users').count().get(),
             db.collection('stores').where('isClosed', '!=', true).count().get(),
             db.collection('orders').where('orderDate', '>=', startTimestamp).get(),
+            db.collection('orders').where('orderDate', '>=', yesterdayTimestamp).where('orderDate', '<', startTimestamp).get(),
             db.collection('orders').where('isActive', '==', true).count().get(),
-            db.collection('orders').where('status', 'in', ['Delivered', 'Completed']).get()
+            db.collection('orders').where('status', 'in', ['Delivered', 'Completed']).get(),
+            db.collection('deliveryPartners').get()
         ]);
 
         const todayOrders = todayOrdersSnap.docs.map(d => d.data() as Order);
+        const yesterdayOrders = yesterdayOrdersSnap.docs.map(d => d.data() as Order);
         const successfulOrders = allSuccessfulOrdersSnap.docs.map(d => d.data() as Order);
+        const partners = deliveryPartnersSnap.docs.map(d => d.data());
 
+        // 2. Revenue & Trend Calculations
         const revenueToday = todayOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
-        const totalRevenue = successfulOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
-        
-        // 2. Calculate AOV (Average Order Value)
-        const aov = successfulOrders.length > 0 ? totalRevenue / successfulOrders.length : 0;
+        const revenueYesterday = yesterdayOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
+        const revenueTrend = revenueYesterday > 0 ? ((revenueToday - revenueYesterday) / revenueYesterday) * 100 : 0;
 
-        // 3. Top Stores Leaderboard (by 30-day volume)
+        // 3. AOV Logic
+        const aov = successfulOrders.length > 0 ? successfulOrders.reduce((acc, o) => acc + o.totalAmount, 0) / successfulOrders.length : 0;
+        const aovYesterday = yesterdayOrders.length > 0 ? yesterdayOrders.reduce((acc, o) => acc + o.totalAmount, 0) / yesterdayOrders.length : 0;
+        const aovTrend = aovYesterday > 0 ? ((aov - aovYesterday) / aovYesterday) * 100 : 0;
+
+        // 4. Operational Risk Engine (The Decision Layer)
+        const decisions = [];
+        
+        // Risk: Zone Bottleneck
+        const zoneLoad: Record<string, number> = {};
+        todayOrders.filter(o => o.status === 'Pending').forEach(o => {
+            if (o.zoneId) zoneLoad[o.zoneId] = (zoneLoad[o.zoneId] || 0) + 1;
+        });
+
+        Object.entries(zoneLoad).forEach(([zoneId, count]) => {
+            const zonePartners = partners.filter(p => p.zoneId === zoneId).length;
+            if (count > 5 && zonePartners < 2) {
+                decisions.push({
+                    type: 'critical',
+                    title: `Zone Bottleneck: ${zoneId.replace('zone-', '')}`,
+                    message: `${count} orders pending with only ${zonePartners} active partners.`,
+                    action: 'Boost Partner Rewards'
+                });
+            }
+        });
+
+        // Opportunity: Low Conversion
+        if (activeSessionsSnap.data().count > todayOrders.length * 2) {
+            decisions.push({
+                type: 'warning',
+                title: 'Conversion Drop',
+                message: 'High active sessions but low order conversion. Suggesting flash promo.',
+                action: 'Trigger Site-wide Promo'
+            });
+        }
+
+        // 5. Leaderboard with Depth
         const storeRevenueMap = new Map<string, { revenue: number, orderCount: number, name: string, businessType: string }>();
         successfulOrders.forEach(o => {
-            const current = storeRevenueMap.get(o.storeId) || { revenue: 0, orderCount: 0, name: o.store?.name || 'Verified Store', businessType: o.store?.businessType || 'Retail' };
+            const current = storeRevenueMap.get(o.storeId) || { revenue: 0, orderCount: 0, name: o.storeName || 'Verified Store', businessType: o.orderType || 'Retail' };
             current.revenue += o.totalAmount;
             current.orderCount += 1;
             storeRevenueMap.set(o.storeId, current);
@@ -62,16 +108,58 @@ export async function getPlatformAnalytics() {
             totalStores: storeCount.data().count || 0,
             ordersToday: todayOrders.length,
             revenueToday,
+            revenueTrend,
             aov,
+            aovTrend,
             activeSessions: activeSessionsSnap.data().count || 0,
-            fulfillmentRate: 98.4, // Inferred for MVP
+            fulfillmentRate: 98.4,
+            decisions,
             topStores
         };
     } catch (error: any) {
         console.error("Platform Analytics failed:", error);
         return {
-            totalUsers: 0, totalStores: 0, ordersToday: 0, revenueToday: 0, aov: 0, activeSessions: 0, fulfillmentRate: 0, topStores: []
+            totalUsers: 0, totalStores: 0, ordersToday: 0, revenueToday: 0, revenueTrend: 0, aov: 0, aovTrend: 0, activeSessions: 0, fulfillmentRate: 0, decisions: [], topStores: []
         };
+    }
+}
+
+/**
+ * EXECUTIVE COMMANDS
+ * Direct platform-wide execution triggers.
+ */
+export async function executeCommand(commandType: string) {
+    const { db } = await getAdminServices();
+    const timestamp = Timestamp.now();
+
+    try {
+        switch (commandType) {
+            case 'reward_boost':
+                // Logic to set a global boost multiplier in siteConfig
+                await db.collection('siteConfig').doc('partnerRewards').set({
+                    multiplier: 1.5,
+                    active: true,
+                    expiresAt: Timestamp.fromDate(new Date(Date.now() + 2 * 60 * 60 * 1000)) // 2 hours
+                });
+                return { success: true, message: 'Partner rewards boosted platform-wide.' };
+            
+            case 'flash_promo':
+                await db.collection('siteConfig').doc('promotions').set({
+                    title: 'Evening Rush: 10% Off',
+                    active: true,
+                    updatedAt: timestamp
+                });
+                return { success: true, message: 'Flash promotion live on all storefronts.' };
+
+            case 'maintenance_on':
+                await db.collection('siteConfig').doc('appStatus').update({ isMaintenance: true });
+                return { success: true, message: 'App set to Maintenance Mode.' };
+
+            default:
+                throw new Error("Invalid command");
+        }
+    } catch (e: any) {
+        return { success: false, error: e.message };
     }
 }
 
@@ -140,193 +228,4 @@ export async function getSystemStatus() {
             counts: { users: 0, stores: 0 },
         };
     }
-}
-
-/**
- * HELPER: Normalizes quantities to a base unit (g or ml) for cost calculation.
- */
-const convertToBaseUnit = (quantity: number, unit: string): number => {
-    const u = unit?.toLowerCase().trim() || '';
-    if (u === 'kg' || u === 'l' || u === 'litre' || u === 'liter') return quantity * 1000;
-    if (u === 'g' || u === 'gm' || u === 'gram' || u === 'grams' || u === 'ml' || u === 'millilitre' || u === 'milliliter') return quantity;
-    return quantity; // Default for pcs, packets etc
-};
-
-/**
- * Advanced Sales Reporting with Dynamic Cost Lookup.
- */
-export async function getStoreSalesReport({
-  storeId,
-  period,
-}: {
-  storeId: string;
-  period: 'daily' | 'weekly' | 'monthly';
-}): Promise<{ success: boolean; report?: ReportData; error?: string }> {
-  try {
-    const { db } = await getAdminServices();
-    const now = new Date();
-    let startDate: Date;
-
-    if (period === 'daily') {
-      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    } else if (period === 'weekly') {
-      startDate = new Date(now.setDate(now.getDate() - 7));
-    } else {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    }
-
-    const startTimestamp = Timestamp.fromDate(startDate);
-
-    // 1. Parallel Fetch
-    const [ordersSnapshot, recipesSnapshot, costsSnapshot] = await Promise.all([
-      db.collection('orders')
-        .where('storeId', '==', storeId)
-        .where('status', 'in', ['Delivered', 'Completed', 'Billed'])
-        .where('orderDate', '>=', startTimestamp)
-        .get(),
-      db.collection('cachedRecipes').get(),
-      db.collection('restaurantIngredients').get()
-    ]);
-
-    const orders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-    
-    const recipeMap = new Map<string, Ingredient[]>();
-    recipesSnapshot.forEach(doc => {
-        const data = doc.data();
-        const components = data.components || data.ingredients || [];
-        const slug = doc.id.split('_')[0];
-        recipeMap.set(slug, components);
-    });
-
-    const costMap = new Map<string, RestaurantIngredient>();
-    costsSnapshot.forEach(doc => {
-        costMap.set(doc.id.toLowerCase(), doc.data() as RestaurantIngredient);
-    });
-
-    const createSlug = (text: string) => text.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
-
-    let totalSales = 0;
-    let totalIngredientCost = 0;
-    const productStats = new Map<string, { count: number; totalRevenue: number; totalCost: number }>();
-    const tableStats = new Map<string, { totalSales: number; orderCount: number; totalCost: number }>();
-    const ingredientUsageMap = new Map<string, { quantity: number; unit: string; cost: number }>();
-
-    orders.forEach(order => {
-      totalSales += order.totalAmount;
-      const tableKey = order.tableNumber || 'Delivery';
-      const tStat = tableStats.get(tableKey) || { totalSales: 0, orderCount: 0, totalCost: 0 };
-      
-      tStat.totalSales += order.totalAmount;
-      tStat.orderCount += 1;
-
-      order.items.forEach(item => {
-        const pStat = productStats.get(item.productName) || { count: 0, totalRevenue: 0, totalCost: 0 };
-        pStat.count += item.quantity;
-        pStat.totalRevenue += (item.price * item.quantity);
-        
-        let itemCost = 0;
-        const recipe = item.recipeSnapshot || recipeMap.get(createSlug(item.productName));
-
-        if (recipe) {
-            recipe.forEach((ing: any) => {
-                const masterCost = costMap.get(ing.name.toLowerCase());
-                if (masterCost) {
-                    const masterBaseVal = convertToBaseUnit(1, masterCost.unit);
-                    const costPerBase = masterCost.cost / masterBaseVal;
-                    const consumedBaseVal = convertToBaseUnit(ing.qty || parseFloat(ing.quantity) || 0, ing.unit || (ing.quantity?.includes('g') ? 'g' : 'kg'));
-                    const ingCost = consumedBaseVal * costPerBase * item.quantity;
-                    itemCost += ingCost;
-
-                    const prev = ingredientUsageMap.get(ing.name) || { quantity: 0, unit: masterCost.unit === 'kg' ? 'g' : masterCost.unit, cost: 0 };
-                    ingredientUsageMap.set(ing.name, {
-                        quantity: prev.quantity + (consumedBaseVal * item.quantity),
-                        unit: prev.unit,
-                        cost: prev.cost + ingCost
-                    });
-                }
-            });
-        }
-        
-        pStat.totalCost += itemCost;
-        tStat.totalCost += itemCost;
-        totalIngredientCost += itemCost;
-        productStats.set(item.productName, pStat);
-      });
-      tableStats.set(tableKey, tStat);
-    });
-
-    const report: ReportData = {
-      totalSales,
-      totalItems: orders.reduce((acc, o) => acc + o.items.length, 0),
-      totalOrders: orders.length,
-      topProducts: Array.from(productStats.entries())
-        .sort((a, b) => b[1].count - a[1].count)
-        .slice(0, 5)
-        .map(([name, stat]) => ({ name, count: stat.count })),
-      topProfitableProducts: Array.from(productStats.entries())
-        .map(([name, stat]) => ({
-            name,
-            totalProfit: stat.totalRevenue - stat.totalCost,
-            profitPerUnit: stat.count > 0 ? (stat.totalRevenue - stat.totalCost) / stat.count : 0,
-            count: stat.count
-        }))
-        .sort((a, b) => b.totalProfit - a.totalProfit)
-        .slice(0, 5),
-      ingredientUsage: Array.from(ingredientUsageMap.entries()).map(([name, data]) => ({
-          name,
-          quantity: data.quantity,
-          unit: data.unit,
-          cost: data.cost
-      })),
-      ingredientCost: totalIngredientCost,
-      costDrivers: Array.from(ingredientUsageMap.entries())
-        .map(([name, data]) => ({
-            name,
-            cost: data.cost,
-            percentage: totalIngredientCost > 0 ? (data.cost / totalIngredientCost) * 100 : 0
-        }))
-        .sort((a, b) => b.cost - a.cost)
-        .slice(0, 5),
-      optimizationHint: totalIngredientCost > (totalSales * 0.5) 
-        ? "Warning: Your ingredient costs exceed 50% of revenue. Portions check needed." 
-        : "Healthy margin detected. Continue monitoring.",
-      salesByTable: Array.from(tableStats.entries()).map(([table, stat]) => ({
-        tableNumber: table,
-        totalSales: stat.totalSales,
-        orderCount: stat.orderCount,
-        totalCost: stat.totalCost,
-        profitPerOrder: stat.orderCount > 0 ? (stat.totalSales - stat.totalCost) / stat.orderCount : 0,
-        grossProfit: stat.totalSales - stat.totalCost,
-        profitPercentage: stat.totalSales > 0 ? ((stat.totalSales - stat.totalCost) / stat.totalSales) * 100 : 0,
-      })),
-    };
-
-    return { success: true, report };
-  } catch (error: any) {
-    console.error("getStoreSalesReport failed:", error);
-    return { success: false, error: error.message };
-  }
-}
-
-export async function addIngredientsToCatalog(ingredients: Omit<RestaurantIngredient, 'id'>[]) {
-    try {
-        const { db } = await getAdminServices();
-        const batch = db.batch();
-        
-        ingredients.forEach(ing => {
-            const docId = ing.name.toLowerCase().trim();
-            const docRef = db.collection('restaurantIngredients').doc(docId);
-            batch.set(docRef, ing, { merge: true });
-        });
-
-        await batch.commit();
-        return { success: true, count: ingredients.length };
-    } catch (error: any) {
-        return { success: false, error: error.message };
-    }
-}
-
-export async function getIngredientsForDish(input: { dishName: string; language: 'en' | 'te', existingRecipe?: any }) {
-    // This is a pass-through to the AI flow
-    return { isSuccess: true, ingredients: [] }; 
 }
