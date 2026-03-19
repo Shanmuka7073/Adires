@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -111,6 +110,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
 import QRCode from 'qrcode.react';
 import { useAppStore } from '@/lib/store';
 import { useCart } from '@/lib/cart';
@@ -472,7 +472,7 @@ export default function PublicMenuPage() {
   const { isInitialized, fetchInitialData } = useAppStore();
   const { cartItems, addItem, clearCart } = useCart();
 
-  const { data: store, isLoading: storeLoading } = useDoc<Store>(useMemoFirebase(() => firestore ? doc(firestore, 'stores', storeId) : null, [firestore, storeId]));
+  const { data: store, isLoading: storeLoading } = useDoc<Store>(useDocRefMemo(() => firestore ? doc(firestore, 'stores', storeId) : null, [firestore, storeId]));
   const { data: menus, isLoading: menuLoading } = useCollection<Menu>(useMemoFirebase(() => firestore ? query(collection(firestore, `stores/${storeId}/menus`)) : null, [firestore, storeId]));
   const menu = menus?.[0];
 
@@ -602,7 +602,7 @@ export default function PublicMenuPage() {
           storeId: storeId, 
           tableNumber: tableNumber ? String(tableNumber) : null,
           sessionId: sessionId,
-          deviceId: deviceId, // PERSISTENT INDIVIDUAL DATA KEY
+          deviceId: deviceId, 
           userId: 'guest',
           customerName: customerName || (tableNumber === 'Counter' ? 'Walk-in Guest' : (tableNumber ? `Table ${tableNumber}` : 'Guest')),
           deliveryAddress: deliveryAddress || (tableNumber ? 'In-store dining' : 'TBD'),
@@ -858,4 +858,8 @@ export default function PublicMenuPage() {
         </div>
     </>
   );
+}
+
+function useDocRefMemo(factory: () => any, deps: any[]) {
+    return useMemo(factory, deps);
 }
