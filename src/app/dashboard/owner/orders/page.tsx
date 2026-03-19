@@ -25,23 +25,14 @@ import {
   Utensils,
   ShoppingBag,
   Calculator,
-  Plus,
   PlusCircle,
   X,
   Search,
-  Scissors,
-  Calendar as CalendarIcon,
-  BarChart3,
   History,
   TrendingUp,
   ArrowRight,
   Sparkles,
-  Volume2,
-  Filter,
-  UserPlus,
-  Phone,
-  CheckSquare,
-  Square
+  Phone
 } from 'lucide-react';
 import {
   collection, query, where, orderBy, doc, updateDoc, serverTimestamp, Timestamp, limit, getDocs, setDoc, writeBatch
@@ -51,7 +42,7 @@ import { useMemo, useState, useTransition, useEffect, useCallback, useRef } from
 import {
   AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogDescription
 } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
 import { Input } from '@/components/ui/input';
@@ -59,7 +50,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { playTickSound } from '@/lib/cart';
 import Link from 'next/link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { format, startOfDay, endOfDay, subDays } from 'date-fns';
+import { format, startOfDay, subDays } from 'date-fns';
 import {
     Table,
     TableBody,
@@ -345,7 +336,7 @@ function SessionCard({ session, store, isSalon, onDismissService }: { session: S
   const isBilled = session.status === 'Billed';
   const hasPhone = !!session.customerPhone;
   
-  const titleIcon = session.orderType === 'takeaway' ? <ShoppingBag className="h-4 w-4" /> : session.orderType === 'counter' ? <Calculator className="h-4 w-4" /> : (isSalon ? <Scissors className="h-4 w-4" /> : <Utensils className="h-4 w-4" />);
+  const titleIcon = session.orderType === 'takeaway' ? <ShoppingBag className="h-4 w-4" /> : session.orderType === 'counter' ? <Calculator className="h-4 w-4" /> : (isSalon ? <Utensils className="h-4 w-4" /> : <Utensils className="h-4 w-4" />);
 
   return (
     <Card className={cn(
@@ -602,7 +593,7 @@ function HistoryAndInsightsCenter({ storeId }: { storeId: string }) {
                                     <ArrowRight className="h-5 w-5 opacity-20 group-hover:translate-x-1 group-hover:opacity-100 transition-all" />
                                 </div>
                             ))}
-                            {stats.topItems.length === 0 && <div className="py-32 text-center opacity-20 flex flex-col items-center gap-4"><BarChart3 className="h-16 w-16"/><p className="font-black uppercase tracking-widest text-xs">Awaiting data...</p></div>}
+                            {stats.topItems.length === 0 && <div className="py-32 text-center opacity-20 flex flex-col items-center gap-4"><TrendingUp className="h-16 w-16"/><p className="font-black uppercase tracking-widest text-xs">Awaiting data...</p></div>}
                         </div>
                     </CardContent>
                 </Card>
@@ -970,7 +961,7 @@ export default function StoreOrdersPage() {
 
                     <section className="flex flex-col h-full min-h-0">
                         <div className="flex justify-between items-center mb-4 shrink-0 px-1">
-                            <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-green-600 flex items-center gap-2">{isSalon ? <Scissors className="h-3.5 w-3.5"/> : <Utensils className="h-3.5 w-3.5"/>} {isSalon ? 'Chair & Counter' : 'Table & Counter'}</h2>
+                            <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-green-600 flex items-center gap-2">{isSalon ? <Utensils className="h-3.5 w-3.5"/> : <Utensils className="h-3.5 w-3.5"/>} {isSalon ? 'Chair & Counter' : 'Table & Counter'}</h2>
                         </div>
                         <ScrollArea className="flex-1">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-4 pb-20">

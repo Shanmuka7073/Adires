@@ -108,7 +108,8 @@ export const useAppStore = create<AppState>()(
             getDocs(collection(db, 'voiceCommands'))
           ]);
           
-          let userStore = null;
+          let userStore = get().userStore; // Start with persisted store
+          
           if (userId) {
               const ownerQuery = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
               const ownerSnap = await getDocs(ownerQuery);
@@ -149,7 +150,7 @@ export const useAppStore = create<AppState>()(
           
         } catch (error) {
           console.error("Failed to fetch initial app data:", error);
-          // UNLOCK even on error to allow offline use
+          // UNLOCK even on error to allow offline use of persisted data
           set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
@@ -240,7 +241,7 @@ export const useAppStore = create<AppState>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           stores: state.stores,
-          userStore: state.userStore, // PERSIST USER STORE
+          userStore: state.userStore,
           masterProducts: state.masterProducts,
           locales: state.locales,
           commands: state.commands,
@@ -254,19 +255,18 @@ export const useAppStore = create<AppState>()(
 
 export const useInitializeApp = () => {
     const { firestore, user } = useFirebase();
-    const { fetchInitialData, isInitialized, loading, stores, setAppReady } = useAppStore();
+    const { fetchInitialData, isInitialized, loading, stores, userStore, setAppReady } = useAppStore();
 
     useEffect(() => {
-        // STRATEGY: If we already have stores from localStorage, the app is ready.
-        // We still fetch updates in the background.
-        if (stores.length > 0) {
+        // STRATEGY: If we already have stores or userStore from localStorage, the app is ready.
+        if (stores.length > 0 || userStore) {
             setAppReady(true);
         }
 
         if (firestore && !isInitialized && !loading) {
             fetchInitialData(firestore, user?.uid);
         }
-    }, [firestore, user?.uid, isInitialized, loading, fetchInitialData, stores.length, setAppReady]);
+    }, [firestore, user?.uid, isInitialized, loading, fetchInitialData, stores.length, userStore, setAppReady]);
 
     return { isLoading: !isInitialized && loading };
 };

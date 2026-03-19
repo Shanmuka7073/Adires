@@ -3,7 +3,7 @@ const withPWA = require('next-pwa')({
   dest: 'public',
   register: true,
   skipWaiting: true,
-  disable: false, // Keep enabled to ensure route caching is active
+  disable: false, // Always enabled for complete offline functionality
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/images\.unsplash\.com\/.*/i,
@@ -36,6 +36,19 @@ const withPWA = require('next-pwa')({
           maxEntries: 50,
           maxAgeSeconds: 30 * 24 * 60 * 60,
         },
+      },
+    },
+    {
+      // Aggressive caching for Dashboard and Menu routes to ensure offline navigation
+      urlPattern: /\/dashboard|\/menu/i,
+      handler: 'NetworkFirst',
+      options: {
+        cacheName: 'management-routes',
+        expiration: {
+          maxEntries: 32,
+          maxAgeSeconds: 24 * 60 * 60, // 24 Hours
+        },
+        networkTimeoutSeconds: 3, // Fast fallback to cache if internet is table/slow
       },
     },
   ],
