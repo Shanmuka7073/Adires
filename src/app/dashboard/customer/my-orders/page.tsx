@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirebase, errorEmitter, useCollection, useMemoFirebase } from '@/firebase';
@@ -24,7 +23,9 @@ import {
   Receipt,
   Package,
   Clock,
-  Check
+  Check,
+  Loader2,
+  ShoppingBag
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -38,13 +39,13 @@ import { cn } from '@/lib/utils';
 const DELIVERY_FEE = 30;
 
 const statusMeta: Record<string, any> = {
-  Pending: { color: 'secondary', icon: CookingPot, step: 1 },
-  Processing: { color: 'secondary', icon: CookingPot, step: 2 },
-  'Out for Delivery': { color: 'outline', icon: Truck, step: 3 },
-  Billed: { color: 'default', icon: Receipt, step: 3 },
-  Delivered: { color: 'default', icon: CheckCircle, step: 4 },
-  Completed: { color: 'default', icon: CheckCircle, step: 4 },
-  Cancelled: { color: 'destructive', icon: AlertTriangle, step: 0 },
+  Pending: { color: 'secondary', icon: CookingPot, step: 1, label: 'Received' },
+  Processing: { color: 'secondary', icon: CookingPot, step: 2, label: 'Kitchen' },
+  'Out for Delivery': { color: 'outline', icon: Truck, step: 3, label: 'On the way' },
+  Billed: { color: 'default', icon: Receipt, step: 3, label: 'Ready' },
+  Delivered: { color: 'default', icon: CheckCircle, step: 4, label: 'Delivered' },
+  Completed: { color: 'default', icon: CheckCircle, step: 4, label: 'Completed' },
+  Cancelled: { color: 'destructive', icon: AlertTriangle, step: 0, label: 'Cancelled' },
 };
 
 function OrderStatusTimeline({ status }: { status: Order['status'] }) {
