@@ -149,6 +149,7 @@ export const useAppStore = create<AppState>()(
           
         } catch (error) {
           console.error("Failed to fetch initial app data:", error);
+          // UNLOCK even on error to allow offline use
           set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
@@ -182,17 +183,6 @@ export const useAppStore = create<AppState>()(
               if (!ownerSnap.empty) {
                   const userStore = { id: ownerSnap.docs[0].id, ...ownerSnap.docs[0].data() } as Store;
                   set({ userStore });
-              } else {
-                  const userDoc = await getDoc(doc(db, 'users', userId));
-                  if (userDoc.exists()) {
-                      const userData = userDoc.data() as User;
-                      if (userData.storeId) {
-                          const storeDoc = await getDoc(doc(db, 'stores', userData.storeId));
-                          if (storeDoc.exists()) {
-                              set({ userStore: { id: storeDoc.id, ...storeDoc.data() } as Store });
-                          }
-                      }
-                  }
               }
           } catch (error) {
               console.error("Failed to fetch user store specifically:", error);
@@ -250,9 +240,8 @@ export const useAppStore = create<AppState>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           stores: state.stores,
+          userStore: state.userStore, // PERSIST USER STORE
           masterProducts: state.masterProducts,
-          userStore: state.userStore,
-          productPrices: state.productPrices,
           locales: state.locales,
           commands: state.commands,
           language: state.language,
