@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition, useMemo } from 'react';
@@ -19,7 +18,8 @@ import {
     Cloud,
     Loader2,
     ShieldAlert,
-    AlertCircle
+    AlertCircle,
+    ShieldCheck
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { useFirebase } from '@/firebase';
