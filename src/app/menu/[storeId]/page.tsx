@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -377,7 +376,7 @@ function LiveBillSheet({
                     </AlertDialogTrigger>
                     <AlertDialogContent className="rounded-[2rem] border-0 shadow-2xl" style={{ backgroundColor: theme?.backgroundColor || '#1A1616' }}>
                         <AlertDialogHeader><AlertDialogTitle className="text-xl font-black uppercase" style={{ color: theme?.primaryColor || '#FBC02D' }}>Finalize Visit?</AlertDialogTitle><AlertDialogDescription style={{ color: theme?.textColor || '#fff', opacity: 0.7 }}>This will close your ordering session and generate the final bill.</AlertDialogDescription></AlertDialogHeader>
-                        <AlertDialogFooter className="gap-2"><AlertDialogCancel className="rounded-xl font-bold">Back</AlertDialogCancel><AlertDialogAction onClick={handleFinalizeBill} className="rounded-xl font-bold" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>Finalize</AlertDialogAction></AlertDialogFooter>
+                        <AlertDialogFooter className="gap-2"><AlertDialogCancel className="rounded-xl font-bold">Back</AlertDialogCancel><AlertDialogAction onClick={onFinalizeBill} className="rounded-xl font-bold" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>Finalize</AlertDialogAction></AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
               ) : null}
@@ -446,14 +445,6 @@ export default function PublicMenuPage() {
   const { data: menus, isLoading: menuLoading } = useCollection<Menu>(useMemoFirebase(() => firestore ? query(collection(firestore, `stores/${storeId}/menus`)) : null, [firestore, storeId]));
   const menu = menus?.[0];
 
-  useEffect(() => { if (firestore && !isInitialized) fetchInitialData(firestore); }, [firestore, isInitialized, fetchInitialData]);
-
-  useEffect(() => {
-    const urlTable = searchParams.get('table'); if (urlTable) setTableNumber(urlTable);
-    const sA = localStorage.getItem(`last_address_${storeId}`); const sN = localStorage.getItem(`last_name_${storeId}`); const sP = localStorage.getItem(`last_phone_${storeId}`);
-    if (sA) setDeliveryAddress(sA); if (sN) setCustomerName(sN); if (sP) setPhone(sP);
-  }, [searchParams, storeId]);
-
   const sessionId = useMemo(() => {
     const dS = `${new Date().getFullYear()}-${new Date().getMonth() + 1}-${new Date().getDate()}`;
     if (tableNumber === 'Counter') return `counter-${Date.now()}-${storeId}`; 
@@ -481,6 +472,24 @@ export default function PublicMenuPage() {
       placedOrders?.forEach(order => { order.items.forEach(item => { counts[item.productName] = (counts[item.productName] || 0) + item.quantity; }); });
       return counts;
   }, [placedOrders]);
+
+  // Find related items for the detail dialog
+  const upsellItems = useMemo(() => {
+      if (!selectedItemForIngredients || !menu?.items) return [];
+      const recIds = selectedItemForIngredients.recommendations || [];
+      return menu.items.filter(i => recIds.includes(i.id));
+  }, [selectedItemForIngredients, menu?.items]);
+
+  useEffect(() => { if (firestore && !isInitialized) fetchInitialData(firestore); }, [firestore, isInitialized, fetchInitialData]);
+
+  useEffect(() => {
+    const urlTable = searchParams.get('table'); if (urlTable) setTableNumber(urlTable);
+    const sA = localStorage.getItem(`last_address_${storeId}`); const sN = localStorage.getItem(`last_name_${storeId}`); const sP = localStorage.getItem(`last_phone_${storeId}`);
+    if (sA) setDeliveryAddress(sA); if (sN) setCustomerName(sN); if (sP) setPhone(sP);
+  }, [searchParams, storeId]);
+
+  if (storeLoading || menuLoading || ordersLoading) return <div className="p-12 flex items-center justify-center bg-[#1A1616] min-h-screen"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
+  if (!store) return <div className="p-12 text-center bg-[#1A1616] min-h-screen text-white">Store not found.</div>;
 
   const handleAddItem = (item: MenuItem, qty: number = 1, customs?: Record<string, CustomizationOption[]>) => {
     const product: Product = { 
@@ -593,18 +602,8 @@ export default function PublicMenuPage() {
 
   const handleStartNewOrder = () => { window.location.reload(); };
 
-  if (storeLoading || menuLoading || ordersLoading) return <div className="p-12 flex items-center justify-center bg-[#1A1616] min-h-screen"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
-  if (!store) return <div className="p-12 text-center bg-[#1A1616] min-h-screen text-white">Store not found.</div>;
-
   const theme = menu?.theme;
   const isSessionFinalized = placedOrders?.length > 0 && placedOrders.every(o => ['Completed', 'Delivered'].includes(o.status));
-
-  // Find related items for the detail dialog
-  const upsellItems = useMemo(() => {
-      if (!selectedItemForIngredients || !menu?.items) return [];
-      const recIds = selectedItemForIngredients.recommendations || [];
-      return menu.items.filter(i => recIds.includes(i.id));
-  }, [selectedItemForIngredients, menu?.items]);
 
   return (
     <>
