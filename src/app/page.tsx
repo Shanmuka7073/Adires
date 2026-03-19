@@ -19,6 +19,7 @@ import { CartIcon } from '@/components/cart/cart-icon';
 import { useInstall } from '@/components/install-provider';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
