@@ -13,7 +13,8 @@ import {
   setDoc,
   serverTimestamp,
   updateDoc,
-  writeBatch
+  writeBatch,
+  getDocs
 } from 'firebase/firestore';
 
 import type {
@@ -61,7 +62,8 @@ import {
   X,
   Calculator,
   ShoppingBag,
-  ArrowRight
+  ArrowRight,
+  History
 } from 'lucide-react';
 
 import {
@@ -192,7 +194,7 @@ function DeliveryDetailsDialog({ isOpen, onOpenChange, onSave, initialData, them
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl">
                 <DialogHeader>
-                    <DialogTitle className="text-xl font-black uppercase">Delivery Info</DialogTitle>
+                    <DialogTitle>Delivery Info</DialogTitle>
                     <DialogDescription>Where should we send your order?</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
@@ -270,6 +272,7 @@ function LiveBillSheet({
     onShowUpi, 
     isSalon,
     placedOrders,
+    historyOrders,
     isLoadingOrders,
     onFinalizeBill 
 }: { 
@@ -279,6 +282,7 @@ function LiveBillSheet({
     onShowUpi: () => void; 
     isSalon: boolean;
     placedOrders: Order[];
+    historyOrders: Order[];
     isLoadingOrders: boolean;
     onFinalizeBill: () => void;
 }) {
@@ -293,17 +297,21 @@ function LiveBillSheet({
     <div className="flex flex-col h-full" style={{ backgroundColor: theme?.backgroundColor || '#1A1616' }}>
         <SheetHeader className='p-5 border-b' style={{ borderColor: theme?.primaryColor + '20' }}>
             <SheetTitle className="flex items-center gap-2 text-lg font-bold" style={{ color: theme?.primaryColor || '#FBC02D' }}>
-                <Receipt className="h-5 w-5" /> {isSalon ? 'Booking & History' : 'Live Order Progress'}
+                <Receipt className="h-5 w-5" /> {isSalon ? 'Visit Progress' : 'Live Order Progress'}
             </SheetTitle>
         </SheetHeader>
         
-        <div className="flex-1 overflow-y-auto p-5 space-y-8">
+        <div className="flex-1 overflow-y-auto p-5 space-y-10">
+             {/* CURRENT ACTIVE ORDERS */}
              {placedOrders.length > 0 && (
                  <div className="space-y-6">
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                        <Sparkles className="h-3 w-3" /> Current Session
+                    </h4>
                     {placedOrders.sort((a,b) => toDateSafe(a.orderDate).getTime() - toDateSafe(b.orderDate).getTime()).map((order, idx) => (
                         <div key={order.id} className="space-y-3 p-4 rounded-3xl border-2 bg-black/10" style={{ borderColor: theme?.primaryColor + '10' }}>
                             <div className="flex justify-between items-center">
-                                <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor || '#fff' }}>Order Batch #{idx + 1}</h4>
+                                <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor || '#fff' }}>Batch #{idx + 1}</h4>
                                 <Badge variant="outline" className="text-[8px] font-black uppercase border-primary/20" style={{ color: theme?.primaryColor || '#FBC02D' }}>{order.status}</Badge>
                             </div>
                             
@@ -316,11 +324,6 @@ function LiveBillSheet({
                                             <span className="opacity-80 font-bold">{it.productName} x{it.quantity}</span>
                                             <span className="font-black">₹{it.price * it.quantity}</span>
                                         </div>
-                                        {it.selectedCustomizations && Object.entries(it.selectedCustomizations).map(([group, opts]) => (
-                                            <div key={group} className="text-[9px] opacity-40 pl-2">
-                                                {group}: {opts.map(o => o.name).join(', ')}
-                                            </div>
-                                        ))}
                                     </div>
                                 ))}
                             </div>
@@ -329,9 +332,10 @@ function LiveBillSheet({
                  </div>
              )}
 
+             {/* UN-PLACED ITEMS */}
              {cartItems.length > 0 && (
                  <div className="space-y-3">
-                    <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor || '#fff' }}>New Selection (Not Placed)</h4>
+                    <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor || '#fff' }}>Selection (Ready to Send)</h4>
                     <div className="p-4 rounded-3xl border-2 border-dashed bg-white/5 space-y-3" style={{ borderColor: theme?.primaryColor + '30' }}>
                         {cartItems.map((it, idx) => (
                             <div key={idx} className="flex flex-col text-xs" style={{ color: theme?.textColor || '#fff' }}>
@@ -339,11 +343,29 @@ function LiveBillSheet({
                                     <span className="opacity-80 font-bold">{it.product.name} x{it.quantity}</span>
                                     <span className="font-black">₹{(it.variant.price * it.quantity).toFixed(0)}</span>
                                 </div>
-                                {it.selectedCustomizations && Object.entries(it.selectedCustomizations).map(([group, opts]) => (
-                                    <div key={group} className="text-[10px] opacity-40 pl-2">
-                                        {group}: {opts.map(o => o.name).join(', ')}
-                                    </div>
-                                ))}
+                            </div>
+                        ))}
+                    </div>
+                 </div>
+             )}
+
+             {/* ORDER HISTORY (PREVIOUS VISITS) */}
+             {historyOrders.length > 0 && (
+                 <div className="space-y-4 pt-4 border-t border-white/5">
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                        <History className="h-3 w-3" /> Order History (Past Visits)
+                    </h4>
+                    <div className="space-y-2">
+                        {historyOrders.map((order) => (
+                            <div key={order.id} className="p-3 rounded-2xl bg-black/20 flex justify-between items-center text-[10px]">
+                                <div>
+                                    <p className="font-black text-white/80">{format(toDateSafe(order.orderDate), 'dd MMM yyyy')}</p>
+                                    <p className="opacity-40">{order.items.length} items</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="font-black text-primary">₹{order.totalAmount.toFixed(0)}</p>
+                                    <p className="text-[8px] uppercase opacity-40 font-bold">Successful</p>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -455,16 +477,41 @@ export default function PublicMenuPage() {
       return menu.items.filter(i => recIds.includes(i.id));
   }, [selectedItemForIngredients, menu?.items]);
 
+  // STABLE DEVICE IDENTITY
+  const deviceId = useMemo(() => {
+      if (typeof window === 'undefined') return 'unknown';
+      let dId = localStorage.getItem(`device_id_${storeId}`);
+      if (!dId) {
+          dId = Math.random().toString(36).substring(2, 15);
+          localStorage.setItem(`device_id_${storeId}`, dId);
+      }
+      return dId;
+  }, [storeId]);
+
   const sessionId = useMemo(() => {
     const dS = `${new Date().getFullYear()}-${new Date().getMonth() + 1}-${new Date().getDate()}`;
     if (tableNumber === 'Counter') return `counter-${Date.now()}-${storeId}`; 
     if (tableNumber) return `table-${tableNumber}-${dS}-${storeId}`;
-    let dId = localStorage.getItem(`device_session_${storeId}`); if (!dId) { dId = Math.random().toString(36).substring(2, 15); localStorage.setItem(`device_session_${storeId}`, dId); }
-    return `home-${dId}-${dS}`;
-  }, [tableNumber, storeId]);
+    return `home-${deviceId}-${dS}`;
+  }, [tableNumber, storeId, deviceId]);
 
+  // QUERY FOR CURRENT SESSION ORDERS
   const ordersQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'orders'), where('sessionId', '==', sessionId), where('isActive', '==', true)) : null), [firestore, sessionId]);
   const { data: placedOrders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
+
+  // QUERY FOR HISTORY (Previous visits from this device)
+  const historyQuery = useMemoFirebase(() => {
+      if (!firestore || tableNumber) return null; // Only show history for Home/Delivery users
+      return query(
+          collection(firestore, 'orders'),
+          where('storeId', '==', storeId),
+          where('deviceId', '==', deviceId),
+          where('isActive', '==', false),
+          orderBy('orderDate', 'desc'),
+          limit(5)
+      );
+  }, [firestore, storeId, deviceId, tableNumber]);
+  const { data: historyOrders } = useCollection<Order>(historyQuery);
 
   const activeItemCount = useMemo(() => placedOrders?.reduce((acc, o) => acc + o.items.length, 0) || 0, [placedOrders]);
   const isSalon = useMemo(() => store?.businessType === 'salon' || store?.name.toLowerCase().includes('salon'), [store]);
@@ -548,6 +595,7 @@ export default function PublicMenuPage() {
           storeId: storeId, 
           tableNumber: tableNumber ? String(tableNumber) : null,
           sessionId: sessionId,
+          deviceId: deviceId, // PERSISTENT INDIVIDUAL DATA KEY
           userId: 'guest',
           customerName: customerName || (tableNumber === 'Counter' ? 'Walk-in Guest' : (tableNumber ? `Table ${tableNumber}` : 'Guest')),
           deliveryAddress: deliveryAddress || (tableNumber ? 'In-store dining' : 'TBD'),
@@ -711,7 +759,7 @@ export default function PublicMenuPage() {
                       {tableNumber === 'Counter' ? `Generate Bill (${cartItems.length})` : `Place Order (${cartItems.length})`}
                   </Button>
               )}
-              {(activeItemCount > 0 || cartItems.length > 0) && (
+              {(activeItemCount > 0 || cartItems.length > 0 || (historyOrders && historyOrders.length > 0)) && (
                   <Sheet>
                       <SheetTrigger asChild>
                           <Button variant="outline" className={cn("h-12 rounded-xl shadow-2xl text-[10px] font-black uppercase tracking-[0.1em] border-2", (cartItems.length === 0 || tableNumber === 'Counter') ? "flex-1" : "px-4")} style={{ borderColor: theme?.primaryColor || '#FBC02D', color: theme?.primaryColor || '#FBC02D', backgroundColor: theme?.backgroundColor || '#1A1616' }}>
@@ -722,7 +770,15 @@ export default function PublicMenuPage() {
                       </SheetTrigger>
                       <SheetContent side="bottom" className="h-[80vh] rounded-t-[2.5rem] p-0 border-0 overflow-hidden shadow-2xl">
                           <LiveBillSheet 
-                            sessionId={sessionId} theme={theme} store={store} onShowUpi={() => setIsUpiDialogOpen(true)} isSalon={isSalon} placedOrders={placedOrders || []} isLoadingOrders={ordersLoading} onFinalizeBill={handleFinalizeBill}
+                            sessionId={sessionId} 
+                            theme={theme} 
+                            store={store} 
+                            onShowUpi={() => setIsUpiDialogOpen(true)} 
+                            isSalon={isSalon} 
+                            placedOrders={placedOrders || []} 
+                            historyOrders={historyOrders || []}
+                            isLoadingOrders={ordersLoading} 
+                            onFinalizeBill={handleFinalizeBill}
                           />
                       </SheetContent>
                   </Sheet>
