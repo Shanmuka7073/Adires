@@ -5,7 +5,7 @@ import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient, EmployeeProfile, SalarySlip, Store, AttendanceRecord, User, CartItem, ReportData } from '@/lib/types';
+import type { Order, OrderItem, Product, ProductPrice, ProductVariant, SiteConfig, NluExtractedSentence, MenuItem, Menu, CachedRecipe, GetIngredientsOutput, RestaurantIngredient, EmployeeProfile, SalarySlip, Store, AttendanceRecord, User, CartItem, ReportData, Ingredient } from '@/lib/types';
 import { getApps } from 'firebase-admin/app';
 import { v4 as uuidv4 } from 'uuid';
 import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
@@ -78,7 +78,18 @@ export async function getSystemStatus() {
 }
 
 /**
- * Advanced Sales Reporting with Profitability Analysis
+ * HELPER: Normalizes quantities to a base unit (g or ml) for cost calculation.
+ */
+const convertToBaseUnit = (quantity: number, unit: string): number => {
+    const u = unit?.toLowerCase().trim() || '';
+    if (u === 'kg' || u === 'l' || u === 'litre' || u === 'liter') return quantity * 1000;
+    if (u === 'g' || u === 'gm' || u === 'gram' || u === 'grams' || u === 'ml' || u === 'millilitre' || u === 'milliliter') return quantity;
+    return quantity; // Default for pcs, packets etc
+};
+
+/**
+ * Advanced Sales Reporting with Dynamic Cost Lookup.
+ * Joins Order Items with Cached Recipes and Master Ingredient Costs.
  */
 export async function getStoreSalesReport({
   storeId,
@@ -102,13 +113,35 @@ export async function getStoreSalesReport({
 
     const startTimestamp = Timestamp.fromDate(startDate);
 
-    const ordersSnapshot = await db.collection('orders')
-      .where('storeId', '==', storeId)
-      .where('status', 'in', ['Delivered', 'Completed'])
-      .where('orderDate', '>=', startTimestamp)
-      .get();
+    // 1. Parallel Fetch of Orders, Recipes (Cache), and Master Costs
+    const [ordersSnapshot, recipesSnapshot, costsSnapshot] = await Promise.all([
+      db.collection('orders')
+        .where('storeId', '==', storeId)
+        .where('status', 'in', ['Delivered', 'Completed', 'Billed'])
+        .where('orderDate', '>=', startTimestamp)
+        .get(),
+      db.collection('cachedRecipes').get(),
+      db.collection('restaurantIngredients').get()
+    ]);
 
     const orders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+    
+    // 2. Build Lookup Maps
+    const recipeMap = new Map<string, Ingredient[]>();
+    recipesSnapshot.forEach(doc => {
+        const data = doc.data();
+        const components = data.components || data.ingredients || [];
+        // The ID is normally "dish-name_en", so we store it keyed by slug
+        const slug = doc.id.split('_')[0];
+        recipeMap.set(slug, components);
+    });
+
+    const costMap = new Map<string, RestaurantIngredient>();
+    costsSnapshot.forEach(doc => {
+        costMap.set(doc.id.toLowerCase(), doc.data() as RestaurantIngredient);
+    });
+
+    const createSlug = (text: string) => text.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
 
     let totalSales = 0;
     let totalIngredientCost = 0;
@@ -129,19 +162,32 @@ export async function getStoreSalesReport({
         pStat.count += item.quantity;
         pStat.totalRevenue += (item.price * item.quantity);
         
-        // Calculate estimated cost if recipe snapshot exists
         let itemCost = 0;
-        if (item.recipeSnapshot) {
-            item.recipeSnapshot.forEach(ing => {
-                const cost = (ing.cost || 0) * item.quantity;
-                itemCost += cost;
-                
-                const prev = ingredientUsageMap.get(ing.name) || { quantity: 0, unit: ing.unit, cost: 0 };
-                ingredientUsageMap.set(ing.name, {
-                    quantity: prev.quantity + (ing.qty * item.quantity),
-                    unit: ing.unit,
-                    cost: prev.cost + cost
-                });
+        
+        // A. Priority: Check if order item has its own snapshot
+        const recipe = item.recipeSnapshot || recipeMap.get(createSlug(item.productName));
+
+        if (recipe) {
+            recipe.forEach((ing: any) => {
+                const masterCost = costMap.get(ing.name.toLowerCase());
+                if (masterCost) {
+                    // Normalize master cost to base unit (g or ml)
+                    const masterBaseVal = convertToBaseUnit(1, masterCost.unit);
+                    const costPerBase = masterCost.cost / masterBaseVal;
+
+                    // Normalize consumption to base unit
+                    const consumedBaseVal = convertToBaseUnit(ing.qty || parseFloat(ing.quantity) || 0, ing.unit || (ing.quantity?.includes('g') ? 'g' : 'kg'));
+                    const ingCost = consumedBaseVal * costPerBase * item.quantity;
+                    
+                    itemCost += ingCost;
+
+                    const prev = ingredientUsageMap.get(ing.name) || { quantity: 0, unit: masterCost.unit === 'kg' ? 'g' : masterCost.unit, cost: 0 };
+                    ingredientUsageMap.set(ing.name, {
+                        quantity: prev.quantity + (consumedBaseVal * item.quantity),
+                        unit: prev.unit,
+                        cost: prev.cost + ingCost
+                    });
+                }
             });
         }
         
@@ -167,7 +213,7 @@ export async function getStoreSalesReport({
         .map(([name, stat]) => ({
             name,
             totalProfit: stat.totalRevenue - stat.totalCost,
-            profitPerUnit: (stat.totalRevenue - stat.totalCost) / stat.count,
+            profitPerUnit: stat.count > 0 ? (stat.totalRevenue - stat.totalCost) / stat.count : 0,
             count: stat.count
         }))
         .sort((a, b) => b.totalProfit - a.totalProfit)
@@ -203,8 +249,27 @@ export async function getStoreSalesReport({
 
     return { success: true, report };
   } catch (error: any) {
+    console.error("getStoreSalesReport failed:", error);
     return { success: false, error: error.message };
   }
+}
+
+export async function addIngredientsToCatalog(ingredients: Omit<RestaurantIngredient, 'id'>[]) {
+    try {
+        const { db } = await getAdminServices();
+        const batch = db.batch();
+        
+        ingredients.forEach(ing => {
+            const docId = ing.name.toLowerCase().trim();
+            const docRef = db.collection('restaurantIngredients').doc(docId);
+            batch.set(docRef, ing, { merge: true });
+        });
+
+        await batch.commit();
+        return { success: true, count: ingredients.length };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
 }
 
 export async function getIngredientsForDish(input: { dishName: string; language: 'en' | 'te', existingRecipe?: GetIngredientsOutput }) {
