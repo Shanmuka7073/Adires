@@ -87,22 +87,27 @@ export const useAppStore = create<AppState>()(
       },
       
       setUserStore: (store: Store | null) => set({ userStore: store }),
-      setAppReady: (ready: boolean) => set({ appReady: ready }),
+      setAppReady: (isReady: boolean) => set({ appReady: isReady }),
       setLocales: (newLocales: Locales) => set({ locales: newLocales }),
       setCommands: (newCommands: Record<string, CommandGroup>) => set({ commands: newCommands }),
       setActiveStoreId: (storeId: string | null) => set({ activeStoreId: storeId }),
 
       fetchInitialData: async (db: Firestore, userId?: string) => {
+        // Prevent parallel loads
         if (get().loading) return;
+        
         set({ loading: true, error: null });
         
         try {
+          // Parallel fetch of core platform data
+          // These calls automatically use Firestore's persistent cache (IndexedDB) if offline
           const [stores, commandDocs] = await Promise.all([
             getStores(db),
             getDocs(collection(db, 'voiceCommands'))
           ]);
           
           let userStore = get().userStore; 
+          // If we have a user but no persisted store profile, or the profile is for a different user, look it up.
           if (userId && (!userStore || userStore.ownerId !== userId)) {
               const ownerQuery = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
               const ownerSnap = await getDocs(ownerQuery);
@@ -120,6 +125,8 @@ export const useAppStore = create<AppState>()(
           
           const enrichedCommands = { ...defaultGeneralCommands, ...dbCommands };
 
+          // Update memory state. 
+          // PERSISTENCE NOTE: 'stores' is NOT saved to localStorage anymore to prevent QuotaExceeded errors.
           set({
             stores,
             userStore,
@@ -130,16 +137,21 @@ export const useAppStore = create<AppState>()(
           });
 
           // Background fetch for heavy data (Aliases, master product names)
+          // This keeps the primary UI unlock very fast.
           get().fetchExtendedData(db);
           
         } catch (error) {
           console.error("fetchInitialData failed:", error);
+          // Unlock app even on error to prevent total lock-out in bad network conditions
           set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
 
       fetchExtendedData: async (db: Firestore) => {
           try {
+              // Large data sets are fetched and kept in memory. 
+              // They are backed by Firestore's persistent cache (100MB+ limit)
+              // instead of localStorage (5MB limit).
               const [masterProducts, aliasDocs] = await Promise.all([
                 getMasterProducts(db),
                 getDocs(collection(db, 'voiceAliasGroups')),
@@ -205,15 +217,13 @@ export const useAppStore = create<AppState>()(
     {
       name: 'localbasket-app-storage-v2',
       storage: createJSONStorage(() => localStorage),
+      // CRITICAL: We only persist lightweight "Identity" and "Settings" data.
+      // Heavy items like 'stores', 'masterProducts', and 'locales' are managed
+      // by Firestore's IndexedDB persistent cache, which has a much larger quota.
       partialize: (state) => ({ 
-          stores: state.stores,
           userStore: state.userStore,
-          masterProducts: state.masterProducts,
-          locales: state.locales,
-          commands: state.commands,
           language: state.language,
           activeStoreId: state.activeStoreId,
-          isInitialized: state.isInitialized,
       }),
     }
   )
@@ -221,18 +231,20 @@ export const useAppStore = create<AppState>()(
 
 export const useInitializeApp = () => {
     const { firestore, user, isUserLoading } = useFirebase();
-    const { fetchInitialData, isInitialized, loading, stores, userStore, setAppReady } = useAppStore();
+    const { fetchInitialData, isInitialized, loading, userStore, setAppReady } = useAppStore();
 
     useEffect(() => {
-        // Instant unlock if we have persisted data
-        if (stores.length > 0 || userStore) {
+        // If we have a persisted business identity, we can unlock the UI immediately
+        // while the background data fetch handles updating the live state.
+        if (userStore) {
             setAppReady(true);
         }
-        // Background sync
-        if (firestore && !isUserLoading && !isInitialized && !loading) {
+        
+        // Start the background synchronization
+        if (firestore && !isUserLoading && !loading) {
             fetchInitialData(firestore, user?.uid);
         }
-    }, [firestore, user?.uid, isUserLoading, isInitialized, loading, fetchInitialData, stores.length, userStore, setAppReady]);
+    }, [firestore, user?.uid, isUserLoading, loading, fetchInitialData, userStore, setAppReady]);
 
     return { isLoading: !isInitialized && loading };
 };
