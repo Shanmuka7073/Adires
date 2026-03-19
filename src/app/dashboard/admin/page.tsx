@@ -22,8 +22,10 @@ import {
   Cpu,
   Fingerprint,
   Zap,
-  Globe
+  Globe,
+  FileSignature
 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
