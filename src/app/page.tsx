@@ -14,6 +14,7 @@ import StoreCard from '@/components/store-card';
 import { doc, collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { useVoiceCommanderContext } from '@/components/layout/voice-commander-context';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { CartIcon } from '@/components/cart/cart-icon';
 import { useInstall } from '@/components/install-provider';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
