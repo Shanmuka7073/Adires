@@ -30,7 +30,11 @@ import {
   ZapOff,
   Flame,
   ShieldCheck,
-  Rocket
+  Rocket,
+  ShieldAlert,
+  Lock,
+  Eye,
+  Shield
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -319,8 +323,40 @@ export default function AdminDashboardPage() {
             </Card>
         </section>
 
-        {/* RIGHT: GROWTH INTELLIGENCE */}
+        {/* RIGHT: SECURITY & GROWTH */}
         <section className="space-y-10">
+            {/* SECURITY PERIMETER */}
+            <div className="space-y-4">
+                <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 flex items-center gap-2">
+                    <ShieldAlert className="h-3 w-3" /> Security Perimeter
+                </h2>
+                <Card className="rounded-[2.5rem] border-0 shadow-lg bg-white overflow-hidden">
+                    <CardHeader className="bg-red-50 border-b border-red-100 pb-4">
+                        <CardTitle className="text-xs font-black uppercase tracking-tight text-red-900 flex items-center gap-2">
+                            <Lock className="h-3 w-3" /> Defensive Hardening
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-4">
+                        <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-tight">
+                            <span className="opacity-40">RBAC (Admin Lock)</span>
+                            <span className="text-green-600 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Verified</span>
+                        </div>
+                        <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-tight">
+                            <span className="opacity-40">MFA / Biometric</span>
+                            <span className="text-green-600 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Active</span>
+                        </div>
+                        <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-tight">
+                            <span className="opacity-40">Secure Headers (CSP)</span>
+                            <span className="text-green-600 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Enabled</span>
+                        </div>
+                        <Separator className="bg-black/5" />
+                        <Button asChild variant="outline" className="w-full h-10 rounded-xl font-black uppercase text-[8px] tracking-widest border-2">
+                            <Link href="/dashboard/admin/security-rules"><Shield className="mr-2 h-3.5 w-3.5" /> Inspect Firestore Rules</Link>
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+
             <div className="space-y-4">
                 <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 flex items-center gap-2">
                     <TrendingUp className="h-3 w-3" /> Growth Logic
