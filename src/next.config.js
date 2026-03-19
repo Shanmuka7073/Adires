@@ -3,7 +3,7 @@ const withPWA = require('next-pwa')({
   dest: 'public',
   register: true,
   skipWaiting: true,
-  disable: process.env.NODE_ENV === 'development',
+  disable: false, // Force enabled for studio testing as requested for offline verification
 });
 
 /** @type {import('next').NextConfig} */
@@ -53,12 +53,10 @@ const nextConfig = {
   },
 
   typescript: {
-    // Re-enabling build errors is a good practice for production.
     ignoreBuildErrors: false,
   },
 
   eslint: {
-    // Re-enabling linting during builds is a good practice.
     ignoreDuringBuilds: false,
   },
 };

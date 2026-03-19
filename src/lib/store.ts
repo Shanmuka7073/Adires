@@ -103,11 +103,13 @@ export const useAppStore = create<AppState>()(
           ]);
           
           let userStore = get().userStore; 
-          if (userId) {
+          if (userId && (!userStore || userStore.ownerId !== userId)) {
               const ownerQuery = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
               const ownerSnap = await getDocs(ownerQuery);
               if (!ownerSnap.empty) {
                   userStore = { id: ownerSnap.docs[0].id, ...ownerSnap.docs[0].data() } as Store;
+              } else {
+                  userStore = null;
               }
           }
 
@@ -127,7 +129,7 @@ export const useAppStore = create<AppState>()(
             loading: false,
           });
 
-          // Background fetch for more heavy data
+          // Background fetch for heavy data (Aliases, master product names)
           get().fetchExtendedData(db);
           
         } catch (error) {
@@ -192,7 +194,6 @@ export const useAppStore = create<AppState>()(
       getProductName: (product: Product) => {
         if (!product || !product.name) return '';
         const lang = get().language;
-        // Import t dynamically to avoid circular issues
         const { t } = require('@/lib/locales');
         return t(product.name.toLowerCase().replace(/ /g, '-'), lang);
       },
@@ -202,7 +203,7 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'localbasket-app-storage',
+      name: 'localbasket-app-storage-v2',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           stores: state.stores,
@@ -219,17 +220,19 @@ export const useAppStore = create<AppState>()(
 );
 
 export const useInitializeApp = () => {
-    const { firestore, user } = useFirebase();
+    const { firestore, user, isUserLoading } = useFirebase();
     const { fetchInitialData, isInitialized, loading, stores, userStore, setAppReady } = useAppStore();
 
     useEffect(() => {
+        // Instant unlock if we have persisted data
         if (stores.length > 0 || userStore) {
             setAppReady(true);
         }
-        if (firestore && !isInitialized && !loading) {
+        // Background sync
+        if (firestore && !isUserLoading && !isInitialized && !loading) {
             fetchInitialData(firestore, user?.uid);
         }
-    }, [firestore, user?.uid, isInitialized, loading, fetchInitialData, stores.length, userStore, setAppReady]);
+    }, [firestore, user?.uid, isUserLoading, isInitialized, loading, fetchInitialData, stores.length, userStore, setAppReady]);
 
     return { isLoading: !isInitialized && loading };
 };
