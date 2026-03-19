@@ -1,13 +1,13 @@
 
 'use client';
 
-import { Order, Store, DeliveryPartner, Payout } from '@/lib/types';
+import { Order, Store, DeliveryPartner, Payout, SiteConfig } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { MapPin, Check, Banknote, History, Landmark, Receipt, CreditCard, ChevronDown, ChevronUp, Route, Package, Bot, Info, Loader2, LocateFixed, RefreshCw } from 'lucide-react';
+import { MapPin, Check, Banknote, History, Landmark, Receipt, CreditCard, ChevronDown, ChevronUp, Route, Package, Bot, Info, Loader2, LocateFixed, RefreshCw, Zap } from 'lucide-react';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, doc, updateDoc, Timestamp, increment, writeBatch, orderBy, setDoc, getDocs, limit, serverTimestamp } from 'firebase/firestore';
 import { useEffect, useState, useMemo, useTransition, useCallback } from 'react';
@@ -25,7 +25,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 
-const DELIVERY_FEE = 30;
+const BASE_DELIVERY_FEE = 30;
 const DELIVERY_PROXIMITY_THRESHOLD_KM = 1;
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -79,33 +79,25 @@ function OrderDetailsDialog({ order, isOpen, onClose, onAccept, distance }: { or
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl rounded-[2rem] border-0 shadow-2xl">
                 <DialogHeader>
-                    <DialogTitle>Order Details</DialogTitle>
-                    <DialogDescription>
-                        ID: {order.id} | Placed by: {order.customerName}
+                    <DialogTitle className="font-black uppercase tracking-tight">Job Particulars</DialogTitle>
+                    <DialogDescription className="font-bold opacity-40">
+                        Order #{order.id.slice(-6)} • Customer: {order.customerName}
                     </DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="max-h-[60vh]">
                     <div className="grid gap-4 py-4 pr-6">
                         {order.items && order.items.length > 0 ? (
-                           <Card>
-                                <CardHeader><CardTitle className="text-lg">Order Items</CardTitle></CardHeader>
-                                <CardContent>
+                           <Card className="rounded-2xl border-2 bg-muted/30">
+                                <CardHeader><CardTitle className="text-xs font-black uppercase tracking-widest opacity-40">Load Manifest</CardTitle></CardHeader>
+                                <CardContent className="p-0">
                                     <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Item</TableHead>
-                                                <TableHead>Qty</TableHead>
-                                                <TableHead className="text-right">Price</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
                                         <TableBody>
                                             {order.items.map((item, index) => (
-                                                <TableRow key={index}>
-                                                    <TableCell>{item.productName}</TableCell>
-                                                    <TableCell>{item.quantity}</TableCell>
-                                                    <TableCell className="text-right">₹{item.price.toFixed(2)}</TableCell>
+                                                <TableRow key={index} className="border-b last:border-0 border-black/5">
+                                                    <TableCell className="font-bold text-xs">{item.productName}</TableCell>
+                                                    <TableCell className="text-right font-black opacity-40 text-[10px]">x{item.quantity}</TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -115,23 +107,30 @@ function OrderDetailsDialog({ order, isOpen, onClose, onAccept, distance }: { or
                         ) : (
                             <p>No items listed for this order.</p>
                         )}
-                         <Card>
-                            <CardHeader><CardTitle className="text-lg">Delivery Details</CardTitle></CardHeader>
-                            <CardContent className="text-sm space-y-4">
-                                 <p><strong>Pickup:</strong> {order.store?.name} - {order.store?.address}</p>
-                                 <p><strong>Drop-off:</strong> {order.customerName} - {order.deliveryAddress}</p>
+                         <Card className="rounded-2xl border-2">
+                            <CardHeader><CardTitle className="text-xs font-black uppercase tracking-widest opacity-40">Route Logistics</CardTitle></CardHeader>
+                            <CardContent className="text-xs space-y-4 font-bold text-gray-600">
+                                 <div className="flex gap-3">
+                                     <div className="h-2 w-2 rounded-full bg-blue-500 mt-1 shrink-0" />
+                                     <p>Pickup: {order.store?.name} - {order.store?.address}</p>
+                                 </div>
+                                 <div className="flex gap-3">
+                                     <div className="h-2 w-2 rounded-full bg-primary mt-1 shrink-0" />
+                                     <p>Drop-off: {order.customerName} - {order.deliveryAddress}</p>
+                                 </div>
                                  {distance !== undefined && (
                                      <div className="border-t pt-4 mt-4 flex items-center justify-between">
-                                        <div className="font-bold">
-                                            Total Distance: {distance.toFixed(2)} km
+                                        <div className="text-sm font-black text-gray-900">
+                                            Est. Distance: {distance.toFixed(2)} km
                                         </div>
                                          <Button
-                                            variant="secondary"
+                                            variant="outline"
                                             size="sm"
+                                            className="rounded-xl font-black text-[9px] uppercase tracking-widest border-2"
                                             onClick={() => openInGoogleMaps(order.deliveryLat, order.deliveryLng, order.store?.latitude, order.store?.longitude)}
                                         >
-                                            <Route className="mr-2 h-4 w-4" />
-                                            View Route on Map
+                                            <Route className="mr-2 h-3.5 w-3.5" />
+                                            Open Navigator
                                         </Button>
                                      </div>
                                  )}
@@ -139,9 +138,13 @@ function OrderDetailsDialog({ order, isOpen, onClose, onAccept, distance }: { or
                         </Card>
                     </div>
                 </ScrollArea>
-                <DialogFooter className="gap-2 sm:gap-0">
-                    <Button variant="outline" onClick={onClose}>Close</Button>
-                    {onAccept && <Button onClick={onAccept}>Accept Job & Confirm Pickup</Button>}
+                <DialogFooter className="gap-2 sm:gap-0 border-t pt-6">
+                    <Button variant="ghost" onClick={onClose} className="rounded-xl font-bold">Cancel</Button>
+                    {onAccept && (
+                        <Button onClick={onAccept} className="rounded-xl h-12 px-8 font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
+                            Accept Job & Confirm Pickup
+                        </Button>
+                    )}
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -197,7 +200,6 @@ function PayoutSettingsCard({ partnerData, isLoading, partnerId }: { partnerData
         };
         
         const partnerRef = doc(firestore, 'deliveryPartners', partnerId);
-        // NON-BLOCKING for offline resilience
         setDoc(partnerRef, updateData, { merge: true }).catch(error => {
             const permissionError = new FirestorePermissionError({
                 path: partnerRef.path,
@@ -214,47 +216,51 @@ function PayoutSettingsCard({ partnerData, isLoading, partnerId }: { partnerData
     const hasDetails = partnerData?.zoneId;
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Landmark className="h-6 w-6 text-primary" />
-                    <span>Delivery Profile & Payouts</span>
+        <Card className="rounded-[2rem] border-0 shadow-xl overflow-hidden">
+            <CardHeader className="bg-primary/5 border-b border-black/5 pb-6">
+                <CardTitle className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
+                    <Landmark className="h-5 w-5 text-primary" />
+                    <span>Payout Profile</span>
                 </CardTitle>
-                <CardDescription>Set your service area (pincode) and payment details.</CardDescription>
+                <CardDescription className="text-[10px] font-bold opacity-40 uppercase">Manage zone & banking</CardDescription>
             </CardHeader>
-            <CardContent>
-                {isLoading ? <p>Loading settings...</p> : (
+            <CardContent className="p-8">
+                {isLoading ? <Loader2 className="h-6 w-6 animate-spin opacity-20" /> : (
                     !isEditing && hasDetails ? (
-                        <div className="space-y-4">
-                            <div>
-                                <p className="text-sm font-medium">Service Zone</p>
-                                <p className="text-lg font-bold text-primary">{partnerData.zoneId?.replace('zone-', '') || 'Global'}</p>
-                            </div>
-                            {partnerData.payoutMethod === 'upi' ? (
+                        <div className="space-y-6">
+                            <div className="flex justify-between items-end">
                                 <div>
-                                    <p className="text-sm font-medium">UPI ID</p>
-                                    <p className="text-lg font-mono bg-muted/50 p-2 rounded-md">{partnerData.upiId}</p>
+                                    <p className="text-[10px] font-black uppercase opacity-40 tracking-widest mb-1">Active Zone</p>
+                                    <p className="text-2xl font-black tracking-tighter text-primary">{partnerData.zoneId?.replace('zone-', '') || 'Global'}</p>
                                 </div>
-                            ) : (
-                                <div className="space-y-2">
-                                    <p className="text-sm font-medium">Bank Account</p>
-                                    <div className="text-lg bg-muted/50 p-3 rounded-md text-sm space-y-1 font-mono">
-                                        <p><strong>Holder:</strong> {partnerData.bankDetails?.accountHolderName}</p>
-                                        <p><strong>A/C No:</strong> {partnerData.bankDetails?.accountNumber}</p>
-                                        <p><strong>IFSC:</strong> {partnerData.bankDetails?.ifscCode}</p>
+                                <Button variant="outline" size="sm" className="rounded-xl font-bold uppercase text-[9px] tracking-widest h-8" onClick={() => setIsEditing(true)}>Edit Profile</Button>
+                            </div>
+                            
+                            <div className="p-4 rounded-2xl bg-muted/30 border border-black/5">
+                                {partnerData.payoutMethod === 'upi' ? (
+                                    <div className="space-y-1">
+                                        <p className="text-[8px] font-black uppercase opacity-40">UPI Destination</p>
+                                        <p className="text-xs font-bold font-mono">{partnerData.upiId}</p>
                                     </div>
-                                </div>
-                            )}
-                            <Button variant="outline" onClick={() => setIsEditing(true)}>Edit Profile</Button>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <p className="text-[8px] font-black uppercase opacity-40">Bank Routing</p>
+                                        <div className="text-xs font-bold font-mono space-y-1">
+                                            <p className="opacity-60">{partnerData.bankDetails?.accountHolderName}</p>
+                                            <p>{partnerData.bankDetails?.accountNumber}</p>
+                                            <p className="text-[9px] uppercase opacity-40">{partnerData.bankDetails?.ifscCode}</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     ) : (
                          <Form {...form}>
                             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                                 <FormField control={form.control} name="pincode" render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Your Service Area (Pincode)</FormLabel>
-                                        <FormControl><Input placeholder="e.g. 500001" {...field} /></FormControl>
-                                        <FormDescription>You will only see pending orders in this zone.</FormDescription>
+                                        <FormLabel className="text-[10px] font-black uppercase opacity-40">Your Pincode (Service Area)</FormLabel>
+                                        <FormControl><Input placeholder="e.g. 500001" {...field} className="rounded-xl h-12 border-2" /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )} />
@@ -264,16 +270,16 @@ function PayoutSettingsCard({ partnerData, isLoading, partnerId }: { partnerData
                                     name="payoutMethod"
                                     render={({ field }) => (
                                         <FormItem className="space-y-3">
-                                            <FormLabel>Payout Method</FormLabel>
+                                            <FormLabel className="text-[10px] font-black uppercase opacity-40">Payout Method</FormLabel>
                                             <FormControl>
                                                 <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4">
-                                                    <FormItem className="flex items-center space-x-3 space-y-0">
+                                                    <FormItem className="flex items-center space-x-2 space-y-0">
                                                         <FormControl><RadioGroupItem value="bank" /></FormControl>
-                                                        <FormLabel className="font-normal">Bank Account</FormLabel>
+                                                        <FormLabel className="text-xs font-bold uppercase">Bank</FormLabel>
                                                     </FormItem>
-                                                    <FormItem className="flex items-center space-x-3 space-y-0">
+                                                    <FormItem className="flex items-center space-x-2 space-y-0">
                                                         <FormControl><RadioGroupItem value="upi" /></FormControl>
-                                                        <FormLabel className="font-normal">UPI</FormLabel>
+                                                        <FormLabel className="text-xs font-bold uppercase">UPI</FormLabel>
                                                     </FormItem>
                                                 </RadioGroup>
                                             </FormControl>
@@ -284,29 +290,29 @@ function PayoutSettingsCard({ partnerData, isLoading, partnerId }: { partnerData
                                 {watchPayoutMethod === 'upi' && (
                                     <FormField control={form.control} name="upiId" render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>UPI ID</FormLabel>
-                                            <FormControl><Input placeholder="yourname@bank" {...field} /></FormControl>
+                                            <FormLabel className="text-[10px] font-black uppercase opacity-40">UPI ID</FormLabel>
+                                            <FormControl><Input placeholder="yourname@bank" {...field} className="rounded-xl h-12 border-2" /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )} />
                                 )}
 
                                 {watchPayoutMethod === 'bank' && (
-                                    <div className="space-y-4">
+                                    <div className="grid grid-cols-1 gap-4 p-4 rounded-2xl bg-muted/20 border-2 border-black/5">
                                         <FormField control={form.control} name="accountHolderName" render={({ field }) => (
-                                            <FormItem><FormLabel>Account Holder Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>
+                                            <FormItem><FormLabel className="text-[9px] font-black uppercase opacity-40">Holder Name</FormLabel><FormControl><Input placeholder="Full Name" {...field} className="h-10 rounded-lg" /></FormControl><FormMessage /></FormItem>
                                         )} />
                                         <FormField control={form.control} name="accountNumber" render={({ field }) => (
-                                            <FormItem><FormLabel>Account Number</FormLabel><FormControl><Input placeholder="1234567890" {...field} /></FormControl><FormMessage /></FormItem>
+                                            <FormItem><FormLabel className="text-[9px] font-black uppercase opacity-40">Account No.</FormLabel><FormControl><Input placeholder="Number" {...field} className="h-10 rounded-lg" /></FormControl><FormMessage /></FormItem>
                                         )} />
                                          <FormField control={form.control} name="ifscCode" render={({ field }) => (
-                                            <FormItem><FormLabel>IFSC Code</FormLabel><FormControl><Input placeholder="SBIN0001234" {...field} /></FormControl><FormMessage /></FormItem>
+                                            <FormItem><FormLabel className="text-[9px] font-black uppercase opacity-40">IFSC</FormLabel><FormControl><Input placeholder="Code" {...field} className="h-10 rounded-lg uppercase" /></FormControl><FormMessage /></FormItem>
                                         )} />
                                     </div>
                                 )}
                                 <div className="flex gap-2">
-                                     <Button type="submit" disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Profile'}</Button>
-                                     {hasDetails && <Button variant="ghost" onClick={() => setIsEditing(false)}>Cancel</Button>}
+                                     <Button type="submit" disabled={isSaving} className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">{isSaving ? 'Processing...' : 'Save Profile'}</Button>
+                                     {hasDetails && <Button variant="ghost" className="rounded-xl font-bold" onClick={() => setIsEditing(false)}>Cancel</Button>}
                                 </div>
                             </form>
                          </Form>
@@ -317,104 +323,46 @@ function PayoutSettingsCard({ partnerData, isLoading, partnerId }: { partnerData
     );
 }
 
-function PayoutCard({ partnerData, isLoading, onPayout }: { partnerData: DeliveryPartner | null, isLoading: boolean, onPayout: () => void }) {
+function PayoutCard({ partnerData, isLoading, onPayout, boostMultiplier }: { partnerData: DeliveryPartner | null, isLoading: boolean, onPayout: () => void, boostMultiplier: number }) {
     const totalEarnings = partnerData?.totalEarnings || 0;
     const hasPayoutDetails = partnerData && (partnerData.bankDetails?.accountNumber || partnerData.upiId);
 
     return (
-        <Card className="bg-primary/5">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Banknote className="h-6 w-6 text-primary" />
-                    <span>Earnings & Payouts</span>
-                </CardTitle>
-                <CardDescription>
-                    Your current withdrawable balance. Payout requests are processed within 24 hours.
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col md:flex-row items-center justify-between gap-4">
-                <div className="text-center md:text-left">
-                    <p className="text-sm text-muted-foreground">Current Balance</p>
-                    {isLoading ? (
-                        <p className="text-3xl font-bold">Loading...</p>
-                    ) : (
-                        <p className="text-3xl font-bold">₹{totalEarnings.toFixed(2)}</p>
+        <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-slate-900 text-white relative">
+            <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12">
+                <Banknote className="h-32 w-32" />
+            </div>
+            <CardHeader className="p-8 pb-4 relative z-10">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <CardTitle className="text-sm font-black uppercase tracking-widest text-primary">Withdrawable Earnings</CardTitle>
+                        <CardDescription className="text-white/40 font-bold text-[10px] uppercase">Synced live from secure vault</CardDescription>
+                    </div>
+                    {boostMultiplier > 1 && (
+                        <Badge className="bg-primary text-white border-0 font-black uppercase text-[10px] px-3 py-1 flex gap-1.5 items-center shadow-lg shadow-primary/20 animate-bounce">
+                            <Zap className="h-3.5 w-3.5 fill-current" /> {boostMultiplier}x Boost On
+                        </Badge>
                     )}
                 </div>
+            </CardHeader>
+            <CardContent className="p-8 pt-0 relative z-10 space-y-8">
+                <div>
+                    {isLoading ? (
+                        <Skeleton className="h-12 w-32 bg-white/10 rounded-xl" />
+                    ) : (
+                        <p className="text-6xl font-black tracking-tighter italic">₹{totalEarnings.toFixed(0)}</p>
+                    )}
+                    <p className="text-[10px] font-black uppercase opacity-20 tracking-[0.3em] mt-2">Available for payout</p>
+                </div>
+                
                 <Button
                     size="lg"
                     onClick={onPayout}
                     disabled={isLoading || totalEarnings <= 0 || !hasPayoutDetails}
-                    title={!hasPayoutDetails ? "Please set up your payout details first" : ""}
+                    className="w-full h-14 rounded-2xl bg-white text-slate-900 hover:bg-white/90 font-black uppercase tracking-widest text-xs shadow-2xl"
                 >
-                    Request Payout
+                    Request Instant Payout
                 </Button>
-            </CardContent>
-        </Card>
-    )
-}
-
-function PayoutHistoryCard({ partnerId }: { partnerId: string }) {
-    const { firestore } = useFirebase();
-
-    const payoutsQuery = useMemoFirebase(() => {
-        if (!firestore || !partnerId) return null;
-        return query(
-            collection(firestore, `deliveryPartners/${partnerId}/payouts`),
-            orderBy('requestDate', 'desc')
-        );
-    }, [firestore, partnerId]);
-
-    const { data: payouts, isLoading } = useCollection<Payout>(payoutsQuery);
-    
-    const getStatusVariant = (status: Payout['status']): "default" | "secondary" | "destructive" | "outline" => {
-        switch (status) {
-            case 'completed': return 'default';
-            case 'pending': return 'secondary';
-            case 'failed': return 'destructive';
-            default: return 'outline';
-        }
-    }
-
-    const formatDateSafe = (date: any) => {
-        if (!date) return 'N/A';
-        const jsDate = date.seconds ? new Date(date.seconds * 1000) : new Date(date);
-        return `${format(jsDate, 'PPP')} (${formatDistanceToNow(jsDate, { addSuffix: true })})`
-    }
-
-    return (
-         <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <History className="h-6 w-6 text-primary" />
-                    <span>Payout History</span>
-                </CardTitle>
-                <CardDescription>A record of all your payout requests.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                {isLoading ? <p>Loading payout history...</p> : 
-                !payouts || payouts.length === 0 ? <p className="text-muted-foreground">You have not requested any payouts yet.</p> : (
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Date</TableHead>
-                                <TableHead>Amount</TableHead>
-                                <TableHead className="text-right">Status</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {payouts.map((payout) => (
-                                <TableRow key={payout.id}>
-                                    <TableCell>{formatDateSafe(payout.requestDate)}</TableCell>
-                                    <TableCell className="font-medium">₹{payout.amount.toFixed(2)}</TableCell>
-                                    <TableCell className="text-right">
-                                        <Badge variant={getStatusVariant(payout.status)}>{payout.status}</Badge>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                )}
             </CardContent>
         </Card>
     )
@@ -423,45 +371,46 @@ function PayoutHistoryCard({ partnerId }: { partnerId: string }) {
 function MyActiveDeliveriesCard({ order, handleMarkAsDelivered, onShowDetails }: { order: Order, handleMarkAsDelivered: (order: Order) => void, onShowDetails: (order: Order) => void }) {
     
     return (
-        <Card key={order.id} className="p-4 space-y-4">
-            <div className="flex justify-between items-start">
-                <div>
-                    <p className="font-semibold">{order.customerName}</p>
-                    <p className="text-sm text-muted-foreground">{order.deliveryAddress}</p>
+        <Card key={order.id} className="rounded-[2rem] border-0 shadow-lg p-6 bg-white overflow-hidden group">
+            <div className="flex justify-between items-start mb-6">
+                <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1 leading-none">Drop-off Destination</p>
+                    <h3 className="text-lg font-black tracking-tight text-gray-900 truncate">{order.customerName}</h3>
+                    <p className="text-[11px] font-bold text-gray-500 leading-tight truncate">{order.deliveryAddress}</p>
                 </div>
-                <div className="flex flex-col gap-2">
+                <div className="flex gap-2 shrink-0">
                      <Button
                         variant="outline"
-                        size="sm"
+                        size="icon"
+                        className="h-10 w-10 rounded-xl border-2 hover:bg-primary hover:text-white transition-colors"
                         onClick={() => openInGoogleMaps(order.deliveryLat, order.deliveryLng, order.store?.latitude, order.store?.longitude)}
                     >
-                        <MapPin className="mr-2 h-4 w-4" />
-                        Route
+                        <MapPin className="h-4 w-4" />
                     </Button>
-                     <Button variant="secondary" size="sm" onClick={() => onShowDetails(order)}>Details</Button>
+                     <Button variant="secondary" size="sm" className="h-10 rounded-xl font-bold uppercase text-[9px] tracking-widest px-4" onClick={() => onShowDetails(order)}>Info</Button>
                 </div>
             </div>
 
             <AlertDialog>
                 <AlertDialogTrigger asChild>
                     <Button 
-                        className="w-full"
+                        className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20 transition-all active:scale-95"
                         disabled={!order.deliveryLat || !order.deliveryLng}
                     >
                         <Check className="mr-2 h-4 w-4" />
-                        Mark as Delivered
+                        Finalize Delivery
                     </Button>
                 </AlertDialogTrigger>
-                <AlertDialogContent>
+                <AlertDialogContent className="rounded-[2.5rem] border-0 shadow-2xl">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Confirm Delivery</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Are you sure you want to mark this order as delivered? This action cannot be undone.
+                        <AlertDialogTitle className="font-black uppercase tracking-tight">Confirm Arrival?</AlertDialogTitle>
+                        <AlertDialogDescription className="font-bold">
+                            Have you reached the customer's location and handed over the package?
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleMarkAsDelivered(order)}>Confirm</AlertDialogAction>
+                    <AlertDialogFooter className="gap-2">
+                        <AlertDialogCancel className="rounded-xl font-bold">Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleMarkAsDelivered(order)} className="bg-primary hover:bg-primary/90 rounded-xl font-bold uppercase tracking-widest text-[10px]">Yes, Confirmed</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
@@ -478,6 +427,16 @@ export default function DeliveriesPage() {
   const [selectedOrderDistance, setSelectedOrderDistance] = useState<number | undefined>(undefined);
   const [availableJobs, setAvailableJobs] = useState<Order[]>([]);
   const [availableLoading, setAvailableLoading] = useState(false);
+
+  // REAL-TIME BOOST LISTENER
+  const boostConfigRef = useMemoFirebase(() => firestore ? doc(firestore, 'siteConfig', 'partnerRewards') : null, [firestore]);
+  const { data: boostConfig } = useDoc<any>(boostConfigRef);
+  const activeBoost = useMemo(() => {
+      if (!boostConfig || !boostConfig.active) return 1;
+      const expiresAt = boostConfig.expiresAt instanceof Timestamp ? boostConfig.expiresAt.toDate() : new Date(boostConfig.expiresAt);
+      if (expiresAt < new Date()) return 1;
+      return boostConfig.multiplier || 1;
+  }, [boostConfig]);
 
   const partnerDocRef = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
@@ -554,7 +513,6 @@ export default function DeliveriesPage() {
     if (!firestore || !user?.uid) return;
      
     const orderRef = doc(firestore, 'orders', orderId);
-    // NON-BLOCKING
     updateDoc(orderRef, { 
         deliveryPartnerId: user.uid,
         status: 'Out for Delivery',
@@ -566,7 +524,7 @@ export default function DeliveriesPage() {
     
     toast({
         title: `Job Accepted!`,
-        description: `You are now assigned to deliver this order.`
+        description: `Proceed to store for pickup.`
     });
     fetchAvailableJobs();
   };
@@ -585,8 +543,8 @@ export default function DeliveriesPage() {
             if (distance > DELIVERY_PROXIMITY_THRESHOLD_KM) {
                 toast({
                     variant: 'destructive',
-                    title: 'Too Far Away',
-                    description: `You must be within ${DELIVERY_PROXIMITY_THRESHOLD_KM * 1000} meters of the delivery location.`,
+                    title: 'Verification Failed',
+                    description: `You must be within ${DELIVERY_PROXIMITY_THRESHOLD_KM * 1000}m of the drop-off location.`,
                 });
                 return;
             }
@@ -598,25 +556,28 @@ export default function DeliveriesPage() {
 
             const batch = writeBatch(firestore);
             batch.update(orderRef, { status: 'Delivered', updatedAt: serverTimestamp() });
+            
+            // DYNAMIC PAYOUT CALCULATION WITH BOOST MULTIPLIER
+            const finalEarnings = BASE_DELIVERY_FEE * activeBoost;
+            
             batch.set(partnerRef, {
-                totalEarnings: increment(DELIVERY_FEE),
+                totalEarnings: increment(finalEarnings),
                 userId: user.uid,
                 payoutsEnabled: true,
             }, { merge: true });
 
-            // NON-BLOCKING
             batch.commit().catch(error => {
                 console.error("Failed to mark as delivered:", error);
-                toast({ variant: 'destructive', title: 'Update Failed', description: 'Could not update the order status.' });
+                toast({ variant: 'destructive', title: 'Sync Error', description: 'Internal platform sync failed.' });
             });
 
             toast({
-                title: "Delivery Complete!",
-                description: `₹${DELIVERY_FEE.toFixed(2)} added to your earnings.`
+                title: "Payment Credited!",
+                description: `₹${finalEarnings.toFixed(2)} added to your vault. ${activeBoost > 1 ? `(Including ${activeBoost}x Boost)` : ''}`
             });
         },
         (error) => {
-            toast({ variant: 'destructive', title: 'Location Error', description: 'Could not get your current location.' });
+            toast({ variant: 'destructive', title: 'Location Error', description: 'GPS access required for delivery verification.' });
         }
     );
   };
@@ -645,7 +606,6 @@ export default function DeliveriesPage() {
           lastPayoutDate: Timestamp.now(),
       });
 
-      // NON-BLOCKING
       batch.commit().catch(error => {
           toast({ variant: 'destructive', title: 'Payout Failed', description: 'Error submitting request.' });
       });
@@ -677,7 +637,7 @@ export default function DeliveriesPage() {
   }
 
   return (
-    <div className="container mx-auto py-12 px-4 md:px-6 space-y-12">
+    <div className="container mx-auto py-12 px-4 md:px-6 space-y-12 pb-32">
         {selectedOrder && (
              <OrderDetailsDialog 
                 order={selectedOrder} 
@@ -686,136 +646,141 @@ export default function DeliveriesPage() {
                 distance={selectedOrderDistance}
              />
         )}
+
+        <div className="border-b pb-10 border-black/5">
+            <h1 className="text-5xl font-black font-headline tracking-tighter uppercase italic">Logistics Hub</h1>
+            <p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Partner Performance Center</p>
+        </div>
+
       <div className="grid md:grid-cols-2 gap-8">
-        <PayoutCard partnerData={partnerData} isLoading={partnerLoading} onPayout={handlePayoutRequest} />
+        <PayoutCard partnerData={partnerData} isLoading={partnerLoading} onPayout={handlePayoutRequest} boostMultiplier={activeBoost} />
         {user && <PayoutSettingsCard partnerData={partnerData} isLoading={partnerLoading} partnerId={user.uid} />}
       </div>
       
       {user && <PayoutHistoryCard partnerId={user.uid} />}
 
-      <div>
-        <h1 className="text-4xl font-bold mb-8 font-headline">My Active Deliveries</h1>
-        <Card>
-          <CardHeader>
-             <div className="flex justify-between items-center">
-                <CardTitle>Orders You Are Delivering</CardTitle>
-                {myActiveDeliveriesWithStores.length > 0 && (
-                     <Button onClick={handleOptimizedRoute}><Route className="mr-2 h-4 w-4" /> Optimized Route</Button>
-                )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {activeDeliveriesLoading ? (
-              <p>Loading your active deliveries...</p>
-            ) : myActiveDeliveriesWithStores.length === 0 ? (
-              <p className="text-muted-foreground">No active deliveries. Pick one below.</p>
-            ) : (
-              <div className="space-y-4">
-                  {myActiveDeliveriesWithStores.map((order) => (
-                    <MyActiveDeliveriesCard 
-                        key={order.id} order={order}
-                        handleMarkAsDelivered={handleMarkAsDelivered}
-                        onShowDetails={handleShowDetails}
-                    />
-                  ))}
-              </div>
+      <section className="space-y-6">
+        <div className="flex justify-between items-center px-1">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600 flex items-center gap-2">
+                <Package className="h-3.5 w-3.5"/> Active Deliveries
+            </h2>
+            {myActiveDeliveriesWithStores.length > 0 && (
+                 <Button variant="outline" onClick={handleOptimizedRoute} className="rounded-xl h-10 px-4 border-2 font-black uppercase text-[10px] tracking-widest"><Route className="mr-2 h-4 w-4" /> Multi-Route</Button>
             )}
-          </CardContent>
-        </Card>
-      </div>
+        </div>
+        
+        {activeDeliveriesLoading ? (
+          <div className="grid md:grid-cols-2 gap-4"><Skeleton className="h-48 w-full rounded-[2rem]" /><Skeleton className="h-48 w-full rounded-[2rem]" /></div>
+        ) : myActiveDeliveriesWithStores.length === 0 ? (
+          <div className="p-20 text-center bg-white rounded-[3rem] border-2 border-dashed border-black/5 opacity-40">
+              <ShoppingBag className="h-12 w-12 mx-auto mb-4" />
+              <p className="font-black uppercase tracking-widest text-xs">No current assignments</p>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 gap-6">
+              {myActiveDeliveriesWithStores.map((order) => (
+                <MyActiveDeliveriesCard 
+                    key={order.id} order={order}
+                    handleMarkAsDelivered={handleMarkAsDelivered}
+                    onShowDetails={handleShowDetails}
+                />
+              ))}
+          </div>
+        )}
+      </section>
 
 
-      <div>
-        <div className="flex justify-between items-center mb-8">
-            <h2 className="text-3xl font-bold font-headline">Available in your Zone</h2>
-            <Button variant="outline" size="sm" onClick={fetchAvailableJobs} disabled={availableLoading}>
-                <RefreshCw className={cn("mr-2 h-4 w-4", availableLoading && "animate-spin")} />
-                Refresh
+      <section className="space-y-6">
+        <div className="flex justify-between items-center px-1">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary flex items-center gap-2">
+                <Bot className="h-3.5 w-3.5"/> Nearby Opportunities
+            </h2>
+            <Button variant="ghost" size="sm" onClick={fetchAvailableJobs} disabled={availableLoading} className="rounded-full font-black text-[9px] uppercase tracking-widest opacity-40">
+                <RefreshCw className={cn("mr-2 h-3 w-3", availableLoading && "animate-spin")} /> Refresh
             </Button>
         </div>
-         <Card>
-          <CardHeader>
-            <CardTitle>Ready for Pickup</CardTitle>
-             <CardDescription>Orders in your zone ({partnerData?.zoneId?.replace('zone-', '') || 'Set zone above'}).</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {!partnerData?.zoneId ? (
-                <Alert><Info className="h-4 w-4"/><AlertTitle>Service Zone Required</AlertTitle><AlertDescription>Please set your Pincode in Payout Settings to see available jobs in your area.</AlertDescription></Alert>
-            ) : availableLoading && availableJobs.length === 0 ? (
-              <p>Finding available deliveries...</p>
-            ) : !availableDeliveriesWithStores || availableDeliveriesWithStores.length === 0 ? (
-              <Alert><Package className="h-4 w-4" /><AlertTitle>Zone is Quiet</AlertTitle><AlertDescription>No orders are currently ready in your zone. Check back soon.</AlertDescription></Alert>
-            ) : (
+
+        {!partnerData?.zoneId ? (
+            <Alert className="rounded-3xl border-2 bg-amber-50 border-amber-100 p-8"><Info className="h-5 w-5 text-amber-600"/><AlertTitle className="text-amber-900 font-black uppercase text-xs">Zone Not Assigned</AlertTitle><AlertDescription className="text-amber-800 text-sm font-bold opacity-60">Set your service pincode above to discover jobs near you.</AlertDescription></Alert>
+        ) : availableLoading && availableJobs.length === 0 ? (
+          <div className="p-12 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 mx-auto" /></div>
+        ) : !availableDeliveriesWithStores || availableDeliveriesWithStores.length === 0 ? (
+          <div className="p-20 text-center bg-white rounded-[3rem] border-2 border-dashed border-black/5 opacity-40">
+              <Zap className="h-12 w-12 mx-auto mb-4" />
+              <p className="font-black uppercase tracking-widest text-xs">Zero pending jobs in {partnerData.zoneId.replace('zone-', '')}</p>
+          </div>
+        ) : (
+            <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white">
                 <Table>
-                    <TableHeader>
+                    <TableHeader className="bg-black/5">
                         <TableRow>
-                            <TableHead>Customer</TableHead>
-                            <TableHead>Store</TableHead>
-                            <TableHead>Total Value</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Hub (Pickup)</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Value</TableHead>
+                            <TableHead className="text-right text-[10px] font-black uppercase tracking-widest opacity-40">Accept</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                          {availableDeliveriesWithStores.map(order => (
-                            <TableRow key={order.id}>
-                                <TableCell>{order.customerName}</TableCell>
-                                <TableCell>{order.store?.name}</TableCell>
-                                <TableCell>₹{order.totalAmount.toFixed(2)}</TableCell>
-                                <TableCell className="text-right">
-                                    <Button size="sm" onClick={() => handleConfirmPickup(order.id)}>
-                                        Accept Job
+                            <TableRow key={order.id} className="hover:bg-muted/30 border-b border-black/5">
+                                <TableCell className="py-6">
+                                    <p className="font-black text-sm uppercase text-gray-950">{order.store?.name}</p>
+                                    <p className="text-[9px] font-bold opacity-40 uppercase tracking-tight">{order.store?.address}</p>
+                                </TableCell>
+                                <TableCell className="font-black text-sm text-primary">₹{order.totalAmount.toFixed(0)}</TableCell>
+                                <TableCell className="text-right pr-6">
+                                    <Button size="sm" className="h-10 rounded-xl px-6 font-black uppercase text-[10px] tracking-widest shadow-lg shadow-primary/20" onClick={() => handleConfirmPickup(order.id)}>
+                                        Go
                                     </Button>
                                 </TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
                 </Table>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            </Card>
+        )}
+      </section>
 
-      <div>
-        <h2 className="text-3xl font-bold mb-8 font-headline">Earnings History</h2>
-         <Card>
-            <CardHeader>
-                <CardTitle>Completed Deliveries</CardTitle>
-                <CardDescription>A record of your successful deliveries.</CardDescription>
-            </CardHeader>
-            <CardContent>
+      <section className="space-y-6">
+        <h2 className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 px-1">Earning Audit</h2>
+         <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white">
+            <CardContent className="p-0">
                 {completedDeliveriesLoading ? (
-                    <p>Loading completed deliveries...</p>
+                    <div className="p-12 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto opacity-20" /></div>
                 ) : !completedDeliveries || completedDeliveries.length === 0 ? (
-                    <p className="text-muted-foreground">You have not completed any deliveries yet.</p>
+                    <div className="p-20 text-center opacity-20">
+                        <History className="h-12 w-12 mx-auto mb-4" />
+                        <p className="font-black uppercase tracking-widest text-xs">No history found</p>
+                    </div>
                 ) : (
                     <Table>
-                        <TableHeader>
+                        <TableHeader className="bg-black/5">
                             <TableRow>
-                                <TableHead>Date</TableHead>
-                                <TableHead>Customer</TableHead>
-                                <TableHead className="text-right">Your Earning</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Completion Date</TableHead>
+                                <TableHead className="text-right text-[10px] font-black uppercase tracking-widest opacity-40">Yield (₹)</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {completedDeliveries.map((order) => (
-                                <TableRow key={order.id}>
-                                    <TableCell>{formatDate(order.orderDate)}</TableCell>
-                                    <TableCell>{order.customerName}</TableCell>
-                                    <TableCell className="text-right font-medium">₹{DELIVERY_FEE.toFixed(2)}</TableCell>
+                                <TableRow key={order.id} className="border-b border-black/5">
+                                    <TableCell className="py-4">
+                                        <p className="font-bold text-xs">{formatDate(order.orderDate)}</p>
+                                        <p className="text-[9px] font-black uppercase opacity-40">#{order.id.slice(-6)}</p>
+                                    </TableCell>
+                                    <TableCell className="text-right font-black text-primary pr-6">₹{BASE_DELIVERY_FEE.toFixed(0)}</TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
-                        <TableFooter>
+                        <TableFooter className="bg-primary/5">
                             <TableRow>
-                                <TableCell colSpan={2} className="text-right font-bold text-lg">Total Deliveries</TableCell>
-                                <TableCell className="text-right font-bold text-lg">{completedDeliveries.length}</TableCell>
+                                <TableCell className="text-xs font-black uppercase tracking-widest text-primary pl-6">Cumulative Assignments</TableCell>
+                                <TableCell className="text-right font-black text-xl text-primary pr-6">{completedDeliveries.length}</TableCell>
                             </TableRow>
                         </TableFooter>
                     </Table>
                 )}
             </CardContent>
         </Card>
-      </div>
+      </section>
 
     </div>
   );
