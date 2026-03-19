@@ -108,7 +108,7 @@ export const useAppStore = create<AppState>()(
             getDocs(collection(db, 'voiceCommands'))
           ]);
           
-          let userStore = get().userStore; // Start with persisted store
+          let userStore = get().userStore; 
           
           if (userId) {
               const ownerQuery = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
@@ -116,17 +116,6 @@ export const useAppStore = create<AppState>()(
               
               if (!ownerSnap.empty) {
                   userStore = { id: ownerSnap.docs[0].id, ...ownerSnap.docs[0].data() } as Store;
-              } else {
-                  const userDoc = await getDoc(doc(db, 'users', userId));
-                  if (userDoc.exists()) {
-                      const userData = userDoc.data() as User;
-                      if (userData.storeId) {
-                          const storeDoc = await getDoc(doc(db, 'stores', userData.storeId));
-                          if (storeDoc.exists()) {
-                              userStore = { id: storeDoc.id, ...storeDoc.data() } as Store;
-                          }
-                      }
-                  }
               }
           }
 
@@ -259,6 +248,7 @@ export const useInitializeApp = () => {
 
     useEffect(() => {
         // STRATEGY: If we already have stores or userStore from localStorage, the app is ready.
+        // This makes navigation instantaneous while offline.
         if (stores.length > 0 || userStore) {
             setAppReady(true);
         }

@@ -6,6 +6,18 @@ const withPWA = require('next-pwa')({
   disable: false, // Always enabled for complete offline functionality
   runtimeCaching: [
     {
+      // Aggressive caching for static assets (JS, CSS, etc.)
+      urlPattern: /^\/_next\/static\/.*/i,
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'static-assets',
+        expiration: {
+          maxEntries: 64,
+          maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+        },
+      },
+    },
+    {
       urlPattern: /^https:\/\/images\.unsplash\.com\/.*/i,
       handler: 'CacheFirst',
       options: {
@@ -39,16 +51,20 @@ const withPWA = require('next-pwa')({
       },
     },
     {
-      // Aggressive caching for Dashboard and Menu routes to ensure offline navigation
+      /**
+       * CHANGED TO StaleWhileRevalidate:
+       * This is the secret to instant offline navigation. 
+       * It pulls from the cache immediately (0 seconds wait)
+       * while updating the cache in the background if possible.
+       */
       urlPattern: /\/dashboard|\/menu/i,
-      handler: 'NetworkFirst',
+      handler: 'StaleWhileRevalidate',
       options: {
         cacheName: 'management-routes',
         expiration: {
           maxEntries: 32,
           maxAgeSeconds: 24 * 60 * 60, // 24 Hours
         },
-        networkTimeoutSeconds: 3, // Fast fallback to cache if internet is unstable/slow
       },
     },
   ],
