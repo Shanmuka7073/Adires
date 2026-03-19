@@ -3,12 +3,10 @@ import { Suspense } from 'react';
 import {
   Users,
   Store,
-  ShoppingBag,
   Mic,
   Bot,
   Shield,
   FileCode,
-  Server,
   TrendingUp,
   ArrowRight,
   Cog,
@@ -17,7 +15,9 @@ import {
   PackageCheck,
   Beaker,
   Lightbulb,
-  ImageIcon
+  ImageIcon,
+  WifiOff,
+  Activity
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -28,16 +28,12 @@ import { unstable_cache } from 'next/cache';
 import { getAdminServices } from '@/firebase/admin-init';
 
 /**
- * 1. FAST DATA FETCHING (The "Read Explosion Fix")
- * Uses the Admin SDK .count().get() to perform metadata-only counts.
- * Wrapped in unstable_cache to ensure sub-100ms response times.
+ * 1. FAST DATA FETCHING
  */
 const getPlatformStats = unstable_cache(
   async () => {
     try {
         const { db } = await getAdminServices();
-        
-        // Parallel metadata counts (cost = 1 read per count operation)
         const [userSnap, storeSnap, orderSnap] = await Promise.all([
           db.collection('users').count().get(),
           db.collection('stores').count().get(),
@@ -55,12 +51,9 @@ const getPlatformStats = unstable_cache(
     }
   },
   ['platform-stats'],
-  { revalidate: 300 } // Cache for 5 minutes
+  { revalidate: 300 }
 );
 
-/**
- * 2. THE UI SKELETON (What the user sees while loading)
- */
 function StatsSkeleton() {
   return (
     <div className="grid md:grid-cols-3 gap-8">
@@ -71,9 +64,6 @@ function StatsSkeleton() {
   );
 }
 
-/**
- * 3. THE STATS DISPLAY (Loads after the server counts)
- */
 async function StatsGrid() {
   const stats = await getPlatformStats();
   
@@ -111,18 +101,22 @@ function ActionCard({
   description: string;
   href: string;
   icon: any;
-  variant?: 'default' | 'highlight';
+  variant?: 'default' | 'highlight' | 'warning';
 }) {
   return (
     <Link href={href}>
       <Card className={cn(
-          "hover:shadow-md transition h-full rounded-[2.5rem] group overflow-hidden",
-          variant === 'highlight' ? "bg-primary/5 border-primary/20" : "border-primary/10 hover:border-primary/30"
+          "hover:shadow-md transition h-full rounded-[2.5rem] group overflow-hidden border-2",
+          variant === 'highlight' ? "bg-primary/5 border-primary/20" : 
+          variant === 'warning' ? "bg-amber-50 border-amber-200" :
+          "border-black/5 hover:border-primary/30"
       )}>
         <CardHeader className="flex flex-row gap-4 items-center">
           <div className={cn(
-              "h-12 w-12 rounded-2xl flex items-center justify-center text-primary transition-colors shadow-inner",
-              variant === 'highlight' ? "bg-primary text-white" : "bg-primary/5 group-hover:bg-primary group-hover:text-white"
+              "h-12 w-12 rounded-2xl flex items-center justify-center transition-colors shadow-inner",
+              variant === 'highlight' ? "bg-primary text-white" : 
+              variant === 'warning' ? "bg-amber-500 text-white" :
+              "bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white"
           )}>
             <Icon className="h-6 w-6" />
           </div>
@@ -136,12 +130,9 @@ function ActionCard({
   );
 }
 
-/**
- * 4. THE MAIN PAGE (The Governor's Hub)
- */
 export default async function AdminDashboardPage() {
   return (
-    <div className="container mx-auto px-4 py-10 space-y-16 max-w-7xl">
+    <div className="container mx-auto px-4 py-10 space-y-16 max-w-7xl pb-32">
       <div className="flex flex-col md:flex-row justify-between items-end gap-6 border-b pb-10 border-black/5">
         <div>
             <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic">Admin Hub</h1>
@@ -156,10 +147,32 @@ export default async function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Optimized Stats Section */}
       <Suspense fallback={<StatsSkeleton />}>
         <StatsGrid />
       </Suspense>
+
+      {/* Diagnostics & Verification Section */}
+      <section className="space-y-6">
+        <h2 className="text-2xl font-black font-headline uppercase tracking-tight flex items-center gap-2">
+            <Activity className="h-6 w-6 text-amber-500" />
+            Diagnostics & Verification
+        </h2>
+        <div className="grid md:grid-cols-2 gap-6">
+          <ActionCard
+            title="Offline Capability Audit"
+            description="Verify PWA status, local memory, and background sync."
+            href="/dashboard/admin/offline-audit"
+            icon={WifiOff}
+            variant="warning"
+          />
+          <ActionCard
+            title="Performance Monitor"
+            description="Live read/write counter and indexing status."
+            href="/dashboard/admin/performance-audit"
+            icon={TrendingUp}
+          />
+        </div>
+      </section>
 
       {/* Developer Support Section */}
       <section className="space-y-6">
@@ -176,18 +189,18 @@ export default async function AdminDashboardPage() {
             variant="highlight"
           />
           <ActionCard
-            title="Performance Audit"
-            description="Verify indexing and read/write optimizations."
-            href="/dashboard/admin/performance-audit"
-            icon={TrendingUp}
+            title="Master Product List"
+            description="A complete, shareable list of every item sold."
+            href="/dashboard/admin/product-list"
+            icon={List}
           />
         </div>
       </section>
 
       {/* UI/UX Code Section */}
       <section className="space-y-6 bg-primary/5 p-10 rounded-[3rem] border border-primary/10">
-        <h2 className="text-2xl font-black font-headline uppercase tracking-tight flex items-center gap-2">
-            <FileCode className="h-6 w-6 text-primary" />
+        <h2 className="text-2xl font-black font-headline uppercase tracking-tight flex items-center gap-2 text-primary">
+            <FileCode className="h-6 w-6" />
             Platform UI/UX Code
         </h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -205,12 +218,10 @@ export default async function AdminDashboardPage() {
             System & Operations
         </h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <ActionCard title="Sales Reports" description="Aggregate revenue and volume data." href="/dashboard/admin/sales-report" icon={BarChart3} />
+          <ActionCard title="Sales Reports" description="Aggregate revenue and volume data." href="/dashboard/owner/sales-report" icon={BarChart3} />
           <ActionCard title="Master Catalog" description="Global product and price control." href="/dashboard/owner/my-store" icon={Store} />
           <ActionCard title="Voice Commands" description="Natural language mapping." href="/dashboard/voice-commands" icon={Mic} />
           <ActionCard title="Security Rules" description="Firestore protection policy." href="/dashboard/admin/security-rules" icon={Shield} />
-          
-          {/* Restored tools */}
           <ActionCard title="Item Specialist" description="Recipe and cost engineering." href="/dashboard/admin/recipe-tester" icon={Beaker} />
           <ActionCard title="Failed Commands" description="AI training from logs." href="/dashboard/admin/failed-commands" icon={Bot} />
           <ActionCard title="AI Training" description="Alias extraction ground." href="/dashboard/admin/training-ground" icon={Lightbulb} />
