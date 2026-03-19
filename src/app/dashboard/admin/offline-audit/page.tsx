@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect, useTransition, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -17,7 +17,9 @@ import {
     Activity,
     Smartphone,
     Cloud,
-    Loader2
+    Loader2,
+    ShieldAlert,
+    AlertCircle
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { useFirebase } from '@/firebase';
@@ -25,14 +27,31 @@ import { doc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
+
+interface DiagnosticState {
+    sw: {
+        status: 'active' | 'missing' | 'checking' | 'unsupported' | 'insecure';
+        reason: string;
+    };
+    memory: {
+        storeId: 'saved' | 'not_saved' | 'not_applicable' | 'checking';
+        reason: string;
+    };
+}
 
 export default function OfflineAuditPage() {
     const [isOnline, setIsOnline] = useState(true);
-    const [swStatus, setSwStatus] = useState<'active' | 'missing' | 'checking'>('checking');
+    const [diag, setDiag] = useState<DiagnosticState>({
+        sw: { status: 'checking', reason: 'Analyzing browser environment...' },
+        memory: { storeId: 'checking', reason: 'Checking local persistence...' }
+    });
     const [lastSyncStatus, setLastSyncStatus] = useState<'idle' | 'writing' | 'queued' | 'synced'>('idle');
     const [isTesting, startTest] = useTransition();
+    
     const { userStore, stores, isInitialized } = useAppStore();
     const { firestore, user } = useFirebase();
+    const { isRestaurantOwner, isAdmin } = useAdminAuth();
     const { toast } = useToast();
 
     useEffect(() => {
@@ -41,20 +60,66 @@ export default function OfflineAuditPage() {
         window.addEventListener('offline', handleStatusChange);
         setIsOnline(navigator.onLine);
 
-        // Check Service Worker
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.ready.then(reg => {
-                setSwStatus(reg.active ? 'active' : 'missing');
-            }).catch(() => setSwStatus('missing'));
-        } else {
-            setSwStatus('missing');
-        }
+        // 1. PERFORM PWA AUDIT
+        const checkPWA = async () => {
+            if (typeof window === 'undefined') return;
+
+            if (!('serviceWorker' in navigator)) {
+                setDiag(prev => ({ ...prev, sw: { status: 'unsupported', reason: 'This browser does not support Service Workers (PWA).' } }));
+                return;
+            }
+
+            // PWA requires HTTPS or localhost
+            const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            if (!isSecure) {
+                setDiag(prev => ({ ...prev, sw: { status: 'insecure', reason: 'PWA features are disabled because this connection is not HTTPS.' } }));
+                return;
+            }
+
+            try {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                const adiresSW = registrations.find(reg => reg.active || reg.waiting || reg.installing);
+                
+                if (adiresSW) {
+                    if (navigator.serviceWorker.controller) {
+                        setDiag(prev => ({ ...prev, sw: { status: 'active', reason: 'Shell is active and controlling this page.' } }));
+                    } else {
+                        setDiag(prev => ({ ...prev, sw: { status: 'active', reason: 'Shell is registered but needs a refresh to take control.' } }));
+                    }
+                } else {
+                    setDiag(prev => ({ ...prev, sw: { status: 'missing', reason: 'No Service Worker found. visit Home or Dashboard to trigger registration.' } }));
+                }
+            } catch (e) {
+                setDiag(prev => ({ ...prev, sw: { status: 'missing', reason: 'Error checking worker: ' + (e as Error).message } }));
+            }
+        };
+
+        // 2. PERFORM MEMORY AUDIT
+        const checkMemory = () => {
+            if (!user) {
+                setDiag(prev => ({ ...prev, memory: { storeId: 'not_saved', reason: 'User not logged in. Persistence is disabled for guests.' } }));
+                return;
+            }
+
+            if (userStore?.id) {
+                setDiag(prev => ({ ...prev, memory: { storeId: 'saved', reason: `Persisted Store: ${userStore.name}` } }));
+            } else if (isAdmin) {
+                setDiag(prev => ({ ...prev, memory: { storeId: 'not_applicable', reason: 'Admin role detected. Platform management does not require a store ID.' } }));
+            } else if (!isRestaurantOwner) {
+                setDiag(prev => ({ ...prev, memory: { storeId: 'not_applicable', reason: 'Customer role detected. Shopping does not require a persistent store ID.' } }));
+            } else {
+                setDiag(prev => ({ ...prev, memory: { storeId: 'not_saved', reason: 'Fetch failed or store profile has not been created yet.' } }));
+            }
+        };
+
+        checkPWA();
+        checkMemory();
 
         return () => {
             window.removeEventListener('online', handleStatusChange);
             window.removeEventListener('offline', handleStatusChange);
         };
-    }, []);
+    }, [user, userStore, isAdmin, isRestaurantOwner]);
 
     const handleTestOfflineWrite = async () => {
         if (!firestore || !user) {
@@ -74,18 +139,16 @@ export default function OfflineAuditPage() {
                 isOfflineTest: !isOnline
             };
 
-            // Use onSnapshot to monitor the metadata of this specific doc
             const unsub = onSnapshot(testRef, (snapshot) => {
                 if (snapshot.metadata.hasPendingWrites) {
                     setLastSyncStatus('queued');
                 } else {
                     setLastSyncStatus('synced');
-                    unsub(); // Stop listening once synced
+                    unsub();
                 }
             });
 
             try {
-                // Set non-blocking to observe queueing
                 setDoc(testRef, data).catch(e => {
                     console.error("Diagnostic write failed:", e);
                 });
@@ -104,7 +167,7 @@ export default function OfflineAuditPage() {
         <div className="container mx-auto py-12 px-4 md:px-6 max-w-4xl space-y-8 pb-32">
             <div className="mb-8 border-b pb-10 border-black/5">
                 <h1 className="text-5xl font-black font-headline tracking-tighter uppercase italic">Offline Sync Audit</h1>
-                <p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">System Capability Verification</p>
+                <p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Reason-Based Diagnostic center</p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-8">
@@ -134,7 +197,7 @@ export default function OfflineAuditPage() {
 
                 {/* 2. PWA SHELL STATUS */}
                 <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden">
-                    <CardHeader className={cn("pb-6 transition-colors", swStatus === 'active' ? "bg-primary/5" : "bg-red-50")}>
+                    <CardHeader className={cn("pb-6 transition-colors", diag.sw.status === 'active' ? "bg-primary/5" : "bg-red-50")}>
                         <div className="flex justify-between items-center">
                             <CardTitle className="text-lg font-black uppercase tracking-tight">App Shell (PWA)</CardTitle>
                             <Smartphone className="h-6 w-6 opacity-20" />
@@ -143,22 +206,32 @@ export default function OfflineAuditPage() {
                     <CardContent className="p-8 space-y-4">
                         <div className="flex items-center justify-between">
                             <span className="text-[10px] font-black uppercase opacity-40">Service Worker</span>
-                            <Badge variant={swStatus === 'active' ? 'default' : 'destructive'} className="rounded-md font-black uppercase text-[10px]">
-                                {swStatus === 'active' ? 'ACTIVE & CACHING' : 'MISSING'}
+                            <Badge 
+                                variant={diag.sw.status === 'active' ? 'default' : 'destructive'} 
+                                className="rounded-md font-black uppercase text-[10px]"
+                            >
+                                {diag.sw.status === 'active' ? 'ACTIVE' : diag.sw.status.toUpperCase()}
                             </Badge>
                         </div>
-                        <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-xl border border-black/5">
-                            <Info className="h-4 w-4 text-primary shrink-0" />
-                            <p className="text-[9px] font-bold text-gray-600 leading-tight">
-                                If "Active," the browser has saved the UI code (Home, Menu, Dashboard) for total offline navigation.
-                            </p>
+                        <div className="flex items-start gap-3 p-4 bg-muted/30 rounded-2xl border border-black/5">
+                            {diag.sw.status === 'active' ? (
+                                <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+                            ) : (
+                                <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                            )}
+                            <div className="space-y-1">
+                                <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Diagnosis</p>
+                                <p className="text-[11px] font-bold text-gray-700 leading-tight">
+                                    {diag.sw.reason}
+                                </p>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
 
                 {/* 3. PERSISTENT STATE */}
                 <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden">
-                    <CardHeader className="bg-primary/5 pb-6 border-b border-black/5">
+                    <CardHeader className={cn("pb-6 border-b border-black/5 transition-colors", diag.memory.storeId === 'saved' ? "bg-primary/5" : "bg-muted/5")}>
                         <div className="flex justify-between items-center">
                             <CardTitle className="text-lg font-black uppercase tracking-tight">Local Memory</CardTitle>
                             <HardDrive className="h-6 w-6 opacity-20" />
@@ -167,15 +240,29 @@ export default function OfflineAuditPage() {
                     <CardContent className="p-8 space-y-4">
                         <div className="flex items-center justify-between">
                             <span className="text-[10px] font-black uppercase opacity-40">User Store ID</span>
-                            <span className="text-xs font-bold text-primary font-mono">{userStore?.id ? 'PRESENT' : 'NOT SAVED'}</span>
+                            <Badge 
+                                variant={diag.memory.storeId === 'saved' || diag.memory.storeId === 'not_applicable' ? 'outline' : 'destructive'}
+                                className="rounded-md font-black uppercase text-[10px]"
+                            >
+                                {diag.memory.storeId.replace('_', ' ').toUpperCase()}
+                            </Badge>
                         </div>
-                        <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-black uppercase opacity-40">Store Catalog</span>
-                            <span className="text-xs font-bold">{stores?.length || 0} items cached</span>
+                        <div className="flex items-start gap-3 p-4 bg-muted/30 rounded-2xl border border-black/5">
+                            {diag.memory.storeId === 'saved' || diag.memory.storeId === 'not_applicable' ? (
+                                <ShieldCheck className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+                            ) : (
+                                <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                            )}
+                            <div className="space-y-1">
+                                <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Explanation</p>
+                                <p className="text-[11px] font-bold text-gray-700 leading-tight">
+                                    {diag.memory.reason}
+                                </p>
+                            </div>
                         </div>
-                        <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-black uppercase opacity-40">Initialization Status</span>
-                            <Badge variant="outline" className="text-[8px] font-black uppercase">{isInitialized ? 'Ready' : 'Waiting'}</Badge>
+                        <div className="flex items-center justify-between pt-2 border-t border-black/5">
+                            <span className="text-[10px] font-black uppercase opacity-40">Items in Cache</span>
+                            <span className="text-xs font-bold">{stores?.length || 0} stores</span>
                         </div>
                     </CardContent>
                 </Card>
@@ -215,12 +302,11 @@ export default function OfflineAuditPage() {
                         <Activity className="h-6 w-6" />
                     </div>
                     <div>
-                        <h3 className="text-xl font-black uppercase tracking-tight mb-2">How to verify total offline</h3>
+                        <h3 className="text-xl font-black uppercase tracking-tight mb-2">How to Fix Missing status</h3>
                         <div className="space-y-4 text-xs font-bold text-white/60 leading-relaxed">
-                            <p>1. <strong className="text-white">Visit Management Pages</strong>: Open the Store Orders and My Store pages while online. This forces the browser to download their code.</p>
-                            <p>2. <strong className="text-white">Go Airplane Mode</strong>: Disconnect your internet completely.</p>
-                            <p>3. <strong className="text-white">Change Status</strong>: Update an order or edit a product. The write will happen <em className="text-primary italic">instantly</em> locally.</p>
-                            <p>4. <strong className="text-white">Reconnect</strong>: Reconnect to the internet and watch the "Writes" counter in the bottom right. It will flush the data to the cloud automatically.</p>
+                            <p>1. <strong className="text-white">Service Worker Missing?</strong>: Ensure you are accessing the app via <code className="text-primary">localhost</code> or <code className="text-primary">https</code>. PWAs will not register over insecure HTTP.</p>
+                            <p>2. <strong className="text-white">User Store ID Not Saved?</strong>: Log in as a Business Owner. If you are an Admin or Customer, this is expected as you don't own a specific store to persist.</p>
+                            <p>3. <strong className="text-white">Still Missing?</strong>: Visit the Home page once while online. This triggers the initial registration and data fetch.</p>
                         </div>
                     </div>
                 </div>
