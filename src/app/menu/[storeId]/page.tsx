@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -64,7 +65,8 @@ import {
   ArrowRight,
   History,
   Filter,
-  Leaf
+  Leaf,
+  Star
 } from 'lucide-react';
 
 import {
@@ -148,7 +150,7 @@ function OrderStatusTimeline({ status, theme }: { status: Order['status'], theme
     };
 
     const currentStep = getStep(status);
-    if (status === 'Cancelled') return <Badge variant="destructive" className="rounded-xl w-full py-2 justify-center font-black">ORDER CANCELLED</Badge>;
+    if (status === 'Cancelled') return <Badge variant="destructive" className="rounded-xl w-full py-2 justify-center font-black text-[10px] tracking-widest">ORDER CANCELLED</Badge>;
 
     return (
         <div className="relative py-4">
@@ -414,14 +416,15 @@ function LiveBillSheet({
   );
 }
 
-function MenuCard({ item, onAdd, onShowDetails, recentlyAdded, currentQuantityInOrder, theme }: { item: MenuItem, onAdd: (item: MenuItem, qty: number) => void, onShowDetails: (item: MenuItem) => void, recentlyAdded: boolean, currentQuantityInOrder: number, theme: MenuTheme | undefined }) {
+function MenuCard({ item, onAdd, onShowDetails, recentlyAdded, currentQuantityInOrder, theme, isPersonalized = false }: { item: MenuItem, onAdd: (item: MenuItem, qty: number) => void, onShowDetails: (item: MenuItem) => void, recentlyAdded: boolean, currentQuantityInOrder: number, theme: MenuTheme | undefined, isPersonalized?: boolean }) {
     const [qty, setQty] = useState(1);
     const isOutOfStock = item.isAvailable === false;
     
     return (
         <Card className={cn(
             "flex flex-col shadow-xl rounded-[1.2rem] border-0 overflow-hidden group hover:scale-[1.02] transition-all duration-300 relative",
-            isOutOfStock && "opacity-50 grayscale pointer-events-none"
+            isOutOfStock && "opacity-50 grayscale pointer-events-none",
+            isPersonalized && "ring-2 ring-primary/40 shadow-primary/10"
         )} style={{ backgroundColor: '#2D2424' }}>
             <div className="relative aspect-video w-full rounded-t-[1.2rem] overflow-hidden cursor-pointer" onClick={() => onShowDetails(item)}>
                 <Image src={item.imageUrl || ADIRES_LOGO} alt={item.name} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
@@ -430,7 +433,12 @@ function MenuCard({ item, onAdd, onShowDetails, recentlyAdded, currentQuantityIn
                         <div className={cn("h-full w-full rounded-full border-2", item.dietary === 'veg' ? 'border-green-600 bg-green-600' : 'border-red-600 bg-red-600')}></div>
                     </div>
                 )}
-                {currentQuantityInOrder > 0 && (
+                {isPersonalized && (
+                    <div className="absolute top-1.5 right-1.5 bg-primary/90 backdrop-blur-md text-white text-[6px] font-black uppercase px-1.5 py-0.5 rounded-full shadow-lg flex items-center gap-1">
+                        <Sparkles className="h-2 w-2" /> For You
+                    </div>
+                )}
+                {currentQuantityInOrder > 0 && !isPersonalized && (
                     <div className="absolute top-1.5 right-1.5 bg-green-600 text-white text-[7px] font-black uppercase px-1.5 py-0.5 rounded-full shadow-lg">{currentQuantityInOrder} in order</div>
                 )}
                 <div className="absolute bottom-1.5 left-1.5 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10">
@@ -522,6 +530,35 @@ export default function PublicMenuPage() {
   const isSalon = useMemo(() => store?.businessType === 'salon' || store?.name.toLowerCase().includes('salon'), [store]);
   const availableCategories = useMemo(() => menu?.items ? Array.from(new Set(menu.items.map(i => i.category))).sort() : [], [menu]);
   
+  // INTELLIGENT PERSONALIZATION LOGIC
+  const personalizedRecommendations = useMemo(() => {
+      if (!menu?.items || !historyOrders) return [];
+      
+      // Calculate item frequencies from history
+      const itemFrequency: Record<string, number> = {};
+      historyOrders.forEach(order => {
+          order.items.forEach(it => {
+              itemFrequency[it.productName] = (itemFrequency[it.productName] || 0) + 1;
+          });
+      });
+
+      // Filter and sort menu items based on frequency
+      const recommended = menu.items
+          .filter(item => item.isAvailable !== false)
+          .map(item => ({ item, score: itemFrequency[item.name] || 0 }))
+          .filter(pair => pair.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .map(pair => pair.item)
+          .slice(0, 4);
+
+      // If no history, pick top 4 items from the first category as "Trending"
+      if (recommended.length === 0) {
+          return menu.items.filter(i => i.isAvailable !== false).slice(0, 4);
+      }
+
+      return recommended;
+  }, [menu?.items, historyOrders]);
+
   const groupedMenu = useMemo(() => {
     if (!menu?.items) return {};
     let filtered = menu.items.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -783,6 +820,33 @@ export default function PublicMenuPage() {
                             </button>
                         )}
                     </div>
+
+                    {!searchTerm && !selectedCategory && personalizedRecommendations.length > 0 && (
+                        <section className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                            <div className="flex items-center gap-2 px-1">
+                                <Sparkles className="h-3.5 w-3.5 text-primary" style={{ color: theme?.primaryColor || '#FBC02D' }} />
+                                <h2 className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40" style={{ color: theme?.textColor || '#fff' }}>Tailored for You</h2>
+                            </div>
+                            <ScrollArea className="w-full whitespace-nowrap pb-4">
+                                <div className="flex gap-3 px-1">
+                                    {personalizedRecommendations.map(item => (
+                                        <div key={item.id} className="w-44 flex-shrink-0">
+                                            <MenuCard 
+                                                item={item} 
+                                                onAdd={handleAddItem} 
+                                                onShowDetails={handleShowIngredients} 
+                                                recentlyAdded={recentlyAdded.has(item.id)} 
+                                                currentQuantityInOrder={currentOrderedCounts[item.name] || 0} 
+                                                theme={theme} 
+                                                isPersonalized={true}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                                <ScrollBar orientation="horizontal" className="opacity-0" />
+                            </ScrollArea>
+                        </section>
+                    )}
 
                     {Object.keys(groupedMenu).length > 0 ? (
                         Object.entries(groupedMenu).map(([category, items]) => (

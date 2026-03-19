@@ -158,8 +158,8 @@ export default function IngredientsDialog({
                     {/* UPSELLS / RECOMMENDATIONS */}
                     {recommendations.length > 0 && (
                         <div className="space-y-4">
-                            <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60">
-                                Frequently bought with this
+                            <h3 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                                <Sparkles className="h-3.5 w-3.5" /> Perfect Pairings
                             </h3>
                             <div className="space-y-2">
                                 {recommendations.map((rec) => (
