@@ -12,17 +12,13 @@ import {
   ShoppingBag,
   Target,
   Zap,
-  BarChart3,
   Clock,
   LayoutGrid,
   Sparkles,
-  Search,
-  BellRing,
   Award,
   ChevronRight,
   Loader2,
   RefreshCw,
-  Activity,
   Drama,
   Bot,
   AlertTriangle,
@@ -33,8 +29,9 @@ import {
   Rocket,
   ShieldAlert,
   Lock,
-  Eye,
-  Shield
+  Shield,
+  ArrowRight,
+  CheckCircle2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -43,7 +40,6 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { DesignButton } from './design-button';
-import { Skeleton } from "@/components/ui/skeleton";
 import { getPlatformAnalytics, executeCommand } from '@/app/actions';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
