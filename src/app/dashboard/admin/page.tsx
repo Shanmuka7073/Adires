@@ -18,7 +18,11 @@ import {
   ImageIcon,
   WifiOff,
   Activity,
-  List
+  List,
+  Cpu,
+  Fingerprint,
+  Zap,
+  Globe
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -102,7 +106,7 @@ function ActionCard({
   description: string;
   href: string;
   icon: any;
-  variant?: 'default' | 'highlight' | 'warning';
+  variant?: 'default' | 'highlight' | 'warning' | 'pro';
 }) {
   return (
     <Link href={href}>
@@ -110,6 +114,7 @@ function ActionCard({
           "hover:shadow-md transition h-full rounded-[2.5rem] group overflow-hidden border-2",
           variant === 'highlight' ? "bg-primary/5 border-primary/20" : 
           variant === 'warning' ? "bg-amber-50 border-amber-200" :
+          variant === 'pro' ? "bg-slate-900 border-primary/30 text-white" :
           "border-black/5 hover:border-primary/30"
       )}>
         <CardHeader className="flex flex-row gap-4 items-center">
@@ -117,13 +122,17 @@ function ActionCard({
               "h-12 w-12 rounded-2xl flex items-center justify-center transition-colors shadow-inner",
               variant === 'highlight' ? "bg-primary text-white" : 
               variant === 'warning' ? "bg-amber-500 text-white" :
+              variant === 'pro' ? "bg-primary text-white" :
               "bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white"
           )}>
             <Icon className="h-6 w-6" />
           </div>
           <div>
             <CardTitle className="text-lg font-bold">{title}</CardTitle>
-            <CardDescription className="text-[10px] font-bold uppercase opacity-40">{description}</CardDescription>
+            <CardDescription className={cn(
+                "text-[10px] font-bold uppercase opacity-40",
+                variant === 'pro' && "text-primary/60 opacity-100"
+            )}>{description}</CardDescription>
           </div>
         </CardHeader>
       </Card>
@@ -152,48 +161,57 @@ export default async function AdminDashboardPage() {
         <StatsGrid />
       </Suspense>
 
-      {/* Diagnostics & Verification Section */}
+      {/* Advanced Capabilities Section */}
       <section className="space-y-6">
-        <h2 className="text-2xl font-black font-headline uppercase tracking-tight flex items-center gap-2">
-            <Activity className="h-6 w-6 text-amber-500" />
-            Diagnostics & Verification
-        </h2>
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-black font-headline uppercase tracking-tight flex items-center gap-2">
+                <Cpu className="h-6 w-6 text-primary" />
+                Advanced Platform Blueprint
+            </h2>
+            <Badge variant="outline" className="rounded-full border-primary text-primary px-4 py-1 font-black text-[10px] tracking-widest uppercase">High Performance Mode</Badge>
+        </div>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           <ActionCard
-            title="Offline Capability Audit"
-            description="Verify PWA status, local memory, and background sync."
-            href="/dashboard/offline-audit"
-            icon={WifiOff}
-            variant="warning"
+            title="Comprehensive Overview"
+            description="Deep-dive into the Advanced Architecture and UX."
+            href="/dashboard/admin/app-overview"
+            icon={FileSignature}
+            variant="pro"
           />
           <ActionCard
-            title="Performance Monitor"
-            description="Live read/write counter and indexing status."
-            href="/dashboard/admin/performance-audit"
-            icon={TrendingUp}
+            title="Biometric Security"
+            description="Audit Fingerprint and Voice ID auth flows."
+            href="/dashboard/admin/fingerprint-help"
+            icon={Fingerprint}
+          />
+          <ActionCard
+            title="NLU Brain Center"
+            description="Configure Multilingual Voice Intelligence."
+            href="/dashboard/voice-commands"
+            icon={Globe}
           />
         </div>
       </section>
 
-      {/* Developer Support Section */}
+      {/* Diagnostics & Verification Section */}
       <section className="space-y-6">
         <h2 className="text-2xl font-black font-headline uppercase tracking-tight flex items-center gap-2">
-            <Sparkles className="h-6 w-6 text-primary" />
-            Developer Support
+            <Activity className="h-6 w-6 text-amber-500" />
+            Reliability & Offline Diagnostics
         </h2>
         <div className="grid md:grid-cols-2 gap-6">
           <ActionCard
-            title="AI Support Context"
-            description="Generate a complete system blueprint for LLMs."
-            href="/dashboard/admin/support-prompt"
-            icon={Bot}
-            variant="highlight"
+            title="Instant PWA Install"
+            description="Verify Service Worker and Local-First status."
+            href="/dashboard/offline-audit"
+            icon={Zap}
+            variant="warning"
           />
           <ActionCard
-            title="Master Product List"
-            description="A complete, shareable list of every item sold."
-            href="/dashboard/admin/product-list"
-            icon={List}
+            title="Performance Monitor"
+            description="Analyze N+1 read fixes and operational indexing."
+            href="/dashboard/admin/performance-audit"
+            icon={TrendingUp}
           />
         </div>
       </section>
@@ -202,13 +220,13 @@ export default async function AdminDashboardPage() {
       <section className="space-y-6 bg-primary/5 p-10 rounded-[3rem] border border-primary/10">
         <h2 className="text-2xl font-black font-headline uppercase tracking-tight flex items-center gap-2 text-primary">
             <FileCode className="h-6 w-6" />
-            Platform UI/UX Code
+            Platform Core Logic
         </h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <ActionCard title="Homepage UX" description="Category grid and search logic." href="/dashboard/admin/homepage-help" icon={ArrowRight} />
-          <ActionCard title="Menu Display" description="QR menu and cart integration." href="/dashboard/admin/menu-help" icon={ArrowRight} />
-          <ActionCard title="Store Dashboard" description="Inventory management source." href="/dashboard/admin/my-store-help" icon={ArrowRight} />
-          <ActionCard title="Order History" description="Customer tracking timeline code." href="/dashboard/admin/my-orders-help" icon={ArrowRight} />
+          <ActionCard title="Homepage UX" description="Individual Data scrollers." href="/dashboard/admin/homepage-help" icon={ArrowRight} />
+          <ActionCard title="Menu Display" description="QR session & Cart logic." href="/dashboard/admin/menu-help" icon={ArrowRight} />
+          <ActionCard title="Store Hub" description="Digital Menu & POS source." href="/dashboard/admin/my-store-help" icon={ArrowRight} />
+          <ActionCard title="My Activity" description="Unified Customer history code." href="/dashboard/admin/my-orders-help" icon={ArrowRight} />
         </div>
       </section>
 
@@ -216,24 +234,22 @@ export default async function AdminDashboardPage() {
       <section className="space-y-6">
         <h2 className="text-2xl font-black font-headline uppercase tracking-tight flex items-center gap-2">
             <Cog className="h-6 w-6 text-primary" />
-            System & Operations
+            System Operations
         </h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <ActionCard title="Sales Reports" description="Aggregate revenue and volume data." href="/dashboard/owner/sales-report" icon={BarChart3} />
-          <ActionCard title="Master Catalog" description="Global product and price control." href="/dashboard/owner/my-store" icon={Store} />
-          <ActionCard title="Voice Commands" description="Natural language mapping." href="/dashboard/voice-commands" icon={Mic} />
-          <ActionCard title="Security Rules" description="Firestore protection policy." href="/dashboard/admin/security-rules" icon={Shield} />
-          <ActionCard title="Item Specialist" description="Recipe and cost engineering." href="/dashboard/admin/recipe-tester" icon={Beaker} />
-          <ActionCard title="Failed Commands" description="AI training from logs." href="/dashboard/admin/failed-commands" icon={Bot} />
-          <ActionCard title="AI Training" description="Alias extraction ground." href="/dashboard/admin/training-ground" icon={Lightbulb} />
-          <ActionCard title="Image Control" description="Manage all platform visuals." href="/dashboard/admin/image-management" icon={ImageIcon} />
+          <ActionCard title="Sales Reports" description="Margin and cost analytics." href="/dashboard/owner/sales-report" icon={BarChart3} />
+          <ActionCard title="Master Catalog" description="Global item & pricing control." href="/dashboard/owner/my-store" icon={Store} />
+          <ActionCard title="Security Rules" description="Firestore protection layers." href="/dashboard/admin/security-rules" icon={Shield} />
+          <ActionCard title="Specialist" description="AI Recipe & Service engineering." href="/dashboard/admin/recipe-tester" icon={Beaker} />
+          <ActionCard title="Training Ground" description="Human-in-the-loop AI learning." href="/dashboard/admin/training-ground" icon={Lightbulb} />
+          <ActionCard title="Visual Control" description="Manage all platform visual IDs." href="/dashboard/admin/image-management" icon={ImageIcon} />
         </div>
       </section>
       
       <div className="flex justify-center pt-10">
          <ActionCard 
-            title="Dashboard UI Source" 
-            description="Inspect the code for this hub." 
+            title="System Source" 
+            description="Inspect the hub UI/UX code." 
             href="/dashboard/admin/dashboard-help" 
             icon={FileCode} 
         />

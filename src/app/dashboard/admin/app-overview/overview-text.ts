@@ -2,59 +2,66 @@
 // This file stores the comprehensive overview of the LocalBasket platform for the Admin Dashboard.
 
 export const overviewText = `
-## 🚀 LocalBasket: Total Platform Overview
+## 🚀 Adires: The Advanced Unified Market Platform
 
-LocalBasket is a multi-role hyperlocal grocery and restaurant platform. It leverages AI, Voice control, and PWA technology to bridge the gap between neighborhood shops and digital-first customers.
+Adires (formerly LocalBasket) is a high-performance, multi-role market hub designed for the Indian context. It bridges the gap between neighborhood commerce and digital-first expectations using cutting-edge PWA, AI, and Biometric technologies.
 
 ---
 
 ### 🏛️ 1. Multi-Vertical Data Architecture
-The platform is designed to support Restaurants, Salons, and Retailers using a **Unified Behavioral Schema**. 
+The platform supports **Restaurants, Salons, and Retailers** using a **Unified Behavioral Schema**. 
 
-*   **Behavioral Collections**: Instead of business-specific collections (like 'salonServices'), we use operational nature:
-    *   **Catalog Items (Retail/Dairy)**: Standardized goods with variants and stock levels.
-    *   **Service/Menu Items (Restaurant/Salon)**: Craft-based items requiring preparation or scheduling.
-*   **The Benefit**: This allows the AI to apply different logic (e.g., weight validation for retail vs. time-slot validation for salons) while keeping the database lean and fast.
-
----
-
-### 🔍 2. How Businesses are Identified (The 3-Layer Logic)
-To ensure users see the right view (Menu vs. Grocery List), the app uses a hierarchical check:
-1.  **Explicit Metadata**: Checks the \`businessType\` field in the Store document.
-2.  **Signup Role Sync**: If the owner signed up as a "Restaurant Owner," the app automatically "repairs" the store vertical to match.
-3.  **Fuzzy Keyword Match**: As a fallback, the app scans the name and description for 20+ keywords like "Mess," "Dhaba," "Hotel," or "Salon."
+*   **Behavioral Collections**: Instead of duplicate logic for different stores, we use operational nature:
+    *   **Retail/Dairy**: Focuses on standardized goods, variants, and stock management.
+    *   **Service/Menu**: Focuses on craft-based items, preparation time, and session management.
+*   **Zero-Friction Vertical Sync**: The app automatically identifies business types via explicit metadata or heuristic keyword matching (e.g., detecting "Biryani" implies Restaurant mode).
 
 ---
 
-### 🥗 3. Restaurant & Salon Operations
-The app turns any service business into a high-tech operation with zero hardware cost.
+### 📲 2. Instant App Download (PWA)
+Adires is a **Progressive Web App (PWA)**, meaning it provides a "Native App" experience with zero app store friction.
 
-*   **AI Menu Scanning**: Owners upload a photo of a menu. The AI extracts names, prices, categories, and components (ingredients for food, materials for salons).
-*   **Dynamic Floor Map**: The "Store Orders" dashboard shows every table/chair. It highlights which are active, waiting, or ready to pay ("Billed").
-*   **Integrated Booking**: For Salons, the app automatically switches to a "Book Appointment" flow with a date scroller and time picker.
-*   **QR Ordering**: Each table/chair gets a unique QR code. Guests can order or book directly from their phone.
-
----
-
-### 🚚 4. Home Delivery & Logistics
-Built for precision and speed in the Indian context.
-
-*   **GPS Pinning**: Customers use a "One-Tap GPS" button to pin their location, passed directly to Google Maps for delivery partners.
-*   **Live Tracker**: Customers see a live status bar and a **20-minute arrival countdown**.
-*   **Geographic Partitioning**: Orders are tagged with a \`zoneId\` (pincode). Partners only see jobs in their specific zone, ensuring global scalability.
+*   **Instant Install**: Users can "Add to Home Screen" in one tap from any browser.
+*   **Standalone Shell**: Once installed, the app runs without browser bars, providing a dedicated full-screen experience.
+*   **Automatic Updates**: The Service Worker silently updates the app shell in the background, ensuring all users are always on the latest version.
 
 ---
 
-### 🎙️ 5. Voice ID & NLU Engine
-The "Brain" of the platform.
+### ⚡ 3. The "Local-First" Performance Engine
+We prioritize speed and cost-efficiency using **Operational Indexing** and **Persistent Cache**.
 
-*   **Multilingual NLU**: Understands English, Telugu, and Hindi mixed sentences. It extracts quantities, prices, and products simultaneously.
-*   **Voice ID**: A biometric feature allowing users to enroll their voice as a secure key for authentication.
-*   **Self-Learning**: Failed commands are logged for Admin review to teach the app new regional aliases.
+*   **Sub-200ms Response**: By persisting the user's identity and core platform data in \`localStorage\`, the UI unlocks instantly before the first database request even returns.
+*   **The N+1 Fix**: We use **Embedded Item Arrays** in orders. Instead of reading subcollections, 1 read returns the entire table bill, reducing Firestore costs by over 90%.
+*   **Offline Resilience**: All business actions (Punch-in, Order Confirmation) use **Optimistic Writes**. They are saved to local memory immediately and sync to the cloud once signal is restored.
 
 ---
 
-### 📈 6. Business Economics & Intelligence
-*   **Ingredient Cost Catalog**: Admins maintain master raw material costs.
-*   **Gross Profit Analysis**: The app calculates exact profit for every dish/service and every table by subtracting ingredient/material costs from the selling price.
+### 🎙️ 4. Multilingual NLU & Voice ID
+The "Brain" of the platform is built for India's multilingual reality.
+
+*   **Regional NLU**: Understands English, Telugu, and Hindi mixed sentences. It can extract "one kg chicken" and "500gm onions" from a single spoken phrase.
+*   **Individual Data Continuity**: Every user (even guests) is assigned a persistent \`deviceId\`. This ensures that "Individual Data" like order history and favorites are preserved across visits.
+*   **Voice ID Biometrics**: Users can enroll their voice as a secure key, allowing them to verify transactions or log in using only their speech patterns.
+
+---
+
+### 🥗 5. Restaurant & Salon Operations (POS)
+The app turns any shop into a high-tech operation with **zero hardware cost**.
+
+*   **AI Menu Scanning**: Owners upload a photo of a menu; the AI extracts items and prices instantly.
+*   **Floor Map & QR**: Each table/chair gets a unique QR code. Scans automatically link to a \`sessionId\`, grouping orders for that specific visit.
+*   **Live Prep Feeds**: Integrated video support allows customers to watch their food being prepared in real-time, building massive brand trust.
+
+---
+
+### 📉 6. Economic Intelligence & Gross Profit
+*   **Cost Drivers**: The app tracks master ingredient costs and maps them to menu items.
+*   **Margin Analysis**: Owners see the exact **Gross Profit** for every dish and every table, identifying exactly where money is being made or lost.
+*   **Optimization Hints**: AI analyzes cost patterns and suggests specific price or portion corrections to reach a 55% target margin.
+
+---
+
+### 🔒 7. Advanced Security & Auth
+*   **Biometric Hub**: Supports both **Fingerprint (WebAuthn)** and **Voice ID** for military-grade, passwordless security.
+*   **Contextual Permissions**: Firestore Security Rules ensure owners only see their store, delivery partners only see jobs in their \`zoneId\`, and customers only see their own private history.
 `;
