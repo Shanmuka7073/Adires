@@ -7,19 +7,11 @@ import {
   useState,
   ReactNode,
   useCallback,
-  useEffect,
 } from 'react';
 
-import type { CartItem, Product, ProductVariant, UnidentifiedCartItem, Order } from './types';
+import type { CartItem, Product, ProductVariant, UnidentifiedCartItem, CustomizationOption } from './types';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase } from '@/firebase';
-import { signInAnonymously } from 'firebase/auth';
-import {
-  doc,
-  setDoc,
-  getDoc,
-  Timestamp,
-} from 'firebase/firestore';
 
 interface CartContextType {
   cartItems: CartItem[];
@@ -29,7 +21,8 @@ interface CartContextType {
     variant: ProductVariant,
     quantity?: number,
     tableNumber?: string,
-    sessionId?: string
+    sessionId?: string,
+    customizations?: Record<string, CustomizationOption[]>
   ) => void;
   removeItem: (sku: string) => void;
   updateQuantity: (sku: string, newQuantity: number) => void;
@@ -79,8 +72,6 @@ export const playTickSound = () => {
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
-  const { auth, firestore, user } = useFirebase();
-
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [activeStoreId, setActiveStoreId] = useState<string | null>(null);
   const [unidentifiedItems, setUnidentifiedItems] = useState<UnidentifiedCartItem[]>([]);
@@ -92,37 +83,48 @@ export function CartProvider({ children }: { children: ReactNode }) {
       variant: ProductVariant,
       quantity = 1,
       tableNumber?: string,
-      sessionId?: string
+      sessionId?: string,
+      customizations?: Record<string, CustomizationOption[]>
     ) => {
       // Play interaction sound
       playTickSound();
 
       setCartItems(prev => {
-        const key = `${product.id}_${variant.sku}`;
-        const existing = prev.find(
-          i => `${i.product.id}_${i.variant.sku}` === key
-        );
+        // Create a unique key that accounts for customizations
+        // Items with different options should be separate cart entries
+        const customsString = customizations ? JSON.stringify(customizations) : '';
+        const uniqueKey = `${product.id}_${variant.sku}_${customsString}`;
+        
+        const existing = prev.find(i => {
+            const iCustoms = i.selectedCustomizations ? JSON.stringify(i.selectedCustomizations) : '';
+            const iKey = `${i.product.id}_${i.variant.sku}_${iCustoms}`;
+            return iKey === uniqueKey;
+        });
 
         if (existing) {
-          return prev.map(i =>
-            `${i.product.id}_${i.variant.sku}` === key
+          return prev.map(i => {
+            const iCustoms = i.selectedCustomizations ? JSON.stringify(i.selectedCustomizations) : '';
+            const iKey = `${i.product.id}_${i.variant.sku}_${iCustoms}`;
+            return iKey === uniqueKey
               ? { ...i, quantity: i.quantity + quantity }
               : i
-          );
+          });
         }
 
-        return [...prev, { product, variant, quantity, tableNumber, sessionId }];
+        return [...prev, { product, variant, quantity, tableNumber, sessionId, selectedCustomizations: customizations }];
       });
 
       toast({
-        title: 'Added to Cart',
-        description: `${product.name} (${variant.weight}) × ${quantity}`,
+        title: 'Added to Order',
+        description: `${product.name} × ${quantity}`,
       });
     },
     [toast]
   );
   
   const removeItem = (sku: string) => {
+    // Since SKU is no longer unique per cart item (due to customizations),
+    // we use the full variant sku + customization hash check
     setCartItems(prev => prev.filter(item => item.variant.sku !== sku));
   };
   

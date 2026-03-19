@@ -70,12 +70,25 @@ export type User = {
     currentChallenge?: string | null; // Can be null
 }
 
+export type CustomizationOption = {
+    name: string;
+    price: number;
+};
+
+export type CustomizationGroup = {
+    title: string;
+    required?: boolean;
+    multiSelect?: boolean;
+    options: CustomizationOption[];
+};
+
 export type CartItem = {
   product: Product; // The base product
   variant: ProductVariant; // The specific variant chosen
   quantity: number;
   tableNumber?: string;
   sessionId?: string;
+  selectedCustomizations?: Record<string, CustomizationOption[]>; // Track chosen options per group
 };
 
 export type Ingredient = {
@@ -102,6 +115,7 @@ export type OrderItem = {
   quantity: number;
   price: number;
   recipeSnapshot?: { name: string; qty: number; unit: string; cost?: number; }[];
+  selectedCustomizations?: Record<string, CustomizationOption[]>;
 }
 
 export type Order = {
@@ -333,6 +347,8 @@ export type MenuItem = {
   imageUrl?: string; // URL for AI-generated dish image
   dietary?: 'veg' | 'non-veg'; // NEW: Dietary indicator
   isAvailable: boolean; // NEW: Stock toggle
+  customizations?: CustomizationGroup[];
+  recommendations?: string[]; // IDs of related items
 };
 
 export type MenuTheme = {

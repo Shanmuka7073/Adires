@@ -26,6 +26,7 @@ import type {
   GetIngredientsOutput,
   Product,
   ProductVariant,
+  CustomizationOption,
 } from '@/lib/types';
 
 import { useParams, useSearchParams } from 'next/navigation';
@@ -308,9 +309,16 @@ function LiveBillSheet({
 
                             <div className="space-y-1 pt-2">
                                 {order.items.map((it, iIdx) => (
-                                    <div key={iIdx} className="flex justify-between text-[11px]" style={{ color: theme?.textColor || '#fff' }}>
-                                        <span className="opacity-80 font-bold">{it.productName} x{it.quantity}</span>
-                                        <span className="font-black">₹{it.price * it.quantity}</span>
+                                    <div key={iIdx} className="flex flex-col text-[11px]" style={{ color: theme?.textColor || '#fff' }}>
+                                        <div className="flex justify-between">
+                                            <span className="opacity-80 font-bold">{it.productName} x{it.quantity}</span>
+                                            <span className="font-black">₹{it.price * it.quantity}</span>
+                                        </div>
+                                        {it.selectedCustomizations && Object.entries(it.selectedCustomizations).map(([group, opts]) => (
+                                            <div key={group} className="text-[9px] opacity-40 pl-2">
+                                                {group}: {opts.map(o => o.name).join(', ')}
+                                            </div>
+                                        ))}
                                     </div>
                                 ))}
                             </div>
@@ -322,11 +330,18 @@ function LiveBillSheet({
              {cartItems.length > 0 && (
                  <div className="space-y-3">
                     <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor || '#fff' }}>New Selection (Not Placed)</h4>
-                    <div className="p-4 rounded-3xl border-2 border-dashed bg-white/5 space-y-2" style={{ borderColor: theme?.primaryColor + '30' }}>
+                    <div className="p-4 rounded-3xl border-2 border-dashed bg-white/5 space-y-3" style={{ borderColor: theme?.primaryColor + '30' }}>
                         {cartItems.map((it, idx) => (
-                            <div key={idx} className="flex justify-between text-xs" style={{ color: theme?.textColor || '#fff' }}>
-                                <span className="opacity-80 font-bold">{it.product.name} x{it.quantity}</span>
-                                <span className="font-black">₹{(it.variant.price * it.quantity).toFixed(0)}</span>
+                            <div key={idx} className="flex flex-col text-xs" style={{ color: theme?.textColor || '#fff' }}>
+                                <div className="flex justify-between">
+                                    <span className="opacity-80 font-bold">{it.product.name} x{it.quantity}</span>
+                                    <span className="font-black">₹{(it.variant.price * it.quantity).toFixed(0)}</span>
+                                </div>
+                                {it.selectedCustomizations && Object.entries(it.selectedCustomizations).map(([group, opts]) => (
+                                    <div key={group} className="text-[10px] opacity-40 pl-2">
+                                        {group}: {opts.map(o => o.name).join(', ')}
+                                    </div>
+                                ))}
                             </div>
                         ))}
                     </div>
@@ -362,7 +377,7 @@ function LiveBillSheet({
                     </AlertDialogTrigger>
                     <AlertDialogContent className="rounded-[2rem] border-0 shadow-2xl" style={{ backgroundColor: theme?.backgroundColor || '#1A1616' }}>
                         <AlertDialogHeader><AlertDialogTitle className="text-xl font-black uppercase" style={{ color: theme?.primaryColor || '#FBC02D' }}>Finalize Visit?</AlertDialogTitle><AlertDialogDescription style={{ color: theme?.textColor || '#fff', opacity: 0.7 }}>This will close your ordering session and generate the final bill.</AlertDialogDescription></AlertDialogHeader>
-                        <AlertDialogFooter className="gap-2"><AlertDialogCancel className="rounded-xl font-bold">Back</AlertDialogCancel><AlertDialogAction onClick={onFinalizeBill} className="rounded-xl font-bold" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>Finalize</AlertDialogAction></AlertDialogFooter>
+                        <AlertDialogFooter className="gap-2"><AlertDialogCancel className="rounded-xl font-bold">Back</AlertDialogCancel><AlertDialogAction onClick={handleFinalizeBill} className="rounded-xl font-bold" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>Finalize</AlertDialogAction></AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
               ) : null}
@@ -467,10 +482,27 @@ export default function PublicMenuPage() {
       return counts;
   }, [placedOrders]);
 
-  const handleAddItem = (item: MenuItem, qty: number = 1) => {
-    const product: Product = { id: item.id, storeId: storeId, name: item.name, description: item.description || '', imageId: 'cat-restaurant', isMenuItem: true, price: item.price, imageUrl: item.imageUrl };
-    const variant: ProductVariant = { sku: `${item.id}-default`, weight: '1 pc', price: item.price, stock: 999 };
-    addItem(product, variant, qty);
+  const handleAddItem = (item: MenuItem, qty: number = 1, customs?: Record<string, CustomizationOption[]>) => {
+    const product: Product = { 
+        id: item.id, 
+        storeId: storeId, 
+        name: item.name, 
+        description: item.description || '', 
+        imageId: 'cat-restaurant', 
+        isMenuItem: true, 
+        price: item.price, 
+        imageUrl: item.imageUrl 
+    };
+    
+    const customsPrice = customs ? Object.values(customs).flat().reduce((acc, o) => acc + o.price, 0) : 0;
+    const variant: ProductVariant = { 
+        sku: `${item.id}-default`, 
+        weight: '1 pc', 
+        price: item.price + customsPrice, 
+        stock: 999 
+    };
+    
+    addItem(product, variant, qty, tableNumber || undefined, sessionId, customs);
     setRecentlyAdded(prev => new Set(prev).add(item.id));
     setTimeout(() => setRecentlyAdded(prev => { const n = new Set(prev); n.delete(item.id); return n; }), 2000);
   };
@@ -493,6 +525,7 @@ export default function PublicMenuPage() {
       variantWeight: item.variant.weight, 
       quantity: item.quantity, 
       price: item.variant.price,
+      selectedCustomizations: item.selectedCustomizations
     }));
 
     const totalAmount = orderItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
@@ -517,7 +550,6 @@ export default function PublicMenuPage() {
       totalAmount: totalAmount,
     };
 
-    // NON-BLOCKING for offline resilience
     setDoc(orderRef, orderData).catch(async (e) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: orderRef.path,
@@ -538,7 +570,6 @@ export default function PublicMenuPage() {
         batch.update(doc(firestore, 'orders', order.id), { status: 'Billed', updatedAt: serverTimestamp() });
     });
     
-    // NON-BLOCKING
     batch.commit().catch(e => toast({ variant: 'destructive', title: 'Action Failed' }));
     toast({ title: 'Bill Requested' });
   };
@@ -547,7 +578,6 @@ export default function PublicMenuPage() {
     if (!firestore || !placedOrders?.length) return;
     const orderRef = doc(firestore, 'orders', placedOrders[0].id);
     
-    // NON-BLOCKING
     updateDoc(orderRef, { needsService: true, serviceType: type, updatedAt: serverTimestamp() })
         .catch(e => toast({ variant: 'destructive', title: 'Request Failed' }));
     toast({ title: 'Request Sent' }); 
@@ -569,9 +599,34 @@ export default function PublicMenuPage() {
   const theme = menu?.theme;
   const isSessionFinalized = placedOrders?.length > 0 && placedOrders.every(o => ['Completed', 'Delivered'].includes(o.status));
 
+  // Find related items for the detail dialog
+  const upsellItems = useMemo(() => {
+      if (!selectedItemForIngredients || !menu?.items) return [];
+      const recIds = selectedItemForIngredients.recommendations || [];
+      return menu.items.filter(i => recIds.includes(i.id));
+  }, [selectedItemForIngredients, menu?.items]);
+
   return (
     <>
-      {selectedItemForIngredients && <IngredientsDialog open={!!selectedItemForIngredients} onClose={() => setSelectedItemForIngredients(null)} dishName={selectedItemForIngredients.name} price={selectedItemForIngredients.price} isLoading={isFetchingIngredients} calories={ingredientsData?.nutrition?.calories || 0} protein={ingredientsData?.nutrition?.protein || 0} ingredients={(ingredientsData?.components as any) || []} itemType={ingredientsData?.itemType} onAdd={() => { handleAddItem(selectedItemForIngredients); setSelectedItemForIngredients(null); }} />}
+      {selectedItemForIngredients && (
+        <IngredientsDialog 
+            open={!!selectedItemForIngredients} 
+            onClose={() => setSelectedItemForIngredients(null)} 
+            item={selectedItemForIngredients}
+            isLoading={isFetchingIngredients} 
+            ingredients={(ingredientsData?.components as any) || []} 
+            recommendations={upsellItems}
+            itemType={ingredientsData?.itemType} 
+            onAdd={(customs) => { 
+                handleAddItem(selectedItemForIngredients, 1, customs); 
+                setSelectedItemForIngredients(null); 
+            }} 
+            onShowRecommendation={(rec) => {
+                setSelectedItemForIngredients(rec);
+                handleShowIngredients(rec);
+            }}
+        />
+      )}
       <DeliveryDetailsDialog isOpen={isDeliveryDetailsOpen} onOpenChange={setIsDeliveryDetailsOpen} onSave={(d: any) => { setCustomerName(d.name); setPhone(d.phone); setDeliveryAddress(d.address); if(d.lat) setDeliveryCoords({lat:d.lat, lng:d.lng}); localStorage.setItem(`last_address_${storeId}`, d.name); localStorage.setItem(`last_phone_${storeId}`, d.phone); localStorage.setItem(`last_address_${storeId}`, d.address); setIsDeliveryDetailsOpen(false); }} initialData={{ name: customerName, phone, address: deliveryAddress }} theme={theme} />
       <ModeSelectionDialog isOpen={isModeDialogOpen} onOpenChange={setIsModeDialogOpen} onSelectMode={(m: any, v: any) => { if(m==='delivery') setTableNumber(null); else if(v) setTableNumber(v); setIsModeDialogOpen(false); handleStartNewOrder(); }} currentMode={tableNumber === 'Counter' ? 'counter' : (tableNumber ? 'table' : 'delivery')} theme={theme} isSalon={isSalon} />
       {placedOrders && <UPIPaymentDialog isOpen={isUpiDialogOpen} onOpenChange={setIsUpiDialogOpen} total={placedOrders.reduce((acc, o) => acc + o.totalAmount, 0)} store={store} theme={theme} />}
