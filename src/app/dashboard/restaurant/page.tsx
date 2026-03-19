@@ -1,7 +1,8 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowRight, Store, ShoppingBag, CheckCircle, XCircle, Users, FileText, Scissors, Utensils, Loader2, BarChart3, LayoutGrid, Sparkles } from 'lucide-react';
+import { ArrowRight, Store, ShoppingBag, CheckCircle, XCircle, Users, FileText, Scissors, Utensils, Loader2, BarChart3, LayoutGrid, Sparkles, WifiOff } from 'lucide-react';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -36,6 +37,13 @@ const serviceLinks = [
         href: '/dashboard/owner/sales-report',
         icon: BarChart3,
         highlight: true,
+    },
+    {
+        title: 'Offline Sync Audit',
+        description: 'Check if your device is ready for local-first operations.',
+        href: '/dashboard/offline-audit',
+        icon: WifiOff,
+        variant: 'warning'
     },
     {
         title: 'Manage Employees',
@@ -134,7 +142,7 @@ export default function ServiceDashboardPage() {
                         <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
                             {dashboardIcon && <dashboardIcon className="h-6 w-6" />}
                         </div>
-                        <h1 className="text-5xl font-black font-headline tracking-tighter uppercase italic">{dashboardTitle}</h1>
+                        <h1 className="text-5xl font-black font-headline tracking-tighter uppercase italic leading-none">{dashboardTitle}</h1>
                     </div>
                     <p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">OPERATIONAL AUTHORITY</p>
                 </div>
@@ -149,13 +157,15 @@ export default function ServiceDashboardPage() {
                     <Link href={card.href} key={card.href} className="group h-full">
                         <Card className={cn(
                             "h-full rounded-[2.5rem] border-0 shadow-lg transition-all group-hover:shadow-2xl group-hover:-translate-y-1 overflow-hidden",
-                            card.highlight ? "bg-primary/5 ring-2 ring-primary/20" : "bg-white"
+                            card.highlight ? "bg-primary/5 ring-2 ring-primary/20" : 
+                            card.variant === 'warning' ? "bg-amber-50 border-amber-200 border-2" : "bg-white"
                         )}>
                             <CardHeader className="p-8">
                                 <div className="flex justify-between items-start">
                                     <div className={cn(
                                         "h-14 w-14 rounded-2xl flex items-center justify-center transition-colors shadow-inner",
-                                        card.highlight ? "bg-primary text-white" : "bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white"
+                                        card.highlight ? "bg-primary text-white" : 
+                                        card.variant === 'warning' ? "bg-amber-500 text-white" : "bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white"
                                     )}>
                                         <card.icon className="h-7 w-7" />
                                     </div>

@@ -136,7 +136,7 @@ export default async function AdminDashboardPage() {
     <div className="container mx-auto px-4 py-10 space-y-16 max-w-7xl pb-32">
       <div className="flex flex-col md:flex-row justify-between items-end gap-6 border-b pb-10 border-black/5">
         <div>
-            <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic">Admin Hub</h1>
+            <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none">Admin Hub</h1>
             <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">System-wide Authority</p>
         </div>
         <div className="flex gap-3">
@@ -162,7 +162,7 @@ export default async function AdminDashboardPage() {
           <ActionCard
             title="Offline Capability Audit"
             description="Verify PWA status, local memory, and background sync."
-            href="/dashboard/admin/offline-audit"
+            href="/dashboard/offline-audit"
             icon={WifiOff}
             variant="warning"
           />
