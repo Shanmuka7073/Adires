@@ -32,7 +32,8 @@ import {
   TrendingUp,
   ArrowRight,
   Sparkles,
-  Phone
+  Phone,
+  RefreshCw
 } from 'lucide-react';
 import {
   collection, query, where, orderBy, doc, updateDoc, serverTimestamp, Timestamp, limit, getDocs, setDoc, writeBatch
@@ -611,7 +612,7 @@ export default function StoreOrdersPage() {
   const [liveFilter, setLiveFilter] = useState('all');
   const [selectedDeliveryIds, setSelectedDeliveryIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
-  const { stores, userStore, loading: isAppLoading } = useAppStore();
+  const { stores, userStore, loading: isAppLoading, fetchInitialData } = useAppStore();
 
   const myStore = useMemo(() => {
       if (userStore) return userStore;
@@ -853,14 +854,42 @@ export default function StoreOrdersPage() {
     prevServiceIds.current = currentService;
   }, [activeOrders, toast, playNewOrderSound, playServiceRequestSound, sendSystemNotification]);
 
-  if (isAppLoading || ordersLoading || menusLoading) return <div className="p-12 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto opacity-20" /></div>;
-  if (!myStore) return <div className="p-12 text-center"><p className="font-black uppercase tracking-widest text-xs opacity-40">Store information not found.</p></div>;
+  const handleManualRefresh = () => {
+      if (firestore && user) {
+          fetchInitialData(firestore, user.uid);
+          toast({ title: "Data Refreshing..." });
+      }
+  };
+
+  const isLoading = (ordersLoading || menusLoading) && !activeOrders;
+
+  if (isLoading) return (
+    <div className="p-12 text-center flex flex-col items-center justify-center gap-4 h-[80vh]">
+        <Loader2 className="animate-spin h-12 w-12 text-primary opacity-20" />
+        <p className="font-black uppercase tracking-widest text-[10px] opacity-40">Connecting to Ops Center...</p>
+    </div>
+  );
+
+  if (!myStore && !isAppLoading) return (
+    <div className="p-12 text-center flex flex-col items-center justify-center gap-6 h-[80vh]">
+        <div className="h-20 w-20 rounded-full bg-red-50 flex items-center justify-center text-red-400">
+            <AlertTriangle className="h-10 w-10" />
+        </div>
+        <div className="space-y-2">
+            <p className="font-black uppercase tracking-tighter text-xl">Identity Error</p>
+            <p className="font-bold text-xs text-muted-foreground uppercase opacity-60">Store information not found for this account.</p>
+        </div>
+        <Button variant="outline" onClick={handleManualRefresh} className="rounded-xl font-black text-[10px] uppercase h-12 px-8 border-2">
+            <RefreshCw className="mr-2 h-4 w-4" /> Force Refresh
+        </Button>
+    </div>
+  );
 
   return (
     <div className={cn("min-h-screen py-4 px-3 max-w-7xl mx-auto transition-colors duration-500", isKitchenMode && activeTab === 'live' ? "bg-slate-950" : "bg-slate-50")}>
         <Dialog open={isNewSaleOpen} onOpenChange={setIsNewSaleOpen}>
             <QuickCounterSaleDialog 
-                storeId={myStore.id} 
+                storeId={myStore?.id || ''} 
                 menuItems={menuItems} 
                 onComplete={() => setIsNewSaleOpen(false)}
                 isSalon={isSalon}
@@ -870,7 +899,7 @@ export default function StoreOrdersPage() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 border-b pb-3 border-black/10 gap-4">
             <div>
                 <h1 className={cn("text-2xl font-black tracking-tighter", isKitchenMode && activeTab === 'live' ? "text-white" : "text-gray-900")}>OP CENTER</h1>
-                <p className={cn("text-[8px] font-black uppercase tracking-widest opacity-40", isKitchenMode && activeTab === 'live' ? "text-primary" : "text-muted-foreground")}>{myStore.name} • {isSalon ? 'SALON' : 'RESTAURANT'}</p>
+                <p className={cn("text-[8px] font-black uppercase tracking-widest opacity-40", isKitchenMode && activeTab === 'live' ? "text-primary" : "text-muted-foreground")}>{myStore?.name || 'STORE'} • {isSalon ? 'SALON' : 'RESTAURANT'}</p>
             </div>
             
             <div className="flex gap-2 w-full sm:w-auto">
@@ -970,7 +999,7 @@ export default function StoreOrdersPage() {
                                         key={s.id} 
                                         session={s} 
                                         onDismissService={handleDismissService} 
-                                        store={myStore} 
+                                        store={myStore!} 
                                         isSalon={isSalon} 
                                     />
                                 ))}
@@ -1008,7 +1037,7 @@ export default function StoreOrdersPage() {
             </TabsContent>
             
             <TabsContent value="history" className="mt-0">
-                <HistoryAndInsightsCenter storeId={myStore.id} />
+                {myStore && <HistoryAndInsightsCenter storeId={myStore.id} />}
             </TabsContent>
         </Tabs>
     </div>
