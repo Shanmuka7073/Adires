@@ -464,6 +464,7 @@ export default function PublicMenuPage() {
   const [searchTerm, setSearchTerm] = useState(''); const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [vegOnly, setVegOnly] = useState(false);
   const [isDeliveryDetailsOpen, setIsDeliveryDetailsOpen] = useState(false); const [isModeDialogOpen, setIsModeDialogOpen] = useState(false); const [isUpiDialogOpen, setIsUpiDialogOpen] = useState(false);
+  const [isLiveBillOpen, setIsLiveBillOpen] = useState(false);
   const [tableNumber, setTableNumber] = useState<string | null>(null); const [deliveryAddress, setDeliveryAddress] = useState(''); const [customerName, setCustomerName] = useState(''); const [phone, setPhone] = useState(''); const [deliveryCoords, setDeliveryCoords] = useState<{lat: number, lng: number} | null>(null);
   const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null); const [ingredientsData, setIngredientsData] = useState<GetIngredientsOutput | null>(null); const [isFetchingIngredients, startFetchingIngredients] = useTransition(); const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
   const [isAdding, startAdding] = useTransition();
@@ -505,7 +506,7 @@ export default function PublicMenuPage() {
 
   // QUERY FOR HISTORY (Previous visits from this device)
   const historyQuery = useMemoFirebase(() => {
-      if (!firestore || tableNumber) return null; // Only show history for Home/Delivery users
+      if (!firestore) return null;
       return query(
           collection(firestore, 'orders'),
           where('storeId', '==', storeId),
@@ -514,7 +515,7 @@ export default function PublicMenuPage() {
           orderBy('orderDate', 'desc'),
           limit(5)
       );
-  }, [firestore, storeId, deviceId, tableNumber]);
+  }, [firestore, storeId, deviceId]);
   const { data: historyOrders } = useCollection<Order>(historyQuery);
 
   const activeItemCount = useMemo(() => placedOrders?.reduce((acc, o) => acc + o.items.length, 0) || 0, [placedOrders]);
@@ -701,6 +702,13 @@ export default function PublicMenuPage() {
                           <div className="flex items-center gap-1.5 mt-0.5">
                               {tableNumber === 'Counter' ? <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest bg-green-600 text-white border-0">Counter Sale</Badge> : tableNumber ? <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>{isSalon ? `Chair ${tableNumber}` : `T-${tableNumber}`}</Badge> : <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest bg-blue-600 text-white border-0">{isSalon ? 'Home' : 'Delivery'}</Badge>}
                               <button onClick={() => setIsModeDialogOpen(true)} className="text-[8px] font-black uppercase tracking-widest underline opacity-40 hover:opacity-100 transition-opacity" style={{ color: theme?.textColor || '#fff' }}>Change</button>
+                              
+                              {historyOrders && historyOrders.length > 0 && (
+                                  <>
+                                    <span className="text-white/20 text-[8px]">|</span>
+                                    <button onClick={() => setIsLiveBillOpen(true)} className="text-[8px] font-black uppercase tracking-widest underline opacity-40 hover:opacity-100 transition-opacity" style={{ color: theme?.textColor || '#fff' }}>History</button>
+                                  </>
+                              )}
                           </div>
                       </div>
                   </div>
@@ -791,14 +799,12 @@ export default function PublicMenuPage() {
                         <div className="text-center py-24 bg-white/5 rounded-[2.5rem] border-2 border-dashed border-white/10 opacity-40">
                             <AlertTriangle className="h-10 w-10 mx-auto mb-4 text-white" />
                             <p className="text-[10px] font-black uppercase tracking-widest text-white">No items found</p>
-                            <Button 
-                                variant="link" 
-                                size="sm" 
-                                className="mt-2 text-primary font-bold uppercase text-[8px] tracking-widest"
+                            <button 
+                                className="mt-2 text-primary font-bold uppercase text-[8px] tracking-widest underline"
                                 onClick={() => { setSearchTerm(''); setSelectedCategory(null); setVegOnly(false); }}
                             >
                                 Clear All Filters
-                            </Button>
+                            </button>
                         </div>
                     )}
                 </div>
@@ -825,7 +831,7 @@ export default function PublicMenuPage() {
                   </Button>
               )}
               {(activeItemCount > 0 || cartItems.length > 0 || (historyOrders && historyOrders.length > 0)) && (
-                  <Sheet>
+                  <Sheet open={isLiveBillOpen} onOpenChange={setIsLiveBillOpen}>
                       <SheetTrigger asChild>
                           <Button variant="outline" className={cn("h-12 rounded-xl shadow-2xl text-[10px] font-black uppercase tracking-[0.1em] border-2", (cartItems.length === 0 || tableNumber === 'Counter') ? "flex-1" : "px-4")} style={{ borderColor: theme?.primaryColor || '#FBC02D', color: theme?.primaryColor || '#FBC02D', backgroundColor: theme?.backgroundColor || '#1A1616' }}>
                               <Receipt className={cn(cartItems.length === 0 && "mr-2", "h-4 w-4")} /> 
