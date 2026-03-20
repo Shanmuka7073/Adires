@@ -1,16 +1,15 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy, Upload, MessageSquare, ImageIcon, Home, Lightbulb, Binary, TestTube, Cog, Share2, Monitor, Drama } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Server, Search, Check, X, Loader2, Download, Video, Mic, List, Bot, Shield, ImageIcon, Home, Lightbulb, FileCode } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { useMemo, useEffect, useState, useTransition, useRef } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { collection, query, where, doc, updateDoc, writeBatch } from 'firebase/firestore';
-import type { Order, Store as StoreType, Product, ProductPrice, ProductVariant, User } from '@/lib/types';
+import { collection, query, where } from 'firebase/firestore';
+import type { Order, Store as StoreType, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { t } from '@/lib/locales';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -19,7 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { bulkUploadRecipes, importProductsFromUrl } from '@/app/actions';
+import { importProductsFromUrl, bulkUploadRecipes } from '@/app/actions';
 
 interface StatCardProps {
     title: string;
@@ -63,7 +62,7 @@ function ProductUrlImporterCard() {
     const [isImporting, startImportTransition] = useTransition();
     const [url, setUrl] = useState('');
     const { fetchInitialData } = useAppStore();
-    const { firestore } = useFirebase();
+    const { firestore, user } = useFirebase();
 
     const handleImport = () => {
         if (!url) {
@@ -80,8 +79,8 @@ function ProductUrlImporterCard() {
                         description: `Successfully imported ${result.count} products.`,
                     });
                     setUrl('');
-                    if (firestore) {
-                        await fetchInitialData(firestore);
+                    if (firestore && user) {
+                        await fetchInitialData(firestore, user.uid);
                     }
                 } else {
                     throw new Error(result.error || 'An unknown error occurred.');
@@ -98,7 +97,7 @@ function ProductUrlImporterCard() {
             <CardHeader>
                 <CardTitle>Product URL Importer</CardTitle>
                 <CardDescription>
-                    Import products from a publicly accessible CSV file URL. The format should be: `name,category,description,imageUrl,weight,price`.
+                    Import products from a publicly accessible CSV file URL.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -122,293 +121,6 @@ function ProductUrlImporterCard() {
                 )}
             </CardContent>
         </Card>
-    );
-}
-
-function BulkRecipeUploadCard() {
-    const { toast } = useToast();
-    const [isUploading, startUploadTransition] = useTransition();
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
-        startUploadTransition(async () => {
-            try {
-                const text = await file.text();
-                const result = await bulkUploadRecipes(text);
-
-                if (result.success) {
-                    toast({
-                        title: 'Upload Complete!',
-                        description: `Successfully processed and added ${result.count} recipes.`,
-                    });
-                } else {
-                    throw new Error(result.error || 'An unknown error occurred during upload.');
-                }
-
-            } catch (error: any) {
-                console.error("CSV Upload failed:", error);
-                toast({ variant: 'destructive', title: 'Upload Failed', description: error.message });
-            } finally {
-                if(fileInputRef.current) {
-                    fileInputRef.current.value = '';
-                }
-            }
-        });
-    };
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Bulk Recipe Upload</CardTitle>
-                <CardDescription>
-                    Upload a CSV file of recipes to pre-populate the AI cache. The format should be: `dish_name,ingredients` (with ingredients separated by "|").
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".csv"
-                    onChange={handleFileChange}
-                    disabled={isUploading}
-                    className="mb-4"
-                />
-                 {isUploading ? (
-                    <div className="flex items-center gap-2 mt-4 text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Processing your file... this may take some time.</span>
-                    </div>
-                ) : (
-                    <Button onClick={() => fileInputRef.current?.click()} className="w-full">
-                        <Upload className="mr-2 h-4 w-4" />
-                        Choose CSV and Upload
-                    </Button>
-                )}
-            </CardContent>
-        </Card>
-    );
-}
-
-function ProductInventory() {
-    const { masterProducts, productPrices, fetchProductPrices, loading } = useAppStore();
-    const { firestore } = useFirebase();
-    const [searchTerm, setSearchTerm] = useState('');
-
-    const fetchAllPrices = () => {
-         if (firestore && masterProducts.length > 0) {
-            const productNamesToFetch = masterProducts.map(p => p.name);
-            fetchProductPrices(firestore, productNamesToFetch);
-        }
-    }
-
-    useEffect(() => {
-        fetchAllPrices();
-    }, [firestore, masterProducts]);
-    
-    const handleDownloadCSV = () => {
-        const headers = ["Product Name", "Category", "Variant Weight", "Price", "Stock", "Status"];
-        const rows: string[][] = [];
-
-        filteredProducts.forEach(product => {
-            const priceData = productPrices[product.name.toLowerCase()];
-            if (priceData?.variants) {
-                priceData.variants.forEach((variant: { stock: number; weight: string; price: any; }) => {
-                    const status = variant.stock <= 10 ? "LOW STOCK" : "OK";
-                    rows.push([
-                        `"${product.name}"`,
-                        `"${product.category || 'N/A'}"`,
-                        variant.weight,
-                        String(variant.price),
-                        String(variant.stock),
-                        status
-                    ]);
-                });
-            }
-        });
-
-        const csvContent = "data:text/csv;charset=utf-8," 
-            + headers.join(",") + "\n" 
-            + rows.map(e => e.join(",")).join("\n");
-        
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "inventory_report.csv");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
-    const filteredProducts = useMemo(() => {
-        if (!searchTerm) return masterProducts;
-        return masterProducts.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
-    }, [masterProducts, searchTerm]);
-
-    return (
-        <Accordion type="single" collapsible className="w-full mb-8">
-            <AccordionItem value="inventory">
-                <AccordionTrigger>
-                     <div className="flex justify-between items-center w-full pr-4">
-                        <div>
-                            <h2 className="text-xl font-bold font-headline">Master Product Inventory</h2>
-                            <p className="text-sm text-muted-foreground text-left">A complete overview of stock levels for all products.</p>
-                        </div>
-                    </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                    <Card>
-                        <CardHeader>
-                            <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-                                <div className="flex items-center gap-2 w-full">
-                                    <div className="relative flex-grow">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                        <Input 
-                                            placeholder="Search products..." 
-                                            className="pl-9"
-                                            value={searchTerm}
-                                            onChange={(e) => setSearchTerm(e.target.value)}
-                                        />
-                                    </div>
-                                    <Button onClick={handleDownloadCSV} variant="outline" size="sm">
-                                        <Download className="mr-2 h-4 w-4" />
-                                        Download
-                                    </Button>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            {loading ? (
-                                <div className="space-y-2">
-                                    <Skeleton className="h-10 w-full" />
-                                    <Skeleton className="h-10 w-full" />
-                                    <Skeleton className="h-10 w-full" />
-                                </div>
-                            ) : (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Product</TableHead>
-                                            <TableHead>Category</TableHead>
-                                            <TableHead>Variants (Price & Stock)</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {filteredProducts.map(product => (
-                                            <ProductInventoryRow 
-                                                key={product.id}
-                                                product={product} 
-                                                priceData={productPrices[product.name.toLowerCase()]}
-                                                onUpdate={fetchAllPrices}
-                                            />
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            )}
-                        </CardContent>
-                    </Card>
-                </AccordionContent>
-            </AccordionItem>
-        </Accordion>
-    );
-}
-
-function ProductInventoryRow({ product, priceData, onUpdate }: { product: Product, priceData: ProductPrice | null, onUpdate: () => void }) {
-    const [isEditing, setIsEditing] = useState(false);
-    const [variants, setVariants] = useState(priceData?.variants || []);
-    const [isSaving, startSaveTransition] = useTransition();
-    const { firestore } = useFirebase();
-    const { toast } = useToast();
-
-    useEffect(() => {
-        setVariants(priceData?.variants || []);
-    }, [priceData]);
-
-    const handleVariantChange = (index: number, field: 'price' | 'stock', value: string) => {
-        const newVariants = [...variants];
-        const numValue = field === 'price' ? parseFloat(value) : parseInt(value, 10);
-        if (!isNaN(numValue)) {
-            newVariants[index] = { ...newVariants[index], [field]: numValue };
-            setVariants(newVariants);
-        }
-    };
-    
-    const handleSave = () => {
-        if (!firestore) return;
-        
-        startSaveTransition(async () => {
-            const priceDocRef = doc(firestore, 'productPrices', product.name.toLowerCase());
-            try {
-                await updateDoc(priceDocRef, { variants });
-                toast({ title: 'Success', description: `${product.name} has been updated.` });
-                setIsEditing(false);
-                onUpdate();
-            } catch (error) {
-                console.error("Failed to update product price:", error);
-                toast({ variant: 'destructive', title: 'Error', description: 'Could not save changes.' });
-            }
-        });
-    };
-
-    return (
-        <>
-            <TableRow onClick={() => setIsEditing(!isEditing)} className="cursor-pointer">
-                <TableCell className="font-medium">{product.name}</TableCell>
-                <TableCell>{product.category}</TableCell>
-                <TableCell>
-                    {priceData?.variants.map(v => (
-                        <div key={v.sku} className="flex items-center gap-2">
-                             <span className="font-semibold">{v.weight}:</span>
-                             <span>₹{v.price.toFixed(2)}</span>
-                             <span className={v.stock <= 10 ? 'text-destructive' : 'text-muted-foreground'}>
-                                (Stock: {v.stock})
-                             </span>
-                        </div>
-                    )) || 'No price data'}
-                </TableCell>
-            </TableRow>
-             {isEditing && (
-                 <TableRow>
-                    <TableCell colSpan={3} className="p-0">
-                        <div className="p-4 bg-muted/50 space-y-4">
-                             <p className="font-semibold text-sm">Editing: {product.name}</p>
-                             {variants.map((variant, index) => (
-                                <div key={variant.sku} className="grid grid-cols-3 gap-4 items-center">
-                                    <div className="font-mono text-sm">{variant.weight}</div>
-                                    <div className="flex items-center gap-1">
-                                        <span className="text-sm">₹</span>
-                                        <Input
-                                            type="number"
-                                            value={variant.price}
-                                            onChange={e => handleVariantChange(index, 'price', e.target.value)}
-                                            className="h-8"
-                                        />
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                         <span className="text-sm">Stock:</span>
-                                        <Input
-                                            type="number"
-                                            value={variant.stock}
-                                            onChange={e => handleVariantChange(index, 'stock', e.target.value)}
-                                            className="h-8"
-                                        />
-                                    </div>
-                                </div>
-                            ))}
-                            <div className="flex gap-2 justify-end">
-                                <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>Cancel</Button>
-                                <Button size="sm" onClick={handleSave} disabled={isSaving}>
-                                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                    Save
-                                </Button>
-                            </div>
-                        </div>
-                    </TableCell>
-                 </TableRow>
-            )}
-        </>
     );
 }
 
@@ -552,8 +264,6 @@ export default function AdminDashboardPage() {
             
             {!masterStoreExists && <CreateMasterStoreCard />}
             
-            <ProductInventory />
-            
             <StoreOwnersList />
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
@@ -572,36 +282,17 @@ export default function AdminDashboardPage() {
                  <h2 className="text-2xl font-bold text-center mb-8 font-headline">{t('admin-tools')}</h2>
                  <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
                     <ProductUrlImporterCard />
-                    <BulkRecipeUploadCard />
                      <AdminActionCard 
                         title="manage-master-store-and-products"
                         description="add-or-edit-products-in-the-master-catalog"
                         href="/dashboard/owner/my-store"
                         icon={Store}
                     />
-                    <AdminActionCard 
-                        title="voice-commands-control"
-                        description="view-and-manage-the-voice-commands-users-can-say"
-                        href="/dashboard/voice-commands"
-                        icon={Mic}
-                    />
-                    <AdminActionCard
-                        title="Failed Command Center"
-                        description="Review failed voice commands and use AI to train the system."
-                        href="/dashboard/admin/failed-commands"
-                        icon={Bot}
-                    />
-                    <AdminActionCard
-                        title="AI Training Ground"
-                        description="Paste any text to teach the AI new product aliases and concepts."
-                        href="/dashboard/admin/training-ground"
-                        icon={Lightbulb}
-                    />
-                    <AdminActionCard
-                        title="recipe-tester"
-                        description="Manually test the AI recipe ingredient generation."
-                        href="/dashboard/admin/recipe-tester"
-                        icon={Beaker}
+                     <AdminActionCard 
+                        title="Live Order Video"
+                        description="Set the live video URL shown to customers after they order."
+                        href="/dashboard/admin/site-config"
+                        icon={Video}
                     />
                     <AdminActionCard
                         title="Security Rules"

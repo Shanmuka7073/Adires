@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect, useTransition } from 'react';
+import { Suspense, useState, useEffect, useTransition, useMemo } from 'react';
 import {
   Users,
   Store,
@@ -21,7 +21,6 @@ import {
   Drama,
   Bot,
   AlertTriangle,
-  Mic,
   ZapOff,
   Flame,
   ShieldCheck,
@@ -312,7 +311,6 @@ export default function AdminDashboardPage() {
                     <AdminActionCard title="System Status" description="Live health check of backend services." href="/dashboard/admin/system-status" icon={Server} />
                     <AdminActionCard title="App Overview" description="Complete design & architecture breakdown." href="/dashboard/admin/app-overview" icon={FileSignature} />
                     <AdminActionCard title="Market Catalog" description="Manage master products and prices." href="/dashboard/owner/my-store" icon={Store} />
-                    <AdminActionCard title="NLU Engine" description="Manage voice command aliases." href="/dashboard/voice-commands" icon={Mic} />
                     <AdminActionCard title="Order Logic" description="Examine atomic operational patterns." href="/dashboard/admin/order-logic-help" icon={ShoppingBag} />
                     <AdminActionCard title="Security Rules" description="Production Firestore rule inspect." href="/dashboard/admin/security-rules" icon={Shield} />
                 </div>

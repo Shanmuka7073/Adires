@@ -1,4 +1,3 @@
-
 'use client';
 
 import { create } from 'zustand';
@@ -38,11 +37,11 @@ export interface AppState {
   setAppReady: (ready: boolean) => void;
   setDeviceId: (id: string) => void;
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
-  // Purged legacy properties
+  // LEGACY STUBS: Kept only to satisfy outdated imports during build transition
   masterProducts: any[];
-  productPrices: any;
-  locales: any;
-  commands: any;
+  productPrices: Record<string, any>;
+  locales: Record<string, any>;
+  commands: Record<string, any>;
 }
 
 const getInitialLanguage = (): string => {
@@ -129,7 +128,7 @@ export const useAppStore = create<AppState>()(
       },
     }),
     {
-      name: 'localbasket-app-storage-v5',
+      name: 'localbasket-app-storage-v6',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
