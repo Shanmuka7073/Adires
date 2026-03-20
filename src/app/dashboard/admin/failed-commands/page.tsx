@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -11,7 +10,7 @@ import type { FailedVoiceCommand } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Trash2, Bot, Sparkles, CheckCircle, XCircle, Loader2, AlertTriangle } from 'lucide-react';
+import { Trash2, Bot, Sparkles, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useTransition, useMemo, useCallback } from 'react';
 import { formatDistanceToNow } from 'date-fns';

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -70,6 +69,7 @@ function formatContent(text: string): React.ReactNode {
 
 
 export function PitchDisplay({ pitchText }: { pitchText: string }) {
+    const { toast } = useToast();
 
     const handleShare = () => {
         // Strip markdown for sharing plain text

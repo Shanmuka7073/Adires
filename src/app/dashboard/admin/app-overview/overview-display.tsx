@@ -1,8 +1,7 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import React from 'react';
 
 function WhatsAppIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -70,6 +69,7 @@ function formatContent(text: string): React.ReactNode {
 
 
 export function OverviewDisplay({ overviewText }: { overviewText: string }) {
+    const { toast } = useToast();
 
     const handleShare = () => {
         // Strip markdown for sharing plain text
