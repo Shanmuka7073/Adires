@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
 /**
- * NESTED RECIPE TESTER PAGE (REMOVED)
- * This utility has been removed to resolve persistent TypeScript build errors.
+ * RECIPE TESTER PAGE (REMOVED)
+ * This utility has been removed to streamline the build process.
  * Redirecting admins back to the dashboard.
  */
 export default function RecipeTesterRemovedPage() {
