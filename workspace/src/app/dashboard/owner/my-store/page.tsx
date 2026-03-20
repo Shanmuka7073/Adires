@@ -33,19 +33,19 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import type { Store, Product, ProductPrice, User as AppUser, ProductVariant } from '@/lib/types';
+import type { Store, Product, User as AppUser } from '@/lib/types';
 import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc } from 'firebase/firestore';
-import { uploadStoreImage, updateStoreImageUrl } from '@/app/actions';
+import { collection, query, where, writeBatch, doc, updateDoc } from 'firebase/firestore';
+import { uploadStoreImage } from '@/app/actions';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
   TableRow,
+  TableCell,
+  TableBody,
+  TableHeader,
+  Table,
+  TableHead
 } from '@/components/ui/table';
 import {
   AlertDialog,
@@ -60,20 +60,25 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Sparkles, PlusCircle, Edit, Link2, Save } from 'lucide-react';
+import { Share2, MapPin, Trash2, AlertCircle, ImageIcon, Loader2, PlusCircle, Edit, Save } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { useAppStore, useMyStorePageStore, type ProfileFormValues } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
-import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
-const ADMIN_EMAIL = 'admin@gmail.com';
-const standardWeights = ["100gm", "250gm", "500gm", "1kg", "2kg", "5kg", "1 pack", "1 pc"];
+const createSlug = (text: string) => {
+    if(!text) return '';
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-') 
+      .replace(/[^\w-]+/g, '') 
+      .replace(/--+/g, '-') 
+      .replace(/^-+/, '') 
+      .replace(/-+$/, ''); 
+};
 
 const storeSchema = z.object({
   name: z.string().min(3, 'Store name must be at least 3 characters'),
@@ -91,36 +96,8 @@ const locationSchema = z.object({
     longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude"),
 });
 
-const variantSchema = z.object({
-  sku: z.string(),
-  weight: z.string().min(1, 'Weight is required'),
-  price: z.coerce.number().positive('Price must be a positive number'),
-  stock: z.coerce.number().int().nonnegative('Stock must be a positive integer'),
-});
-
-const productSchema = z.object({
-  name: z.string().min(3, 'Product name is required'),
-  description: z.string().optional(),
-  category: z.string().min(1, "Category is required"),
-  imageUrl: z.string().optional(),
-  variants: z.array(variantSchema).min(1, 'At least one price variant is required'),
-});
-
 type StoreFormValues = z.infer<typeof storeSchema>;
-type ProductFormValues = z.infer<typeof productSchema>;
 type LocationFormValues = z.infer<typeof locationSchema>;
-
-const createSlug = (text: string) => {
-    if(!text) return '';
-    return text
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, '-') 
-      .replace(/[^\w-]+/g, '') 
-      .replace(/--+/g, '-') 
-      .replace(/^-+/, '') 
-      .replace(/-+$/, ''); 
-};
 
 function StoreImageUploader({ store }: { store: Store }) {
     const { toast } = useToast();
@@ -181,6 +158,61 @@ function StoreImageUploader({ store }: { store: Store }) {
                 <Button onClick={handleSave} disabled={isSaving} className="w-full">
                     {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                     Save Image URL
+                </Button>
+            </CardContent>
+        </Card>
+    );
+}
+
+function PromoteStore({ store }: { store: Store }) {
+    const { toast } = useToast();
+
+    const handleShare = async () => {
+        if (!('contacts' in navigator && 'select' in (navigator as any).contacts)) {
+            toast({
+                variant: 'destructive',
+                title: 'API Not Supported',
+                description: 'Your browser does not support the Contact Picker API.',
+            });
+            return;
+        }
+
+        try {
+            const contacts = await (navigator as any).contacts.select(['name', 'tel'], { multiple: true });
+
+            if (contacts.length === 0) return;
+
+            const phoneNumbers = contacts.flatMap((c: any) => c.tel || []);
+            const shareText = `Check out my store, ${store.name}, on the Adires app! Visit here: ${window.location.origin}/stores/${store.id}`;
+            
+            if (phoneNumbers.length > 0) {
+                 window.open(`sms:${phoneNumbers.join(',')}?&body=${encodeURIComponent(shareText)}`, '_blank');
+            } else {
+                 toast({
+                    variant: 'destructive',
+                    title: 'No Phone Numbers Found',
+                });
+            }
+        } catch (ex) {
+            toast({
+                variant: 'destructive',
+                title: 'Share Error',
+            });
+        }
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>{t('promote-your-store')}</CardTitle>
+                <CardDescription>
+                    {t('share-your-store-with-your-phone-contacts')}
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button onClick={handleShare} className="w-full">
+                    <Share2 className="mr-2 h-4 w-4" />
+                    {t('share-with-contacts')}
                 </Button>
             </CardContent>
         </Card>
