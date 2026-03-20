@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -6,7 +7,7 @@ import type { Order, Store, User, MenuItem, OrderItem, RestaurantIngredient, Sal
 import { getApps } from 'firebase-admin/app';
 import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
 import * as fs from 'fs';
-import * as path from 'path';
+import path from 'path';
 
 /**
  * UTILITY: Safe Date Parsing for Analytics
@@ -371,20 +372,17 @@ export async function getPlatformAnalytics() {
             const currentRevenue = currentOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
             const previousRevenue = previousOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
 
-            const currentAOV = currentOrders.length ? currentRevenue / currentOrders.length : 0;
-            const previousAOV = previousOrders.length ? previousRevenue / previousOrders.length : 0;
-
             const calculateTrend = (curr: number, prev: number) => prev === 0 ? 0 : ((curr - prev) / prev) * 100;
 
             return {
                 revenue: currentRevenue,
                 orders: currentOrders.length,
-                aov: currentAOV,
+                aov: currentOrders.length ? currentRevenue / currentOrders.length : 0,
                 userReach: new Set(currentOrders.map(o => o.userId)).size,
                 trends: {
                     revenue: calculateTrend(currentRevenue, previousRevenue),
                     orders: calculateTrend(currentOrders.length, previousOrders.length),
-                    aov: calculateTrend(currentAOV, previousAOV),
+                    aov: calculateTrend(currentOrders.length ? currentRevenue / currentOrders.length : 0, previousOrders.length ? previousRevenue / previousOrders.length : 0),
                     userReach: calculateTrend(new Set(currentOrders.map(o => o.userId)).size, new Set(previousOrders.map(o => o.userId)).size)
                 }
             };
@@ -441,6 +439,29 @@ export async function getSystemStatus() {
     }
 }
 
+/**
+ * SITE CONFIGURATION
+ */
+export async function getSiteConfig(id: string) {
+    try {
+        const { db } = await getAdminServices();
+        const snap = await db.collection('siteConfig').doc(id).get();
+        return snap.exists ? snap.data() as SiteConfig : {};
+    } catch (e) {
+        return {};
+    }
+}
+
+export async function updateSiteConfig(id: string, data: any) {
+    try {
+        const { db } = await getAdminServices();
+        await db.collection('siteConfig').doc(id).set(data, { merge: true });
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
 export async function updateEmployee(userId: string, data: any) {
     try {
         const { db } = await getAdminServices();
@@ -484,12 +505,16 @@ export async function rejectRegularization(id: string, storeId: string, reason: 
     }
 }
 
-export async function importProductsFromUrl(url: string) { return { success: true, count: 0 }; }
-export async function bulkUploadRecipes(csvText: string) { return { success: true, count: 0 }; }
-export async function addIngredientsToCatalog(ingredients: any[]) { return { success: true, count: 0 }; }
+export async function importProductsFromUrl(url: string): Promise<{ success: boolean; count: number; error?: string }> { 
+    return { success: true, count: 0 }; 
+}
+export async function bulkUploadRecipes(csvText: string): Promise<{ success: boolean; count: number; error?: string }> { 
+    return { success: true, count: 0 }; 
+}
+export async function addIngredientsToCatalog(ingredients: any[]): Promise<{ success: boolean; count: number; error?: string }> { 
+    return { success: true, count: 0 }; 
+}
 export async function executeCommand(cmd: string) { return { success: true, message: "Command executed." }; }
-export async function getSiteConfig(id: string) { return {}; }
-export async function updateSiteConfig(id: string, data: any) { return { success: true }; }
 export async function updateStoreImageUrl(id: string, url: string) {
     try {
         const { db } = await getAdminServices();

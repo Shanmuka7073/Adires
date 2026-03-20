@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CodeDisplay } from '../fingerprint-help/code-display'; // Reusing the code display component
+import { CodeDisplay } from '@/components/admin/code-display';
 import { cachedRecipesCodeText } from './code-text';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';

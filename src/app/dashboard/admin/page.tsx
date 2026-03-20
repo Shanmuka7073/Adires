@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Suspense, useState, useEffect, useTransition } from 'react';
@@ -348,6 +349,33 @@ export default function AdminDashboardPage() {
                 </Card>
             </div>
 
+            {/* QUICK ACCESS ADMIN MODULES */}
+            <div className="space-y-4">
+                <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40">Operational Access</h2>
+                <div className="grid grid-cols-1 gap-3">
+                    {[
+                        { title: 'Strategic Audit', href: '/dashboard/admin/strategic-audit', icon: Drama, color: 'bg-indigo-500' },
+                        { title: 'NLU Control Center', href: '/dashboard/voice-commands', icon: Mic, color: 'bg-primary' },
+                        { title: 'Failed Command Hub', href: '/dashboard/admin/failed-commands', icon: Bot, color: 'bg-amber-500' },
+                        { title: 'Live Order Video', href: '/dashboard/admin/site-config', icon: Video, color: 'bg-blue-500' }
+                    ].map(tool => (
+                        <Link key={tool.title} href={tool.href}>
+                            <Card className="rounded-2xl border-0 shadow-md group hover:shadow-xl transition-all overflow-hidden border-2 border-transparent hover:border-black/5 bg-white">
+                                <CardContent className="p-5 flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center text-white shadow-inner", tool.color)}>
+                                            <tool.icon className="h-5 w-5" />
+                                        </div>
+                                        <span className="text-[10px] font-black uppercase tracking-widest">{tool.title}</span>
+                                    </div>
+                                    <ChevronRight className="h-4 w-4 opacity-20 group-hover:translate-x-1 group-hover:opacity-100 transition-all" />
+                                </CardContent>
+                            </Card>
+                        </Link>
+                    ))}
+                </div>
+            </div>
+
             <div className="space-y-4">
                 <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 flex items-center gap-2">
                     <TrendingUp className="h-3 w-3" /> Growth Logic
@@ -380,31 +408,6 @@ export default function AdminDashboardPage() {
                         </p>
                     </div>
                 </Card>
-            </div>
-
-            <div className="space-y-4">
-                <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40">Executive Access</h2>
-                <div className="grid grid-cols-1 gap-3">
-                    {[
-                        { title: 'Strategic Audit', href: '/dashboard/admin/strategic-audit', icon: Drama, color: 'bg-indigo-500' },
-                        { title: 'NLU Control Center', href: '/dashboard/voice-commands', icon: Mic, color: 'bg-primary' },
-                        { title: 'Asha Context Kit', href: '/dashboard/admin/support-prompt', icon: Bot, color: 'bg-blue-500' }
-                    ].map(tool => (
-                        <Link key={tool.title} href={tool.href}>
-                            <Card className="rounded-2xl border-0 shadow-md group hover:shadow-xl transition-all overflow-hidden border-2 border-transparent hover:border-black/5 bg-white">
-                                <CardContent className="p-5 flex items-center justify-between">
-                                    <div className="flex items-center gap-4">
-                                        <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center text-white shadow-inner", tool.color)}>
-                                            <tool.icon className="h-5 w-5" />
-                                        </div>
-                                        <span className="text-[10px] font-black uppercase tracking-widest">{tool.title}</span>
-                                    </div>
-                                    <ChevronRight className="h-4 w-4 opacity-20 group-hover:translate-x-1 group-hover:opacity-100 transition-all" />
-                                </CardContent>
-                            </Card>
-                        </Link>
-                    ))}
-                </div>
             </div>
         </section>
       </div>

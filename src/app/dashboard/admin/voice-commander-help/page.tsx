@@ -3,7 +3,7 @@
 
 import { useState, useTransition } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CodeDisplay } from '../fingerprint-help/code-display';
+import { CodeDisplay } from '@/components/admin/code-display';
 import { voiceCommanderCodeText } from './code-text';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
