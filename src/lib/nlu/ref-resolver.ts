@@ -1,29 +1,35 @@
 
 'use client';
 
-// src/lib/nlu/ref-resolver.ts
-import { ParsedNumber } from './number-engine-v2';
+/**
+ * @fileOverview Resolves parsed references into structured NLU data.
+ */
+
+import { extractNumbers, type ParsedNumber } from './number-engine-v2';
 import { safeEvaluate } from '../math-solver';
 
 export type RefResolverResult = {
   original: string;
   tokens: string[];
-  numbers: any[];
+  numbers: ParsedNumber[];
   mathExpression: string | null;
   mathResult: number | null;
   intentHints: string[];
 };
 
-function resolveRefs(text: string, refs: any): RefResolverResult {
+/**
+ * Resolves references and extracts numbers/math from the cleared tokens.
+ */
+export function resolveRefData(text: string, refs: any): RefResolverResult {
   const { clearedTokens } = refs;
 
-  // Use new number engine
-  const numResult = parseNumbers(clearedTokens.join(" "));
+  // Use the high-performance number engine to extract quantities and values
+  const numResult = extractNumbers(clearedTokens.join(" "));
 
   let mathResult: number | null = null;
   let mathExpression: string | null = null;
 
-  // Basic math detection: e.g., "5 + 3", "40 - 10", "1/2 * 4"
+  // Basic math detection: e.g., "5 + 3", "40 - 10"
   const mathy = text.match(/(\d[\d\.\s]*[\+\-\*\/]\s*[\d\.\s]+)/g);
   
   if (mathy) {
@@ -44,9 +50,3 @@ function resolveRefs(text: string, refs: any): RefResolverResult {
     intentHints: hints,
   };
 }
-
-// Named export to fix imports
-export function resolveRefData(text: string, refs: any) {
-  return resolveRefs(text, refs);
-}
-
