@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useEffect, useMemo, useRef, RefObject } from 'react';
@@ -16,7 +15,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
+} from '@/form';
 import {
   Card,
   CardContent,
@@ -127,6 +126,160 @@ const createSlug = (text: string) => {
       .replace(/^-+/, '') 
       .replace(/-+$/, ''); 
   };
+
+/**
+ * COMPONENT: Product Checklist
+ * Handles retail inventory selection.
+ */
+function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminStoreId: string; }) {
+  const { firestore } = useFirebase();
+  const { toast } = useToast();
+  const [isSaving, startSaveTransition] = useTransition();
+  const { setSaveInventoryBtnRef } = useMyStorePageStore();
+  const saveBtnRef = useRef<HTMLButtonElement>(null);
+  const { language } = useAppStore();
+
+  const { masterProducts, loading: masterProductsLoading } = useAppStore(state => ({
+    masterProducts: state.masterProducts,
+    loading: state.loading,
+  }));
+  
+  const ownerProductsQuery = useMemoFirebase(() => {
+    if (!firestore || !storeId) return undefined;
+    return collection(firestore, 'stores', storeId, 'products');
+  }, [firestore, storeId]);
+  const { data: ownerProducts, isLoading: ownerProductsLoading } = useCollection<Product>(ownerProductsQuery);
+
+  const [checkedProducts, setCheckedProducts] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setSaveInventoryBtnRef(saveBtnRef);
+    return () => setSaveInventoryBtnRef(null);
+  }, [setSaveInventoryBtnRef, saveBtnRef]);
+
+  useEffect(() => {
+    if (ownerProducts) {
+      const initialCheckedState = ownerProducts.reduce((acc, product) => {
+        acc[product.name] = true;
+        return acc;
+      }, {} as Record<string, boolean>);
+      setCheckedProducts(initialCheckedState);
+    }
+  }, [ownerProducts]);
+  
+  const handleCheckChange = (productName: string, isChecked: boolean) => {
+    setCheckedProducts(prev => ({ ...prev, [productName]: isChecked }));
+  };
+
+  const handleSaveChanges = () => {
+    startSaveTransition(async () => {
+        if (!firestore || !masterProducts || !ownerProducts) return;
+
+        const ownerProductMap = new Map(ownerProducts.map(p => [p.name, p.id]));
+        const batch = writeBatch(firestore);
+        let addedCount = 0;
+        let removedCount = 0;
+
+        for (const masterProduct of masterProducts) {
+            const isChecked = checkedProducts[masterProduct.name] || false;
+            const isInStore = ownerProductMap.has(masterProduct.name);
+
+            if (isChecked && !isInStore) {
+                const newProductRef = doc(collection(firestore, 'stores', storeId, 'products'));
+                const { variants, ...productData } = masterProduct;
+                const newProductData = {
+                  ...productData, 
+                  storeId: storeId,
+                };
+                delete (newProductData as any).id;
+                batch.set(newProductRef, newProductData);
+                addedCount++;
+            } else if (!isChecked && isInStore) {
+                const productIdToRemove = ownerProductMap.get(masterProduct.name);
+                if (productIdToRemove) {
+                    const productRef = doc(firestore, 'stores', storeId, 'products', productIdToRemove);
+                    batch.delete(productRef);
+                    removedCount++;
+                }
+            }
+        }
+        
+        try {
+            await batch.commit();
+            toast({
+                title: "Inventory Updated",
+                description: `${addedCount} product(s) added and ${removedCount} product(s) removed.`
+            });
+        } catch (error) {
+             console.error("Failed to update inventory:", error);
+             toast({ variant: 'destructive', title: 'Update Failed', description: 'Could not update your product list.' });
+        }
+    });
+  };
+
+  const productsByCategory = useMemo(() => {
+    if (!masterProducts) return {};
+    return masterProducts.reduce((acc, product) => {
+        const category = product.category || 'Miscellaneous';
+        if (!acc[category]) {
+            acc[category] = [];
+        }
+        acc[category].push(product);
+        return acc;
+    }, {} as Record<string, Product[]>);
+  }, [masterProducts]);
+
+  if (masterProductsLoading || ownerProductsLoading) {
+    return <p>Loading product list...</p>
+  }
+  
+  if (!masterProducts || masterProducts.length === 0) {
+      return (
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>{t('no-master-products-found')}</AlertTitle>
+            <AlertDescription>{t('the-admin-has-not-added-any-products')}</AlertDescription>
+          </Alert>
+      )
+  }
+
+  return (
+      <Card>
+          <CardHeader>
+              <CardTitle>{t('manage-your-inventory')}</CardTitle>
+              <CardDescription>{t('select-the-products-you-want-to-sell')}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+              <Accordion type="multiple" className="w-full">
+                  {Object.entries(productsByCategory).map(([category, products]) => (
+                       <AccordionItem value={category} key={category}>
+                          <AccordionTrigger>{t(category.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</AccordionTrigger>
+                          <AccordionContent>
+                               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4 p-4">
+                                  {products.map((product) => (
+                                      <div key={product.id} className="flex items-center space-x-2">
+                                          <Checkbox
+                                              id={product.id}
+                                              checked={checkedProducts[product.name] || false}
+                                              onCheckedChange={(checked) => handleCheckChange(product.name, !!checked)}
+                                          />
+                                          <label htmlFor={product.id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                              {t(product.name.toLowerCase().replace(/ /g, '-'), language)}
+                                          </label>
+                                      </div>
+                                  ))}
+                              </div>
+                          </AccordionContent>
+                       </AccordionItem>
+                  ))}
+              </Accordion>
+               <Button ref={saveBtnRef} onClick={handleSaveChanges} disabled={isSaving} className="w-full">
+                  {isSaving ? t('saving-changes') : t('save-inventory-changes')}
+              </Button>
+          </CardContent>
+      </Card>
+  )
+}
 
 function StoreImageUploader({ store }: { store: Store }) {
     const { toast } = useToast();
@@ -275,7 +428,7 @@ function PromoteStore({ store }: { store: Store }) {
     const { toast } = useToast();
 
     const handleShare = async () => {
-        if (!('contacts' in navigator && 'select' in navigator.contacts)) {
+        if (!('contacts' in navigator && 'select' in (navigator as any).contacts)) {
             toast({
                 variant: 'destructive',
                 title: 'API Not Supported',
@@ -293,7 +446,7 @@ function PromoteStore({ store }: { store: Store }) {
             }
 
             const phoneNumbers = contacts.flatMap((c: { tel: any; }) => c.tel || []);
-            const shareText = `Check out my store, ${store.name}, on the LocalBasket app! Visit my storefront here: ${window.location.origin}/stores/${store.id}`;
+            const shareText = `Check out my store, ${store.name}, on the Adires app! Visit my storefront here: ${window.location.origin}/stores/${store.id}`;
             
             if (phoneNumbers.length > 0) {
                  const smsLink = `sms:${phoneNumbers.join(',')}?&body=${encodeURIComponent(shareText)}`;
@@ -383,7 +536,7 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
                 .catch((error) => {
                     const permissionError = new FirestorePermissionError({
                         path: storeRef.path,
-                        operation: 'update',
+                        operation: 'update' as const,
                         requestResourceData: data,
                     });
                     errorEmitter.emit('permission-error', permissionError);
@@ -442,7 +595,7 @@ function DangerZone({ store }: { store: Store }) {
                 console.error("Failed to close store:", error);
                 const permissionError = new FirestorePermissionError({
                     path: storeRef.path,
-                    operation: 'update',
+                    operation: 'update' as const,
                     requestResourceData: { isClosed: true },
                 });
                 errorEmitter.emit('permission-error', permissionError);
@@ -523,7 +676,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                 .catch((error) => {
                     const permissionError = new FirestorePermissionError({
                         path: storeRef.path,
-                        operation: 'update',
+                        operation: 'update' as const,
                         requestResourceData: data,
                     });
                     errorEmitter.emit('permission-error', permissionError);
@@ -677,8 +830,284 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
     );
 }
 
+function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolean; }) {
+  const { toast } = useToast();
+  const [isPending, startTransition] = useTransition();
+  const [isGeneratingImage, startImageGeneration] = useTransition();
+  const { firestore } = useFirebase();
+  const { language, masterProducts, fetchInitialData } = useAppStore();
+
+  const categories = useMemo(() => {
+      const cats = masterProducts.map(p => p.category).filter(Boolean);
+      return Array.from(new Set(cats)) as string[];
+  }, [masterProducts]);
+
+  const form = useForm<ProductFormValues>({
+    resolver: zodResolver(productSchema),
+    defaultValues: { name: '', description: '', category: '', imageUrl: '', variants: [{ sku: '', weight: '', price: 0, stock: 50 }] },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: 'variants'
+  });
+
+  const handleTemplateSelect = (value: string) => {
+    if (!value) return;
+    const [itemName, categoryName] = value.split('::');
+    form.setValue('name', itemName);
+    form.setValue('category', categoryName);
+  };
+
+  const handleGenerateImage = () => {
+    const productName = form.getValues('name');
+    if (!productName) {
+        toast({ variant: 'destructive', title: 'Product Name Required', description: 'Please enter a product name before generating an image.' });
+        return;
+    }
+    startImageGeneration(async () => {
+        try {
+            const result = await generateProductImage({ productName });
+            if (result.imageUrl) {
+                form.setValue('imageUrl', result.imageUrl);
+                toast({ title: 'Image Generated!', description: 'The AI-generated image URL has been added.' });
+            } else {
+                throw new Error('No image URL returned from AI flow.');
+            }
+        } catch (error) {
+            console.error("AI Image Generation failed:", error);
+            toast({ variant: 'destructive', title: 'Image Generation Failed', description: 'Could not generate an image. Please try again.' });
+        }
+    });
+  };
+
+  const onSubmit = (data: ProductFormValues) => {
+    if (!firestore) return;
+    if (!isAdmin) {
+        toast({ variant: 'destructive', title: 'Unauthorized', description: 'Only admins can create new master products.'});
+        return;
+    }
+
+    startTransition(async () => {
+      try {
+        const batch = writeBatch(firestore);
+        const imageId = `prod-${createSlug(data.name)}`;
+        const productSlug = createSlug(data.name);
+        
+        const variantsWithSkus = data.variants.map((variant, index) => ({
+            ...variant,
+            sku: `${productSlug}-${createSlug(variant.weight)}-${index}`
+        }));
+
+        // 1. Add product to the master /stores/{adminId}/products collection
+        const productRef = doc(collection(firestore, 'stores', storeId, 'products'));
+        const productData: Omit<Product, 'id' | 'variants'> = {
+          name: data.name,
+          description: data.description,
+          category: data.category,
+          storeId,
+          imageId: imageId,
+          imageUrl: data.imageUrl,
+          imageHint: data.name.toLowerCase(),
+        };
+        batch.set(productRef, productData);
+        
+        // 2. Add pricing info to the canonical /productPrices collection
+        const priceRef = doc(firestore, 'productPrices', data.name.toLowerCase());
+        batch.set(priceRef, {
+            productName: data.name.toLowerCase(),
+            variants: variantsWithSkus
+        });
+
+        // 3. Add a default alias to the voiceAliasGroups collection
+        const aliasRef = doc(firestore, 'voiceAliasGroups', productSlug);
+        batch.set(aliasRef, {
+            type: 'product',
+            en: [data.name.toLowerCase()],
+        }, { merge: true });
+        
+        await batch.commit();
+        
+        toast({
+          title: 'Master Product Added!',
+          description: `${data.name} has been added to the catalog and is now voice-searchable.`,
+        });
+        
+        // Refresh all app data to get the new product and alias
+        await fetchInitialData(firestore);
+
+        form.reset();
+
+      } catch (serverError) {
+        console.error("Failed to create product:", serverError);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not create master product.' });
+      }
+    });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('add-a-master-product')}</CardTitle>
+        <CardDescription>{t('add-a-new-product-to-the-platform')}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('product-name')}</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., Organic Apples" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="imageUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('product-image-url-optional')}</FormLabel>
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-grow">
+                        <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
+                        <Input placeholder="https://images.unsplash.com/..." {...field} className="pl-9" />
+                    </div>
+                    <Button type="button" variant="outline" onClick={handleGenerateImage} disabled={isGeneratingImage}>
+                        {isGeneratingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                   <FormDescription>
+                    {t('paste-a-direct-image-link-or-generate-one')}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('category')}</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder={t('select-a-category')} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {categories.map(cat => (
+                        <SelectItem key={cat} value={cat}>{t(cat.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('product-description-optional')}</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder={t('describe-the-product')} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <Card className="bg-muted/50 p-4">
+                <CardHeader className="p-2">
+                    <CardTitle className="text-lg">{t('price-variants')}</CardTitle>
+                    <CardDescription className="text-xs">
+                        {t('set-the-official-price-for-this-product')}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="p-2 space-y-4">
+                    {fields.map((field, index) => (
+                        <div key={field.id} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,1fr,auto] items-end gap-4 p-4 border rounded-md bg-background">
+                            <FormField
+                                control={form.control}
+                                name={`variants.${index}.weight`}
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>{t('weight')}</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder={t('select-a-weight')} />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {standardUnits.map(w => <SelectItem key={w} value={w}>{w}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name={`variants.${index}.price`}
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>{t('price')} (₹)</FormLabel>
+                                        <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                             <FormField
+                                control={form.control}
+                                name={`variants.${index}.stock`}
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Stock</FormLabel>
+                                        <FormControl><Input type="number" step="1" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)}>
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    ))}
+                    <Button type="button" variant="outline" onClick={() => append({ weight: '', price: 0, stock: 50, sku: `new-${fields.length}` })}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        {t('add-variant')}
+                    </Button>
+                </CardContent>
+            </Card>
+
+
+            <Button type="submit" disabled={isPending} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                {isPending ? (
+                    <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {t('adding-product')}...
+                    </>
+                ) : (
+                    t('add-product')
+                )}
+            </Button>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
+  );
+}
+
 function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdmin: boolean, adminStoreId?: string; }) {
-    const { firestore, user } = useFirebase();
     const { toast } = useToast();
     const [isOpening, startOpenTransition] = useTransition();
 
@@ -832,7 +1261,7 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                     toast({ title: 'Store Created!', description: `Your store "${data.name}" is now live.` });
                 })
                 .catch((serverError) => {
-                    const permissionError = new FirestorePermissionError({ path: 'stores', operation: 'create', requestResourceData: storeData });
+                    const permissionError = new FirestorePermissionError({ path: 'stores', operation: 'create' as const, requestResourceData: storeData });
                     errorEmitter.emit('permission-error', permissionError);
                 });
         });
@@ -935,12 +1364,12 @@ export default function MyStorePage() {
     const isAdmin = useMemo(() => user?.email === ADMIN_EMAIL, [user]);
 
     const ownerStoreQuery = useMemoFirebase(() => {
-        if (!firestore || !user || isAdmin) return null;
+        if (!firestore || !user || isAdmin) return undefined;
         return query(collection(firestore, 'stores'), where('ownerId', '==', user.uid));
     }, [firestore, user, isAdmin]);
 
     const adminStoreQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
+        if (!firestore) return undefined;
         return query(collection(firestore, 'stores'), where('name', '==', 'LocalBasket'));
     }, [firestore]);
 
@@ -986,7 +1415,7 @@ export default function MyStorePage() {
                     toast({ title: 'Store Created!', description: `Your store "${storeData.name}" is now live.` });
                 })
                 .catch((serverError) => {
-                    const permissionError = new FirestorePermissionError({ path: 'stores', operation: 'create', requestResourceData: storeData });
+                    const permissionError = new FirestorePermissionError({ path: 'stores', operation: 'create' as const, requestResourceData: storeData });
                     errorEmitter.emit('permission-error', permissionError);
                 });
         });

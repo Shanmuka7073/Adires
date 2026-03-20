@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -212,7 +211,7 @@ export default function FailedCommandsPage() {
                         <div className="flex items-center gap-3">
                             <Bot className="h-8 w-8 text-primary" />
                             <div>
-                                <CardTitle className="text-3xl font-black font-headline tracking-tighter uppercase">Voice Training Center</CardTitle>
+                                <CardTitle className="text-3xl font-black font-headline tracking-tighter uppercase italic">Voice Training Center</CardTitle>
                                 <CardDescription className="font-bold opacity-60">
                                     Analyze failed commands and teach the AI new regional aliases.
                                 </CardDescription>

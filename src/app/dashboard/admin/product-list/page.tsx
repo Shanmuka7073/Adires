@@ -47,7 +47,7 @@ function ProductListDisplay() {
     const handleShare = () => {
         if (typeof navigator !== 'undefined' && (navigator as any).share) {
             (navigator as any).share({
-                title: 'LocalBasket Master Product List',
+                title: 'Adires Master Product List',
                 text: productListText,
             }).catch((err: any) => console.error("Share failed:", err));
         } else {
@@ -111,9 +111,9 @@ export default function ProductListPage() {
                      <div className="flex items-center gap-3">
                         <List className="h-8 w-8 text-primary" />
                         <div>
-                            <CardTitle className="text-3xl font-headline">Master Product List</CardTitle>
-                            <CardDescription>
-                                A complete, shareable list of all products in the master catalog.
+                            <CardTitle className="text-3xl font-headline italic">Master Product List</CardTitle>
+                            <CardDescription className="font-bold opacity-60 uppercase text-[10px] tracking-widest">
+                                Comprehensive catalog audit.
                             </CardDescription>
                         </div>
                     </div>
