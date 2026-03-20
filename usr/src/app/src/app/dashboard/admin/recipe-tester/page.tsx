@@ -141,14 +141,14 @@ export default function RecipeTesterPage() {
                     language: 'en', // For testing, we can hardcode to English
                 });
 
-                if (response.isSuccess && response.ingredients.length > 0) {
+                if (response.isSuccess && response.components.length > 0) {
                     setResult(response);
                      toast({
                         title: 'Success!',
-                        description: `Found ${response.ingredients.length} ingredients for "${dishName}".`,
+                        description: `Found ${response.components.length} ingredients for "${dishName}".`,
                     });
                 } else {
-                     setResult({ isSuccess: false, ingredients: [], instructions: response.instructions, title: response.title, nutrition: response.nutrition });
+                     setResult({ isSuccess: false, itemType: 'product', components: [], steps: response.steps, title: response.title, nutrition: response.nutrition });
                      toast({
                         title: 'AI Could Not Find Recipe',
                         description: `The model could not find ingredients for "${dishName}".`,
@@ -167,12 +167,12 @@ export default function RecipeTesterPage() {
     };
     
     const handleAddAllToCart = () => {
-        if (!result || !result.isSuccess || result.ingredients.length === 0) return;
+        if (!result || !result.isSuccess || result.components.length === 0) return;
 
         clearCart();
         let itemsAdded = 0;
         
-        result.ingredients.forEach(ingredient => {
+        result.components.forEach(ingredient => {
             let bestMatch: { product: any, score: number } | null = null;
 
             masterProducts.forEach(product => {
@@ -203,7 +203,7 @@ export default function RecipeTesterPage() {
 
         toast({
             title: 'Items Added to Cart',
-            description: `Successfully added ${itemsAdded} out of ${result.ingredients.length} ingredients to your cart.`,
+            description: `Successfully added ${itemsAdded} out of ${result.components.length} ingredients to your cart.`,
         });
 
         router.push('/cart');
@@ -215,7 +215,7 @@ export default function RecipeTesterPage() {
                 <AddToCatalogDialog
                     isOpen={isCatalogDialogOpen}
                     onClose={() => setIsCatalogDialogOpen(false)}
-                    ingredients={result.ingredients}
+                    ingredients={result.components}
                 />
             )}
             <div className="container mx-auto py-12 px-4 md:px-6">
@@ -240,12 +240,12 @@ export default function RecipeTesterPage() {
                                 placeholder="e.g., Chicken Biryani"
                                 value={dishName}
                                 onChange={(e) => setDishName(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleGetIngredients('en', true)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleGetIngredients()}
                                 disabled={isGenerating}
                             />
                         </div>
 
-                        <Button onClick={() => handleGetIngredients('en', true)} disabled={isGenerating} className="w-full">
+                        <Button onClick={() => handleGetIngredients()} disabled={isGenerating} className="w-full">
                             {isGenerating ? (
                                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</>
                             ) : (
@@ -263,10 +263,10 @@ export default function RecipeTesterPage() {
                                             {result.isSuccess ? 'Success' : 'Failed'}
                                         </CardTitle>
                                     </CardHeader>
-                                    {result.isSuccess && result.ingredients.length > 0 && (
+                                    {result.isSuccess && result.components.length > 0 && (
                                         <CardContent className="space-y-4">
                                             <div className="flex flex-wrap gap-2">
-                                                {result.ingredients.map((ing, index) => (
+                                                {result.components.map((ing, index) => (
                                                     <Badge key={index} variant="secondary">{ing.name} ({ing.quantity})</Badge>
                                                 ))}
                                             </div>
@@ -289,4 +289,3 @@ export default function RecipeTesterPage() {
         </>
     );
 }
-

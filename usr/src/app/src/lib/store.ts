@@ -123,7 +123,6 @@ export const useAppStore = create<AppState>()(
 
           // FIX: Correctly map and type the voice aliases
           const voiceAliasGroups = aliasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
-          const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
 
           // FIX: Correctly type the reducer for commands
           const dbCommands = commandDocs.docs.reduce((acc, doc) => {
@@ -133,7 +132,7 @@ export const useAppStore = create<AppState>()(
           
           const enrichedCommands = { ...defaultGeneralCommands, ...dbCommands };
 
-          initializeTranslations(locales);
+          initializeTranslations(buildLocalesFromAliasGroups(voiceAliasGroups));
 
           // Handle Device ID Persistence
           if (!get().deviceId) {
@@ -144,7 +143,7 @@ export const useAppStore = create<AppState>()(
           set({
             stores: businessStores,
             userStore,
-            locales,
+            locales: buildLocalesFromAliasGroups(voiceAliasGroups),
             commands: enrichedCommands,
             isInitialized: true,
             appReady: true,

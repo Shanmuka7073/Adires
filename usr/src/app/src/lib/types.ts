@@ -42,14 +42,6 @@ export type Store = {
   tables?: string[]; // For restaurant table numbers
 };
 
-// WebAuthn types
-export type Authenticator = {
-  credentialID: string; // This is a Base64URL-encoded string
-  credentialPublicKey: string; // This is now a Base64URL-encoded string
-  counter: number;
-  transports?: AuthenticatorTransport[];
-};
-
 export type User = {
     id: string;
     firstName: string;
@@ -61,8 +53,6 @@ export type User = {
     latitude?: number;
     longitude?: number;
     fcmToken?: string;
-    authenticators?: Authenticator[];
-    currentChallenge?: string | null; // Can be null
 }
 
 export type CartItem = {
@@ -75,9 +65,9 @@ export type CartItem = {
 
 export type Ingredient = {
   name: string;
-  baseQuantity: number;
+  baseQuantity?: number;
   quantity: string;
-  unit: 'g' | 'kg' | 'ml' | 'l' | 'pcs' | 'tsp' | 'tbsp' | '' ;
+  unit?: 'g' | 'kg' | 'ml' | 'l' | 'pcs' | 'tsp' | 'tbsp' | '' ;
   cost?: number;
 };
 
@@ -166,12 +156,18 @@ export type VoiceAliasGroup = {
     [key: string]: any; // To allow for language codes as keys (en, te, hi, etc.)
 };
 
+export interface InstructionStep {
+    title: string;
+    actions: string[];
+}
+
 export interface GetIngredientsOutput {
     isSuccess: boolean;
+    itemType: 'food' | 'service' | 'product';
     title: string;
-    ingredients: Ingredient[];
-    instructions: InstructionStep[];
-    nutrition: {
+    components: Ingredient[];
+    steps: InstructionStep[];
+    nutrition?: {
         calories: number;
         protein: number;
     };
@@ -180,9 +176,10 @@ export interface GetIngredientsOutput {
 export type CachedRecipe = {
     id: string;
     dishName: string;
-    ingredients: Ingredient[];
-    instructions: InstructionStep[];
-    nutrition: {
+    itemType: 'food' | 'service' | 'product';
+    components: Ingredient[];
+    steps: InstructionStep[];
+    nutrition?: {
         calories: number;
         protein: number;
     };
@@ -301,7 +298,7 @@ export type GenerateBreakfastPackOutput = {
   estimatedCost: number;
 };
 
-// NEW Restaurant Menu Types
+// Restaurant Menu Types
 export type MenuItem = {
   id: string;
   name: string;
@@ -317,21 +314,24 @@ export type Menu = {
   items: MenuItem[];
 };
 
-export type InstructionStep = {
-    title: string;
-    actions: string[];
-}
-
 export type UnidentifiedCartItem = {
     id: string;
     term: string;
     status: 'pending' | 'failed' | 'identified';
 };
 
-// NEW Type for Restaurant Inventory
+// Type for Restaurant Inventory
 export type RestaurantIngredient = {
   id: string;
   name: string;
   unit: string; // e.g., 'kg', 'litre', 'pc'
   cost: number; // The purchase cost per unit
 };
+
+declare global {
+  interface Window {
+      SpeechRecognition: any;
+      webkitSpeechRecognition: any;
+      deferredInstallPrompt: any;
+  }
+}
