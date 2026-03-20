@@ -89,6 +89,11 @@ const storeSchema = z.object({
   longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude"),
 });
 
+const locationSchema = z.object({
+    latitude: z.coerce.number().min(-90, "Invalid latitude").max(90, "Invalid latitude"),
+    longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude"),
+});
+
 const variantSchema = z.object({
   sku: z.string(),
   weight: z.string().min(1, 'Weight is required'),
@@ -106,6 +111,7 @@ const productSchema = z.object({
 
 type StoreFormValues = z.infer<typeof storeSchema>;
 type ProductFormValues = z.infer<typeof productSchema>;
+type LocationFormValues = z.infer<typeof locationSchema>;
 
 const createSlug = (text: string) => {
     if(!text) return '';
@@ -488,10 +494,7 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
     const [isLocating, setIsLocating] = useState(false);
 
     const form = useForm<LocationFormValues>({
-        resolver: zodResolver(z.object({
-            latitude: z.coerce.number().min(-90).max(90),
-            longitude: z.coerce.number().min(-180).max(180),
-        })),
+        resolver: zodResolver(locationSchema),
         defaultValues: {
             latitude: store.latitude || 0,
             longitude: store.longitude || 0,
@@ -1273,7 +1276,7 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                          <FormField
                             control={form.control}
                             name="name"
-                            render={({ field }: { field: any }) => (
+                            render={({ field }) => (
                             <FormItem>
                                 <FormLabel>{t('store-name')}</FormLabel>
                                 <FormControl>
@@ -1286,7 +1289,7 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                          <FormField
                             control={form.control}
                             name="teluguName"
-                            render={({ field }: { field: any }) => (
+                            render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Store Name (Telugu)</FormLabel>
                                 <FormControl>
@@ -1300,7 +1303,7 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                         <FormField
                             control={form.control}
                             name="description"
-                            render={({ field }: { field: any }) => (
+                            render={({ field }) => (
                             <FormItem>
                                 <FormLabel>{t('store-description')}</FormLabel>
                                 <FormControl><Textarea placeholder={t('describe-what-makes-your-store-special')} {...field} /></FormControl>
@@ -1311,7 +1314,7 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                         <FormField
                             control={form.control}
                             name="address"
-                            render={({ field }: { field: any }) => (
+                            render={({ field }) => (
                             <FormItem>
                                 <FormLabel>{t('full-store-address')}</FormLabel>
                                 <FormControl><Input placeholder="123 Market Street, Mumbai" {...field} /></FormControl>
@@ -1324,10 +1327,10 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                                     <FormLabel>{t('store-location-gps')}</FormLabel>
                                     <div className="flex items-end gap-4">
                                         <div className="grid grid-cols-2 gap-4 flex-1">
-                                            <FormField control={form.control} name="latitude" render={({ field }: { field: any }) => (
+                                            <FormField control={form.control} name="latitude" render={({ field }) => (
                                                 <FormItem><FormLabel className="text-xs text-muted-foreground">{t('latitude')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 19.0760" {...field} /></FormControl><FormMessage /></FormItem>
                                             )} />
-                                            <FormField control={form.control} name="longitude" render={({ field }: { field: any }) => (
+                                            <FormField control={form.control} name="longitude" render={({ field }) => (
                                                 <FormItem><FormLabel className="text-xs text-muted-foreground">{t('longitude')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 72.8777" {...field} /></FormControl><FormMessage /></FormItem>
                                             )} />
                                         </div>
@@ -1355,12 +1358,12 @@ export default function MyStorePage() {
     const isAdmin = useMemo(() => user?.email === ADMIN_EMAIL, [user]);
 
     const ownerStoreQuery = useMemoFirebase(() => {
-        if (!firestore || !user || isAdmin) return undefined;
+        if (!firestore || !user || isAdmin) return null;
         return query(collection(firestore, 'stores'), where('ownerId', '==', user.uid));
     }, [firestore, user, isAdmin]);
 
     const adminStoreQuery = useMemoFirebase(() => {
-        if (!firestore) return undefined;
+        if (!firestore) return null;
         return query(collection(firestore, 'stores'), where('name', '==', 'LocalBasket'));
     }, [firestore]);
 
@@ -1405,7 +1408,7 @@ export default function MyStorePage() {
                     toast({ title: 'Store Created!', description: `Your store "${storeData.name}" is now live.` });
                 })
                 .catch((serverError) => {
-                    const permissionError = new FirestorePermissionError({ path: 'stores', operation: 'create' as const, requestResourceData: storeData });
+                    const permissionError = new FirestorePermissionError({ path: 'stores', operation: 'create', requestResourceData: storeData });
                     errorEmitter.emit('permission-error', permissionError);
                 });
         });
@@ -1428,6 +1431,7 @@ export default function MyStorePage() {
             return <ManageStoreView store={myStore} isAdmin={false} adminStoreId={adminStore?.id} />;
         }
         
+        // New user without a store
         if (!userProfile) {
             return (
                  <Card className="max-w-3xl mx-auto">
