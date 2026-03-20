@@ -21,6 +21,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '../ui/label';
 import { signInAnonymously } from 'firebase/auth';
 import { getDoc, doc } from 'firebase/firestore';
+import type { CartItem } from '@/lib/types';
 
 function GuestOrderDialog({ isOpen, onOpenChange, onPlaceOrder }: { isOpen: boolean, onOpenChange: (open: boolean) => void, onPlaceOrder: (name: string, phone: string, tableNumber: string) => void }) {
     const [name, setName] = useState('');
@@ -69,7 +70,7 @@ function GuestOrderDialog({ isOpen, onOpenChange, onPlaceOrder }: { isOpen: bool
     )
 }
 
-function CartSheetItem({ item, image }: { item: any, image: any }) {
+function CartSheetItem({ item, image }: { item: CartItem, image: { imageUrl: string; imageHint: string } }) {
     const { removeItem, updateQuantity } = useCart();
     const { product, variant, quantity } = item;
     
@@ -122,7 +123,7 @@ function CartSheetItem({ item, image }: { item: any, image: any }) {
 
 export function CartSheetContent() {
   const { cartItems, cartTotal, cartCount, clearCart } = useCart();
-  const [images, setImages] = useState({});
+  const [images, setImages] = useState<Record<string, { imageUrl: string; imageHint: string }>>({});
   const { user, auth, firestore } = useFirebase();
   const { toast } = useToast();
   const router = useRouter();
@@ -146,7 +147,7 @@ export function CartSheetContent() {
         const imageMap = cartItems.reduce((acc, item, index) => {
             acc[item.variant.sku] = resolvedImages[index];
             return acc;
-        }, {});
+        }, {} as Record<string, { imageUrl: string; imageHint: string }>);
         setImages(imageMap);
     };
 
@@ -260,5 +261,3 @@ export function CartSheetContent() {
     </>
   );
 }
-
-    
