@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview A conversational AI strategic agent named Asha.
@@ -141,13 +140,15 @@ const ashaFlow = ai.defineFlow(
     try {
         const { output } = await prompt(input);
         if (!output || !output.analysis) {
-            throw new Error("Asha is currently calibrating. Please try re-sending your question.");
+            return {
+                analysis: "Asha is currently calibrating. Please try re-sending your question in a moment.",
+            };
         }
         return output;
     } catch (error: any) {
         console.error("Asha Flow Error:", error);
         return {
-            analysis: `Asha Error: ${error.message || String(error)}. Action: Please try again.`,
+            analysis: `Asha Error: ${error.message || String(error)}. Please check the logs or try again.`,
         };
     }
   }

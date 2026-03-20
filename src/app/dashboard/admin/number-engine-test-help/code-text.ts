@@ -1,4 +1,3 @@
-
 'use client';
 
 export const numberEngineTestCode = [
@@ -16,7 +15,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 // Adjust this import path if your engine location differs
-import { extractNumbers } from "../src/lib/nlu/number-engine-v2";
+import { extractNumbers, type ParsedNumber } from "../src/lib/nlu/number-engine-v2";
 
 // Where to read phrases from (expected JSON format from earlier message)
 const TEST_PHRASES_PATH = path.join(process.cwd(), "tests", "test-phrases.json");
@@ -63,40 +62,29 @@ function runTests(phrases: string[]) {
   rows.push([
     "index",
     "phrase",
-    "tokens",
     "numbers_json",
-    "mathExpression",
-    "mathResult",
     "parsed",
     "notes"
   ].map(escapeForCsvCell).join(","));
 
   phrases.forEach((phrase, idx) => {
     try {
-      const result = extractNumbers(phrase);
+      const numbers: ParsedNumber[] = extractNumbers(phrase);
 
       // Determine "parsed" heuristics:
-      // parsed = has at least one extracted number OR mathResult exists
-      const parsed = (Array.isArray(result.numbers) && result.numbers.length > 0) || result.mathResult !== null;
+      const parsed = numbers.length > 0;
 
       const notes: string[] = [];
       if (!parsed) notes.push("no-numbers-detected");
-      // Add more heuristics if needed (e.g., too many tokens, suspicious output)
-      if (result.numbers && result.numbers.length > 5) notes.push("many-numbers");
+      if (numbers.length > 5) notes.push("many-numbers");
 
       // CSV row
-      const tokensStr = Array.isArray(result.tokens) ? result.tokens.join(" ") : "";
-      const numbersJson = JSON.stringify(result.numbers || []);
-      const mathExpr = result.mathExpression ? String(result.mathExpression) : "";
-      const mathVal = result.mathResult !== null ? String(result.mathResult) : "";
+      const numbersJson = JSON.stringify(numbers);
 
       rows.push([
         String(idx + 1),
         escapeForCsvCell(phrase),
-        escapeForCsvCell(tokensStr),
         escapeForCsvCell(numbersJson),
-        escapeForCsvCell(mathExpr),
-        escapeForCsvCell(mathVal),
         escapeForCsvCell(String(parsed)),
         escapeForCsvCell(notes.join(";"))
       ].join(","));
@@ -105,10 +93,7 @@ function runTests(phrases: string[]) {
       rows.push([
         String(idx + 1),
         escapeForCsvCell(phrase),
-        escapeForCsvCell(""),
-        escapeForCsvCell(""),
-        escapeForCsvCell(""),
-        escapeForCsvCell(""),
+        escapeForCsvCell("[]"),
         escapeForCsvCell("false"),
         escapeForCsvCell("error:" + String(err?.message || err))
       ].join(","));

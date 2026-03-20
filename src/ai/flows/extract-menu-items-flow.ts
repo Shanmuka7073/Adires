@@ -79,7 +79,7 @@ const extractMenuItemsFlow = ai.defineFlow(
     return output || { 
         items: [], 
         theme: { backgroundColor: '#FFFFFF', primaryColor: '#000000', textColor: '#333333' },
-        businessType: 'restaurant' as 'restaurant' | 'salon' | 'grocery'
+        businessType: 'restaurant' as const
     };
   }
 );

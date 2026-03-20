@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview An AI flow to generate an image for a product.
@@ -38,8 +37,8 @@ const generateProductImageFlow = ai.defineFlow(
       prompt: `a high-quality, professional photograph of a single grocery item: "${input.productName}". The item should be centered on a clean, plain white background. Studio lighting.`,
     });
 
-    if (!media.url) {
-      throw new Error('Image generation failed to produce a URL.');
+    if (!media || !media.url) {
+      throw new Error('Image generation failed to produce a valid media object or URL.');
     }
 
     return { imageUrl: media.url };
