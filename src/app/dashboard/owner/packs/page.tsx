@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
-import { useFirebase, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, query, where, addDoc, doc, deleteDoc, limit, setDoc } from 'firebase/firestore';
-import type { Store, MonthlyPackage, Product, ProductPrice, DayPlan, ProductVariant } from '@/lib/types';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, doc, deleteDoc, limit, setDoc } from 'firebase/firestore';
+import type { Store, MonthlyPackage, Product, ProductPrice, ProductVariant } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Trash2, Sparkles, Loader2, Save, ShoppingCart } from 'lucide-react';
+import { Trash2, Sparkles, Loader2, Save, ShoppingCart, Info, AlertCircle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useAppStore } from '@/lib/store';
 import { Label } from '@/components/ui/label';
@@ -19,6 +19,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useCart } from '@/lib/cart';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
@@ -34,15 +36,15 @@ function AIPackGenerator({ storeId }: { storeId: string }) {
     const { firestore } = useFirebase();
 
     useEffect(() => {
-        if (firestore && masterProducts.length > 0) {
-            fetchProductPrices(firestore, masterProducts.map(p => p.name));
+        if (firestore && (masterProducts as any[]).length > 0) {
+            fetchProductPrices(firestore, (masterProducts as any[]).map(p => p.name));
         }
     }, [firestore, masterProducts, fetchProductPrices]);
 
     const handleGenerate = () => {
         startGeneration(async () => {
             setGeneratedPack(null);
-            const prices = Object.entries(productPrices)
+            const prices = Object.entries(productPrices as Record<string, any>)
                 .filter(([, data]) => (data as any)?.variants?.[0]?.price)
                 .reduce((acc, [name, data]) => {
                     acc[name] = (data as any)!.variants[0].price;
@@ -51,7 +53,7 @@ function AIPackGenerator({ storeId }: { storeId: string }) {
 
             try {
                 const result = await generateBreakfastPack({
-                    duration,
+                    duration: duration as "7days" | "15days" | "monthly",
                     familySize,
                     sideItemPreference: sidePreference,
                     productPrices: prices,
@@ -226,26 +228,30 @@ function ExistingPacks({ storeId }: { storeId: string }) {
         if (!pack.items) return;
         let itemsAdded = 0;
         
+        // Use a typed reference to avoid 'never' narrowing during build
+        const products = (masterProducts || []) as Product[];
+
         pack.items.forEach(packItem => {
              let bestMatch: { product: Product, score: number } | null = null;
 
-            masterProducts.forEach(product => {
+            products.forEach(product => {
                 const similarity = calculateSimilarity(packItem.name.toLowerCase(), product.name.toLowerCase());
                 if (!bestMatch || similarity > bestMatch.score) {
                     bestMatch = { product, score: similarity };
                 }
             });
 
-             if (bestMatch && bestMatch.score > 0.7) {
-                const priceData = productPrices[bestMatch.product.name.toLowerCase()];
+             if (bestMatch && (bestMatch as any).score > 0.7) {
+                const matchedProduct = (bestMatch as any).product as Product;
+                const priceData = (productPrices as Record<string, any>)[matchedProduct.name.toLowerCase()];
                 
                 if (priceData?.variants && priceData.variants.length > 0) {
                     const requiredGrams = parseWeightToGrams(packItem.quantity);
                     const isLiquid = packItem.quantity.includes('ml') || packItem.quantity.includes('litre');
                     
-                    const baseVariant = priceData.variants.find(v => v.weight.includes(isLiquid ? 'ltr' : 'kg')) || priceData.variants[0];
+                    const baseVariant = priceData.variants.find((v: any) => v.weight.includes(isLiquid ? 'ltr' : 'kg')) || priceData.variants[0];
                     const baseWeightGrams = parseWeightToGrams(baseVariant.weight);
-                    const pricePerGram = baseVariant.price / baseWeightGrams;
+                    const pricePerGram = baseVariant.price / (baseWeightGrams || 1);
 
                     const calculatedPrice = requiredGrams * pricePerGram;
                     
@@ -253,10 +259,10 @@ function ExistingPacks({ storeId }: { storeId: string }) {
                         sku: `${baseVariant.sku}-custom-${requiredGrams}`,
                         weight: packItem.quantity,
                         price: calculatedPrice,
-                        stock: baseVariant.stock, // Assume stock is available
+                        stock: baseVariant.stock, 
                     };
 
-                    addItem(bestMatch.product, customVariant, 1);
+                    addItem(matchedProduct, customVariant, 1);
                     itemsAdded++;
                 }
             }

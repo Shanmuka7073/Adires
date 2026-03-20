@@ -161,7 +161,7 @@ export default function SalesReportPage() {
                 setError(null);
                 const result = await getStoreSalesReport({ storeId: myStore.id, period: activeTab });
                 if (result.success && result.report) {
-                    setReport(result.report as ReportData);
+                    setReport(result.report as unknown as ReportData);
                 } else {
                     setError(result.error || 'Failed to fetch analytics.');
                 }
