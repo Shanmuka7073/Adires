@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
@@ -344,27 +345,6 @@ export default function MyProfilePage() {
                                 <Button asChild className="w-full" variant="outline">
                                 <Link href={dashboardLink}>
                                         Go to Dashboard
-                                    </Link>
-                                </Button>
-                            </CardContent>
-                        </Card>
-                    </div>
-                    <div className="space-y-4">
-                        <h2 className="text-xl font-bold font-headline">Account Security</h2>
-                        <Card className="bg-primary/5 border-primary/20">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Voicemail className="h-5 w-5 text-primary" />
-                                    Voice ID
-                                </CardTitle>
-                                <CardDescription>
-                                    Set up a voice password for a faster, more secure way to confirm actions.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <Button asChild className="w-full">
-                                    <Link href="/dashboard/customer/voice-id">
-                                        Manage Your Voice ID
                                     </Link>
                                 </Button>
                             </CardContent>
