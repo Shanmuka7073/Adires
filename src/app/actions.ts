@@ -25,12 +25,14 @@ function toDateSafe(d: any): Date {
 export async function getFirebaseConfig() {
   try {
     const adminApp = getApps()[0] || (await getAdminServices()).app;
-    const projectId = adminApp.options.projectId;
+    const options = adminApp.options as any;
+    const projectId = options.projectId;
+    
     return {
       apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-      authDomain: adminApp.options.authDomain || `${projectId}.firebaseapp.com`,
+      authDomain: options.authDomain || (projectId ? `${projectId}.firebaseapp.com` : undefined),
       projectId: projectId,
-      storageBucket: `${projectId}.appspot.com`,
+      storageBucket: options.storageBucket || (projectId ? `${projectId}.appspot.com` : undefined),
       messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
       appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
     };
