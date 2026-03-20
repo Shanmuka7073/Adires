@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Suspense, useState, useEffect, useTransition } from 'react';
@@ -47,7 +46,6 @@ import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { DesignButton } from './design-button';
 import { getPlatformAnalytics, executeCommand } from '@/app/actions';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
@@ -226,10 +224,9 @@ export default function AdminDashboardPage() {
                 ))}
             </div>
             <div className="flex gap-2 self-end">
-                <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="rounded-full h-12 px-4 border-2 font-black text-[10px] uppercase tracking-widest">
+                <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="rounded-full h-10 px-4 border-2 font-black text-[10px] uppercase tracking-widest">
                     <RefreshCw className={cn("mr-2 h-4 w-4", isRefreshing && "animate-spin")} /> Force Sync
                 </Button>
-                <DesignButton />
             </div>
         </div>
       </div>
@@ -365,15 +362,6 @@ export default function AdminDashboardPage() {
                         </div>
                         <Progress value={42.8} className="h-2 bg-white/10" />
                         <p className="text-[10px] font-bold opacity-40 leading-relaxed uppercase tracking-tight">QR-menu interaction to order success rate.</p>
-                    </div>
-
-                    <Separator className="bg-white/10" />
-
-                    <div className="space-y-4">
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Asha Strategy Tip</h3>
-                        <p className="text-xs font-medium text-white/60 leading-relaxed italic">
-                            "Revenue is trending up in Zone-500001. Onboarding 2 more Meat Hubs here could capture an estimated ₹45k/week in untapped volume."
-                        </p>
                     </div>
                 </Card>
             </div>

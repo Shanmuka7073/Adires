@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -16,7 +15,6 @@ import { useVoiceCommanderContext } from './voice-commander-context';
 import { getIngredientsForDish } from '@/app/actions';
 import { runNLU, extractQuantityAndProduct } from '@/lib/nlu/voice-integration';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
-import { chatWithAsha } from '@/ai/flows/asha-flow';
 
 export interface Command {
   command: string;
@@ -60,7 +58,6 @@ type Intent =
   | { type: 'CONVERSATIONAL', commandKey: string, originalText: string, lang: string }
   | { type: 'GET_RECIPE', dishName: string, originalText: string, lang: string }
   | { type: 'MATH', originalText: string, lang: string }
-  | { type: 'ASK_ASHA', originalText: string, lang: string }
   | { type: 'UNKNOWN', originalText: string, lang: string };
 
 const intentKeywords = {
@@ -72,7 +69,6 @@ const intentKeywords = {
   CONVERSATIONAL: ['help', 'what can', 'who are you', 'how does'],
   GET_RECIPE: ['recipe for', 'ingredients for', 'how to make', 'కోసం కావలసినవి', 'ఎలా చేయాలి'],
   MATH: ['+', '-', '*', '/', 'plus', 'minus', 'times', 'divided by'],
-  ASK_ASHA: ['asha', 'hey asha', 'hi asha', 'ask asha'],
 };
 
 export function VoiceCommander({
@@ -272,7 +268,6 @@ export function VoiceCommander({
 
   const recognizeIntent = useCallback((text: string, spokenLang: string): Intent => {
     const lowerText = text.toLowerCase().trim();
-    if (intentKeywords.ASK_ASHA.some(kw => lowerText.includes(kw))) return { type: 'ASK_ASHA', originalText: text, lang: spokenLang };
 
     for (const key in commands) {
       const aliases = getAllAliases(key);
@@ -292,12 +287,6 @@ export function VoiceCommander({
 
     const intent = recognizeIntent(commandText, spokenLang);
     switch (intent.type) {
-        case 'ASK_ASHA': {
-            const role = isAdmin ? 'admin' : (isRestaurantOwner ? 'owner' : 'customer');
-            const reply = await chatWithAsha({ history: [], message: commandText, role, storeId: activeStoreId || undefined, context: { pathname } });
-            speak(reply.analysis, langWithRegion);
-            break;
-        }
         case 'CONVERSATIONAL': {
             const action = commandActionsRef.current[intent.commandKey];
             const reply = commands[intent.commandKey]?.reply;
@@ -314,7 +303,7 @@ export function VoiceCommander({
             break;
         }
     }
-  }, [isAdmin, isRestaurantOwner, activeStoreId, pathname, determinePhraseLanguage, recognizeIntent, speak, findMenuItem, addItemToCart, onOpenCart, commands]);
+  }, [determinePhraseLanguage, recognizeIntent, speak, findMenuItem, addItemToCart, onOpenCart, commands]);
 
   useEffect(() => {
     if (!recognition) return;

@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -63,23 +62,6 @@ export async function getIngredientsForDish(input: { dishName: string; language:
             steps: [],
             nutrition: { calories: 0, protein: 0 },
         };
-    }
-}
-
-/**
- * ASHA SOURCE CODE AUDIT
- */
-export async function getFileContent(filePath: string) {
-    try {
-        const fullPath = path.join(process.cwd(), filePath);
-        // Security check: restrict to src and scripts directory
-        if (!fullPath.startsWith(path.join(process.cwd(), 'src')) && !fullPath.startsWith(path.join(process.cwd(), 'scripts'))) {
-             return "Access denied: Target path outside authorized scope.";
-        }
-        if (!fs.existsSync(fullPath)) return "File not found.";
-        return fs.readFileSync(fullPath, 'utf-8');
-    } catch (e) {
-        return `Error reading file: ${e}`;
     }
 }
 

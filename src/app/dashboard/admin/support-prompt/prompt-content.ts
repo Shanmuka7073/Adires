@@ -1,4 +1,3 @@
-
 'use client';
 
 import { rulesText } from '../security-rules/rules-text';

@@ -15,8 +15,6 @@ import { PriceCheckDisplay, PriceCheckInfo } from './price-check-display';
 import { useInstall } from '../install-provider';
 import { VoiceCommandContext } from './voice-commander-context';
 import { FirestoreCounter } from './firestore-counter';
-import { AshaStrategicOverlay } from './asha-strategic-overlay';
-import { AshaProvider } from './asha-context';
 import { OfflineStatus } from './offline-status';
 import { doc } from 'firebase/firestore';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -72,7 +70,7 @@ export function MainLayout({
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { cartItems } = useCart();
   
-  const { user, firestore } = useFirebase();
+  const { firestore } = useFirebase();
   const { isAdmin } = useAdminAuth();
   const { setLanguage, isInitialized } = useAppStore();
   const [priceCheckInfo, setPriceCheckInfo] = useState<PriceCheckInfo | null>(null);
@@ -112,52 +110,46 @@ export function MainLayout({
   const onToggleVoice = useCallback(() => setVoiceEnabled(prev => !prev), []);
 
   return (
-    <AshaProvider>
-        <VoiceCommandContext.Provider value={{ 
-            triggerVoicePrompt, 
-            retryCommand, 
-            showPriceCheck, 
-            hidePriceCheck,
-            onCartOpenChange: setIsCartOpen,
-            isCartOpen,
-            voiceEnabled,
-            voiceStatus,
-            onToggleVoice,
-        }}>
-            <div className="relative flex min-h-dvh flex-col bg-background">
-            {isMaintenanceActive && <MaintenanceOverlay />}
-            <OfflineStatus />
-            <Header 
-                suggestedCommands={suggestedCommands} 
+    <VoiceCommandContext.Provider value={{ 
+        triggerVoicePrompt, 
+        retryCommand, 
+        showPriceCheck, 
+        hidePriceCheck,
+        onCartOpenChange: setIsCartOpen,
+        isCartOpen,
+        voiceEnabled,
+        voiceStatus,
+        onToggleVoice,
+    }}>
+        <div className="relative flex min-h-dvh flex-col bg-background">
+        {isMaintenanceActive && <MaintenanceOverlay />}
+        <OfflineStatus />
+        <Header 
+            suggestedCommands={suggestedCommands} 
+        />
+        {isInitialized && (
+            <VoiceCommander 
+                enabled={voiceEnabled} 
+                onStatusUpdate={setVoiceStatus}
+                onOpenCart={() => setIsCartOpen(true)}
+                onCloseCart={() => setIsCartOpen(false)}
+                cartItems={cartItems}
+                voiceTrigger={voiceTrigger}
+                triggerVoicePrompt={triggerVoicePrompt}
+                retryCommandText={retryCommandText}
+                onRetryHandled={() => setRetryCommandText(null)}
+                onInstallApp={triggerInstall}
             />
-            {user && isInitialized && (
-                <VoiceCommander 
-                    enabled={voiceEnabled} 
-                    onStatusUpdate={setVoiceStatus}
-                    onSuggestions={setSuggestedCommands}
-                    onOpenCart={() => setIsCartOpen(true)}
-                    onCloseCart={() => setIsCartOpen(false)}
-                    isCartOpen={isCartOpen}
-                    cartItems={cartItems}
-                    voiceTrigger={voiceTrigger}
-                    triggerVoicePrompt={triggerVoicePrompt}
-                    retryCommandText={retryCommandText}
-                    onRetryHandled={() => setRetryCommandText(null)}
-                    onInstallApp={triggerInstall}
-                />
-            )}
-            <ProfileCompletionChecker />
-            <PriceCheckDisplay info={priceCheckInfo} onClose={hidePriceCheck} />
-            <main className="flex-1 pb-16 md:pb-0">{children}</main>
-            
-            <AshaStrategicOverlay />
-
-            <NotificationPermissionManager />
-            <Footer />
-            <BottomNavBar />
-            <FirestoreCounter />
-            </div>
-        </VoiceCommandContext.Provider>
-    </AshaProvider>
+        )}
+        <ProfileCompletionChecker />
+        <PriceCheckDisplay info={priceCheckInfo} onClose={hidePriceCheck} />
+        <main className="flex-1 pb-16 md:pb-0">{children}</main>
+        
+        <NotificationPermissionManager />
+        <Footer />
+        <BottomNavBar />
+        <FirestoreCounter />
+        </div>
+    </VoiceCommandContext.Provider>
   );
 }
