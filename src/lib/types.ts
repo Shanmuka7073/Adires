@@ -406,11 +406,6 @@ export type SalarySlip = {
     generatedAt: Timestamp;
 };
 
-declare module "*.rules" {
-  const content: string;
-  export default content;
-}
-
 declare global {
   interface Window {
       SpeechRecognition: any;
