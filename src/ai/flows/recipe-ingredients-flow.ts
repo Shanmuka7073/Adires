@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -63,16 +64,16 @@ export async function getIngredientsForDishFlow(input: { dishName: string; langu
   // 3. If AI call is successful, add same details to catalogue for next time (Teaching the system)
   if (output && output.isSuccess) {
     await cacheRecipe(db, input.dishName, language, output as any);
-  } else if (!output) {
-      return {
-          isSuccess: false,
-          itemType: 'product',
-          title: input.dishName,
-          components: [],
-          steps: [],
-          nutrition: { calories: 0, protein: 0 },
-      };
+    return output;
   }
   
-  return output;
+  // Fallback return if AI failed or is not successful
+  return {
+      isSuccess: false,
+      itemType: 'product',
+      title: input.dishName,
+      components: [],
+      steps: [],
+      nutrition: { calories: 0, protein: 0 },
+  };
 }

@@ -412,9 +412,10 @@ export async function getPlatformAnalytics() {
         ]);
 
         const allOrders = ordersSnap.docs.map(d => ({ 
-            ...d.data(), 
+            ...(d.data() as Order), 
             orderDate: toDateSafe(d.data().orderDate) 
-        }));
+        })) as Order[];
+        
         const now = new Date();
 
         const calculateMetrics = (periodDays: number) => {
