@@ -512,6 +512,15 @@ export async function updateStoreImageUrl(id: string, url: string) {
         return { success: true };
     } catch (e: any) { return { success: false, error: e.message }; }
 }
+
+/**
+ * LEGACY COMPATIBILITY: uploadStoreImage
+ * Used by components to save storefront imagery.
+ */
+export async function uploadStoreImage(id: string, dataUrl: string) {
+    return updateStoreImageUrl(id, dataUrl);
+}
+
 export async function updateUserProfileImage(id: string, url: string) {
     try {
         const { db } = await getAdminServices();
