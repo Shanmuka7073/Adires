@@ -1,19 +1,17 @@
-
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '@/lib/store';
-import { Product as ProductType, User, Store as StoreType, Order } from '@/lib/types';
+import { User, Store as StoreType, Order } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { getProductImage } from '@/lib/data';
 import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { Search, Menu as MenuIcon, Mic, ShoppingBag, Heart, Star, Briefcase, Sparkles, Lamp, Home as HomeIcon, LayoutGrid, ChevronDown, MapPin, User as UserCircle, Globe, ChefHat, Lightbulb, Info, Download } from 'lucide-react';
+import { Search, Mic, MapPin, ChevronDown, ArrowRight, Sparkles, LayoutGrid, Beef, Scissors, Loader2, Download, User as UserCircle, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import ProductCard from '@/components/product-card';
-import { doc } from 'firebase/firestore';
+import StoreCard from '@/components/store-card';
+import { doc, collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { useVoiceCommanderContext } from '@/components/layout/voice-commander-context';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -248,39 +246,6 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
     );
 }
 
-function VoiceInstructions() {
-    return (
-        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2 font-headline text-blue-800">
-                    <Info className="h-6 w-6" />
-                    How Commands Work
-                </CardTitle>
-                <CardDescription className="text-blue-700">
-                    Tap the microphone icon and say a command. Place orders in seconds.
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="space-y-3 text-sm">
-                    <div>
-                        <div className="font-semibold">For Smart Orders:</div>
-                        <div>Say <Badge>"Order one kg chicken to home"</Badge> to create and checkout an order in seconds.</div>
-                    </div>
-                    <div>
-                        <div className="font-semibold">To Add Items:</div>
-                        <div>Say <Badge>"one kg onions"</Badge> to add it directly to your cart.</div>
-                    </div>
-                    <div>
-                        <div className="font-semibold">To Check Prices:</div>
-                        <div>Say <Badge>"cost of tomato"</Badge> to see all available options.</div>
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
-    );
-}
-
-
 
 /* ---------------- MAIN PAGE ---------------- */
 export default function LocalBasketHomepage() {
@@ -340,11 +305,13 @@ export default function LocalBasketHomepage() {
                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                     {filteredProducts.length > 0 ? (
                         filteredProducts.map(product => (
-                            <ProductCard 
-                                key={product.id}
-                                product={product}
-                                priceData={productPrices[product.name.toLowerCase()]}
-                            />
+                            <Link key={product.id} href={`/stores/${product.storeId}?category=${encodeURIComponent(product.category || '')}&highlight=${encodeURIComponent(product.name)}`}>
+                                <ProductCard 
+                                    key={product.id}
+                                    product={product}
+                                    priceData={productPrices[product.name.toLowerCase()]}
+                                />
+                            </Link>
                         ))
                     ) : (
                         <p className="col-span-full text-center text-gray-500">No products found for "{searchTerm}"</p>
@@ -356,10 +323,6 @@ export default function LocalBasketHomepage() {
             <div className="rounded-lg overflow-hidden">
                 <Image src="https://i.ibb.co/ZQC3c3h/file-00000000f15871fab9942ef91d9c2021.png" alt="Promotional Banner" width={800} height={400} className="w-full h-auto" />
             </div>
-            
-            <VoiceInstructions />
-
-            <RecipeCard />
             
             {homePageSections.map(section => (
                 <div key={section.title}>
