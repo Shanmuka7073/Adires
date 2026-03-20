@@ -19,8 +19,24 @@ interface CategoryClientProps {
   isLoading: boolean;
 }
 
+interface Category {
+  name: string;
+}
+
+interface CategoryButtonProps {
+  category: Category;
+  isSelected: boolean;
+  onSelectCategory: (name: string) => void;
+}
+
+interface CategoryScrollerProps {
+  categories: Category[];
+  selectedCategory: string | null;
+  onSelectCategory: (name: string) => void;
+}
+
 // Single Category Button component for the new sidebar
-function CategoryButton({ category, isSelected, onSelectCategory }) {
+function CategoryButton({ category, isSelected, onSelectCategory }: CategoryButtonProps) {
     const [image, setImage] = useState({ imageUrl: '', imageHint: '' });
     const [isImageLoading, setIsImageLoading] = useState(true);
     const buttonRef = useRef<HTMLButtonElement>(null);
@@ -77,7 +93,7 @@ function CategoryButton({ category, isSelected, onSelectCategory }) {
 }
 
 // Sidebar for Desktop
-function DesktopCategorySidebar({ categories, selectedCategory, onSelectCategory }) {
+function DesktopCategorySidebar({ categories, selectedCategory, onSelectCategory }: CategoryScrollerProps) {
   return (
       <aside className="hidden md:block w-24 bg-[#f4f9f0] h-full overflow-y-auto py-4 border-r border-gray-200 sticky top-16">
         <ScrollArea className="h-full">
@@ -97,7 +113,7 @@ function DesktopCategorySidebar({ categories, selectedCategory, onSelectCategory
 }
 
 // Horizontal Scroll for Mobile
-function MobileCategoryScroller({ categories, selectedCategory, onSelectCategory }) {
+function MobileCategoryScroller({ categories, selectedCategory, onSelectCategory }: CategoryScrollerProps) {
     return (
         <div className="md:hidden w-full bg-[#f4f9f0] border-b border-gray-200">
             <ScrollArea className="w-full whitespace-nowrap">
