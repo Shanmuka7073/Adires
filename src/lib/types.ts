@@ -43,10 +43,10 @@ export type Store = {
   businessType?: 'restaurant' | 'salon' | 'grocery'; // NEW: Business categorization
 };
 
-// WebAuthn types
-export type Authenticator = {
-  credentialID: string; // This is a Base64URL-encoded string
-  credentialPublicKey: string; // This is now a Base64URL-encoded string
+// WebAuthn types - Renamed to avoid library conflict
+export type StoredAuthenticator = {
+  credentialID: string; // Base64URL-encoded string
+  credentialPublicKey: string; // Base64URL-encoded string
   counter: number;
   transports?: AuthenticatorTransport[];
 };
@@ -64,7 +64,7 @@ export type User = {
     latitude?: number;
     longitude?: number;
     fcmToken?: string;
-    authenticators?: Authenticator[];
+    authenticators?: StoredAuthenticator[];
     authenticatorIds?: string[]; // Quick lookup for username-less login
     currentChallenge?: string | null; // Can be null
 }

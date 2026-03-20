@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import {
   generateRegistrationOptions,
@@ -17,7 +16,7 @@ import type {
 } from '@simplewebauthn/server';
 
 import { getAdminServices } from '@/firebase/admin-init';
-import type { User as AppUser, Authenticator } from '@/lib/types';
+import type { User as AppUser, StoredAuthenticator } from '@/lib/types';
 import { isoBase64URL } from '@simplewebauthn/server/helpers';
 
 // ============================
@@ -35,14 +34,14 @@ async function safeJson(req: NextRequest) {
 // ============================
 // FIRESTORE HELPERS
 // ============================
-async function getAuthenticators(userId: string): Promise<Authenticator[]> {
+async function getAuthenticators(userId: string): Promise<StoredAuthenticator[]> {
   const { db } = await getAdminServices();
   const doc = await db.collection('users').doc(userId).get();
   if (!doc.exists) return [];
   return doc.data()?.authenticators || [];
 }
 
-async function saveAuthenticator(userId: string, auth: Authenticator) {
+async function saveAuthenticator(userId: string, auth: StoredAuthenticator) {
   const { db } = await getAdminServices();
   const userRef = db.collection('users').doc(userId);
   const docSnap = await userRef.get();
@@ -110,7 +109,7 @@ export async function POST(
         timeout: 60000,
         attestationType: 'none',
         excludeCredentials: existingAuth.map((auth) => ({
-          id: auth.credentialID,
+          id: auth.credentialID, // v10 expect string (Base64URL) for id here
           type: 'public-key',
           transports: auth.transports as any,
         })),
@@ -172,7 +171,7 @@ export async function POST(
       if (verified && registrationInfo) {
         const { credentialPublicKey, credentialID, counter } = registrationInfo;
 
-        const newAuthenticator: Authenticator = {
+        const newAuthenticator: StoredAuthenticator = {
           credentialID: isoBase64URL.fromBuffer(credentialID),
           credentialPublicKey: isoBase64URL.fromBuffer(credentialPublicKey),
           counter,
@@ -232,7 +231,7 @@ export async function POST(
         rpID,
         userVerification: 'required',
         allowCredentials: auths.map((auth) => ({
-          id: auth.credentialID,
+          id: auth.credentialID, // SimpleWebAuthn v10 expect string here
           type: 'public-key',
           transports: auth.transports as any,
         })),
@@ -284,9 +283,10 @@ export async function POST(
           expectedOrigin: origin,
           expectedRPID: rpID,
           authenticator: {
-            ...selected,
             credentialID: isoBase64URL.toBuffer(selected.credentialID),
             credentialPublicKey: isoBase64URL.toBuffer(selected.credentialPublicKey),
+            counter: selected.counter,
+            transports: selected.transports as any,
           },
           requireUserVerification: true,
         };
