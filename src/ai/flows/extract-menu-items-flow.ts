@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI flow to extract menu items, theme, and determine business vertical from a menu image.
@@ -76,7 +77,10 @@ const extractMenuItemsFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await prompt(input);
-    return output || { 
+    if (output) return output;
+    
+    // Explicit return with correct literal types to satisfy TypeScript
+    return { 
         items: [], 
         theme: { backgroundColor: '#FFFFFF', primaryColor: '#000000', textColor: '#333333' },
         businessType: 'restaurant' as const
