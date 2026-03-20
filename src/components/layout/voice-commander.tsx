@@ -45,7 +45,7 @@ interface VoiceCommanderProps {
 
 let recognition: SpeechRecognition | null = null;
 if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
   recognition = new SpeechRecognition();
 }
 
@@ -272,7 +272,7 @@ export function VoiceCommander({
     for (const key in commands) {
       const aliases = getAllAliases(key);
       for (const alias of Object.values(aliases).flat()) {
-        if (calculateSimilarity(lowerText, alias.toLowerCase()) > 0.8) return { type: 'CONVERSATIONAL', commandKey: key, originalText: text, lang: spokenLang };
+        if (calculateSimilarity(lowerText, (alias as string).toLowerCase()) > 0.8) return { type: 'CONVERSATIONAL', commandKey: key, originalText: text, lang: spokenLang };
       }
     }
     return { type: 'ORDER_ITEM', originalText: text, lang: spokenLang };

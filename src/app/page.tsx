@@ -1,7 +1,6 @@
-
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import { User, Store as StoreType, Order } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
