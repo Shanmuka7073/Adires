@@ -14,7 +14,7 @@ import { Trash2, Bot, Sparkles, CheckCircle, XCircle, Loader2 } from 'lucide-rea
 import { useToast } from '@/hooks/use-toast';
 import { useState, useTransition, useMemo, useCallback } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { suggestAlias, SuggestAliasOutput } from '@/ai/flows/suggest-alias-flow';
+import { suggestAlias, type SuggestAliasOutput } from '@/ai/flows/suggest-alias-flow';
 import { useAppStore } from '@/lib/store';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
@@ -157,7 +157,6 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
 }
 
 export default function FailedCommandsPage() {
-    const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
     const { firestore } = useFirebase();
     const router = useRouter();
     const { toast } = useToast();
@@ -195,6 +194,7 @@ export default function FailedCommandsPage() {
         });
     };
 
+    const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
 
     if (!isAdminLoading && !isAdmin) {
         router.replace('/dashboard');
