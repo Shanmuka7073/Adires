@@ -2,7 +2,7 @@
 'use client';
 
 // src/lib/nlu/ref-resolver.ts
-import { parseNumbers } from './number-engine-v2';
+import { ParsedNumber } from './number-engine-v2';
 import { safeEvaluate } from '../math-solver';
 
 export type RefResolverResult = {

@@ -25,6 +25,15 @@ interface FirebaseAuthObject {
   token: FirebaseAuthToken;
 }
 
+interface SecurityRuleRequest {
+  auth: FirebaseAuthObject | null;
+  method: 'get' | 'list' | 'create' | 'update' | 'delete' | 'write';
+  path: string;
+  resource?: {
+    data: any;
+  };
+}
+
 /**
  * Builds a security-rule-compliant auth object from the Firebase User.
  * @param currentUser The currently authenticated Firebase user.
@@ -37,7 +46,6 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
   
   const identities = currentUser.providerData.reduce((acc, provider) => {
     if (provider.providerId) {
-      // The key should be the provider's domain (e.g., 'google.com', 'password')
       acc[provider.providerId] = acc[provider.providerId] || [];
       if (provider.uid) {
           acc[provider.providerId].push(provider.uid);
@@ -75,15 +83,13 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
 function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
   let authObject: FirebaseAuthObject | null = null;
   try {
-    // Safely attempt to get the current user.
     const firebaseAuth = getAuth();
     const currentUser = firebaseAuth.currentUser;
     if (currentUser) {
       authObject = buildAuthObject(currentUser);
     }
   } catch {
-    // This will catch errors if the Firebase app is not yet initialized.
-    // In this case, we'll proceed without auth information.
+    // Auth not yet initialized
   }
 
   return {
