@@ -109,7 +109,7 @@ export async function POST(
         timeout: 60000,
         attestationType: 'none',
         excludeCredentials: existingAuth.map((auth) => ({
-          id: auth.credentialID, // v10 expect string (Base64URL) for id here
+          id: auth.credentialID, // SimpleWebAuthn v10 expects string here
           type: 'public-key',
           transports: auth.transports as any,
         })),
@@ -231,7 +231,7 @@ export async function POST(
         rpID,
         userVerification: 'required',
         allowCredentials: auths.map((auth) => ({
-          id: auth.credentialID, // SimpleWebAuthn v10 expect string here
+          id: auth.credentialID, // SimpleWebAuthn v10 expects string here
           type: 'public-key',
           transports: auth.transports as any,
         })),
