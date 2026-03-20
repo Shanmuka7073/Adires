@@ -1,8 +1,7 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CodeDisplay } from '../fingerprint-help/code-display';
+import { CodeDisplay } from '@/components/admin/code-display';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 import { Home } from 'lucide-react';
@@ -16,8 +15,7 @@ export default function LocalBasketHomepage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   // 1. Filter products and stores based on search
-  const filteredProducts = useMemo(() => searchTerm ? masterProducts.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase())) : [], [searchTerm, masterProducts]);
-  const filteredStores = useMemo(() => searchTerm ? stores.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())) : [], [searchTerm, stores]);
+  const filteredStores = useMemo(() => searchTerm ? stores.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())) : stores, [searchTerm, stores]);
 
   return (
     <div className="min-h-screen bg-[#f8fafc]">
