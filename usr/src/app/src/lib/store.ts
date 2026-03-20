@@ -92,7 +92,7 @@ export const useAppStore = create<AppState>()(
             getDocs(collection(db, 'voiceCommands'))
           ]);
 
-          const voiceAliasGroups = aliasDocs.docs.map((doc: { id: any; data: () => VoiceAliasGroup; }) => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
+          const voiceAliasGroups = aliasDocs.docs.map((doc: { id: any; data: () => VoiceAliasGroup; }) => ({ ...doc.data(), id: doc.id } as VoiceAliasGroup));
           const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
           
           const dbCommands = commandDocs.docs.reduce((acc: { [x: string]: CommandGroup; }, doc: { id: string | number; data: () => CommandGroup; }) => {

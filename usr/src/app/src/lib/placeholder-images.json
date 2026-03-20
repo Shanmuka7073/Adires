@@ -1,0 +1,60 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "store-1",
+      "imageUrl": "https://images.unsplash.com/photo-1554223745-ad862492c213?w=600&h=400&fit=crop&q=80",
+      "imageHint": "organic market"
+    },
+    {
+      "id": "store-2",
+      "imageUrl": "https://images.unsplash.com/photo-1591586116988-62fe65164f8d?w=600&h=400&fit=crop&q=80",
+      "imageHint": "farmers market"
+    },
+    {
+      "id": "store-3",
+      "imageUrl": "https://images.unsplash.com/photo-1534804101463-987ef0c79d54?w=600&h=400&fit=crop&q=80",
+      "imageHint": "corner store"
+    },
+    {
+      "id": "dash-shopping",
+      "imageUrl": "https://images.unsplash.com/photo-1583258292688-d0213dc5a3a8?w=400&h=300&fit=crop&q=80",
+      "imageHint": "grocery aisle"
+    },
+    {
+      "id": "dash-voice",
+      "imageUrl": "https://images.unsplash.com/photo-1589903137919-8e439294b4e9?w=400&h=300&fit=crop&q=80",
+      "imageHint": "sound waves"
+    },
+    {
+      "id": "dash-owner",
+      "imageUrl": "https://images.unsplash.com/photo-1556742502-ec7c0e9f34b1?w=400&h=300&fit=crop&q=80",
+      "imageHint": "shopkeeper payment"
+    },
+    {
+      "id": "dash-delivery",
+      "imageUrl": "https://images.unsplash.com/photo-1617206869356-b7e3b5e4c6f3?w=400&h=300&fit=crop&q=80",
+      "imageHint": "delivery scooter"
+    },
+    {
+      "id": "cat-vegetables",
+      "imageUrl": "https://images.unsplash.com/photo-1566385101042-1a0aa0c12e8c?w=128&h=128&fit=crop&q=80",
+      "imageHint": "fresh vegetables"
+    },
+    {
+      "id": "cat-fruits",
+      "imageUrl": "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=128&h=128&fit=crop&q=80",
+      "imageHint": "assorted fruits"
+    },
+    {
+      "id": "cat-meat",
+      "imageUrl": "https://images.unsplash.com/photo-1607623814075-e512199b62f3?w=128&h=128&fit=crop&q=80",
+      "imageHint": "fresh meat"
+    },
+    {
+      "id": "cat-dairy",
+      "imageUrl": "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=128&h=128&fit=crop&q=80",
+      "imageHint": "dairy products"
+    }
+  ]
+}
