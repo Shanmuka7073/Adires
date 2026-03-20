@@ -1,14 +1,13 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import { User, Store as StoreType, Order } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { Search, Mic, MapPin, ChevronDown, ArrowRight, Sparkles, LayoutGrid, Beef, Scissors, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Search, MapPin, ChevronDown, ArrowRight, LayoutGrid, Beef, Scissors, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import StoreCard from '@/components/store-card';
 import { doc, collection, query, where, orderBy, limit } from 'firebase/firestore';
@@ -131,7 +130,6 @@ export default function LocalBasketHomepage() {
   const router = useRouter();
   const { loading: isAppLoading, isInitialized, stores, deviceId, fetchInitialData } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
-  const { onToggleVoice } = useVoiceCommanderContext();
   
   const userDocRef = useMemoFirebase(() => (!firestore || !user) ? null : doc(firestore, 'users', user.uid), [firestore, user]);
   const { data: userData } = useDoc<User>(userDocRef);
@@ -195,29 +193,6 @@ export default function LocalBasketHomepage() {
                 </section>
 
                 <RecipeCard />
-
-                <Card className="bg-gradient-to-br from-primary/10 to-blue-50 border-0 rounded-[2.5rem] shadow-xl overflow-hidden">
-                    <CardHeader className="pb-2">
-                        <div className="flex items-center gap-2 text-primary mb-1">
-                            <Mic className="h-5 w-5" />
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Voice Concierge</span>
-                        </div>
-                        <CardTitle className="text-2xl font-black tracking-tight text-gray-950">Need assistance?</CardTitle>
-                        <CardDescription className="font-bold text-gray-600">Just ask. I'll find the right service for you.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="p-4 bg-white/60 backdrop-blur-sm rounded-2xl border border-white/40 space-y-3">
-                            <div className="flex items-center gap-3">
-                                <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center font-black text-primary text-xs">1</div>
-                                <p className="text-xs font-bold text-gray-800">Tap the Mic</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center font-black text-primary text-xs">2</div>
-                                <p className="text-xs font-bold text-gray-800 italic">"Book a haircut at Diva Salon"</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
             </div>
         )}
       </main>

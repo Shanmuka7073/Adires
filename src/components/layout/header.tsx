@@ -1,8 +1,7 @@
-
 'use client';
 
 import Link from 'next/link';
-import { UserCircle, Mic, MicOff, Globe, LogOut, Download, LayoutDashboard } from 'lucide-react';
+import { UserCircle, Globe, LogOut, Download, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CartIcon } from '@/components/cart/cart-icon';
 import { usePathname } from 'next/navigation';
@@ -21,7 +20,6 @@ import {
 import { getAuth, signOut } from 'firebase/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useState, useEffect } from 'react';
-import { useToast } from '@/hooks/use-toast';
 import { t } from '@/lib/locales';
 import { useAppStore } from '@/lib/store';
 import { useVoiceCommanderContext } from './voice-commander-context';
@@ -114,20 +112,11 @@ function UserMenu() {
   );
 }
 
-interface HeaderProps {
-  suggestedCommands?: any[];
-}
-
-export function Header({ suggestedCommands }: HeaderProps) {
+export function Header() {
   const pathname = usePathname();
-  const [hasMounted, setHasMounted] = useState(false);
-  const { voiceEnabled, voiceStatus, onToggleVoice, isCartOpen, onCartOpenChange } = useVoiceCommanderContext();
-  const { isAdmin, isRestaurantOwner, isEmployee } = useAdminAuth();
-  const { userStore } = useAppStore();
-
-  useEffect(() => {
-    setHasMounted(true);
-  }, []);
+  const { isCartOpen, onCartOpenChange } = useVoiceCommanderContext();
+  const { isRestaurantOwner, isEmployee } = useAdminAuth();
+  const { userStore, isAdmin } = useAppStore();
 
   if (pathname.startsWith('/menu/')) return null;
 
@@ -139,7 +128,6 @@ export function Header({ suggestedCommands }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-md px-4 md:px-6">
-      {/* Branding Section: Logo and Name */}
       <Link href={homeHref} className="flex items-center gap-2.5 group shrink-0">
         <div className="relative w-9 h-9 rounded-full overflow-hidden border-2 border-primary/20 bg-white shadow-sm transition-transform group-hover:scale-105 group-active:scale-95">
           <Image src={logoUrl} alt={brandName} fill className="object-cover" priority />
@@ -152,36 +140,13 @@ export function Header({ suggestedCommands }: HeaderProps) {
         </div>
       </Link>
       
-      {/* Navigation Spacer */}
       <div className="flex-1" />
 
-      {/* Control Center: Right aligned icons */}
       <div className="flex items-center gap-1.5 md:gap-3">
         {showShoppingControls && <LanguageSwitcher />}
-        {showShoppingControls && (
-            <Button 
-                variant={voiceEnabled ? 'secondary' : 'outline'} 
-                size="icon" 
-                onClick={onToggleVoice} 
-                className={cn(
-                    "relative h-9 w-9 rounded-xl transition-all",
-                    voiceEnabled ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "border-2"
-                )}
-            >
-              {voiceEnabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4 opacity-40" />}
-              {voiceEnabled && <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-red-500 border-2 border-white animate-pulse"></span>}
-            </Button>
-        )}
         {showShoppingControls && <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />}
         <UserMenu />
       </div>
-
-      {/* Voice Status Overlay */}
-      {hasMounted && voiceEnabled && showShoppingControls && (
-          <div className="absolute top-16 left-0 w-full bg-primary text-white text-center py-1 text-[10px] font-black uppercase tracking-widest z-40 shadow-lg">
-              {voiceStatus}
-          </div>
-      )}
     </header>
   );
 }

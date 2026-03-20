@@ -1,32 +1,24 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowRight, ShoppingCart, Store, Truck, Mic, Sparkles, UserCheck, FileText } from 'lucide-react';
+import { ArrowRight, ShoppingCart, Store, Truck, UserCheck, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
-import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
 import { useEffect, useState, useLayoutEffect, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Button } from '@/components/ui/button';
 import { useAppStore } from '@/lib/store';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 const allRoleCards = [
     {
         title: 'start-shopping',
         description: 'browse-local-stores-and-find-fresh-groceries',
-        href: '/stores/beverages', // Default to a category
+        href: '/stores/beverages', 
         icon: ShoppingCart,
         imageId: 'dash-shopping'
-    },
-    {
-        title: 'voice-order',
-        description: 'record-your-shopping-list-and-have-a-local-shopkeeper-fulfill-it',
-        href: '/checkout',
-        icon: Mic,
-        imageId: 'dash-voice'
     },
     {
         title: 'store-owner',
@@ -47,14 +39,14 @@ const allRoleCards = [
         description: 'punch-in-and-out-for-your-shift',
         href: '/dashboard/employee/attendance',
         icon: UserCheck,
-        imageId: 'dash-delivery' // Re-using an image for now
+        imageId: 'dash-delivery'
     },
     {
         title: 'salary-slips',
         description: 'view-and-download-your-monthly-salary-slips',
         href: '/dashboard/employee/salary-slips',
         icon: FileText,
-        imageId: 'dash-owner' // Re-using an image
+        imageId: 'dash-owner'
     }
 ];
 
@@ -105,7 +97,7 @@ export default function DashboardPage() {
         if (isEmployee) {
             return allRoleCards.filter(card => card.title === 'employee' || card.title === 'salary-slips');
         }
-        return allRoleCards.filter(card => card.title !== 'employee' && card.title !== 'salary-slips');
+        return allRoleCards.filter(card => card.title !== 'employee' && card.title !== 'salary-slips' && card.title !== 'voice-order');
     }, [isEmployee]);
 
     useLayoutEffect(() => {
@@ -156,28 +148,6 @@ export default function DashboardPage() {
                     />
                 ))}
             </div>
-             {!isEmployee && (
-                <div className="mt-16 text-center">
-                    <Card className="max-w-2xl mx-auto bg-primary/5 border-primary/20">
-                        <CardHeader>
-                            <CardTitle className="flex items-center justify-center gap-2 font-headline">
-                                <Sparkles className="h-6 w-6 text-primary" />
-                                <span>New: Voice ID Login</span>
-                            </CardTitle>
-                            <CardDescription>
-                                Set up a voice password for a faster, more secure way to log in.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <Button asChild>
-                                <Link href="/dashboard/customer/voice-id">
-                                    Set Up Your Voice ID
-                                </Link>
-                            </Button>
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
         </div>
     );
 }

@@ -3,12 +3,9 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Firestore, collection, getDocs, query, where, limit } from 'firebase/firestore';
-import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
-import { getStores } from './data';
+import { Store, User } from './types';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import { initializeTranslations, Locales, getAllAliases as getAliasesFromLocales } from '@/lib/locales';
-import { generalCommands as defaultGeneralCommands, CommandGroup } from '@/lib/locales/commands';
 import { useFirebase } from '@/firebase';
 
 export interface ProfileFormValues {
@@ -23,15 +20,13 @@ export interface ProfileFormValues {
 export interface AppState {
   stores: Store[];
   userStore: Store | null; 
-  locales: Locales;
-  commands: Record<string, CommandGroup>;
   loading: boolean;
   isInitialized: boolean;
   appReady: boolean;
   error: Error | null;
   language: string;
   activeStoreId: string | null;
-  deviceId: string | null; // NEW: Persistent individual data key
+  deviceId: string | null;
   readCount: number;
   writeCount: number;
   incrementReadCount: (count?: number) => void;
@@ -42,14 +37,14 @@ export interface AppState {
   setAppReady: (ready: boolean) => void;
   setDeviceId: (id: string) => void;
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
-  getAllAliases: (key: string) => Record<string, string[]>;
-  setLocales: (newLocales: Locales) => void;
-  setCommands: (newCommands: Record<string, CommandGroup>) => void;
-  // Deprecated/Purged Grocery Methods
+  // Legacy/Cleaned
   masterProducts: any[];
   productPrices: any;
+  locales: any;
+  commands: any;
   fetchProductPrices: any;
   getProductName: any;
+  getAllAliases: any;
 }
 
 const getInitialLanguage = (): string => {
@@ -91,8 +86,6 @@ export const useAppStore = create<AppState>()(
       setUserStore: (store: Store | null) => set({ userStore: store }),
       setAppReady: (isReady: boolean) => set({ appReady: isReady }),
       setDeviceId: (id: string) => set({ deviceId: id }),
-      setLocales: (newLocales: Locales) => set({ locales: newLocales }),
-      setCommands: (newCommands: Record<string, CommandGroup>) => set({ commands: newCommands }),
       setActiveStoreId: (storeId: string | null) => set({ activeStoreId: storeId }),
 
       fetchInitialData: async (db: Firestore, userId?: string) => {
@@ -100,14 +93,9 @@ export const useAppStore = create<AppState>()(
         set({ loading: true, error: null });
         
         try {
-          const [storesSnap, commandDocs] = await Promise.all([
-            getDocs(collection(db, 'stores')),
-            getDocs(collection(db, 'voiceCommands'))
-          ]);
-          
+          const storesSnap = await getDocs(collection(db, 'stores'));
           const allStores = storesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Store));
           
-          // FILTER: Only Restaurants and Salons. We don't cache grocery stores.
           const businessStores = allStores.filter(s => 
             s.businessType === 'restaurant' || 
             s.businessType === 'salon' ||
@@ -119,16 +107,6 @@ export const useAppStore = create<AppState>()(
               userStore = businessStores.find(s => s.ownerId === userId) || null;
           }
 
-          const dbCommands = commandDocs.docs.reduce((acc, doc) => {
-              acc[doc.id] = doc.data() as CommandGroup;
-              return acc;
-          }, {} as Record<string, CommandGroup>);
-          
-          const enrichedCommands = { ...defaultGeneralCommands, ...dbCommands };
-
-          initializeTranslations({}); // No aliases cached locally anymore
-
-          // Handle Device ID Persistence
           if (!get().deviceId) {
               const newId = Math.random().toString(36).substring(2, 15);
               set({ deviceId: newId });
@@ -137,13 +115,13 @@ export const useAppStore = create<AppState>()(
           set({
             stores: businessStores,
             userStore,
-            commands: enrichedCommands,
             isInitialized: true,
             appReady: true,
             loading: false,
-            // Explicitly clear legacy grocery data
+            // Explicitly clear legacy data
             masterProducts: [],
-            locales: {}
+            locales: {},
+            commands: {}
           });
           
         } catch (error) {
@@ -152,17 +130,13 @@ export const useAppStore = create<AppState>()(
         }
       },
 
-      getAllAliases: (key: string) => {
-        return getAliasesFromLocales(get().locales, key);
-      },
-
-      // Purged grocery logic
+      // Cleanup
       fetchProductPrices: async () => {},
-      fetchExtendedData: async () => {},
-      getProductName: (product: any) => product.name,
+      getProductName: (product: any) => product?.name || '',
+      getAllAliases: () => ({}),
     }),
     {
-      name: 'localbasket-app-storage-v3',
+      name: 'localbasket-app-storage-v4',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,

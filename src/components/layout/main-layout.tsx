@@ -4,14 +4,12 @@ import { useState, useCallback, useEffect } from 'react';
 import { useCart } from '@/lib/cart';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
-import { VoiceCommander } from '@/components/layout/voice-commander';
 import { ProfileCompletionChecker } from '@/components/profile-completion-checker';
 import { NotificationPermissionManager } from '@/components/layout/notification-permission-manager';
 import { useAppStore, useInitializeApp } from '@/lib/store';
 import { usePathname } from 'next/navigation';
 import { BottomNavBar } from './bottom-nav-bar';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
-import { PriceCheckDisplay, PriceCheckInfo } from './price-check-display';
 import { useInstall } from '../install-provider';
 import { VoiceCommandContext } from './voice-commander-context';
 import { FirestoreCounter } from './firestore-counter';
@@ -64,20 +62,10 @@ export function MainLayout({
 }: { 
   children: React.ReactNode;
 }) {
-  const [voiceEnabled, setVoiceEnabled] = useState(false);
-  const [voiceStatus, setVoiceStatus] = useState('Click the mic to start listening.');
-  const [suggestedCommands, setSuggestedCommands] = useState<any[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const { cartItems } = useCart();
-  
   const { firestore } = useFirebase();
   const { isAdmin } = useAdminAuth();
   const { setLanguage, isInitialized } = useAppStore();
-  const [priceCheckInfo, setPriceCheckInfo] = useState<PriceCheckInfo | null>(null);
-
-  const [voiceTrigger, setVoiceTrigger] = useState(0);
-  const [retryCommandText, setRetryCommandText] = useState<string | null>(null);
-  const { triggerInstall } = useInstall();
 
   useInitializeApp();
 
@@ -91,60 +79,23 @@ export function MainLayout({
     if (savedLanguage) setLanguage(savedLanguage);
   }, [isInitialized, setLanguage]);
 
-  const triggerVoicePrompt = useCallback(() => {
-    setVoiceTrigger(v => v + 1);
-  }, []);
-
-  const retryCommand = useCallback((command: string) => {
-    setRetryCommandText(command);
-  }, []);
-
-  const showPriceCheck = useCallback((info: PriceCheckInfo) => {
-      setPriceCheckInfo(info);
-  }, []);
-  
-  const hidePriceCheck = useCallback(() => {
-      setPriceCheckInfo(null);
-  }, []);
-
-  const onToggleVoice = useCallback(() => setVoiceEnabled(prev => !prev), []);
-
   return (
     <VoiceCommandContext.Provider value={{ 
-        triggerVoicePrompt, 
-        retryCommand, 
-        showPriceCheck, 
-        hidePriceCheck,
+        triggerVoicePrompt: () => {}, 
+        showPriceCheck: () => {}, 
+        hidePriceCheck: () => {},
         onCartOpenChange: setIsCartOpen,
         isCartOpen,
-        voiceEnabled,
-        voiceStatus,
-        onToggleVoice,
+        voiceEnabled: false,
+        voiceStatus: '',
+        onToggleVoice: () => {},
     }}>
         <div className="relative flex min-h-dvh flex-col bg-background">
         {isMaintenanceActive && <MaintenanceOverlay />}
         <OfflineStatus />
-        <Header 
-            suggestedCommands={suggestedCommands} 
-        />
-        {isInitialized && (
-            <VoiceCommander 
-                enabled={voiceEnabled} 
-                onStatusUpdate={setVoiceStatus}
-                onOpenCart={() => setIsCartOpen(true)}
-                onCloseCart={() => setIsCartOpen(false)}
-                cartItems={cartItems}
-                voiceTrigger={voiceTrigger}
-                triggerVoicePrompt={triggerVoicePrompt}
-                retryCommandText={retryCommandText}
-                onRetryHandled={() => setRetryCommandText(null)}
-                onInstallApp={triggerInstall}
-            />
-        )}
+        <Header />
         <ProfileCompletionChecker />
-        <PriceCheckDisplay info={priceCheckInfo} onClose={hidePriceCheck} />
         <main className="flex-1 pb-16 md:pb-0">{children}</main>
-        
         <NotificationPermissionManager />
         <Footer />
         <BottomNavBar />
