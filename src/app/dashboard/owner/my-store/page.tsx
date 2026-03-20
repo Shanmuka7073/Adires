@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useEffect, useMemo, useRef } from 'react';
@@ -157,10 +156,10 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
 
   useEffect(() => {
     if (ownerProducts) {
-      const initialCheckedState = ownerProducts.reduce((acc, product) => {
+      const initialCheckedState = ownerProducts.reduce((acc: Record<string, boolean>, product) => {
         acc[product.name] = true;
         return acc;
-      }, {} as Record<string, boolean>);
+      }, {});
       setCheckedProducts(initialCheckedState);
     }
   }, [ownerProducts]);
@@ -1317,7 +1316,7 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                             render={({ field }) => (
                             <FormItem>
                                 <FormLabel>{t('full-store-address')}</FormLabel>
-                                <FormControl><Input placeholder="123 Market Street, Mumbai" {...field} /></FormControl>
+                                <FormControl><Input placeholder="123 Main Street, Mumbai" {...field} /></FormControl>
                                 <FormMessage />
                             </FormItem>
                             )}

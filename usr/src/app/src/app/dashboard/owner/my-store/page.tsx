@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useEffect, useMemo, useRef, RefObject } from 'react';
@@ -72,7 +71,6 @@ import { Badge } from '@/components/ui/badge';
 import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import StoreCard from '@/components/store-card';
 
 
 const ADMIN_EMAIL = 'admin@gmail.com';
@@ -146,7 +144,6 @@ function StoreImageUploader({ store }: { store: Store }) {
 
             if (result.success) {
                 toast({ title: 'Image URL Updated!' });
-                // The UI will update automatically due to the real-time listener on the store document.
             } else {
                 toast({
                     variant: 'destructive',
@@ -418,7 +415,7 @@ function EditProductDialog({ storeId, product, isOpen, onOpenChange }: { storeId
                                         <Input placeholder="https://images.unsplash.com/..." {...field} className="pl-9" />
                                     </div>
                                     <Button type="button" variant="outline" onClick={handleGenerateImage} disabled={isGeneratingImage}>
-                                        {isGeneratingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                                        {isGeneratingImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                                     </Button>
                                   </div>
                                    <FormDescription>
@@ -539,12 +536,12 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
   const { language } = useAppStore();
 
   const { masterProducts, loading: masterProductsLoading } = useAppStore(state => ({
-    masterProducts: state.masterProducts,
+    masterProducts: state.masterProducts as Product[],
     loading: state.loading,
   }));
   
   const ownerProductsQuery = useMemoFirebase(() => {
-    if (!firestore || !storeId) return null;
+    if (!firestore || !storeId) return undefined;
     return collection(firestore, 'stores', storeId, 'products');
   }, [firestore, storeId]);
   const { data: ownerProducts, isLoading: ownerProductsLoading } = useCollection<Product>(ownerProductsQuery);
@@ -558,7 +555,7 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
 
   useEffect(() => {
     if (ownerProducts) {
-      const initialCheckedState = ownerProducts.reduce((acc, product) => {
+      const initialCheckedState = ownerProducts.reduce((acc: Record<string, boolean>, product) => {
         acc[product.name] = true;
         return acc;
       }, {});
@@ -678,7 +675,6 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
           </CardContent>
       </Card>
   )
-
 }
 
 
@@ -805,7 +801,12 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
   const [isPending, startTransition] = useTransition();
   const [isGeneratingImage, startImageGeneration] = useTransition();
   const { firestore } = useFirebase();
-  const { language, fetchInitialData } = useAppStore();
+  const { language, masterProducts, fetchInitialData } = useAppStore();
+
+  const categories = useMemo(() => {
+      const cats = (masterProducts as Product[]).map(p => p.category).filter(Boolean);
+      return Array.from(new Set(cats)) as string[];
+  }, [masterProducts]);
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -868,11 +869,11 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
         const productRef = doc(collection(firestore, 'stores', storeId, 'products'));
         const productData: Omit<Product, 'id' | 'variants'> = {
           name: data.name,
-          description: data.description,
+          description: data.description || '',
           category: data.category,
           storeId,
           imageId: imageId,
-          imageUrl: data.imageUrl,
+          imageUrl: data.imageUrl || '',
           imageHint: data.name.toLowerCase(),
         };
         batch.set(productRef, productData);
@@ -928,15 +929,10 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                        {groceryData.categories.map(cat => (
-                            <SelectGroup key={cat.categoryName}>
-                                <SelectLabel>{cat.categoryName}</SelectLabel>
-                                {cat.items.map(item => (
-                                    <SelectItem key={`${cat.categoryName}-${item}`} value={`${item}::${cat.categoryName}`}>
-                                        {item}
-                                    </SelectItem>
-                                ))}
-                            </SelectGroup>
+                        {(masterProducts as Product[]).map(p => (
+                            <SelectItem key={p.id} value={`${p.name}::${p.category}`}>
+                                {p.name} ({p.category})
+                            </SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
@@ -993,8 +989,8 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {groceryData.categories.map(cat => (
-                        <SelectItem key={cat.categoryName} value={cat.categoryName}>{t(cat.categoryName.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</SelectItem>
+                      {categories.map(cat => (
+                        <SelectItem key={cat} value={cat}>{t(cat.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -1039,7 +1035,7 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                {standardWeights.map(w => <SelectItem key={w} value={w}>{w}</SelectItem>)}
+                                                {standardUnits.map(w => <SelectItem key={w} value={w}>{w}</SelectItem>)}
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />
@@ -1099,8 +1095,52 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
 }
 
 function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdmin: boolean, adminStoreId?: string; }) {
+    const { firestore } = useFirebase();
     const { toast } = useToast();
+    const [isDeleting, startDeleteTransition] = useTransition();
     const [isOpening, startOpenTransition] = useTransition();
+    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const { masterProducts } = useAppStore(state => ({ masterProducts: state.masterProducts }));
+    const [selectedCategory, setSelectedCategory] = useState<string>('all');
+    const { language } = useAppStore();
+
+    const productsQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return query(collection(firestore, 'stores', store.id, 'products'));
+    }, [firestore, store.id]);
+
+    const { data: products, isLoading } = useCollection<Product>(productsQuery);
+    
+    const needsLocationUpdate = !store.latitude || !store.longitude;
+    
+    const filteredProducts = useMemo(() => {
+        if (!products) return [];
+        const uniqueProducts = Array.from(new Map(products.map(p => [p.id, p])).values());
+        if (selectedCategory === 'all') return uniqueProducts;
+        return uniqueProducts.filter(p => p.category === selectedCategory);
+    }, [products, selectedCategory]);
+
+    const handleOpenStore = () => {
+        if (!firestore) return;
+        startOpenTransition(async () => {
+             const storeRef = doc(firestore, 'stores', store.id);
+             try {
+                await updateDoc(storeRef, { isClosed: false });
+                toast({
+                    title: "Store Re-opened!",
+                    description: `${store.name} is now visible to customers again.`,
+                });
+             } catch (error) {
+                console.error("Failed to re-open store:", error);
+                const permissionError = new FirestorePermissionError({
+                    path: storeRef.path,
+                    operation: 'update',
+                    requestResourceData: { isClosed: false },
+                });
+                errorEmitter.emit('permission-error', permissionError);
+             }
+        });
+    };
 
     if (store.isClosed) {
         return (
@@ -1110,66 +1150,179 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
                 <AlertDescription>
                     {t('your-store-is-currently-not-visible')}
                 </AlertDescription>
-                <Button onClick={() => {}} disabled={isOpening} className="mt-4">
+                <Button onClick={handleOpenStore} disabled={isOpening} className="mt-4">
                     {isOpening ? t('re-opening') : t('re-open-store')}
                 </Button>
             </Alert>
         )
     }
 
+    const handleDeleteProduct = (productId: string, productName: string) => {
+        if (!firestore) return;
+        
+        startDeleteTransition(async () => {
+            const batch = writeBatch(firestore);
+
+            // Delete from the master /stores/{adminId}/products collection
+            const productRef = doc(firestore, 'stores', store.id, 'products', productId);
+            batch.delete(productRef);
+
+            // Also delete from the canonical /productPrices collection
+            const priceRef = doc(firestore, 'productPrices', productName.toLowerCase());
+            batch.delete(priceRef);
+
+            try {
+                await batch.commit();
+                toast({
+                    title: "Product Deleted",
+                    description: `${productName} has been removed from the platform.`,
+                });
+            } catch (error) {
+                 toast({
+                    variant: 'destructive',
+                    title: "Deletion Failed",
+                    description: `Could not delete ${productName}.`,
+                });
+            }
+        });
+    };
+
 
     return (
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="products">Products</TabsTrigger>
-          <TabsTrigger value="orders">Orders</TabsTrigger>
-          <TabsTrigger value="restaurant">Restaurant / QR Menu</TabsTrigger>
-        </TabsList>
-        <TabsContent value="overview" className="mt-6 space-y-6">
-            <StoreDetails store={store} onUpdate={() => {}} />
-            <div className="grid md:grid-cols-2 gap-8">
-                <StoreImageUploader store={store} />
-                <PromoteStore store={store} />
+      <div className="space-y-8">
+        {editingProduct && (
+            <EditProductDialog
+                storeId={store.id}
+                product={editingProduct}
+                isOpen={!!editingProduct}
+                onOpenChange={(open) => !open && setEditingProduct(null)}
+            />
+        )}
+        {needsLocationUpdate && <UpdateLocationForm store={store} onUpdate={() => {}} />}
+        
+        <StoreDetails store={store} onUpdate={() => {}} />
+
+        {isAdmin ? (
+             <div className="grid md:grid-cols-2 gap-8">
+                <BulkUploadCard storeId={store.id} />
+                <AddProductForm storeId={store.id} isAdmin={true} />
             </div>
-            <DangerZone store={store} />
-        </TabsContent>
-        <TabsContent value="products" className="mt-6 space-y-6">
-            {isAdmin ? (
-                <>
-                    <AddProductForm storeId={store.id} isAdmin={true} />
-                </>
-            ) : (
-                <ProductChecklist storeId={store.id} adminStoreId={adminStoreId || ''} />
-            )}
-        </TabsContent>
-        <TabsContent value="orders" className="mt-6">
-            {/* Placeholder for future OrdersPanel component */}
-            <Card>
-                <CardHeader><CardTitle>Incoming Orders</CardTitle></CardHeader>
-                <CardContent>
-                    <p className="text-muted-foreground">Order management UI will be here.</p>
-                </CardContent>
-            </Card>
-        </TabsContent>
-        <TabsContent value="restaurant" className="mt-6 space-y-6">
-            <TableManager store={store} />
-             <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <QrCode className="h-6 w-6 text-primary" />
-                        QR Code Menu Manager
-                    </CardTitle>
-                    <CardDescription>Create a full digital menu for your restaurant tables.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Button asChild className="w-full">
-                        <Link href="/dashboard/owner/menu-manager">Go to Menu Manager</Link>
-                    </Button>
-                </CardContent>
-             </Card>
-        </TabsContent>
-    </Tabs>
+        ) : (
+            <>
+              <div className="grid md:grid-cols-2 gap-8">
+                <StoreImageUploader store={store} />
+                {adminStoreId ? (
+                    <ProductChecklist storeId={store.id} adminStoreId={adminStoreId} />
+                ) : (
+                    <Card>
+                        <CardHeader><CardTitle>{t('manage-inventory')}</CardTitle></CardHeader>
+                        <CardContent>
+                            <Alert>
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertTitle>{t('master-store-not-found')}</AlertTitle>
+                                <AlertDescription>{t('the-admin-has-not-configured-the-master-product-store')}</AlertDescription>
+                            </Alert>
+                        </CardContent>
+                    </Card>
+                )}
+             </div>
+             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <PromoteStore store={store} />
+                <TableManager store={store} />
+                 <Link href="/dashboard/owner/menu-manager" passHref>
+                    <Card className="h-full hover:shadow-lg transition-shadow">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <QrCode className="h-6 w-6 text-primary" />
+                                QR Code Menu Manager
+                            </CardTitle>
+                            <CardDescription>Create a digital menu for customers by scanning a QR code.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Button className="w-full">Manage Menu</Button>
+                        </CardContent>
+                    </Card>
+                </Link>
+             </div>
+            </>
+        )}
+
+        <Card>
+            <CardHeader>
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                    <div>
+                        <CardTitle>{t('your-products')}</CardTitle>
+                        <CardDescription>
+                            {isAdmin ? t('this-is-the-master-list-of-products') : t('this-is-your-current-store-inventory')}
+                        </CardDescription>
+                    </div>
+                    {isAdmin && (
+                        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                            <SelectTrigger className="w-full sm:w-[200px]">
+                                <SelectValue placeholder="Filter by category..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Categories</SelectItem>
+                                {masterProducts.map(p => p.category).filter((v, i, a) => a.indexOf(v) === i && v).map(cat => (
+                                    <SelectItem key={cat} value={cat!}>
+                                        {t(cat!.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
+                </div>
+            </CardHeader>
+            <CardContent>
+                {isLoading ? (
+                    <p>{t('loading-products')}...</p>
+                ) : filteredProducts && filteredProducts.length > 0 ? (
+                    <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>{t('product')}</TableHead>
+                            <TableHead>{t('category')}</TableHead>
+                            {isAdmin && <TableHead>{t('variants')}</TableHead>}
+                            {isAdmin && <TableHead className="text-right">{t('actions')}</TableHead>}
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {filteredProducts.map(product => 
+                            isAdmin ? (
+                                <AdminProductRow 
+                                    key={product.id}
+                                    product={product}
+                                    storeId={store.id}
+                                    onEdit={() => setEditingProduct(product)}
+                                    onDelete={() => handleDeleteProduct(product.id, product.name)}
+                                />
+                            ) : (
+                                <TableRow key={product.id}>
+                                     <TableCell>
+                                        <div className="flex items-center gap-4">
+                                            <Image
+                                                src={product.imageUrl || 'https://placehold.co/40x40/E2E8F0/64748B?text=?'}
+                                                alt={product.name}
+                                                width={40}
+                                                height={40}
+                                                className="rounded-sm object-cover"
+                                            />
+                                            <span>{t(product.name.toLowerCase().replace(/ /g, '-'), language)}</span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>{t(product.category?.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</TableCell>
+                                </TableRow>
+                            )
+                        )}
+                    </TableBody>
+                    </Table>
+                ) : (
+                <p className="text-muted-foreground">{t('you-havent-added-any-products-yet')}</p>
+                )}
+            </CardContent>
+        </Card>
+        <DangerZone store={store} />
+      </div>
     )
 }
 
@@ -1188,7 +1341,8 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
             address: isAdmin ? 'Platform-wide' : (profile?.address || ''),
             latitude: 0,
             longitude: 0,
-            teluguName: ''
+            teluguName: '',
+            tables: [],
         },
     });
 
@@ -1294,6 +1448,7 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
             <CardContent>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                        {/* Form Fields... */}
                          <FormField
                             control={form.control}
                             name="name"
@@ -1338,7 +1493,7 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                             render={({ field }) => (
                             <FormItem>
                                 <FormLabel>{t('full-store-address')}</FormLabel>
-                                <FormControl><Input placeholder="123 Main Street, Mumbai" {...field} /></FormControl>
+                                <FormControl><Input placeholder="123 Market Street, Mumbai" {...field} /></FormControl>
                                 <FormMessage />
                             </FormItem>
                             )}
@@ -1452,6 +1607,7 @@ export default function MyStorePage() {
             return <ManageStoreView store={myStore} isAdmin={false} adminStoreId={adminStore?.id} />;
         }
         
+        // New user without a store
         if (!userProfile) {
             return (
                  <Card className="max-w-3xl mx-auto">
@@ -1487,4 +1643,3 @@ export default function MyStorePage() {
         </div>
     );
 }
-
