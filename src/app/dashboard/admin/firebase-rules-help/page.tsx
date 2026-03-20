@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CodeDisplay } from '../fingerprint-help/code-display';
+import { CodeDisplay } from '@/components/admin/code-display';
 import { rulesText } from './rules-text';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
@@ -40,4 +40,3 @@ export default function FirebaseRulesHelpPage() {
         </div>
     );
 }
-

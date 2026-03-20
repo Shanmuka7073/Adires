@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -371,20 +372,17 @@ export async function getPlatformAnalytics() {
             const currentRevenue = currentOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
             const previousRevenue = previousOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
 
-            const currentAOV = currentOrders.length ? currentRevenue / currentOrders.length : 0;
-            const previousAOV = previousOrders.length ? previousRevenue / previousOrders.length : 0;
-
             const calculateTrend = (curr: number, prev: number) => prev === 0 ? 0 : ((curr - prev) / prev) * 100;
 
             return {
                 revenue: currentRevenue,
                 orders: currentOrders.length,
-                aov: currentAOV,
+                aov: currentOrders.length ? currentRevenue / currentOrders.length : 0,
                 userReach: new Set(currentOrders.map(o => o.userId)).size,
                 trends: {
                     revenue: calculateTrend(currentRevenue, previousRevenue),
                     orders: calculateTrend(currentOrders.length, previousOrders.length),
-                    aov: calculateTrend(currentAOV, previousAOV),
+                    aov: calculateTrend(currentOrders.length ? currentRevenue / currentOrders.length : 0, previousOrders.length ? previousRevenue / previousOrders.length : 0),
                     userReach: calculateTrend(new Set(currentOrders.map(o => o.userId)).size, new Set(previousOrders.map(o => o.userId)).size)
                 }
             };
