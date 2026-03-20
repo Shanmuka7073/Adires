@@ -92,10 +92,10 @@ export const useAppStore = create<AppState>()(
             getDocs(collection(db, 'voiceCommands'))
           ]);
 
-          const voiceAliasGroups = aliasDocs.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
+          const voiceAliasGroups = aliasDocs.docs.map((doc: { id: any; data: () => VoiceAliasGroup; }) => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
           const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
           
-          const dbCommands = commandDocs.docs.reduce((acc, doc) => {
+          const dbCommands = commandDocs.docs.reduce((acc: { [x: string]: CommandGroup; }, doc: { id: string | number; data: () => CommandGroup; }) => {
               acc[doc.id] = doc.data() as CommandGroup;
               return acc;
           }, {} as Record<string, CommandGroup>);
@@ -114,7 +114,7 @@ export const useAppStore = create<AppState>()(
           });
 
           if (masterProducts.length > 0) {
-            await get().fetchProductPrices(db, masterProducts.map(p => p.name));
+            await get().fetchProductPrices(db, masterProducts.map((p: { name: any; }) => p.name));
           }
           
         } catch (error) {

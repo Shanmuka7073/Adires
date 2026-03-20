@@ -107,7 +107,7 @@ export async function verifyVoiceprint(input: VerifyVoiceprintInput): Promise<Ve
         const voiceprintRef = db.collection('voiceprints').doc(input.userId);
 
         const docSnap = await voiceprintRef.get();
-        if (!docSnap.exists()) {
+        if (!docSnap.exists) {
             return { isMatch: false, confidence: 0, error: 'User has not enrolled a voiceprint.' };
         }
 
