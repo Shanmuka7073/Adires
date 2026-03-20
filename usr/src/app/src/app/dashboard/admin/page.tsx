@@ -1,7 +1,28 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, Mic, Bot, Shield, ImageIcon, Lightbulb, Server, Video, QrCode, FileCode } from 'lucide-react';
+import { 
+    Users, 
+    Store, 
+    ShoppingBag, 
+    Mic, 
+    Bot, 
+    Shield, 
+    ImageIcon, 
+    Lightbulb, 
+    Server, 
+    Video, 
+    QrCode, 
+    FileCode, 
+    Search, 
+    Download, 
+    Edit, 
+    Trash2, 
+    Loader2, 
+    ArrowRight,
+    AlertTriangle
+} from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -14,11 +35,28 @@ import { Button } from '@/components/ui/button';
 import { t } from '@/lib/locales';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useAppStore } from '@/lib/store';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { 
+    Table, 
+    TableBody, 
+    TableCell, 
+    TableHead, 
+    TableHeader, 
+    TableRow 
+} from '@/components/ui/table';
+import { 
+    AlertDialog, 
+    AlertDialogAction, 
+    AlertDialogCancel, 
+    AlertDialogContent, 
+    AlertDialogDescription, 
+    AlertDialogFooter, 
+    AlertDialogHeader, 
+    AlertDialogTitle, 
+    AlertDialogTrigger 
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-
 
 interface StatCardProps {
     title: string;
@@ -49,7 +87,7 @@ function CreateMasterStoreCard() {
                 {t('the-master-store-for-setting-platform-wide')}
                 <Button asChild className="mt-4">
                     <Link href="/dashboard/owner/my-store">
-                        {t('create-master-store')}
+                        {t('create-master-store')} <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
                 </Button>
             </AlertDescription>
@@ -190,7 +228,6 @@ function ProductInventoryRow({ product, priceData, onUpdate }: { product: Produc
     const { isAdmin, isChickenAdmin } = useAdminAuth();
 
     const canEdit = isAdmin || (isChickenAdmin && product.name.toLowerCase().includes('chicken'));
-
 
     useEffect(() => {
         setVariants(priceData?.variants || []);
