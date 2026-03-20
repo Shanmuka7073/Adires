@@ -91,7 +91,11 @@ function CartRow({ item, image }: CartRowProps) {
           <div>
             <div className="flex items-center gap-2">
                 <span className="font-medium">{englishName}</span>
-                 {product.isAiAssisted && <BrainCircuit className="h-4 w-4 text-green-600" title="Identified by AI" />}
+                 {product.isAiAssisted && (
+                    <span title="Identified by AI">
+                        <BrainCircuit className="h-4 w-4 text-green-600" />
+                    </span>
+                 )}
             </div>
             <p className="text-sm text-muted-foreground">{teluguName}</p>
             <p className="text-sm text-muted-foreground">{variant.weight}</p>
@@ -150,7 +154,11 @@ function MobileCartItem({ item, image }: CartRowProps) {
                     <div>
                         <div className="flex items-center gap-2">
                              <p className="font-semibold">{englishName} <span className="font-normal text-muted-foreground">({variant.weight})</span></p>
-                             {product.isAiAssisted && <BrainCircuit className="h-4 w-4 text-green-600" title="Identified by AI" />}
+                             {product.isAiAssisted && (
+                                <span title="Identified by AI">
+                                    <BrainCircuit className="h-4 w-4 text-green-600" />
+                                </span>
+                             )}
                         </div>
                         <p className="text-xs text-muted-foreground">{teluguName}</p>
                          {product.isAiAssisted && <p className="text-xs text-green-700 font-medium">Was: "{product.matchedAlias}"</p>}
