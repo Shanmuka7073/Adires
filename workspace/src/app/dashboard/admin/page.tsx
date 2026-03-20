@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -46,64 +45,6 @@ function CreateMasterStoreCard() {
     )
 }
 
-function LowStockAlerts() {
-    const { productPrices, masterProducts, fetchProductPrices, loading } = useAppStore();
-    const { firestore } = useFirebase();
-
-    useEffect(() => {
-        if (firestore && masterProducts.length > 0) {
-            const productNamesToFetch = masterProducts.map(p => p.name);
-            fetchProductPrices(firestore, productNamesToFetch);
-        }
-    }, [firestore, masterProducts, fetchProductPrices]);
-
-    const lowStockItems = useMemo(() => {
-        const items: { productName: string; variant: ProductVariant }[] = [];
-        if (!productPrices) return items;
-
-        Object.values(productPrices).forEach(priceData => {
-            if (priceData && (priceData as any).variants) {
-                (priceData as any).variants.forEach((variant: any) => {
-                    if (variant.stock <= 10) {
-                        items.push({ productName: (priceData as any).productName, variant });
-                    }
-                });
-            }
-        });
-        return items;
-    }, [productPrices]);
-
-    if (loading) {
-        return (
-            <div className="space-y-2">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-            </div>
-        )
-    }
-
-    if (lowStockItems.length === 0) {
-        return null;
-    }
-
-    return (
-        <div className="mb-8">
-            <h2 className="text-2xl font-bold text-center mb-4 font-headline text-destructive">Low Stock Alerts</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {lowStockItems.map(({ productName, variant }, index) => (
-                    <Alert key={`${productName}-${index}`} variant="destructive">
-                        <AlertTriangle className="h-4 w-4" />
-                        <AlertTitle>Low Stock: {productName}</AlertTitle>
-                        <AlertDescription>
-                            The variant "{variant.weight}" has only <strong>{variant.stock}</strong> items left.
-                        </AlertDescription>
-                    </Alert>
-                ))}
-            </div>
-        </div>
-    )
-}
-
 function AdminActionCard({ title, description, href, icon: Icon }: { title: string, description: string, href: string, icon: React.ElementType }) {
     return (
         <Link href={href} className="block hover:shadow-lg transition-shadow rounded-lg">
@@ -127,13 +68,13 @@ export default function AdminDashboardPage() {
     const router = useRouter();
     const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
 
-    // Queries for stats - updated to undefined for useCollection
-    const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : undefined, [firestore]);
-    const storesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'stores'), where('isClosed', '!=', true)) : undefined, [firestore]);
-    const deliveredOrdersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'orders'), where('status', '==', 'Delivered')) : undefined, [firestore]);
+    // Queries for stats
+    const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
+    const storesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'stores'), where('isClosed', '!=', true)) : null, [firestore]);
+    const deliveredOrdersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'orders'), where('status', '==', 'Delivered')) : null, [firestore]);
     
     const adminStoreQuery = useMemoFirebase(() => {
-        if (!firestore) return undefined;
+        if (!firestore) return null;
         return query(collection(firestore, 'stores'), where('name', '==', 'LocalBasket'));
     }, [firestore]);
 
@@ -179,8 +120,6 @@ export default function AdminDashboardPage() {
             
             {!masterStoreExists && <CreateMasterStoreCard />}
             
-            <LowStockAlerts />
-
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
                 {statItems.map(item => (
                     <StatCard 
@@ -226,59 +165,11 @@ export default function AdminDashboardPage() {
                         href="/dashboard/admin/product-list"
                         icon={List}
                     />
-                    <AdminActionCard 
-                        title="voice-commands-control"
-                        description="view-and-manage-the-voice-commands-users-can-say"
-                        href="/dashboard/voice-commands"
-                        icon={Mic}
-                    />
-                    <AdminActionCard
-                        title="Failed Command Center"
-                        description="Review failed voice commands and use AI to train the system."
-                        href="/dashboard/admin/failed-commands"
-                        icon={Bot}
-                    />
-                    <AdminActionCard
-                        title="Cached Recipes"
-                        description="View and manage the AI-generated recipe ingredient cache."
-                        href="/dashboard/admin/cached-recipes"
-                        icon={BookOpen}
-                    />
-                    <AdminActionCard
-                        title="recipe-tester"
-                        description="Manually test the AI recipe ingredient generation."
-                        href="/dashboard/admin/recipe-tester"
-                        icon={Beaker}
-                    />
                     <AdminActionCard
                         title="Security Rules"
                         description="View and copy the current Firestore security rules for debugging."
                         href="/dashboard/admin/security-rules"
                         icon={Shield}
-                    />
-                     <AdminActionCard
-                        title="Server Actions Code"
-                        description="View the source code for the main server actions file."
-                        href="/dashboard/admin/actions-help"
-                        icon={Server}
-                    />
-                     <AdminActionCard
-                        title="Admin Init Code"
-                        description="View the source code for the Firebase Admin SDK initialization."
-                        href="/dashboard/admin/admin-init-help"
-                        icon={KeyRound}
-                    />
-                     <AdminActionCard
-                        title="Voice Commander Code"
-                        description="View the source code for the main voice command processing logic."
-                        href="/dashboard/admin/voice-commander-help"
-                        icon={Mic}
-                    />
-                     <AdminActionCard
-                        title="Checkout Loop Debug"
-                        description="Isolate the specific code related to the checkout page command loop."
-                        href="/dashboard/admin/checkout-loop-help"
-                        icon={Bug}
                     />
                 </div>
             </div>
