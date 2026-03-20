@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition, useMemo } from 'react';
@@ -16,7 +15,15 @@ import type { CommandGroup } from '@/lib/types';
 import { suggestLocalReplies } from '@/ai/flows/suggest-local-replies-flow';
 import { generateVoiceReply } from '@/ai/flows/generate-voice-reply-flow';
 
-function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestReplies, isSaving }) {
+interface CommandReplyItemProps {
+    commandKey: string;
+    commandData: CommandGroup;
+    onReplyChange: (commandKey: string, field: string, value: string) => void;
+    onSuggestReplies: (commandKey: string) => void;
+    isSaving: boolean;
+}
+
+function CommandReplyItem({ commandKey, commandData, onReplyChange, onSuggestReplies, isSaving }: CommandReplyItemProps) {
     const { toast } = useToast();
     const [isSuggesting, startSuggestion] = useTransition();
     const [generatingLang, setGeneratingLang] = useState<string | null>(null);
