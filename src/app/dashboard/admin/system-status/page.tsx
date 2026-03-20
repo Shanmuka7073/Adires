@@ -29,7 +29,14 @@ export default function SystemStatusPage() {
     startFetchingTransition(async () => {
       try {
         const result = await getSystemStatus();
-        setStatus(result);
+        // Explicitly align types to match interface literals
+        setStatus({
+            status: result.status,
+            llmStatus: result.llmStatus as 'Online' | 'Offline' | 'Degraded' | 'Unknown',
+            serverDbStatus: result.serverDbStatus as 'Online' | 'Offline' | 'Unavailable' | 'Loading',
+            errorMessage: result.errorMessage || null,
+            counts: result.counts,
+        });
       } catch (error) {
         console.error("Failed to fetch system status", error);
         setStatus({ 

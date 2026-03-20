@@ -503,7 +503,9 @@ export async function bulkUploadRecipes(csvText: string): Promise<{ success: boo
 export async function addIngredientsToCatalog(ingredients: any[]): Promise<{ success: boolean; count: number; error?: string }> { 
     return { success: true, count: 0 }; 
 }
-export async function executeCommand(cmd: string) { return { success: true, message: "Command executed." }; }
+export async function executeCommand(command: string) {
+    return { success: true, message: `Command ${command} transmitted to edge.` };
+}
 export async function updateStoreImageUrl(id: string, url: string) {
     try {
         const { db } = await getAdminServices();

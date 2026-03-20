@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { MapPin, Check, Banknote, History, Landmark, Receipt, CreditCard, ChevronDown, ChevronUp, Route, Package, Bot, Info, Loader2, LocateFixed, RefreshCw, Zap } from 'lucide-react';
+import { MapPin, Check, Banknote, History, Landmark, Receipt, CreditCard, ChevronDown, ChevronUp, Route, Package, Bot, Info, Loader2, LocateFixed, RefreshCw, Zap, ShoppingBag } from 'lucide-react';
 import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, doc, updateDoc, Timestamp, increment, writeBatch, orderBy, setDoc, getDocs, limit, serverTimestamp } from 'firebase/firestore';
 import { useEffect, useState, useMemo, useTransition, useCallback } from 'react';
@@ -24,6 +24,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import Link from 'next/link';
 
 const BASE_DELIVERY_FEE = 30;
 const DELIVERY_PROXIMITY_THRESHOLD_KM = 1;
@@ -73,6 +76,78 @@ const payoutDetailsSchema = z.object({
 });
 
 type PayoutDetailsFormValues = z.infer<typeof payoutDetailsSchema>;
+
+function PayoutHistoryCard({ partnerId }: { partnerId: string }) {
+    const { firestore } = useFirebase();
+    
+    const payoutQuery = useMemoFirebase(() => {
+        if (!firestore || !partnerId) return null;
+        return query(
+            collection(firestore, `deliveryPartners/${partnerId}/payouts`),
+            orderBy('requestDate', 'desc'),
+            limit(10)
+        );
+    }, [firestore, partnerId]);
+
+    const { data: payouts, isLoading } = useCollection<Payout>(payoutQuery);
+
+    const formatDate = (date: any) => {
+        if (!date) return 'N/A';
+        const jsDate = date.seconds ? new Date(date.seconds * 1000) : new Date(date);
+        return format(jsDate, 'PPP');
+    }
+
+    return (
+        <Card className="rounded-[2rem] border-0 shadow-xl overflow-hidden bg-white">
+            <CardHeader className="bg-primary/5 border-b border-black/5 pb-6">
+                <CardTitle className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
+                    <History className="h-5 w-5 text-primary" />
+                    <span>Payout History</span>
+                </CardTitle>
+                <CardDescription className="text-[10px] font-bold opacity-40 uppercase">Last 10 transactions</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+                {isLoading ? (
+                    <div className="p-12 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto opacity-20" /></div>
+                ) : !payouts || payouts.length === 0 ? (
+                    <div className="p-20 text-center opacity-20">
+                        <Banknote className="h-12 w-12 mx-auto mb-4" />
+                        <p className="font-black uppercase tracking-widest text-xs">No payout history</p>
+                    </div>
+                ) : (
+                    <Table>
+                        <TableHeader className="bg-black/5">
+                            <TableRow>
+                                <TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Date</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Method</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Amount</TableHead>
+                                <TableHead className="text-right text-[10px] font-black uppercase tracking-widest opacity-40">Status</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {payouts.map((p) => (
+                                <TableRow key={p.id} className="border-b border-black/5">
+                                    <TableCell className="py-4">
+                                        <p className="font-bold text-xs">{formatDate(p.requestDate)}</p>
+                                    </TableCell>
+                                    <TableCell className="text-[10px] font-black uppercase opacity-60">
+                                        {p.payoutMethod}
+                                    </TableCell>
+                                    <TableCell className="font-black text-sm text-primary">₹{p.amount.toFixed(0)}</TableCell>
+                                    <TableCell className="text-right pr-6">
+                                        <Badge variant={p.status === 'completed' ? 'default' : p.status === 'failed' ? 'destructive' : 'secondary'} className="text-[8px] font-black uppercase">
+                                            {p.status}
+                                        </Badge>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
 
 function OrderDetailsDialog({ order, isOpen, onClose, onAccept, distance }: { order: Order | null; isOpen: boolean; onClose: () => void; onAccept?: () => void; distance?: number; }) {
     if (!order) return null;
