@@ -22,7 +22,6 @@ import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
 import { updateEmployee } from '@/app/actions';
 
 
@@ -254,7 +253,10 @@ export default function ManageEmployeesPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'Cannot create employee. Store or auth service not available.' });
       return;
     }
-    if (!data.password) {
+    
+    // Narrow type for password to avoid TypeScript error
+    const password = data.password;
+    if (!password) {
         toast({ variant: 'destructive', title: 'Error', description: 'Password is required for new employees.'});
         return;
     }
@@ -265,7 +267,7 @@ export default function ManageEmployeesPage() {
       const tempAuth = getAuth(tempApp);
 
       try {
-        const { user: newEmployeeAuth } = await createUserWithEmailAndPassword(tempAuth, data.email, data.password);
+        const { user: newEmployeeAuth } = await createUserWithEmailAndPassword(tempAuth, data.email, password);
         const uid = newEmployeeAuth.uid;
 
         const batch = writeBatch(firestore);
