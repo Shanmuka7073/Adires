@@ -42,11 +42,6 @@ function AISuggestion({ suggestion, onApprove, onDismiss, isAdding }: { suggesti
                 <div className="bg-background p-3 rounded-md space-y-1">
                     <p className="text-xs text-muted-foreground">Suggested Fix:</p>
                     <p>Map the phrase <strong className="text-primary">"{suggestion.originalCommand}"</strong> as an alias for the item <strong className="text-primary">"{suggestion.suggestedKey}"</strong>.</p>
-                     <div className="flex flex-wrap gap-1 pt-2">
-                        {suggestion.suggestedAliases.map(a => (
-                            <Badge key={a.alias} variant="secondary">{a.alias} ({a.lang})</Badge>
-                        ))}
-                    </div>
                 </div>
                 <div className="flex gap-2 mt-4">
                     <Button onClick={onApprove} disabled={isAdding}>
@@ -92,28 +87,11 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
             const batch = writeBatch(firestore);
             const aliasGroupRef = doc(firestore, 'voiceAliasGroups', suggestion.suggestedKey);
             
-            const aliasesByLang: Record<string, string[]> = {};
-
             const originalLang = command.language.split('-')[0];
-            if (!aliasesByLang[originalLang]) aliasesByLang[originalLang] = [];
-            aliasesByLang[originalLang].push(suggestion.originalCommand);
-
-            suggestion.suggestedAliases.forEach(aliasInfo => {
-                const lang = aliasInfo.lang;
-                if (!aliasesByLang[lang]) aliasesByLang[lang] = [];
-                aliasesByLang[lang].push(aliasInfo.alias);
-                if (aliasInfo.transliteratedAlias) {
-                    aliasesByLang[lang].push(aliasInfo.transliteratedAlias);
-                }
-            });
             
-            const updates: Record<string, any> = {};
-            for (const lang in aliasesByLang) {
-                const uniqueAliases = [...new Set(aliasesByLang[lang])];
-                updates[lang] = arrayUnion(...uniqueAliases);
-            }
-            
-            batch.set(aliasGroupRef, updates, { merge: true });
+            batch.set(aliasGroupRef, {
+                [originalLang]: arrayUnion(suggestion.originalCommand)
+            }, { merge: true });
 
             const commandRef = doc(firestore, 'failedCommands', command.id);
             batch.delete(commandRef);
@@ -121,11 +99,10 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
             try {
                 await batch.commit();
                 toast({ title: "Alias Approved!", description: `"${suggestion.originalCommand}" is now an alias for "${suggestion.suggestedKey}".`});
-                // After saving, refetch all data to update the VoiceCommander's context
                 await fetchInitialData(firestore);
             } catch (err) {
                  console.error("Error saving aliases:", err);
-                 toast({ variant: 'destructive', title: "Save Failed", description: "Could not save the new aliases. Check permissions and data structure." });
+                 toast({ variant: 'destructive', title: "Save Failed", description: "Could not save the new aliases." });
             }
         });
     }, [firestore, command.id, command.language, startAdd, toast, fetchInitialData, suggestion]);
@@ -136,10 +113,9 @@ function FailedCommandRow({ command, allItemNames }: { command: FailedVoiceComma
             const commandRef = doc(firestore, 'failedCommands', command.id);
             try {
                 await deleteDoc(commandRef);
-                toast({ title: "Command Log Deleted", description: `The log for "${command.commandText}" has been removed.` });
+                toast({ title: "Log Deleted" });
             } catch (err) {
-                console.error("Error deleting command log:", err);
-                toast({ variant: 'destructive', title: "Deletion Failed", description: "Could not remove the command log." });
+                toast({ variant: 'destructive', title: "Deletion Failed" });
             }
         });
     };
@@ -185,11 +161,12 @@ export default function FailedCommandsPage() {
     const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
     const { firestore } = useFirebase();
     const router = useRouter();
-    const { masterProducts, stores, toast } = useAppStore();
+    const { toast } = useToast();
+    const { masterProducts, stores } = useAppStore();
     const [isDeletingAll, startDeleteAll] = useTransition();
 
     const failedCommandsQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
+        if (!firestore) return undefined;
         return query(collection(firestore, 'failedCommands'), orderBy('timestamp', 'desc'));
     }, [firestore]);
 
@@ -249,11 +226,11 @@ export default function FailedCommandsPage() {
                                         Delete All Logs
                                     </Button>
                                 </AlertDialogTrigger>
-                                <AlertDialogContent className="rounded-[2rem] border-0 shadow-2xl">
+                                <AlertDialogContent className="rounded-[2.5rem] border-0 shadow-2xl">
                                     <AlertDialogHeader>
                                         <AlertDialogTitle className="font-black uppercase tracking-tight">Clear History?</AlertDialogTitle>
                                         <AlertDialogDescription className="font-bold">
-                                            This will permanently delete all recorded failed voice commands. This action cannot be undone.
+                                            This will permanently delete all recorded failed voice commands.
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter className="gap-2">
