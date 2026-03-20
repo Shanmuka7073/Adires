@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -19,11 +18,15 @@ export async function getPlatformAnalytics() {
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         
         // Multi-period anchors
-        const start7d = new Date(todayStart); start7d.setDate(start7d.getDate() - 7);
-        const start14d = new Date(todayStart); start14d.setDate(start14d.getDate() - 14);
-        const start30d = new Date(todayStart); start30d.setDate(start30d.getDate() - 30);
+        const start7d = new Date(todayStart); start7d.setDate(todayStart.getDate() - 7);
+        const start14d = new Date(todayStart); start14d.setDate(todayStart.getDate() - 14);
+        const start30d = new Date(todayStart); start30d.setDate(todayStart.getDate() - 30);
+        const start60d = new Date(todayStart); start60d.setDate(todayStart.getDate() - 60);
         
-        const yesterdayStart = new Date(todayStart); yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+        const yesterdayStart = new Date(todayStart); yesterdayStart.setDate(todayStart.getDate() - 1);
+        const prev7dStart = new Date(start7d); prev7dStart.setDate(prev7dStart.getDate() - 7);
+        const prev14dStart = new Date(start14d); prev14dStart.setDate(prev14dStart.getDate() - 14);
+        const prev30dStart = new Date(start30d); prev30dStart.setDate(prev30dStart.getDate() - 30);
 
         const [
             userCount, 
@@ -35,8 +38,8 @@ export async function getPlatformAnalytics() {
         ] = await Promise.all([
             db.collection('users').count().get(),
             db.collection('stores').where('isClosed', '!=', true).count().get(),
-            // Fetch all orders from last 30 days for memory processing
-            db.collection('orders').where('orderDate', '>=', Timestamp.fromDate(start30d)).get(),
+            // Fetch 60 days for period-over-period comparison
+            db.collection('orders').where('orderDate', '>=', Timestamp.fromDate(start60d)).get(),
             db.collection('orders').where('isActive', '==', true).count().get(),
             db.collection('deliveryPartners').get(),
             db.collection('siteConfig').doc('appStatus').get()
@@ -57,28 +60,44 @@ export async function getPlatformAnalytics() {
 
         const successful = (orders: Order[]) => orders.filter(o => ['Delivered', 'Completed'].includes(o.status));
 
-        // TODAY Metrics
-        const ordersToday = filterOrders(todayStart);
-        const revenueToday = successful(ordersToday).reduce((acc, o) => acc + (o.totalAmount || 0), 0);
-        
-        const ordersYesterday = filterOrders(yesterdayStart, todayStart);
-        const revenueYesterday = successful(ordersYesterday).reduce((acc, o) => acc + (o.totalAmount || 0), 0);
-        const revenueTrendToday = revenueYesterday > 0 ? ((revenueToday - revenueYesterday) / revenueYesterday) * 100 : 0;
+        const calculatePeriodMetrics = (currentOrders: Order[], prevOrders: Order[]) => {
+            const currentSuccessful = successful(currentOrders);
+            const prevSuccessful = successful(prevOrders);
 
-        // 7D Metrics
-        const orders7d = filterOrders(start7d);
-        const revenue7d = successful(orders7d).reduce((acc, o) => acc + (o.totalAmount || 0), 0);
-        const aov7d = successful(orders7d).length > 0 ? revenue7d / successful(orders7d).length : 0;
+            const currentRevenue = currentSuccessful.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
+            const prevRevenue = prevSuccessful.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
+            
+            const currentAov = currentSuccessful.length > 0 ? currentRevenue / currentSuccessful.length : 0;
+            const prevAov = prevSuccessful.length > 0 ? prevRevenue / prevSuccessful.length : 0;
 
-        // 14D Metrics
-        const orders14d = filterOrders(start14d);
-        const revenue14d = successful(orders14d).reduce((acc, o) => acc + (o.totalAmount || 0), 0);
-        const aov14d = successful(orders14d).length > 0 ? revenue14d / successful(orders14d).length : 0;
+            const currentUserReach = new Set(currentOrders.map(o => o.userId)).size;
+            const prevUserReach = new Set(prevOrders.map(o => o.userId)).size;
 
-        // 30D Metrics
-        const orders30d = filterOrders(start30d);
-        const revenue30d = successful(orders30d).reduce((acc, o) => acc + (o.totalAmount || 0), 0);
-        const aov30d = successful(orders30d).length > 0 ? revenue30d / successful(orders30d).length : 0;
+            const calcTrend = (curr: number, prev: number) => prev > 0 ? ((curr - prev) / prev) * 100 : (curr > 0 ? 100 : 0);
+
+            return {
+                revenue: currentRevenue,
+                orders: currentOrders.length,
+                aov: currentAov,
+                userReach: currentUserReach,
+                trends: {
+                    revenue: calcTrend(currentRevenue, prevRevenue),
+                    orders: calcTrend(currentOrders.length, prevCount(prevOrders)),
+                    aov: calcTrend(currentAov, prevAov),
+                    userReach: calcTrend(currentUserReach, prevUserReach)
+                }
+            };
+        };
+
+        const prevCount = (orders: Order[]) => orders.length;
+
+        // PERIOD DATA
+        const periods = {
+            today: calculatePeriodMetrics(filterOrders(todayStart), filterOrders(yesterdayStart, todayStart)),
+            '7d': calculatePeriodMetrics(filterOrders(start7d), filterOrders(prev7dStart, start7d)),
+            '14d': calculatePeriodMetrics(filterOrders(start14d), filterOrders(prev14dStart, start14d)),
+            '30d': calculatePeriodMetrics(filterOrders(start30d), filterOrders(prev30dStart, start30d))
+        };
 
         const decisions = [];
         if (appStatus.isMaintenance) {
@@ -91,7 +110,7 @@ export async function getPlatformAnalytics() {
         }
 
         const zoneLoad: Record<string, number> = {};
-        ordersToday.filter(o => o.status === 'Pending').forEach(o => {
+        filterOrders(todayStart).filter(o => o.status === 'Pending').forEach(o => {
             if (o.zoneId) zoneLoad[o.zoneId] = (zoneLoad[o.zoneId] || 0) + 1;
         });
 
@@ -109,7 +128,7 @@ export async function getPlatformAnalytics() {
 
         // Top Stores calculation (30 days)
         const storeRevenueMap = new Map<string, { revenue: number, orderCount: number, name: string, businessType: string }>();
-        successful(orders30d).forEach(o => {
+        successful(filterOrders(start30d)).forEach(o => {
             const current = storeRevenueMap.get(o.storeId) || { revenue: 0, orderCount: 0, name: o.storeName || 'Verified Store', businessType: o.orderType || 'Retail' };
             current.revenue += o.totalAmount;
             current.orderCount += 1;
@@ -129,32 +148,7 @@ export async function getPlatformAnalytics() {
             isMaintenance: appStatus.isMaintenance || false,
             decisions,
             topStores,
-            periods: {
-                today: {
-                    revenue: revenueToday,
-                    orders: ordersToday.length,
-                    aov: successful(ordersToday).length > 0 ? revenueToday / successful(ordersToday).length : 0,
-                    trend: revenueTrendToday
-                },
-                '7d': {
-                    revenue: revenue7d,
-                    orders: orders7d.length,
-                    aov: aov7d,
-                    trend: 12.4 // Simulated trend for 7d
-                },
-                '14d': {
-                    revenue: revenue14d,
-                    orders: orders14d.length,
-                    aov: aov14d,
-                    trend: 8.2
-                },
-                '30d': {
-                    revenue: revenue30d,
-                    orders: orders30d.length,
-                    aov: aov30d,
-                    trend: 15.1
-                }
-            }
+            periods
         };
     } catch (error: any) {
         console.error("Platform Analytics failed:", error);

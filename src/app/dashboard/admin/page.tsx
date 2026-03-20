@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Suspense, useState, useEffect, useTransition } from 'react';
@@ -166,7 +165,7 @@ export default function AdminDashboardPage() {
       const res = await executeCommand(command);
       if (res.success) {
           toast({ title: 'Success', description: res.message });
-          fetchStats();
+          handleRefresh(); // Trigger data refresh to show impact
       } else {
           toast({ variant: 'destructive', title: 'Execution Failed', description: res.error });
       }
@@ -174,7 +173,7 @@ export default function AdminDashboardPage() {
 
   if (isLoading) return <div className="p-12 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto opacity-20" /></div>;
 
-  const currentMetrics = data?.periods?.[activePeriod] || data?.periods?.today || { revenue: 0, orders: 0, aov: 0, trend: 0 };
+  const currentMetrics = data?.periods?.[activePeriod] || data?.periods?.today || { revenue: 0, orders: 0, aov: 0, userReach: 0, trends: { revenue: 0, orders: 0, aov: 0, userReach: 0 } };
 
   return (
     <div className="container mx-auto px-4 py-10 space-y-12 max-w-7xl pb-32 animate-in fade-in duration-700">
@@ -214,7 +213,7 @@ export default function AdminDashboardPage() {
             title={`Revenue ${activePeriod.toUpperCase()}`} 
             value={`₹${currentMetrics.revenue.toFixed(0)}`} 
             subValue={activePeriod === 'today' ? "Vs Yesterday" : "Growth Context"} 
-            trendValue={currentMetrics.trend} 
+            trendValue={currentMetrics.trends.revenue} 
             icon={DollarSign} 
             color="bg-primary" 
         />
@@ -222,7 +221,7 @@ export default function AdminDashboardPage() {
             title={`Orders ${activePeriod.toUpperCase()}`} 
             value={currentMetrics.orders} 
             subValue="Transaction Volume" 
-            trendValue={5.2} 
+            trendValue={currentMetrics.trends.orders} 
             icon={ShoppingBag} 
             color="bg-amber-500" 
         />
@@ -230,15 +229,15 @@ export default function AdminDashboardPage() {
             title="Avg Order Value" 
             value={`₹${currentMetrics.aov.toFixed(0)}`} 
             subValue="Basket Profitability" 
-            trendValue={3.1} 
+            trendValue={currentMetrics.trends.aov} 
             icon={Target} 
             color="bg-blue-600" 
         />
         <KPICard 
             title="Market Reach" 
-            value={data.totalUsers} 
+            value={currentMetrics.userReach} 
             subValue={`${data.activeSessions} Real-time Visitors`} 
-            trendValue={8.4} 
+            trendValue={currentMetrics.trends.userReach} 
             icon={Users} 
             color="bg-purple-600" 
         />
