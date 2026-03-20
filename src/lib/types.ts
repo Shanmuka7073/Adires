@@ -203,7 +203,7 @@ export interface GetIngredientsOutput {
     title: string;
     components: Ingredient[];
     steps: InstructionStep[];
-    nutrition: {
+    nutrition?: {
         calories: number;
         protein: number;
     };
@@ -215,7 +215,7 @@ export type CachedRecipe = {
     itemType: 'food' | 'service' | 'product';
     components: Ingredient[];
     steps: InstructionStep[];
-    nutrition: {
+    nutrition?: {
         calories: number;
         protein: number;
     };

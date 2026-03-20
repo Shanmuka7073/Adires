@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -47,7 +48,11 @@ export async function getFirebaseConfig() {
  */
 export async function getIngredientsForDish(input: { dishName: string; language: 'en' | 'te' }): Promise<GetIngredientsOutput> {
     try {
-        return await getIngredientsForDishFlow(input);
+        const result = await getIngredientsForDishFlow(input);
+        return {
+            ...result,
+            nutrition: result.nutrition || { calories: 0, protein: 0 }
+        };
     } catch (error: any) {
         console.error("getIngredientsForDish failed:", error);
         return {
