@@ -4,7 +4,7 @@
 export const overviewText = `
 ## 🚀 Adires: The Advanced Unified Market Platform
 
-Adires (formerly LocalBasket) is a high-performance, multi-role market hub designed for the Indian context. It bridges the gap between neighborhood commerce and digital-first expectations using cutting-edge PWA, AI, and Biometric technologies.
+Adires (formerly LocalBasket) is a high-performance, multi-role market hub designed for the Indian context. It bridges the gap between neighborhood commerce and digital-first expectations using cutting-edge PWA and AI technologies.
 
 ---
 
@@ -36,12 +36,11 @@ We prioritize speed and cost-efficiency using **Operational Indexing** and **Per
 
 ---
 
-### 🎙️ 4. Multilingual NLU & Voice ID
+### 🎙️ 4. Multilingual NLU & Platform Identity
 The "Brain" of the platform is built for India's multilingual reality.
 
 *   **Regional NLU**: Understands English, Telugu, and Hindi mixed sentences. It can extract "one kg chicken" and "500gm onions" from a single spoken phrase.
 *   **Individual Data Continuity**: Every user (even guests) is assigned a persistent \`deviceId\`. This ensures that "Individual Data" like order history and favorites are preserved across visits.
-*   **Voice ID Biometrics**: Users can enroll their voice as a secure key, allowing them to verify transactions or log in using only their speech patterns.
 
 ---
 
@@ -62,6 +61,6 @@ The app turns any shop into a high-tech operation with **zero hardware cost**.
 ---
 
 ### 🔒 7. Advanced Security & Auth
-*   **Biometric Hub**: Supports both **Fingerprint (WebAuthn)** and **Voice ID** for military-grade, passwordless security.
+*   **Role-Based Access**: Multi-layered security ensuring employees, owners, and admins only see authorized data.
 *   **Contextual Permissions**: Firestore Security Rules ensure owners only see their store, delivery partners only see jobs in their \`zoneId\`, and customers only see their own private history.
 `;

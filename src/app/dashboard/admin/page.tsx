@@ -31,7 +31,15 @@ import {
   Lock,
   Shield,
   ArrowRight,
-  CheckCircle2
+  CheckCircle2,
+  Video,
+  List,
+  FileSignature,
+  FileText,
+  Server,
+  KeyRound,
+  BookOpen,
+  Beaker
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -134,6 +142,24 @@ function DecisionItem({ type, title, message, action, onExecute }: any) {
     )
 }
 
+function AdminActionCard({ title, description, href, icon: Icon }: { title: string, description: string, href: string, icon: React.ElementType }) {
+    return (
+        <Link href={href} className="block hover:shadow-lg transition-shadow rounded-lg">
+            <Card>
+                <CardHeader>
+                    <div className="flex items-center gap-4">
+                        <Icon className="h-8 w-8 text-primary" />
+                        <CardTitle>{title}</CardTitle>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <CardDescription>{description}</CardDescription>
+                </CardContent>
+            </Card>
+        </Link>
+    );
+}
+
 export default function AdminDashboardPage() {
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -166,9 +192,9 @@ export default function AdminDashboardPage() {
       const res = await executeCommand(command);
       if (res.success) {
           toast({ title: 'Success', description: res.message });
-          handleRefresh(); // Trigger data refresh to show impact
+          handleRefresh(); 
       } else {
-          toast({ variant: 'destructive', title: 'Execution Failed', description: res.error });
+          toast({ variant: 'destructive', title: 'Execution Failed' });
       }
   };
 
@@ -283,40 +309,18 @@ export default function AdminDashboardPage() {
                 </div>
             </div>
 
-            {/* 3. LEADERBOARD */}
-            <Card className="rounded-[3rem] border-0 shadow-2xl overflow-hidden bg-white">
-                <CardHeader className="bg-primary/5 border-b border-black/5 flex flex-row justify-between items-center py-8 px-10">
-                    <div>
-                        <CardTitle className="text-2xl font-black uppercase tracking-tight">Hub Performance</CardTitle>
-                        <CardDescription className="text-[10px] font-bold opacity-40 uppercase">Top 5 verified business owners (Last 30 Days)</CardDescription>
-                    </div>
-                    <Award className="h-8 w-8 text-primary opacity-20" />
-                </CardHeader>
-                <CardContent className="p-0">
-                    <div className="divide-y divide-black/5">
-                        {data.topStores.map((store: any, i: number) => (
-                            <div key={store.id} className="p-8 flex items-center justify-between group hover:bg-muted/30 transition-all cursor-pointer">
-                                <div className="flex items-center gap-6 min-w-0">
-                                    <div className="h-12 w-12 rounded-[1.2rem] bg-black/5 flex items-center justify-center font-black text-lg text-gray-400 group-hover:bg-primary group-hover:text-white transition-colors">
-                                        {i + 1}
-                                    </div>
-                                    <div className="min-w-0">
-                                        <p className="font-black text-base uppercase truncate text-gray-950">{store.name}</p>
-                                        <div className="flex items-center gap-3 mt-1">
-                                            <span className="text-[10px] font-bold opacity-40 uppercase tracking-widest">{store.businessType}</span>
-                                            <Badge variant="outline" className="text-[8px] font-black uppercase border-primary/20 h-5 px-2">{store.orderCount} Orders</Badge>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="text-right shrink-0">
-                                    <p className="font-black text-2xl tracking-tighter text-primary">₹{store.revenue.toFixed(0)}</p>
-                                    <p className="text-[8px] font-black uppercase opacity-20">Volume Index</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </CardContent>
-            </Card>
+            {/* 3. SOURCE CODE MODULES */}
+            <div className="space-y-4">
+                <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40">Artifact Modules</h2>
+                <div className="grid md:grid-cols-2 gap-4">
+                    <AdminActionCard title="System Status" description="Live health check of backend services." href="/dashboard/admin/system-status" icon={Server} />
+                    <AdminActionCard title="App Overview" description="Complete design & architecture breakdown." href="/dashboard/admin/app-overview" icon={FileSignature} />
+                    <AdminActionCard title="Market Catalog" description="Manage master products and prices." href="/dashboard/owner/my-store" icon={Store} />
+                    <AdminActionCard title="NLU Engine" description="Manage voice command aliases." href="/dashboard/voice-commands" icon={Mic} />
+                    <AdminActionCard title="Order Logic" description="Examine atomic operational patterns." href="/dashboard/admin/order-logic-help" icon={ShoppingBag} />
+                    <AdminActionCard title="Security Rules" description="Production Firestore rule inspect." href="/dashboard/admin/security-rules" icon={Shield} />
+                </div>
+            </div>
         </section>
 
         {/* RIGHT: SECURITY & GROWTH */}
@@ -349,33 +353,6 @@ export default function AdminDashboardPage() {
                 </Card>
             </div>
 
-            {/* QUICK ACCESS ADMIN MODULES */}
-            <div className="space-y-4">
-                <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40">Operational Access</h2>
-                <div className="grid grid-cols-1 gap-3">
-                    {[
-                        { title: 'Strategic Audit', href: '/dashboard/admin/strategic-audit', icon: Drama, color: 'bg-indigo-500' },
-                        { title: 'NLU Control Center', href: '/dashboard/voice-commands', icon: Mic, color: 'bg-primary' },
-                        { title: 'Failed Command Hub', href: '/dashboard/admin/failed-commands', icon: Bot, color: 'bg-amber-500' },
-                        { title: 'Live Order Video', href: '/dashboard/admin/site-config', icon: Video, color: 'bg-blue-500' }
-                    ].map(tool => (
-                        <Link key={tool.title} href={tool.href}>
-                            <Card className="rounded-2xl border-0 shadow-md group hover:shadow-xl transition-all overflow-hidden border-2 border-transparent hover:border-black/5 bg-white">
-                                <CardContent className="p-5 flex items-center justify-between">
-                                    <div className="flex items-center gap-4">
-                                        <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center text-white shadow-inner", tool.color)}>
-                                            <tool.icon className="h-5 w-5" />
-                                        </div>
-                                        <span className="text-[10px] font-black uppercase tracking-widest">{tool.title}</span>
-                                    </div>
-                                    <ChevronRight className="h-4 w-4 opacity-20 group-hover:translate-x-1 group-hover:opacity-100 transition-all" />
-                                </CardContent>
-                            </Card>
-                        </Link>
-                    ))}
-                </div>
-            </div>
-
             <div className="space-y-4">
                 <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 flex items-center gap-2">
                     <TrendingUp className="h-3 w-3" /> Growth Logic
@@ -388,15 +365,6 @@ export default function AdminDashboardPage() {
                         </div>
                         <Progress value={42.8} className="h-2 bg-white/10" />
                         <p className="text-[10px] font-bold opacity-40 leading-relaxed uppercase tracking-tight">QR-menu interaction to order success rate.</p>
-                    </div>
-
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-baseline">
-                            <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Category Pull</span>
-                            <span className="text-2xl font-black text-blue-400">18.2%</span>
-                        </div>
-                        <Progress value={18.2} className="h-2 bg-white/10" />
-                        <p className="text-[10px] font-bold opacity-40 leading-relaxed uppercase tracking-tight">Cross-sell index for Wellness & Meat hubs.</p>
                     </div>
 
                     <Separator className="bg-white/10" />

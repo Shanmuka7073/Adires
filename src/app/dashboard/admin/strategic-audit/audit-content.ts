@@ -8,7 +8,7 @@ The technical execution is "Pro-Grade," utilizing Next.js 14 and advanced Firest
   featureInventory: [
     { title: "QR-Session Logic", status: "Active", description: "Zero-install ordering via table/deviceId grouping." },
     { title: "AI Menu OCR", status: "Active", description: "Automated business onboarding from paper photos." },
-    { title: "Biometric Authentication", status: "Active", description: "WebAuthn Fingerprint & Voice ID for military-grade security." },
+    { title: "Defensive Authentication", status: "Active", description: "Robust Firebase Auth implementation with role-based access control." },
     { title: "Local-First PWA", status: "Active", description: "Full offline resilience via Service Worker and Persistent Cache." },
     { title: "Operational Indexing", status: "Active", description: "isActive flags reducing Firestore read costs by ~98%." },
     { title: "Multilingual NLU", status: "Active", description: "En/Te/Hi mixed voice recognition for item extraction." },
@@ -27,13 +27,13 @@ The technical execution is "Pro-Grade," utilizing Next.js 14 and advanced Firest
     { area: "Asset Hosting", risk: "Unoptimized image/video uploads from owners could swell Storage costs.", fix: "Integrate automatic client-side image compression before upload." }
   ],
   growthEngine: `
-- **Retention**: Biometric auth removes 'password friction', leading to higher repeat login rates.
+- **Retention**: PWA shell provides a 'native app' feel with zero install friction, leading to higher repeat engagement.
 - **AOV (Average Order Value)**: Contextual AI recommendations (Frequently bought with...) and Session History scrollers.
 - **Virality**: QR-menu sharing via SMS Contact Picker API (built-in).
 - **Moat**: The zero-commission model makes switching costs for business owners extremely high.
   `,
   roadmap: [
-    { phase: "Phase 1: MVP Excellence", items: ["Finalize QR Session flow", "Stabilize Biometric Auth", "Launch Basic Analytics"] },
+    { phase: "Phase 1: MVP Excellence", items: ["Finalize QR Session flow", "Stabilize App Shell", "Launch Basic Analytics"] },
     { phase: "Phase 2: Scale & Operations", items: ["Automated Inventory Sync", "Multi-zone delivery routing", "WhatsApp Transactional Alerts"] },
     { phase: "Phase 3: Market Dominance", items: ["AI-driven procurement for stores", "Revenue-based financing (Fintech layer)", "Global Multilingual Rollout"] }
   ],
