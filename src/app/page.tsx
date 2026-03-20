@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -17,12 +18,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
 /**
- * Simplified Homepage Header.
- * Branding, Cart, and Mic are now strictly managed by the global Header component.
+ * Simplified Homepage Sub-Header.
+ * Branding, Cart, and Mic are strictly managed by the global sticky Header component.
+ * This component handles localized delivery context and search.
  */
 function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: string) => void, user: User | null }) {
     const [deliveryTime, setDeliveryTime] = useState<number | null>(null);
@@ -32,7 +35,7 @@ function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: strin
     }, []);
 
     return (
-        <header className="bg-background px-4 py-4 space-y-4 shadow-sm border-b">
+        <div className="bg-background px-4 py-4 space-y-4 shadow-sm border-b">
             <div className="flex justify-between items-center">
                 <div>
                      <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Quick Dispatch</p>
@@ -59,7 +62,7 @@ function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: strin
                     onChange={(e) => onSearchChange(e.target.value)} 
                 />
             </div>
-        </header>
+        </div>
     );
 }
 
