@@ -86,12 +86,11 @@ const storeSchema = z.object({
   address: z.string().min(10, 'Please enter a valid address'),
   latitude: z.coerce.number().min(-90, "Invalid latitude").max(90, "Invalid latitude"),
   longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude"),
-  tables: z.array(z.string()).optional(),
 });
 
 const locationSchema = z.object({
-    latitude: z.coerce.number().min(-90).max(90),
-    longitude: z.coerce.number().min(-180).max(180),
+    latitude: z.coerce.number().min(-90, "Invalid latitude").max(90, "Invalid latitude"),
+    longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude"),
 });
 
 const variantSchema = z.object({
@@ -115,13 +114,15 @@ type LocationFormValues = z.infer<typeof locationSchema>;
 
 // Helper to create a URL-friendly slug from a string
 const createSlug = (text: string) => {
+    if(!text) return '';
     return text
       .toLowerCase()
-      .replace(/\s+/g, '-') // Replace spaces with -
-      .replace(/[^\w-]+/g, '') // Remove all non-word chars
-      .replace(/--+/g, '-') // Replace multiple - with single -
-      .replace(/^-+/, '') // Trim - from start of text
-      .replace(/-+$/, ''); // Trim - from end of text
+      .trim()
+      .replace(/\s+/g, '-') 
+      .replace(/[^\w-]+/g, '') 
+      .replace(/--+/g, '-') 
+      .replace(/^-+/, '') 
+      .replace(/-+$/, ''); 
   };
 
 function StoreImageUploader({ store }: { store: Store }) {
@@ -379,7 +380,7 @@ function EditProductDialog({ storeId, product, isOpen, onOpenChange }: { storeId
     };
 
     const categories = useAppStore(state => 
-        Array.from(new Set(state.masterProducts.map(p => p.category).filter(Boolean)))
+        Array.from(new Set((state.masterProducts as Product[]).map(p => p.category).filter(Boolean)))
     );
 
     return (
@@ -541,7 +542,7 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
   }));
   
   const ownerProductsQuery = useMemoFirebase(() => {
-    if (!firestore || !storeId) return undefined;
+    if (!firestore || !storeId) return null;
     return collection(firestore, 'stores', storeId, 'products');
   }, [firestore, storeId]);
   const { data: ownerProducts, isLoading: ownerProductsLoading } = useCollection<Product>(ownerProductsQuery);
@@ -675,6 +676,7 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
           </CardContent>
       </Card>
   )
+
 }
 
 
@@ -920,27 +922,6 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-             <FormItem>
-                <FormLabel>{t('product-template-optional')}</FormLabel>
-                <Select onValueChange={handleTemplateSelect}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder={t('select-a-predefined-item')} />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                        {(masterProducts as Product[]).map(p => (
-                            <SelectItem key={p.id} value={`${p.name}::${p.category}`}>
-                                {p.name} ({p.category})
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-                <FormDescription>
-                    {t('select-an-item-to-auto-fill')}
-                </FormDescription>
-            </FormItem>
-
             <FormField
               control={form.control}
               name="name"
@@ -1094,14 +1075,448 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
   );
 }
 
+function PromoteStore({ store }: { store: Store }) {
+    const { toast } = useToast();
+
+    const handleShare = async () => {
+        if (!('contacts' in navigator && 'select' in (navigator as any).contacts)) {
+            toast({
+                variant: 'destructive',
+                title: 'API Not Supported',
+                description: 'Your browser does not support the Contact Picker API.',
+            });
+            return;
+        }
+
+        try {
+            const contacts = await (navigator as any).contacts.select(['name', 'email', 'tel'], { multiple: true });
+
+            if (contacts.length === 0) {
+                toast({ title: 'No contacts selected.' });
+                return;
+            }
+
+            const phoneNumbers = contacts.flatMap((c: any) => c.tel || []);
+            const shareText = `Check out my store, ${store.name}, on the Adires app! Visit my storefront here: ${window.location.origin}/stores/${store.id}`;
+            
+            if (phoneNumbers.length > 0) {
+                 const smsLink = `sms:${phoneNumbers.join(',')}?&body=${encodeURIComponent(shareText)}`;
+                 window.open(smsLink, '_blank');
+            } else {
+                 toast({
+                    variant: 'destructive',
+                    title: 'No Phone Numbers Found',
+                    description: 'The selected contacts do not have phone numbers.',
+                });
+            }
+        } catch (ex) {
+            toast({
+                variant: 'destructive',
+                title: 'Could not access contacts',
+                description: 'There was an error trying to access your contacts.',
+            });
+            console.error(ex);
+        }
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>{t('promote-your-store')}</CardTitle>
+                <CardDescription>
+                    {t('share-your-store-with-your-phone-contacts')}
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button onClick={handleShare} className="w-full">
+                    <Share2 className="mr-2 h-4 w-4" />
+                    {t('share-with-contacts')}
+                </Button>
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                    {t('this-will-open-your-phones-contact-picker')}
+                </p>
+            </CardContent>
+        </Card>
+    );
+}
+
+function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () => void }) {
+    const { firestore } = useFirebase();
+    const [isPending, startTransition] = useTransition();
+    const { toast } = useToast();
+    const [isLocating, setIsLocating] = useState(false);
+
+    const form = useForm<LocationFormValues>({
+        resolver: zodResolver(locationSchema),
+        defaultValues: {
+            latitude: store.latitude || 0,
+            longitude: store.longitude || 0,
+        },
+    });
+
+    const handleGetLocation = () => {
+        if (navigator.geolocation) {
+            setIsLocating(true);
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    form.setValue('latitude', position.coords.latitude, { shouldValidate: true });
+                    form.setValue('longitude', position.coords.longitude, { shouldValidate: true });
+                    toast({ title: "Location Fetched!", description: "Your current location has been filled in." });
+                    setIsLocating(false);
+                },
+                () => {
+                    toast({ variant: 'destructive', title: "Location Error", description: "Could not retrieve your location. Please enter it manually." });
+                    setIsLocating(false);
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
+        } else {
+            toast({ variant: 'destructive', title: "Not Supported", description: "Geolocation is not supported by your browser." });
+        }
+    };
+    
+    const onSubmit = (data: LocationFormValues) => {
+        if (!firestore) return;
+        startTransition(() => {
+            const storeRef = doc(firestore, 'stores', store.id);
+            updateDoc(storeRef, data)
+                .then(() => {
+                    toast({ title: "Store Location Updated!", description: "Your store's location has been saved." });
+                    onUpdate(); 
+                })
+                .catch((error) => {
+                    const permissionError = new FirestorePermissionError({
+                        path: storeRef.path,
+                        operation: 'update' as const,
+                        requestResourceData: data,
+                    });
+                    errorEmitter.emit('permission-error', permissionError);
+                });
+        });
+    };
+
+    return (
+        <Alert variant="destructive">
+            <AlertTitle>{t('action-required-update-your-stores-location')}</AlertTitle>
+            <AlertDescription>
+                {t('your-store-is-missing-gps-coordinates')}
+            </AlertDescription>
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
+                    <div className="flex items-end gap-4">
+                        <div className="grid grid-cols-2 gap-4 flex-1">
+                            <FormField control={form.control} name="latitude" render={({ field }) => (
+                                <FormItem><FormLabel className="text-xs text-muted-foreground">{t('latitude')}</FormLabel><FormControl><Input type="number" step="any" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                            <FormField control={form.control} name="longitude" render={({ field }) => (
+                                <FormItem><FormLabel className="text-xs text-muted-foreground">{t('longitude')}</FormLabel><FormControl><Input type="number" step="any" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                        </div>
+                         <Button type="button" variant="outline" onClick={handleGetLocation} disabled={isLocating}>
+                            {isLocating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />}
+                            {isLocating ? 'Locating...' : t('get-current-location')}
+                        </Button>
+                    </div>
+                     <Button type="submit" disabled={isPending}>
+                        {isPending ? t('saving') : t('save-location')}
+                    </Button>
+                </form>
+            </Form>
+        </Alert>
+    );
+}
+
+function DangerZone({ store }: { store: Store }) {
+    const { firestore } = useFirebase();
+    const [isClosing, startCloseTransition] = useTransition();
+    const { toast } = useToast();
+
+    const handleCloseStore = () => {
+        if (!firestore) return;
+
+        startCloseTransition(async () => {
+            const storeRef = doc(firestore, 'stores', store.id);
+            try {
+                await updateDoc(storeRef, { isClosed: true });
+                toast({
+                    title: "Store Closed",
+                    description: `${store.name} has been closed and will no longer be visible to customers.`,
+                });
+            } catch (error) {
+                console.error("Failed to close store:", error);
+                const permissionError = new FirestorePermissionError({
+                    path: storeRef.path,
+                    operation: 'update' as const,
+                    requestResourceData: { isClosed: true },
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            }
+        });
+    };
+
+    return (
+        <Card className="border-destructive">
+            <CardHeader>
+                <CardTitle className="text-destructive">{t('danger-zone')}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <p className="font-medium">{t('close-store')}</p>
+                        <p className="text-sm text-muted-foreground">
+                            {t('this-will-make-your-store-invisible')}
+                        </p>
+                    </div>
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive">{t('close-store')}</Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>{t('are-you-sure')}</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    {t('your-store-and-all-its-products-will-no-longer-be-visible')}
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleCloseStore} disabled={isClosing}>
+                                    {isClosing ? t('closing') : t('yes-close-my-store')}
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void }) {
+    const { firestore } = useFirebase();
+    const [isPending, startTransition] = useTransition();
+    const { toast } = useToast();
+    const [isOpen, setIsOpen] = useState(false);
+    const { getAllAliases } = useAppStore();
+
+    const form = useForm<Omit<StoreFormValues, 'latitude' | 'longitude'>>({
+        resolver: zodResolver(storeSchema.omit({ latitude: true, longitude: true })),
+        defaultValues: {
+            name: store.name,
+            teluguName: store.teluguName || '',
+            description: store.description,
+            address: store.address,
+        },
+    });
+    
+    const onSubmit = (data: Omit<StoreFormValues, 'latitude' | 'longitude'>) => {
+        if (!firestore) return;
+
+        startTransition(() => {
+            const storeRef = doc(firestore, 'stores', store.id);
+            updateDoc(storeRef, data)
+                .then(() => {
+                    toast({ title: "Store Details Updated!", description: "Your store's information has been saved." });
+                    setIsOpen(false);
+                    onUpdate(); // Trigger re-fetch in parent if needed
+                })
+                .catch((error) => {
+                    const permissionError = new FirestorePermissionError({
+                        path: storeRef.path,
+                        operation: 'update' as const,
+                        requestResourceData: data,
+                    });
+                    errorEmitter.emit('permission-error', permissionError);
+                });
+        });
+    };
+
+    const storeAliases = useMemo(() => {
+        const key = createSlug(store.name);
+        return getAllAliases(key);
+    }, [store.name, getAllAliases]);
+
+    return (
+        <Card>
+            <CardHeader>
+                <div className="flex justify-between items-center">
+                    <CardTitle>{t('store-details')}</CardTitle>
+                    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+                        <DialogTrigger asChild>
+                            <Button variant="outline" size="sm">
+                                <Edit className="mr-2 h-4 w-4" /> {t('edit')}
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl">
+                            <DialogHeader>
+                                <DialogTitle>{t('edit-store-details')}</DialogTitle>
+                                <DialogDescription>{t('update-your-stores-public-information')}</DialogDescription>
+                            </DialogHeader>
+                            <Form {...form}>
+                                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                                    <FormField
+                                        control={form.control}
+                                        name="name"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>{t('store-name')}</FormLabel>
+                                                <FormControl>
+                                                    <Input {...field} disabled={store.name === 'LocalBasket'} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="teluguName"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Store Name (Telugu)</FormLabel>
+                                                <FormControl>
+                                                    <Input {...field} placeholder="e.g., పటేల్ కిరాణా స్టోర్" />
+                                                </FormControl>
+                                                 <FormDescription>This name will be used for Telugu voice commands.</FormDescription>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="description"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>{t('description')}</FormLabel>
+                                                <FormControl><Textarea {...field} /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="address"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>{t('address')}</FormLabel>
+                                                <FormControl><Input {...field} /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <DialogFooter>
+                                        <Button type="button" variant="secondary" onClick={() => setIsOpen(false)}>{t('cancel')}</Button>
+                                        <Button type="submit" disabled={isPending}>{isPending ? t('saving') : t('save-changes')}</Button>
+                                    </DialogFooter>
+                                </form>
+                            </Form>
+                        </DialogContent>
+                    </Dialog>
+                </div>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+                <p><strong>{t('description')}:</strong> {store.description}</p>
+                <p><strong>{t('address')}:</strong> {store.address}</p>
+                 <p><strong>Telugu Name:</strong> {store.teluguName || 'Not set'}</p>
+                <p><strong>{t('location')}:</strong> {store.latitude}, {store.longitude}</p>
+                <div>
+                  <strong>Voice Aliases:</strong>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                      {Object.entries(storeAliases).flatMap(([lang, aliases]) =>
+                          aliases.map(alias => (
+                              <Badge key={`${lang}-${alias}`} variant="secondary">{alias} ({lang})</Badge>
+                          ))
+                      )}
+                      {Object.keys(storeAliases).length === 0 && <span className="text-muted-foreground ml-2">None set. Add aliases in the Voice Commands admin page.</span>}
+                  </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Product; storeId: string; onEdit: () => void; onDelete: () => void; }) {
+    const { firestore } = useFirebase();
+    const { getProductName, language, getAllAliases } = useAppStore();
+
+    const priceDocRef = useMemoFirebase(() => {
+        if (!firestore || !product.name) return null;
+        return doc(firestore, 'productPrices', product.name.toLowerCase());
+    }, [firestore, product.name]);
+
+    const { data: priceData, isLoading: pricesLoading } = useDoc<ProductPrice>(priceDocRef);
+    
+    const productAliases = useMemo(() => {
+        const key = createSlug(product.name);
+        return getAllAliases(key);
+    }, [product.name, getAllAliases]);
+
+    const variantsString = useMemo(() => {
+        if (pricesLoading) return "Loading prices...";
+        if (!priceData || !priceData.variants || priceData.variants.length === 0) return 'N/A';
+        return priceData.variants.map(v => `${v.weight} (₹${v.price}, Stock: ${v.stock})`).join(' | ');
+    }, [priceData, pricesLoading]);
+
+    return (
+        <TableRow>
+            <TableCell>
+                 <div className="flex items-start gap-4">
+                    <Image
+                        src={product.imageUrl || 'https://placehold.co/40x40/E2E8F0/64748B?text=?'}
+                        alt={product.name}
+                        width={40}
+                        height={40}
+                        className="rounded-sm object-cover mt-1"
+                    />
+                    <div>
+                        <span className="font-semibold">{getProductName(product)}</span>
+                         <div className="flex flex-wrap gap-1 mt-1">
+                            {Object.entries(productAliases).flatMap(([lang, aliases]) => 
+                                aliases.map(alias => (
+                                    <Badge key={`${lang}-${alias}`} variant="outline">{alias} ({lang})</Badge>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </TableCell>
+            <TableCell>{t(product.category?.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</TableCell>
+            <TableCell>{variantsString}</TableCell>
+            <TableCell className="text-right">
+                <Button variant="ghost" size="icon" onClick={onEdit}>
+                    <Edit className="h-4 w-4" />
+                    <span className="sr-only">Edit {product.name}</span>
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <Trash2 className="h-4 w-4" />
+                      <span className="sr-only">Delete {product.name}</span>
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{t('are-you-sure')}</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete the master product "{product.name}" and its pricing from the entire platform. This cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+                      <AlertDialogAction onClick={onDelete} className="bg-destructive hover:bg-destructive/90">{t('delete')}</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+            </TableCell>
+        </TableRow>
+    );
+}
+
 function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdmin: boolean, adminStoreId?: string; }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isDeleting, startDeleteTransition] = useTransition();
     const [isOpening, startOpenTransition] = useTransition();
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-    const { masterProducts } = useAppStore(state => ({ masterProducts: state.masterProducts }));
-    const [selectedCategory, setSelectedCategory] = useState<string>('all');
     const { language } = useAppStore();
 
     const productsQuery = useMemoFirebase(() => {
@@ -1263,7 +1678,7 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Categories</SelectItem>
-                                {masterProducts.map(p => p.category).filter((v, i, a) => a.indexOf(v) === i && v).map(cat => (
+                                {(useAppStore.getState().masterProducts as Product[]).map(p => p.category).filter((v, i, a) => a.indexOf(v) === i && v).map(cat => (
                                     <SelectItem key={cat} value={cat!}>
                                         {t(cat!.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}
                                     </SelectItem>
@@ -1276,7 +1691,7 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
             <CardContent>
                 {isLoading ? (
                     <p>{t('loading-products')}...</p>
-                ) : filteredProducts && filteredProducts.length > 0 ? (
+                ) : products && products.length > 0 ? (
                     <Table>
                     <TableHeader>
                         <TableRow>
@@ -1342,7 +1757,6 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
             latitude: 0,
             longitude: 0,
             teluguName: '',
-            tables: [],
         },
     });
 

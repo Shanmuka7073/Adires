@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle, Download, Search, Check, X, Loader2, BookCopy, Upload, MessageSquare, ImageIcon, Home, Lightbulb, Binary, TestTube, Cog, Share2, Monitor, Drama, Edit, BarChart3, FileCode, Video, QrCode } from 'lucide-react';
+import { Users, Store, ShoppingBag, Mic, Bot, Shield, ImageIcon, Lightbulb, Server, Video, QrCode, FileCode } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -9,7 +9,7 @@ import { useMemo, useEffect, useState, useTransition, useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { collection, query, where, doc, updateDoc, writeBatch } from 'firebase/firestore';
-import type { Order, Store as StoreType, Product, ProductPrice, ProductVariant, User } from '@/lib/types';
+import type { Order, Store as StoreType, Product, ProductPrice, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { t } from '@/lib/locales';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -49,7 +49,7 @@ function CreateMasterStoreCard() {
                 {t('the-master-store-for-setting-platform-wide')}
                 <Button asChild className="mt-4">
                     <Link href="/dashboard/owner/my-store">
-                        {t('create-master-store')} <ArrowRight className="ml-2 h-4 w-4" />
+                        {t('create-master-store')}
                     </Link>
                 </Button>
             </AlertDescription>
