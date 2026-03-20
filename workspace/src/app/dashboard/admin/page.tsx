@@ -62,10 +62,10 @@ function LowStockAlerts() {
         if (!productPrices) return items;
 
         Object.values(productPrices).forEach(priceData => {
-            if (priceData && priceData.variants) {
-                priceData.variants.forEach(variant => {
+            if (priceData && (priceData as any).variants) {
+                (priceData as any).variants.forEach((variant: any) => {
                     if (variant.stock <= 10) {
-                        items.push({ productName: priceData.productName, variant });
+                        items.push({ productName: (priceData as any).productName, variant });
                     }
                 });
             }
@@ -127,13 +127,13 @@ export default function AdminDashboardPage() {
     const router = useRouter();
     const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
 
-    // Queries for stats
-    const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
-    const storesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'stores'), where('isClosed', '!=', true)) : null, [firestore]);
-    const deliveredOrdersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'orders'), where('status', '==', 'Delivered')) : null, [firestore]);
+    // Queries for stats - updated to undefined for useCollection
+    const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : undefined, [firestore]);
+    const storesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'stores'), where('isClosed', '!=', true)) : undefined, [firestore]);
+    const deliveredOrdersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'orders'), where('status', '==', 'Delivered')) : undefined, [firestore]);
     
     const adminStoreQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
+        if (!firestore) return undefined;
         return query(collection(firestore, 'stores'), where('name', '==', 'LocalBasket'));
     }, [firestore]);
 
@@ -238,12 +238,6 @@ export default function AdminDashboardPage() {
                         href="/dashboard/admin/failed-commands"
                         icon={Bot}
                     />
-                     <AdminActionCard
-                        title="Asha AI Agent"
-                        description="Use the conversational diagnostic assistant."
-                        href="/dashboard/admin/asha-agent"
-                        icon={BrainCircuit}
-                    />
                     <AdminActionCard
                         title="Cached Recipes"
                         description="View and manage the AI-generated recipe ingredient cache."
@@ -261,24 +255,6 @@ export default function AdminDashboardPage() {
                         description="View and copy the current Firestore security rules for debugging."
                         href="/dashboard/admin/security-rules"
                         icon={Shield}
-                    />
-                    <AdminActionCard
-                        title="Fingerprint Login Code"
-                        description="View the source code for the WebAuthn fingerprint login feature."
-                        href="/dashboard/admin/fingerprint-help"
-                        icon={Fingerprint}
-                    />
-                     <AdminActionCard
-                        title="Voice ID Code"
-                        description="View the source code for the voiceprint verification feature."
-                        href="/dashboard/admin/voice-id-help"
-                        icon={Voicemail}
-                    />
-                    <AdminActionCard
-                        title="WebAuthn API Code"
-                        description="View the source code for the WebAuthn (fingerprint) API route."
-                        href="/dashboard/admin/webauthn-api-help"
-                        icon={Fingerprint}
                     />
                      <AdminActionCard
                         title="Server Actions Code"

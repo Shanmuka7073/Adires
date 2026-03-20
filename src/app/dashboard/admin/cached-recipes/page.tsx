@@ -66,7 +66,7 @@ export default function CachedRecipesPage() {
     const router = useRouter();
 
     const recipesQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
+        if (!firestore) return undefined;
         return query(collection(firestore, 'cachedRecipes'), orderBy('createdAt', 'desc'));
     }, [firestore]);
 

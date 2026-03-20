@@ -50,12 +50,12 @@ export interface InternalQuery extends Query<DocumentData> {
  * use useMemo or useMemoFirebase to memoize it.
  *
  * @template T Optional type for document data. Defaults to any.
- * @param {CollectionReference<DocumentData> | Query<DocumentData> | undefined} memoizedTargetRefOrQuery -
- * The Firestore CollectionReference or Query. If undefined, the hook will wait.
+ * @param {CollectionReference<DocumentData> | Query<DocumentData> | undefined | null} memoizedTargetRefOrQuery -
+ * The Firestore CollectionReference or Query. If undefined or null, the hook will wait.
  * @returns {UseCollectionResult<T>} Object with data, isLoading, error, and refetch function.
  */
 export function useCollection<T = any>(
-    memoizedTargetRefOrQuery: ((CollectionReference<DocumentData> | Query<DocumentData>) & {__memo?: boolean}) | undefined,
+    memoizedTargetRefOrQuery: ((CollectionReference<DocumentData> | Query<DocumentData>) & {__memo?: boolean}) | undefined | null,
 ): UseCollectionResult<T> {
   type ResultItemType = WithId<T>;
   type StateDataType = ResultItemType[] | null;
