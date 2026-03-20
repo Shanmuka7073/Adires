@@ -22,7 +22,6 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-  CardFooter,
 } from '@/components/ui/card';
 import {
   Dialog,
@@ -61,11 +60,12 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Sparkles, PlusCircle, Edit, Link2, QrCode, Save } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import Link from 'next/link';
 import { t } from '@/lib/locales';
-import { useAppStore, useMyStorePageStore } from '@/lib/store';
+import { useAppStore, useMyStorePageStore, type ProfileFormValues } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
 import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
 import { Label } from '@/components/ui/label';
@@ -73,7 +73,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
-const standardUnits = ["100gm", "250gm", "500gm", "1kg", "2kg", "5kg", "250ml", "500ml", "1 litre", "2 litres", "1 pack", "1 pc"];
+const standardWeights = ["100gm", "250gm", "500gm", "1kg", "2kg", "5kg", "1 pack", "1 pc"];
 
 const storeSchema = z.object({
   name: z.string().min(3, 'Store name must be at least 3 characters'),
@@ -82,13 +82,13 @@ const storeSchema = z.object({
     .string()
     .min(10, 'Description must be at least 10 characters'),
   address: z.string().min(10, 'Please enter a valid address'),
-  latitude: z.coerce.number().min(-90).max(90),
-  longitude: z.coerce.number().min(-180).max(180),
+  latitude: z.coerce.number().min(-90, "Invalid latitude").max(90, "Invalid latitude"),
+  longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude"),
 });
 
 const locationSchema = z.object({
-    latitude: z.coerce.number().min(-90).max(90),
-    longitude: z.coerce.number().min(-180).max(180),
+    latitude: z.coerce.number().min(-90, "Invalid latitude").max(90, "Invalid latitude"),
+    longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude"),
 });
 
 const variantSchema = z.object({
@@ -311,7 +311,7 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
         <Alert variant="destructive">
             <AlertTitle>Update Location</AlertTitle>
             <AlertDescription>GPS coordinates missing.</AlertDescription>
-            <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4"><div className="grid grid-cols-2 gap-4"><FormField control={form.control} name="latitude" render={({ field }) => (<FormItem><FormControl><Input type="number" step="any" {...field} /></FormControl></FormItem>)} /><FormField control={form.control} name="longitude" render={({ field }) => (<FormItem><FormControl><Input type="number" step="any" {...field} /></FormControl></FormItem>)} /></div><div className="flex gap-2"><Button type="button" variant="outline" onClick={handleGetLocation}>Get GPS</Button><Button type="submit" disabled={isPending}>Save</Button></div></form></Form>
+            <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4"><div className="grid grid-cols-2 gap-4"><FormField control={form.control} name="latitude" render={({ field }: { field: any }) => (<FormItem><FormControl><Input type="number" step="any" {...field} /></FormControl></FormItem>)} /><FormField control={form.control} name="longitude" render={({ field }: { field: any }) => (<FormItem><FormControl><Input type="number" step="any" {...field} /></FormControl></FormItem>)} /></div><div className="flex gap-2"><Button type="button" variant="outline" onClick={handleGetLocation}>Get GPS</Button><Button type="submit" disabled={isPending}>Save</Button></div></form></Form>
         </Alert>
     );
 }
@@ -356,7 +356,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                 <CardTitle>Business Information</CardTitle>
                 <Dialog open={isOpen} onOpenChange={setIsOpen}>
                     <DialogTrigger asChild><Button variant="outline" size="sm"><Edit className="h-4 w-4 mr-2"/> Edit</Button></DialogTrigger>
-                    <DialogContent><Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4"><FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Name</FormLabel><FormControl><Input {...field}/></FormControl></FormItem>)}/><FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Textarea {...field}/></FormControl></FormItem>)}/><Button type="submit" disabled={isPending}>Save</Button></form></Form></DialogContent>
+                    <DialogContent><Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4"><FormField control={form.control} name="name" render={({ field }: { field: any }) => (<FormItem><FormLabel>Name</FormLabel><FormControl><Input {...field}/></FormControl></FormItem>)}/><FormField control={form.control} name="description" render={({ field }: { field: any }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Textarea {...field}/></FormControl></FormItem>)}/><Button type="submit" disabled={isPending}>Save</Button></form></Form></DialogContent>
                 </Dialog>
             </CardHeader>
             <CardContent className="text-sm space-y-2"><p><strong>Address:</strong> {store.address}</p><p><strong>Description:</strong> {store.description}</p></CardContent>
@@ -370,7 +370,6 @@ function EditProductDialog({ storeId, product, isOpen, onOpenChange }: { storeId
     const [isGeneratingImage, startImageGeneration] = useTransition();
     const { firestore } = useFirebase();
     
-    // Type-safe categories retrieval
     const categories = useAppStore(state => 
         Array.from(new Set((state.masterProducts as Product[]).map(p => p.category).filter(Boolean)))
     ) as string[];
@@ -417,8 +416,8 @@ function EditProductDialog({ storeId, product, isOpen, onOpenChange }: { storeId
                 {pricesLoading ? <Loader2 className="animate-spin mx-auto"/> : (
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[60vh] overflow-y-auto pr-4">
-                            <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Name</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>)} />
-                            <FormField control={form.control} name="category" render={({ field }) => (
+                            <FormField control={form.control} name="name" render={({ field }: { field: any }) => (<FormItem><FormLabel>Name</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>)} />
+                            <FormField control={form.control} name="category" render={({ field }: { field: any }) => (
                                 <FormItem><FormLabel>Category</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                                         <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
@@ -430,8 +429,8 @@ function EditProductDialog({ storeId, product, isOpen, onOpenChange }: { storeId
                                 <CardContent className="p-2 space-y-4">
                                     {fields.map((field, index) => (
                                         <div key={field.id} className="grid grid-cols-3 items-end gap-2 p-3 border rounded-md bg-background">
-                                            <FormField control={form.control} name={`variants.${index}.weight`} render={({ field }) => (<FormItem><FormLabel>Size</FormLabel><FormControl><Input {...field}/></FormControl></FormItem>)} />
-                                            <FormField control={form.control} name={`variants.${index}.price`} render={({ field }) => (<FormItem><FormLabel>Price</FormLabel><FormControl><Input type="number" {...field}/></FormControl></FormItem>)} />
+                                            <FormField control={form.control} name={`variants.${index}.weight`} render={({ field }: { field: any }) => (<FormItem><FormLabel>Size</FormLabel><FormControl><Input {...field}/></FormControl></FormItem>)} />
+                                            <FormField control={form.control} name={`variants.${index}.price`} render={({ field }: { field: any }) => (<FormItem><FormLabel>Price</FormLabel><FormControl><Input type="number" {...field}/></FormControl></FormItem>)} />
                                             <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4"/></Button>
                                         </div>
                                     ))}
