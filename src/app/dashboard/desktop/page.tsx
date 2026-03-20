@@ -15,7 +15,13 @@ import { useAppStore } from '@/lib/store';
 import { useFirebase } from '@/firebase';
 import { Search } from 'lucide-react';
 
-function CategoryButton({ category, isSelected, onSelectCategory }) {
+interface CategoryButtonProps {
+  category: { name: string };
+  isSelected: boolean;
+  onSelectCategory: (name: string) => void;
+}
+
+function CategoryButton({ category, isSelected, onSelectCategory }: CategoryButtonProps) {
     const [image, setImage] = useState({ imageUrl: '', imageHint: '' });
     const [isImageLoading, setIsImageLoading] = useState(true);
 
@@ -28,7 +34,7 @@ function CategoryButton({ category, isSelected, onSelectCategory }) {
                 setImage(fetchedImage);
             } catch (error) {
                 console.error("Failed to fetch image for category:", category.name, error);
-                setImage({ imageUrl: 'https://picsum.photos/seed/placeholder/128/128', imageHint: 'placeholder' });
+                setImage({ imageUrl: 'https://picsum.photos/seed/placeholder/200/200', imageHint: 'placeholder' });
             } finally {
                 setIsImageLoading(false);
             }
