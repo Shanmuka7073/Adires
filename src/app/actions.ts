@@ -484,9 +484,15 @@ export async function rejectRegularization(id: string, storeId: string, reason: 
     }
 }
 
-export async function importProductsFromUrl(url: string) { return { success: true, count: 0 }; }
-export async function bulkUploadRecipes(csvText: string) { return { success: true, count: 0 }; }
-export async function addIngredientsToCatalog(ingredients: any[]) { return { success: true, count: 0 }; }
+export async function importProductsFromUrl(url: string): Promise<{ success: boolean; count: number; error?: string }> { 
+    return { success: true, count: 0 }; 
+}
+export async function bulkUploadRecipes(csvText: string): Promise<{ success: boolean; count: number; error?: string }> { 
+    return { success: true, count: 0 }; 
+}
+export async function addIngredientsToCatalog(ingredients: any[]): Promise<{ success: boolean; count: number; error?: string }> { 
+    return { success: true, count: 0 }; 
+}
 export async function executeCommand(cmd: string) { return { success: true, message: "Command executed." }; }
 export async function getSiteConfig(id: string) { return {}; }
 export async function updateSiteConfig(id: string, data: any) { return { success: true }; }
