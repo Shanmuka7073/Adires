@@ -10,6 +10,17 @@ import { getApps } from 'firebase-admin/app';
 import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
 
 /**
+ * UTILITY: Safe Date Parsing
+ */
+function toDateSafe(d: any): Date {
+    if (!d) return new Date();
+    if (d instanceof Date) return d;
+    if (typeof d === 'object' && d.seconds) return new Date(d.seconds * 1000);
+    if (typeof d === 'string') return new Date(d);
+    return new Date();
+}
+
+/**
  * AI INGREDIENT ANALYSIS
  */
 export async function getIngredientsForDish(input: { dishName: string; language: 'en' | 'te' }): Promise<GetIngredientsOutput> {
@@ -124,70 +135,6 @@ export async function placeRestaurantOrder(
 }
 
 /**
- * BUSINESS ANALYTICS ENGINE
- */
-export async function getStoreSalesReport({
-  storeId,
-  period,
-}: {
-  storeId: string;
-  period: 'daily' | 'weekly' | 'monthly';
-}) {
-  const { db } = await getAdminServices();
-  const now = new Date();
-  let startDate: Date;
-
-  if (period === 'daily') {
-    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  } else if (period === 'weekly') {
-    startDate = new Date(now);
-    startDate.setDate(now.getDate() - 7);
-  } else {
-    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-  }
-
-  try {
-    const ordersSnap = await db.collection('orders')
-        .where('storeId', '==', storeId)
-        .where('isActive', '==', false)
-        .where('orderDate', '>=', Timestamp.fromDate(startDate))
-        .get();
-
-    const orders = ordersSnap.docs.map(d => d.data() as Order);
-
-    let totalSales = 0;
-    let totalItems = 0;
-    const tableMap = new Map<string, any>();
-
-    orders.forEach(order => {
-      totalSales += order.totalAmount;
-      const tableKey = order.tableNumber || 'Delivery';
-      const tableData = tableMap.get(tableKey) || { tableNumber: tableKey, totalSales: 0, orderCount: 0 };
-      tableData.totalSales += order.totalAmount;
-      tableData.orderCount += 1;
-
-      order.items.forEach(item => {
-        totalItems += item.quantity;
-      });
-
-      tableMap.set(tableKey, tableData);
-    });
-
-    return {
-      success: true,
-      report: {
-        totalSales,
-        totalItems,
-        totalOrders: orders.length,
-        salesByTable: Array.from(tableMap.values())
-      }
-    };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-}
-
-/**
  * EXECUTIVE DASHBOARD ANALYTICS
  * Implements real Period-over-Period growth analysis.
  */
@@ -206,7 +153,10 @@ export async function getPlatformAnalytics() {
             db.collection('siteConfig').doc('appStatus').get()
         ]);
 
-        const allOrders = ordersSnap.docs.map(d => ({ ...d.data(), orderDate: d.data().orderDate.toDate() }));
+        const allOrders = ordersSnap.docs.map(d => ({ 
+            ...d.data(), 
+            orderDate: toDateSafe(d.data().orderDate) 
+        }));
         const now = new Date();
 
         const calculateMetrics = (periodDays: number) => {

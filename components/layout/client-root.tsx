@@ -7,7 +7,7 @@ import { CartProvider } from '@/lib/cart';
 import { MainLayout } from '@/components/layout/main-layout';
 import { Toaster } from '@/components/ui/toaster';
 import { useAppStore } from '@/lib/store';
-import GlobalLoader from './global-loader';
+import GlobalLoader from '@/components/layout/global-loader';
 import { InstallProvider } from '@/components/install-provider';
 
 /**
@@ -22,14 +22,13 @@ function useInitializeApp() {
         isInitialized,
         loading,
         setAppReady,
-        stores, // Use a core data array to check for rehydration
+        stores, 
     } = useAppStore();
 
     useEffect(() => {
         // If data is already in the store (from persisted state), the app is ready.
         if (stores.length > 0 && isInitialized) {
             setAppReady(true);
-            // Optionally, you can still fetch data in the background to get updates
             if (firestore) {
                 fetchInitialData(firestore);
             }
