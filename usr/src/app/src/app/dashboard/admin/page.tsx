@@ -21,7 +21,28 @@ import {
     Trash2, 
     Loader2, 
     ArrowRight,
-    AlertTriangle
+    AlertTriangle,
+    TrendingUp,
+    Calculator,
+    Zap,
+    ZapOff,
+    Sparkles,
+    ShieldAlert,
+    Lock,
+    CheckCircle2,
+    RefreshCw,
+    ArrowUpRight,
+    ArrowDownRight,
+    Target,
+    Rocket,
+    Flame,
+    ShieldCheck,
+    FileSignature,
+    FileText,
+    History,
+    KeyRound,
+    BookOpen,
+    Bug
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
