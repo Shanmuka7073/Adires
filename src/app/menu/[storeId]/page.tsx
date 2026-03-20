@@ -486,7 +486,7 @@ export default function PublicMenuPage() {
 
   const upsellItems = useMemo(() => {
       if (!selectedItemForIngredients || !menu?.items) return [];
-      const recIds = selectedItemForIngredients.recommendations || [];
+      const recIds = (selectedItemForIngredients as any).recommendations || [];
       return menu.items.filter(i => recIds.includes(i.id));
   }, [selectedItemForIngredients, menu?.items]);
 
@@ -527,7 +527,7 @@ export default function PublicMenuPage() {
   const { data: historyOrders } = useCollection<Order>(historyQuery);
 
   const activeItemCount = useMemo(() => placedOrders?.reduce((acc, o) => acc + o.items.length, 0) || 0, [placedOrders]);
-  const isSalon = useMemo(() => store?.businessType === 'salon' || store?.name.toLowerCase().includes('salon'), [store]);
+  const isSalon = useMemo(() => !!(store?.businessType === 'salon' || store?.name.toLowerCase().includes('salon')), [store]);
   const availableCategories = useMemo(() => menu?.items ? Array.from(new Set(menu.items.map(i => i.category))).sort() : [], [menu]);
   
   // INTELLIGENT PERSONALIZATION LOGIC
@@ -594,7 +594,7 @@ export default function PublicMenuPage() {
         imageId: 'cat-restaurant', 
         isMenuItem: true, 
         price: item.price, 
-        imageUrl: item.imageUrl 
+        imageUrl: (item as any).imageUrl 
     };
     
     const customsPrice = customs ? Object.values(customs).flat().reduce((acc, o) => acc + o.price, 0) : 0;
@@ -700,7 +700,7 @@ export default function PublicMenuPage() {
   const handleStartNewOrder = () => { window.location.reload(); };
 
   const theme = menu?.theme;
-  const isSessionFinalized = placedOrders?.length > 0 && placedOrders.every(o => ['Completed', 'Delivered'].includes(o.status));
+  const isSessionFinalized = !!(placedOrders && placedOrders.length > 0 && placedOrders.every(o => ['Completed', 'Delivered'].includes(o.status)));
 
   return (
     <>
