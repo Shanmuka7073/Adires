@@ -73,8 +73,9 @@ export function MainLayout({
 }) {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState('Click the mic to start listening.');
+  const [suggestedCommands, setSuggestedCommands] = useState<any[]>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
   const { cartItems } = useCart();
-  const pathname = usePathname();
   
   const { user, firestore } = useFirebase();
   const { isAdmin } = useAdminAuth();
@@ -114,6 +115,8 @@ export function MainLayout({
       setPriceCheckInfo(null);
   }, []);
 
+  const onToggleVoice = useCallback(() => setVoiceEnabled(prev => !prev), []);
+
   return (
     <AshaProvider>
         <VoiceCommandContext.Provider value={{ 
@@ -121,24 +124,26 @@ export function MainLayout({
             retryCommand, 
             showPriceCheck, 
             hidePriceCheck,
-            onCartOpenChange: (open) => {}, // Stub
-            isCartOpen: false, // Stub
+            onCartOpenChange: setIsCartOpen,
+            isCartOpen,
             voiceEnabled,
             voiceStatus,
-            onToggleVoice: () => setVoiceEnabled(prev => !prev),
+            onToggleVoice,
         }}>
             <div className="relative flex min-h-dvh flex-col bg-background">
             {isMaintenanceActive && <MaintenanceOverlay />}
             <OfflineStatus />
             <Header 
-                suggestedCommands={[]} 
+                suggestedCommands={suggestedCommands} 
             />
             {user && isInitialized && (
                 <VoiceCommander 
                     enabled={voiceEnabled} 
                     onStatusUpdate={setVoiceStatus}
-                    onOpenCart={() => {}}
-                    onCloseCart={() => {}}
+                    onSuggestions={setSuggestedCommands}
+                    onOpenCart={() => setIsCartOpen(true)}
+                    onCloseCart={() => setIsCartOpen(false)}
+                    isCartOpen={isCartOpen}
                     cartItems={cartItems}
                     voiceTrigger={voiceTrigger}
                     triggerVoicePrompt={triggerVoicePrompt}

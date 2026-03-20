@@ -39,8 +39,10 @@ const nextConfig = {
             child_process: false,
         };
     }
+    
+    // Externalize problematic Genkit dependencies to prevent "Critical dependency" build warnings
     if (isServer) {
-        config.externals.push('@genkit-ai/google-genai', 'genkit', '@opentelemetry/api');
+        config.externals.push('@genkit-ai/google-genai', 'genkit', '@opentelemetry/api', 'require-in-the-middle', 'import-in-the-middle');
     }
     
     // Rule to handle raw file imports for .rules files

@@ -23,11 +23,10 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
 /**
- * Simplified Homepage Sub-Header.
- * Branding, Cart, and Mic are strictly managed by the global sticky Header component.
- * This component handles localized delivery context and search.
+ * Cleaned up Homepage Content.
+ * Removed the redundant <header> tag to prevent dual logo/branding issues.
  */
-function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: string) => void, user: User | null }) {
+function HomepageContent({ onSearchChange, user }: { onSearchChange: (term: string) => void, user: User | null }) {
     const [deliveryTime, setDeliveryTime] = useState<number | null>(null);
 
     useEffect(() => {
@@ -136,7 +135,6 @@ export default function LocalBasketHomepage() {
   const router = useRouter();
   const { loading: isAppLoading, isInitialized, stores, deviceId, fetchInitialData } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
-  const { onToggleVoice } = useVoiceCommanderContext();
   
   const userDocRef = useMemoFirebase(() => (!firestore || !user) ? null : doc(firestore, 'users', user.uid), [firestore, user]);
   const { data: userData } = useDoc<User>(userDocRef);
@@ -163,7 +161,7 @@ export default function LocalBasketHomepage() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">
-      <HomepageHeader onSearchChange={setSearchTerm} user={userData} />
+      <HomepageContent onSearchChange={setSearchTerm} user={userData} />
       
       {!searchTerm && <HubNavigation />}
 
