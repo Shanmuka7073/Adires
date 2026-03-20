@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { Search, Mic, MapPin, User as UserCircle, Download, Loader2, Sparkles, ArrowRight, Store as StoreIcon, LayoutGrid, Beef, Scissors, History, Package, ChevronDown } from 'lucide-react';
+import { Search, Mic, MapPin, ChevronDown, ArrowRight, Sparkles, LayoutGrid, Beef, Scissors, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import StoreCard from '@/components/store-card';
@@ -15,15 +15,16 @@ import { doc, collection, query, where, orderBy, limit } from 'firebase/firestor
 import { useVoiceCommanderContext } from '@/components/layout/voice-commander-context';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CartIcon } from '@/components/cart/cart-icon';
-import { useInstall } from '@/components/install-provider';
-import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
-function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: (term: string) => void, user: User | null, onMicClick: () => void }) {
+/**
+ * Simplified Homepage Header.
+ * Branding, Cart, and Mic are now strictly managed by the global Header component.
+ */
+function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: string) => void, user: User | null }) {
     const [deliveryTime, setDeliveryTime] = useState<number | null>(null);
 
     useEffect(() => {
@@ -31,7 +32,7 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
     }, []);
 
     return (
-        <header className="bg-background px-4 py-4 space-y-4">
+        <header className="bg-background px-4 py-4 space-y-4 shadow-sm border-b">
             <div className="flex justify-between items-center">
                 <div>
                      <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Quick Dispatch</p>
@@ -51,7 +52,12 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
             </div>
             <div className="flex items-center gap-3 bg-[#F1F3F5] p-3 rounded-2xl border border-gray-200 shadow-inner">
                 <Search className="h-5 w-5 text-gray-400" />
-                <input type="text" placeholder={`Search for restaurants or salons...`} className="w-full bg-transparent outline-none text-sm font-medium placeholder:text-gray-400" onChange={(e) => onSearchChange(e.target.value)} />
+                <input 
+                    type="text" 
+                    placeholder="Search for restaurants or salons..." 
+                    className="w-full bg-transparent outline-none text-sm font-medium placeholder:text-gray-400" 
+                    onChange={(e) => onSearchChange(e.target.value)} 
+                />
             </div>
         </header>
     );
@@ -154,7 +160,7 @@ export default function LocalBasketHomepage() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">
-      <HomepageHeader onSearchChange={setSearchTerm} user={userData} onMicClick={onToggleVoice} />
+      <HomepageHeader onSearchChange={setSearchTerm} user={userData} />
       
       {!searchTerm && <HubNavigation />}
 

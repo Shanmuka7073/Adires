@@ -239,7 +239,7 @@ export async function getPlatformAnalytics() {
             isMaintenance: appStatusSnap.data()?.isMaintenance || false,
             decisions: [],
             topStores: [],
-            periods: { today: { revenue: 0, orders: 0, trend: 0 } }
+            periods: { today: { revenue: 0, orders: 0, trend: 0, trends: { revenue: 0, orders: 0, aov: 0, userReach: 0 } } }
         };
     } catch (error) {
         return null;
