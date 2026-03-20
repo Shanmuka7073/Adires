@@ -33,26 +33,8 @@ function StoreCard({ store }: StoreCardProps) {
         fetchImage();
     }, [store]);
 
-    // Primary detection via explicit businessType, secondary via name/description
-    const isSalon = useMemo(() => {
-        if (store.businessType === 'salon') return true;
-        if (store.businessType) return false; // If vertical is set and NOT salon, return false
-        const searchPool = `${store.name} ${store.description}`.toLowerCase();
-        return ['salon', 'saloon', 'parlour', 'beauty', 'hair', 'cut', 'spa', 'massage', 'style', 'makeup'].some(kw => searchPool.includes(kw));
-    }, [store]);
-
-    const isRestaurant = useMemo(() => {
-        if (store.businessType === 'restaurant') return true;
-        if (store.businessType) return false; // If vertical is set and NOT restaurant, return false
-        const searchPool = `${store.name} ${store.description}`.toLowerCase();
-        return [
-            'restaurant', 'restuarent', 'hotel', 'biryani', 'tiffin', 'mess', 
-            'canteen', 'dhaba', 'food', 'meals', 'sweets', 'bakery', 'kitchen', 
-            'cafe', 'bakers', 'grand', 'deluxe', 'paradise', 'pantry', 'grill', 
-            'bbq', 'fry', 'kabab', 'fast food', 'curry'
-        ].some(kw => searchPool.includes(kw));
-    }, [store]);
-
+    const isSalon = store.businessType === 'salon';
+    const isRestaurant = store.businessType === 'restaurant';
     const destination = (isSalon || isRestaurant) ? `/menu/${store.id}` : `/stores/${store.id}`;
 
   return (
@@ -86,11 +68,6 @@ function StoreCard({ store }: StoreCardProps) {
                             <Utensils className="h-2.5 w-2.5" /> Restaurant
                         </Badge>
                     )}
-                    {!isSalon && !isRestaurant && (
-                        <Badge className="bg-blue-600 text-white border-0 text-[9px] font-black uppercase tracking-widest flex gap-1 items-center">
-                            <LayoutGrid className="h-2.5 w-2.5" /> Grocery
-                        </Badge>
-                    )}
                 </div>
 
                 <div className="absolute bottom-4 left-4 right-4">
@@ -109,15 +86,6 @@ function StoreCard({ store }: StoreCardProps) {
                             {deliveryTime}-{deliveryTime + 10}m
                         </div>
                     </div>
-                    {store.distance != null && (
-                        <div className="flex flex-col border-l pl-4">
-                            <span className="text-[8px] font-black uppercase text-muted-foreground tracking-widest mb-0.5">Distance</span>
-                            <div className="flex items-center text-sm font-black text-gray-900">
-                                <MapPin className="h-3.5 w-3.5 mr-1.5 text-primary" />
-                                {store.distance.toFixed(1)} km
-                            </div>
-                        </div>
-                    )}
                 </div>
                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
                     <ArrowRight className="h-5 w-5" />
@@ -126,18 +94,6 @@ function StoreCard({ store }: StoreCardProps) {
         </Card>
     </Link>
   );
-}
-
-StoreCard.Skeleton = function StoreCardSkeleton() {
-    return (
-        <Card className="h-full border-0 shadow-md rounded-[2.5rem] overflow-hidden">
-            <Skeleton className="w-full h-44" />
-            <CardContent className="p-5 space-y-2">
-                <Skeleton className="h-6 w-3/4" />
-                <Skeleton className="h-4 w-full" />
-            </CardContent>
-        </Card>
-    )
 }
 
 export default StoreCard;

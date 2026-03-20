@@ -39,8 +39,10 @@ const nextConfig = {
             child_process: false,
         };
     }
+    
+    // Externalize problematic Genkit dependencies to prevent "Critical dependency" build warnings
     if (isServer) {
-        config.externals.push('@genkit-ai/google-genai', 'genkit', '@opentelemetry/api');
+        config.externals.push('@genkit-ai/google-genai', 'genkit', '@opentelemetry/api', 'require-in-the-middle', 'import-in-the-middle');
     }
     
     // Rule to handle raw file imports for .rules files
@@ -48,6 +50,12 @@ const nextConfig = {
       test: /\.rules$/,
       type: 'asset/source',
     });
+
+    // Suppress specific warnings during build
+    config.ignoreWarnings = [
+        { module: /require-in-the-middle/ },
+        { message: /Critical dependency: require function is used in a way in which dependencies cannot be statically extracted/ }
+    ];
 
     return config
   },

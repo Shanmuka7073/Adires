@@ -1,3 +1,9 @@
+import { NextResponse } from "next/server";
 
-// This file is no longer needed as the DOCX generation is now handled on the client-side.
-// Intentionally left blank.
+/**
+ * API route for salary slip document generation.
+ * Currently serves as a placeholder for Next.js build validation.
+ */
+export async function GET() {
+  return NextResponse.json({ message: "Docx generation endpoint active." }, { status: 200 });
+}
