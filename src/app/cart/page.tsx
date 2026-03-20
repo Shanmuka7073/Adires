@@ -1,7 +1,7 @@
-
 'use client';
 
-import { useCart, UnidentifiedCartItem } from '@/lib/cart';
+import { useCart } from '@/lib/cart';
+import type { UnidentifiedCartItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -155,7 +155,7 @@ function MobileCartItem({ item, image }) {
                     </div>
                      <div className="flex items-center gap-2">
                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(variant.sku, quantity - 1)}>
-                            <Minus className="h-4 w-4" />
+                            <偏 Minus className="h-4 w-4" />
                         </Button>
                         <Input
                             type="number"

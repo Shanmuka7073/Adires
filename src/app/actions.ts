@@ -106,6 +106,31 @@ export async function updateManifest(data: any) {
 }
 
 /**
+ * IMAGE MANAGEMENT
+ */
+export async function getPlaceholderImages() {
+    try {
+        const filePath = path.join(process.cwd(), 'src', 'lib', 'placeholder-images.json');
+        if (!fs.existsSync(filePath)) return { placeholderImages: [] };
+        return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    } catch (e) {
+        console.error("getPlaceholderImages failed:", e);
+        return { placeholderImages: [] };
+    }
+}
+
+export async function updatePlaceholderImages(data: any) {
+    try {
+        const filePath = path.join(process.cwd(), 'src', 'lib', 'placeholder-images.json');
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+        return { success: true };
+    } catch (e: any) {
+        console.error("updatePlaceholderImages failed:", e);
+        return { success: false, error: e.message };
+    }
+}
+
+/**
  * NLU TRAINING ACTIONS
  */
 export async function processPdfAndExtractRules(formData: FormData) {
@@ -218,6 +243,50 @@ export async function placeRestaurantOrder(cartItems: any[], totalAmount: number
         return { success: true, orderId };
     } catch (e: any) {
         return { success: false, error: e.message };
+    }
+}
+
+/**
+ * SALARY MANAGEMENT
+ */
+export async function getSalarySlipData(slipId: string, employeeId: string, storeId?: string) {
+    try {
+        const { db } = await getAdminServices();
+        
+        let docRef;
+        if (storeId) {
+            docRef = db.collection('stores').doc(storeId).collection('salarySlips').doc(slipId);
+        } else {
+            const snap = await db.collectionGroup('salarySlips').where('id', '==', slipId).get();
+            if (snap.empty) return null;
+            docRef = snap.docs[0].ref;
+        }
+
+        const slipSnap = await docRef.get();
+        if (!slipSnap.exists) return null;
+        
+        const slip = slipSnap.data() as SalarySlip;
+        
+        const [empSnap, storeSnap] = await Promise.all([
+            db.collection('employeeProfiles').doc(slip.employeeId).get(),
+            db.collection('stores').doc(slip.storeId).get()
+        ]);
+
+        if (!empSnap.exists || !storeSnap.exists) return null;
+
+        const employeeProfile = empSnap.data() as EmployeeProfile;
+        const userSnap = await db.collection('users').doc(slip.employeeId).get();
+        const userData = userSnap.data() as User;
+
+        return {
+            slip,
+            employee: { ...employeeProfile, ...userData },
+            store: storeSnap.data() as Store,
+            attendance: { presentDays: 22, totalDays: 30, absentDays: 8 } 
+        };
+    } catch (e) {
+        console.error("getSalarySlipData failed:", e);
+        return null;
     }
 }
 
