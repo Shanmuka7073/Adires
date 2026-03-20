@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -208,7 +209,7 @@ function ProductInventory() {
         filteredProducts.forEach(product => {
             const priceData = productPrices[product.name.toLowerCase()];
             if (priceData?.variants) {
-                priceData.variants.forEach(variant => {
+                priceData.variants.forEach((variant: ProductVariant) => {
                     const status = variant.stock <= 10 ? "LOW STOCK" : "OK";
                     rows.push([
                         `"${product.name}"`,
@@ -310,7 +311,7 @@ function ProductInventory() {
 
 function ProductInventoryRow({ product, priceData, onUpdate }: { product: Product, priceData: ProductPrice | null, onUpdate: () => void }) {
     const [isEditing, setIsEditing] = useState(false);
-    const [variants, setVariants] = useState(priceData?.variants || []);
+    const [variants, setVariants] = useState<ProductVariant[]>(priceData?.variants || []);
     const [isSaving, startSaveTransition] = useTransition();
     const { firestore } = useFirebase();
     const { toast } = useToast();

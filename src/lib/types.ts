@@ -135,6 +135,7 @@ export type Order = {
   appointmentTime?: string; // NEW: For salons
   needsService?: boolean; // NEW: Waiter call flag
   serviceType?: string; // NEW: Reason for waiter call
+  deviceId?: string; // For persistent device-level activity
 };
 
 
@@ -350,7 +351,6 @@ export type ReportData = {
   }[];
 };
 
-// Employee and Attendance Types
 export type EmployeeProfile = {
     userId: string;
     storeId: string;
@@ -393,8 +393,6 @@ export type AttendanceRecord = {
     reasonHistory?: ReasonEntry[];
     rejectionCount: number;
     status: 'present' | 'absent' | 'pending_approval' | 'approved' | 'rejected' | 'partially_present';
-    managerId?: string; // Denormalized manager ID for rules
-    managerName?: string; // Denormalized manager name for UI
 };
 
 export type SalarySlip = {
