@@ -1,10 +1,11 @@
+
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
-import type { Store, CartItem, User, ProductVariant, SiteConfig, Menu, Product, Ingredient } from '@/lib/types';
+import type { Store, CartItem, User, ProductVariant, SiteConfig, Menu, Product, MenuItem } from '@/lib/types';
 import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { useCart } from '@/lib/cart';
 import { useAppStore, useProfileFormStore, useMyStorePageStore, type ProfileFormValues } from '@/lib/store';
@@ -41,6 +42,7 @@ interface VoiceCommanderProps {
   triggerVoicePrompt: () => void;
   retryCommandText: string | null;
   onRetryHandled: () => void;
+  onInstallApp: () => void;
 }
 
 let recognition: SpeechRecognition | null = null;
@@ -71,6 +73,7 @@ export function VoiceCommander({
   triggerVoicePrompt,
   retryCommandText,
   onRetryHandled,
+  onInstallApp,
 }: VoiceCommanderProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -79,7 +82,7 @@ export function VoiceCommander({
   const { addItem: addItemToCart, activeStoreId, setActiveStoreId, cartTotal } = useCart();
   const { hidePriceCheck } = useVoiceCommanderContext();
 
-  const { stores, language, getAllAliases, commands } = useAppStore();
+  const { stores, language, getAllAliases, locales, commands } = useAppStore();
 
   const { form: profileForm } = useProfileFormStore();
   const { saveInventoryBtnRef } = useMyStorePageStore();
