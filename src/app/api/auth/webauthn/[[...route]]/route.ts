@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import {
   generateRegistrationOptions,
@@ -76,7 +77,7 @@ export async function POST(
     const rpID = host.split(':')[0];
     const protocol = rpID === 'localhost' || rpID === '127.0.0.1' ? 'http' : 'https';
     const origin = `${protocol}://${host}`;
-    const rpName = 'LocalBasket';
+    const rpName = 'Adires';
 
     const route = params.route;
     if (!route || route.length === 0) {
@@ -109,7 +110,7 @@ export async function POST(
         timeout: 60000,
         attestationType: 'none',
         excludeCredentials: existingAuth.map((auth) => ({
-          id: auth.credentialID, // Pass ID directly as string
+          id: auth.credentialID,
           type: 'public-key',
           transports: auth.transports as any,
         })),
@@ -231,7 +232,7 @@ export async function POST(
         rpID,
         userVerification: 'required',
         allowCredentials: auths.map((auth) => ({
-          id: auth.credentialID, // Pass ID directly as string
+          id: auth.credentialID,
           type: 'public-key',
           transports: auth.transports as any,
         })),
