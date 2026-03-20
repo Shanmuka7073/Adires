@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -552,6 +551,27 @@ export async function approveRegularization(id: string, storeId: string, approve
         await db.collection(`stores/${storeId}/attendance`).doc(id).update({
             status: approve ? 'approved' : 'rejected',
             updatedAt: FieldValue.serverTimestamp()
+        });
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
+export async function rejectRegularization(id: string, storeId: string, reason: string) {
+    try {
+        const { db } = await getAdminServices();
+        const recordRef = db.collection(`stores/${storeId}/attendance`).doc(id);
+        
+        await recordRef.update({
+            status: 'rejected',
+            updatedAt: FieldValue.serverTimestamp(),
+            // Append rejection reason to the history
+            reasonHistory: FieldValue.arrayUnion({
+                text: reason,
+                timestamp: new Date(),
+                status: 'rejected'
+            })
         });
         return { success: true };
     } catch (e: any) {

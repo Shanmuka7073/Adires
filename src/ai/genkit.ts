@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview This file initializes the Genkit AI instance and exports it
  * for use in other parts of the application, such as defining flows.
@@ -14,5 +13,4 @@ export const ai = genkit({
   plugins: [
     googleAI(),
   ],
-  defaultModel: 'googleai/gemini-2.5-flash', // Set Gemini 2.5 Flash as the default model
 });
