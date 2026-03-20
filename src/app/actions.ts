@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -7,7 +6,7 @@ import type { Order, Store, User, MenuItem, OrderItem, RestaurantIngredient, Sal
 import { getApps } from 'firebase-admin/app';
 import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
 import * as fs from 'fs';
-import * as path from 'fs';
+import * as path from 'path';
 
 /**
  * UTILITY: Safe Date Parsing for Analytics
@@ -27,7 +26,7 @@ export async function getFirebaseConfig() {
   try {
     const adminApp = getApps()[0] || (await getAdminServices()).app;
     const options = adminApp.options as any;
-    const projectId = options.projectId;
+    const projectId = options.projectId || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
     
     return {
       apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,

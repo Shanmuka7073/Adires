@@ -1,4 +1,3 @@
-
 declare module 'wav' {
     import { Writable } from 'stream';
 

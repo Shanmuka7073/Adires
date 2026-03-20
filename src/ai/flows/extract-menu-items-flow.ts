@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview An AI flow to extract menu items, theme, and determine business vertical from a menu image.
