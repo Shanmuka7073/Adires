@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useRef, useEffect, useCallback } from 'react';
@@ -15,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
 import { useAsha } from './asha-context';
+import { Badge } from '@/components/ui/badge';
 
 export function AshaStrategicOverlay() {
     const { isOpen, setIsOpen, externalMessage, setExternalMessage } = useAsha();
