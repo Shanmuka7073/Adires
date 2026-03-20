@@ -1,3 +1,1 @@
-
-// This file is no longer needed as the DOCX generation is now handled on the client-side.
-// Intentionally left blank.
+// This file was empty and causing build errors. Docx generation is handled client-side.

@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { Search, Mic, MapPin, User as UserCircle, Download, Loader2, Sparkles, ArrowRight, Store as StoreIcon, LayoutGrid, Beef, Scissors, History, Package } from 'lucide-react';
+import { Search, Mic, MapPin, User as UserCircle, Download, Loader2, Sparkles, ArrowRight, Store as StoreIcon, LayoutGrid, Beef, Scissors, History, Package, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import StoreCard from '@/components/store-card';
@@ -24,35 +24,29 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
 function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: (term: string) => void, user: User | null, onMicClick: () => void }) {
-    const { onCartOpenChange, isCartOpen, voiceEnabled } = useVoiceCommanderContext();
-    const { canInstall, triggerInstall } = useInstall();
-    const { isRestaurantOwner } = useAdminAuth();
-    const { userStore } = useAppStore();
+    const [deliveryTime, setDeliveryTime] = useState<number | null>(null);
 
-    const logoUrl = userStore?.imageUrl || ADIRES_LOGO;
-    const brandName = userStore?.name || "Adires";
+    useEffect(() => {
+        setDeliveryTime(Math.floor(Math.random() * 10) + 15);
+    }, []);
 
     return (
-        <header className="bg-background sticky top-0 z-20 px-4 pt-4 pb-2 border-b">
-            <div className="flex justify-between items-center mb-3">
-                <div className="flex items-center gap-3">
-                    <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-primary bg-white shadow-sm">
-                        <Image src={logoUrl} alt={brandName} fill className="object-cover" priority />
-                    </div>
-                    <div>
-                        <p className="text-[8px] font-black text-primary uppercase tracking-widest">Market Hub</p>
-                        <p className="text-lg font-black text-gray-900 leading-none">{brandName}</p>
-                    </div>
-                </div>
-                 <div className="flex items-center gap-1">
-                    {canInstall && <Button variant="ghost" size="icon" onClick={triggerInstall} className="rounded-full"><Download className="h-5 w-5 text-gray-600" /></Button>}
-                    {!isRestaurantOwner && (
-                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full relative bg-primary/5 text-primary border border-primary/10" onClick={onMicClick}>
-                            <Mic className="h-5 w-5" />
-                            {voiceEnabled && <span className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse border-2 border-white"></span>}
-                        </Button>
-                    )}
-                    <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />
+        <header className="bg-background px-4 py-4 space-y-4">
+            <div className="flex justify-between items-center">
+                <div>
+                     <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Quick Dispatch</p>
+                     {deliveryTime !== null ? (
+                        <p className="text-2xl font-black text-gray-900 tracking-tighter italic">{deliveryTime} mins</p>
+                     ) : (
+                        <Skeleton className="h-8 w-24 mt-1" />
+                     )}
+                     {user && user.address && (
+                         <div className="flex items-center text-[10px] font-bold text-gray-500 mt-1">
+                            <MapPin className="h-3 w-3 mr-1 text-primary" />
+                            <span className="truncate max-w-[150px] uppercase tracking-tight">{user.address}</span>
+                            <ChevronDown className="h-3 w-3 ml-1" />
+                         </div>
+                     )}
                 </div>
             </div>
             <div className="flex items-center gap-3 bg-[#F1F3F5] p-3 rounded-2xl border border-gray-200 shadow-inner">
@@ -138,7 +132,6 @@ export default function LocalBasketHomepage() {
   const userDocRef = useMemoFirebase(() => (!firestore || !user) ? null : doc(firestore, 'users', user.uid), [firestore, user]);
   const { data: userData } = useDoc<User>(userDocRef);
 
-  // HISTORY QUERY: Check by User or Device
   const historyQuery = useMemoFirebase(() => {
       if (!firestore) return null;
       const identifier = user?.uid || deviceId;

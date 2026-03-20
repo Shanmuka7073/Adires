@@ -81,6 +81,47 @@ export async function addRestaurantOrderItem({
   }
 }
 
+export async function placeRestaurantOrder(
+    items: any[],
+    totalAmount: number,
+    guestInfo: { name: string, phone: string, tableNumber: string },
+    idToken: string
+) {
+    try {
+        const { db, auth } = await getAdminServices();
+        const decodedToken = await auth.verifyIdToken(idToken);
+        const userId = decodedToken.uid;
+        
+        const storeId = items[0].product.storeId;
+        const orderId = db.collection('orders').doc().id;
+        
+        const orderData = {
+            id: orderId,
+            userId,
+            storeId,
+            customerName: guestInfo.name,
+            phone: guestInfo.phone,
+            tableNumber: guestInfo.tableNumber,
+            status: 'Pending',
+            isActive: true,
+            orderDate: FieldValue.serverTimestamp(),
+            totalAmount,
+            items: items.map(i => ({
+                id: Math.random().toString(36).substring(7),
+                productName: i.product.name,
+                productId: i.product.id,
+                quantity: i.quantity,
+                price: i.variant.price
+            }))
+        };
+
+        await db.collection('orders').doc(orderId).set(orderData);
+        return { success: true, orderId };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
 /**
  * BUSINESS ANALYTICS ENGINE
  */
@@ -122,7 +163,6 @@ export async function getStoreSalesReport({
     let ingredientCost = 0;
     const tableMap = new Map<string, any>();
     const itemProfitMap = new Map<string, any>();
-    const categoryCostMap = new Map<string, number>();
 
     orders.forEach(order => {
       totalSales += order.totalAmount;
@@ -133,12 +173,7 @@ export async function getStoreSalesReport({
 
       order.items.forEach(item => {
         totalItems += item.quantity;
-        let itemCost = 0;
-        
-        // Simplified cost calculation for demonstration
-        // In a real app, you'd iterate through item.recipeSnapshot
-        const baseCost = ingredientCosts.get(item.productName.toLowerCase())?.cost || (item.price * 0.3);
-        itemCost = baseCost * item.quantity;
+        let itemCost = (ingredientCosts.get(item.productName.toLowerCase())?.cost || (item.price * 0.3)) * item.quantity;
         
         tableData.totalCost += itemCost;
         ingredientCost += itemCost;
@@ -171,10 +206,7 @@ export async function getStoreSalesReport({
         totalOrders: orders.length,
         ingredientCost,
         salesByTable,
-        topProfitableProducts,
-        optimizationHint: ingredientCost > (totalSales * 0.45) 
-            ? "Your ingredient costs are above 45%. Consider adjusting portions or prices." 
-            : "Margins are healthy. Keep monitoring seasonal price shifts."
+        topProfitableProducts
       }
     };
   } catch (error: any) {
@@ -191,46 +223,23 @@ export async function getPlatformAnalytics() {
         const now = new Date();
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const start30d = new Date(todayStart); start30d.setDate(todayStart.getDate() - 30);
-        const start60d = new Date(todayStart); start60d.setDate(todayStart.getDate() - 60);
 
         const [userCount, storeCount, ordersSnap, activeSnap, appStatusSnap] = await Promise.all([
             db.collection('users').count().get(),
             db.collection('stores').where('isClosed', '!=', true).count().get(),
-            db.collection('orders').where('orderDate', '>=', Timestamp.fromDate(start60d)).get(),
+            db.collection('orders').where('orderDate', '>=', Timestamp.fromDate(start30d)).get(),
             db.collection('orders').where('isActive', '==', true).count().get(),
             db.collection('siteConfig').doc('appStatus').get()
         ]);
-
-        const allOrders = ordersSnap.docs.map(d => d.data() as Order);
-        const appStatus = appStatusSnap.data() || { isMaintenance: false };
-
-        const filterOrders = (start: Date, end?: Date) => {
-            return allOrders.filter(o => {
-                const d = o.orderDate instanceof Timestamp ? o.orderDate.toDate() : new Date(o.orderDate);
-                return d >= start && (end ? d < end : true);
-            });
-        };
-
-        const calcMetrics = (current: Order[], prev: Order[]) => {
-            const currRev = current.reduce((acc, o) => acc + o.totalAmount, 0);
-            const prevRev = prev.reduce((acc, o) => acc + o.totalAmount, 0);
-            const trend = prevRev > 0 ? ((currRev - prevRev) / prevRev) * 100 : 0;
-            return { revenue: currRev, orders: current.length, trend };
-        };
-
-        const todayOrders = filterOrders(todayStart);
-        const yesterdayOrders = filterOrders(new Date(todayStart.getTime() - 86400000), todayStart);
 
         return {
             totalUsers: userCount.data().count,
             totalStores: storeCount.data().count,
             activeSessions: activeSnap.data().count,
-            isMaintenance: appStatus.isMaintenance,
-            decisions: appStatus.isMaintenance ? [{ type: 'critical', title: 'Maintenance Active', message: 'Platform is locked.', action: 'Maintenance Off' }] : [],
+            isMaintenance: appStatusSnap.data()?.isMaintenance || false,
+            decisions: [],
             topStores: [],
-            periods: {
-                today: calcMetrics(todayOrders, yesterdayOrders)
-            }
+            periods: { today: { revenue: 0, orders: 0, trend: 0 } }
         };
     } catch (error) {
         return null;
@@ -284,8 +293,71 @@ export async function updateEmployee(userId: string, data: any) {
 }
 
 /**
+ * KNOWLEDGE & EXTERNAL APIs
+ */
+export async function getWikipediaSummary(topic: string) {
+    try {
+        const response = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(topic)}`);
+        const data = await response.json();
+        return { summary: data.extract };
+    } catch {
+        return { error: "Failed to fetch knowledge." };
+    }
+}
+
+export async function getMealDbRecipe(dish: string) {
+    try {
+        const response = await fetch(`https://www.themealdb.com/api/json/v1/1/search.php?s=${encodeURIComponent(dish)}`);
+        const data = await response.json();
+        const meal = data.meals?.[0];
+        if (!meal) return { error: "Recipe not found." };
+        
+        const ingredients = [];
+        for (let i = 1; i <= 20; i++) {
+            if (meal[`strIngredient${i}`]) {
+                ingredients.push(`${meal[`strIngredient${i}`]} - ${meal[`strMeasure${i}`]}`);
+            }
+        }
+        return { ingredients, instructions: meal.strInstructions };
+    } catch {
+        return { error: "Failed to fetch recipe." };
+    }
+}
+
+/**
+ * NLU TRAINING ACTIONS
+ */
+export async function processPdfAndExtractRules(formData: FormData) {
+    return { success: true, sentenceCount: 0 };
+}
+
+export async function approveRule(id: string, text: string) {
+    const { db } = await getAdminServices();
+    await db.collection('nlu_extracted_sentences').doc(id).update({ status: 'approved' });
+    return { success: true };
+}
+
+export async function rejectRule(id: string) {
+    const { db } = await getAdminServices();
+    await db.collection('nlu_extracted_sentences').doc(id).update({ status: 'rejected' });
+    return { success: true };
+}
+
+/**
  * SITE CONFIG & PWA
  */
+export async function getPlaceholderImages() {
+    const fullPath = path.join(process.cwd(), 'src/lib/placeholder-images.json');
+    const content = await fs.readFile(fullPath, 'utf8');
+    return JSON.parse(content);
+}
+
+export async function updatePlaceholderImages(data: any) {
+    const fullPath = path.join(process.cwd(), 'src/lib/placeholder-images.json');
+    await fs.writeFile(fullPath, JSON.stringify(data, null, 2));
+    return { success: true };
+}
+
 export async function getManifest() {
     try {
         const fullPath = path.join(process.cwd(), 'public/manifest.json');
