@@ -1,24 +1,21 @@
+
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '@/lib/store';
-import { User, Store as StoreType, Order, Product as ProductType } from '@/lib/types';
+import { User, Store as StoreType } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import { getProductImage } from '@/lib/data';
-import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { Search, MapPin, ChevronDown, ArrowRight, LayoutGrid, Beef, Scissors, Loader2, Globe, User as UserCircle } from 'lucide-react';
+import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
+import { Search, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import Link from 'next/link';
-import StoreCard from '@/components/store-card';
-import ProductCard from '@/components/product-card';
-import { doc, collection, query, where, orderBy, limit } from 'firebase/firestore';
-import { useVoiceCommanderContext } from '@/components/layout/voice-commander-context';
-import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { CartIcon } from '@/components/cart/cart-icon';
+import { doc } from 'firebase/firestore';
 import { RecipeCard } from '@/components/features/recipe-card';
+import { getProductImage } from '@/lib/data';
+import Image from 'next/image';
+import Link from 'next/link';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
+import { Globe } from 'lucide-react';
+import { CartIcon } from '@/components/cart/cart-icon';
 
 const homePageSections = [
     {
@@ -98,7 +95,7 @@ function LanguageSwitcher() {
 }
 
 function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: string) => void, user: User | null }) {
-    const { onCartOpenChange, isCartOpen } = useVoiceCommanderContext();
+    const [isCartOpen, setIsCartOpen] = useState(false);
     return (
         <header className="bg-background sticky top-0 z-20 px-4 pt-4 pb-2 border-b">
             <div className="flex justify-between items-center mb-3">
@@ -113,7 +110,7 @@ function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: strin
                 </div>
                  <div className="flex items-center gap-1">
                     <LanguageSwitcher />
-                    <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />
+                    <CartIcon open={isCartOpen} onOpenChange={setIsCartOpen} />
                 </div>
             </div>
             <div className="flex items-center gap-3 bg-[#F1F3F5] p-2.5 rounded-xl border border-gray-200 shadow-inner">
@@ -126,7 +123,7 @@ function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: strin
 
 export default function LocalBasketHomepage() {
   const { firestore, user } = useFirebase();
-  const { stores, loading: isAppLoading, isInitialized, fetchInitialData } = useAppStore();
+  const { loading: isAppLoading, isInitialized, fetchInitialData } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const userDocRef = useMemoFirebase(() => (!firestore || !user) ? null : doc(firestore, 'users', user.uid), [firestore, user]);
   const { data: userData } = useDoc<User>(userDocRef);

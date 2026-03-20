@@ -1,17 +1,14 @@
+
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
-import { useCart } from '@/lib/cart';
+import { useState, useEffect } from 'react';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { ProfileCompletionChecker } from '@/components/profile-completion-checker';
 import { NotificationPermissionManager } from '@/components/layout/notification-permission-manager';
 import { useAppStore, useInitializeApp } from '@/lib/store';
-import { usePathname } from 'next/navigation';
 import { BottomNavBar } from './bottom-nav-bar';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
-import { useInstall } from '../install-provider';
-import { VoiceCommandContext } from './voice-commander-context';
 import { FirestoreCounter } from './firestore-counter';
 import { OfflineStatus } from './offline-status';
 import { doc } from 'firebase/firestore';
@@ -62,7 +59,6 @@ export function MainLayout({
 }: { 
   children: React.ReactNode;
 }) {
-  const [isCartOpen, setIsCartOpen] = useState(false);
   const { firestore } = useFirebase();
   const { isAdmin } = useAdminAuth();
   const { setLanguage, isInitialized } = useAppStore();
@@ -80,27 +76,16 @@ export function MainLayout({
   }, [isInitialized, setLanguage]);
 
   return (
-    <VoiceCommandContext.Provider value={{ 
-        triggerVoicePrompt: () => {}, 
-        showPriceCheck: () => {}, 
-        hidePriceCheck: () => {},
-        onCartOpenChange: setIsCartOpen,
-        isCartOpen,
-        voiceEnabled: false,
-        voiceStatus: '',
-        onToggleVoice: () => {},
-    }}>
-        <div className="relative flex min-h-dvh flex-col bg-background">
-        {isMaintenanceActive && <MaintenanceOverlay />}
-        <OfflineStatus />
-        <Header />
-        <ProfileCompletionChecker />
-        <main className="flex-1 pb-16 md:pb-0">{children}</main>
-        <NotificationPermissionManager />
-        <Footer />
-        <BottomNavBar />
-        <FirestoreCounter />
-        </div>
-    </VoiceCommandContext.Provider>
+    <div className="relative flex min-h-dvh flex-col bg-background">
+      {isMaintenanceActive && <MaintenanceOverlay />}
+      <OfflineStatus />
+      <Header />
+      <ProfileCompletionChecker />
+      <main className="flex-1 pb-16 md:pb-0">{children}</main>
+      <NotificationPermissionManager />
+      <Footer />
+      <BottomNavBar />
+      <FirestoreCounter />
+    </div>
   );
 }

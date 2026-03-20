@@ -1,9 +1,10 @@
+
 'use client';
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Firestore, collection, getDocs, query, where, limit } from 'firebase/firestore';
-import { Store, User } from './types';
+import { Firestore, collection, getDocs } from 'firebase/firestore';
+import { Store } from './types';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { useFirebase } from '@/firebase';
@@ -37,14 +38,11 @@ export interface AppState {
   setAppReady: (ready: boolean) => void;
   setDeviceId: (id: string) => void;
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
-  // Legacy/Cleaned
+  // Purged legacy properties
   masterProducts: any[];
   productPrices: any;
   locales: any;
   commands: any;
-  fetchProductPrices: any;
-  getProductName: any;
-  getAllAliases: any;
 }
 
 const getInitialLanguage = (): string => {
@@ -118,7 +116,7 @@ export const useAppStore = create<AppState>()(
             isInitialized: true,
             appReady: true,
             loading: false,
-            // Explicitly clear legacy data
+            // Explicitly clear all legacy data
             masterProducts: [],
             locales: {},
             commands: {}
@@ -129,14 +127,9 @@ export const useAppStore = create<AppState>()(
           set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
-
-      // Cleanup
-      fetchProductPrices: async () => {},
-      getProductName: (product: any) => product?.name || '',
-      getAllAliases: () => ({}),
     }),
     {
-      name: 'localbasket-app-storage-v4',
+      name: 'localbasket-app-storage-v5',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,

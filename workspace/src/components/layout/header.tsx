@@ -1,7 +1,8 @@
+
 'use client';
 
 import Link from 'next/link';
-import { UserCircle, Globe, LogOut, LayoutDashboard, ShoppingBag, Truck, Box } from 'lucide-react';
+import { UserCircle, Globe, LogOut, LayoutDashboard, ShoppingBag, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CartIcon } from '@/components/cart/cart-icon';
 import { usePathname } from 'next/navigation';
@@ -19,17 +20,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { getAuth, signOut } from 'firebase/auth';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useState, useEffect } from 'react';
-import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
 import { t } from '@/lib/locales';
 import { useAppStore } from '@/lib/store';
-import { useVoiceCommanderContext } from './voice-commander-context';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
-
-const navLinks = [
-  { href: '/', label: 'home' },
-];
 
 const dashboardLinks = [
     { href: '/dashboard/owner/orders', label: 'store-orders', icon: ShoppingBag },
@@ -114,12 +109,6 @@ function UserMenu() {
                     </DropdownMenuItem>
                 </Link>
             ))}
-             <Link href="/dashboard/owner/packs" passHref>
-                <DropdownMenuItem>
-                    <Box className="mr-2 h-4 w-4" />
-                    <span>Manage Packs</span>
-                </DropdownMenuItem>
-            </Link>
           </>
         )}
         <DropdownMenuSeparator />
@@ -130,8 +119,7 @@ function UserMenu() {
 }
 
 export function Header() {
-  const pathname = usePathname();
-  const { isCartOpen, onCartOpenChange } = useVoiceCommanderContext();
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
@@ -144,7 +132,7 @@ export function Header() {
       
       <div className="flex items-center gap-2 md:gap-4">
         <LanguageSwitcher />
-        <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />
+        <CartIcon open={isCartOpen} onOpenChange={setIsCartOpen} />
         <UserMenu />
       </div>
     </header>
