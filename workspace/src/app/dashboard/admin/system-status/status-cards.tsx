@@ -9,7 +9,7 @@ import { useMemo } from 'react';
 
 // Define the type for the status prop
 interface StatusInfo {
-    status: 'Online' | 'Offline' | 'Degraded' | 'Unavailable' | 'Loading' | 'Unknown';
+    status: 'Online' | 'Offline' | 'Degraded' | 'Unknown' | 'Unavailable' | 'Loading';
     message?: string;
 }
 
@@ -60,9 +60,9 @@ export function ClientStatusCard() {
 
     const clientStatus = useMemo(() => {
         if (firestore && auth && firebaseApp) {
-            return { status: 'Online', message: 'Services are connected.' };
+            return { status: 'Online' as const, message: 'Services are connected.' };
         }
-        return { status: 'Offline', message: 'Client is not connected to Firebase.' };
+        return { status: 'Offline' as const, message: 'Client is not connected to Firebase.' };
     }, [firestore, auth, firebaseApp]);
 
     return (
