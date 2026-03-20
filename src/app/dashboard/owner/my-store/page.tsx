@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useTransition, useEffect, useMemo, useRef, RefObject } from 'react';
+import { useState, useTransition, useEffect, useMemo, useRef } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -15,7 +16,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/form';
+} from '@/components/ui/form';
 import {
   Card,
   CardContent,
@@ -61,7 +62,7 @@ import {
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
-import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Camera, CameraOff, Sparkles, PlusCircle, Edit, Link2, QrCode, ClipboardList, Save, Video, CreditCard, LayoutGrid, Info } from 'lucide-react';
+import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Camera, CameraOff, Sparkles, PlusCircle, Edit, Link2, QrCode, Save, Video, CreditCard, LayoutGrid, Info } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import Link from 'next/link';
@@ -75,7 +76,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 
-const standardUnits = ["100gm", "250gm", "500gm", "1kg", "2kg", "5kg", "250ml", "500ml", "1 litre", "2 litres", "1 pack", "1 pc"];
+const standardWeights = ["100gm", "250gm", "500gm", "1kg", "2kg", "5kg", "1 pack", "1 pc"];
 
 const storeSchema = z.object({
   name: z.string().min(3, 'Store name must be at least 3 characters'),
@@ -86,14 +87,6 @@ const storeSchema = z.object({
   address: z.string().min(10, 'Please enter a valid address'),
   latitude: z.coerce.number().min(-90, "Invalid latitude").max(90, "Invalid latitude"),
   longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude"),
-  tables: z.array(z.string()).optional(),
-  liveVideoUrl: z.string().url('Please enter a valid URL').optional().or(z.literal('')),
-  upiId: z.string().optional().refine((val) => !val || val.includes('@'), { message: "Invalid UPI ID format" }),
-});
-
-const locationSchema = z.object({
-    latitude: z.coerce.number().min(-90).max(90),
-    longitude: z.coerce.number().min(-180).max(180),
 });
 
 const variantSchema = z.object({
@@ -113,7 +106,6 @@ const productSchema = z.object({
 
 type StoreFormValues = z.infer<typeof storeSchema>;
 type ProductFormValues = z.infer<typeof productSchema>;
-type LocationFormValues = z.infer<typeof locationSchema>;
 
 const createSlug = (text: string) => {
     if(!text) return '';
@@ -140,7 +132,7 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
   const { language } = useAppStore();
 
   const { masterProducts, loading: masterProductsLoading } = useAppStore(state => ({
-    masterProducts: state.masterProducts,
+    masterProducts: state.masterProducts as Product[],
     loading: state.loading,
   }));
   
@@ -394,7 +386,7 @@ function TableManager({ store }: { store: Store }) {
             <CardContent className="space-y-4">
                 <div className="flex gap-2">
                     <Input 
-                        placeholder="e.g., Garden Table 1, First Floor 2"
+                        placeholder="e.g., Table 1, Chair A"
                         value={newTableName}
                         onChange={(e) => setNewTableName(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') handleAddTable(); }}
@@ -445,7 +437,7 @@ function PromoteStore({ store }: { store: Store }) {
                 return;
             }
 
-            const phoneNumbers = contacts.flatMap((c: { tel: any; }) => c.tel || []);
+            const phoneNumbers = contacts.flatMap((c: any) => c.tel || []);
             const shareText = `Check out my store, ${store.name}, on the Adires app! Visit my storefront here: ${window.location.origin}/stores/${store.id}`;
             
             if (phoneNumbers.length > 0) {
@@ -496,7 +488,10 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
     const [isLocating, setIsLocating] = useState(false);
 
     const form = useForm<LocationFormValues>({
-        resolver: zodResolver(locationSchema),
+        resolver: zodResolver(z.object({
+            latitude: z.coerce.number().min(-90).max(90),
+            longitude: z.coerce.number().min(-180).max(180),
+        })),
         defaultValues: {
             latitude: store.latitude || 0,
             longitude: store.longitude || 0,
@@ -554,10 +549,10 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
                     <div className="flex items-end gap-4">
                         <div className="grid grid-cols-2 gap-4 flex-1">
-                            <FormField control={form.control} name="latitude" render={({ field }) => (
+                            <FormField control={form.control} name="latitude" render={({ field }: { field: any }) => (
                                 <FormItem><FormLabel className="text-xs text-muted-foreground">{t('latitude')}</FormLabel><FormControl><Input type="number" step="any" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
-                            <FormField control={form.control} name="longitude" render={({ field }) => (
+                            <FormField control={form.control} name="longitude" render={({ field }: { field: any }) => (
                                 <FormItem><FormLabel className="text-xs text-muted-foreground">{t('longitude')}</FormLabel><FormControl><Input type="number" step="any" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                         </div>
@@ -657,8 +652,6 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
             address: store.address,
             latitude: store.latitude || 0,
             longitude: store.longitude || 0,
-            liveVideoUrl: store.liveVideoUrl || '',
-            upiId: store.upiId || '',
         },
     });
     
@@ -710,7 +703,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                                     <FormField
                                         control={form.control}
                                         name="name"
-                                        render={({ field }) => (
+                                        render={({ field }: { field: any }) => (
                                             <FormItem>
                                                 <FormLabel>{t('store-name')}</FormLabel>
                                                 <FormControl>
@@ -723,7 +716,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                                     <FormField
                                         control={form.control}
                                         name="teluguName"
-                                        render={({ field }) => (
+                                        render={({ field }: { field: any }) => (
                                             <FormItem>
                                                 <FormLabel>Store Name (Telugu)</FormLabel>
                                                 <FormControl>
@@ -737,7 +730,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                                     <FormField
                                         control={form.control}
                                         name="description"
-                                        render={({ field }) => (
+                                        render={({ field }: { field: any }) => (
                                             <FormItem>
                                                 <FormLabel>{t('description')}</FormLabel>
                                                 <FormControl><Textarea {...field} /></FormControl>
@@ -748,7 +741,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                                     <FormField
                                         control={form.control}
                                         name="address"
-                                        render={({ field }) => (
+                                        render={({ field }: { field: any }) => (
                                             <FormItem>
                                                 <FormLabel>{t('address')}</FormLabel>
                                                 <FormControl><Input {...field} /></FormControl>
@@ -756,32 +749,6 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                                             </FormItem>
                                         )}
                                     />
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <FormField
-                                            control={form.control}
-                                            name="liveVideoUrl"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel className="flex items-center gap-2"><Video className="h-4 w-4" /> Live Preparation URL</FormLabel>
-                                                    <FormControl><Input placeholder="e.g., https://www.youtube.com/watch?v=..." {...field} /></FormControl>
-                                                    <FormDescription>A YouTube Live link for customers to watch your kitchen.</FormDescription>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <FormField
-                                            control={form.control}
-                                            name="upiId"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel className="flex items-center gap-2"><CreditCard className="h-4 w-4" /> Store UPI ID</FormLabel>
-                                                    <FormControl><Input placeholder="e.g., merchant@okaxis" {...field} /></FormControl>
-                                                    <FormDescription>Used to generate dynamic payment QR codes.</FormDescription>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                    </div>
                                     <DialogFooter>
                                         <Button type="button" variant="secondary" onClick={() => setIsOpen(false)}>{t('cancel')}</Button>
                                         <Button type="submit" disabled={isPending}>{isPending ? t('saving') : t('save-changes')}</Button>
@@ -793,28 +760,10 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                 </div>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
-                <div className="flex flex-wrap gap-2 mb-2">
-                    <Badge variant="outline" className="capitalize bg-muted/50">
-                        <LayoutGrid className="h-3 w-3 mr-1.5" />
-                        Vertical: {store.businessType || 'Grocery'}
-                    </Badge>
-                </div>
                 <p><strong>{t('description')}:</strong> {store.description}</p>
                 <p><strong>{t('address')}:</strong> {store.address}</p>
                  <p><strong>Telugu Name:</strong> {store.teluguName || 'Not set'}</p>
                 <p><strong>{t('location')}:</strong> {store.latitude}, {store.longitude}</p>
-                <div className="flex flex-wrap gap-4">
-                    {store.liveVideoUrl && (
-                        <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 flex gap-1.5 items-center">
-                            <Video className="h-3 w-3" /> Live Feed Enabled
-                        </Badge>
-                    )}
-                    {store.upiId && (
-                        <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50 flex gap-1.5 items-center">
-                            <CreditCard className="h-3 w-3" /> Payments: {store.upiId}
-                        </Badge>
-                    )}
-                </div>
                 <div>
                   <strong>Voice Aliases:</strong>
                   <div className="flex flex-wrap gap-1 mt-1">
@@ -838,7 +787,7 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
   const { language, masterProducts, fetchInitialData } = useAppStore();
 
   const categories = useMemo(() => {
-      const cats = masterProducts.map(p => p.category).filter(Boolean);
+      const cats = (masterProducts as Product[]).map(p => p.category).filter(Boolean);
       return Array.from(new Set(cats)) as string[];
   }, [masterProducts]);
 
@@ -903,11 +852,11 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
         const productRef = doc(collection(firestore, 'stores', storeId, 'products'));
         const productData: Omit<Product, 'id' | 'variants'> = {
           name: data.name,
-          description: data.description,
+          description: data.description || '',
           category: data.category,
           storeId,
           imageId: imageId,
-          imageUrl: data.imageUrl,
+          imageUrl: data.imageUrl || '',
           imageHint: data.name.toLowerCase(),
         };
         batch.set(productRef, productData);
@@ -954,10 +903,31 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+             <FormItem>
+                <FormLabel>{t('product-template-optional')}</FormLabel>
+                <Select onValueChange={handleTemplateSelect}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder={t('select-a-predefined-item')} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                        {(masterProducts as Product[]).map(p => (
+                            <SelectItem key={p.id} value={`${p.name}::${p.category}`}>
+                                {p.name} ({p.category})
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <FormDescription>
+                    {t('select-an-item-to-auto-fill')}
+                </FormDescription>
+            </FormItem>
+
             <FormField
               control={form.control}
               name="name"
-              render={({ field }) => (
+              render={({ field }: { field: any }) => (
                 <FormItem>
                   <FormLabel>{t('product-name')}</FormLabel>
                   <FormControl>
@@ -970,7 +940,7 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
             <FormField
               control={form.control}
               name="imageUrl"
-              render={({ field }) => (
+              render={({ field }: { field: any }) => (
                 <FormItem>
                   <FormLabel>{t('product-image-url-optional')}</FormLabel>
                   <div className="flex items-center gap-2">
@@ -992,7 +962,7 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
             <FormField
               control={form.control}
               name="category"
-              render={({ field }) => (
+              render={({ field }: { field: any }) => (
                 <FormItem>
                   <FormLabel>{t('category')}</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
@@ -1014,7 +984,7 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
             <FormField
               control={form.control}
               name="description"
-              render={({ field }) => (
+              render={({ field }: { field: any }) => (
                 <FormItem>
                   <FormLabel>{t('product-description-optional')}</FormLabel>
                   <FormControl>
@@ -1038,7 +1008,7 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
                             <FormField
                                 control={form.control}
                                 name={`variants.${index}.weight`}
-                                render={({ field }) => (
+                                render={({ field }: { field: any }) => (
                                     <FormItem>
                                         <FormLabel>{t('weight')}</FormLabel>
                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
@@ -1048,7 +1018,7 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                {standardUnits.map(w => <SelectItem key={w} value={w}>{w}</SelectItem>)}
+                                                {standardWeights.map(w => <SelectItem key={w} value={w}>{w}</SelectItem>)}
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />
@@ -1058,7 +1028,7 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
                             <FormField
                                 control={form.control}
                                 name={`variants.${index}.price`}
-                                render={({ field }) => (
+                                render={({ field }: { field: any }) => (
                                     <FormItem>
                                         <FormLabel>{t('price')} (₹)</FormLabel>
                                         <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
@@ -1069,7 +1039,7 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
                              <FormField
                                 control={form.control}
                                 name={`variants.${index}.stock`}
-                                render={({ field }) => (
+                                render={({ field }: { field: any }) => (
                                     <FormItem>
                                         <FormLabel>Stock</FormLabel>
                                         <FormControl><Input type="number" step="1" {...field} /></FormControl>
@@ -1108,10 +1078,9 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
 }
 
 function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdmin: boolean, adminStoreId?: string; }) {
-    const { toast } = useToast();
-    const [isOpening, startOpenTransition] = useTransition();
+    const isClosed = store.isClosed;
 
-    if (store.isClosed) {
+    if (isClosed) {
         return (
             <Alert variant="destructive">
                  <AlertCircle className="h-4 w-4" />
@@ -1119,8 +1088,8 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
                 <AlertDescription>
                     {t('your-store-is-currently-not-visible')}
                 </AlertDescription>
-                <Button onClick={() => {}} disabled={isOpening} className="mt-4">
-                    {isOpening ? t('re-opening') : t('re-open-store')}
+                <Button onClick={() => {}} className="mt-4">
+                    {t('re-open-store')}
                 </Button>
             </Alert>
         )
@@ -1129,9 +1098,11 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
 
     return (
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="inventory">Inventory & Menu</TabsTrigger>
+          <TabsTrigger value="products">Products</TabsTrigger>
+          <TabsTrigger value="orders">Orders</TabsTrigger>
+          <TabsTrigger value="restaurant">Restaurant / QR Menu</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="mt-6 space-y-6">
             <StoreDetails store={store} onUpdate={() => {}} />
@@ -1141,34 +1112,41 @@ function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdm
             </div>
             <DangerZone store={store} />
         </TabsContent>
-        <TabsContent value="inventory" className="mt-6 space-y-6">
-            {store.businessType === 'grocery' ? (
-                adminStoreId ? (
-                    <ProductChecklist storeId={store.id} adminStoreId={adminStoreId} />
-                ) : (
-                    <Alert><Info className="h-4 w-4" /><AlertTitle>Catalog Unavailable</AlertTitle><AlertDescription>The master grocery catalog is not set up.</AlertDescription></Alert>
-                )
-            ) : (
+        <TabsContent value="products" className="mt-6 space-y-6">
+            {isAdmin ? (
                 <>
-                    <TableManager store={store} />
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <QrCode className="h-6 w-6 text-primary" />
-                                Digital Menu Manager
-                            </CardTitle>
-                            <CardDescription>Create a digital menu for your {store.businessType} services.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <Button asChild className="w-full">
-                                <Link href="/dashboard/owner/menu-manager">Go to Menu Manager</Link>
-                            </Button>
-                        </CardContent>
-                    </Card>
+                    <AddProductForm storeId={store.id} isAdmin={true} />
                 </>
+            ) : (
+                <ProductChecklist storeId={store.id} adminStoreId={adminStoreId || ''} />
             )}
         </TabsContent>
-      </Tabs>
+        <TabsContent value="orders" className="mt-6">
+            <Card>
+                <CardHeader><CardTitle>Incoming Orders</CardTitle></CardHeader>
+                <CardContent>
+                    <p className="text-muted-foreground">Order management UI will be here.</p>
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="restaurant" className="mt-6 space-y-6">
+            <TableManager store={store} />
+             <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <QrCode className="h-6 w-6 text-primary" />
+                        QR Code Menu Manager
+                    </CardTitle>
+                    <CardDescription>Create a full digital menu for your restaurant tables.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button asChild className="w-full">
+                        <Link href="/dashboard/owner/menu-manager">Go to Menu Manager</Link>
+                    </Button>
+                </CardContent>
+             </Card>
+        </TabsContent>
+    </Tabs>
     )
 }
 
@@ -1178,28 +1156,22 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
     const { firestore } = useFirebase();
     const [isLocationConfirmOpen, setIsLocationConfirmOpen] = useState(false);
     const [capturedCoords, setCapturedCoords] = useState<{ lat: number; lng: number } | null>(null);
-    const [isLocating, setIsLocating] = useState(false);
 
     const form = useForm<StoreFormValues>({
         resolver: zodResolver(storeSchema),
         defaultValues: {
             name: isAdmin ? 'LocalBasket' : (profile ? `${profile.firstName}'s Store` : ''),
-            description: isAdmin ? 'The master store for setting canonical product prices.' : (profile ? `Fresh services and goods from ${profile.firstName}'s Store.` : ''),
+            description: isAdmin ? 'The master store for setting canonical product prices.' : (profile ? `Groceries and goods from ${profile.firstName}'s Store.` : ''),
             address: isAdmin ? 'Platform-wide' : (profile?.address || ''),
-            latitude: profile?.latitude || 0,
-            longitude: profile?.longitude || 0,
-            teluguName: '',
+            latitude: 0,
+            longitude: 0,
+            teluguName: ''
         },
     });
 
     useEffect(() => {
         if (!isAdmin && profile) {
-            if (profile.latitude && profile.longitude) {
-                form.setValue('latitude', profile.latitude, { shouldValidate: true });
-                form.setValue('longitude', profile.longitude, { shouldValidate: true });
-            } else {
-                handleGetLocation(true); 
-            }
+            handleGetLocation(true); 
         }
     }, [isAdmin, profile]);
     
@@ -1209,7 +1181,6 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
             return;
         }
 
-        setIsLocating(true);
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
@@ -1217,11 +1188,10 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                     setCapturedCoords(coords);
                     setIsLocationConfirmOpen(true);
                 } else {
-                    form.setValue('latitude', coords.lat, { shouldValidate: true, shouldDirty: true });
-                    form.setValue('longitude', coords.lng, { shouldValidate: true, shouldDirty: true });
+                    form.setValue('latitude', coords.lat);
+                    form.setValue('longitude', coords.lng);
                     toast({ title: "Location Fetched!", description: "Your current location has been filled in." });
                 }
-                setIsLocating(false);
             },
             () => {
                 if (isAuto) {
@@ -1229,9 +1199,7 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                 } else {
                     toast({ variant: 'destructive', title: "Location Error", description: "Could not retrieve your location. Please enter it manually." });
                 }
-                setIsLocating(false);
-            },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            }
         );
     };
 
@@ -1267,6 +1235,30 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
         });
     };
 
+    if (profile && !isAdmin) {
+        return (
+            <div className="text-center">
+                 <AlertDialog open={isLocationConfirmOpen} onOpenChange={setIsLocationConfirmOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>{t('confirm-store-location')}</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                {t('weve-detected-your-location')}
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel onClick={() => handleConfirmLocation(false)}>{t('no-ill-do-it-later')}</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleConfirmLocation(true)}>{t('yes-create-my-store-here')}</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+                <p className="text-lg">{t('attempting-to-create-your-store-automatically')}...</p>
+                <Loader2 className="mx-auto mt-4 h-8 w-8 animate-spin" />
+                 <p className="text-sm text-muted-foreground mt-4">{t('if-this-fails-you-can-create-your-store-manually')}</p>
+            </div>
+        );
+    }
+
     return (
         <Card className="max-w-3xl mx-auto">
             <CardHeader>
@@ -1281,7 +1273,7 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                          <FormField
                             control={form.control}
                             name="name"
-                            render={({ field }) => (
+                            render={({ field }: { field: any }) => (
                             <FormItem>
                                 <FormLabel>{t('store-name')}</FormLabel>
                                 <FormControl>
@@ -1294,7 +1286,7 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                          <FormField
                             control={form.control}
                             name="teluguName"
-                            render={({ field }) => (
+                            render={({ field }: { field: any }) => (
                             <FormItem>
                                 <FormLabel>Store Name (Telugu)</FormLabel>
                                 <FormControl>
@@ -1308,7 +1300,7 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                         <FormField
                             control={form.control}
                             name="description"
-                            render={({ field }) => (
+                            render={({ field }: { field: any }) => (
                             <FormItem>
                                 <FormLabel>{t('store-description')}</FormLabel>
                                 <FormControl><Textarea placeholder={t('describe-what-makes-your-store-special')} {...field} /></FormControl>
@@ -1319,7 +1311,7 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                         <FormField
                             control={form.control}
                             name="address"
-                            render={({ field }) => (
+                            render={({ field }: { field: any }) => (
                             <FormItem>
                                 <FormLabel>{t('full-store-address')}</FormLabel>
                                 <FormControl><Input placeholder="123 Market Street, Mumbai" {...field} /></FormControl>
@@ -1332,16 +1324,15 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
                                     <FormLabel>{t('store-location-gps')}</FormLabel>
                                     <div className="flex items-end gap-4">
                                         <div className="grid grid-cols-2 gap-4 flex-1">
-                                            <FormField control={form.control} name="latitude" render={({ field }) => (
-                                                <FormItem><FormLabel className="text-xs text-muted-foreground">{t('latitude')}</FormLabel><FormControl><Input type="number" step="any" placeholder="e.g., 19.0760" {...field} /></FormControl><FormMessage /></FormItem>
+                                            <FormField control={form.control} name="latitude" render={({ field }: { field: any }) => (
+                                                <FormItem><FormLabel className="text-xs text-muted-foreground">{t('latitude')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 19.0760" {...field} /></FormControl><FormMessage /></FormItem>
                                             )} />
-                                            <FormField control={form.control} name="longitude" render={({ field }) => (
-                                                <FormItem><FormLabel className="text-xs text-muted-foreground">{t('longitude')}</FormLabel><FormControl><Input type="number" step="any" placeholder="e.g., 72.8777" {...field} /></FormControl><FormMessage /></FormItem>
+                                            <FormField control={form.control} name="longitude" render={({ field }: { field: any }) => (
+                                                <FormItem><FormLabel className="text-xs text-muted-foreground">{t('longitude')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 72.8777" {...field} /></FormControl><FormMessage /></FormItem>
                                             )} />
                                         </div>
-                                        <Button type="button" variant="outline" onClick={() => handleGetLocation(false)} disabled={isLocating}>
-                                            {isLocating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />}
-                                            {isLocating ? 'Locating...' : t('get-current-location')}
+                                        <Button type="button" variant="outline" onClick={() => handleGetLocation(false)}>
+                                            <MapPin className="mr-2 h-4 w-4" /> {t('get-current-location')}
                                         </Button>
                                     </div>
                             </div>
@@ -1401,14 +1392,13 @@ export default function MyStorePage() {
              const storeData = {
                 name: `${userProfile.firstName}'s Store`,
                 teluguName: `${userProfile.firstName} గారి స్టోర్`,
-                description: `Fresh services and goods from ${userProfile.firstName}'s Store.`,
+                description: `Groceries and goods from ${userProfile.firstName}'s Store.`,
                 address: userProfile.address,
                 latitude: coords.lat,
                 longitude: coords.lng,
                 ownerId: user.uid,
                 imageId: `store-${Math.floor(Math.random() * 3) + 1}`,
                 isClosed: false,
-                businessType: userProfile.accountType === 'restaurant' ? 'restaurant' : 'grocery',
             };
             addDoc(collection(firestore, 'stores'), storeData)
                 .then(() => {
