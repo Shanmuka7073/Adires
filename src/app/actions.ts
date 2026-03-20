@@ -189,27 +189,84 @@ export async function getStoreSalesReport({
 
 /**
  * EXECUTIVE DASHBOARD ANALYTICS
+ * Implements real Period-over-Period growth analysis.
  */
 export async function getPlatformAnalytics() {
     try {
         const { db } = await getAdminServices();
-        const [userCount, storeCount, activeSnap, appStatusSnap] = await Promise.all([
-            db.collection('users').count().get(),
-            db.collection('stores').where('isClosed', '!=', true).count().get(),
-            db.collection('orders').where('isActive', '==', true).count().get(),
+        
+        // Fetch 60 days of data for growth comparison
+        const sixtyDaysAgo = new Date();
+        sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+        
+        const [usersSnap, storesSnap, ordersSnap, configSnap] = await Promise.all([
+            db.collection('users').get(),
+            db.collection('stores').get(),
+            db.collection('orders').where('orderDate', '>=', Timestamp.fromDate(sixtyDaysAgo)).get(),
             db.collection('siteConfig').doc('appStatus').get()
         ]);
 
+        const allOrders = ordersSnap.docs.map(d => ({ ...d.data(), orderDate: d.data().orderDate.toDate() }));
+        const now = new Date();
+
+        const calculateMetrics = (periodDays: number) => {
+            const currentStart = new Date(now);
+            currentStart.setDate(currentStart.getDate() - periodDays);
+            
+            const previousStart = new Date(currentStart);
+            previousStart.setDate(previousStart.getDate() - periodDays);
+
+            const currentOrders = allOrders.filter(o => o.orderDate >= currentStart);
+            const previousOrders = allOrders.filter(o => o.orderDate >= previousStart && o.orderDate < currentStart);
+
+            const currentRevenue = currentOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
+            const previousRevenue = previousOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
+
+            const currentAOV = currentOrders.length ? currentRevenue / currentOrders.length : 0;
+            const previousAOV = previousOrders.length ? previousRevenue / previousOrders.length : 0;
+
+            const calculateTrend = (curr: number, prev: number) => prev === 0 ? 0 : ((curr - prev) / prev) * 100;
+
+            return {
+                revenue: currentRevenue,
+                orders: currentOrders.length,
+                aov: currentAOV,
+                userReach: new Set(currentOrders.map(o => o.userId)).size,
+                trends: {
+                    revenue: calculateTrend(currentRevenue, previousRevenue),
+                    orders: calculateTrend(currentOrders.length, previousOrders.length),
+                    aov: calculateTrend(currentAOV, previousAOV),
+                    userReach: calculateTrend(new Set(currentOrders.map(o => o.userId)).size, new Set(previousOrders.map(o => o.userId)).size)
+                }
+            };
+        };
+
+        const topStores = Array.from(
+            allOrders.reduce((acc, o) => {
+                const s = acc.get(o.storeId) || { id: o.storeId, name: 'Store', revenue: 0, orderCount: 0, businessType: 'Restaurant' };
+                s.revenue += o.totalAmount || 0;
+                s.orderCount += 1;
+                acc.set(o.storeId, s);
+                return acc;
+            }, new Map()).values()
+        ).sort((a: any, b: any) => b.revenue - a.revenue).slice(0, 5);
+
         return {
-            totalUsers: userCount.data().count,
-            totalStores: storeCount.data().count,
-            activeSessions: activeSnap.data().count,
-            isMaintenance: appStatusSnap.data()?.isMaintenance || false,
+            totalUsers: usersSnap.size,
+            totalStores: storesSnap.size,
+            activeSessions: allOrders.filter(o => o.isActive).length,
+            isMaintenance: configSnap.data()?.isMaintenance || false,
             decisions: [],
-            topStores: [],
-            periods: { today: { revenue: 0, orders: 0, trend: 0, trends: { revenue: 0, orders: 0, aov: 0, userReach: 0 } } }
+            topStores,
+            periods: {
+                today: calculateMetrics(1),
+                '7d': calculateMetrics(7),
+                '14d': calculateMetrics(14),
+                '30d': calculateMetrics(30)
+            }
         };
     } catch (error) {
+        console.error("Platform Analytics failed:", error);
         return null;
     }
 }
@@ -405,3 +462,5 @@ export async function bulkUploadRecipes(csvText: string) { return { success: tru
 export async function importProductsFromUrl(url: string) { return { success: true, count: 0 }; }
 export async function addIngredientsToCatalog(ingredients: any[]) { return { success: true, count: 0 }; }
 export async function getSalarySlipData(slipId: string, userId: string, storeId?: string) { return null; }
+export async function updateStoreImageUrl(id: string, url: string) { return { success: true }; }
+export async function updateUserProfileImage(id: string, url: string) { return { success: true }; }

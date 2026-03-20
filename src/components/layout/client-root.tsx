@@ -1,8 +1,8 @@
 
 'use client';
 
-import React, { useEffect } from 'react';
-import { FirebaseClientProvider, useFirebase } from '@/firebase';
+import React from 'react';
+import { FirebaseClientProvider } from '@/firebase';
 import { CartProvider } from '@/lib/cart';
 import { MainLayout } from '@/components/layout/main-layout';
 import { Toaster } from '@/components/ui/toaster';
@@ -13,7 +13,6 @@ import { InstallProvider } from '@/components/install-provider';
 /**
  * Optimized App Content wrapper.
  * Unlocks the UI as soon as "Core Data" (Branding, Commands) is ready.
- * Background data (Products, Aliases) streams in while user sees skeletons.
  */
 function AppContent({ children }: { children: React.ReactNode }) {
     useInitializeApp();

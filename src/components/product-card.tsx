@@ -1,5 +1,5 @@
 
-'use client'
+'use client';
 
 import { useCart } from '@/lib/cart';
 import type { Product, ProductPrice } from '@/lib/types';
@@ -18,11 +18,9 @@ interface ProductCardProps {
 
 export default function ProductCard({ product, priceData }: ProductCardProps) {
   const { cartItems, addItem, updateQuantity } = useCart();
-  // Always select the first variant for simplicity on the product card
   const priceInfo = priceData?.variants?.[0] ?? null;
   const [isFavorite, setIsFavorite] = useState(false);
 
-  // Find this specific item in the cart
   const itemInCart = cartItems.find(item => item.variant.sku === priceInfo?.sku);
 
   const handleAddToCart = () => {
@@ -60,7 +58,6 @@ export default function ProductCard({ product, priceData }: ProductCardProps) {
             onClick={() => setIsFavorite(!isFavorite)}
         >
             <Heart className={cn("h-4 w-4 text-gray-500", isFavorite && "fill-red-500 text-red-500")} />
-            <span className="sr-only">Favorite</span>
         </Button>
       </div>
 
@@ -81,7 +78,7 @@ export default function ProductCard({ product, priceData }: ProductCardProps) {
                     <Button size="icon" variant="outline" className="h-8 w-8 rounded-full" onClick={handleDecrease}>
                         <Minus className="h-4 w-4" />
                     </Button>
-                    <span className="w-8 text-center font-bold">{itemInCart.quantity}</span>
+                    <span className="w-8 text-center font-bold text-xs">{itemInCart.quantity}</span>
                     <Button size="icon" variant="outline" className="h-8 w-8 rounded-full" onClick={handleIncrease}>
                         <Plus className="h-4 w-4" />
                     </Button>
@@ -89,9 +86,7 @@ export default function ProductCard({ product, priceData }: ProductCardProps) {
             ) : (
                  <Button
                     size="icon"
-                    className="h-8 w-8 rounded-full bg-green-100 text-green-700 hover:bg-green-200 shadow-none font-bold"
-                    type="button"
-                    aria-label={`Add ${product.name} to cart`}
+                    className="h-8 w-8 rounded-full bg-green-100 text-green-700 hover:bg-green-200"
                     onClick={handleAddToCart}
                     disabled={!priceInfo}
                 >
