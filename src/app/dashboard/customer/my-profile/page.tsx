@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirebase, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
@@ -13,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { doc, setDoc } from 'firebase/firestore';
 import { useTransition, useEffect, useState } from 'react';
 import type { User as AppUser } from '@/lib/types';
-import { Loader2, Fingerprint, Store, Truck, Voicemail, LogOut, LayoutDashboard, MapPin, LocateFixed, User as UserIcon, Save } from 'lucide-react';
+import { Loader2, Store, Truck, Voicemail, LogOut, LayoutDashboard, MapPin, LocateFixed, User as UserIcon, Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useProfileFormStore, ProfileFormValues } from '@/lib/store';
 import Link from 'next/link';
@@ -37,7 +36,7 @@ const profileSchema = z.object({
 function ProfilePictureCard({ user }: { user: AppUser }) {
     const { toast } = useToast();
     const [isSaving, startSave] = useTransition();
-    const { watch, setValue } = useFormContext<ProfileFormValues>();
+    const { watch } = useFormContext<ProfileFormValues>();
     const imageUrl = watch('imageUrl');
 
     const handleSave = () => {
@@ -171,7 +170,7 @@ export default function MyProfilePage() {
             }
         );
     } else {
-        toast({ variant: 'destructive', title: "Not Supported", description: "Geolocation is not supported by this browser." });
+        toast({ variant: 'destructive', title: "Not Supported", description: "Geolocation is not supported by your browser." });
     }
   }
   
@@ -352,24 +351,6 @@ export default function MyProfilePage() {
                     </div>
                     <div className="space-y-4">
                         <h2 className="text-xl font-bold font-headline">Account Security</h2>
-                        <Card className="bg-secondary/20 border-secondary/40">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Fingerprint className="h-5 w-5 text-secondary-foreground" />
-                                    Fingerprint Login
-                                </CardTitle>
-                                <CardDescription>
-                                    Enable passwordless login by registering your device's fingerprint sensor.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <Button asChild className="w-full">
-                                    <Link href="/dashboard/customer/fingerprint">
-                                        Manage Fingerprint Login
-                                    </Link>
-                                </Button>
-                            </CardContent>
-                        </Card>
                         <Card className="bg-primary/5 border-primary/20">
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
@@ -377,7 +358,7 @@ export default function MyProfilePage() {
                                     Voice ID
                                 </CardTitle>
                                 <CardDescription>
-                                    Set up a voice password for a faster, more secure way to log in and confirm actions.
+                                    Set up a voice password for a faster, more secure way to confirm actions.
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>

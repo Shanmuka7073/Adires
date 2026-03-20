@@ -337,10 +337,6 @@ export default function AdminDashboardPage() {
                             <span className="text-green-600 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Verified</span>
                         </div>
                         <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-tight">
-                            <span className="opacity-40">MFA / Biometric</span>
-                            <span className="text-green-600 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Active</span>
-                        </div>
-                        <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-tight">
                             <span className="opacity-40">Secure Headers (CSP)</span>
                             <span className="text-green-600 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Enabled</span>
                         </div>

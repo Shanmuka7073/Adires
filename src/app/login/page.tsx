@@ -19,11 +19,9 @@ import type { AuthError } from 'firebase/auth';
 import { 
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword,
-    signInWithCustomToken,
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
-import { Fingerprint, Loader2, AlertCircle, KeyRound } from 'lucide-react';
-import { startAuthentication } from '@simplewebauthn/browser';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { User as AppUser } from '@/lib/types';
@@ -44,7 +42,6 @@ export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [isWebAuthnPending, startWebAuthnTransition] = useTransition();
   const { auth, user, isUserLoading, firestore } = useFirebase();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -58,7 +55,6 @@ export default function LoginPage() {
   }, [firestore, user]);
   
   const { data: userData, isLoading: isProfileLoading } = useDoc<AppUser>(userDocRef);
-
 
   useEffect(() => {
     if (!isUserLoading && !isProfileLoading && user && userData) {
@@ -74,63 +70,10 @@ export default function LoginPage() {
     }
   }, [user, isUserLoading, isProfileLoading, userData, router, redirectTo]);
 
-
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '', accountType: 'groceries' },
   });
-
-  const { email } = form.watch();
-
-  const handleWebAuthnLogin = async () => {
-    setError(null);
-    startWebAuthnTransition(async () => {
-      try {
-        const respOptions = await fetch('/api/auth/webauthn/generate-authentication-options', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email || null }), 
-        });
-
-        const options = await respOptions.json();
-
-        if (!respOptions.ok) {
-          throw new Error(options.error || 'Could not initiate biometric login.');
-        }
-        
-        const assertion = await startAuthentication(options);
-
-        const verificationResp = await fetch('/api/auth/webauthn/verify-authentication', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...assertion, email: email || null }),
-        });
-        
-        const verificationJSON = await verificationResp.json();
-        
-        if (verificationJSON && verificationJSON.verified) {
-            if (!auth) throw new Error("Authentication service not available.");
-            await signInWithCustomToken(auth, verificationJSON.customToken);
-            toast({ title: 'Welcome back!', description: 'Successfully signed in with your device lock.' });
-        } else {
-            throw new Error(verificationJSON.error || 'Verification failed.');
-        }
-
-      } catch (error: any) {
-        console.error("WebAuthn Error:", error);
-        setError(error.message);
-        if (error.name === 'NotAllowedError') {
-            toast({ variant: 'destructive', title: 'Login Cancelled' });
-        } else {
-            toast({
-                variant: 'destructive',
-                title: 'Biometric Login Error',
-                description: error.message,
-            });
-        }
-      }
-    });
-  };
 
   const onSubmit = (data: LoginFormValues) => {
     setError(null);
@@ -160,7 +103,7 @@ export default function LoginPage() {
 
                 toast({
                     title: 'Account Created!',
-                    description: 'You can now enable one-tap login in your profile.',
+                    description: 'Your account has been created successfully.',
                 });
                 setIsSignUp(false);
                 form.reset();
@@ -193,34 +136,6 @@ export default function LoginPage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {!isSignUp && (
-                <div className="space-y-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full h-20 text-lg border-2 border-primary/20 hover:bg-primary/5 hover:border-primary/50 transition-all rounded-2xl group flex flex-col gap-1 items-center justify-center"
-                      onClick={handleWebAuthnLogin}
-                      disabled={isWebAuthnPending}
-                    >
-                      {isWebAuthnPending ? (
-                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                      ) : (
-                        <Fingerprint className="h-8 w-8 text-primary group-hover:scale-110 transition-transform" />
-                      )}
-                      <span className="font-bold">One-Tap Login</span>
-                    </Button>
-                    
-                    <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                            <span className="w-full border-t" />
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-background px-2 text-muted-foreground font-black text-[9px] tracking-widest">Or use email</span>
-                        </div>
-                    </div>
-                </div>
-              )}
-
               <FormField
                 control={form.control}
                 name="email"
