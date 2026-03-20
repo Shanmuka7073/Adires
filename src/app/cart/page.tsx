@@ -1,7 +1,7 @@
 'use client';
 
 import { useCart } from '@/lib/cart';
-import type { UnidentifiedCartItem } from '@/lib/types';
+import type { UnidentifiedCartItem, CartItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -27,6 +27,11 @@ import { useAppStore } from '@/lib/store';
 import { t } from '@/lib/locales';
 
 const DELIVERY_FEE = 30;
+
+interface CartRowProps {
+  item: CartItem;
+  image: { imageUrl: string; imageHint: string };
+}
 
 function UnidentifiedCartRow({ item }: { item: UnidentifiedCartItem }) {
     const { status, term } = item;
@@ -63,7 +68,7 @@ function UnidentifiedCartRow({ item }: { item: UnidentifiedCartItem }) {
     )
 }
 
-function CartRow({ item, image }) {
+function CartRow({ item, image }: CartRowProps) {
   const { removeItem, updateQuantity } = useCart();
   const { product, variant, quantity } = item;
 
@@ -122,7 +127,7 @@ function CartRow({ item, image }) {
   );
 }
 
-function MobileCartItem({ item, image }) {
+function MobileCartItem({ item, image }: CartRowProps) {
     const { removeItem, updateQuantity } = useCart();
     const { product, variant, quantity } = item;
 
@@ -155,7 +160,7 @@ function MobileCartItem({ item, image }) {
                     </div>
                      <div className="flex items-center gap-2">
                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(variant.sku, quantity - 1)}>
-                            <偏 Minus className="h-4 w-4" />
+                            <Minus className="h-4 w-4" />
                         </Button>
                         <Input
                             type="number"
@@ -212,7 +217,7 @@ export default function CartPage() {
   const firstStoreId = stores[0]?.id;
   const shoppingLink = firstStoreId ? `/stores/${firstStoreId}` : '/';
   
-  const [images, setImages] = useState({});
+  const [images, setImages] = useState<Record<string, { imageUrl: string; imageHint: string }>>({});
 
   useEffect(() => {
     const fetchImages = async () => {
@@ -221,13 +226,13 @@ export default function CartPage() {
             if (item.product.imageUrl) {
                 return Promise.resolve({ imageUrl: item.product.imageUrl, imageHint: item.product.name });
             }
-            return getProductImage(item.product.imageId);
+            return Promise.resolve(getProductImage(item.product.imageId));
         });
         const resolvedImages = await Promise.all(imagePromises);
         const imageMap = cartItems.reduce((acc, item, index) => {
           acc[item.variant.sku] = resolvedImages[index];
           return acc;
-        }, {});
+        }, {} as Record<string, { imageUrl: string; imageHint: string }>);
         setImages(imageMap);
       }
     };
