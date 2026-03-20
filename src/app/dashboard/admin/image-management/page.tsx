@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, PlusCircle, Trash2, ImageIcon, Search, Link2, Sparkles, Save, Upload as UploadIcon, Copy } from 'lucide-react';
-import { getPlaceholderImages, updatePlaceholderImages } from '@/app/actions';
+import { getPlaceholderImages, updatePlaceholderImages } from '@/src/app/actions';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
