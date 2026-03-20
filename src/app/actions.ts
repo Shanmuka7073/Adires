@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -5,6 +6,8 @@ import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import type { Order, Store, User, MenuItem, OrderItem, RestaurantIngredient, SalarySlip, EmployeeProfile, SiteConfig, GetIngredientsOutput } from '@/lib/types';
 import { getApps } from 'firebase-admin/app';
 import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
+import * as fs from 'fs';
+import * as path from 'path';
 
 /**
  * UTILITY: Safe Date Parsing for Analytics
@@ -58,8 +61,94 @@ export async function getIngredientsForDish(input: { dishName: string; language:
 }
 
 /**
+ * ASHA SOURCE CODE AUDIT
+ */
+export async function getFileContent(filePath: string) {
+    try {
+        const fullPath = path.join(process.cwd(), filePath);
+        // Security check: restrict to src directory
+        if (!fullPath.startsWith(path.join(process.cwd(), 'src')) && !fullPath.startsWith(path.join(process.cwd(), 'scripts'))) {
+             return "Access denied: Target path outside authorized scope.";
+        }
+        if (!fs.existsSync(fullPath)) return "File not found.";
+        return fs.readFileSync(fullPath, 'utf-8');
+    } catch (e) {
+        return `Error reading file: ${e}`;
+    }
+}
+
+/**
+ * EXTERNAL KNOWLEDGE TOOLS
+ */
+export async function getWikipediaSummary(topic: string) {
+    try {
+        const response = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(topic)}`);
+        const data = await response.json();
+        if (data.type === 'standard') {
+            return { summary: data.extract };
+        }
+        return { error: 'Topic not found.' };
+    } catch (e) {
+        return { error: 'Failed to fetch from Wikipedia.' };
+    }
+}
+
+export async function getMealDbRecipe(dishName: string) {
+    try {
+        const response = await fetch(`https://www.themealdb.com/api/json/v1/1/search.php?s=${encodeURIComponent(dishName)}`);
+        const data = await response.json();
+        if (data.meals && data.meals.length > 0) {
+            const meal = data.meals[0];
+            const ingredients = [];
+            for (let i = 1; i <= 20; i++) {
+                const ing = meal[`strIngredient${i}`];
+                const measure = meal[`strMeasure${i}`];
+                if (ing && ing.trim()) {
+                    ingredients.push(`${measure ? measure.trim() : ''} ${ing.trim()}`);
+                }
+            }
+            return { ingredients, instructions: meal.strInstructions };
+        }
+        return { error: 'Recipe not found.' };
+    } catch (e) {
+        return { error: 'Failed to fetch recipe.' };
+    }
+}
+
+/**
  * RESTAURANT ORDERING ENGINE
  */
+export async function placeRestaurantOrder(cartItems: any[], totalAmount: number, guestInfo: any, idToken?: string) {
+    try {
+        const { db } = await getAdminServices();
+        const orderId = db.collection('orders').doc().id;
+        const orderRef = db.collection('orders').doc(orderId);
+        
+        const orderData = {
+            id: orderId,
+            status: 'Pending',
+            totalAmount,
+            customerName: guestInfo.name,
+            phone: guestInfo.phone,
+            tableNumber: guestInfo.tableNumber,
+            orderDate: FieldValue.serverTimestamp(),
+            isActive: true,
+            orderType: guestInfo.tableNumber === 'Counter' ? 'counter' : 'dine-in',
+            items: cartItems.map(item => ({
+                id: Math.random().toString(36).substring(7),
+                productName: item.product.name,
+                quantity: item.quantity,
+                price: item.variant.price
+            }))
+        };
+
+        await orderRef.set(orderData);
+        return { success: true, orderId };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
 export async function addRestaurantOrderItem({
   storeId,
   sessionId,
@@ -109,6 +198,83 @@ export async function addRestaurantOrderItem({
     console.error("addRestaurantOrderItem failed:", error);
     return { success: false, error: error.message };
   }
+}
+
+/**
+ * ADMIN BULK OPERATIONS
+ */
+export async function importProductsFromUrl(url: string) {
+    try {
+        const response = await fetch(url);
+        const text = await response.text();
+        const rows = text.split('\n').slice(1);
+        let count = 0;
+        const { db } = await getAdminServices();
+        const batch = db.batch();
+        
+        for (const row of rows) {
+            if (!row.trim()) continue;
+            const [name, category, description, imageUrl, weight, price] = row.split(',').map(s => s.trim());
+            if (!name || !price) continue;
+            
+            const docRef = db.collection('productPrices').doc(name.toLowerCase());
+            batch.set(docRef, {
+                productName: name,
+                variants: [{ sku: `${name}-${weight}`, weight, price: parseFloat(price), stock: 100 }]
+            }, { merge: true });
+            count++;
+        }
+        
+        await batch.commit();
+        return { success: true, count };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
+export async function bulkUploadRecipes(csvText: string) {
+    try {
+        const rows = csvText.split('\n');
+        let count = 0;
+        const { db } = await getAdminServices();
+        const batch = db.batch();
+
+        for (const row of rows) {
+            if (!row.trim()) continue;
+            const [dishName, ingredients] = row.split(',');
+            if (!dishName || !ingredients) continue;
+
+            const id = dishName.toLowerCase().replace(/\s+/g, '-');
+            const docRef = db.collection('cachedRecipes').doc(id);
+            batch.set(docRef, {
+                id,
+                dishName,
+                components: ingredients.split('|').map(name => ({ name, quantity: 'As needed' })),
+                createdAt: FieldValue.serverTimestamp()
+            }, { merge: true });
+            count++;
+        }
+
+        await batch.commit();
+        return { success: true, count };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
+export async function addIngredientsToCatalog(ingredients: any[]) {
+    try {
+        const { db } = await getAdminServices();
+        const batch = db.batch();
+        for (const ing of ingredients) {
+            const docRef = db.collection('restaurantIngredients').doc(ing.name.toLowerCase());
+            batch.set(docRef, ing, { merge: true });
+        }
+        await batch.commit();
+        return { success: true, count: ingredients.length };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
 }
 
 /**
