@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -34,7 +33,6 @@ export interface Command {
 interface VoiceCommanderProps {
   enabled: boolean;
   onStatusUpdate: (status: string) => void;
-  onSuggestions: (suggestions: Command[]) => void;
   onOpenCart: () => void;
   onCloseCart: () => void;
   cartItems: CartItem[];
@@ -65,7 +63,6 @@ type Intent =
 export function VoiceCommander({
   enabled,
   onStatusUpdate,
-  onSuggestions,
   onOpenCart,
   onCloseCart,
   cartItems: cartItemsProp,
