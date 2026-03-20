@@ -2,15 +2,17 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '@/lib/store';
-import { User, Store as StoreType, Order } from '@/lib/types';
+import { User, Store as StoreType, Order, Product as ProductType } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { getProductImage } from '@/lib/data';
 import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { Search, Mic, MapPin, ChevronDown, ArrowRight, Sparkles, LayoutGrid, Beef, Scissors, Loader2, Download, User as UserCircle, Globe } from 'lucide-react';
+import { Search, Mic, MapPin, ChevronDown, ArrowRight, Sparkles, LayoutGrid, Beef, Scissors, Loader2, Download, User as UserCircle, Globe, Heart, Lamp, Home as HomeIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import StoreCard from '@/components/store-card';
+import ProductCard from '@/components/product-card';
 import { doc, collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { useVoiceCommanderContext } from '@/components/layout/voice-commander-context';
 import { Button } from '@/components/ui/button';
@@ -233,7 +235,7 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
                     </DropdownMenu>
                 </div>
             </div>
-            <div className="flex items-center gap-3 bg-[#F1F3F5] p-2.5 rounded-xl border border-gray-200">
+            <div className="flex items-center gap-3 bg-[#F1F3F5] p-2.5 rounded-xl border border-gray-200 shadow-inner">
                 <Search className="h-5 w-5 text-gray-500" />
                 <input
                     type="text"
@@ -282,7 +284,7 @@ export default function LocalBasketHomepage() {
 
   const filteredProducts = useMemo(() => {
     if (!searchTerm) return [];
-    return masterProducts.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    return (masterProducts as ProductType[]).filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [searchTerm, masterProducts]);
 
   return (
@@ -323,6 +325,8 @@ export default function LocalBasketHomepage() {
             <div className="rounded-lg overflow-hidden">
                 <Image src="https://i.ibb.co/ZQC3c3h/file-00000000f15871fab9942ef91d9c2021.png" alt="Promotional Banner" width={800} height={400} className="w-full h-auto" />
             </div>
+            
+            <RecipeCard />
             
             {homePageSections.map(section => (
                 <div key={section.title}>
