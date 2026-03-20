@@ -49,7 +49,7 @@ function ProductListDisplay() {
             (navigator as any).share({
                 title: 'LocalBasket Master Product List',
                 text: productListText,
-            }).catch(err => console.error("Share failed:", err));
+            }).catch((err: any) => console.error("Share failed:", err));
         } else {
             handleCopy(); // Fallback to copy if share API is not available
         }
