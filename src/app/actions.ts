@@ -1,17 +1,18 @@
+
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { Order, Store, User, MenuItem, OrderItem, RestaurantIngredient, SalarySlip, EmployeeProfile, SiteConfig } from '@/lib/types';
+import type { Order, Store, User, MenuItem, OrderItem, RestaurantIngredient, SalarySlip, EmployeeProfile, SiteConfig, GetIngredientsOutput } from '@/lib/types';
 import { getApps } from 'firebase-admin/app';
 import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
 
 /**
  * AI INGREDIENT ANALYSIS
  */
-export async function getIngredientsForDish(input: { dishName: string; language: 'en' | 'te' }) {
+export async function getIngredientsForDish(input: { dishName: string; language: 'en' | 'te' }): Promise<GetIngredientsOutput> {
     try {
         return await getIngredientsForDishFlow(input);
     } catch (error: any) {
@@ -146,57 +147,31 @@ export async function getStoreSalesReport({
   }
 
   try {
-    const [ordersSnap, ingredientsSnap] = await Promise.all([
-      db.collection('orders')
+    const ordersSnap = await db.collection('orders')
         .where('storeId', '==', storeId)
         .where('isActive', '==', false)
         .where('orderDate', '>=', Timestamp.fromDate(startDate))
-        .get(),
-      db.collection('restaurantIngredients').get()
-    ]);
+        .get();
 
     const orders = ordersSnap.docs.map(d => d.data() as Order);
-    const ingredientCosts = new Map(ingredientsSnap.docs.map(d => [d.id, d.data() as RestaurantIngredient]));
 
     let totalSales = 0;
     let totalItems = 0;
-    let ingredientCost = 0;
     const tableMap = new Map<string, any>();
-    const itemProfitMap = new Map<string, any>();
 
     orders.forEach(order => {
       totalSales += order.totalAmount;
       const tableKey = order.tableNumber || 'Delivery';
-      const tableData = tableMap.get(tableKey) || { tableNumber: tableKey, totalSales: 0, orderCount: 0, totalCost: 0 };
+      const tableData = tableMap.get(tableKey) || { tableNumber: tableKey, totalSales: 0, orderCount: 0 };
       tableData.totalSales += order.totalAmount;
       tableData.orderCount += 1;
 
       order.items.forEach(item => {
         totalItems += item.quantity;
-        let itemCost = (ingredientCosts.get(item.productName.toLowerCase())?.cost || (item.price * 0.3)) * item.quantity;
-        
-        tableData.totalCost += itemCost;
-        ingredientCost += itemCost;
-
-        const pData = itemProfitMap.get(item.productName) || { name: item.productName, count: 0, totalProfit: 0 };
-        pData.count += item.quantity;
-        pData.totalProfit += (item.price * item.quantity) - itemCost;
-        itemProfitMap.set(item.productName, pData);
       });
 
       tableMap.set(tableKey, tableData);
     });
-
-    const salesByTable = Array.from(tableMap.values()).map(t => ({
-        ...t,
-        profitPerOrder: t.orderCount > 0 ? (t.totalSales - t.totalCost) / t.orderCount : 0,
-        grossProfit: t.totalSales - t.totalCost,
-        profitPercentage: t.totalSales > 0 ? ((t.totalSales - t.totalCost) / t.totalSales) * 100 : 0
-    }));
-
-    const topProfitableProducts = Array.from(itemProfitMap.values())
-        .sort((a, b) => b.totalProfit - a.totalProfit)
-        .slice(0, 5);
 
     return {
       success: true,
@@ -204,9 +179,7 @@ export async function getStoreSalesReport({
         totalSales,
         totalItems,
         totalOrders: orders.length,
-        ingredientCost,
-        salesByTable,
-        topProfitableProducts
+        salesByTable: Array.from(tableMap.values())
       }
     };
   } catch (error: any) {
@@ -220,14 +193,9 @@ export async function getStoreSalesReport({
 export async function getPlatformAnalytics() {
     try {
         const { db } = await getAdminServices();
-        const now = new Date();
-        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const start30d = new Date(todayStart); start30d.setDate(todayStart.getDate() - 30);
-
-        const [userCount, storeCount, ordersSnap, activeSnap, appStatusSnap] = await Promise.all([
+        const [userCount, storeCount, activeSnap, appStatusSnap] = await Promise.all([
             db.collection('users').count().get(),
             db.collection('stores').where('isClosed', '!=', true).count().get(),
-            db.collection('orders').where('orderDate', '>=', Timestamp.fromDate(start30d)).get(),
             db.collection('orders').where('isActive', '==', true).count().get(),
             db.collection('siteConfig').doc('appStatus').get()
         ]);
@@ -327,10 +295,6 @@ export async function getMealDbRecipe(dish: string) {
 /**
  * NLU TRAINING ACTIONS
  */
-export async function processPdfAndExtractRules(formData: FormData) {
-    return { success: true, sentenceCount: 0 };
-}
-
 export async function approveRule(id: string, text: string) {
     const { db } = await getAdminServices();
     await db.collection('nlu_extracted_sentences').doc(id).update({ status: 'approved' });
@@ -346,18 +310,6 @@ export async function rejectRule(id: string) {
 /**
  * SITE CONFIG & PWA
  */
-export async function getPlaceholderImages() {
-    const fullPath = path.join(process.cwd(), 'src/lib/placeholder-images.json');
-    const content = await fs.readFile(fullPath, 'utf8');
-    return JSON.parse(content);
-}
-
-export async function updatePlaceholderImages(data: any) {
-    const fullPath = path.join(process.cwd(), 'src/lib/placeholder-images.json');
-    await fs.writeFile(fullPath, JSON.stringify(data, null, 2));
-    return { success: true };
-}
-
 export async function getManifest() {
     try {
         const fullPath = path.join(process.cwd(), 'public/manifest.json');
@@ -431,18 +383,6 @@ export async function getFirebaseConfig() {
   }
 }
 
-export async function updateStoreImageUrl(storeId: string, imageUrl: string) {
-    const { db } = await getAdminServices();
-    await db.collection('stores').doc(storeId).update({ imageUrl });
-    return { success: true };
-}
-
-export async function updateUserProfileImage(userId: string, imageUrl: string) {
-    const { db } = await getAdminServices();
-    await db.collection('users').doc(userId).update({ imageUrl });
-    return { success: true };
-}
-
 export async function getSystemStatus() {
     try {
         const { db } = await getAdminServices();
@@ -452,7 +392,7 @@ export async function getSystemStatus() {
         ]);
         return {
             status: 'ok',
-            llmStatus: 'Offline',
+            llmStatus: 'Online',
             serverDbStatus: 'Online',
             counts: { users: users.data().count, stores: stores.data().count },
         };

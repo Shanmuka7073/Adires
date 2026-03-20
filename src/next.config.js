@@ -51,6 +51,12 @@ const nextConfig = {
       type: 'asset/source',
     });
 
+    // Suppress specific warnings during build
+    config.ignoreWarnings = [
+        { module: /require-in-the-middle/ },
+        { message: /Critical dependency: require function is used in a way in which dependencies cannot be statically extracted/ }
+    ];
+
     return config
   },
 

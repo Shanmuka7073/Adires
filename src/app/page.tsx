@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import { User, Store as StoreType, Order } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,7 +24,7 @@ const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3
 
 /**
  * Cleaned up Homepage Content.
- * Removed the redundant <header> tag to prevent dual logo/branding issues.
+ * Removed redundant branding to prevent dual logo/name at the top.
  */
 function HomepageContent({ onSearchChange, user }: { onSearchChange: (term: string) => void, user: User | null }) {
     const [deliveryTime, setDeliveryTime] = useState<number | null>(null);
