@@ -4,8 +4,84 @@ import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { Order, Store, User, ReportData, Ingredient, RestaurantIngredient } from '@/lib/types';
+import type { Order, Store, User, MenuItem, OrderItem } from '@/lib/types';
 import { getApps } from 'firebase-admin/app';
+import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
+
+/**
+ * AI INGREDIENT ANALYSIS
+ * Wraps the Genkit flow for client-side use.
+ */
+export async function getIngredientsForDish(input: { dishName: string; language: 'en' | 'te' }) {
+    try {
+        return await getIngredientsForDishFlow(input);
+    } catch (error: any) {
+        console.error("getIngredientsForDish failed:", error);
+        return {
+            isSuccess: false,
+            itemType: 'product',
+            title: input.dishName,
+            components: [],
+            steps: [],
+            nutrition: { calories: 0, protein: 0 },
+        };
+    }
+}
+
+/**
+ * RESTAURANT ORDERING ENGINE
+ * Atomically adds an item to a table session using the Embedded Array pattern.
+ */
+export async function addRestaurantOrderItem({
+  storeId,
+  sessionId,
+  tableNumber,
+  item,
+  quantity,
+}: {
+  storeId: string;
+  sessionId: string;
+  tableNumber: string | null;
+  item: MenuItem;
+  quantity: number;
+}) {
+  try {
+    const { db } = await getAdminServices();
+    const orderId = `${storeId}_${sessionId}`;
+    const orderRef = db.collection('orders').doc(orderId);
+
+    const orderItem = {
+      id: Math.random().toString(36).substring(7),
+      orderId,
+      productId: item.id,
+      menuItemId: item.id,
+      productName: item.name,
+      variantSku: `${item.id}-default`,
+      variantWeight: '1 pc',
+      quantity,
+      price: item.price,
+    };
+
+    await orderRef.set({
+      id: orderId,
+      storeId,
+      tableNumber,
+      sessionId,
+      status: 'Pending',
+      orderType: tableNumber ? 'dine-in' : 'delivery',
+      isActive: true,
+      orderDate: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      items: FieldValue.arrayUnion(orderItem),
+      totalAmount: FieldValue.increment(item.price * quantity),
+    }, { merge: true });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("addRestaurantOrderItem failed:", error);
+    return { success: false, error: error.message };
+  }
+}
 
 /**
  * EXECUTIVE DECISION ENGINE
@@ -82,14 +158,12 @@ export async function getPlatformAnalytics() {
                 userReach: currentUserReach,
                 trends: {
                     revenue: calcTrend(currentRevenue, prevRevenue),
-                    orders: calcTrend(currentOrders.length, prevCount(prevOrders)),
+                    orders: calcTrend(currentOrders.length, prevOrders.length),
                     aov: calcTrend(currentAov, prevAov),
                     userReach: calcTrend(currentUserReach, prevUserReach)
                 }
             };
         };
-
-        const prevCount = (orders: Order[]) => orders.length;
 
         // PERIOD DATA
         const periods = {
@@ -109,27 +183,10 @@ export async function getPlatformAnalytics() {
             });
         }
 
-        const zoneLoad: Record<string, number> = {};
-        filterOrders(todayStart).filter(o => o.status === 'Pending').forEach(o => {
-            if (o.zoneId) zoneLoad[o.zoneId] = (zoneLoad[o.zoneId] || 0) + 1;
-        });
-
-        Object.entries(zoneLoad).forEach(([zoneId, count]) => {
-            const zonePartners = partners.filter(p => p.zoneId === zoneId).length;
-            if (count > 5 && zonePartners < 2) {
-                decisions.push({
-                    type: 'critical',
-                    title: `Zone Bottleneck: ${zoneId.replace('zone-', '')}`,
-                    message: `${count} orders pending with only ${zonePartners} active partners.`,
-                    action: 'Boost Partner Rewards'
-                });
-            }
-        });
-
         // Top Stores calculation (30 days)
         const storeRevenueMap = new Map<string, { revenue: number, orderCount: number, name: string, businessType: string }>();
         successful(filterOrders(start30d)).forEach(o => {
-            const current = storeRevenueMap.get(o.storeId) || { revenue: 0, orderCount: 0, name: o.storeName || 'Verified Store', businessType: o.orderType || 'Retail' };
+            const current = storeRevenueMap.get(o.storeId) || { revenue: 0, orderCount: 0, name: 'Verified Store', businessType: 'Retail' };
             current.revenue += o.totalAmount;
             current.orderCount += 1;
             storeRevenueMap.set(o.storeId, current);
