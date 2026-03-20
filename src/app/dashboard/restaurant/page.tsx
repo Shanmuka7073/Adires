@@ -123,11 +123,11 @@ export default function ServiceDashboardPage() {
         }
     }, [isLoading, isRestaurantOwner, router]);
     
-    const { isSalon, isRestaurant, dashboardTitle, dashboardIcon } = useMemo(() => {
-        if (!store) return { isSalon: false, isRestaurant: false, dashboardTitle: 'Business Dashboard', dashboardIcon: Store };
-        if (store.businessType === 'salon') return { isSalon: true, isRestaurant: false, dashboardTitle: 'Salon Hub', dashboardIcon: Scissors };
-        if (store.businessType === 'restaurant') return { isSalon: false, isRestaurant: true, dashboardTitle: 'Restaurant Hub', dashboardIcon: Utensils };
-        return { isSalon: false, isRestaurant: false, dashboardTitle: 'Owner Hub', dashboardIcon: LayoutGrid };
+    const { isSalon, isRestaurant, dashboardTitle, DashboardIcon } = useMemo(() => {
+        if (!store) return { isSalon: false, isRestaurant: false, dashboardTitle: 'Business Dashboard', DashboardIcon: Store };
+        if (store.businessType === 'salon') return { isSalon: true, isRestaurant: false, dashboardTitle: 'Salon Hub', DashboardIcon: Scissors };
+        if (store.businessType === 'restaurant') return { isSalon: false, isRestaurant: true, dashboardTitle: 'Restaurant Hub', DashboardIcon: Utensils };
+        return { isSalon: false, isRestaurant: false, dashboardTitle: 'Owner Hub', DashboardIcon: LayoutGrid };
     }, [store]);
 
     if (isLoading || !isRestaurantOwner) {
@@ -140,7 +140,7 @@ export default function ServiceDashboardPage() {
                 <div className="space-y-1">
                     <div className="flex items-center gap-3">
                         <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
-                            {dashboardIcon && <dashboardIcon className="h-6 w-6" />}
+                            <DashboardIcon className="h-6 w-6" />
                         </div>
                         <h1 className="text-5xl font-black font-headline tracking-tighter uppercase italic leading-none">{dashboardTitle}</h1>
                     </div>
