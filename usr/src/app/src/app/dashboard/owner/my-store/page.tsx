@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useEffect, useMemo, useRef } from 'react';
@@ -36,7 +35,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import type { Store, Product, ProductPrice, User as AppUser, ProductVariant } from '@/lib/types';
-import { useFirebase, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { updateStoreImageUrl } from '@/app/actions';
 import { useRouter } from 'next/navigation';
@@ -71,6 +70,7 @@ import { Badge } from '@/components/ui/badge';
 import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
 const standardUnits = ["100gm", "250gm", "500gm", "1kg", "2kg", "5kg", "250ml", "500ml", "1 litre", "2 litres", "1 pack", "1 pc"];
@@ -449,7 +449,7 @@ function EditProductDialog({ storeId, product, isOpen, onOpenChange }: { storeId
 
 function AdminProductRow({ product, storeId, onEdit, onDelete }: { product: Product; storeId: string; onEdit: () => void; onDelete: () => void; }) {
     const { firestore } = useFirebase();
-    const { getProductName, language, getAllAliases } = useAppStore();
+    const { getProductName } = useAppStore();
     const priceDocRef = useMemoFirebase(() => (firestore && product.name) ? doc(firestore, 'productPrices', product.name.toLowerCase()) : null, [firestore, product.name]);
     const { data: priceData } = useDoc<ProductPrice>(priceDocRef);
     return (
@@ -495,6 +495,70 @@ function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolea
           </form></Form></CardContent>
     </Card>
   );
+}
+
+function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminStoreId: string; }) {
+  const { firestore } = useFirebase();
+  const { toast } = useToast();
+  const [isSaving, startSaveTransition] = useTransition();
+  const { masterProducts } = useAppStore();
+  
+  const ownerProductsQuery = useMemoFirebase(() => (firestore && storeId) ? collection(firestore, 'stores', storeId, 'products') : null, [firestore, storeId]);
+  const { data: ownerProducts } = useCollection<Product>(ownerProductsQuery);
+
+  const [checkedProducts, setCheckedProducts] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (ownerProducts) {
+      setCheckedProducts(ownerProducts.reduce((acc: Record<string, boolean>, product) => {
+        acc[product.name] = true;
+        return acc;
+      }, {}));
+    }
+  }, [ownerProducts]);
+  
+  const handleSaveChanges = () => {
+    startSaveTransition(async () => {
+        if (!firestore || !masterProducts || !ownerProducts) return;
+        const batch = writeBatch(firestore);
+        const ownerProductMap = new Map(ownerProducts.map(p => [p.name, p.id]));
+
+        for (const masterProduct of (masterProducts as Product[])) {
+            const isChecked = checkedProducts[masterProduct.name] || false;
+            const isInStore = ownerProductMap.has(masterProduct.name);
+            if (isChecked && !isInStore) {
+                const newProductRef = doc(collection(firestore, 'stores', storeId, 'products'));
+                const { variants, ...productData } = masterProduct;
+                batch.set(newProductRef, { ...productData, storeId: storeId });
+            } else if (!isChecked && isInStore) {
+                batch.delete(doc(firestore, 'stores', storeId, 'products', ownerProductMap.get(masterProduct.name)!));
+            }
+        }
+        await batch.commit();
+        toast({ title: "Inventory Updated" });
+    });
+  };
+
+  return (
+      <Card>
+          <CardHeader><CardTitle>Store Inventory</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+               <Button onClick={handleSaveChanges} disabled={isSaving} className="w-full">Save Changes</Button>
+          </CardContent>
+      </Card>
+  )
+}
+
+function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdmin: boolean, adminStoreId?: string; }) {
+    const isClosed = store.isClosed;
+    if (isClosed) return <Alert variant="destructive"><AlertTitle>Closed</AlertTitle><AlertDescription>Store is hidden.</AlertDescription></Alert>;
+    return (
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-2"><TabsTrigger value="overview">Overview</TabsTrigger><TabsTrigger value="products">Products</TabsTrigger></TabsList>
+        <TabsContent value="overview" className="mt-6 space-y-6"><StoreDetails store={store} onUpdate={() => {}} /><StoreImageUploader store={store} /><PromoteStore store={store} /><DangerZone store={store} /></TabsContent>
+        <TabsContent value="products" className="mt-6 space-y-6">{isAdmin ? <AddProductForm storeId={store.id} isAdmin={true} /> : <ProductChecklist storeId={store.id} adminStoreId={adminStoreId || ''} />}</TabsContent>
+    </Tabs>
+    )
 }
 
 export default function MyStorePage() {
