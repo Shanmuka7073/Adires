@@ -1,4 +1,3 @@
-
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -266,8 +265,6 @@ export type CommandGroup = {
     hi_audio?: string;
   };
 };
-
-export type Locales = Record<string, VoiceAliasGroup>;
 
 export type NluExtractedSentence = {
     id: string;

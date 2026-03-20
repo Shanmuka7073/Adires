@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useEffect, useRef, useMemo } from 'react';
@@ -6,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Save, X, Mic, MessageSquare, Code, Package, Store as StoreIcon, Trash2, Sparkles, Hash } from 'lucide-react';
+import { Loader2, PlusCircle, Save, X, Mic, MessageSquare, Trash2, Sparkles } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -14,9 +13,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useFirebase } from '@/firebase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
-import { collection, writeBatch, doc, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
-import type { VoiceAliasGroup, Locales } from '@/lib/types';
-import { CommandGroup, generalCommands as defaultGeneralCommands } from '@/lib/locales/commands';
+import { collection, writeBatch, doc, getDocs } from 'firebase/firestore';
+import type { VoiceAliasGroup } from '@/lib/types';
+import { type Locales } from '@/lib/locales';
+import { CommandGroup } from '@/lib/locales/commands';
 import { suggestProductAliases } from '@/ai/flows/suggest-product-aliases-flow';
 import { suggestCommandAliases } from '@/ai/flows/suggest-command-aliases-flow';
 import { suggestNumberAliases } from '@/ai/flows/suggest-number-aliases-flow';
@@ -41,7 +41,7 @@ function NumberAliasItem({ number, name, locales, handleRemoveAlias, handleAddAl
                     const currentLocales = useAppStore.getState().locales;
                     const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
                     if (!updatedLocales[itemKey]) {
-                        updatedLocales[itemKey] = {};
+                        updatedLocales[itemKey] = { id: itemKey, type: 'command' };
                     }
                     for (const lang in result.aliases) {
                         const newAliases = result.aliases[lang as 'en' | 'te' | 'hi'];
@@ -136,7 +136,7 @@ const GeneralCommandItem = ({ commandKey, commandData, handleCommandUpdate, loca
                     const currentLocales = useAppStore.getState().locales;
                     const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
                     if (!updatedLocales[commandKey]) {
-                        updatedLocales[commandKey] = {};
+                        updatedLocales[commandKey] = { id: commandKey, type: 'command' };
                     }
 
                     for (const lang in result.aliases) {
@@ -259,7 +259,7 @@ const AliasAccordionItem = ({ item, icon: IconComponent, locales, handleRemoveAl
                     const currentLocales = useAppStore.getState().locales;
                     const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
                     if (!updatedLocales[itemKey]) {
-                        updatedLocales[itemKey] = {};
+                        updatedLocales[itemKey] = { id: itemKey, type: 'product' };
                     }
 
                     for (const lang in result.aliases) {
@@ -347,7 +347,7 @@ function NumberCommandsComponent() {
                     const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
                     for (const key in result.allAliases) {
                         if (Object.prototype.hasOwnProperty.call(result.allAliases, key)) {
-                            updatedLocales[key] = result.allAliases[key];
+                            updatedLocales[key] = { id: key, type: 'command', ...result.allAliases[key] };
                         }
                     }
                     setLocales(updatedLocales);
@@ -390,7 +390,6 @@ export default function VoiceCommandsPage() {
     const [isProcessing, startTransition] = useTransition();
     const [activeTab, setActiveTab] = useState('general');
 
-    // Directly use and modify the global state from useAppStore
     const {
         masterProducts,
         stores,
@@ -401,16 +400,15 @@ export default function VoiceCommandsPage() {
         setCommands,
     } = useAppStore();
     
-    // Local state for UI interactions ONLY
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [newCommandKey, setNewCommandKey] = useState('');
     const [newCommandDisplay, setNewCommandDisplay] = useState('');
     const [newCommandReply, setNewCommandReply] = useState('');
     const [isListening, setIsListening] = useState(false);
-    const recognitionRef = useRef<SpeechRecognition | null>(null);
+    const recognitionRef = useRef<any>(null);
 
     useEffect(() => {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         if (SpeechRecognition) {
             recognitionRef.current = new SpeechRecognition();
             const recognition = recognitionRef.current;
@@ -420,7 +418,7 @@ export default function VoiceCommandsPage() {
 
             recognition.onstart = () => setIsListening(true);
             recognition.onend = () => setIsListening(false);
-            recognition.onerror = (event) => {
+            recognition.onerror = (event: any) => {
                 console.error("Speech recognition error:", event.error);
                 toast({ variant: 'destructive', title: 'Voice Error', description: `An error occurred: ${event.error}` });
                 setIsListening(false);
@@ -443,7 +441,7 @@ export default function VoiceCommandsPage() {
         const currentLocales = useAppStore.getState().locales;
         const updatedLocales = JSON.parse(JSON.stringify(currentLocales));
         if (!updatedLocales[itemKey]) {
-            updatedLocales[itemKey] = { type: 'product' }; // default type
+            updatedLocales[itemKey] = { id: itemKey, type: 'product' };
         }
 
         const existingAliases = Array.isArray(updatedLocales[itemKey][lang])
@@ -479,7 +477,7 @@ export default function VoiceCommandsPage() {
         const itemLangEntry = updatedLocales[itemKey]?.[lang];
 
         if (Array.isArray(itemLangEntry)) {
-            updatedLocales[itemKey][lang] = itemLangEntry.filter(alias => alias !== aliasToRemove);
+            updatedLocales[itemKey][lang] = itemLangEntry.filter((alias: string) => alias !== aliasToRemove);
             if (updatedLocales[itemKey][lang].length === 0) {
                 delete updatedLocales[itemKey][lang];
             }
@@ -487,7 +485,7 @@ export default function VoiceCommandsPage() {
             delete updatedLocales[itemKey][lang];
         }
 
-        if (updatedLocales[itemKey] && Object.keys(updatedLocales[itemKey]).length <= 1 && updatedLocales[itemKey].type) {
+        if (updatedLocales[itemKey] && Object.keys(updatedLocales[itemKey]).length <= 2 && updatedLocales[itemKey].type && updatedLocales[itemKey].id) {
             delete updatedLocales[itemKey];
         }
         setLocales(updatedLocales);
@@ -544,10 +542,10 @@ export default function VoiceCommandsPage() {
             const existingKeys = new Set(existingAliasDocs.docs.map(d => d.id));
             const existingCommandKeys = new Set((await getDocs(commandCollectionRef)).docs.map(d => d.id));
 
-            const itemTypes = new Map([
-                ...masterProducts.map(p => [createSlug(p.name), 'product']),
-                ...stores.map(s => [createSlug(s.name), 'store']),
-                ...Object.keys(currentCommands).map(c => [c, 'command'])
+            const itemTypes = new Map<string, VoiceAliasGroup['type']>([
+                ...masterProducts.map(p => [createSlug(p.name), 'product'] as [string, VoiceAliasGroup['type']]),
+                ...stores.map(s => [createSlug(s.name), 'store'] as [string, VoiceAliasGroup['type']]),
+                ...Object.keys(currentCommands).map(c => [c, 'command'] as [string, VoiceAliasGroup['type']])
             ]);
 
             // Sync Aliases
@@ -555,12 +553,13 @@ export default function VoiceCommandsPage() {
                 const docRef = doc(aliasGroupCollectionRef, key);
                 const newData: Partial<VoiceAliasGroup> = {};
                 for (const lang in currentLocales[key]) {
-                    if (lang === 'type') continue; // Skip the type property
+                    if (lang === 'type' || lang === 'id') continue;
                     const aliases = currentLocales[key][lang];
                     newData[lang] = Array.isArray(aliases) ? aliases : (aliases ? [aliases] : []);
                 }
 
-                newData.type = itemTypes.get(key) || currentLocales[key].type || 'command';
+                const inferredType = itemTypes.get(key);
+                newData.type = inferredType || locales[key].type || 'command';
                 batch.set(docRef, newData, { merge: true });
             }
             existingKeys.forEach(key => {
@@ -603,14 +602,15 @@ export default function VoiceCommandsPage() {
     };
 
     const handleVoiceAdd = (key: string, lang: string) => {
-        if (!recognitionRef.current) {
+        const recognition = recognitionRef.current;
+        if (!recognition) {
             toast({ variant: 'destructive', title: 'Voice Not Supported' });
             return;
         }
-        const recognition = recognitionRef.current;
+        
         const recognitionLang = lang === 'te' ? 'te-IN' : 'en-IN';
         recognition.lang = recognitionLang;
-        recognition.onresult = (event) => {
+        recognition.onresult = (event: any) => {
             const transcript = event.results[0][0].transcript;
             handleAddAlias(key, lang, transcript);
         };
@@ -738,15 +738,15 @@ export default function VoiceCommandsPage() {
             ) : (
                 <>
                     {activeTab === 'general' && renderGeneralCommands()}
-                    {activeTab === 'products' && renderAliasAccordion(masterProducts, "Manage Product Aliases", "Add alternative names for products in different languages to improve voice recognition.", Package)}
-                    {activeTab === 'stores' && renderAliasAccordion(stores, "Manage Store Aliases", "Add alternative names for your stores in different languages.", StoreIcon)}
+                    {activeTab === 'products' && renderAliasAccordion(masterProducts as any[], "Manage Product Aliases", "Add alternative names for products in different languages to improve voice recognition.", Package)}
+                    {activeTab === 'stores' && renderAliasAccordion(stores as any[], "Manage Store Aliases", "Add alternative names for your stores in different languages.", StoreIcon)}
                     {activeTab === 'numbers' && renderNumberCommands()}
                 </>
             )}
 
             <div className="max-w-4xl mx-auto mt-8">
                 <Button onClick={handleSaveAll} disabled={isProcessing} className="w-full" size="lg">
-                    {isProcessing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving All Changes...</> : <><Save className="mr-2 h-4 w-4" />Save All Changes</>}
+                    {isProcessing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving All Changes...</> : <Save className="mr-2 h-4 w-4" />Save All Changes}
                 </Button>
             </div>
         </div>

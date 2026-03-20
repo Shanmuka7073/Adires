@@ -2,7 +2,7 @@
 import type { VoiceAliasGroup } from './types';
 
 export type LocaleEntry = string | string[];
-export type Locales = Record<string, Record<string, LocaleEntry>>;
+export type Locales = Record<string, VoiceAliasGroup>;
 
 // This is a simplified, placeholder translation store.
 // In a real app, this would be managed by a proper i18n library.
@@ -109,7 +109,7 @@ export function t(key: string, lang: string = 'en', type: 'alias' | 'display' | 
 
     // For 'display' or 'reply', we expect a single string under that specific key.
     if (type === 'display' || type === 'reply') {
-      return (entry[type] as string) || key.replace(/-/g, ' ');
+      return (entry as any)[type] || key.replace(/-/g, ' ');
     }
 
     // For 'alias', we check the specific language, then fallback to English.
@@ -134,7 +134,7 @@ export function getAllAliases(locales: Locales, key: string): Record<string, str
 
     if (entry) {
         for (const langCode in entry) {
-             if (langCode === 'display' || langCode === 'reply' || langCode === 'type') continue;
+             if (langCode === 'display' || langCode === 'reply' || langCode === 'type' || langCode === 'id') continue;
             const langAliases = entry[langCode];
             result[langCode] = (Array.isArray(langAliases) ? langAliases : [langAliases]).filter(Boolean);
         }
@@ -147,9 +147,8 @@ export function getAllAliases(locales: Locales, key: string): Record<string, str
 export function buildLocalesFromAliasGroups(groups: VoiceAliasGroup[]): Locales {
     const locales: Locales = {};
     groups.forEach(group => {
-        const { id, type, ...languages } = group;
-        if (id) {
-          locales[id] = languages;
+        if (group.id) {
+          locales[group.id] = group;
         }
     });
     return locales;
