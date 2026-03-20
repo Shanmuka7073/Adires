@@ -3,18 +3,18 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '@/lib/store';
-import { Product as ProductType, User } from '@/lib/types';
+import { Product as ProductType, User, Store as StoreType, Order } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { getProductImage } from '@/lib/data';
-import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
+import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { Search, Menu as MenuIcon, Mic, ShoppingBag, Heart, Star, Briefcase, Sparkles, Lamp, Home as HomeIcon, LayoutGrid, ChevronDown, MapPin, User as UserCircle, Globe, ChefHat, Lightbulb, Info, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import ProductCard from '@/components/product-card';
 import { doc } from 'firebase/firestore';
-import { useVoiceCommanderContext } from '@/components/layout/main-layout';
+import { useVoiceCommanderContext } from '@/components/layout/voice-commander-context';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { CartIcon } from '@/components/cart/cart-icon';
@@ -330,7 +330,7 @@ export default function LocalBasketHomepage() {
                 <div key={i} className="space-y-4">
                     <Skeleton className="h-6 w-48" />
                     <div className="grid grid-cols-3 gap-2">
-                        {Array.from({ length: 6 }).map((_, j) => <Skeleton key={j} className="h-24 w-full" />)}
+                        {Array.from({ length: 6 }).map((_, j) => <Skeleton key={j} className="h-16 w-full" />)}
                     </div>
                 </div>
             ))
@@ -340,12 +340,11 @@ export default function LocalBasketHomepage() {
                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                     {filteredProducts.length > 0 ? (
                         filteredProducts.map(product => (
-                            <Link key={product.id} href={`/stores/${product.storeId}?category=${encodeURIComponent(product.category || '')}&highlight=${encodeURIComponent(product.name)}`}>
-                                <ProductCard 
-                                    product={product}
-                                    priceData={productPrices[product.name.toLowerCase()]}
-                                />
-                            </Link>
+                            <ProductCard 
+                                key={product.id}
+                                product={product}
+                                priceData={productPrices[product.name.toLowerCase()]}
+                            />
                         ))
                     ) : (
                         <p className="col-span-full text-center text-gray-500">No products found for "{searchTerm}"</p>
@@ -384,4 +383,3 @@ export default function LocalBasketHomepage() {
     </div>
   );
 }
-
