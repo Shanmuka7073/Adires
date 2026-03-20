@@ -10,7 +10,7 @@ import { getApps } from 'firebase-admin/app';
 import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
 
 /**
- * UTILITY: Safe Date Parsing
+ * UTILITY: Safe Date Parsing for Analytics
  */
 function toDateSafe(d: any): Date {
     if (!d) return new Date();
@@ -136,13 +136,13 @@ export async function placeRestaurantOrder(
 
 /**
  * EXECUTIVE DASHBOARD ANALYTICS
- * Implements real Period-over-Period growth analysis.
+ * Implements Period-over-Period (PoP) trend analysis.
  */
 export async function getPlatformAnalytics() {
     try {
         const { db } = await getAdminServices();
         
-        // Fetch 60 days of data for growth comparison
+        // Fetch 60 days of data for PoP growth comparison
         const sixtyDaysAgo = new Date();
         sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
         
