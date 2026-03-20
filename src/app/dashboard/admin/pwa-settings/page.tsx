@@ -215,7 +215,7 @@ function ProductInventory() {
         filteredProducts.forEach(product => {
             const priceData = productPrices[product.name.toLowerCase()];
             if (priceData?.variants) {
-                priceData.variants.forEach(variant => {
+                priceData.variants.forEach((variant: { stock: number; weight: string; price: any; }) => {
                     const status = variant.stock <= 10 ? "LOW STOCK" : "OK";
                     rows.push([
                         `"${product.name}"`,

@@ -1,10 +1,9 @@
-
 'use client';
 
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -15,6 +14,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 function ProductListDisplay() {
     const { masterProducts, loading } = useAppStore();
     const { toast } = useToast();
+    const [isShareSupported, setIsShareSupported] = useState(false);
+
+    useEffect(() => {
+        // Detect Web Share API support on the client side to avoid build-time errors and hydration mismatches
+        if (typeof navigator !== 'undefined' && !!(navigator as any).share) {
+            setIsShareSupported(true);
+        }
+    }, []);
 
     const productListText = useMemo(() => {
         if (!masterProducts) return '';
@@ -22,6 +29,7 @@ function ProductListDisplay() {
     }, [masterProducts]);
 
     const handleCopy = () => {
+        if (typeof navigator === 'undefined' || !navigator.clipboard) return;
         navigator.clipboard.writeText(productListText).then(() => {
             toast({
                 title: "Product List Copied!",
@@ -37,8 +45,8 @@ function ProductListDisplay() {
     };
 
     const handleShare = () => {
-        if (navigator.share) {
-            navigator.share({
+        if (typeof navigator !== 'undefined' && (navigator as any).share) {
+            (navigator as any).share({
                 title: 'LocalBasket Master Product List',
                 text: productListText,
             }).catch(err => console.error("Share failed:", err));
@@ -66,7 +74,7 @@ function ProductListDisplay() {
                     <Copy className="mr-2 h-4 w-4" />
                     Copy List
                 </Button>
-                {navigator.share && (
+                {isShareSupported && (
                      <Button variant="outline" onClick={handleShare}>
                         <Share2 className="mr-2 h-4 w-4" />
                         Share
