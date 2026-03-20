@@ -8,7 +8,7 @@ import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
 import { getStores } from './data';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import { initializeTranslations, Locales, getAllAliases as getAliasesFromLocales } from '@/lib/locales';
+import { initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups } from '@/lib/locales';
 import { generalCommands as defaultGeneralCommands, CommandGroup } from '@/lib/locales/commands';
 import { useFirebase } from '@/firebase';
 

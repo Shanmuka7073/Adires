@@ -26,6 +26,7 @@ export type Product = {
 };
 
 export type Store = {
+  businessType: string;
   id: string;
   name:string;
   teluguName?: string;

@@ -1,5 +1,3 @@
-
-
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -40,14 +38,6 @@ export type Store = {
   isClosed?: boolean;
 };
 
-// WebAuthn types
-export type Authenticator = {
-  credentialID: string; // This is a Base64URL-encoded string
-  credentialPublicKey: string; // This is now a Base64URL-encoded string
-  counter: number;
-  transports?: AuthenticatorTransport[];
-};
-
 export type User = {
     id: string;
     firstName: string;
@@ -55,8 +45,6 @@ export type User = {
     email: string;
     address: string;
     phoneNumber: string;
-    authenticators?: Authenticator[];
-    currentChallenge?: string | null; // Can be null
 }
 
 export type CartItem = {

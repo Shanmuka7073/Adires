@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 /**
  * WEB AUTHN API ROUTE (DISABLED)
- * Biometric login has been removed from the application.
+ * Biometric login has been removed from the application to streamline the auth flow.
  * All requests to this endpoint will return a 404.
  */
 export async function POST() {
