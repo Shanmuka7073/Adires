@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Save, X, Mic, MessageSquare, Trash2, Sparkles } from 'lucide-react';
+import { Loader2, PlusCircle, Save, X, Mic, MessageSquare, Trash2, Sparkles, Package, Store as StoreIcon } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -730,23 +730,20 @@ export default function VoiceCommandsPage() {
                 <Button variant={activeTab === 'numbers' ? 'default' : 'outline'} onClick={() => setActiveTab('numbers')}>Number Aliases</Button>
             </div>
 
-            {useAppStore.getState().loading ? (
-                <div className="flex items-center justify-center h-64">
-                    <Loader2 className="mr-2 h-8 w-8 animate-spin" />
-                    <span className="text-lg">Loading voice settings...</span>
-                </div>
-            ) : (
-                <>
-                    {activeTab === 'general' && renderGeneralCommands()}
-                    {activeTab === 'products' && renderAliasAccordion(masterProducts as any[], "Manage Product Aliases", "Add alternative names for products in different languages to improve voice recognition.", Package)}
-                    {activeTab === 'stores' && renderAliasAccordion(stores as any[], "Manage Store Aliases", "Add alternative names for your stores in different languages.", StoreIcon)}
-                    {activeTab === 'numbers' && renderNumberCommands()}
-                </>
-            )}
+            <div className="space-y-8">
+                {activeTab === 'general' && renderGeneralCommands()}
+                {activeTab === 'products' && renderAliasAccordion(masterProducts as any[], "Manage Product Aliases", "Add alternative names for products in different languages to improve voice recognition.", Package)}
+                {activeTab === 'stores' && renderAliasAccordion(stores as any[], "Manage Store Aliases", "Add alternative names for your stores in different languages.", StoreIcon)}
+                {activeTab === 'numbers' && renderNumberCommands()}
+            </div>
 
             <div className="max-w-4xl mx-auto mt-8">
                 <Button onClick={handleSaveAll} disabled={isProcessing} className="w-full" size="lg">
-                    {isProcessing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving All Changes...</> : <Save className="mr-2 h-4 w-4" />Save All Changes}
+                    {isProcessing ? (
+                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving All Changes...</>
+                    ) : (
+                        <><Save className="mr-2 h-4 w-4" /> Save All Changes</>
+                    )}
                 </Button>
             </div>
         </div>
