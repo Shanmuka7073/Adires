@@ -7,7 +7,7 @@ import type { Order, Store, User, MenuItem, OrderItem, RestaurantIngredient, Sal
 import { getApps } from 'firebase-admin/app';
 import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
 import * as fs from 'fs';
-import * as path from 'path';
+import * as path from 'fs';
 
 /**
  * UTILITY: Safe Date Parsing for Analytics

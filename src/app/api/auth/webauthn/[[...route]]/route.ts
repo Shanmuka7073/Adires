@@ -110,12 +110,12 @@ export async function POST(
         timeout: 60000,
         attestationType: 'none',
         excludeCredentials: existingAuth.map((auth) => ({
-          id: isoBase64URL.toBuffer(auth.credentialID),
+          id: auth.credentialID, // Pass ID directly as string
           type: 'public-key',
-          transports: auth.transports,
+          transports: auth.transports as any,
         })),
         authenticatorSelection: {
-          residentKey: 'required', // Enables "Passkey" (One-Tap login)
+          residentKey: 'required',
           userVerification: 'required',
         },
       };
@@ -196,8 +196,6 @@ export async function POST(
     if (action === 'generate-authentication-options') {
       const email = body.email;
 
-      // PASSKEY MODE: If no email is provided, we return options without allowCredentials.
-      // This tells the browser to show the user's Passkey list for this domain.
       if (!email) {
         const opts: GenerateAuthenticationOptionsOpts = {
           timeout: 60000,
@@ -234,9 +232,9 @@ export async function POST(
         rpID,
         userVerification: 'required',
         allowCredentials: auths.map((auth) => ({
-          id: isoBase64URL.toBuffer(auth.credentialID),
+          id: auth.credentialID, // Pass ID directly as string
           type: 'public-key',
-          transports: auth.transports,
+          transports: auth.transports as any,
         })),
       };
 
@@ -266,12 +264,11 @@ export async function POST(
         const snap = await db.collection('users').where('email', '==', email).limit(1).get();
         if (!snap.empty) user = { id: snap.docs[0].id, ...snap.docs[0].data() } as AppUser;
       } else {
-        // PASSKEY LOOKUP: Find user by the unique credential ID sent by the device.
         const snap = await db.collection('users').where('authenticatorIds', 'array-contains', authenticatorId).limit(1).get();
         if (!snap.empty) user = { id: snap.docs[0].id, ...snap.docs[0].data() } as AppUser;
       }
 
-      if (!user) return NextResponse.json({ error: 'User not recognized. Please register first.' }, { status: 404 });
+      if (!user) return NextResponse.json({ error: 'User not recognized.' }, { status: 404 });
 
       const auths = user.authenticators || [];
       const selected = auths.find((a) => a.credentialID === authenticatorId);
@@ -283,7 +280,6 @@ export async function POST(
       try {
         const opts: VerifyAuthenticationResponseOpts = {
           response: body,
-          // If no specific challenge was stored (Passkey mode), we accept the signed challenge in the response.
           expectedChallenge: user.currentChallenge || body.response.clientDataJSON, 
           expectedOrigin: origin,
           expectedRPID: rpID,
