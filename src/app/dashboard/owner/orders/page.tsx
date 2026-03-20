@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Order, Store, OrderItem, Menu, MenuItem } from '@/lib/types';
@@ -584,7 +583,7 @@ function HistoryAndInsightsCenter({ storeId }: { storeId: string }) {
                     <CardContent className="p-8">
                         <div className="space-y-4">
                             {stats.topItems.map(([name, count]) => (
-                                <div key={name} className="flex justify-between items-center p-5 bg-muted/30 rounded-[2rem] border-2 border-transparent hover:border-primary/20 transition-all group shadow-sm">
+                                <div key={name} className="flex items-center justify-between p-5 bg-muted/30 rounded-[2rem] border-2 border-transparent hover:border-primary/20 transition-all group shadow-sm">
                                     <div className="flex items-center gap-4">
                                         <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center font-black text-primary text-sm group-hover:bg-primary group-hover:text-white transition-colors">
                                             {count}
@@ -707,7 +706,7 @@ export default function StoreOrdersPage() {
       }).catch(async (e) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
               path: orderRef.path,
-              operation: 'update',
+              operation: 'update' as const,
               requestResourceData: { status }
           }));
       });
@@ -816,7 +815,7 @@ export default function StoreOrdersPage() {
                   badge: ADIRES_LOGO,
                   tag: 'adires-order-alert',
                   renotify: true
-              });
+              } as any);
           } catch (e) {
               console.error("Notification failed", e);
           }

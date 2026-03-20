@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
@@ -44,9 +43,9 @@ function AIPackGenerator({ storeId }: { storeId: string }) {
         startGeneration(async () => {
             setGeneratedPack(null);
             const prices = Object.entries(productPrices)
-                .filter(([, data]) => data?.variants?.[0]?.price)
+                .filter(([, data]) => (data as any)?.variants?.[0]?.price)
                 .reduce((acc, [name, data]) => {
-                    acc[name] = data!.variants[0].price;
+                    acc[name] = (data as any)!.variants[0].price;
                     return acc;
                 }, {} as Record<string, number>);
 
@@ -88,7 +87,7 @@ function AIPackGenerator({ storeId }: { storeId: string }) {
                  console.error("Failed to save pack:", error);
                  const permissionError = new FirestorePermissionError({
                     path: `stores/${storeId}/packages`,
-                    operation: 'create',
+                    operation: 'create' as const,
                     requestResourceData: newPack,
                 });
                 errorEmitter.emit('permission-error', permissionError);
