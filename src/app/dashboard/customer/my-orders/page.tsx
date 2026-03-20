@@ -29,7 +29,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import {
-  collection, query, where, orderBy, Timestamp
+  collection, query, where, orderBy, Timestamp,
+  limit
 } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import { getStores } from '@/lib/data';

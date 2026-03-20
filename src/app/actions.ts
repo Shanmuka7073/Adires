@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -411,13 +412,19 @@ export async function getSystemStatus() {
             db.collection('stores').count().get(),
         ]);
         return {
-            status: 'ok',
-            llmStatus: 'Online',
-            serverDbStatus: 'Online',
+            status: 'ok' as const,
+            llmStatus: 'Online' as const,
+            serverDbStatus: 'Online' as const,
             counts: { users: users.data().count, stores: stores.data().count },
         };
     } catch (err: any) {
-        return { status: 'error', llmStatus: 'Offline', serverDbStatus: 'Offline', errorMessage: err.message, counts: { users: 0, stores: 0 } };
+        return { 
+            status: 'error' as const, 
+            llmStatus: 'Offline' as const, 
+            serverDbStatus: 'Offline' as const, 
+            errorMessage: err.message as string, 
+            counts: { users: 0, stores: 0 } 
+        };
     }
 }
 
