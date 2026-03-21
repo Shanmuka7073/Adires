@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { useTransition, useEffect, useState } from 'react';
 import type { User as AppUser } from '@/lib/types';
 import { Loader2, Store, Truck, Voicemail, LogOut, LayoutDashboard, MapPin, LocateFixed, User as UserIcon, Save } from 'lucide-react';
@@ -21,7 +21,6 @@ import { t } from '@/lib/locales';
 import { getAuth, signOut } from 'firebase/auth';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import Image from 'next/image';
-import { updateUserProfileImage } from '@/app/actions';
 
 const profileSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -36,19 +35,28 @@ const profileSchema = z.object({
 
 function ProfilePictureCard({ user }: { user: AppUser }) {
     const { toast } = useToast();
+    const { firestore } = useFirebase();
     const [isSaving, startSave] = useTransition();
     const { watch } = useFormContext<ProfileFormValues>();
     const imageUrl = watch('imageUrl');
 
     const handleSave = () => {
-        if (!user || !imageUrl) return;
+        if (!user || !imageUrl || !firestore) return;
         startSave(async () => {
-            const result = await updateUserProfileImage(user.id, imageUrl);
-            if (result.success) {
-                toast({ title: "Profile Picture Updated!" });
-            } else {
-                toast({ variant: 'destructive', title: 'Update Failed', description: result.error });
-            }
+            const userRef = doc(firestore, 'users', user.id);
+            const updateData = { imageUrl: imageUrl };
+
+            updateDoc(userRef, updateData)
+                .then(() => {
+                    toast({ title: "Profile Picture Updated!" });
+                })
+                .catch((e) => {
+                    errorEmitter.emit('permission-error', new FirestorePermissionError({
+                        path: userRef.path,
+                        operation: 'update',
+                        requestResourceData: updateData,
+                    }));
+                });
         });
     };
 

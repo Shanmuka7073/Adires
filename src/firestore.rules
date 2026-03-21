@@ -71,12 +71,13 @@ service cloud.firestore {
 
     match /stores/{storeId}/products/{productId} {
       allow get, list: if true;
-      allow create, update, delete: if isStoreOwner(storeId);
+      allow create: if isSignedIn(); // Allow initial batch creation
+      allow update, delete: if isStoreOwner(storeId);
     }
 
     match /stores/{storeId}/menus/{menuId} {
       allow read: if true;
-      allow write: if isStoreOwner(storeId);
+      allow write: if isSignedIn(); // Allow batch creation and owner updates
     }
 
     match /stores/{storeId}/packages/{packageId} {
@@ -99,7 +100,7 @@ service cloud.firestore {
         || isAdmin();
 
       allow list: if
-        isStoreOwner(request.resource.data.storeId)
+        isStoreOwner(resource.data.storeId)
         || isAdmin();
     }
 
@@ -191,7 +192,7 @@ service cloud.firestore {
       allow update: if
         isStoreOwner(resource.data.storeId)
         || (resource.data.userId != 'guest' && request.auth.uid == resource.data.userId && request.resource.data.status == 'Billed')
-        || (resource.data.deliveryPartnerId != null && request.auth.uid == request.auth.uid)
+        || (resource.data.deliveryPartnerId != null && request.auth.uid == resource.data.deliveryPartnerId)
         || (resource.data.userId == 'guest' && request.resource.data.sessionId == resource.data.sessionId)
         || (resource.data.deliveryPartnerId == null && request.resource.data.deliveryPartnerId == request.auth.uid);
 
@@ -258,7 +259,8 @@ service cloud.firestore {
 
     match /productPrices/{productName} {
       allow get, list: if true;
-      allow write: if isAdmin();
+      allow write: if isAdmin()
+        || (isChickenAdmin() && productName.matches('.*chicken.*'));
     }
     
     match /failedCommands/{commandId} {

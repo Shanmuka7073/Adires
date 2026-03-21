@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -9,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { Search, MapPin, ChevronDown, ArrowRight, LayoutGrid, Beef, Scissors, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import StoreCard from '@/components/store-card';
 import { doc, collection, query, where, orderBy, limit } from 'firebase/firestore';
@@ -21,15 +21,20 @@ import { RecipeCard } from '@/components/features/recipe-card';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
-function HomepageContent({ onSearchChange, user }: { onSearchChange: (term: string) => void, user: User | null }) {
+/**
+ * Optimized Header for performance.
+ * Renamed from HomepageContent to fix ReferenceError.
+ */
+function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: string) => void, user: User | null }) {
     const [deliveryTime, setDeliveryTime] = useState<number | null>(null);
 
     useEffect(() => {
+        // Deferred to prevent hydration mismatch and improve TBT
         setDeliveryTime(Math.floor(Math.random() * 10) + 15);
     }, []);
 
     return (
-        <div className="bg-background px-4 py-4 space-y-4 shadow-sm border-b">
+        <div className="bg-background sticky top-0 z-20 px-4 py-4 space-y-4 shadow-sm border-b">
             <div className="flex justify-between items-center">
                 <div>
                      <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Quick Dispatch</p>
@@ -76,7 +81,7 @@ function RecentActivity({ orders, stores }: { orders: Order[] | null, stores: St
             </div>
             <ScrollArea className="w-full whitespace-nowrap pb-4">
                 <div className="flex gap-4 px-1">
-                    {orders.map(order => {
+                    {recentOrdersFiltered(orders, stores).map(order => {
                         const store = stores.find(s => s.id === order.storeId);
                         return (
                             <Link key={order.id} href={`/menu/${order.storeId}`} className="block w-64 flex-shrink-0 group">
@@ -103,6 +108,10 @@ function RecentActivity({ orders, stores }: { orders: Order[] | null, stores: St
             </ScrollArea>
         </section>
     )
+}
+
+function recentOrdersFiltered(orders: Order[], stores: StoreType[]) {
+    return orders.filter(o => stores.some(s => s.id === o.storeId));
 }
 
 function HubNavigation() {
@@ -156,14 +165,24 @@ export default function LocalBasketHomepage() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">
-      <HomepageContent onSearchChange={setSearchTerm} user={userData} />
+      <HomepageHeader onSearchChange={setSearchTerm} user={userData} />
       
       {!searchTerm && <HubNavigation />}
 
       <main className="p-4 space-y-8">
+        {/* PERF: Priority Hero Image Optimization */}
+        <div className="rounded-3xl overflow-hidden shadow-2xl relative aspect-[2/1] w-full">
+            <Image 
+                src="https://i.ibb.co/ZQC3c3h/file-00000000f15871fab9942ef91d9c2021.png" 
+                alt="Promotional Banner" 
+                fill 
+                priority 
+                className="object-cover" 
+            />
+        </div>
+
         {isAppLoading && !isInitialized ? (
             <div className="space-y-6">
-                <Skeleton className="h-40 w-full rounded-3xl" />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Skeleton className="h-48 w-full rounded-2xl" />
                     <Skeleton className="h-48 w-full rounded-2xl" />

@@ -12,13 +12,15 @@ import { InstallProvider } from '@/components/install-provider';
 
 /**
  * Consolidated Client Root.
- * Handles the high-performance initialization loop.
+ * Optimized for "Shell-First" rendering to drastically reduce LCP.
  */
 function AppContent({ children }: { children: React.ReactNode }) {
     useInitializeApp();
-    const { appReady } = useAppStore();
+    const { appReady, isInitialized } = useAppStore();
 
-    if (!appReady) {
+    // If we have NO data at all, show the light loader.
+    // If we have isInitialized (persisted), we render the layout immediately.
+    if (!appReady && !isInitialized) {
         return <GlobalLoader />;
     }
 
