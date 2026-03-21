@@ -5,14 +5,15 @@ import { useFirebase } from '@/firebase';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
-  sendEmailVerification 
+  sendEmailVerification,
+  updateProfile
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, User as UserIcon } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
@@ -26,6 +27,8 @@ export function NonBlockingLogin() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [accountType, setAccountType] = useState<'groceries' | 'restaurant'>('groceries');
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -41,24 +44,35 @@ export function NonBlockingLogin() {
     startTransition(async () => {
       try {
         if (isSignUp) {
+          if (!firstName || !lastName) {
+            throw new Error("First and Last name are required for sign-up.");
+          }
+
           const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          const user = userCredential.user;
+
+          // Set Display Name so it's available for the email template (%DISPLAY_NAME%)
+          await updateProfile(user, {
+            displayName: `${firstName} ${lastName}`.trim()
+          });
           
           // Send verification email immediately on sign-up
-          await sendEmailVerification(userCredential.user);
+          await sendEmailVerification(user);
 
-          await setDoc(doc(firestore, 'users', userCredential.user.uid), {
-            id: userCredential.user.uid,
+          // Save profile data to Firestore
+          await setDoc(doc(firestore, 'users', user.uid), {
+            id: user.uid,
             email,
-            firstName: '',
-            lastName: '',
+            firstName,
+            lastName,
             address: '',
             phoneNumber: '',
             accountType,
           });
           
           toast({ 
-            title: 'Account Created!', 
-            description: 'A verification link has been sent. Please check your inbox before logging in.' 
+            title: 'Welcome to Adires!', 
+            description: 'Please check your inbox to verify your email address.' 
           });
         } else {
           const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -68,13 +82,12 @@ export function NonBlockingLogin() {
              await sendEmailVerification(userCredential.user);
              toast({ 
                title: 'Verify Your Email', 
-               description: 'Your email is not verified. A new link has been sent.' 
+               description: 'Your email is not verified. A verification link has been sent to your inbox.' 
              });
           } else {
             toast({ title: 'Welcome Back!' });
           }
         }
-        // Redirect will be handled by the parent page's auth listener
       } catch (err: any) {
         setError(err.message);
         toast({
@@ -100,6 +113,33 @@ export function NonBlockingLogin() {
       </CardHeader>
       <CardContent className="p-8">
         <form onSubmit={handleSubmit} className="space-y-6">
+          {isSignUp && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName" className="text-[10px] font-black uppercase opacity-40 tracking-widest">First Name</Label>
+                <Input 
+                    id="firstName" 
+                    value={firstName} 
+                    onChange={e => setFirstName(e.target.value)} 
+                    placeholder="John" 
+                    required 
+                    className="h-12 rounded-xl border-2" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName" className="text-[10px] font-black uppercase opacity-40 tracking-widest">Last Name</Label>
+                <Input 
+                    id="lastName" 
+                    value={lastName} 
+                    onChange={e => setLastName(e.target.value)} 
+                    placeholder="Doe" 
+                    required 
+                    className="h-12 rounded-xl border-2" 
+                />
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="email" className="text-[10px] font-black uppercase opacity-40 tracking-widest">Email Address</Label>
             <Input 
