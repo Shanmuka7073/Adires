@@ -15,9 +15,8 @@ import { useToast } from '@/hooks/use-toast';
 const ADMIN_EMAIL = 'admin@gmail.com';
 
 /**
- * Main Login Route.
- * Handles the page layout and automated redirection based on user role.
- * Enforces email verification for all non-admin users.
+ * Enhanced Login Page.
+ * Blocks dashboard access for unverified users and displays a custom verification prompt.
  */
 export default function LoginPage() {
   const { user, isUserLoading, firestore, auth } = useFirebase();
@@ -33,7 +32,7 @@ export default function LoginPage() {
   
   const { data: userData, isLoading: isProfileLoading } = useDoc<AppUser>(userDocRef);
 
-  // AUTHORITY REDIRECTION ENGINE
+  // REDIRECTION ENGINE
   useEffect(() => {
     const isAdmin = user && user.email === ADMIN_EMAIL;
     const isVerified = user && (user.emailVerified || isAdmin);
@@ -53,9 +52,9 @@ export default function LoginPage() {
     if (user) {
       try {
         await sendEmailVerification(user);
-        toast({ title: "Email Sent", description: "Verification link has been resent to your inbox." });
+        toast({ title: "Email Sent!", description: "Check your inbox for the link." });
       } catch (err: any) {
-        toast({ variant: 'destructive', title: "Error", description: err.message });
+        toast({ variant: 'destructive', title: "Failed", description: err.message });
       }
     }
   };
@@ -67,22 +66,19 @@ export default function LoginPage() {
   if (isUserLoading || (user && isProfileLoading)) {
     return (
         <div className="flex h-screen items-center justify-center bg-background">
-            <div className="flex flex-col items-center gap-4">
-                <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
-                <p className="text-xs font-black uppercase tracking-[0.3em] text-muted-foreground">Verifying Authority...</p>
-            </div>
+            <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
         </div>
     );
   }
 
-  // UNVERIFIED STATE UI - Forced if email is not verified
+  // VERIFICATION BLOCKER UI
   if (user && !user.emailVerified && user.email !== ADMIN_EMAIL) {
     return (
-        <div className="container mx-auto flex min-h-[calc(100vh-160px)] items-center justify-center py-12 px-4">
+        <div className="container mx-auto flex min-h-screen items-center justify-center py-12 px-4">
             <Card className="w-full max-w-md shadow-2xl border-t-4 border-t-amber-500 rounded-[2.5rem] overflow-hidden bg-white">
-                <CardHeader className="text-center pb-2 pt-8">
+                <CardHeader className="text-center pt-8">
                     <CardTitle className="text-3xl font-black font-headline tracking-tighter uppercase italic text-amber-600">Verify Email</CardTitle>
-                    <CardDescription className="font-bold opacity-40 uppercase text-[10px] tracking-widest">Account activation required</CardDescription>
+                    <CardDescription className="font-bold opacity-40 uppercase text-[10px] tracking-widest">Activation Required</CardDescription>
                 </CardHeader>
                 <CardContent className="p-8 space-y-6 text-center">
                     <div className="mx-auto w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center text-amber-500 mb-2">
@@ -90,14 +86,14 @@ export default function LoginPage() {
                     </div>
                     <p className="text-sm text-muted-foreground font-medium">
                         We've sent a verification link to <strong>{user.email}</strong>. 
-                        Please click the link in that email to activate your account and access your dashboard.
+                        Please click the link to activate your account.
                     </p>
                     <div className="flex flex-col gap-3">
                         <Button onClick={() => window.location.reload()} className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg">
-                            <RefreshCw className="mr-2 h-4 w-4" /> I've Verified My Email
+                            <RefreshCw className="mr-2 h-4 w-4" /> I've Verified
                         </Button>
                         <Button variant="outline" onClick={handleResendEmail} className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest border-2">
-                            Resend Verification Link
+                            Resend Link
                         </Button>
                         <Button variant="ghost" onClick={handleLogout} className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest opacity-40">
                             <LogOut className="mr-2 h-4 w-4" /> Sign Out
@@ -110,7 +106,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="container mx-auto flex min-h-[calc(100vh-160px)] items-center justify-center py-12 px-4">
+    <div className="container mx-auto flex min-h-screen items-center justify-center py-12 px-4">
       <LoginForm />
     </div>
   );

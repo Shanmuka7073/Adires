@@ -13,15 +13,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, AlertCircle, User as UserIcon } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useRouter } from 'next/navigation';
 
 /**
- * A reusable authentication component that handles Sign In and Sign Up.
- * It uses Firebase Client SDK and non-blocking transitions.
- * Automatically sends verification emails for new accounts.
+ * Personalized Auth Component.
+ * Captures names to populate the %DISPLAY_NAME% placeholder in email templates.
  */
 export function NonBlockingLogin() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -34,7 +32,6 @@ export function NonBlockingLogin() {
   const [error, setError] = useState<string | null>(null);
   const { auth, firestore } = useFirebase();
   const { toast } = useToast();
-  const router = useRouter();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,21 +42,22 @@ export function NonBlockingLogin() {
       try {
         if (isSignUp) {
           if (!firstName || !lastName) {
-            throw new Error("First and Last name are required for sign-up.");
+            throw new Error("First and Last name are required.");
           }
 
+          // 1. Create the user account
           const userCredential = await createUserWithEmailAndPassword(auth, email, password);
           const user = userCredential.user;
 
-          // Set Display Name so it's available for the email template (%DISPLAY_NAME%)
+          // 2. Update the Auth Profile (Populates %DISPLAY_NAME%)
           await updateProfile(user, {
             displayName: `${firstName} ${lastName}`.trim()
           });
           
-          // Send verification email immediately on sign-up
+          // 3. Send the Verification Email
           await sendEmailVerification(user);
 
-          // Save profile data to Firestore
+          // 4. Create the Firestore profile
           await setDoc(doc(firestore, 'users', user.uid), {
             id: user.uid,
             email,
@@ -71,28 +69,26 @@ export function NonBlockingLogin() {
           });
           
           toast({ 
-            title: 'Welcome to Adires!', 
-            description: 'Please check your inbox to verify your email address.' 
+            title: 'Account Created!', 
+            description: 'Check your inbox for the verification link.' 
           });
         } else {
           const userCredential = await signInWithEmailAndPassword(auth, email, password);
           
-          // Proactively send verification if not verified on login attempt
+          // Proactively send verification link if they attempt login while unverified
           if (!userCredential.user.emailVerified && userCredential.user.email !== 'admin@gmail.com') {
              await sendEmailVerification(userCredential.user);
              toast({ 
-               title: 'Verify Your Email', 
-               description: 'Your email is not verified. A verification link has been sent to your inbox.' 
+               title: 'Verification Required', 
+               description: 'A new verification link has been sent to your email.' 
              });
-          } else {
-            toast({ title: 'Welcome Back!' });
           }
         }
       } catch (err: any) {
         setError(err.message);
         toast({
           variant: 'destructive',
-          title: 'Authentication Failed',
+          title: 'Error',
           description: err.message,
         });
       }
@@ -106,9 +102,7 @@ export function NonBlockingLogin() {
           {isSignUp ? 'Join Adires' : 'Welcome Back'}
         </CardTitle>
         <CardDescription className="font-bold opacity-40 uppercase text-[10px] tracking-widest">
-          {isSignUp
-            ? 'Create a business or personal account'
-            : 'Access your secure dashboard'}
+          {isSignUp ? 'Start your journey today' : 'Sign in to your account'}
         </CardDescription>
       </CardHeader>
       <CardContent className="p-8">
@@ -116,65 +110,36 @@ export function NonBlockingLogin() {
           {isSignUp && (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="firstName" className="text-[10px] font-black uppercase opacity-40 tracking-widest">First Name</Label>
-                <Input 
-                    id="firstName" 
-                    value={firstName} 
-                    onChange={e => setFirstName(e.target.value)} 
-                    placeholder="John" 
-                    required 
-                    className="h-12 rounded-xl border-2" 
-                />
+                <Label className="text-[10px] font-black uppercase opacity-40">First Name</Label>
+                <Input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="John" required className="h-12 rounded-xl" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName" className="text-[10px] font-black uppercase opacity-40 tracking-widest">Last Name</Label>
-                <Input 
-                    id="lastName" 
-                    value={lastName} 
-                    onChange={e => setLastName(e.target.value)} 
-                    placeholder="Doe" 
-                    required 
-                    className="h-12 rounded-xl border-2" 
-                />
+                <Label className="text-[10px] font-black uppercase opacity-40">Last Name</Label>
+                <Input value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Doe" required className="h-12 rounded-xl" />
               </div>
             </div>
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-[10px] font-black uppercase opacity-40 tracking-widest">Email Address</Label>
-            <Input 
-                id="email" 
-                type="email" 
-                value={email} 
-                onChange={e => setEmail(e.target.value)} 
-                placeholder="m@example.com" 
-                required 
-                className="h-12 rounded-xl border-2 focus:ring-primary" 
-            />
+            <Label className="text-[10px] font-black uppercase opacity-40">Email</Label>
+            <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@email.com" required className="h-12 rounded-xl" />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="password" className="text-[10px] font-black uppercase opacity-40 tracking-widest">Password</Label>
-            <Input 
-                id="password" 
-                type="password" 
-                value={password} 
-                onChange={e => setPassword(e.target.value)} 
-                required 
-                className="h-12 rounded-xl border-2" 
-            />
+            <Label className="text-[10px] font-black uppercase opacity-40">Password</Label>
+            <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="h-12 rounded-xl" />
           </div>
 
           {isSignUp && (
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase opacity-40 tracking-widest">Account Purpose</Label>
+              <Label className="text-[10px] font-black uppercase opacity-40">Account Type</Label>
               <Select value={accountType} onValueChange={(v: any) => setAccountType(v)}>
-                <SelectTrigger className="h-12 rounded-xl border-2">
-                  <SelectValue placeholder="Select an account type" />
+                <SelectTrigger className="h-12 rounded-xl">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="rounded-2xl">
-                  <SelectItem value="groceries">Personal (Shop & Order)</SelectItem>
-                  <SelectItem value="restaurant">Business (Store, Restaurant, Salon)</SelectItem>
+                  <SelectItem value="groceries">Personal (Customer)</SelectItem>
+                  <SelectItem value="restaurant">Business (Store/Salon)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -182,28 +147,21 @@ export function NonBlockingLogin() {
 
           {error && (
             <div className="flex items-center gap-2 text-destructive bg-red-50 p-4 rounded-2xl border border-red-100">
-                <AlertCircle className="h-5 w-5 shrink-0" />
-                <p className="text-xs font-bold leading-tight">{error}</p>
+                <AlertCircle className="h-5 w-5" />
+                <p className="text-xs font-bold">{error}</p>
             </div>
           )}
 
-          <Button 
-            type="submit" 
-            className="w-full h-14 text-base font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/20 transition-all active:scale-95" 
-            disabled={isPending}
-          >
-            {isPending ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : (isSignUp ? 'Create My Account' : 'Sign In')}
+          <Button type="submit" className="w-full h-14 font-black uppercase tracking-widest rounded-2xl shadow-xl" disabled={isPending}>
+            {isPending ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : (isSignUp ? 'Sign Up' : 'Sign In')}
           </Button>
         </form>
         
         <div className="mt-8 pt-6 border-t border-black/5 text-center">
-          <p className="text-muted-foreground font-bold text-xs uppercase tracking-tight">
-            {isSignUp ? "Already have an account?" : "Don't have an account?"}
-            <button 
-                onClick={() => setIsSignUp(!isSignUp)}
-                className="text-primary font-black uppercase ml-2 hover:underline"
-            >
-              {isSignUp ? 'Sign In' : 'Sign Up Free'}
+          <p className="text-muted-foreground font-bold text-xs uppercase">
+            {isSignUp ? "Already have an account?" : "Need an account?"}
+            <button onClick={() => setIsSignUp(!isSignUp)} className="text-primary font-black uppercase ml-2 hover:underline">
+              {isSignUp ? 'Login' : 'Create One'}
             </button>
           </p>
         </div>
