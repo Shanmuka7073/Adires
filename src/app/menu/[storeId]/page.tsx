@@ -111,6 +111,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import QRCode from 'qrcode.react';
 import { useAppStore } from '@/lib/store';
 import { useCart } from '@/lib/cart';
@@ -172,6 +173,104 @@ function OrderStatusTimeline({ status, theme }: { status: Order['status'], theme
                 <div className="h-full transition-all duration-1000 bg-primary" style={{ width: `${Math.min(100, Math.max(0, (currentStep - 1) * 33.33))}%`, backgroundColor: theme?.primaryColor }} />
             </div>
         </div>
+    );
+}
+
+function ModeSelectionDialog({ isOpen, onOpenChange, onSelectMode, currentMode, theme, isSalon }: any) {
+    const [selected, setSelected] = useState(currentMode);
+    const [tableVal, setTableVal] = useState('');
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl">
+                <DialogHeader>
+                    <DialogTitle className="font-black uppercase">Service Mode</DialogTitle>
+                    <DialogDescription>How are you ordering today?</DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-6">
+                    <RadioGroup value={selected} onValueChange={setSelected} className="grid grid-cols-1 gap-3">
+                        <div className={cn("flex items-center justify-between p-4 rounded-2xl border-2 transition-all", selected === 'table' ? "border-primary bg-primary/5" : "border-black/5")}>
+                            <div className="flex items-center gap-3">
+                                <RadioGroupItem value="table" id="mode-table" />
+                                <Label htmlFor="mode-table" className="font-bold uppercase text-xs">{isSalon ? 'At the Chair' : 'Dine-in Table'}</Label>
+                            </div>
+                            <Utensils className="h-4 w-4 opacity-20" />
+                        </div>
+                        <div className={cn("flex items-center justify-between p-4 rounded-2xl border-2 transition-all", selected === 'delivery' ? "border-primary bg-primary/5" : "border-black/5")}>
+                            <div className="flex items-center gap-3">
+                                <RadioGroupItem value="delivery" id="mode-delivery" />
+                                <Label htmlFor="mode-delivery" className="font-bold uppercase text-xs">Delivery / Home</Label>
+                            </div>
+                            <ShoppingBag className="h-4 w-4 opacity-20" />
+                        </div>
+                    </RadioGroup>
+
+                    {selected === 'table' && (
+                        <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                            <Label className="text-[10px] font-black uppercase opacity-40">{isSalon ? 'Chair' : 'Table'} Number</Label>
+                            <Input 
+                                placeholder="Enter number..." 
+                                value={tableVal} 
+                                onChange={e => setTableVal(e.target.value)}
+                                className="h-12 rounded-xl border-2 font-black"
+                            />
+                        </div>
+                    )}
+                </div>
+                <DialogFooter>
+                    <Button 
+                        onClick={() => onSelectMode(selected, tableVal)} 
+                        disabled={selected === 'table' && !tableVal}
+                        className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg"
+                        style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}
+                    >
+                        Confirm Mode
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function UPIPaymentDialog({ isOpen, onOpenChange, total, store, theme }: any) {
+    const upiUrl = `upi://pay?pa=${store.upiId}&pn=${encodeURIComponent(store.name)}&am=${total}&cu=INR`;
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl p-8 flex flex-col items-center text-center">
+                <DialogHeader className="mb-4">
+                    <DialogTitle className="text-xl font-black uppercase tracking-tight">Scan to Pay</DialogTitle>
+                    <DialogDescription className="font-bold opacity-40 italic">Final Bill: ₹{total.toFixed(2)}</DialogDescription>
+                </DialogHeader>
+                
+                <div className="p-6 bg-white rounded-[2.5rem] shadow-inner border-4 border-black/5 mb-6 flex justify-center overflow-hidden">
+                    <QRCode 
+                        value={upiUrl} 
+                        size={200} 
+                        level="H" 
+                        includeMargin={true} 
+                        imageSettings={{
+                            src: store.imageUrl || ADIRES_LOGO,
+                            height: 40,
+                            width: 40,
+                            excavate: true,
+                        }}
+                    />
+                </div>
+
+                <div className="space-y-4 w-full">
+                    <div className="p-4 rounded-2xl bg-primary/5 border-2 border-primary/10">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Merchant ID</p>
+                        <p className="text-xs font-bold font-mono text-gray-700">{store.upiId}</p>
+                    </div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase leading-relaxed">
+                        Scan with GPay, PhonePe, or Paytm.<br/>Please show the success screen to staff.
+                    </p>
+                </div>
+                
+                <Button variant="ghost" onClick={() => onOpenChange(false)} className="mt-4 font-black uppercase text-[10px] opacity-40">Close</Button>
+            </DialogContent>
+        </Dialog>
     );
 }
 
