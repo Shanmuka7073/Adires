@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
@@ -622,7 +623,7 @@ function EditMenuItemDialog({
                     </AlertDialog>
                    )}
                     <DialogClose asChild><Button type="button" variant="ghost" className="rounded-xl font-bold h-12" disabled={isSaving}>Cancel</Button></DialogClose>
-                    <Button type="submit" className="rounded-xl h-12 px-8 font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20" disabled={isSaving || iouploading}>{isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Item</Button>
+                    <Button type="submit" className="rounded-xl h-12 px-8 font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20" disabled={isSaving || isUploading}>{isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Item</Button>
                 </div>
             </form>
         </Form>
