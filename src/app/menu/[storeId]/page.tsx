@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -31,6 +32,7 @@ import type {
 import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
+import { v4 as uuidv4 } from 'uuid';
 import Link from 'next/link';
 import { format } from 'date-fns';
 
@@ -482,8 +484,8 @@ function MenuCard({ item, onAdd, onShowDetails, recentlyAdded, currentQuantityIn
                         <div className={cn("h-full w-full rounded-full border-2", item.dietary === 'veg' ? 'border-green-600 bg-green-600' : 'border-red-600 bg-red-600')}></div>
                     </div>
                 )}
-                <div className="absolute bottom-2 left-2 bg-primary text-white px-3 py-1 rounded-full shadow-lg border border-white/20">
-                    <p className="text-xs font-black">₹{item.price.toFixed(0)}</p>
+                <div className="absolute bottom-2 left-2 bg-gray-950/80 backdrop-blur-md text-white px-4 py-1.5 rounded-full shadow-2xl border-2 border-white/20">
+                    <p className="text-sm font-black tracking-tight">₹{item.price.toFixed(0)}</p>
                 </div>
                 {isOutOfStock && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><Badge variant="destructive" className="font-black uppercase text-[10px]">Sold Out</Badge></div>}
             </div>
@@ -537,7 +539,6 @@ export default function PublicMenuPage() {
       return menu.items.filter(i => recIds.includes(i.id));
   }, [selectedItemForIngredients, menu?.items]);
 
-  // STABLE DEVICE IDENTITY
   const deviceId = useMemo(() => {
       if (typeof window === 'undefined') return 'unknown';
       let dId = localStorage.getItem(`device_id_${storeId}`);
@@ -555,11 +556,9 @@ export default function PublicMenuPage() {
     return `home-${deviceId}-${dS}`;
   }, [tableNumber, storeId, deviceId]);
 
-  // QUERY FOR CURRENT SESSION ORDERS
   const ordersQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'orders'), where('sessionId', '==', sessionId), where('isActive', '==', true)) : null), [firestore, sessionId]);
   const { data: placedOrders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
 
-  // QUERY FOR HISTORY (Previous visits from this device)
   const historyQuery = useMemoFirebase(() => {
       if (!firestore) return null;
       return query(
@@ -577,7 +576,6 @@ export default function PublicMenuPage() {
   const isSalon = useMemo(() => !!(store?.businessType === 'salon' || store?.name.toLowerCase().includes('salon')), [store]);
   const availableCategories = useMemo(() => menu?.items ? Array.from(new Set(menu.items.map(i => i.category))).sort() : [], [menu]);
   
-  // INTELLIGENT PERSONALIZATION LOGIC
   const personalizedRecommendations = useMemo(() => {
       if (!menu?.items || !historyOrders) return [];
       
@@ -788,8 +786,8 @@ export default function PublicMenuPage() {
                   </div>
                   <div className="flex items-center gap-1.5">
                       {canInstall && (
-                        <Button onClick={triggerInstall} size="sm" className="h-8 rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg shadow-primary/20" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>
-                            <Download className="mr-1.5 h-3.5 w-3.5" /> Install
+                        <Button onClick={triggerInstall} size="sm" className="h-10 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>
+                            <Download className="mr-2 h-4 w-4" /> Install App
                         </Button>
                       )}
                       {store.liveVideoUrl && placedOrders && placedOrders.length > 0 && (
@@ -851,8 +849,8 @@ export default function PublicMenuPage() {
                             placeholder="Search dishes..." 
                             value={searchTerm} 
                             onChange={(e) => setSearchTerm(e.target.value)} 
-                            className="h-14 rounded-2xl bg-white border-2 border-black/5 pl-12 text-sm font-black text-gray-950 placeholder:text-gray-300 shadow-xl focus:border-primary transition-all" 
-                            style={{ borderColor: theme?.primaryColor ? theme.primaryColor + '40' : undefined }} 
+                            className="h-14 rounded-2xl bg-white border-4 border-gray-900/10 pl-12 text-sm font-black text-gray-950 placeholder:text-gray-300 shadow-2xl focus:border-primary transition-all" 
+                            style={{ borderColor: theme?.primaryColor ? theme.primaryColor + '60' : undefined }} 
                         />
                         {searchTerm && (
                             <button onClick={() => setSearchTerm('')} className="absolute right-5 top-1/2 -translate-y-1/2 h-6 w-6 bg-black/5 rounded-full flex items-center justify-center"><X className="h-3 w-3 text-gray-400" /></button>

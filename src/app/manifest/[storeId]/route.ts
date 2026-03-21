@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getAdminServices } from "@/firebase/admin-init";
@@ -8,8 +9,8 @@ const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3
 
 /**
  * Dynamic Manifest API (Standalone Enforcement)
- * Generates a store-specific manifest with a localized scope.
- * This prevents the main Grozo app from capturing restaurant-specific links.
+ * Generates a store-specific manifest with a localized scope and UNIQUE ID.
+ * This ensures the OS treats each restaurant as a distinct application.
  */
 export async function GET(
   request: Request,
@@ -36,16 +37,16 @@ export async function GET(
     const menu = menuSnap.docs[0]?.data() as Menu | undefined;
     const themeColor = menu?.theme?.primaryColor || "#4CAF50";
     
-    // Use store image or platform fallback
     const logoUrl = store.imageUrl || ADIRES_LOGO;
 
     const manifest = {
-      id: `adires-biz-${storeId}`,
+      // The unique ID is critical for separating this app from the main platform app
+      id: `adires-business-app-${storeId}`,
       name: store.name,
       short_name: store.name.substring(0, 12),
       description: store.description || `Official digital menu for ${store.name}`,
       start_url: `/menu/${storeId}`,
-      // Specific scope ensures Grozo doesn't intercept if configured properly
+      // Specific scope ensures the main platform app doesn't intercept these links
       scope: `/menu/${storeId}`,
       display: "standalone",
       orientation: "portrait",
