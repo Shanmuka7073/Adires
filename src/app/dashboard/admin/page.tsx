@@ -22,7 +22,8 @@ import {
   Server,
   FileSignature,
   Loader2,
-  ImageIcon
+  ImageIcon,
+  Smartphone
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
