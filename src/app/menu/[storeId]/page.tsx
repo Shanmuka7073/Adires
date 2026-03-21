@@ -237,7 +237,7 @@ function UPIPaymentDialog({ isOpen, onOpenChange, total, store, theme }: any) {
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl p-8 flex flex-col items-center text-center">
+            <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl p-8 flex flex-col items-center text-center max-w-sm mx-auto">
                 <DialogHeader className="mb-4">
                     <DialogTitle className="text-xl font-black uppercase tracking-tight">Scan to Pay</DialogTitle>
                     <DialogDescription className="font-bold opacity-40 italic">Final Bill: ₹{total.toFixed(2)}</DialogDescription>
@@ -772,7 +772,7 @@ export default function PublicMenuPage() {
       <ModeSelectionDialog isOpen={isModeDialogOpen} onOpenChange={setIsModeDialogOpen} onSelectMode={(m: any, v: any) => { if(m==='delivery') setTableNumber(null); else if(v) setTableNumber(v); setIsModeDialogOpen(false); handleStartNewOrder(); }} currentMode={tableNumber === 'Counter' ? 'counter' : (tableNumber ? 'table' : 'delivery')} theme={theme} isSalon={isSalon} />
       {placedOrders && <UPIPaymentDialog isOpen={isUpiDialogOpen} onOpenChange={setIsUpiDialogOpen} total={placedOrders.reduce((acc, o) => acc + o.totalAmount, 0)} store={store} theme={theme} />}
       
-      <div className="min-h-screen pb-24 bg-[#FDFCF7]">
+      <div className="min-h-screen pb-32 bg-[#FDFCF7]">
           <div className="container mx-auto py-4 px-3 max-w-2xl">
             <div className="space-y-6">
               <div className="flex items-center justify-between gap-3">
@@ -846,17 +846,17 @@ export default function PublicMenuPage() {
                         ))}
                     </div>
 
-                    <div className="relative group">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-primary group-focus-within:text-primary transition-colors" style={{ color: theme?.primaryColor }} />
+                    <div className="relative group px-1">
+                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                         <Input 
                             placeholder="Search dishes or categories..." 
                             value={searchTerm} 
                             onChange={(e) => setSearchTerm(e.target.value)} 
-                            className="h-14 rounded-2xl bg-white border-4 pl-12 text-sm font-black text-gray-950 placeholder:text-gray-300 shadow-xl" 
-                            style={{ borderColor: theme?.primaryColor + '40' }} 
+                            className="h-14 rounded-2xl bg-white border-2 border-black/5 pl-12 text-sm font-black text-gray-950 placeholder:text-gray-300 shadow-xl focus:border-primary transition-all" 
+                            style={{ borderColor: theme?.primaryColor ? theme.primaryColor + '40' : undefined }} 
                         />
                         {searchTerm && (
-                            <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 h-6 w-6 bg-black/5 rounded-full flex items-center justify-center"><X className="h-3 w-3 text-gray-400" /></button>
+                            <button onClick={() => setSearchTerm('')} className="absolute right-5 top-1/2 -translate-y-1/2 h-6 w-6 bg-black/5 rounded-full flex items-center justify-center"><X className="h-3 w-3 text-gray-400" /></button>
                         )}
                     </div>
 
@@ -889,7 +889,7 @@ export default function PublicMenuPage() {
 
                     {Object.keys(groupedMenu).length > 0 ? (
                         Object.entries(groupedMenu).map(([category, items]) => (
-                            <section key={category} className="space-y-4 pt-4">
+                            <section key={category} className="space-y-4 pt-4 px-1">
                                 <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 px-1">{category}</h2>
                                 <div className="grid grid-cols-2 gap-4">
                                     {items.map((item) => (
@@ -899,7 +899,7 @@ export default function PublicMenuPage() {
                             </section>
                         ))
                     ) : (
-                        <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-black/5 opacity-40">
+                        <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-black/5 opacity-40 mx-1">
                             <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                             <p className="text-[10px] font-black uppercase tracking-widest text-gray-950">Zero matches found</p>
                             <button className="mt-2 text-primary font-bold uppercase text-[8px] tracking-widest underline" onClick={() => { setSearchTerm(''); setSelectedCategory(null); setVegOnly(false); }}>Clear Filters</button>
