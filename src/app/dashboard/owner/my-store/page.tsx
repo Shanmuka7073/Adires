@@ -23,7 +23,6 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-  CardFooter,
 } from '@/components/ui/card';
 import {
   Dialog,
@@ -297,7 +296,7 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
                             disabled={isProcessing}
                             className="w-full h-14 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20"
                         >
-                            {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Upload icon className="mr-2 h-5 w-5" />}
+                            {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Upload className="mr-2 h-5 w-5" />}
                             {isProcessing ? 'AI Reading Menu...' : 'Upload Menu Photo'}
                         </Button>
                     </div>
@@ -320,7 +319,7 @@ function DigitalMenuOverview({ storeId }: { storeId: string }) {
                     <CardTitle className="text-xl font-black uppercase tracking-tight text-gray-950">Active Digital Menu</CardTitle>
                     <CardDescription className="text-[10px] font-bold opacity-40 uppercase tracking-widest">Live offerings and pricing</CardDescription>
                 </div>
-                <Button asChild variant="outline" size="sm" className="rounded-xl font-black text-[9px] uppercase border-2 h-9 px-4">
+                <Button asChild variant="outline" size="sm" className="rounded-xl font-black text-[9px] uppercase tracking-widest border-2 h-9 px-4">
                     <Link href="/dashboard/owner/menu-manager"><Edit className="mr-2 h-3.5 w-3.5" /> Edit Items</Link>
                 </Button>
             </CardHeader>
