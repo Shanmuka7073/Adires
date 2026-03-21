@@ -28,6 +28,7 @@ export interface AppState {
   language: string;
   activeStoreId: string | null;
   deviceId: string | null;
+  isCartOpen: boolean; // NEW: Global cart visibility state
   readCount: number;
   writeCount: number;
   incrementReadCount: (count?: number) => void;
@@ -37,15 +38,8 @@ export interface AppState {
   setUserStore: (store: Store | null) => void;
   setAppReady: (ready: boolean) => void;
   setDeviceId: (id: string) => void;
+  setCartOpen: (open: boolean) => void; // NEW: Cart visibility setter
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
-  // LEGACY STUBS: Kept to satisfy outdated imports during transition
-  masterProducts: any[];
-  productPrices: Record<string, any>;
-  locales: Record<string, any>;
-  commands: Record<string, any>;
-  fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
-  getProductName: (product: any) => string;
-  getAllAliases: (key: string) => Record<string, string[]>;
 }
 
 const getInitialLanguage = (): string => {
@@ -59,11 +53,7 @@ export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
       stores: [],
-      masterProducts: [],
       userStore: null,
-      productPrices: {},
-      locales: {},
-      commands: {},
       loading: false,
       isInitialized: false,
       appReady: false,
@@ -71,6 +61,7 @@ export const useAppStore = create<AppState>()(
       language: getInitialLanguage(),
       activeStoreId: null,
       deviceId: null,
+      isCartOpen: false,
       readCount: 0,
       writeCount: 0,
 
@@ -88,6 +79,7 @@ export const useAppStore = create<AppState>()(
       setAppReady: (isReady: boolean) => set({ appReady: isReady }),
       setDeviceId: (id: string) => set({ deviceId: id }),
       setActiveStoreId: (storeId: string | null) => set({ activeStoreId: storeId }),
+      setCartOpen: (open: boolean) => set({ isCartOpen: open }),
 
       fetchInitialData: async (db: Firestore, userId?: string) => {
         if (get().loading) return;
@@ -119,10 +111,6 @@ export const useAppStore = create<AppState>()(
             isInitialized: true,
             appReady: true,
             loading: false,
-            // Explicitly clear all legacy data
-            masterProducts: [],
-            locales: {},
-            commands: {}
           });
           
         } catch (error) {
@@ -130,14 +118,9 @@ export const useAppStore = create<AppState>()(
           set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
-
-      // Legacy Stubs Implementation
-      fetchProductPrices: async () => {},
-      getProductName: (p: any) => p?.name || 'Item',
-      getAllAliases: () => ({}),
     }),
     {
-      name: 'localbasket-app-storage-v7',
+      name: 'localbasket-app-storage-v8',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,

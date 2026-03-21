@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -5,7 +6,6 @@ import { UserCircle, Globe, LogOut, Download, LayoutDashboard } from 'lucide-rea
 import { Button } from '@/components/ui/button';
 import { CartIcon } from '@/components/cart/cart-icon';
 import { usePathname } from 'next/navigation';
-import { cn } from '@/lib/utils';
 import { useFirebase } from '@/firebase';
 import {
   DropdownMenu,
@@ -19,10 +19,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { getAuth, signOut } from 'firebase/auth';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useState, useEffect } from 'react';
 import { t } from '@/lib/locales';
 import { useAppStore } from '@/lib/store';
-import { useVoiceCommanderContext } from './voice-commander-context';
 import { useInstall } from '../install-provider';
 import Image from 'next/image';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -57,7 +55,7 @@ function LanguageSwitcher() {
 
 function UserMenu() {
   const { user, isUserLoading } = useFirebase();
-  const { isAdmin, isRestaurantOwner, isEmployee } = useAdminAuth();
+  const { isAdmin, isRestaurantOwner } = useAdminAuth();
   const dashboardHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : '/dashboard');
   const { canInstall, triggerInstall } = useInstall();
 
@@ -114,9 +112,8 @@ function UserMenu() {
 
 export function Header() {
   const pathname = usePathname();
-  const { isCartOpen, onCartOpenChange } = useVoiceCommanderContext();
+  const { isCartOpen, setCartOpen, userStore, isAdmin } = useAppStore();
   const { isRestaurantOwner, isEmployee } = useAdminAuth();
-  const { userStore, isAdmin } = useAppStore();
 
   if (pathname.startsWith('/menu/')) return null;
 
@@ -144,7 +141,7 @@ export function Header() {
 
       <div className="flex items-center gap-1.5 md:gap-3">
         {showShoppingControls && <LanguageSwitcher />}
-        {showShoppingControls && <CartIcon open={isCartOpen} onOpenChange={onCartOpenChange} />}
+        {showShoppingControls && <CartIcon open={isCartOpen} onOpenChange={setCartOpen} />}
         <UserMenu />
       </div>
     </header>

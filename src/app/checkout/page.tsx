@@ -19,15 +19,13 @@ import {
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { getProductImage } from '@/lib/data';
 import { useTransition, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useFirebase, errorEmitter, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
-import type { User as AppUser, Order } from '@/lib/types';
+import type { User as AppUser } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
 import { t } from '@/lib/locales';
-import { useVoiceCommanderContext } from '@/components/layout/voice-commander-context';
 import { useCheckoutStore } from '@/lib/checkout-store';
 
 const checkoutSchema = z.object({
@@ -47,7 +45,7 @@ function OrderSummaryItem({ item, image }: { item: any, image: any }) {
     return (
         <div className="flex justify-between items-center">
             <div className="flex items-center gap-4">
-                <Image src={image.imageUrl} alt={product.name} width={32} height={32} className="rounded-md" />
+                <Image src={image.imageUrl || 'https://placehold.co/32x32/E2E8F0/64748B?text=...'} alt={product.name} width={32} height={32} className="rounded-md" />
                 <div>
                     <p className="font-medium text-sm">{englishName} <span className="text-xs text-muted-foreground">({variant.weight})</span></p>
                     <p className="text-xs text-muted-foreground">Qty: {quantity}</p>
@@ -71,7 +69,6 @@ export default function CheckoutPage() {
   });
 
   const [deliveryCoords, setDeliveryCoords] = useState<{lat: number, lng: number} | null>(null);
-  const [images, setImages] = useState<Record<string, {imageUrl: string, imageHint: string}>>({});
   const placeOrderBtnRef = useRef<HTMLButtonElement>(null);
   
   const { stores, fetchInitialData } = useAppStore();
@@ -84,8 +81,6 @@ export default function CheckoutPage() {
       setAddressHandlers,
     } = useCheckoutStore();
   
-  const { triggerVoicePrompt } = useVoiceCommanderContext();
-
   useEffect(() => { if (firestore) fetchInitialData(firestore); }, [firestore, fetchInitialData]);
   useEffect(() => { if (localBasketStore && !activeStoreId) setActiveStoreId(localBasketStore.id); }, [localBasketStore, activeStoreId, setActiveStoreId]);
 
@@ -111,9 +106,6 @@ export default function CheckoutPage() {
 
   useEffect(() => { setAddressHandlers(handleUseHomeAddress, handleUseCurrentLocation); }, [handleUseHomeAddress, handleUseCurrentLocation, setAddressHandlers]);
   useEffect(() => { setPlaceOrderBtnRef(placeOrderBtnRef); return () => setPlaceOrderBtnRef(null); }, [setPlaceOrderBtnRef]);
-
-  const deliveryAddressValue = form.watch('deliveryAddress');
-  useEffect(() => { if ((deliveryAddressValue && deliveryAddressValue.length > 10) || activeStoreId) triggerVoicePrompt?.(); }, [deliveryAddressValue, activeStoreId, triggerVoicePrompt]);
 
   useEffect(() => {
     if (userData) {
@@ -142,7 +134,6 @@ export default function CheckoutPage() {
         items: cartItems.map(item => ({ id: crypto.randomUUID(), orderId: orderId, productId: item.product.id, productName: item.product.name, variantSku: item.variant.sku, variantWeight: item.variant.weight, quantity: item.quantity, price: item.variant.price })),
     };
 
-    // NON-BLOCKING: Initiate write and move on for offline responsiveness
     setDoc(orderDocRef, orderData).catch(async (e) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: orderDocRef.path, operation: 'create', requestResourceData: orderData }));
     });
