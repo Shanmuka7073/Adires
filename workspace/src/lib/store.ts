@@ -5,7 +5,6 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Firestore, collection, getDocs, query, where } from 'firebase/firestore';
 import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
-import { getStores, getMasterProducts, getProductPrice } from './data';
 import { useFirebase } from '@/firebase';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
@@ -77,10 +76,7 @@ export const useAppStore = create<AppState>()(
       setCommands: (newCommands: Record<string, CommandGroup>) => set({ commands: newCommands }),
       
       setActiveStoreId: (storeId: string | null) => {
-          const { activeStoreId } = get();
-          if (activeStoreId !== storeId) {
-            set({ activeStoreId });
-          }
+          set({ activeStoreId: storeId } as any);
       },
       
       setAppReady: (isReady: boolean) => set({ appReady: isReady }),
@@ -91,12 +87,14 @@ export const useAppStore = create<AppState>()(
         set({ loading: true, error: null });
         
         try {
-          const [stores, masterProducts, aliasDocs, commandDocs] = await Promise.all([
-            getStores(db),
-            getMasterProducts(db),
+          const [storesSnap, aliasDocs, commandDocs] = await Promise.all([
+            getDocs(collection(db, 'stores')),
             getDocs(collection(db, 'voiceAliasGroups')),
             getDocs(collection(db, 'voiceCommands'))
           ]);
+
+          const stores = storesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Store));
+          const masterProducts: Product[] = []; // Grocery catalog purged
 
           const voiceAliasGroups = aliasDocs.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
           const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
@@ -117,15 +115,12 @@ export const useAppStore = create<AppState>()(
             commands: enrichedCommands,
             isInitialized: true,
             loading: false,
+            appReady: true,
           });
-
-          if (masterProducts.length > 0) {
-            await get().fetchProductPrices(db, masterProducts.map(p => p.name));
-          }
           
         } catch (error) {
           console.error("Failed to fetch initial app data:", error);
-          set({ error: error as Error, loading: false });
+          set({ error: error as Error, loading: false, appReady: true });
         }
       },
       
@@ -172,11 +167,10 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'localbasket-app-storage', // The key for localStorage
+      name: 'localbasket-app-storage-ws',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           stores: state.stores,
-          masterProducts: state.masterProducts,
           locales: state.locales,
           commands: state.commands,
           language: state.language,
@@ -188,22 +182,15 @@ export const useAppStore = create<AppState>()(
 
 
 export const useInitializeApp = () => {
-  const { firestore, isUserLoading } = useFirebase();
+  const { firestore } = useFirebase();
   const { fetchInitialData, isInitialized, loading, setAppReady } = useAppStore();
 
   useEffect(() => {
-    // We should not wait for the user to be loaded to fetch initial data.
-    // The app should be usable by anonymous users.
     if (firestore && !isInitialized && !loading) {
       fetchInitialData(firestore).then(() => {
         setAppReady(true);
       });
     } else if (isInitialized) {
-      // If data is already initialized (e.g., from persisted state), the app is ready.
-      setAppReady(true);
-    } else if (!firestore && !loading) {
-      // If firestore is not available and we are not loading, there's a problem, but we should still unlock the app.
-      // This might happen if Firebase fails to initialize.
       setAppReady(true);
     }
   }, [firestore, isInitialized, loading, fetchInitialData, setAppReady]);
