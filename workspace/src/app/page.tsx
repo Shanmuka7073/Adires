@@ -6,7 +6,7 @@ import { useAppStore } from '@/lib/store';
 import { User, Store as StoreType } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
-import { Search, MapPin } from 'lucide-react';
+import { Search, MapPin, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { doc } from 'firebase/firestore';
 import { RecipeCard } from '@/components/features/recipe-card';
@@ -14,7 +14,7 @@ import { getProductImage } from '@/lib/data';
 import Image from 'next/image';
 import Link from 'next/link';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
-import { Globe } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { CartIcon } from '@/components/cart/cart-icon';
 
 const homePageSections = [
