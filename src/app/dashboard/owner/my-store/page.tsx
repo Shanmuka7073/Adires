@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useEffect, useMemo, useRef } from 'react';
@@ -36,7 +37,6 @@ import { useToast } from '@/hooks/use-toast';
 import type { Store, Product, ProductPrice, User as AppUser, ProductVariant } from '@/lib/types';
 import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
-import { updateStoreImageUrl } from '@/app/actions';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
@@ -280,6 +280,7 @@ function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminSto
 
 function StoreImageUploader({ store }: { store: Store }) {
     const { toast } = useToast();
+    const { firestore } = useFirebase();
     const [isSaving, startSaveTransition] = useTransition();
     const [imageUrl, setImageUrl] = useState(store.imageUrl || '');
 
@@ -294,17 +295,22 @@ function StoreImageUploader({ store }: { store: Store }) {
         }
 
         startSaveTransition(async () => {
-            const result = await updateStoreImageUrl(store.id, imageUrl);
+            if (!firestore) return;
+            
+            const storeRef = doc(firestore, 'stores', store.id);
+            const updateData = { imageUrl: imageUrl };
 
-            if (result.success) {
-                toast({ title: 'Image URL Updated!' });
-            } else {
-                toast({
-                    variant: 'destructive',
-                    title: 'Update Failed',
-                    description: result.error || 'The server action failed.',
+            updateDoc(storeRef, updateData)
+                .then(() => {
+                    toast({ title: 'Image URL Updated!' });
+                })
+                .catch((e) => {
+                    errorEmitter.emit('permission-error', new FirestorePermissionError({
+                        path: storeRef.path,
+                        operation: 'update',
+                        requestResourceData: updateData,
+                    }));
                 });
-            }
         });
     };
 
@@ -1350,119 +1356,27 @@ function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; 
 export default function MyStorePage() {
     const { user, isUserLoading, firestore } = useFirebase();
     const router = useRouter();
-    const { toast } = useToast();
-    const [isCreating, startCreationTransition] = useTransition();
-    const { language } = useAppStore();
+    const { isAdmin, isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
+    const { stores, userStore, fetchInitialData } = useAppStore();
 
-    const isAdmin = useMemo(() => user?.email === ADMIN_EMAIL, [user]);
+    const myStore = useMemo(() => userStore || stores.find(s => s.ownerId === user?.uid), [userStore, stores, user?.uid]);
 
-    const ownerStoreQuery = useMemoFirebase(() => {
-        if (!firestore || !user || isAdmin) return null;
-        return query(collection(firestore, 'stores'), where('ownerId', '==', user.uid));
-    }, [firestore, user, isAdmin]);
+    useEffect(() => { if (!isUserLoading && !user) router.push('/login'); }, [isUserLoading, user, router]);
+    useEffect(() => { if (firestore && user && !myStore) fetchInitialData(firestore, user.uid); }, [firestore, user, myStore, fetchInitialData]);
 
-    const adminStoreQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
-        return query(collection(firestore, 'stores'), where('name', '==', 'LocalBasket'));
-    }, [firestore]);
+    if (isUserLoading || isRoleLoading) return <div className="p-12 text-center"><Loader2 className="animate-spin mx-auto opacity-20" /></div>;
 
-    const userProfileQuery = useMemoFirebase(() => {
-        if (!firestore || !user) return null;
-        return doc(firestore, 'users', user.uid);
-    }, [firestore, user]);
-
-    const { data: ownerStores, isLoading: isOwnerStoreLoading } = useCollection<Store>(ownerStoreQuery);
-    const { data: adminStores, isLoading: isAdminStoreLoading } = useCollection<Store>(adminStoreQuery);
-    const { data: userProfile, isLoading: isProfileLoading } = useDoc<AppUser>(userProfileQuery);
-    
-    const myStore = ownerStores?.[0];
-    const adminStore = adminStores?.[0];
-
-    useEffect(() => {
-        if (!isUserLoading && !user) {
-            router.push('/login?redirectTo=/dashboard/owner/my-store');
-        }
-    }, [isUserLoading, user, router]);
-
-    const handleAutoCreateStore = (coords: { lat: number; lng: number }) => {
-        if (!user || !firestore || !userProfile) {
-             toast({ variant: 'destructive', title: 'Error', description: 'User profile not found.' });
-             return;
-        }
-
-        startCreationTransition(() => {
-             const storeData = {
-                name: `${userProfile.firstName}'s Store`,
-                teluguName: `${userProfile.firstName} గారి స్టోర్`,
-                description: `Groceries and goods from ${userProfile.firstName}'s Store.`,
-                address: userProfile.address,
-                latitude: coords.lat,
-                longitude: coords.lng,
-                ownerId: user.uid,
-                imageId: `store-${Math.floor(Math.random() * 3) + 1}`,
-                isClosed: false,
-            };
-            addDoc(collection(firestore, 'stores'), storeData)
-                .then(() => {
-                    toast({ title: 'Store Created!', description: `Your store "${storeData.name}" is now live.` });
-                })
-                .catch((serverError) => {
-                    const permissionError = new FirestorePermissionError({ path: 'stores', operation: 'create', requestResourceData: storeData });
-                    errorEmitter.emit('permission-error', permissionError);
-                });
-        });
-    };
-
-    const isLoading = isUserLoading || isOwnerStoreLoading || isAdminStoreLoading || isProfileLoading;
-
-    if (isLoading) {
-        return <div className="container mx-auto py-12 px-4 md:px-6">{t('loading-your-store')}...</div>
-    }
-
-    const renderContent = () => {
-        if (!user) return null;
-
-        if (isAdmin) {
-            return adminStore ? <ManageStoreView store={adminStore} isAdmin={true} /> : <CreateStoreForm user={user} isAdmin={true} onAutoCreate={() => {}} />;
-        }
-
-        if (myStore) {
-            return <ManageStoreView store={myStore} isAdmin={false} adminStoreId={adminStore?.id} />;
-        }
-        
-        // New user without a store
-        if (!userProfile) {
-            return (
-                 <Card className="max-w-3xl mx-auto">
-                    <CardHeader>
-                        <CardTitle className="text-3xl font-headline">{t('complete-your-profile-first')}</CardTitle>
-                        <CardDescription>
-                            {t('to-automatically-create-your-store')}
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                         <Button asChild>
-                            <Link href="/dashboard/customer/my-profile">{t('go-to-my-profile')}</Link>
-                        </Button>
-                    </CardContent>
-                </Card>
-            )
-        }
-
-        return <CreateStoreForm user={user} isAdmin={false} profile={userProfile} onAutoCreate={handleAutoCreateStore} />;
-    };
-    
-    const pageTitleKey = isAdmin
-        ? (adminStore ? `Master Catalog: ${adminStore.name}` : 'create-master-store')
-        : (myStore ? `Dashboard: ${myStore.name}` : 'create-your-store');
-    
-    const pageTitle = (myStore || adminStore) ? pageTitleKey : t(pageTitleKey);
-
+    if (!myStore) return (
+        <div className="container mx-auto py-12 p-6 text-center">
+            <h1 className="text-3xl font-black mb-4">No Store Found</h1>
+            <Button asChild><Link href="/dashboard">Return to Dashboard</Link></Button>
+        </div>
+    );
 
     return (
-        <div className="container mx-auto py-12 px-4 md:px-6">
-            <h1 className="text-4xl font-bold font-headline mb-8">{pageTitle}</h1>
-            {renderContent()}
+        <div className="container mx-auto py-12 px-4 md:px-6 space-y-12">
+            <div className="border-b pb-8"><h1 className="text-5xl font-black font-headline tracking-tighter uppercase italic">{myStore.name}</h1><p className="text-muted-foreground font-black text-[10px] tracking-widest uppercase opacity-40">Store Control Panel</p></div>
+            <ManageStoreView store={myStore} isAdmin={isAdmin} />
         </div>
     );
 }
