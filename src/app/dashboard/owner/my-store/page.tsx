@@ -61,7 +61,7 @@ import {
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Share2, MapPin, Trash2, AlertCircle, ImageIcon, Loader2, Sparkles, PlusCircle, Edit, Link2, QrCode, Save, CheckCircle2 } from 'lucide-react';
+import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Sparkles, PlusCircle, Edit, Link2, QrCode, Save, CheckCircle2, Smartphone } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
@@ -82,11 +82,29 @@ const storeSchema = z.object({
     .string()
     .min(10, 'Description must be at least 10 characters'),
   address: z.string().min(10, 'Please enter a valid address'),
-  latitude: z.coerce.number().min(-90).max(90),
-  longitude: z.coerce.number().min(-180).max(180),
+  latitude: z.coerce.number().min(-90, "Invalid latitude").max(90, "Invalid latitude"),
+  longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude"),
+});
+
+const locationSchema = z.object({
+    latitude: z.coerce.number().min(-90, "Invalid latitude").max(90, "Invalid latitude"),
+    longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude"),
 });
 
 type StoreFormValues = z.infer<typeof storeSchema>;
+type LocationFormValues = z.infer<typeof locationSchema>;
+
+const createSlug = (text: string) => {
+    if(!text) return '';
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-') 
+      .replace(/[^\w-]+/g, '') 
+      .replace(/--+/g, '-') 
+      .replace(/^-+/, '') 
+      .replace(/-+$/, ''); 
+};
 
 function StoreImageUploader({ store }: { store: Store }) {
     const { toast } = useToast();
@@ -398,7 +416,7 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
             <AlertCircle className="h-4 w-4" />
             <AlertTitle className="font-black uppercase tracking-tight">Location Missing</AlertTitle>
             <AlertDescription className="font-bold text-xs opacity-60">GPS coordinates required for delivery mapping.</AlertDescription>
-            <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4"><div className="grid grid-cols-2 gap-4"><FormField control={form.control} name="latitude" render={({ field }) => (<FormItem><FormControl><Input type="number" step="any" {...field} className="h-10 rounded-xl" /></FormControl></FormItem>)} /><FormField control={form.control} name="longitude" render={({ field }) => (<FormItem><FormControl><Input type="number" step="any" {...field} className="h-10 rounded-xl" /></FormControl></FormItem>)} /></div><div className="flex gap-2"><Button type="button" variant="outline" className="rounded-xl h-10 px-4 font-black text-[9px] uppercase tracking-widest border-2" onClick={handleGetLocation}>Auto GPS</Button><Button type="submit" disabled={isPending} className="rounded-xl h-10 px-6 font-black text-[9px] uppercase tracking-widest">{isPending ? 'Syncing...' : 'Save'}</Button></div></form></Form>
+            <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4"><div className="grid grid-cols-2 gap-4"><FormField control={form.control} name="latitude" render={({ field }: { field: any }) => (<FormItem><FormControl><Input type="number" step="any" {...field} className="h-10 rounded-xl" /></FormControl></FormItem>)} /><FormField control={form.control} name="longitude" render={({ field }: { field: any }) => (<FormItem><FormControl><Input type="number" step="any" {...field} className="h-10 rounded-xl" /></FormControl></FormItem>)} /></div><div className="flex gap-2"><Button type="button" variant="outline" className="rounded-xl h-10 px-4 font-black text-[9px] uppercase tracking-widest border-2" onClick={handleGetLocation}>Auto GPS</Button><Button type="submit" disabled={isPending} className="rounded-xl h-10 px-6 font-black text-[9px] uppercase tracking-widest">{isPending ? 'Syncing...' : 'Save'}</Button></div></form></Form>
         </Alert>
     );
 }
@@ -504,6 +522,7 @@ function ManageStoreView({ store, isAdmin, adminStoreId, onUpdate }: { store: St
             <StoreImageUploader store={store} />
             <PromoteStore store={store} />
         </div>
+        <TableManager store={store} />
         {!isAdmin && <ProductChecklist storeId={store.id} adminStoreId={adminStoreId || ''} />}
         <DangerZone store={store} />
       </div>
