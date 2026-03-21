@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -192,40 +193,6 @@ export async function getMealDbRecipe(dishName: string) {
         return { error: 'Recipe not found.' };
     } catch (e) {
         return { error: 'Failed to fetch recipe.' };
-    }
-}
-
-/**
- * RESTAURANT ORDERING ENGINE
- */
-export async function placeRestaurantOrder(cartItems: any[], totalAmount: number, guestInfo: any, idToken?: string) {
-    try {
-        const { db } = await getAdminServices();
-        const orderId = db.collection('orders').doc().id;
-        const orderRef = db.collection('orders').doc(orderId);
-        
-        const orderData = {
-            id: orderId,
-            status: 'Pending',
-            totalAmount,
-            customerName: guestInfo.name,
-            phone: guestInfo.phone,
-            tableNumber: guestInfo.tableNumber,
-            orderDate: FieldValue.serverTimestamp(),
-            isActive: true,
-            orderType: guestInfo.tableNumber === 'Counter' ? 'counter' : 'dine-in',
-            items: cartItems.map(item => ({
-                id: Math.random().toString(36).substring(7),
-                productName: item.product.name,
-                quantity: item.quantity,
-                price: item.variant.price
-            }))
-        };
-
-        await orderRef.set(orderData);
-        return { success: true, orderId };
-    } catch (e: any) {
-        return { success: false, error: e.message };
     }
 }
 
@@ -504,27 +471,4 @@ export async function addIngredientsToCatalog(ingredients: any[]): Promise<{ suc
 }
 export async function executeCommand(command: string) {
     return { success: true, message: `Command ${command} transmitted to edge.` };
-}
-export async function updateStoreImageUrl(id: string, url: string) {
-    try {
-        const { db } = await getAdminServices();
-        await db.collection('stores').doc(id).update({ imageUrl: url });
-        return { success: true };
-    } catch (e: any) { return { success: false, error: e.message }; }
-}
-
-/**
- * LEGACY COMPATIBILITY: uploadStoreImage
- * Used by components to save storefront imagery.
- */
-export async function uploadStoreImage(id: string, dataUrl: string) {
-    return updateStoreImageUrl(id, dataUrl);
-}
-
-export async function updateUserProfileImage(id: string, url: string) {
-    try {
-        const { db } = await getAdminServices();
-        await db.collection('users').doc(id).update({ imageUrl: url });
-        return { success: true };
-    } catch (e: any) { return { success: false, error: e.message }; }
 }

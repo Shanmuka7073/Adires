@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useEffect, useMemo, useRef } from 'react';
@@ -35,8 +36,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import type { Store, Product, ProductPrice, User as AppUser, ProductVariant } from '@/lib/types';
 import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
-import { updateStoreImageUrl } from '@/app/actions';
+import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, deleteDoc, limit } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
@@ -60,10 +60,9 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
-import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Camera, CameraOff, Sparkles, PlusCircle, Edit, Link2, QrCode, Save, Video, CreditCard, LayoutGrid, Info } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Share2, MapPin, Trash2, AlertCircle, ImageIcon, Loader2, Sparkles, PlusCircle, Edit, Link2, QrCode, Save, CheckCircle2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { useAppStore, useMyStorePageStore } from '@/lib/store';
@@ -71,11 +70,10 @@ import { Badge } from '@/components/ui/badge';
 import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
+import { useAdminAuth } from '@/hooks/use-admin-auth';
+import { OnboardingChatbot } from '@/components/features/onboarding-chatbot';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
-
-const standardWeights = ["100gm", "250gm", "500gm", "1kg", "2kg", "5kg", "1 pack", "1 pc"];
 
 const storeSchema = z.object({
   name: z.string().min(3, 'Store name must be at least 3 characters'),
@@ -84,202 +82,15 @@ const storeSchema = z.object({
     .string()
     .min(10, 'Description must be at least 10 characters'),
   address: z.string().min(10, 'Please enter a valid address'),
-  latitude: z.coerce.number().min(-90, "Invalid latitude").max(90, "Invalid latitude"),
-  longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude"),
-});
-
-const locationSchema = z.object({
-    latitude: z.coerce.number().min(-90, "Invalid latitude").max(90, "Invalid latitude"),
-    longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude"),
-});
-
-const variantSchema = z.object({
-  sku: z.string(),
-  weight: z.string().min(1, 'Weight is required'),
-  price: z.coerce.number().positive('Price must be a positive number'),
-  stock: z.coerce.number().int().nonnegative('Stock must be a positive integer'),
-});
-
-const productSchema = z.object({
-  name: z.string().min(3, 'Product name is required'),
-  description: z.string().optional(),
-  category: z.string().min(1, "Category is required"),
-  imageUrl: z.string().optional(),
-  variants: z.array(variantSchema).min(1, 'At least one price variant is required'),
+  latitude: z.coerce.number().min(-90).max(90),
+  longitude: z.coerce.number().min(-180).max(180),
 });
 
 type StoreFormValues = z.infer<typeof storeSchema>;
-type ProductFormValues = z.infer<typeof productSchema>;
-type LocationFormValues = z.infer<typeof locationSchema>;
-
-const createSlug = (text: string) => {
-    if(!text) return '';
-    return text
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, '-') 
-      .replace(/[^\w-]+/g, '') 
-      .replace(/--+/g, '-') 
-      .replace(/^-+/, '') 
-      .replace(/-+$/, ''); 
-  };
-
-/**
- * COMPONENT: Product Checklist
- * Handles retail inventory selection.
- */
-function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminStoreId: string; }) {
-  const { firestore } = useFirebase();
-  const { toast } = useToast();
-  const [isSaving, startSaveTransition] = useTransition();
-  const { setSaveInventoryBtnRef } = useMyStorePageStore();
-  const saveBtnRef = useRef<HTMLButtonElement>(null);
-  const { language } = useAppStore();
-
-  const { masterProducts, loading: masterProductsLoading } = useAppStore(state => ({
-    masterProducts: state.masterProducts as Product[],
-    loading: state.loading,
-  }));
-  
-  const ownerProductsQuery = useMemoFirebase(() => {
-    if (!firestore || !storeId) return undefined;
-    return collection(firestore, 'stores', storeId, 'products');
-  }, [firestore, storeId]);
-  const { data: ownerProducts, isLoading: ownerProductsLoading } = useCollection<Product>(ownerProductsQuery);
-
-  const [checkedProducts, setCheckedProducts] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    setSaveInventoryBtnRef(saveBtnRef);
-    return () => setSaveInventoryBtnRef(null);
-  }, [setSaveInventoryBtnRef, saveBtnRef]);
-
-  useEffect(() => {
-    if (ownerProducts) {
-      const initialCheckedState = ownerProducts.reduce((acc: Record<string, boolean>, product) => {
-        acc[product.name] = true;
-        return acc;
-      }, {});
-      setCheckedProducts(initialCheckedState);
-    }
-  }, [ownerProducts]);
-  
-  const handleCheckChange = (productName: string, isChecked: boolean) => {
-    setCheckedProducts(prev => ({ ...prev, [productName]: isChecked }));
-  };
-
-  const handleSaveChanges = () => {
-    startSaveTransition(async () => {
-        if (!firestore || !masterProducts || !ownerProducts) return;
-
-        const ownerProductMap = new Map(ownerProducts.map(p => [p.name, p.id]));
-        const batch = writeBatch(firestore);
-        let addedCount = 0;
-        let removedCount = 0;
-
-        for (const masterProduct of masterProducts) {
-            const isChecked = checkedProducts[masterProduct.name] || false;
-            const isInStore = ownerProductMap.has(masterProduct.name);
-
-            if (isChecked && !isInStore) {
-                const newProductRef = doc(collection(firestore, 'stores', storeId, 'products'));
-                const { variants, ...productData } = masterProduct;
-                const newProductData = {
-                  ...productData, 
-                  storeId: storeId,
-                };
-                delete (newProductData as any).id;
-                batch.set(newProductRef, newProductData);
-                addedCount++;
-            } else if (!isChecked && isInStore) {
-                const productIdToRemove = ownerProductMap.get(masterProduct.name);
-                if (productIdToRemove) {
-                    const productRef = doc(firestore, 'stores', storeId, 'products', productIdToRemove);
-                    batch.delete(productRef);
-                    removedCount++;
-                }
-            }
-        }
-        
-        try {
-            await batch.commit();
-            toast({
-                title: "Inventory Updated",
-                description: `${addedCount} product(s) added and ${removedCount} product(s) removed.`
-            });
-        } catch (error) {
-             console.error("Failed to update inventory:", error);
-             toast({ variant: 'destructive', title: 'Update Failed', description: 'Could not update your product list.' });
-        }
-    });
-  };
-
-  const productsByCategory = useMemo(() => {
-    if (!masterProducts) return {};
-    return masterProducts.reduce((acc, product) => {
-        const category = product.category || 'Miscellaneous';
-        if (!acc[category]) {
-            acc[category] = [];
-        }
-        acc[category].push(product);
-        return acc;
-    }, {} as Record<string, Product[]>);
-  }, [masterProducts]);
-
-  if (masterProductsLoading || ownerProductsLoading) {
-    return <p>Loading product list...</p>
-  }
-  
-  if (!masterProducts || masterProducts.length === 0) {
-      return (
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>{t('no-master-products-found')}</AlertTitle>
-            <AlertDescription>{t('the-admin-has-not-added-any-products')}</AlertDescription>
-          </Alert>
-      )
-  }
-
-  return (
-      <Card>
-          <CardHeader>
-              <CardTitle>{t('manage-your-inventory')}</CardTitle>
-              <CardDescription>{t('select-the-products-you-want-to-sell')}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-              <Accordion type="multiple" className="w-full">
-                  {Object.entries(productsByCategory).map(([category, products]) => (
-                       <AccordionItem value={category} key={category}>
-                          <AccordionTrigger>{t(category.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</AccordionTrigger>
-                          <AccordionContent>
-                               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4 p-4">
-                                  {products.map((product) => (
-                                      <div key={product.id} className="flex items-center space-x-2">
-                                          <Checkbox
-                                              id={product.id}
-                                              checked={checkedProducts[product.name] || false}
-                                              onCheckedChange={(checked) => handleCheckChange(product.name, !!checked)}
-                                          />
-                                          <label htmlFor={product.id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                              {t(product.name.toLowerCase().replace(/ /g, '-'), language)}
-                                          </label>
-                                      </div>
-                                  ))}
-                              </div>
-                          </AccordionContent>
-                       </AccordionItem>
-                  ))}
-              </Accordion>
-               <Button ref={saveBtnRef} onClick={handleSaveChanges} disabled={isSaving} className="w-full">
-                  {isSaving ? t('saving-changes') : t('save-inventory-changes')}
-              </Button>
-          </CardContent>
-      </Card>
-  )
-}
 
 function StoreImageUploader({ store }: { store: Store }) {
     const { toast } = useToast();
+    const { firestore } = useFirebase();
     const [isSaving, startSaveTransition] = useTransition();
     const [imageUrl, setImageUrl] = useState(store.imageUrl || '');
 
@@ -294,52 +105,54 @@ function StoreImageUploader({ store }: { store: Store }) {
         }
 
         startSaveTransition(async () => {
-            const result = await updateStoreImageUrl(store.id, imageUrl);
+            if (!firestore) return;
+            const storeRef = doc(firestore, 'stores', store.id);
+            const updateData = { imageUrl: imageUrl };
 
-            if (result.success) {
-                toast({ title: 'Image URL Updated!' });
-            } else {
-                toast({
-                    variant: 'destructive',
-                    title: 'Update Failed',
-                    description: result.error || 'The server action failed.',
+            updateDoc(storeRef, updateData)
+                .then(() => {
+                    toast({ title: 'Image URL Updated!' });
+                })
+                .catch((e) => {
+                    errorEmitter.emit('permission-error', new FirestorePermissionError({
+                        path: storeRef.path,
+                        operation: 'update',
+                        requestResourceData: updateData,
+                    }));
                 });
-            }
         });
     };
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>{t('store-image')}</CardTitle>
-                <CardDescription>Update your store's image by pasting a URL.</CardDescription>
+        <Card className="rounded-3xl border-0 shadow-lg overflow-hidden">
+            <CardHeader className="bg-primary/5 border-b border-black/5">
+                <CardTitle className="text-sm font-black uppercase tracking-tight">Business Visual</CardTitle>
+                <CardDescription className="text-[10px] font-bold opacity-40 uppercase">Update your digital storefront image</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-                 <div className="w-full aspect-video relative rounded-md overflow-hidden border bg-muted">
+            <CardContent className="p-6 space-y-4">
+                 <div className="w-full aspect-video relative rounded-2xl overflow-hidden border-2 bg-muted shadow-inner">
                     {imageUrl ? (
                         <Image src={imageUrl} alt={store.name} fill className="object-cover" />
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full bg-muted/50 text-muted-foreground">
-                            <ImageIcon className="h-10 w-10 mb-2" />
-                            <p className="text-sm">{t('no-image-set')}</p>
+                            <ImageIcon className="h-10 w-10 mb-2 opacity-20" />
+                            <p className="text-[10px] font-black uppercase opacity-20">No Image Set</p>
                         </div>
                     )}
                 </div>
-
                 <div className="space-y-2">
-                    <Label htmlFor="store-image-url">Image URL</Label>
+                    <Label className="text-[8px] font-black uppercase tracking-widest opacity-40">Direct Image URL</Label>
                     <Input
-                        id="store-image-url"
                         placeholder="https://example.com/your-store.jpg"
                         value={imageUrl}
                         onChange={(e) => setImageUrl(e.target.value)}
                         disabled={isSaving}
+                        className="h-11 rounded-xl border-2"
                     />
                 </div>
-                
-                <Button onClick={handleSave} disabled={isSaving} className="w-full">
-                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                    Save Image URL
+                <Button onClick={handleSave} disabled={isSaving} className="w-full h-11 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg">
+                    {isTyping ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    Save Identity Image
                 </Button>
             </CardContent>
         </Card>
@@ -360,11 +173,10 @@ function TableManager({ store }: { store: Store }) {
         startSaveTransition(() => {
             updateDoc(doc(firestore, 'stores', store.id), { tables: updatedTables })
                 .then(() => {
-                    toast({ title: "Table Added", description: `"${newTableName}" has been added.` });
+                    toast({ title: "Zone Added", description: `"${newTableName}" added to floor map.` });
                     setNewTableName('');
                 })
                 .catch(err => {
-                    console.error("Error adding table:", err);
                     toast({ variant: "destructive", title: "Save Failed", description: err.message });
                 });
         });
@@ -374,42 +186,41 @@ function TableManager({ store }: { store: Store }) {
         const updatedTables = (store.tables || []).filter(t => t !== tableToRemove);
         startSaveTransition(() => {
             updateDoc(doc(firestore, 'stores', store.id), { tables: updatedTables })
-                .then(() => toast({ title: "Table Removed", description: `"${tableToRemove}" has been removed.` }))
+                .then(() => toast({ title: "Zone Removed" }))
                 .catch(err => {
-                    console.error("Error removing table:", err);
                     toast({ variant: "destructive", title: "Update Failed", description: err.message });
                 });
         });
     };
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Table Management</CardTitle>
-                <CardDescription>Add or remove table identifiers for your restaurant to generate QR codes.</CardDescription>
+        <Card className="rounded-3xl border-0 shadow-lg overflow-hidden">
+            <CardHeader className="bg-primary/5 border-b border-black/5">
+                <CardTitle className="text-sm font-black uppercase tracking-tight">Floor Management</CardTitle>
+                <CardDescription className="text-[10px] font-bold opacity-40 uppercase">Manage tables, chairs or service zones</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="p-6 space-y-4">
                 <div className="flex gap-2">
                     <Input 
-                        placeholder="e.g., Table 1, Chair A"
+                        placeholder="e.g., Table 5"
                         value={newTableName}
                         onChange={(e) => setNewTableName(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') handleAddTable(); }}
+                        className="h-11 rounded-xl border-2"
                     />
-                    <Button onClick={handleAddTable} disabled={isSaving || !newTableName.trim()}>
-                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                        Add
+                    <Button onClick={handleAddTable} disabled={isSaving || !newTableName.trim()} className="rounded-xl h-11 px-6 font-black uppercase text-[10px]">
+                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
                     </Button>
                 </div>
                  {store.tables && store.tables.length > 0 && (
                      <div className="space-y-2">
-                         <Label>Your Tables</Label>
-                         <div className="space-y-2 rounded-md border p-2">
+                         <Label className="text-[8px] font-black uppercase opacity-40">Active Zones</Label>
+                         <div className="grid grid-cols-2 gap-2">
                              {store.tables.map(table => (
-                                 <div key={table} className="flex items-center justify-between p-2 bg-background rounded-md">
-                                     <span className="font-medium">{table}</span>
-                                     <Button variant="ghost" size="icon" onClick={() => handleRemoveTable(table)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                 <div key={table} className="flex items-center justify-between p-2 pl-4 bg-muted/30 rounded-xl border border-black/5">
+                                     <span className="font-bold text-xs">{table}</span>
+                                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-red-50 text-destructive" onClick={() => handleRemoveTable(table)}>
+                                        <Trash2 className="h-3.5 w-3.5" />
                                      </Button>
                                  </div>
                              ))}
@@ -421,1048 +232,201 @@ function TableManager({ store }: { store: Store }) {
     );
 }
 
-function PromoteStore({ store }: { store: Store }) {
-    const { toast } = useToast();
-
-    const handleShare = async () => {
-        if (!('contacts' in navigator && 'select' in (navigator as any).contacts)) {
-            toast({
-                variant: 'destructive',
-                title: 'API Not Supported',
-                description: 'Your browser does not support the Contact Picker API.',
-            });
-            return;
-        }
-
-        try {
-            const contacts = await (navigator as any).contacts.select(['name', 'email', 'tel'], { multiple: true });
-
-            if (contacts.length === 0) {
-                toast({ title: 'No contacts selected.' });
-                return;
-            }
-
-            const phoneNumbers = contacts.flatMap((c: any) => c.tel || []);
-            const shareText = `Check out my store, ${store.name}, on the Adires app! Visit my storefront here: ${window.location.origin}/stores/${store.id}`;
-            
-            if (phoneNumbers.length > 0) {
-                 const smsLink = `sms:${phoneNumbers.join(',')}?&body=${encodeURIComponent(shareText)}`;
-                 window.open(smsLink, '_blank');
-            } else {
-                 toast({
-                    variant: 'destructive',
-                    title: 'No Phone Numbers Found',
-                    description: 'The selected contacts do not have phone numbers.',
-                });
-            }
-        } catch (ex) {
-            toast({
-                variant: 'destructive',
-                title: 'Could not access contacts',
-                description: 'There was an error trying to access your contacts.',
-            });
-            console.error(ex);
-        }
-    };
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>{t('promote-your-store')}</CardTitle>
-                <CardDescription>
-                    {t('share-your-store-with-your-phone-contacts')}
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Button onClick={handleShare} className="w-full">
-                    <Share2 className="mr-2 h-4 w-4" />
-                    {t('share-with-contacts')}
-                </Button>
-                <p className="text-xs text-muted-foreground mt-2 text-center">
-                    {t('this-will-open-your-phones-contact-picker')}
-                </p>
-            </CardContent>
-        </Card>
-    );
-}
-
-function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () => void }) {
-    const { firestore } = useFirebase();
-    const [isPending, startTransition] = useTransition();
-    const { toast } = useToast();
-    const [isLocating, setIsLocating] = useState(false);
-
-    const form = useForm<LocationFormValues>({
-        resolver: zodResolver(locationSchema),
-        defaultValues: {
-            latitude: store.latitude || 0,
-            longitude: store.longitude || 0,
-        },
-    });
-
-    const handleGetLocation = () => {
-        if (navigator.geolocation) {
-            setIsLocating(true);
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    form.setValue('latitude', position.coords.latitude, { shouldValidate: true });
-                    form.setValue('longitude', position.coords.longitude, { shouldValidate: true });
-                    toast({ title: "Location Fetched!", description: "Your current location has been filled in." });
-                    setIsLocating(false);
-                },
-                () => {
-                    toast({ variant: 'destructive', title: "Location Error", description: "Could not retrieve your location. Please enter it manually." });
-                    setIsLocating(false);
-                },
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-            );
-        } else {
-            toast({ variant: 'destructive', title: "Not Supported", description: "Geolocation is not supported by your browser." });
-        }
-    };
-    
-    const onSubmit = (data: LocationFormValues) => {
-        if (!firestore) return;
-        startTransition(() => {
-            const storeRef = doc(firestore, 'stores', store.id);
-            updateDoc(storeRef, data)
-                .then(() => {
-                    toast({ title: "Store Location Updated!", description: "Your store's location has been saved." });
-                    onUpdate(); 
-                })
-                .catch((error) => {
-                    const permissionError = new FirestorePermissionError({
-                        path: storeRef.path,
-                        operation: 'update' as const,
-                        requestResourceData: data,
-                    });
-                    errorEmitter.emit('permission-error', permissionError);
-                });
-        });
-    };
-
-    return (
-        <Alert variant="destructive">
-            <AlertTitle>{t('action-required-update-your-stores-location')}</AlertTitle>
-            <AlertDescription>
-                {t('your-store-is-missing-gps-coordinates')}
-            </AlertDescription>
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
-                    <div className="flex items-end gap-4">
-                        <div className="grid grid-cols-2 gap-4 flex-1">
-                            <FormField control={form.control} name="latitude" render={({ field }: { field: any }) => (
-                                <FormItem><FormLabel className="text-xs text-muted-foreground">{t('latitude')}</FormLabel><FormControl><Input type="number" step="any" {...field} /></FormControl><FormMessage /></FormItem>
-                            )} />
-                            <FormField control={form.control} name="longitude" render={({ field }: { field: any }) => (
-                                <FormItem><FormLabel className="text-xs text-muted-foreground">{t('longitude')}</FormLabel><FormControl><Input type="number" step="any" {...field} /></FormControl><FormMessage /></FormItem>
-                            )} />
-                        </div>
-                         <Button type="button" variant="outline" onClick={handleGetLocation} disabled={isLocating}>
-                            {isLocating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />}
-                            {isLocating ? 'Locating...' : t('get-current-location')}
-                        </Button>
-                    </div>
-                     <Button type="submit" disabled={isPending}>
-                        {isPending ? t('saving') : t('save-location')}
-                    </Button>
-                </form>
-            </Form>
-        </Alert>
-    );
-}
-
-function DangerZone({ store }: { store: Store }) {
-    const { firestore } = useFirebase();
-    const [isClosing, startCloseTransition] = useTransition();
-    const { toast } = useToast();
-
-    const handleCloseStore = () => {
-        if (!firestore) return;
-
-        startCloseTransition(async () => {
-            const storeRef = doc(firestore, 'stores', store.id);
-            try {
-                await updateDoc(storeRef, { isClosed: true });
-                toast({
-                    title: "Store Closed",
-                    description: `${store.name} has been closed and will no longer be visible to customers.`,
-                });
-            } catch (error) {
-                console.error("Failed to close store:", error);
-                const permissionError = new FirestorePermissionError({
-                    path: storeRef.path,
-                    operation: 'update' as const,
-                    requestResourceData: { isClosed: true },
-                });
-                errorEmitter.emit('permission-error', permissionError);
-            }
-        });
-    };
-
-    return (
-        <Card className="border-destructive">
-            <CardHeader>
-                <CardTitle className="text-destructive">{t('danger-zone')}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="flex justify-between items-center">
-                    <div>
-                        <p className="font-medium">{t('close-store')}</p>
-                        <p className="text-sm text-muted-foreground">
-                            {t('this-will-make-your-store-invisible')}
-                        </p>
-                    </div>
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="destructive">{t('close-store')}</Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>{t('are-you-sure')}</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    {t('your-store-and-all-its-products-will-no-longer-be-visible')}
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleCloseStore} disabled={isClosing}>
-                                    {isClosing ? t('closing') : t('yes-close-my-store')}
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                </div>
-            </CardContent>
-        </Card>
-    );
-}
-
 function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void }) {
     const { firestore } = useFirebase();
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
     const [isOpen, setIsOpen] = useState(false);
-    const { getAllAliases } = useAppStore();
-
-    const form = useForm<StoreFormValues>({
-        resolver: zodResolver(storeSchema),
+    const form = useForm<Omit<StoreFormValues, 'latitude' | 'longitude'>>({
+        resolver: zodResolver(storeSchema.omit({ latitude: true, longitude: true })),
         defaultValues: {
             name: store.name,
             teluguName: store.teluguName || '',
             description: store.description,
             address: store.address,
-            latitude: store.latitude || 0,
-            longitude: store.longitude || 0,
         },
     });
     
-    const onSubmit = (data: StoreFormValues) => {
+    const onSubmit = (data: Omit<StoreFormValues, 'latitude' | 'longitude'>) => {
         if (!firestore) return;
-
         startTransition(() => {
             const storeRef = doc(firestore, 'stores', store.id);
             updateDoc(storeRef, data)
                 .then(() => {
-                    toast({ title: "Store Details Updated!", description: "Your store's information has been saved." });
+                    toast({ title: "Identity Updated" });
                     setIsOpen(false);
-                    onUpdate(); 
-                })
-                .catch((error) => {
-                    const permissionError = new FirestorePermissionError({
-                        path: storeRef.path,
-                        operation: 'update' as const,
-                        requestResourceData: data,
-                    });
-                    errorEmitter.emit('permission-error', permissionError);
+                    onUpdate();
                 });
         });
     };
 
-    const storeAliases = useMemo(() => {
-        const key = createSlug(store.name);
-        return getAllAliases(key);
-    }, [store.name, getAllAliases]);
-
     return (
-        <Card>
-            <CardHeader>
-                <div className="flex justify-between items-center">
-                    <CardTitle>{t('store-details')}</CardTitle>
-                    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                        <DialogTrigger asChild>
-                            <Button variant="outline" size="sm">
-                                <Edit className="mr-2 h-4 w-4" /> {t('edit')}
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
-                            <DialogHeader>
-                                <DialogTitle>{t('edit-store-details')}</DialogTitle>
-                                <DialogDescription>{t('update-your-stores-public-information')}</DialogDescription>
-                            </DialogHeader>
-                            <Form {...form}>
-                                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
-                                    <FormField
-                                        control={form.control}
-                                        name="name"
-                                        render={({ field }: { field: any }) => (
-                                            <FormItem>
-                                                <FormLabel>{t('store-name')}</FormLabel>
-                                                <FormControl>
-                                                    <Input {...field} disabled={store.name === 'LocalBasket'} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="teluguName"
-                                        render={({ field }: { field: any }) => (
-                                            <FormItem>
-                                                <FormLabel>Store Name (Telugu)</FormLabel>
-                                                <FormControl>
-                                                    <Input {...field} placeholder="e.g., పటేల్ కిరాణా స్టోర్" />
-                                                </FormControl>
-                                                 <FormDescription>This name will be used for Telugu voice commands.</FormDescription>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="description"
-                                        render={({ field }: { field: any }) => (
-                                            <FormItem>
-                                                <FormLabel>{t('description')}</FormLabel>
-                                                <FormControl><Textarea {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="address"
-                                        render={({ field }: { field: any }) => (
-                                            <FormItem>
-                                                <FormLabel>{t('address')}</FormLabel>
-                                                <FormControl><Input {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <DialogFooter>
-                                        <Button type="button" variant="secondary" onClick={() => setIsOpen(false)}>{t('cancel')}</Button>
-                                        <Button type="submit" disabled={isPending}>{isPending ? t('saving') : t('save-changes')}</Button>
-                                    </DialogFooter>
-                                </form>
-                            </Form>
-                        </DialogContent>
-                    </Dialog>
-                </div>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm">
-                <p><strong>{t('description')}:</strong> {store.description}</p>
-                <p><strong>{t('address')}:</strong> {store.address}</p>
-                 <p><strong>Telugu Name:</strong> {store.teluguName || 'Not set'}</p>
-                <p><strong>{t('location')}:</strong> {store.latitude}, {store.longitude}</p>
+        <Card className="rounded-[2rem] border-0 shadow-lg overflow-hidden bg-white">
+            <CardHeader className="flex flex-row justify-between items-center border-b border-black/5 bg-primary/5 pb-6">
                 <div>
-                  <strong>Voice Aliases:</strong>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                      {Object.entries(storeAliases).flatMap(([lang, aliases]) =>
-                          aliases.map(alias => (
-                              <Badge key={`${lang}-${alias}`} variant="secondary">{alias} ({lang})</Badge>
-                          ))
-                      )}
-                  </div>
+                    <CardTitle className="text-xl font-black uppercase tracking-tight">Business Identity</CardTitle>
+                    <CardDescription className="text-[10px] font-bold opacity-40 uppercase tracking-widest">Public Information Hub</CardDescription>
+                </div>
+                <Dialog open={isOpen} onOpenChange={setIsOpen}>
+                    <DialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="rounded-xl font-black text-[9px] uppercase tracking-widest border-2 h-9 px-4">
+                            <Edit className="mr-2 h-3.5 w-3.5" /> Edit Details
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl rounded-[2.5rem] border-0 shadow-2xl">
+                        <DialogHeader>
+                            <DialogTitle className="text-xl font-black uppercase tracking-tight">Modify Identity</DialogTitle>
+                            <DialogDescription>Update your public-facing business profile.</DialogDescription>
+                        </DialogHeader>
+                        <Form {...form}>
+                            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
+                                <FormField control={form.control} name="name" render={({ field }) => (
+                                    <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Business Name</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl border-2" /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                                <FormField control={form.control} name="description" render={({ field }) => (
+                                    <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Description</FormLabel><FormControl><Textarea {...field} className="min-h-[100px] rounded-xl border-2" /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                                <DialogFooter>
+                                    <Button type="submit" disabled={isPending} className="h-12 rounded-xl font-black uppercase tracking-widest text-[10px] w-full">
+                                        {isPending ? 'Processing...' : 'Save Updates'}
+                                    </Button>
+                                </DialogFooter>
+                            </form>
+                        </Form>
+                    </DialogContent>
+                </Dialog>
+            </CardHeader>
+            <CardContent className="p-8 text-sm space-y-6">
+                <div className="grid md:grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                        <div className="space-y-1">
+                            <p className="text-[9px] font-black uppercase opacity-40 tracking-[0.2em]">Address</p>
+                            <p className="font-bold text-gray-700 leading-relaxed">{store.address}</p>
+                        </div>
+                        <div className="space-y-1">
+                            <p className="text-[9px] font-black uppercase opacity-40 tracking-[0.2em]">Coordinates</p>
+                            <p className="font-mono font-bold text-primary flex items-center gap-2">
+                                <MapPin className="h-3 w-3" /> {store.latitude.toFixed(4)}, {store.longitude.toFixed(4)}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <p className="text-[9px] font-black uppercase opacity-40 tracking-[0.2em]">Description</p>
+                        <p className="text-gray-600 font-medium leading-relaxed">{store.description}</p>
+                    </div>
                 </div>
             </CardContent>
         </Card>
     );
 }
 
-function AddProductForm({ storeId, isAdmin }: { storeId: string; isAdmin: boolean; }) {
-  const { toast } = useToast();
-  const [isPending, startTransition] = useTransition();
-  const [isGeneratingImage, startImageGeneration] = useTransition();
-  const { firestore } = useFirebase();
-  const { language, masterProducts, fetchInitialData } = useAppStore();
-
-  const categories = useMemo(() => {
-      const cats = (masterProducts as Product[]).map(p => p.category).filter(Boolean);
-      return Array.from(new Set(cats)) as string[];
-  }, [masterProducts]);
-
-  const form = useForm<ProductFormValues>({
-    resolver: zodResolver(productSchema),
-    defaultValues: { name: '', description: '', category: '', imageUrl: '', variants: [{ sku: '', weight: '', price: 0, stock: 50 }] },
-  });
-
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: 'variants'
-  });
-
-  const handleTemplateSelect = (value: string) => {
-    if (!value) return;
-    const [itemName, categoryName] = value.split('::');
-    form.setValue('name', itemName);
-    form.setValue('category', categoryName);
-  };
-
-  const handleGenerateImage = () => {
-    const productName = form.getValues('name');
-    if (!productName) {
-        toast({ variant: 'destructive', title: 'Product Name Required', description: 'Please enter a product name before generating an image.' });
-        return;
-    }
-    startImageGeneration(async () => {
-        try {
-            const result = await generateProductImage({ productName });
-            if (result.imageUrl) {
-                form.setValue('imageUrl', result.imageUrl);
-                toast({ title: 'Image Generated!', description: 'The AI-generated image URL has been added.' });
-            } else {
-                throw new Error('No image URL returned from AI flow.');
-            }
-        } catch (error) {
-            console.error("AI Image Generation failed:", error);
-            toast({ variant: 'destructive', title: 'Image Generation Failed', description: 'Could not generate an image. Please try again.' });
-        }
-    });
-  };
-
-  const onSubmit = (data: ProductFormValues) => {
-    if (!firestore) return;
-    if (!isAdmin) {
-        toast({ variant: 'destructive', title: 'Unauthorized', description: 'Only admins can create new master products.'});
-        return;
-    }
-
-    startTransition(async () => {
-      try {
-        const batch = writeBatch(firestore);
-        const imageId = `prod-${createSlug(data.name)}`;
-        const productSlug = createSlug(data.name);
-        
-        const variantsWithSkus = data.variants.map((variant, index) => ({
-            ...variant,
-            sku: `${productSlug}-${createSlug(variant.weight)}-${index}`
-        }));
-
-        // 1. Add product to the master /stores/{adminId}/products collection
-        const productRef = doc(collection(firestore, 'stores', storeId, 'products'));
-        const productData: Omit<Product, 'id' | 'variants'> = {
-          name: data.name,
-          description: data.description || '',
-          category: data.category,
-          storeId,
-          imageId: imageId,
-          imageUrl: data.imageUrl || '',
-          imageHint: data.name.toLowerCase(),
-        };
-        batch.set(productRef, productData);
-        
-        // 2. Add pricing info to the canonical /productPrices collection
-        const priceRef = doc(firestore, 'productPrices', data.name.toLowerCase());
-        batch.set(priceRef, {
-            productName: data.name.toLowerCase(),
-            variants: variantsWithSkus
-        });
-
-        // 3. Add a default alias to the voiceAliasGroups collection
-        const aliasRef = doc(firestore, 'voiceAliasGroups', productSlug);
-        batch.set(aliasRef, {
-            type: 'product',
-            en: [data.name.toLowerCase()],
-        }, { merge: true });
-        
-        await batch.commit();
-        
-        toast({
-          title: 'Master Product Added!',
-          description: `${data.name} has been added to the catalog and is now voice-searchable.`,
-        });
-        
-        // Refresh all app data to get the new product and alias
-        await fetchInitialData(firestore);
-
-        form.reset();
-
-      } catch (serverError) {
-        console.error("Failed to create product:", serverError);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not create master product.' });
-      }
-    });
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t('add-a-master-product')}</CardTitle>
-        <CardDescription>{t('add-a-new-product-to-the-platform')}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-             <FormItem>
-                <FormLabel>{t('product-template-optional')}</FormLabel>
-                <Select onValueChange={handleTemplateSelect}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder={t('select-a-predefined-item')} />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                        {(masterProducts as Product[]).map(p => (
-                            <SelectItem key={p.id} value={`${p.name}::${p.category}`}>
-                                {p.name} ({p.category})
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-                <FormDescription>
-                    {t('select-an-item-to-auto-fill')}
-                </FormDescription>
-            </FormItem>
-
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }: { field: any }) => (
-                <FormItem>
-                  <FormLabel>{t('product-name')}</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., Organic Apples" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="imageUrl"
-              render={({ field }: { field: any }) => (
-                <FormItem>
-                  <FormLabel>{t('product-image-url-optional')}</FormLabel>
-                  <div className="flex items-center gap-2">
-                    <div className="relative flex-grow">
-                        <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
-                        <Input placeholder="https://images.unsplash.com/..." {...field} className="pl-9" />
-                    </div>
-                    <Button type="button" variant="outline" onClick={handleGenerateImage} disabled={isGeneratingImage}>
-                        {isGeneratingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                   <FormDescription>
-                    {t('paste-a-direct-image-link-or-generate-one')}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="category"
-              render={({ field }: { field: any }) => (
-                <FormItem>
-                  <FormLabel>{t('category')}</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder={t('select-a-category')} />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {categories.map(cat => (
-                        <SelectItem key={cat} value={cat}>{t(cat.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-'), language)}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }: { field: any }) => (
-                <FormItem>
-                  <FormLabel>{t('product-description-optional')}</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder={t('describe-the-product')} {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <Card className="bg-muted/50 p-4">
-                <CardHeader className="p-2">
-                    <CardTitle className="text-lg">{t('price-variants')}</CardTitle>
-                    <CardDescription className="text-xs">
-                        {t('set-the-official-price-for-this-product')}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="p-2 space-y-4">
-                    {fields.map((field, index) => (
-                        <div key={field.id} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,1fr,auto] items-end gap-4 p-4 border rounded-md bg-background">
-                            <FormField
-                                control={form.control}
-                                name={`variants.${index}.weight`}
-                                render={({ field }: { field: any }) => (
-                                    <FormItem>
-                                        <FormLabel>{t('weight')}</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder={t('select-a-weight')} />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {standardWeights.map(w => <SelectItem key={w} value={w}>{w}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name={`variants.${index}.price`}
-                                render={({ field }: { field: any }) => (
-                                    <FormItem>
-                                        <FormLabel>{t('price')} (₹)</FormLabel>
-                                        <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                             <FormField
-                                control={form.control}
-                                name={`variants.${index}.stock`}
-                                render={({ field }: { field: any }) => (
-                                    <FormItem>
-                                        <FormLabel>Stock</FormLabel>
-                                        <FormControl><Input type="number" step="1" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)}>
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    ))}
-                    <Button type="button" variant="outline" onClick={() => append({ weight: '', price: 0, stock: 50, sku: `new-${fields.length}` })}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        {t('add-variant')}
-                    </Button>
-                </CardContent>
-            </Card>
-
-
-            <Button type="submit" disabled={isPending} className="bg-accent hover:bg-accent/90 text-accent-foreground">
-                {isPending ? (
-                    <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        {t('adding-product')}...
-                    </>
-                ) : (
-                    t('add-product')
-                )}
-            </Button>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ManageStoreView({ store, isAdmin, adminStoreId }: { store: Store; isAdmin: boolean, adminStoreId?: string; }) {
-    const isClosed = store.isClosed;
-
-    if (isClosed) {
-        return (
-            <Alert variant="destructive">
-                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>{t('this-store-is-closed')}</AlertTitle>
-                <AlertDescription>
-                    {t('your-store-is-currently-not-visible')}
-                </AlertDescription>
-                <Button onClick={() => {}} className="mt-4">
-                    {t('re-open-store')}
-                </Button>
-            </Alert>
-        )
-    }
-
-
+function ManageStoreView({ store, onUpdate }: { store: Store, onUpdate: () => void }) {
+    if (store.isClosed) return <Alert variant="destructive" className="rounded-3xl border-2"><AlertTitle className="font-black uppercase tracking-tight">Business Deactivated</AlertTitle><AlertDescription className="font-bold opacity-60">This store is currently not visible to customers.</AlertDescription></Alert>;
+    
     return (
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="products">Products</TabsTrigger>
-          <TabsTrigger value="orders">Orders</TabsTrigger>
-          <TabsTrigger value="restaurant">Restaurant / QR Menu</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4 bg-black/5 p-1 rounded-2xl border mb-10 h-12">
+          <TabsTrigger value="overview" className="rounded-xl font-black text-[10px] uppercase h-10">Identity</TabsTrigger>
+          <TabsTrigger value="ops" className="rounded-xl font-black text-[10px] uppercase h-10">Operations</TabsTrigger>
+          <TabsTrigger value="visibility" className="rounded-xl font-black text-[10px] uppercase h-10">Exposure</TabsTrigger>
+          <TabsTrigger value="security" className="rounded-xl font-black text-[10px] uppercase h-10 text-red-600">Danger</TabsTrigger>
         </TabsList>
-        <TabsContent value="overview" className="mt-6 space-y-6">
-            <StoreDetails store={store} onUpdate={() => {}} />
+        
+        <TabsContent value="overview" className="mt-0 space-y-8 animate-in fade-in slide-in-from-bottom-2">
+            <StoreDetails store={store} onUpdate={onUpdate} />
             <div className="grid md:grid-cols-2 gap-8">
                 <StoreImageUploader store={store} />
-                <PromoteStore store={store} />
+                <Card className="rounded-[2.5rem] border-0 shadow-lg overflow-hidden bg-primary/5 border-2 border-primary/10">
+                    <CardHeader><CardTitle className="text-sm font-black uppercase">Digital Presence</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
+                        <p className="text-xs font-bold text-primary/60 uppercase tracking-tight">Your digital menu is active and ready for customers to scan QR codes at your location.</p>
+                        <Button asChild className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
+                            <Link href="/dashboard/owner/menu-manager"><QrCode className="mr-2 h-4 w-4" /> Manage Digital Menu</Link>
+                        </Button>
+                    </CardContent>
+                </Card>
             </div>
-            <DangerZone store={store} />
         </TabsContent>
-        <TabsContent value="products" className="mt-6 space-y-6">
-            {isAdmin ? (
-                <>
-                    <AddProductForm storeId={store.id} isAdmin={true} />
-                </>
-            ) : (
-                <ProductChecklist storeId={store.id} adminStoreId={adminStoreId || ''} />
-            )}
-        </TabsContent>
-        <TabsContent value="orders" className="mt-6">
-            <Card>
-                <CardHeader><CardTitle>Incoming Orders</CardTitle></CardHeader>
-                <CardContent>
-                    <p className="text-muted-foreground">Order management UI will be here.</p>
-                </CardContent>
-            </Card>
-        </TabsContent>
-        <TabsContent value="restaurant" className="mt-6 space-y-6">
+
+        <TabsContent value="ops" className="mt-0 space-y-8 animate-in fade-in slide-in-from-bottom-2">
             <TableManager store={store} />
-             <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <QrCode className="h-6 w-6 text-primary" />
-                        QR Code Menu Manager
-                    </CardTitle>
-                    <CardDescription>Create a full digital menu for your restaurant tables.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Button asChild className="w-full">
-                        <Link href="/dashboard/owner/menu-manager">Go to Menu Manager</Link>
-                    </Button>
-                </CardContent>
-             </Card>
+        </TabsContent>
+
+        <TabsContent value="visibility" className="mt-0 space-y-8 animate-in fade-in slide-in-from-bottom-2">
+            <PromoteStore store={store} />
+        </TabsContent>
+
+        <TabsContent value="security" className="mt-0 space-y-8 animate-in fade-in slide-in-from-bottom-2">
+            <DangerZone store={store} />
         </TabsContent>
     </Tabs>
     )
 }
 
-function CreateStoreForm({ user, isAdmin, profile, onAutoCreate }: { user: any; isAdmin: boolean; profile?: AppUser | null; onAutoCreate: (coords: { lat: number; lng: number }) => void; }) {
-    const { toast } = useToast();
-    const [isPending, startTransition] = useTransition();
-    const { firestore } = useFirebase();
-    const [isLocationConfirmOpen, setIsLocationConfirmOpen] = useState(false);
-    const [capturedCoords, setCapturedCoords] = useState<{ lat: number; lng: number } | null>(null);
-
-    const form = useForm<StoreFormValues>({
-        resolver: zodResolver(storeSchema),
-        defaultValues: {
-            name: isAdmin ? 'LocalBasket' : (profile ? `${profile.firstName}'s Store` : ''),
-            description: isAdmin ? 'The master store for setting canonical product prices.' : (profile ? `Groceries and goods from ${profile.firstName}'s Store.` : ''),
-            address: isAdmin ? 'Platform-wide' : (profile?.address || ''),
-            latitude: 0,
-            longitude: 0,
-            teluguName: ''
-        },
-    });
-
-    useEffect(() => {
-        if (!isAdmin && profile) {
-            handleGetLocation(true); 
-        }
-    }, [isAdmin, profile]);
-    
-    const handleGetLocation = (isAuto = false) => {
-        if (!navigator.geolocation) {
-            toast({ variant: "destructive", title: "Not Supported", description: "Geolocation is not supported by your browser." });
-            return;
-        }
-
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
-                if (isAuto) {
-                    setCapturedCoords(coords);
-                    setIsLocationConfirmOpen(true);
-                } else {
-                    form.setValue('latitude', coords.lat);
-                    form.setValue('longitude', coords.lng);
-                    toast({ title: "Location Fetched!", description: "Your current location has been filled in." });
-                }
-            },
-            () => {
-                if (isAuto) {
-                    toast({ variant: 'destructive', title: "Automatic Creation Failed", description: "Could not retrieve your location. Please create your store manually." });
-                } else {
-                    toast({ variant: 'destructive', title: "Location Error", description: "Could not retrieve your location. Please enter it manually." });
-                }
-            }
-        );
-    };
-
-    const handleConfirmLocation = (confirmed: boolean) => {
-        setIsLocationConfirmOpen(false);
-        if (confirmed && capturedCoords) {
-            onAutoCreate(capturedCoords);
-        } else {
-            toast({ title: 'Automatic Creation Cancelled', description: 'Please create your store manually from your store location.' });
-        }
-    };
-
-    const onSubmit = (data: StoreFormValues) => {
-        if (!user || !firestore) {
-            toast({ variant: 'destructive', title: 'Authentication Error', description: 'You must be logged in.' });
-            return;
-        }
-        if (!isAdmin && (data.latitude === 0 || data.longitude === 0)) {
-            toast({ variant: 'destructive', title: 'Location Required', description: 'Please provide your store\'s GPS location.' });
-            return;
-        }
-
-        startTransition(() => {
-            const storeData = { ...data, ownerId: user.uid, imageId: `store-${Math.floor(Math.random() * 3) + 1}`, isClosed: false };
-            addDoc(collection(firestore, 'stores'), storeData)
-                .then(() => {
-                    toast({ title: 'Store Created!', description: `Your store "${data.name}" is now live.` });
-                })
-                .catch((serverError) => {
-                    const permissionError = new FirestorePermissionError({ path: 'stores', operation: 'create' as const, requestResourceData: storeData });
-                    errorEmitter.emit('permission-error', permissionError);
-                });
-        });
-    };
-
-    if (profile && !isAdmin) {
-        return (
-            <div className="text-center">
-                 <AlertDialog open={isLocationConfirmOpen} onOpenChange={setIsLocationConfirmOpen}>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>{t('confirm-store-location')}</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                {t('weve-detected-your-location')}
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel onClick={() => handleConfirmLocation(false)}>{t('no-ill-do-it-later')}</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleConfirmLocation(true)}>{t('yes-create-my-store-here')}</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-                <p className="text-lg">{t('attempting-to-create-your-store-automatically')}...</p>
-                <Loader2 className="mx-auto mt-4 h-8 w-8 animate-spin" />
-                 <p className="text-sm text-muted-foreground mt-4">{t('if-this-fails-you-can-create-your-store-manually')}</p>
-            </div>
-        );
-    }
-
-    return (
-        <Card className="max-w-3xl mx-auto">
-            <CardHeader>
-                <CardTitle className="text-3xl font-headline">{isAdmin ? t('create-master-store') : t('create-your-store')}</CardTitle>
-                <CardDescription>
-                    {isAdmin ? t('this-is-the-master-store-for-the-platform') : t('fill-out-the-details-to-get-your-shop-listed')}
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                         <FormField
-                            control={form.control}
-                            name="name"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>{t('store-name')}</FormLabel>
-                                <FormControl>
-                                <Input placeholder="e.g., Patel Kirana Store" {...field} disabled={isAdmin} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                         <FormField
-                            control={form.control}
-                            name="teluguName"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Store Name (Telugu)</FormLabel>
-                                <FormControl>
-                                <Input placeholder="e.g., పటేల్ కిరాణా స్టోర్" {...field} />
-                                </FormControl>
-                                <FormDescription>This name will be used for Telugu voice commands.</FormDescription>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="description"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>{t('store-description')}</FormLabel>
-                                <FormControl><Textarea placeholder={t('describe-what-makes-your-store-special')} {...field} /></FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="address"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>{t('full-store-address')}</FormLabel>
-                                <FormControl><Input placeholder="123 Main Street, Mumbai" {...field} /></FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                         {!isAdmin && (
-                            <div className="space-y-2">
-                                    <FormLabel>{t('store-location-gps')}</FormLabel>
-                                    <div className="flex items-end gap-4">
-                                        <div className="grid grid-cols-2 gap-4 flex-1">
-                                            <FormField control={form.control} name="latitude" render={({ field }) => (
-                                                <FormItem><FormLabel className="text-xs text-muted-foreground">{t('latitude')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 19.0760" {...field} /></FormControl><FormMessage /></FormItem>
-                                            )} />
-                                            <FormField control={form.control} name="longitude" render={({ field }) => (
-                                                <FormItem><FormLabel className="text-xs text-muted-foreground">{t('longitude')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 72.8777" {...field} /></FormControl><FormMessage /></FormItem>
-                                            )} />
-                                        </div>
-                                        <Button type="button" variant="outline" onClick={() => handleGetLocation(false)}>
-                                            <MapPin className="mr-2 h-4 w-4" /> {t('get-current-location')}
-                                        </Button>
-                                    </div>
-                            </div>
-                            )}
-                        <Button type="submit" className="w-full" disabled={isPending || !user}>{isPending ? t('creating') : t('create-store')}</Button>
-                    </form>
-                </Form>
-            </CardContent>
-        </Card>
-    );
-}
-
 export default function MyStorePage() {
     const { user, isUserLoading, firestore } = useFirebase();
     const router = useRouter();
+    const { isAdmin, isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
+    const { stores, userStore, fetchInitialData, setUserStore } = useAppStore();
     const { toast } = useToast();
-    const [isCreating, startCreationTransition] = useTransition();
-    const { language } = useAppStore();
-
-    const isAdmin = useMemo(() => user?.email === ADMIN_EMAIL, [user]);
 
     const ownerStoreQuery = useMemoFirebase(() => {
         if (!firestore || !user || isAdmin) return null;
-        return query(collection(firestore, 'stores'), where('ownerId', '==', user.uid));
+        return query(collection(firestore, 'stores'), where('ownerId', '==', user.uid), limit(1));
     }, [firestore, user, isAdmin]);
 
-    const adminStoreQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
-        return query(collection(firestore, 'stores'), where('name', '==', 'LocalBasket'));
-    }, [firestore]);
+    const { data: ownerStores, isLoading: isOwnerStoreLoading, refetch } = useCollection<Store>(ownerStoreQuery);
+    const myStore = useMemo(() => userStore || ownerStores?.[0], [userStore, ownerStores]);
 
-    const userProfileQuery = useMemoFirebase(() => {
-        if (!firestore || !user) return null;
-        return doc(firestore, 'users', user.uid);
-    }, [firestore, user]);
-
-    const { data: ownerStores, isLoading: isOwnerStoreLoading } = useCollection<Store>(ownerStoreQuery);
-    const { data: adminStores, isLoading: isAdminStoreLoading } = useCollection<Store>(adminStoreQuery);
-    const { data: userProfile, isLoading: isProfileLoading } = useDoc<AppUser>(userProfileQuery);
+    useEffect(() => { if (!isUserLoading && !user) router.push('/login'); }, [isUserLoading, user, router]);
     
-    const myStore = ownerStores?.[0];
-    const adminStore = adminStores?.[0];
-
     useEffect(() => {
-        if (!isUserLoading && !user) {
-            router.push('/login?redirectTo=/dashboard/owner/my-store');
+        if (ownerStores && ownerStores.length > 0) {
+            setUserStore(ownerStores[0]);
         }
-    }, [isUserLoading, user, router]);
+    }, [ownerStores, setUserStore]);
 
-    const handleAutoCreateStore = (coords: { lat: number; lng: number }) => {
-        if (!user || !firestore || !userProfile) {
-             toast({ variant: 'destructive', title: 'Error', description: 'User profile not found.' });
-             return;
-        }
-
-        startCreationTransition(() => {
-             const storeData = {
-                name: `${userProfile.firstName}'s Store`,
-                teluguName: `${userProfile.firstName} గారి స్టోర్`,
-                description: `Groceries and goods from ${userProfile.firstName}'s Store.`,
-                address: userProfile.address,
-                latitude: coords.lat,
-                longitude: coords.lng,
-                ownerId: user.uid,
-                imageId: `store-${Math.floor(Math.random() * 3) + 1}`,
-                isClosed: false,
-            };
-            addDoc(collection(firestore, 'stores'), storeData)
-                .then(() => {
-                    toast({ title: 'Store Created!', description: `Your store "${storeData.name}" is now live.` });
-                })
-                .catch((serverError) => {
-                    const permissionError = new FirestorePermissionError({ path: 'stores', operation: 'create', requestResourceData: storeData });
-                    errorEmitter.emit('permission-error', permissionError);
-                });
-        });
-    };
-
-    const isLoading = isUserLoading || isOwnerStoreLoading || isAdminStoreLoading || isProfileLoading;
-
-    if (isLoading) {
-        return <div className="container mx-auto py-12 px-4 md:px-6">{t('loading-your-store')}...</div>
-    }
-
-    const renderContent = () => {
-        if (!user) return null;
-
-        if (isAdmin) {
-            return adminStore ? <ManageStoreView store={adminStore} isAdmin={true} /> : <CreateStoreForm user={user} isAdmin={true} onAutoCreate={() => {}} />;
-        }
-
-        if (myStore) {
-            return <ManageStoreView store={myStore} isAdmin={false} adminStoreId={adminStore?.id} />;
-        }
-        
-        // New user without a store
-        if (!userProfile) {
-            return (
-                 <Card className="max-w-3xl mx-auto">
-                    <CardHeader>
-                        <CardTitle className="text-3xl font-headline">{t('complete-your-profile-first')}</CardTitle>
-                        <CardDescription>
-                            {t('to-automatically-create-your-store')}
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                         <Button asChild>
-                            <Link href="/dashboard/customer/my-profile">{t('go-to-my-profile')}</Link>
-                        </Button>
-                    </CardContent>
-                </Card>
-            )
-        }
-
-        return <CreateStoreForm user={user} isAdmin={false} profile={userProfile} onAutoCreate={handleAutoCreateStore} />;
-    };
-    
-    const pageTitleKey = isAdmin
-        ? (adminStore ? `Master Catalog: ${adminStore.name}` : 'create-master-store')
-        : (myStore ? `Dashboard: ${myStore.name}` : 'create-your-store');
-    
-    const pageTitle = (myStore || adminStore) ? pageTitleKey : t(pageTitleKey);
-
+    if (isUserLoading || isRoleLoading || isOwnerStoreLoading) return <div className="p-12 text-center h-screen flex flex-col items-center justify-center gap-4"><Loader2 className="animate-spin h-10 w-10 text-primary opacity-20" /><p className="text-[10px] font-black uppercase tracking-widest opacity-40">Connecting to Business Hub...</p></div>;
 
     return (
-        <div className="container mx-auto py-12 px-4 md:px-6">
-            <h1 className="text-4xl font-bold font-headline mb-8">{pageTitle}</h1>
-            {renderContent()}
+        <div className="container mx-auto py-12 px-4 md:px-6 space-y-12 pb-32">
+            {!myStore && isRestaurantOwner ? (
+                <div className="space-y-12">
+                    <div className="text-center max-w-2xl mx-auto space-y-4">
+                        <div className="inline-flex items-center justify-center p-3 bg-primary/10 rounded-full mb-2">
+                            <Smartphone className="h-10 w-10 text-primary" />
+                        </div>
+                        <h1 className="text-4xl font-black font-headline tracking-tight text-gray-950 uppercase italic">Onboarding Assistant</h1>
+                        <p className="text-muted-foreground font-bold">Welcome! I'm your digital partner. Let's build your store presence together through a quick conversation.</p>
+                    </div>
+                    <OnboardingChatbot onComplete={(id) => {
+                        toast({ title: "Setup Complete!", description: "Refreshing your business dashboard..." });
+                        if (firestore) fetchInitialData(firestore, user?.uid);
+                        if (refetch) refetch();
+                    }} />
+                </div>
+            ) : myStore ? (
+                <>
+                    <div className="flex justify-between items-end border-b pb-10 border-black/5">
+                        <div className="space-y-1">
+                            <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950 truncate max-w-[600px]">{myStore.name}</h1>
+                            <p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Operational Command & Identity</p>
+                        </div>
+                        <div className="hidden sm:block">
+                            <Badge variant="outline" className="rounded-full border-2 border-primary/20 text-primary font-black uppercase text-[10px] tracking-widest px-4 py-1.5 bg-primary/5">
+                                <CheckCircle2 className="h-3 w-3 mr-2 fill-current" /> Store Live
+                            </Badge>
+                        </div>
+                    </div>
+                    <ManageStoreView store={myStore} onUpdate={() => refetch && refetch()} />
+                </>
+            ) : (
+                <div className="text-center py-20 bg-white rounded-[3rem] border-2 border-dashed opacity-40 max-w-2xl mx-auto">
+                    <AlertCircle className="h-12 w-12 mx-auto mb-4" />
+                    <p className="font-black uppercase tracking-widest text-sm mb-6">Unauthorized access detected</p>
+                    <Button asChild className="rounded-xl h-12 px-8 font-black uppercase text-[10px] tracking-widest shadow-xl"><Link href="/dashboard">Return to Dashboard</Link></Button>
+                </div>
+            )}
         </div>
     );
 }
