@@ -65,21 +65,18 @@ import {
     Smartphone, 
     CheckCircle2, 
     Utensils, 
-    Scissors, 
-    ShoppingBag, 
-    ArrowRight,
     Link2
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { useAppStore } from '@/lib/store';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { extractMenuItems } from '@/ai/flows/extract-menu-items-flow';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
@@ -134,7 +131,7 @@ function StoreImageUploader({ store }: { store: Store }) {
 
             updateDoc(storeRef, updateData)
                 .then(() => {
-                    toast({ title: 'Visual Identity Updated!' });
+                    toast({ title: 'Identity Visual Updated!' });
                 })
                 .catch((e) => {
                     errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -150,7 +147,7 @@ function StoreImageUploader({ store }: { store: Store }) {
         <Card className="rounded-3xl border-0 shadow-lg overflow-hidden">
             <CardHeader className="bg-primary/5 border-b border-black/5">
                 <CardTitle className="text-sm font-black uppercase tracking-tight text-gray-950">Storefront Visual</CardTitle>
-                <CardDescription className="text-[10px] font-bold opacity-40 uppercase">Update your store's image URL</CardDescription>
+                <CardDescription className="text-[10px] font-bold opacity-40 uppercase tracking-widest">Public profile image URL</CardDescription>
             </CardHeader>
             <CardContent className="p-6 space-y-4">
                  <div className="w-full aspect-video relative rounded-2xl overflow-hidden border-2 bg-muted shadow-inner">
@@ -159,7 +156,7 @@ function StoreImageUploader({ store }: { store: Store }) {
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full bg-muted/50 text-muted-foreground">
                             <ImageIcon className="h-10 w-10 mb-2 opacity-20" />
-                            <p className="text-[10px] font-black uppercase opacity-20">No Image Set</p>
+                            <p className="text-[10px] font-black uppercase opacity-20 tracking-widest">No Image Set</p>
                         </div>
                     )}
                 </div>
@@ -253,8 +250,8 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
     return (
         <Card className="rounded-3xl border-0 shadow-xl overflow-hidden bg-primary/5 border-2 border-dashed border-primary/20">
             <CardHeader className="text-center pb-2">
-                <CardTitle className="text-xl font-black uppercase tracking-tight">AI Menu Onboarding</CardTitle>
-                <CardDescription className="text-xs font-bold opacity-40 uppercase">Go live instantly by scanning your menu</CardDescription>
+                <CardTitle className="text-xl font-black uppercase tracking-tight">AI Menu Setup</CardTitle>
+                <CardDescription className="text-xs font-bold opacity-40 uppercase tracking-widest">Digitize your paper menu instantly</CardDescription>
             </CardHeader>
             <CardContent className="p-8">
                 {extractedData ? (
@@ -264,7 +261,7 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
                                 <TableHeader className="bg-black/5">
                                     <TableRow>
                                         <TableHead className="text-[10px] font-black uppercase">Category</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase">Dish/Service</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase">Item</TableHead>
                                         <TableHead className="text-right text-[10px] font-black uppercase">Price</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -282,7 +279,7 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
                         <div className="flex gap-2">
                             <Button onClick={handleSaveMenu} disabled={isSaving} className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
                                 {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                                Sync & Go Live
+                                Go Live Now
                             </Button>
                             <Button variant="ghost" onClick={() => setExtractedData(null)} disabled={isSaving} className="rounded-xl h-12 px-6">Cancel</Button>
                         </div>
@@ -299,7 +296,7 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
                             className="w-full h-14 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20"
                         >
                             {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Upload className="mr-2 h-5 w-5" />}
-                            {isProcessing ? 'AI Processing...' : 'Upload Menu Photo'}
+                            {isProcessing ? 'AI Reading Menu...' : 'Upload Menu Photo'}
                         </Button>
                     </div>
                 )}
@@ -319,10 +316,10 @@ function DigitalMenuOverview({ storeId }: { storeId: string }) {
             <CardHeader className="bg-primary/5 border-b border-black/5 pb-6 flex flex-row justify-between items-center">
                 <div>
                     <CardTitle className="text-xl font-black uppercase tracking-tight text-gray-950">Active Digital Menu</CardTitle>
-                    <CardDescription className="text-[10px] font-bold opacity-40 uppercase">Live dishes and pricing</CardDescription>
+                    <CardDescription className="text-[10px] font-bold opacity-40 uppercase tracking-widest">Live offerings and pricing</CardDescription>
                 </div>
                 <Button asChild variant="outline" size="sm" className="rounded-xl font-black text-[9px] uppercase border-2 h-9 px-4">
-                    <Link href="/dashboard/owner/menu-manager"><Edit className="mr-2 h-3.5 w-3.5" /> Edit Prices</Link>
+                    <Link href="/dashboard/owner/menu-manager"><Edit className="mr-2 h-3.5 w-3.5" /> Edit Items</Link>
                 </Button>
             </CardHeader>
             <CardContent className="p-8">
@@ -339,7 +336,7 @@ function DigitalMenuOverview({ storeId }: { storeId: string }) {
                             ))}
                         </div>
                         {menu.items.length > 4 && (
-                            <p className="text-[10px] font-black uppercase opacity-40 text-center">Plus {menu.items.length - 4} more items live...</p>
+                            <p className="text-[10px] font-black uppercase opacity-40 text-center tracking-widest">Plus {menu.items.length - 4} more items live...</p>
                         )}
                     </div>
                 ) : (
@@ -392,7 +389,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
             <CardHeader className="flex flex-row justify-between items-center border-b border-black/5 bg-primary/5 pb-6">
                 <div>
                     <CardTitle className="text-xl font-black uppercase tracking-tight text-gray-950">Business Profile</CardTitle>
-                    <CardDescription className="text-[10px] font-bold opacity-40 uppercase tracking-widest">Public Information Hub</CardDescription>
+                    <CardDescription className="text-[10px] font-bold opacity-40 uppercase tracking-widest">Identity Hub</CardDescription>
                 </div>
                 <Dialog open={isOpen} onOpenChange={setIsOpen}>
                     <DialogTrigger asChild>
@@ -408,7 +405,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                         <Form {...form}>
                             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
                                 <FormField control={form.control} name="name" render={({ field }) => (
-                                    <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Business Name</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl border-2" /></FormControl><FormMessage /></FormItem>
+                                    <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Store Name</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl border-2" /></FormControl><FormMessage /></FormItem>
                                 )}/>
                                 <FormField control={form.control} name="description" render={({ field }) => (
                                     <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Description</FormLabel><FormControl><Textarea {...field} className="min-h-[100px] rounded-xl border-2" /></FormControl><FormMessage /></FormItem>
@@ -427,7 +424,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                 <div className="grid md:grid-cols-2 gap-8">
                     <div className="space-y-4">
                         <div className="space-y-1">
-                            <p className="text-[9px] font-black uppercase opacity-40 tracking-[0.2em]">Full Address</p>
+                            <p className="text-[9px] font-black uppercase opacity-40 tracking-[0.2em]">Address</p>
                             <p className="font-bold text-gray-700 leading-relaxed">{store.address}</p>
                         </div>
                         <div className="space-y-1">
@@ -438,56 +435,12 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                         </div>
                     </div>
                     <div className="space-y-1">
-                        <p className="text-[9px] font-black uppercase opacity-40 tracking-[0.2em]">Public Bio</p>
+                        <p className="text-[9px] font-black uppercase opacity-40 tracking-[0.2em]">Bio</p>
                         <p className="text-gray-600 font-medium leading-relaxed">{store.description}</p>
                     </div>
                 </div>
             </CardContent>
         </Card>
-    );
-}
-
-function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () => void }) {
-    const { firestore } = useFirebase();
-    const [isPending, startTransition] = useTransition();
-    const { toast } = useToast();
-    const form = useForm<LocationFormValues>({ resolver: zodResolver(locationSchema), defaultValues: { latitude: store.latitude || 0, longitude: store.longitude || 0 } });
-    
-    const handleGetLocation = () => {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition((position) => {
-                form.setValue('latitude', position.coords.latitude, { shouldValidate: true });
-                form.setValue('longitude', position.coords.longitude, { shouldValidate: true });
-                toast({ title: "Location Fetched!" });
-            });
-        }
-    };
-
-    const onSubmit = (data: LocationFormValues) => {
-        if (!firestore) return;
-        startTransition(() => {
-            updateDoc(doc(firestore, 'stores', store.id), data).then(() => { toast({ title: "Updated!" }); onUpdate(); });
-        });
-    };
-
-    return (
-        <Alert variant="destructive" className="rounded-3xl border-2 border-red-100 bg-red-50 shadow-sm">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle className="font-black uppercase tracking-tight">Location Conflict</AlertTitle>
-            <AlertDescription className="font-bold text-xs opacity-60">GPS coordinates missing. Required for marketplace mapping.</AlertDescription>
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <FormField control={form.control} name="latitude" render={({ field }) => (<FormItem><FormControl><Input type="number" step="any" {...field} className="h-10 rounded-xl" /></FormControl></FormItem>)} />
-                        <FormField control={form.control} name="longitude" render={({ field }) => (<FormItem><FormControl><Input type="number" step="any" {...field} className="h-10 rounded-xl" /></FormControl></FormItem>)} />
-                    </div>
-                    <div className="flex gap-2">
-                        <Button type="button" variant="outline" className="rounded-xl h-10 px-4 font-black text-[9px] uppercase tracking-widest border-2" onClick={handleGetLocation}>Detect GPS</Button>
-                        <Button type="submit" disabled={isPending} className="rounded-xl h-10 px-6 font-black text-[9px] uppercase tracking-widest shadow-lg">{isPending ? 'Saving...' : 'Sync Location'}</Button>
-                    </div>
-                </form>
-            </Form>
-        </Alert>
     );
 }
 
@@ -526,7 +479,7 @@ function TableManager({ store }: { store: Store }) {
         <Card className="rounded-3xl border-0 shadow-lg overflow-hidden">
             <CardHeader className="bg-primary/5 border-b border-black/5">
                 <CardTitle className="text-sm font-black uppercase tracking-tight text-gray-900">Floor Management</CardTitle>
-                <CardDescription className="text-[10px] font-bold opacity-40 uppercase">Manage active tables or service chairs</CardDescription>
+                <CardDescription className="text-[10px] font-bold opacity-40 uppercase tracking-widest">Active tables or service zones</CardDescription>
             </CardHeader>
             <CardContent className="p-6 space-y-4">
                 <div className="flex gap-2">
@@ -575,7 +528,7 @@ function DangerZone({ store }: { store: Store }) {
             <CardContent className="p-8 flex justify-between items-center">
                 <div className="space-y-1">
                     <p className="font-black uppercase text-xs">Deactivate Hub</p>
-                    <p className="text-[10px] font-bold opacity-40 uppercase">Hide your business from all search results</p>
+                    <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest">Hide your business from all search results</p>
                 </div>
                 <AlertDialog>
                     <AlertDialogTrigger asChild><Button variant="destructive" className="rounded-xl font-black uppercase text-[10px] tracking-widest h-11 px-8">Close Store</Button></AlertDialogTrigger>
@@ -589,31 +542,11 @@ function DangerZone({ store }: { store: Store }) {
     );
 }
 
-function PromoteStorePanel({ store }: { store: Store }) {
-    const { toast } = useToast();
-    const handleShare = async () => {
-        if (!('contacts' in navigator && 'select' in (navigator as any).contacts)) {
-            toast({ variant: 'destructive', title: 'API Not Supported' });
-            return;
-        }
-        try {
-            const contacts = await (navigator as any).contacts.select(['name', 'tel'], { multiple: true });
-            if (contacts.length === 0) return;
-            const phoneNumbers = contacts.flatMap((c: any) => c.tel || []);
-            const shareText = `Check out ${store.name} on Adires! ${window.location.origin}/menu/${store.id}`;
-            if (phoneNumbers.length > 0) window.open(`sms:${phoneNumbers.join(',')}?&body=${encodeURIComponent(shareText)}`, '_blank');
-        } catch (e) { toast({ variant: 'destructive', title: 'Share Error' }); }
-    };
-    return (
-        <Card className="rounded-3xl border-0 shadow-lg overflow-hidden">
-            <CardHeader className="bg-primary/5 border-b border-black/5"><CardTitle className="text-sm font-black uppercase tracking-tight text-gray-900">Grow Your Reach</CardTitle></CardHeader>
-            <CardContent className="p-6"><Button onClick={handleShare} className="w-full h-11 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg"><Share2 className="mr-2 h-4 w-4" /> Share via SMS</Button></CardContent>
-        </Card>
-    );
-}
-
 function ManageStoreView({ store, isAdmin, onUpdate }: { store: Store; isAdmin: boolean, onUpdate: () => void }) {
+    const isClosed = store.isClosed;
     const needsLocationUpdate = !store.latitude || !store.longitude;
+
+    if (isClosed) return <Alert variant="destructive" className="rounded-3xl p-8"><AlertTitle className="font-black uppercase tracking-tight text-lg mb-2">Store is Inactive</AlertTitle><AlertDescription className="font-bold opacity-60">Your business hub is currently hidden from the marketplace.</AlertDescription></Alert>;
 
     return (
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-700">
@@ -621,14 +554,19 @@ function ManageStoreView({ store, isAdmin, onUpdate }: { store: Store; isAdmin: 
         <StoreDetails store={store} onUpdate={onUpdate} />
         <div className="grid md:grid-cols-2 gap-8">
             <StoreImageUploader store={store} />
-            <PromoteStorePanel store={store} />
+            <div className="space-y-8">
+                <Card className="rounded-3xl border-0 shadow-lg overflow-hidden">
+                    <CardHeader className="bg-primary/5 border-b border-black/5"><CardTitle className="text-sm font-black uppercase tracking-tight">Share Business</CardTitle></CardHeader>
+                    <CardContent className="p-6"><Button className="w-full h-11 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg" onClick={() => {}}><Share2 className="mr-2 h-4 w-4" /> SMS Promotion</Button></CardContent>
+                </Card>
+                <TableManager store={store} />
+            </div>
         </div>
         <MenuOnboardingTool storeId={store.id} onComplete={onUpdate} />
         <DigitalMenuOverview storeId={store.id} />
-        <TableManager store={store} />
         <DangerZone store={store} />
       </div>
-    )
+    );
 }
 
 function CreateStoreForm({ user, isAdmin }: { user: any; isAdmin: boolean; }) {
@@ -678,7 +616,7 @@ function CreateStoreForm({ user, isAdmin }: { user: any; isAdmin: boolean; }) {
                             <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Business Bio</FormLabel><FormControl><Textarea {...field} className="min-h-[100px] rounded-xl border-2" /></FormControl><FormMessage /></FormItem>
                         )} />
                         <FormField control={form.control} name="address" render={({ field }) => (
-                            <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Full Address</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl border-2" /></FormControl><FormMessage /></FormMessage /></FormItem>
+                            <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Full Address</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl border-2" /></FormControl><FormMessage /></FormItem>
                         )} />
                         <div className="p-4 rounded-2xl bg-muted/30 border-2 border-dashed space-y-4">
                             <Label className="text-[10px] font-black uppercase opacity-40">GPS Coordinates</Label>

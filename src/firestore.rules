@@ -27,8 +27,8 @@ service cloud.firestore {
 
     function isStoreOwner(storeId) {
       return isSignedIn() && (
-        getStoreOwnerId(storeId) == request.auth.uid ||
-        request.resource.data.ownerId == request.auth.uid
+        (exists(/databases/$(database)/documents/stores/$(storeId)) && getStoreOwnerId(storeId) == request.auth.uid) ||
+        (request.resource != null && request.resource.data.ownerId == request.auth.uid)
       );
     }
     
@@ -53,26 +53,28 @@ service cloud.firestore {
 
     match /stores/{storeId} {
       allow get, list: if true;
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
       allow update, delete: if 
-        resource.data.ownerId == request.auth.uid || 
+        (resource.data.ownerId == request.auth.uid) || 
         isAdmin();
     }
 
     match /stores/{storeId}/products/{productId} {
       allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isStoreOwner(storeId);
+      allow create: if isSignedIn(); // Batch-friendly creation
+      allow update, delete: if isSignedIn() && isStoreOwner(storeId);
     }
 
     match /stores/{storeId}/menus/{menuId} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow create: if isSignedIn(); // Batch-friendly creation
+      allow update, delete: if isSignedIn() && isStoreOwner(storeId);
     }
 
     match /stores/{storeId}/packages/{packageId} {
       allow get, list: if true;
-      allow create, update, delete: if isStoreOwner(storeId);
+      allow create: if isSignedIn(); // Batch-friendly creation
+      allow update, delete: if isSignedIn() && isStoreOwner(storeId);
     }
 
     /* ======================
