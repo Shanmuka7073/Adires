@@ -6,37 +6,22 @@ import {
   Store,
   ArrowUpRight,
   ArrowDownRight,
-  TrendingUp,
   DollarSign,
   ShoppingBag,
   Target,
   Zap,
-  Clock,
-  LayoutGrid,
-  Sparkles,
-  Award,
-  ChevronRight,
-  Loader2,
   RefreshCw,
-  Drama,
-  Bot,
-  AlertTriangle,
   ZapOff,
   Flame,
   ShieldCheck,
   Rocket,
-  ShieldAlert,
   Lock,
   Shield,
   ArrowRight,
   CheckCircle2,
-  Video,
-  List,
-  FileSignature,
-  FileText,
   Server,
-  KeyRound,
-  BookOpen
+  FileSignature,
+  Loader2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -105,52 +90,21 @@ function CommandCard({ title, icon: Icon, color, command, onExecute, variant = '
     )
 }
 
-function DecisionItem({ type, title, message, action, onExecute }: any) {
-    const isCritical = type === 'critical';
-    return (
-        <div className={cn(
-            "p-5 rounded-[2rem] flex flex-col gap-4 border-2 transition-all relative overflow-hidden group",
-            isCritical ? "bg-red-50 border-red-100 shadow-red-100" : "bg-amber-50 border-amber-100 shadow-amber-100"
-        )}>
-            {isCritical && <div className="absolute top-0 right-0 p-4 opacity-5 rotate-12"><Flame className="h-24 w-24" /></div>}
-            <div className="flex gap-4 items-start relative z-10">
-                <div className={cn(
-                    "h-10 w-10 rounded-2xl shrink-0 flex items-center justify-center shadow-lg",
-                    isCritical ? "bg-red-500 text-white" : "bg-amber-500 text-white"
-                )}>
-                    {isCritical ? <Zap className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
-                </div>
-                <div className="space-y-1">
-                    <p className={cn("text-[10px] font-black uppercase tracking-widest opacity-40", isCritical ? "text-red-900" : "text-amber-900")}>{title}</p>
-                    <p className="text-xs font-bold text-gray-800 leading-snug">{message}</p>
-                </div>
-            </div>
-            <Button 
-                onClick={() => onExecute(action.toLowerCase().replace(/ /g, '_'))}
-                className={cn(
-                    "w-full h-10 rounded-xl font-black uppercase text-[9px] tracking-widest shadow-md group-hover:scale-[1.02] transition-transform",
-                    isCritical ? "bg-red-600 hover:bg-red-700" : "bg-amber-600 hover:bg-amber-700"
-                )}
-            >
-                {action}
-            </Button>
-        </div>
-    )
-}
-
 function AdminActionCard({ title, description, href, icon: Icon }: { title: string, description: string, href: string, icon: React.ElementType }) {
     return (
-        <Link href={href} className="block hover:shadow-lg transition-shadow rounded-lg">
-            <Card>
-                <CardHeader>
+        <Link href={href} className="block group">
+            <Card className="rounded-3xl border-0 shadow-lg hover:shadow-2xl transition-all h-full bg-white overflow-hidden border-2 border-transparent hover:border-primary/10">
+                <CardHeader className="p-6">
                     <div className="flex items-center gap-4">
-                        <Icon className="h-8 w-8 text-primary" />
-                        <CardTitle>{title}</CardTitle>
+                        <div className="h-12 w-12 rounded-2xl bg-primary/5 flex items-center justify-center text-primary shadow-inner group-hover:bg-primary group-hover:text-white transition-colors">
+                            <Icon className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <CardTitle className="text-sm font-black uppercase tracking-tight">{title}</CardTitle>
+                            <CardDescription className="text-[10px] font-bold opacity-40 uppercase mt-1 leading-tight">{description}</CardDescription>
+                        </div>
                     </div>
                 </CardHeader>
-                <CardContent>
-                    <CardDescription>{description}</CardDescription>
-                </CardContent>
             </Card>
         </Link>
     );
@@ -200,11 +154,10 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="container mx-auto px-4 py-10 space-y-12 max-w-7xl pb-32 animate-in fade-in duration-700">
-      {/* HEADER: AUTHORITY LAYER */}
       <div className="flex flex-col md:flex-row justify-between items-end gap-6 border-b pb-10 border-black/5">
         <div>
             <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none">Decision Hub</h1>
-            <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Operational Execution & Intelligence</p>
+            <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">System Administration & Intelligence</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
             <div className="flex bg-black/5 p-1 rounded-2xl border self-end">
@@ -229,7 +182,6 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* KPI GRID: PERIOD-AWARE */}
       <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <KPICard 
             title={`Revenue ${activePeriod.toUpperCase()}`} 
@@ -266,36 +218,26 @@ export default function AdminDashboardPage() {
       </section>
 
       <div className="grid lg:grid-cols-3 gap-8">
-        {/* LEFT: DECISION RADAR & EXECUTION */}
         <section className="lg:col-span-2 space-y-10">
-            {/* 1. DECISION RADAR */}
             <div className="space-y-4">
                 <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 flex items-center gap-2">
-                    <Rocket className="h-3 w-3" /> Decision Radar
+                    <Rocket className="h-3 w-3" /> System Health
                 </h2>
                 <div className="grid md:grid-cols-2 gap-4">
-                    {data.decisions.length > 0 ? (
-                        data.decisions.map((decision: any, i: number) => (
-                            <DecisionItem key={i} {...decision} onExecute={handleExecute} />
-                        ))
-                    ) : (
-                        <div className="col-span-full p-8 rounded-[2.5rem] bg-green-50 border-2 border-green-100 flex flex-col items-center justify-center text-center gap-2">
-                            <ShieldCheck className="h-10 w-10 text-green-600 opacity-40" />
-                            <p className="font-black uppercase text-xs text-green-900">All Zones Stable</p>
-                            <p className="text-[10px] font-bold text-green-800/60 uppercase">No urgent intervention required today.</p>
-                        </div>
-                    )}
+                    <div className="p-8 rounded-[2.5rem] bg-green-50 border-2 border-green-100 flex flex-col items-center justify-center text-center gap-2">
+                        <ShieldCheck className="h-10 w-10 text-green-600 opacity-40" />
+                        <p className="font-black uppercase text-xs text-green-900">Infrastructure Stable</p>
+                        <p className="text-[10px] font-bold text-green-800/60 uppercase">All core services operational.</p>
+                    </div>
                 </div>
             </div>
 
-            {/* 2. COMMAND HUB: EXECUTION LAYER */}
             <div className="space-y-4">
                 <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 flex items-center gap-2">
-                    <Zap className="h-3 w-3" /> Command Center
+                    <Zap className="h-3 w-3" /> Command Hub
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <CommandCard title="Boost Partner Rewards" icon={Zap} color="bg-indigo-500" command="reward_boost" onExecute={handleExecute} />
-                    <CommandCard title="Trigger Flash Promo" icon={Sparkles} color="bg-primary" command="flash_promo" onExecute={handleExecute} />
                     {data.isMaintenance ? (
                         <CommandCard title="Disable Maintenance" icon={ZapOff} color="bg-red-600" command="maintenance_off" onExecute={handleExecute} variant="destructive" />
                     ) : (
@@ -304,62 +246,37 @@ export default function AdminDashboardPage() {
                 </div>
             </div>
 
-            {/* 3. SOURCE CODE MODULES */}
             <div className="space-y-4">
-                <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40">Artifact Modules</h2>
+                <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 px-1">Infrastructure Control</h2>
                 <div className="grid md:grid-cols-2 gap-4">
-                    <AdminActionCard title="System Status" description="Live health check of backend services." href="/dashboard/admin/system-status" icon={Server} />
+                    <AdminActionCard title="System Status" description="Live health check of platform services." href="/dashboard/admin/system-status" icon={Server} />
                     <AdminActionCard title="App Overview" description="Complete design & architecture breakdown." href="/dashboard/admin/app-overview" icon={FileSignature} />
                     <AdminActionCard title="Market Catalog" description="Manage master products and prices." href="/dashboard/owner/my-store" icon={Store} />
-                    <AdminActionCard title="Order Logic" description="Examine atomic operational patterns." href="/dashboard/admin/order-logic-help" icon={ShoppingBag} />
                     <AdminActionCard title="Security Rules" description="Production Firestore rule inspect." href="/dashboard/admin/security-rules" icon={Shield} />
+                    <AdminActionCard title="Image Management" description="Centralized asset control." href="/dashboard/admin/image-management" icon={ImageIcon} />
                 </div>
             </div>
         </section>
 
-        {/* RIGHT: SECURITY & GROWTH */}
         <section className="space-y-10">
-            {/* SECURITY PERIMETER */}
             <div className="space-y-4">
                 <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 flex items-center gap-2">
-                    <ShieldAlert className="h-3 w-3" /> Security Perimeter
+                    <Smartphone className="h-3 w-3" /> PWA Modules
                 </h2>
                 <Card className="rounded-[2.5rem] border-0 shadow-lg bg-white overflow-hidden">
-                    <CardHeader className="bg-red-50 border-b border-red-100 pb-4">
-                        <CardTitle className="text-xs font-black uppercase tracking-tight text-red-900 flex items-center gap-2">
-                            <Lock className="h-3 w-3" /> Defensive Hardening
+                    <CardHeader className="bg-primary/5 border-b border-primary/10 pb-4">
+                        <CardTitle className="text-xs font-black uppercase tracking-tight text-primary flex items-center gap-2">
+                            <Lock className="h-3 w-3" /> App Shell Config
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="p-6 space-y-4">
-                        <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-tight">
-                            <span className="opacity-40">RBAC (Admin Lock)</span>
-                            <span className="text-green-600 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Verified</span>
-                        </div>
-                        <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-tight">
-                            <span className="opacity-40">Secure Headers (CSP)</span>
-                            <span className="text-green-600 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Enabled</span>
-                        </div>
-                        <Separator className="bg-black/5" />
                         <Button asChild variant="outline" className="w-full h-10 rounded-xl font-black uppercase text-[8px] tracking-widest border-2">
-                            <Link href="/dashboard/admin/security-rules"><Shield className="mr-2 h-3.5 w-3.5" /> Inspect Firestore Rules</Link>
+                            <Link href="/dashboard/admin/manifest-help">Edit PWA Manifest</Link>
+                        </Button>
+                        <Button asChild variant="outline" className="w-full h-10 rounded-xl font-black uppercase text-[8px] tracking-widest border-2">
+                            <Link href="/dashboard/admin/pwa-settings">PWA Settings</Link>
                         </Button>
                     </CardContent>
-                </Card>
-            </div>
-
-            <div className="space-y-4">
-                <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 flex items-center gap-2">
-                    <TrendingUp className="h-3 w-3" /> Growth Logic
-                </h2>
-                <Card className="rounded-[3rem] border-0 shadow-xl p-10 bg-slate-950 text-white space-y-10">
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-baseline">
-                            <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Session Conversion</span>
-                            <span className="text-2xl font-black text-primary">42.8%</span>
-                        </div>
-                        <Progress value={42.8} className="h-2 bg-white/10" />
-                        <p className="text-[10px] font-bold opacity-40 leading-relaxed uppercase tracking-tight">QR-menu interaction to order success rate.</p>
-                    </div>
                 </Card>
             </div>
         </section>
