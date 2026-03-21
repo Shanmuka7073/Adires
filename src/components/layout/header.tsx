@@ -112,8 +112,8 @@ function UserMenu() {
 
 export function Header() {
   const pathname = usePathname();
-  const { isCartOpen, setCartOpen, userStore, isAdmin } = useAppStore();
-  const { isRestaurantOwner, isEmployee } = useAdminAuth();
+  const { isCartOpen, setCartOpen, userStore } = useAppStore();
+  const { isRestaurantOwner, isEmployee, isAdmin } = useAdminAuth();
 
   if (pathname.startsWith('/menu/')) return null;
 
