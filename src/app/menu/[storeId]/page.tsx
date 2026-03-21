@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -220,53 +221,6 @@ function DeliveryDetailsDialog({ isOpen, onOpenChange, onSave, initialData, them
     );
 }
 
-function ModeSelectionDialog({ isOpen, onOpenChange, onSelectMode, currentMode, theme, isSalon }: any) {
-    const [tableNum, setTableNum] = useState('');
-    return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl">
-                <DialogHeader><DialogTitle className="text-xl font-black uppercase text-center">Select Order Mode</DialogTitle></DialogHeader>
-                <div className="grid grid-cols-3 gap-3 py-6">
-                    <Button variant={currentMode === 'table' ? 'default' : 'outline'} className="h-20 rounded-2xl flex-col gap-1 font-black uppercase text-[8px] tracking-tight" onClick={() => {}} style={currentMode === 'table' ? { backgroundColor: theme?.primaryColor } : {}}>
-                        <Utensils className="h-5 w-5" /> {isSalon ? 'In-Chair' : 'Dine-In'}
-                    </Button>
-                    <Button variant={currentMode === 'counter' ? 'default' : 'outline'} className="h-20 rounded-2xl flex-col gap-1 font-black uppercase text-[8px] tracking-tight" onClick={() => onSelectMode('counter', 'Counter')} style={currentMode === 'counter' ? { backgroundColor: theme?.primaryColor } : {}}>
-                        <Calculator className="h-5 w-5" /> Counter Sale
-                    </Button>
-                    <Button variant={currentMode === 'delivery' ? 'default' : 'outline'} className="h-20 rounded-2xl flex-col gap-1 font-black uppercase text-[8px] tracking-tight" onClick={() => onSelectMode('delivery')} style={currentMode === 'delivery' ? { backgroundColor: theme?.primaryColor } : {}}>
-                        <Truck className="h-5 w-5" /> Delivery
-                    </Button>
-                </div>
-                {currentMode === 'table' && (
-                    <div className="space-y-4">
-                        <div className="space-y-1"><Label className="text-[10px] uppercase font-black opacity-40">Enter {isSalon ? 'Chair' : 'Table'} Number</Label><Input value={tableNum} onChange={e => setTableNum(e.target.value)} placeholder="e.g., 5" className="h-12 rounded-xl text-center text-lg font-black" /></div>
-                        <Button className="w-full h-12 rounded-xl font-black uppercase" disabled={!tableNum} onClick={() => onSelectMode('table', tableNum)}>Confirm {isSalon ? 'Chair' : 'Table'}</Button>
-                    </div>
-                )}
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-function UPIPaymentDialog({ isOpen, onOpenChange, total, store, theme }: any) {
-    const upiUrl = `upi://pay?pa=${store.upiId}&pn=${encodeURIComponent(store.name)}&am=${total}&cu=INR`;
-    return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-sm rounded-[2.5rem] border-0 shadow-2xl flex flex-col items-center p-8">
-                <DialogHeader className="text-center mb-4"><DialogTitle className="text-xl font-black uppercase">Scan & Pay</DialogTitle></DialogHeader>
-                <div className="p-6 bg-white rounded-3xl shadow-inner border-4 border-black/5 mb-6">
-                    <QRCode value={upiUrl} size={200} level="H" includeMargin={true} />
-                </div>
-                <div className="text-center space-y-1 mb-6">
-                    <p className="text-[10px] font-black uppercase opacity-40">Total Amount</p>
-                    <p className="text-3xl font-black text-primary">₹{total.toFixed(2)}</p>
-                </div>
-                <Button className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest" onClick={() => onOpenChange(false)}>I have Paid</Button>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
 function LiveBillSheet({ 
     sessionId, 
     theme, 
@@ -419,41 +373,39 @@ function MenuCard({ item, onAdd, onShowDetails, recentlyAdded, currentQuantityIn
     
     return (
         <Card className={cn(
-            "flex flex-col shadow-xl rounded-[1.2rem] border-0 overflow-hidden group hover:scale-[1.02] transition-all duration-300 relative",
+            "flex flex-col shadow-xl rounded-[1.5rem] border-0 overflow-hidden group hover:shadow-2xl transition-all duration-300 relative",
             isOutOfStock && "opacity-50 grayscale pointer-events-none",
             isPersonalized && "ring-2 ring-primary/40 shadow-primary/10"
-        )} style={{ backgroundColor: '#2D2424' }}>
-            <div className="relative aspect-video w-full rounded-t-[1.2rem] overflow-hidden cursor-pointer" onClick={() => onShowDetails(item)}>
+        )} style={{ backgroundColor: '#ffffff' }}>
+            <div className="relative aspect-video w-full rounded-t-[1.5rem] overflow-hidden cursor-pointer" onClick={() => onShowDetails(item)}>
                 <Image src={item.imageUrl || ADIRES_LOGO} alt={item.name} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
                 {item.dietary && (
-                    <div className="absolute top-1.5 left-1.5 h-4 w-4 bg-white/90 rounded-sm flex items-center justify-center p-0.5 shadow-sm">
+                    <div className="absolute top-2 left-2 h-5 w-5 bg-white/90 rounded-sm flex items-center justify-center p-0.5 shadow-md">
                         <div className={cn("h-full w-full rounded-full border-2", item.dietary === 'veg' ? 'border-green-600 bg-green-600' : 'border-red-600 bg-red-600')}></div>
                     </div>
                 )}
-                {isPersonalized && (
-                    <div className="absolute top-1.5 right-1.5 bg-primary/90 backdrop-blur-md text-white text-[6px] font-black uppercase px-1.5 py-0.5 rounded-full shadow-lg flex items-center gap-1">
-                        <Sparkles className="h-2 w-2" /> For You
-                    </div>
-                )}
-                {currentQuantityInOrder > 0 && !isPersonalized && (
-                    <div className="absolute top-1.5 right-1.5 bg-green-600 text-white text-[7px] font-black uppercase px-1.5 py-0.5 rounded-full shadow-lg">{currentQuantityInOrder} in order</div>
-                )}
-                <div className="absolute bottom-1.5 left-1.5 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10">
-                    <p className="text-[10px] font-black" style={{ color: theme?.primaryColor || '#FBC02D' }}>₹{item.price.toFixed(0)}</p>
+                <div className="absolute bottom-2 left-2 bg-primary text-white px-3 py-1 rounded-full shadow-lg border border-white/20">
+                    <p className="text-xs font-black">₹{item.price.toFixed(0)}</p>
                 </div>
                 {isOutOfStock && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><Badge variant="destructive" className="font-black uppercase text-[10px]">Sold Out</Badge></div>}
             </div>
-            <div className="p-2 flex flex-col gap-2 flex-1 min-w-0">
-                <div className="min-w-0"><h3 className="font-black text-[11px] leading-tight text-white mb-0.5 truncate">{item.name}</h3><div className="flex items-center gap-1.5 opacity-60"><Sparkles className="h-3 w-3" style={{ color: theme?.primaryColor || '#FBC02D' }} /><span className="text-[9px] font-black uppercase tracking-widest text-white">Popular</span></div></div>
-                <div className="flex items-center justify-between h-7 w-full rounded-full bg-black/40 border border-white/10 px-1 overflow-hidden">
-                    <button onClick={() => setQty(Math.max(1, qty - 1))} className="h-5 w-5 rounded-full flex items-center justify-center text-white hover:bg-white/10"><Minus className="h-2 w-2" /></button>
-                    <span className="text-[10px] font-black text-white">{qty}</span>
-                    <button onClick={() => setQty(qty + 1)} className="h-5 w-5 rounded-full flex items-center justify-center text-white hover:bg-white/10"><Plus className="h-2 w-2" /></button>
+            <div className="p-3 flex flex-col gap-3 flex-1 min-w-0">
+                <div className="min-w-0">
+                    <h3 className="font-black text-sm leading-tight text-gray-950 mb-1 truncate">{item.name}</h3>
+                    <div className="flex items-center gap-1.5 opacity-60">
+                        <Sparkles className="h-3 w-3 text-amber-500" />
+                        <span className="text-[8px] font-black uppercase tracking-widest text-gray-600">Top Rated</span>
+                    </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full opacity-40 hover:opacity-100 bg-white/5" onClick={() => onShowDetails(item)}><Eye className="h-3.5 w-3.5 text-white" /></Button>
-                    <Button onClick={() => onAdd(item, qty)} disabled={isOutOfStock} className={cn("flex-1 h-8 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95", recentlyAdded ? "bg-green-600 text-white" : "")} style={{ backgroundColor: recentlyAdded ? '' : (theme?.primaryColor || '#FBC02D'), color: recentlyAdded ? '' : (theme?.backgroundColor || '#1A1616') }}>
-                        {recentlyAdded ? <Check className="h-2.5 w-2.5" /> : 'Add'}
+                <div className="flex items-center justify-between h-8 w-full rounded-xl bg-muted/50 border border-black/5 px-1 overflow-hidden">
+                    <button onClick={() => setQty(Math.max(1, qty - 1))} className="h-6 w-6 rounded-lg flex items-center justify-center text-gray-600 hover:bg-black/5"><Minus className="h-3 w-3" /></button>
+                    <span className="text-xs font-black text-gray-950">{qty}</span>
+                    <button onClick={() => setQty(qty + 1)} className="h-6 w-6 rounded-lg flex items-center justify-center text-gray-600 hover:bg-black/5"><Plus className="h-3 w-3" /></button>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-black/5 hover:bg-black/10" onClick={() => onShowDetails(item)}><Eye className="h-4 w-4 text-gray-600" /></Button>
+                    <Button onClick={() => onAdd(item, qty)} disabled={isOutOfStock} className={cn("flex-1 h-9 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95", recentlyAdded ? "bg-green-600 text-white" : "")} style={{ backgroundColor: recentlyAdded ? '' : (theme?.primaryColor || '#FBC02D'), color: recentlyAdded ? '' : (theme?.backgroundColor || '#1A1616') }}>
+                        {recentlyAdded ? <Check className="h-4 w-4" /> : 'Add to Order'}
                     </Button>
                 </div>
             </div>
@@ -576,8 +528,8 @@ export default function PublicMenuPage() {
     if (sA) setDeliveryAddress(sA); if (sN) setCustomerName(sN); if (sP) setPhone(sP);
   }, [searchParams, storeId]);
 
-  if (storeLoading || menuLoading || ordersLoading) return <div className="p-12 flex items-center justify-center bg-[#1A1616] min-h-screen"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
-  if (!store) return <div className="p-12 text-center bg-[#1A1616] min-h-screen text-white">Store not found.</div>;
+  if (storeLoading || menuLoading || ordersLoading) return <div className="p-12 flex items-center justify-center bg-white min-h-screen"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
+  if (!store) return <div className="p-12 text-center bg-white min-h-screen text-gray-900">Store not found.</div>;
 
   const handleAddItem = (item: MenuItem, qty: number = 1, customs?: Record<string, CustomizationOption[]>) => {
     const product: Product = { 
@@ -721,69 +673,62 @@ export default function PublicMenuPage() {
       <ModeSelectionDialog isOpen={isModeDialogOpen} onOpenChange={setIsModeDialogOpen} onSelectMode={(m: any, v: any) => { if(m==='delivery') setTableNumber(null); else if(v) setTableNumber(v); setIsModeDialogOpen(false); handleStartNewOrder(); }} currentMode={tableNumber === 'Counter' ? 'counter' : (tableNumber ? 'table' : 'delivery')} theme={theme} isSalon={isSalon} />
       {placedOrders && <UPIPaymentDialog isOpen={isUpiDialogOpen} onOpenChange={setIsUpiDialogOpen} total={placedOrders.reduce((acc, o) => acc + o.totalAmount, 0)} store={store} theme={theme} />}
       
-      <div className="min-h-screen pb-24" style={{ backgroundColor: theme?.backgroundColor || '#1A1616' }}>
+      <div className="min-h-screen pb-24 bg-[#FDFCF7]">
           <div className="container mx-auto py-4 px-3 max-w-2xl">
             <div className="space-y-6">
               <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 min-w-0">
-                      <Button asChild variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-white/10"><Link href="/"><ArrowLeft className="h-4 w-4 text-white" /></Link></Button>
-                      <div className="relative h-10 w-10 rounded-xl overflow-hidden border shadow-xl" style={{ borderColor: theme?.primaryColor || '#FBC02D' }}><Image src={store.imageUrl || ADIRES_LOGO} alt={store.name} fill className="object-cover" /></div>
+                      <Button asChild variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-black/5"><Link href="/"><ArrowLeft className="h-4 w-4 text-gray-950" /></Link></Button>
+                      <div className="relative h-10 w-10 rounded-xl overflow-hidden border-2 shadow-sm" style={{ borderColor: theme?.primaryColor || '#FBC02D' }}><Image src={store.imageUrl || ADIRES_LOGO} alt={store.name} fill className="object-cover" /></div>
                       <div className="min-w-0">
-                          <h1 className="text-base font-black truncate leading-tight" style={{ color: theme?.primaryColor || '#FBC02D' }}>{store.name}</h1>
+                          <h1 className="text-base font-black truncate leading-tight text-gray-950">{store.name}</h1>
                           <div className="flex items-center gap-1.5 mt-0.5">
-                              {tableNumber === 'Counter' ? <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest bg-green-600 text-white border-0">Counter Sale</Badge> : tableNumber ? <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>{isSalon ? `Chair ${tableNumber}` : `T-${tableNumber}`}</Badge> : <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest bg-blue-600 text-white border-0">{isSalon ? 'Home' : 'Delivery'}</Badge>}
-                              <button onClick={() => setIsModeDialogOpen(true)} className="text-[8px] font-black uppercase tracking-widest underline opacity-40 hover:opacity-100 transition-opacity" style={{ color: theme?.textColor || '#fff' }}>Change</button>
-                              
-                              {historyOrders && historyOrders.length > 0 && (
-                                  <>
-                                    <span className="text-white/20 text-[8px]">|</span>
-                                    <button onClick={() => setIsLiveBillOpen(true)} className="text-[8px] font-black uppercase tracking-widest underline opacity-40 hover:opacity-100 transition-opacity" style={{ color: theme?.textColor || '#fff' }}>History</button>
-                                  </>
-                              )}
+                              {tableNumber === 'Counter' ? <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest bg-green-600 text-white border-0">Counter</Badge> : tableNumber ? <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>{isSalon ? `Chair ${tableNumber}` : `T-${tableNumber}`}</Badge> : <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest bg-blue-600 text-white border-0">{isSalon ? 'Home' : 'Delivery'}</Badge>}
+                              <button onClick={() => setIsModeDialogOpen(true)} className="text-[8px] font-black uppercase tracking-widest underline opacity-40 hover:opacity-100 transition-opacity text-gray-900">Change</button>
                           </div>
                       </div>
                   </div>
                   <div className="flex items-center gap-1.5">
-                      {/* Branded Install Prompt */}
                       {canInstall && (
-                        <Button onClick={triggerInstall} size="sm" className="h-7 rounded-lg border px-2 font-black text-[8px] uppercase tracking-widest" style={{ color: theme?.primaryColor || '#FBC02D', borderColor: theme?.primaryColor || '#FBC02D' }}>
-                            <Download className="mr-1 h-3 w-3" /> Install {store.name}
+                        <Button onClick={triggerInstall} size="sm" className="h-8 rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg shadow-primary/20" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>
+                            <Download className="mr-1.5 h-3.5 w-3.5" /> Install App
                         </Button>
                       )}
                       {store.liveVideoUrl && placedOrders && placedOrders.length > 0 && (
-                        <Button asChild variant="outline" size="sm" className="h-7 rounded-lg border px-2 font-black text-[8px] uppercase tracking-widest animate-pulse" style={{ color: theme?.primaryColor || '#FBC02D', borderColor: theme?.primaryColor || '#FBC02D' }}>
-                            <Link href={`/live-order/${placedOrders[0].id}`}><Video className="mr-1 h-3 w-3" /> Live</Link>
+                        <Button asChild variant="outline" size="sm" className="h-8 rounded-xl border-2 px-3 font-black text-[9px] uppercase tracking-widest" style={{ color: theme?.primaryColor || '#FBC02D', borderColor: theme?.primaryColor || '#FBC02D' }}>
+                            <Link href={`/live-order/${placedOrders[0].id}`}><Video className="mr-1.5 h-3.5 w-3.5" /> Live</Link>
                         </Button>
                       )}
                   </div>
               </div>
 
               {isSessionFinalized ? (
-                  <Card className="rounded-[2.5rem] border-0 shadow-2xl text-center py-16 px-6" style={{ backgroundColor: '#2D2424' }}>
-                      <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-white/5 border-4 border-white/10 shadow-inner"><CheckCircle className="h-10 w-10" style={{ color: theme?.primaryColor || '#FBC02D' }} /></div>
-                      <h2 className="text-2xl font-black mb-4 text-white tracking-tight uppercase">Visit Completed</h2>
+                  <Card className="rounded-[2.5rem] border-0 shadow-2xl text-center py-16 px-6 bg-white">
+                      <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-green-50 border-4 border-green-100 shadow-inner"><CheckCircle className="h-10 w-10 text-green-600" /></div>
+                      <h2 className="text-2xl font-black mb-4 text-gray-950 tracking-tight uppercase">Visit Completed</h2>
                       <Button onClick={handleStartNewOrder} className="rounded-xl h-12 px-8 uppercase font-black text-[10px] tracking-[0.2em] shadow-2xl" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>Start New Session</Button>
                   </Card>
               ) : (
                 <div className="space-y-6">
-                    <div className="flex gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/10 overflow-x-auto no-scrollbar">
+                    <div className="flex gap-2 bg-white p-1.5 rounded-2xl border-2 border-black/5 overflow-x-auto no-scrollbar shadow-sm">
                         <button 
                             onClick={() => setVegOnly(!vegOnly)}
                             className={cn(
                                 "flex items-center gap-2 px-4 h-9 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all shrink-0 border-2",
-                                vegOnly ? "bg-green-600 border-green-500 text-white shadow-lg" : "bg-white/5 border-white/5 text-white/40"
+                                vegOnly ? "bg-green-600 border-green-500 text-white shadow-lg" : "bg-muted border-transparent text-gray-400"
                             )}
                         >
                             <Leaf className={cn("h-3 w-3", vegOnly ? "text-white" : "text-green-600")} />
                             Veg Only
                         </button>
-                        <Separator orientation="vertical" className="h-9 bg-white/10" />
+                        <Separator orientation="vertical" className="h-9 bg-black/5" />
                         <button 
                             onClick={() => setSelectedCategory(null)} 
                             className={cn(
                                 "px-4 h-9 rounded-xl font-black text-[9px] uppercase tracking-widest border-2 transition-all shrink-0", 
-                                !selectedCategory ? "bg-white/10 border-white/20 text-white" : "bg-transparent border-transparent text-white/40"
+                                !selectedCategory ? "bg-primary border-primary text-white shadow-md" : "bg-transparent border-transparent text-gray-400"
                             )}
+                            style={!selectedCategory ? { backgroundColor: theme?.primaryColor } : {}}
                         >
                             All
                         </button>
@@ -793,43 +738,39 @@ export default function PublicMenuPage() {
                                 onClick={() => setSelectedCategory(cat)} 
                                 className={cn(
                                     "px-4 h-9 rounded-xl font-black text-[9px] uppercase tracking-widest border-2 transition-all shrink-0", 
-                                    selectedCategory === cat ? "bg-white/10 border-white/20 text-white shadow-md" : "bg-transparent border-transparent text-white/40"
+                                    selectedCategory === cat ? "bg-primary border-primary text-white shadow-md" : "bg-transparent border-transparent text-gray-400"
                                 )}
+                                style={selectedCategory === cat ? { backgroundColor: theme?.primaryColor } : {}}
                             >
                                 {cat}
                             </button>
                         ))}
                     </div>
 
-                    <div className="relative">
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 opacity-30 text-white" />
+                    <div className="relative group">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-primary group-focus-within:text-primary transition-colors" style={{ color: theme?.primaryColor }} />
                         <Input 
-                            placeholder="Find a dish..." 
+                            placeholder="Search dishes or categories..." 
                             value={searchTerm} 
                             onChange={(e) => setSearchTerm(e.target.value)} 
-                            className="h-12 rounded-2xl bg-white/5 border-2 pl-10 text-xs text-white placeholder:text-white/20 shadow-inner" 
-                            style={{ borderColor: theme?.primaryColor + '10' }} 
+                            className="h-14 rounded-2xl bg-white border-4 pl-12 text-sm font-black text-gray-950 placeholder:text-gray-300 shadow-xl" 
+                            style={{ borderColor: theme?.primaryColor + '40' }} 
                         />
                         {searchTerm && (
-                            <button 
-                                onClick={() => setSearchTerm('')}
-                                className="absolute right-3.5 top-1/2 -translate-y-1/2 h-5 w-5 bg-white/10 rounded-full flex items-center justify-center"
-                            >
-                                <X className="h-3 w-3 text-white/60" />
-                            </button>
+                            <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 h-6 w-6 bg-black/5 rounded-full flex items-center justify-center"><X className="h-3 w-3 text-gray-400" /></button>
                         )}
                     </div>
 
                     {!searchTerm && !selectedCategory && personalizedRecommendations.length > 0 && (
-                        <section className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                        <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-1000">
                             <div className="flex items-center gap-2 px-1">
-                                <Sparkles className="h-3.5 w-3.5 text-primary" style={{ color: theme?.primaryColor || '#FBC02D' }} />
-                                <h2 className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40" style={{ color: theme?.textColor || '#fff' }}>Tailored for You</h2>
+                                <Sparkles className="h-4 w-4 text-amber-500" />
+                                <h2 className="text-xl font-black uppercase tracking-tighter text-gray-950">Recommended</h2>
                             </div>
                             <ScrollArea className="w-full whitespace-nowrap pb-4">
-                                <div className="flex gap-3 px-1">
+                                <div className="flex gap-4 px-1">
                                     {personalizedRecommendations.map(item => (
-                                        <div key={item.id} className="w-44 flex-shrink-0">
+                                        <div key={item.id} className="w-48 flex-shrink-0">
                                             <MenuCard 
                                                 item={item} 
                                                 onAdd={handleAddItem} 
@@ -849,9 +790,9 @@ export default function PublicMenuPage() {
 
                     {Object.keys(groupedMenu).length > 0 ? (
                         Object.entries(groupedMenu).map(([category, items]) => (
-                            <section key={category} className="space-y-3">
-                                <h2 className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40 px-1" style={{ color: theme?.textColor || '#fff' }}>{category}</h2>
-                                <div className="grid grid-cols-2 gap-2">
+                            <section key={category} className="space-y-4 pt-4">
+                                <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 px-1">{category}</h2>
+                                <div className="grid grid-cols-2 gap-4">
                                     {items.map((item) => (
                                         <MenuCard key={item.id} item={item} onAdd={handleAddItem} onShowDetails={handleShowIngredients} recentlyAdded={recentlyAdded.has(item.id)} currentQuantityInOrder={currentOrderedCounts[item.name] || 0} theme={theme} />
                                     ))}
@@ -859,15 +800,10 @@ export default function PublicMenuPage() {
                             </section>
                         ))
                     ) : (
-                        <div className="text-center py-24 bg-white/5 rounded-[2.5rem] border-2 border-dashed border-white/10 opacity-40">
-                            <AlertTriangle className="h-10 w-10 mx-auto mb-4 text-white" />
-                            <p className="text-[10px] font-black uppercase tracking-widest text-white">No items found</p>
-                            <button 
-                                className="mt-2 text-primary font-bold uppercase text-[8px] tracking-widest underline"
-                                onClick={() => { setSearchTerm(''); setSelectedCategory(null); setVegOnly(false); }}
-                            >
-                                Clear All Filters
-                            </button>
+                        <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-black/5 opacity-40">
+                            <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-950">Zero matches found</p>
+                            <button className="mt-2 text-primary font-bold uppercase text-[8px] tracking-widest underline" onClick={() => { setSearchTerm(''); setSelectedCategory(null); setVegOnly(false); }}>Clear Filters</button>
                         </div>
                     )}
                 </div>
@@ -878,31 +814,31 @@ export default function PublicMenuPage() {
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[400px] px-4 flex gap-2">
               {tableNumber && tableNumber !== 'Counter' && placedOrders && placedOrders.length > 0 && (
                   <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="outline" className="h-12 w-12 rounded-xl shadow-2xl border-2 shrink-0 bg-white/10 text-white" style={{ borderColor: theme?.primaryColor || '#FBC02D' }}><BellRing className="h-5 w-5" /></Button></DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="w-48 rounded-2xl p-2">
-                          <DropdownMenuLabel className="text-[10px] uppercase font-black opacity-40">Call Staff For:</DropdownMenuLabel>
+                      <DropdownMenuTrigger asChild><Button variant="outline" className="h-14 w-14 rounded-2xl shadow-2xl border-4 shrink-0 bg-white text-primary" style={{ borderColor: theme?.primaryColor || '#FBC02D', color: theme?.primaryColor }}><BellRing className="h-6 w-6" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-48 rounded-2xl p-2 border-0 shadow-2xl">
+                          <DropdownMenuLabel className="text-[10px] uppercase font-black opacity-40">Staff Call</DropdownMenuLabel>
                           <DropdownMenuItem onClick={() => handleCallWaiter('Water')} className="rounded-xl font-bold">Glass of Water</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleCallWaiter('Cleaning')} className="rounded-xl font-bold">Table Cleaning</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleCallWaiter('Cleaning')} className="rounded-xl font-bold">Clear Table</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleCallWaiter('Assistance')} className="rounded-xl font-bold">General Help</DropdownMenuItem>
                       </DropdownMenuContent>
                   </DropdownMenu>
               )}
               {cartItems.length > 0 && (
-                  <Button onClick={handlePlaceOrder} className="h-12 flex-1 rounded-xl shadow-2xl text-[10px] font-black uppercase tracking-[0.1em] border border-white/10" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>
-                      {isAdding ? <Loader2 className="animate-spin h-4 w-4"/> : <PlusCircle className="mr-2 h-4 w-4" />}
-                      {tableNumber === 'Counter' ? `Generate Bill (${cartItems.length})` : `Place Order (${cartItems.length})`}
+                  <Button onClick={handlePlaceOrder} className="h-14 flex-1 rounded-2xl shadow-2xl text-xs font-black uppercase tracking-widest border-2 border-white/20" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>
+                      {isAdding ? <Loader2 className="animate-spin h-5 w-5"/> : <PlusCircle className="mr-2 h-5 w-5" />}
+                      {tableNumber === 'Counter' ? `Bill (${cartItems.length})` : `Place Order (${cartItems.length})`}
                   </Button>
               )}
               {(activeItemCount > 0 || cartItems.length > 0 || (historyOrders && historyOrders.length > 0)) && (
                   <Sheet open={isLiveBillOpen} onOpenChange={setIsLiveBillOpen}>
                       <SheetTrigger asChild>
-                          <Button variant="outline" className={cn("h-12 rounded-xl shadow-2xl text-[10px] font-black uppercase tracking-[0.1em] border-2", (cartItems.length === 0 || tableNumber === 'Counter') ? "flex-1" : "px-4")} style={{ borderColor: theme?.primaryColor || '#FBC02D', color: theme?.primaryColor || '#FBC02D', backgroundColor: theme?.backgroundColor || '#1A1616' }}>
-                              <Receipt className={cn(cartItems.length === 0 && "mr-2", "h-4 w-4")} /> 
-                              {(cartItems.length === 0 || tableNumber === 'Counter') && "View Bill"}
-                              {activeItemCount > 0 && <Badge className="ml-2 h-5 min-w-[20px] rounded-md text-[9px] font-black" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>{activeItemCount}</Badge>}
+                          <Button variant="outline" className={cn("h-14 rounded-2xl shadow-2xl text-[10px] font-black uppercase tracking-widest border-4", (cartItems.length === 0 || tableNumber === 'Counter') ? "flex-1" : "px-5")} style={{ borderColor: theme?.primaryColor || '#FBC02D', color: theme?.primaryColor || '#FBC02D', backgroundColor: '#ffffff' }}>
+                              <Receipt className={cn(cartItems.length === 0 && "mr-2", "h-5 w-5")} /> 
+                              {(cartItems.length === 0 || tableNumber === 'Counter') && "Live Bill"}
+                              {activeItemCount > 0 && <Badge className="ml-2 h-6 min-w-[24px] rounded-lg text-xs font-black" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>{activeItemCount}</Badge>}
                           </Button>
                       </SheetTrigger>
-                      <SheetContent side="bottom" className="h-[80vh] rounded-t-[2.5rem] p-0 border-0 overflow-hidden shadow-2xl">
+                      <SheetContent side="bottom" className="h-[85vh] rounded-t-[3rem] p-0 border-0 overflow-hidden shadow-2xl">
                           <LiveBillSheet 
                             sessionId={sessionId} 
                             theme={theme} 

@@ -9,7 +9,7 @@ import type { Store, Menu, MenuItem, MenuTheme, CustomizationGroup, Customizatio
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Trash2, Sparkles, Loader2, Save, QrCode, Printer, Copy, AlertTriangle, List, PlusCircle, Edit, ImageIcon, Check, Upload as UploadIcon, Link2, SwitchCamera, CheckCircle2, Plus, X } from 'lucide-react';
+import { Trash2, Sparkles, Loader2, Save, QrCode, Printer, Copy, AlertTriangle, List, PlusCircle, Edit, ImageIcon, Check, Upload as UploadIcon, Link2, SwitchCamera, CheckCircle2, Plus, X, ExternalLink } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -143,72 +143,6 @@ function OptionsList({ nestIndex, control, register }: { nestIndex: number, cont
     );
 }
 
-function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (data: { items: MenuItem[], theme: MenuTheme, businessType: 'restaurant' | 'salon' | 'grocery' }) => void }) {
-    const [isProcessing, startProcessing] = useTransition();
-    const { toast } = useToast();
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        startProcessing(async () => {
-            try {
-                const reader = new FileReader();
-                const imageData = await new Promise<string>((resolve) => {
-                    reader.onload = (e) => resolve(e.target?.result as string);
-                    reader.readAsDataURL(file);
-                });
-
-                const result = await extractMenuItems({ menuImage: imageData });
-                if (result && result.items) {
-                    const normalizedItems = result.items.map(item => ({
-                        ...item,
-                        id: createSlug(item.name),
-                        isAvailable: true 
-                    }));
-                    onMenuExtracted({ 
-                        items: normalizedItems, 
-                        theme: result.theme, 
-                        businessType: result.businessType 
-                    });
-                    toast({ title: "Menu Extracted!", description: `Identified as a ${result.businessType} business.` });
-                } else {
-                    throw new Error("No items found in image.");
-                }
-            } catch (error: any) {
-                toast({ variant: 'destructive', title: 'Extraction Failed', description: error.message });
-            }
-        });
-    };
-
-    return (
-        <Card className="rounded-3xl border-0 shadow-xl overflow-hidden bg-primary/5 border-2 border-dashed border-primary/20">
-            <CardHeader className="text-center pb-2">
-                <CardTitle className="text-xl font-black uppercase tracking-tight">AI Menu Scanner</CardTitle>
-                <CardDescription className="text-xs font-bold opacity-40 uppercase">Upload a photo of your paper menu</CardDescription>
-            </CardHeader>
-            <CardContent className="p-8 flex flex-col items-center">
-                <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center mb-6">
-                    <ImageIcon className="h-10 w-10 text-primary" />
-                </div>
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
-                <Button 
-                    onClick={() => fileInputRef.current?.click()} 
-                    disabled={isProcessing}
-                    className="w-full h-14 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20"
-                >
-                    {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <UploadIcon className="mr-2 h-5 w-5" />}
-                    {isProcessing ? 'AI is Reading Menu...' : 'Upload Menu Photo'}
-                </Button>
-                <p className="mt-4 text-[10px] font-black uppercase tracking-widest opacity-30 text-center">
-                    Gemini AI will extract all dish names, prices, and your business vertical instantly.
-                </p>
-            </CardContent>
-        </Card>
-    );
-}
-
 function QRCodeDialog({ table, store }: { table: string, store: Store }) {
     const [baseUrl, setBaseUrl] = useState('');
     const { toast } = useToast();
@@ -286,10 +220,15 @@ function QRCodeDialog({ table, store }: { table: string, store: Store }) {
                 <Button onClick={handlePrint} className="h-12 rounded-xl font-black text-[10px] uppercase tracking-widest">
                     <Printer className="mr-2 h-4 w-4" /> Print
                 </Button>
-                <Button onClick={handleCopy} variant="outline" className="h-12 rounded-xl font-black text-[10px] uppercase tracking-widest border-2">
-                    <Copy className="mr-2 h-4 w-4" /> Link
+                <Button variant="outline" asChild className="h-12 rounded-xl font-black text-[10px] uppercase tracking-widest border-2">
+                    <a href={qrUrl} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="mr-2 h-4 w-4" /> Open
+                    </a>
                 </Button>
             </div>
+            <Button onClick={handleCopy} variant="ghost" className="w-full mt-2 text-[8px] font-black uppercase tracking-widest opacity-40">
+                <Copy className="mr-1 h-3 w-3" /> Copy URL
+            </Button>
         </DialogContent>
     );
 }
@@ -301,7 +240,6 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
     const [menu, setMenu] = useState(initialMenu);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false); 
     const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
-    const [cachedStatus, setCachedStatus] = useState<Record<string, boolean>>({});
     const [newZoneName, setNewZoneName] = useState('');
     const [isAddingZone, startAddingZone] = useTransition();
 
@@ -331,15 +269,6 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
         const uI = menu.items.map(i => i.id === it.id ? { ...i, isAvailable: !currentStatus } : i);
         const uM = { ...menu, items: uI }; setMenu(uM);
         if (!(await persistMenu(uM))) { setMenu(menu); toast({ variant: 'destructive', title: 'Toggle Failed' }); }
-    };
-
-    const handleGenerateIngredients = async (item: MenuItem) => {
-        startGeneration(async () => {
-            try {
-                const result = await getIngredientsForDish({ dishName: item.name, language: 'en' });
-                if (result.isSuccess) { toast({ title: 'Cached!' }); setCachedStatus(p => ({ ...p, [item.id]: true })); }
-            } catch (e) { toast({ variant: 'destructive', title: 'Failed' }); }
-        });
     };
 
     const handleAddZone = () => {
@@ -764,7 +693,7 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
     return (
         <Card className="rounded-3xl border-0 shadow-xl overflow-hidden bg-primary/5 border-2 border-dashed border-primary/20">
             <CardHeader className="text-center pb-2">
-                <CardTitle className="text-xl font-black uppercase tracking-tight">AI Menu Scanner</CardTitle>
+                <CardTitle className="text-xl font-black uppercase tracking-tight">AI Menu Setup</CardTitle>
                 <CardDescription className="text-xs font-bold opacity-40 uppercase tracking-widest">Digitize your paper menu instantly</CardDescription>
             </CardHeader>
             <CardContent className="p-8">
@@ -819,72 +748,204 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
     );
 }
 
-export default function MenuManagerPage() {
-    const { user, firestore } = useFirebase(); 
-    const [extractedData, setExtractedData] = useState<{items: MenuItem[], theme: MenuTheme, businessType: 'restaurant' | 'salon' | 'grocery'} | null>(null); 
-    const { toast } = useToast(); 
-    const [isSaving, startSave] = useTransition();
-    const { setUserStore } = useAppStore();
-    
-    const { data: stores, isLoading: sL } = useCollection<Store>(useMemoFirebase(() => (firestore && user ? query(collection(firestore, 'stores'), where('ownerId', '==', user.uid), limit(1)) : null), [firestore, user]));
-    const store = stores?.[0];
-    
-    const { data: menus, isLoading: mL, refetch: rM } = useCollection<Menu>(useMemoFirebase(() => (firestore && store ? query(collection(firestore, `stores/${store.id}/menus`)) : null), [firestore, store]));
-    const existingMenu = menus?.[0];
-    
-    const handleSaveMenu = () => {
-        if (!firestore || !store || !extractedData) return;
-        startSave(async () => {
-            const batch = writeBatch(firestore);
-            
-            // 1. Save Menu
-            const mR = existingMenu ? doc(firestore, `stores/${store.id}/menus`, existingMenu.id) : doc(collection(firestore, `stores/${store.id}/menus`));
-            const mD: Menu = { id: mR.id, storeId: store.id, items: extractedData.items.map(i => ({...i, id: i.id || createSlug(i.name), isAvailable: true })), theme: extractedData.theme };
-            batch.set(mR, mD, { merge: true });
+export default function MyStorePage() {
+    const { user, isUserLoading, firestore } = useFirebase();
+    const router = useRouter();
+    const { isAdmin, isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
+    const { stores, userStore, fetchInitialData } = useAppStore();
 
-            // 2. Update Store Business Type (AI decided)
-            const sR = doc(firestore, 'stores', store.id);
-            const updatedStoreData = { businessType: extractedData.businessType };
-            batch.update(sR, updatedStoreData);
+    const ownerStoreQuery = useMemoFirebase(() => {
+        if (!firestore || !user || isAdmin) return null;
+        return query(collection(firestore, 'stores'), where('ownerId', '==', user.uid), limit(1));
+    }, [firestore, user, isAdmin]);
 
-            try { 
-                await batch.commit(); 
-                toast({ title: 'Menu Saved!', description: `Store updated to ${extractedData.businessType} mode.` }); 
-                
-                setUserStore({ ...store, ...updatedStoreData });
-                setExtractedData(null); 
-                rM?.(); 
-            } catch (e) { 
-                toast({ variant: 'destructive', title: 'Save Failed' }); 
-            }
+    const { data: ownerStores, isLoading: isOwnerStoreLoading, refetch } = useCollection<Store>(ownerStoreQuery);
+    const myStore = useMemo(() => userStore || ownerStores?.[0], [userStore, ownerStores]);
+
+    useEffect(() => { if (!isUserLoading && !user) router.push('/login'); }, [isUserLoading, user, router]);
+
+    if (isUserLoading || isRoleLoading || isOwnerStoreLoading) return <div className="p-12 text-center flex flex-col items-center justify-center gap-4 h-[80vh]"><Loader2 className="animate-spin h-10 w-10 text-primary opacity-20" /><p className="text-[10px] font-black uppercase tracking-widest opacity-40">Verifying Authority...</p></div>;
+
+    return (
+        <div className="container mx-auto py-12 px-4 md:px-6 space-y-12 pb-32">
+            {myStore ? (
+                <>
+                    <div className="flex justify-between items-end border-b pb-10 border-black/5">
+                        <div className="space-y-1">
+                            <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950 truncate max-w-[600px]">{myStore.name}</h1>
+                            <p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Operational Hub</p>
+                        </div>
+                        <div className="hidden sm:block">
+                            <Badge variant="outline" className="rounded-full border-2 border-primary/20 text-primary font-black uppercase text-[10px] tracking-widest px-4 py-1.5 bg-primary/5">
+                                <CheckCircle2 className="h-3 w-3 mr-2 fill-current" /> Business Active
+                            </Badge>
+                        </div>
+                    </div>
+                    <ManageStoreView store={myStore} isAdmin={isAdmin} onUpdate={() => refetch && refetch()} />
+                </>
+            ) : (
+                <CreateStoreForm user={user} isAdmin={isAdmin} />
+            )}
+        </div>
+    );
+}
+
+function CreateStoreForm({ user, isAdmin }: { user: any; isAdmin: boolean; }) {
+    const { toast } = useToast();
+    const [isPending, startTransition] = useTransition();
+    const { firestore } = useFirebase();
+    const form = useForm<StoreFormValues>({
+        resolver: zodResolver(storeSchema),
+        defaultValues: { name: '', description: '', address: '', latitude: 0, longitude: 0 },
+    });
+
+    const handleGetLocation = () => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition((position) => {
+                form.setValue('latitude', position.coords.latitude, { shouldValidate: true });
+                form.setValue('longitude', position.coords.longitude, { shouldValidate: true });
+                toast({ title: "Location Captured!" });
+            });
+        }
+    };
+
+    const onSubmit = (data: StoreFormValues) => {
+        if (!user || !firestore) return;
+        startTransition(() => {
+            const storeData = { ...data, ownerId: user.uid, imageId: `store-${Math.floor(Math.random() * 3) + 1}`, isClosed: false };
+            addDoc(collection(firestore, 'stores'), storeData)
+                .then(() => toast({ title: 'Business Created!' }))
+                .catch((e) => {
+                    errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'stores', operation: 'create', requestResourceData: storeData }));
+                });
         });
     };
 
-    if (sL || mL) return <div className="p-12 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto opacity-20" /></div>;
-    if (!store) return <div className="p-12 text-center"><p className="font-black uppercase tracking-widest text-xs opacity-40">Please create a store first.</p></div>;
-    
     return (
-        <div className="container mx-auto py-12 px-4 md:px-6">
-            <div className="mb-12 border-b pb-10 border-black/5"><h1 className="text-5xl font-black font-headline tracking-tighter">Menu Control Center</h1><p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">STORE: {store.name}</p></div>
-            {existingMenu && !extractedData ? (
-                <MenuDisplay store={store} menu={existingMenu} onReplace={() => setExtractedData({ items: [], theme: existingMenu.theme || { backgroundColor: '#ffffff', primaryColor: '#000000', textColor: '#000000' }, businessType: store.businessType || 'restaurant' })} />
-            ) : (
-                 <div className="grid md:grid-cols-2 gap-8">
-                     <MenuOnboardingTool storeId={store.id} onComplete={() => rM?.()} />
-                     {extractedData && (
-                        <Card className="rounded-3xl border-0 shadow-xl overflow-hidden h-fit">
-                            <CardHeader className="bg-primary/5 border-b border-black/5 pb-6">
-                                <CardTitle className="text-xl font-black uppercase tracking-tight">Review Extraction</CardTitle>
-                                <CardDescription className="text-xs font-bold opacity-40 uppercase">AI identified a <strong>{extractedData.businessType}</strong> menu</CardDescription>
-                            </CardHeader>
-                            <CardContent className="p-0">
-                                <ScrollArea className="max-h-[50vh]"><Table><TableHeader className="bg-black/5"><TableRow><TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Category</TableHead><TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Item</TableHead><TableHead className="text-right text-[10px] font-black uppercase tracking-widest opacity-40">Price</TableHead></TableRow></TableHeader><TableBody>{extractedData.items.map((i, idx) => (<TableRow key={idx}><TableCell className="text-[10px] font-bold opacity-60">{i.category}</TableCell><TableCell className="font-black text-xs">{i.name}</TableCell><TableCell className="text-right font-black text-xs">₹{i.price.toFixed(0)}</TableCell></TableRow>))}</TableBody></Table></ScrollArea>
-                                <div className="p-6 bg-black/5 border-t border-black/5"><Button onClick={handleSaveMenu} disabled={isSaving || extractedData.items.length === 0} className="w-full rounded-2xl h-14 font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20">{isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}{existingMenu ? 'Update Menu & Sync Vertical' : 'Create Digital Menu'}</Button><Button variant="ghost" onClick={() => setExtractedData(null)} className="w-full mt-4 text-[10px] font-black uppercase tracking-widest opacity-40">Cancel</Button></div>
-                            </CardContent>
-                        </Card>
-                     )}
-                 </div>
-            )}
+        <Card className="max-w-3xl mx-auto rounded-[2.5rem] border-0 shadow-2xl">
+            <CardHeader className="text-center pt-10">
+                <CardTitle className="text-3xl font-black font-headline tracking-tighter uppercase italic text-gray-950">Register Business</CardTitle>
+                <CardDescription className="font-bold opacity-40 uppercase text-[10px] tracking-[0.2em] mt-1">Fill the details to get your storefront live</CardDescription>
+            </CardHeader>
+            <CardContent className="p-8">
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        <FormField control={form.control} name="name" render={({ field }) => (
+                            <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Store Name</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl border-2" /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="description" render={({ field }) => (
+                            <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Business Bio</FormLabel><FormControl><Textarea {...field} className="min-h-[100px] rounded-xl border-2" /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="address" render={({ field }) => (
+                            <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Full Address</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl border-2" /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <div className="p-4 rounded-2xl bg-muted/30 border-2 border-dashed space-y-4">
+                            <Label className="text-[10px] font-black uppercase opacity-40">GPS Coordinates</Label>
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField control={form.control} name="latitude" render={({ field }) => (
+                                    <FormItem><FormControl><Input type="number" step="any" {...field} className="h-10 rounded-lg border-2" /></FormControl></FormItem>
+                                )} />
+                                <FormField control={form.control} name="longitude" render={({ field }) => (
+                                    <FormItem><FormControl><Input type="number" step="any" {...field} className="h-10 rounded-lg border-2" /></FormControl></FormItem>
+                                )} />
+                            </div>
+                            <Button type="button" variant="outline" onClick={handleGetLocation} className="w-full h-10 rounded-xl font-black text-[10px] uppercase tracking-widest border-2">
+                                <MapPin className="mr-2 h-4 w-4" /> Use Current Location
+                            </Button>
+                        </div>
+                        <Button type="submit" disabled={isPending} className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl shadow-primary/20">
+                            {isPending ? 'Syncing...' : 'Create My Store'}
+                        </Button>
+                    </form>
+                </Form>
+            </CardContent>
+        </Card>
+    );
+}
+
+function ManageStoreView({ store, isAdmin, onUpdate }: { store: Store; isAdmin: boolean, onUpdate: () => void }) {
+    const isClosed = store.isClosed;
+    const needsLocationUpdate = !store.latitude || !store.longitude;
+
+    if (isClosed) return <Alert variant="destructive" className="rounded-3xl p-8"><AlertTitle className="font-black uppercase tracking-tight text-lg mb-2">Store is Inactive</AlertTitle><AlertDescription className="font-bold opacity-60">Your business hub is currently hidden from the marketplace.</AlertDescription></Alert>;
+
+    return (
+      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-700">
+        {needsLocationUpdate && <UpdateLocationForm store={store} onUpdate={onUpdate} />}
+        <StoreDetails store={store} onUpdate={onUpdate} />
+        <div className="grid md:grid-cols-2 gap-8">
+            <StoreImageUploader store={store} />
+            <div className="space-y-8">
+                <Card className="rounded-3xl border-0 shadow-lg overflow-hidden">
+                    <CardHeader className="bg-primary/5 border-b border-black/5"><CardTitle className="text-sm font-black uppercase tracking-tight">Share Business</CardTitle></CardHeader>
+                    <CardContent className="p-6"><Button className="w-full h-11 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg" onClick={() => {}}><Share2 className="mr-2 h-4 w-4" /> SMS Promotion</Button></CardContent>
+                </Card>
+                <TableManager store={store} />
+            </div>
         </div>
+        <MenuOnboardingTool storeId={store.id} onComplete={onUpdate} />
+        <DangerZone store={store} />
+      </div>
+    );
+}
+
+function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () => void }) {
+    const { firestore } = useFirebase();
+    const [isPending, startTransition] = useTransition();
+    const { toast } = useToast();
+
+    const form = useForm<LocationFormValues>({
+        resolver: zodResolver(locationSchema),
+        defaultValues: {
+            latitude: store.latitude || 0,
+            longitude: store.longitude || 0,
+        },
+    });
+
+    const handleGetLocation = () => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    form.setValue('latitude', position.coords.latitude, { shouldValidate: true });
+                    form.setValue('longitude', position.coords.longitude, { shouldValidate: true });
+                    toast({ title: "Location Fetched!" });
+                }
+            );
+        }
+    };
+    
+    const onSubmit = (data: LocationFormValues) => {
+        if (!firestore) return;
+        startTransition(() => {
+            const storeRef = doc(firestore, 'stores', store.id);
+            updateDoc(storeRef, data)
+                .then(() => {
+                    toast({ title: "Location Updated!" });
+                    onUpdate();
+                });
+        });
+    };
+
+    return (
+        <Alert variant="destructive" className="rounded-3xl p-6 border-2 border-dashed">
+            <AlertTitle className="font-black uppercase text-sm mb-2">Location Required</AlertTitle>
+            <AlertDescription className="font-bold opacity-60 text-xs">GPS coordinates are needed for mapping.</AlertDescription>
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <FormField control={form.control} name="latitude" render={({ field }) => (
+                            <FormItem><FormControl><Input type="number" step="any" {...field} className="h-10 rounded-lg border-2" /></FormControl></FormItem>
+                        )} />
+                        <FormField control={form.control} name="longitude" render={({ field }) => (
+                            <FormItem><FormControl><Input type="number" step="any" {...field} className="h-10 rounded-lg border-2" /></FormControl></FormItem>
+                        )} />
+                    </div>
+                    <div className="flex gap-2">
+                        <Button type="button" variant="outline" onClick={handleGetLocation} className="rounded-lg h-10 border-2 font-bold text-xs uppercase">Get GPS</Button>
+                        <Button type="submit" disabled={isPending} className="rounded-lg h-10 px-6 font-black uppercase text-xs">Save</Button>
+                    </div>
+                </form>
+            </Form>
+        </Alert>
     );
 }
