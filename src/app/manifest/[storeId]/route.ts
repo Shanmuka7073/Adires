@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getAdminServices } from "@/firebase/admin-init";
@@ -7,6 +6,11 @@ import type { Store, Menu } from "@/lib/types";
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
+/**
+ * Dynamic Manifest API
+ * Generates a unique PWA manifest for a specific store.
+ * This allows each restaurant to have its own name and icon on the user's home screen.
+ */
 export async function GET(
   request: Request,
   { params }: { params: { storeId: string } }
@@ -26,9 +30,14 @@ export async function GET(
     }
 
     const store = storeDoc.data() as Store;
+    
+    // Fetch menu to get theme color
     const menuSnap = await db.collection("stores").doc(storeId).collection("menus").limit(1).get();
     const menu = menuSnap.docs[0]?.data() as Menu | undefined;
     const themeColor = menu?.theme?.primaryColor || "#4CAF50";
+    
+    // Use store image or platform fallback
+    const logoUrl = store.imageUrl || ADIRES_LOGO;
 
     const manifest = {
       id: `adires-restaurant-${storeId}`,
@@ -42,19 +51,19 @@ export async function GET(
       theme_color: themeColor,
       icons: [
         {
-          src: store.imageUrl || ADIRES_LOGO,
+          src: logoUrl,
           sizes: "192x192",
           type: "image/png",
           purpose: "any"
         },
         {
-          src: store.imageUrl || ADIRES_LOGO,
+          src: logoUrl,
           sizes: "512x512",
           type: "image/png",
           purpose: "any"
         },
         {
-          src: store.imageUrl || ADIRES_LOGO,
+          src: logoUrl,
           sizes: "512x512",
           type: "image/png",
           purpose: "maskable"
@@ -65,6 +74,7 @@ export async function GET(
     return NextResponse.json(manifest, {
       headers: {
         "Content-Type": "application/manifest+json",
+        "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
       },
     });
     

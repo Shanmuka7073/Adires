@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -13,8 +12,7 @@ import {
   setDoc,
   serverTimestamp,
   updateDoc,
-  writeBatch,
-  getDocs
+  writeBatch
 } from 'firebase/firestore';
 
 import type {
@@ -64,9 +62,8 @@ import {
   ShoppingBag,
   ArrowRight,
   History,
-  Filter,
   Leaf,
-  Star
+  Phone
 } from 'lucide-react';
 
 import {
@@ -480,7 +477,7 @@ export default function PublicMenuPage() {
   const { isInitialized, fetchInitialData } = useAppStore();
   const { cartItems, addItem, clearCart } = useCart();
 
-  const { data: store, isLoading: storeLoading } = useDoc<Store>(useDocRefMemo(() => firestore ? doc(firestore, 'stores', storeId) : null, [firestore, storeId]));
+  const { data: store, isLoading: storeLoading } = useDoc<Store>(useMemoFirebase(() => firestore ? doc(firestore, 'stores', storeId) : null, [firestore, storeId]));
   const { data: menus, isLoading: menuLoading } = useCollection<Menu>(useMemoFirebase(() => firestore ? query(collection(firestore, `stores/${storeId}/menus`)) : null, [firestore, storeId]));
   const menu = menus?.[0];
 
@@ -534,7 +531,6 @@ export default function PublicMenuPage() {
   const personalizedRecommendations = useMemo(() => {
       if (!menu?.items || !historyOrders) return [];
       
-      // Calculate item frequencies from history
       const itemFrequency: Record<string, number> = {};
       historyOrders.forEach(order => {
           order.items.forEach(it => {
@@ -542,7 +538,6 @@ export default function PublicMenuPage() {
           });
       });
 
-      // Filter and sort menu items based on frequency
       const recommended = menu.items
           .filter(item => item.isAvailable !== false)
           .map(item => ({ item, score: itemFrequency[item.name] || 0 }))
@@ -551,7 +546,6 @@ export default function PublicMenuPage() {
           .map(pair => pair.item)
           .slice(0, 4);
 
-      // If no history, pick top 4 items from the first category as "Trending"
       if (recommended.length === 0) {
           return menu.items.filter(i => i.isAvailable !== false).slice(0, 4);
       }
@@ -750,12 +744,17 @@ export default function PublicMenuPage() {
                       </div>
                   </div>
                   <div className="flex items-center gap-1.5">
+                      {/* Branded Install Prompt */}
+                      {canInstall && (
+                        <Button onClick={triggerInstall} size="sm" className="h-7 rounded-lg border px-2 font-black text-[8px] uppercase tracking-widest" style={{ color: theme?.primaryColor || '#FBC02D', borderColor: theme?.primaryColor || '#FBC02D' }}>
+                            <Download className="mr-1 h-3 w-3" /> Install {store.name}
+                        </Button>
+                      )}
                       {store.liveVideoUrl && placedOrders && placedOrders.length > 0 && (
                         <Button asChild variant="outline" size="sm" className="h-7 rounded-lg border px-2 font-black text-[8px] uppercase tracking-widest animate-pulse" style={{ color: theme?.primaryColor || '#FBC02D', borderColor: theme?.primaryColor || '#FBC02D' }}>
                             <Link href={`/live-order/${placedOrders[0].id}`}><Video className="mr-1 h-3 w-3" /> Live</Link>
                         </Button>
                       )}
-                      {canInstall && <Button variant="ghost" size="icon" onClick={triggerInstall} className="h-8 w-8 rounded-full hover:bg-white/10 text-white"><Download className="h-4 w-4" /></Button>}
                   </div>
               </div>
 
@@ -922,8 +921,4 @@ export default function PublicMenuPage() {
         </div>
     </>
   );
-}
-
-function useDocRefMemo(factory: () => any, deps: any[]) {
-    return useMemo(factory, deps);
 }
