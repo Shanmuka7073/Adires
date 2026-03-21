@@ -1,9 +1,12 @@
-
 'use client';
 
 import { useState, useTransition } from 'react';
 import { useFirebase } from '@/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
+  sendEmailVerification 
+} from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +20,7 @@ import { useRouter } from 'next/navigation';
 /**
  * A reusable authentication component that handles Sign In and Sign Up.
  * It uses Firebase Client SDK and non-blocking transitions.
+ * Automatically sends verification emails for new accounts.
  */
 export function NonBlockingLogin() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -38,6 +42,10 @@ export function NonBlockingLogin() {
       try {
         if (isSignUp) {
           const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          
+          // Send verification email immediately on sign-up
+          await sendEmailVerification(userCredential.user);
+
           await setDoc(doc(firestore, 'users', userCredential.user.uid), {
             id: userCredential.user.uid,
             email,
@@ -47,10 +55,24 @@ export function NonBlockingLogin() {
             phoneNumber: '',
             accountType,
           });
-          toast({ title: 'Account Created!', description: 'Welcome to the platform.' });
+          
+          toast({ 
+            title: 'Account Created!', 
+            description: 'A verification link has been sent. Please check your inbox before logging in.' 
+          });
         } else {
-          await signInWithEmailAndPassword(auth, email, password);
-          toast({ title: 'Welcome Back!' });
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          
+          // Proactively send verification if not verified on login attempt
+          if (!userCredential.user.emailVerified && userCredential.user.email !== 'admin@gmail.com') {
+             await sendEmailVerification(userCredential.user);
+             toast({ 
+               title: 'Verify Your Email', 
+               description: 'Your email is not verified. A new link has been sent.' 
+             });
+          } else {
+            toast({ title: 'Welcome Back!' });
+          }
         }
         // Redirect will be handled by the parent page's auth listener
       } catch (err: any) {
