@@ -21,7 +21,8 @@ import {
   CheckCircle2,
   Server,
   FileSignature,
-  Loader2
+  Loader2,
+  ImageIcon
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
