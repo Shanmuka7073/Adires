@@ -23,6 +23,7 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
+  CardFooter,
 } from '@/components/ui/card';
 import {
   Dialog,
@@ -34,7 +35,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import type { Store, Menu, MenuItem, MenuTheme, User as AppUser } from '@/lib/types';
+import type { Store, Menu, MenuItem, MenuTheme } from '@/lib/types';
 import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, addDoc, writeBatch, doc, updateDoc, limit } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
@@ -65,7 +66,8 @@ import {
     Smartphone, 
     CheckCircle2, 
     Utensils, 
-    Link2
+    Link2,
+    LocateFixed
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -295,7 +297,7 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
                             disabled={isProcessing}
                             className="w-full h-14 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20"
                         >
-                            {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Upload className="mr-2 h-5 w-5" />}
+                            {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Upload icon className="mr-2 h-5 w-5" />}
                             {isProcessing ? 'AI Reading Menu...' : 'Upload Menu Photo'}
                         </Button>
                     </div>
@@ -444,6 +446,90 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
     );
 }
 
+function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () => void }) {
+    const { firestore } = useFirebase();
+    const [isPending, startTransition] = useTransition();
+    const { toast } = useToast();
+
+    const form = useForm<LocationFormValues>({
+        resolver: zodResolver(locationSchema),
+        defaultValues: {
+            latitude: store.latitude || 0,
+            longitude: store.longitude || 0,
+        },
+    });
+
+    const handleGetLocation = () => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    form.setValue('latitude', position.coords.latitude, { shouldValidate: true });
+                    form.setValue('longitude', position.coords.longitude, { shouldValidate: true });
+                    toast({ title: "Location Captured!" });
+                },
+                () => {
+                    toast({ variant: 'destructive', title: "Location Error", description: "Could not retrieve your location." });
+                }
+            );
+        }
+    };
+    
+    const onSubmit = (data: LocationFormValues) => {
+        if (!firestore) return;
+        startTransition(async () => {
+            const storeRef = doc(firestore, 'stores', store.id);
+            try {
+                await updateDoc(storeRef, data);
+                toast({ title: "Store Location Updated!" });
+                onUpdate();
+            } catch (error) {
+                const permissionError = new FirestorePermissionError({
+                    path: storeRef.path,
+                    operation: 'update',
+                    requestResourceData: data,
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            }
+        });
+    };
+
+    return (
+        <Alert variant="destructive" className="rounded-[2.5rem] border-2 border-red-100 bg-red-50/30 p-6">
+            <AlertCircle className="h-5 w-5 text-red-600" />
+            <AlertTitle className="font-black uppercase tracking-tight text-red-900">Location Missing</AlertTitle>
+            <AlertDescription className="font-bold text-red-800/60 text-xs mt-1">
+                GPS coordinates are required for your business to appear in the local directory and for delivery calculations.
+            </AlertDescription>
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-6">
+                    <div className="grid grid-cols-2 gap-4">
+                        <FormField control={form.control} name="latitude" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-[8px] font-black uppercase opacity-40">Latitude</FormLabel>
+                                <FormControl><Input type="number" step="any" {...field} className="h-10 rounded-xl border-2" /></FormControl>
+                            </FormItem>
+                        )} />
+                        <FormField control={form.control} name="longitude" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-[8px] font-black uppercase opacity-40">Longitude</FormLabel>
+                                <FormControl><Input type="number" step="any" {...field} className="h-10 rounded-xl border-2" /></FormControl>
+                            </FormItem>
+                        )} />
+                    </div>
+                    <div className="flex gap-2">
+                        <Button type="button" variant="outline" onClick={handleGetLocation} className="rounded-xl h-10 px-4 font-black text-[10px] uppercase tracking-widest border-2">
+                            <MapPin className="mr-2 h-4 w-4" /> Get My GPS
+                        </Button>
+                        <Button type="submit" disabled={isPending} className="flex-1 h-10 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg">
+                            {isPending ? 'Syncing...' : 'Save Location'}
+                        </Button>
+                    </div>
+                </form>
+            </Form>
+        </Alert>
+    );
+}
+
 function TableManager({ store }: { store: Store }) {
     const { firestore } = useFirebase();
     const [newTableName, setNewTableName] = useState('');
@@ -456,6 +542,7 @@ function TableManager({ store }: { store: Store }) {
         const updatedTables = [...new Set([...currentTables, newTableName.trim()])];
         
         startSaveTransition(() => {
+            if (!firestore) return;
             updateDoc(doc(firestore, 'stores', store.id), { tables: updatedTables })
                 .then(() => {
                     toast({ title: "Zone Added" });
@@ -468,6 +555,7 @@ function TableManager({ store }: { store: Store }) {
     };
     
     const handleRemoveTable = (tableToRemove: string) => {
+        if (!firestore) return;
         const updatedTables = (store.tables || []).filter(t => t !== tableToRemove);
         startSaveTransition(() => {
             updateDoc(doc(firestore, 'stores', store.id), { tables: updatedTables })
@@ -646,7 +734,7 @@ export default function MyStorePage() {
     const { user, isUserLoading, firestore } = useFirebase();
     const router = useRouter();
     const { isAdmin, isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
-    const { userStore, fetchInitialData } = useAppStore();
+    const { stores, userStore, fetchInitialData } = useAppStore();
 
     const ownerStoreQuery = useMemoFirebase(() => {
         if (!firestore || !user || isAdmin) return null;
