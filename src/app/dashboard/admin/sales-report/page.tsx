@@ -1,18 +1,17 @@
-
 'use client';
 
-import { useEffect, useState, useTransition, useMemo } from 'react';
+import { useEffect, useState, useTransition, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BarChart3, TrendingUp, ShoppingBag, Beef, Carrot, Grape, Download } from 'lucide-react';
+import { BarChart3, TrendingUp, ShoppingBag, Beef, Carrot, Grape, Download, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useFirebase } from '@/firebase';
 import { collection, query, where, Timestamp, getDocs } from 'firebase/firestore';
-import type { Order, ReportData } from '@/lib/types';
+import type { Order } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
 
 type ReportCategory = {
@@ -115,7 +114,10 @@ const generateReport = async (db: any, period: 'daily' | 'monthly'): Promise<any
     try {
         const { masterProducts } = useAppStore.getState();
         const productCategoryMap = new Map<string, string>();
-        masterProducts.forEach(p => productCategoryMap.set(p.id, p.category?.toLowerCase() || 'grocery'));
+        
+        if (masterProducts) {
+            masterProducts.forEach(p => productCategoryMap.set(p.id, p.category?.toLowerCase() || 'grocery'));
+        }
 
         const ordersQuery = query(
             collection(db, 'orders'),
@@ -134,7 +136,6 @@ const generateReport = async (db: any, period: 'daily' | 'monthly'): Promise<any
         const vegetableCategories = ['vegetables'];
 
         for (const order of deliveredOrders) {
-            // FIX: Items are embedded in the 'items' array, not a subcollection
             const items = order.items || [];
 
             for (const item of items) {
@@ -193,7 +194,7 @@ export default function SalesReportPage() {
         }
     }, [isAdmin, isAdminLoading, router]);
 
-    const fetchReports = async () => {
+    const fetchReports = useCallback(async () => {
         if (!firestore) return;
         startLoading(async () => {
             const [dailyData, monthlyData] = await Promise.all([
@@ -203,7 +204,7 @@ export default function SalesReportPage() {
             setDailyReport(dailyData);
             setMonthlyReport(monthlyData);
         });
-    };
+    }, [firestore]);
 
     useEffect(() => {
         if (isAdmin && firestore) {
@@ -248,7 +249,7 @@ export default function SalesReportPage() {
     ] as const;
 
     if (isAdminLoading) {
-      return <p>Loading...</p>
+      return <div className="p-12 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto opacity-20" /></div>;
     }
 
     return (
@@ -261,7 +262,7 @@ export default function SalesReportPage() {
                             <div>
                                 <CardTitle className="text-3xl font-headline">Admin Sales Reports</CardTitle>
                                 <CardDescription>
-                                    Platform-wide aggregate sales data using the optimized Embedded Array architecture.
+                                    Platform-wide aggregate sales data.
                                 </CardDescription>
                             </div>
                         </div>
