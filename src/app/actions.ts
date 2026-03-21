@@ -67,6 +67,106 @@ export async function getIngredientsForDish(input: { dishName: string; language:
 }
 
 /**
+ * ORDER MANAGEMENT: PLACE RESTAURANT ORDER
+ */
+export async function placeRestaurantOrder(cartItems: any[], cartTotal: number, guestInfo: any, idToken: string) {
+    try {
+        const { db, auth } = await getAdminServices();
+        const decodedToken = await auth.verifyIdToken(idToken);
+        const userId = decodedToken.uid;
+
+        const orderId = db.collection('orders').doc().id;
+        const orderRef = db.collection('orders').doc(orderId);
+
+        const orderData = {
+            id: orderId,
+            userId: userId,
+            deviceId: cartItems[0]?.deviceId || null,
+            storeId: cartItems[0].product.storeId,
+            customerName: guestInfo.name,
+            phone: guestInfo.phone,
+            tableNumber: guestInfo.tableNumber,
+            sessionId: cartItems[0].sessionId || orderId,
+            orderDate: FieldValue.serverTimestamp(),
+            status: 'Pending',
+            orderType: guestInfo.tableNumber ? 'dine-in' : 'delivery',
+            isActive: true,
+            totalAmount: cartTotal,
+            items: cartItems.map(item => ({
+                id: Math.random().toString(36).substring(7),
+                orderId: orderId,
+                productId: item.product.id,
+                productName: item.product.name,
+                variantSku: item.variant.sku,
+                variantWeight: item.variant.weight,
+                quantity: item.quantity,
+                price: item.variant.price
+            })),
+        };
+
+        await orderRef.set(orderData);
+        return { success: true, orderId };
+    } catch (e: any) {
+        console.error("placeRestaurantOrder failed:", e);
+        return { success: false, error: e.message };
+    }
+}
+
+/**
+ * ORDER MANAGEMENT: ATOMIC ITEM ADDITION (QR FLOW)
+ */
+export async function addRestaurantOrderItem({
+  storeId,
+  sessionId,
+  tableNumber,
+  item,
+  quantity,
+}: {
+  storeId: string;
+  sessionId: string;
+  tableNumber: string | null;
+  item: MenuItem;
+  quantity: number;
+}) {
+  try {
+    const { db } = await getAdminServices();
+    const orderId = `${storeId}_${sessionId}`;
+    const orderDocRef = db.collection('orders').doc(orderId);
+
+    const orderItem = {
+      id: Math.random().toString(36).substring(7),
+      orderId,
+      productId: item.id,
+      menuItemId: item.id,
+      productName: item.name,
+      variantSku: `${item.id}-default`,
+      variantWeight: '1 pc',
+      quantity,
+      price: item.price,
+    };
+
+    await orderDocRef.set({
+      id: orderId,
+      storeId,
+      tableNumber,
+      sessionId,
+      status: 'Pending',
+      orderType: tableNumber ? 'dine-in' : 'takeaway',
+      isActive: true,
+      items: FieldValue.arrayUnion(orderItem),
+      totalAmount: FieldValue.increment(item.price * quantity),
+      orderDate: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    return { success: true };
+  } catch (e: any) {
+    console.error("addRestaurantOrderItem failed:", e);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
  * PWA MANIFEST MANAGEMENT
  */
 export async function getManifest() {

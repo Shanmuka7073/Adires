@@ -151,7 +151,7 @@ function StoreImageUploader({ store }: { store: Store }) {
                     />
                 </div>
                 <Button onClick={handleSave} disabled={isSaving} className="w-full h-11 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg">
-                    {isTyping ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                     Save Identity Image
                 </Button>
             </CardContent>
@@ -232,6 +232,59 @@ function TableManager({ store }: { store: Store }) {
     );
 }
 
+function PromoteStore({ store }: { store: Store }) {
+    const { toast } = useToast();
+
+    const handleShare = async () => {
+        if (!('contacts' in navigator && 'select' in (navigator as any).contacts)) {
+            toast({
+                variant: 'destructive',
+                title: 'API Not Supported',
+                description: 'Your browser does not support the Contact Picker API.',
+            });
+            return;
+        }
+
+        try {
+            const contacts = await (navigator as any).contacts.select(['name', 'tel'], { multiple: true });
+
+            if (contacts.length === 0) return;
+
+            const phoneNumbers = contacts.flatMap((c: any) => c.tel || []);
+            const shareText = `Check out my store, ${store.name}, on the Adires app! Visit here: ${window.location.origin}/stores/${store.id}`;
+            
+            if (phoneNumbers.length > 0) {
+                 window.open(`sms:${phoneNumbers.join(',')}?&body=${encodeURIComponent(shareText)}`, '_blank');
+            } else {
+                 toast({
+                    variant: 'destructive',
+                    title: 'No Phone Numbers Found',
+                });
+            }
+        } catch (ex) {
+            toast({
+                variant: 'destructive',
+                title: 'Share Error',
+            });
+        }
+    };
+
+    return (
+        <Card className="rounded-3xl border-0 shadow-lg overflow-hidden">
+            <CardHeader className="bg-primary/5 border-b border-black/5">
+                <CardTitle className="text-sm font-black uppercase tracking-tight">Promote Store</CardTitle>
+                <CardDescription className="text-[10px] font-bold opacity-40 uppercase">Share your store link via SMS</CardDescription>
+            </CardHeader>
+            <CardContent className="p-6">
+                <Button onClick={handleShare} className="w-full h-11 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg">
+                    <Share2 className="mr-2 h-4 w-4" />
+                    Share with Contacts
+                </Button>
+            </CardContent>
+        </Card>
+    );
+}
+
 function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void }) {
     const { firestore } = useFirebase();
     const [isPending, startTransition] = useTransition();
@@ -306,7 +359,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                         <div className="space-y-1">
                             <p className="text-[9px] font-black uppercase opacity-40 tracking-[0.2em]">Coordinates</p>
                             <p className="font-mono font-bold text-primary flex items-center gap-2">
-                                <MapPin className="h-3 w-3" /> {store.latitude.toFixed(4)}, {store.longitude.toFixed(4)}
+                                <MapPin className="h-3 w-3" /> {store.latitude?.toFixed(4)}, {store.longitude?.toFixed(4)}
                             </p>
                         </div>
                     </div>
@@ -320,46 +373,140 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
     );
 }
 
-function ManageStoreView({ store, onUpdate }: { store: Store, onUpdate: () => void }) {
-    if (store.isClosed) return <Alert variant="destructive" className="rounded-3xl border-2"><AlertTitle className="font-black uppercase tracking-tight">Business Deactivated</AlertTitle><AlertDescription className="font-bold opacity-60">This store is currently not visible to customers.</AlertDescription></Alert>;
-    
+function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () => void }) {
+    const { firestore } = useFirebase();
+    const [isPending, startTransition] = useTransition();
+    const { toast } = useToast();
+    const form = useForm<LocationFormValues>({ resolver: zodResolver(locationSchema), defaultValues: { latitude: store.latitude || 0, longitude: store.longitude || 0 } });
+    const handleGetLocation = () => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition((position) => {
+                form.setValue('latitude', position.coords.latitude, { shouldValidate: true });
+                form.setValue('longitude', position.coords.longitude, { shouldValidate: true });
+                toast({ title: "Location Fetched!" });
+            });
+        }
+    };
+    const onSubmit = (data: LocationFormValues) => {
+        if (!firestore) return;
+        startTransition(() => {
+            updateDoc(doc(firestore, 'stores', store.id), data).then(() => { toast({ title: "Updated!" }); onUpdate(); });
+        });
+    };
     return (
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 bg-black/5 p-1 rounded-2xl border mb-10 h-12">
-          <TabsTrigger value="overview" className="rounded-xl font-black text-[10px] uppercase h-10">Identity</TabsTrigger>
-          <TabsTrigger value="ops" className="rounded-xl font-black text-[10px] uppercase h-10">Operations</TabsTrigger>
-          <TabsTrigger value="visibility" className="rounded-xl font-black text-[10px] uppercase h-10">Exposure</TabsTrigger>
-          <TabsTrigger value="security" className="rounded-xl font-black text-[10px] uppercase h-10 text-red-600">Danger</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="overview" className="mt-0 space-y-8 animate-in fade-in slide-in-from-bottom-2">
-            <StoreDetails store={store} onUpdate={onUpdate} />
-            <div className="grid md:grid-cols-2 gap-8">
-                <StoreImageUploader store={store} />
-                <Card className="rounded-[2.5rem] border-0 shadow-lg overflow-hidden bg-primary/5 border-2 border-primary/10">
-                    <CardHeader><CardTitle className="text-sm font-black uppercase">Digital Presence</CardTitle></CardHeader>
-                    <CardContent className="space-y-4">
-                        <p className="text-xs font-bold text-primary/60 uppercase tracking-tight">Your digital menu is active and ready for customers to scan QR codes at your location.</p>
-                        <Button asChild className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
-                            <Link href="/dashboard/owner/menu-manager"><QrCode className="mr-2 h-4 w-4" /> Manage Digital Menu</Link>
-                        </Button>
-                    </CardContent>
-                </Card>
-            </div>
-        </TabsContent>
+        <Alert variant="destructive" className="rounded-3xl border-2 border-red-100 bg-red-50">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle className="font-black uppercase tracking-tight">Location Missing</AlertTitle>
+            <AlertDescription className="font-bold text-xs opacity-60">GPS coordinates required for delivery mapping.</AlertDescription>
+            <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4"><div className="grid grid-cols-2 gap-4"><FormField control={form.control} name="latitude" render={({ field }) => (<FormItem><FormControl><Input type="number" step="any" {...field} className="h-10 rounded-xl" /></FormControl></FormItem>)} /><FormField control={form.control} name="longitude" render={({ field }) => (<FormItem><FormControl><Input type="number" step="any" {...field} className="h-10 rounded-xl" /></FormControl></FormItem>)} /></div><div className="flex gap-2"><Button type="button" variant="outline" className="rounded-xl h-10 px-4 font-black text-[9px] uppercase tracking-widest border-2" onClick={handleGetLocation}>Auto GPS</Button><Button type="submit" disabled={isPending} className="rounded-xl h-10 px-6 font-black text-[9px] uppercase tracking-widest">{isPending ? 'Syncing...' : 'Save'}</Button></div></form></Form>
+        </Alert>
+    );
+}
 
-        <TabsContent value="ops" className="mt-0 space-y-8 animate-in fade-in slide-in-from-bottom-2">
-            <TableManager store={store} />
-        </TabsContent>
+function DangerZone({ store }: { store: Store }) {
+    const { firestore } = useFirebase();
+    const [isClosing, startCloseTransition] = useTransition();
+    const { toast } = useToast();
+    const handleCloseStore = () => {
+        if (!firestore) return;
+        startCloseTransition(async () => {
+            await updateDoc(doc(firestore, 'stores', store.id), { isClosed: true });
+            toast({ title: "Store Closed" });
+        });
+    };
+    return (
+        <Card className="rounded-[2.5rem] border-2 border-red-100 bg-red-50/30 overflow-hidden">
+            <CardHeader className="border-b border-red-100"><CardTitle className="text-red-600 text-sm font-black uppercase tracking-widest">Risk Management</CardTitle></CardHeader>
+            <CardContent className="p-8 flex justify-between items-center">
+                <div className="space-y-1">
+                    <p className="font-black uppercase text-xs">Deactivate Business</p>
+                    <p className="text-[10px] font-bold opacity-40 uppercase">Hide your storefront from all customers</p>
+                </div>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild><Button variant="destructive" className="rounded-xl font-black uppercase text-[10px] tracking-widest h-11 px-8">Close Store</Button></AlertDialogTrigger>
+                    <AlertDialogContent className="rounded-[2.5rem] border-0 shadow-2xl"><AlertDialogHeader><AlertDialogTitle className="font-black uppercase tracking-tight">Are you sure?</AlertDialogTitle><AlertDialogDescription className="font-bold">This will hide your business from the Adires marketplace immediately.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter className="gap-2"><AlertDialogCancel className="rounded-xl font-bold">Cancel</AlertDialogCancel><AlertDialogAction onClick={handleCloseStore} className="bg-destructive hover:bg-destructive/90 rounded-xl font-bold uppercase tracking-widest text-[10px]">Yes, Deactivate</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                </AlertDialog>
+            </CardContent>
+        </Card>
+    );
+}
 
-        <TabsContent value="visibility" className="mt-0 space-y-8 animate-in fade-in slide-in-from-bottom-2">
+function ProductChecklist({ storeId, adminStoreId }: { storeId: string; adminStoreId: string; }) {
+  const { firestore } = useFirebase();
+  const { toast } = useToast();
+  const [isSaving, startSaveTransition] = useTransition();
+  const { masterProducts } = useAppStore();
+  
+  const ownerProductsQuery = useMemoFirebase(() => (firestore && storeId) ? collection(firestore, 'stores', storeId, 'products') : null, [firestore, storeId]);
+  const { data: ownerProducts } = useCollection<Product>(ownerProductsQuery);
+
+  const [checkedProducts, setCheckedProducts] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (ownerProducts) {
+      setCheckedProducts(ownerProducts.reduce((acc: Record<string, boolean>, product) => {
+        acc[product.name] = true;
+        return acc;
+      }, {}));
+    }
+  }, [ownerProducts]);
+  
+  const handleSaveChanges = () => {
+    startSaveTransition(async () => {
+        if (!firestore || !masterProducts || !ownerProducts) return;
+        const batch = writeBatch(firestore);
+        const ownerProductMap = new Map(ownerProducts.map(p => [p.name, p.id]));
+
+        for (const masterProduct of (masterProducts as Product[])) {
+            const isChecked = checkedProducts[masterProduct.name] || false;
+            const isInStore = ownerProductMap.has(masterProduct.name);
+            if (isChecked && !isInStore) {
+                const newProductRef = doc(collection(firestore, 'stores', storeId, 'products'));
+                const { variants, ...productData } = masterProduct;
+                batch.set(newProductRef, { ...productData, storeId: storeId });
+            } else if (!isChecked && isInStore) {
+                batch.delete(doc(firestore, 'stores', storeId, 'products', ownerProductMap.get(masterProduct.name)!));
+            }
+        }
+        await batch.commit();
+        toast({ title: "Inventory Updated" });
+    });
+  };
+
+  return (
+      <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white">
+          <CardHeader className="bg-primary/5 border-b border-black/5 pb-6">
+              <CardTitle className="text-xl font-black uppercase tracking-tight">Retail Inventory</CardTitle>
+              <CardDescription className="text-[10px] font-bold opacity-40 uppercase">Select items from the master catalog</CardDescription>
+          </CardHeader>
+          <CardContent className="p-8 space-y-6">
+               <p className="text-xs font-bold opacity-60 leading-relaxed uppercase">Update your store by selecting products provided by the Adires master catalog.</p>
+               <Button onClick={handleSaveChanges} disabled={isSaving} className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20">
+                  {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <CheckCircle2 className="mr-2 h-5 w-5" />}
+                  Synchronize Inventory
+               </Button>
+          </CardContent>
+      </Card>
+  )
+}
+
+function ManageStoreView({ store, isAdmin, adminStoreId, onUpdate }: { store: Store; isAdmin: boolean, adminStoreId?: string; onUpdate: () => void }) {
+    const isClosed = store.isClosed;
+    if (isClosed) return <Alert variant="destructive" className="rounded-3xl border-2"><AlertTitle className="font-black uppercase tracking-tight">Business Deactivated</AlertTitle><AlertDescription className="font-bold opacity-60">This store is currently not visible to customers.</AlertDescription></Alert>;
+    
+    const needsLocationUpdate = !store.latitude || !store.longitude;
+
+    return (
+      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-700">
+        {needsLocationUpdate && <UpdateLocationForm store={store} onUpdate={onUpdate} />}
+        <StoreDetails store={store} onUpdate={onUpdate} />
+        <div className="grid md:grid-cols-2 gap-8">
+            <StoreImageUploader store={store} />
             <PromoteStore store={store} />
-        </TabsContent>
-
-        <TabsContent value="security" className="mt-0 space-y-8 animate-in fade-in slide-in-from-bottom-2">
-            <DangerZone store={store} />
-        </TabsContent>
-    </Tabs>
+        </div>
+        {!isAdmin && <ProductChecklist storeId={store.id} adminStoreId={adminStoreId || ''} />}
+        <DangerZone store={store} />
+      </div>
     )
 }
 
@@ -418,7 +565,7 @@ export default function MyStorePage() {
                             </Badge>
                         </div>
                     </div>
-                    <ManageStoreView store={myStore} onUpdate={() => refetch && refetch()} />
+                    <ManageStoreView store={myStore} isAdmin={isAdmin} onUpdate={() => refetch && refetch()} />
                 </>
             ) : (
                 <div className="text-center py-20 bg-white rounded-[3rem] border-2 border-dashed opacity-40 max-w-2xl mx-auto">
