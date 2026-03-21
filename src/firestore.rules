@@ -21,9 +21,13 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
     
+    function getStoreOwnerId(storeId) {
+        return get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId;
+    }
+
     function isStoreOwner(storeId) {
       return isSignedIn() && (
-        get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == request.auth.uid ||
+        getStoreOwnerId(storeId) == request.auth.uid ||
         request.resource.data.ownerId == request.auth.uid
       );
     }
@@ -38,7 +42,7 @@ service cloud.firestore {
        ====================== */
 
     match /users/{userId} {
-      allow get, update, delete: if isOwner(userId);
+      allow get, update, delete: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
       allow create: if isSignedIn();
     }
@@ -57,13 +61,13 @@ service cloud.firestore {
 
     match /stores/{storeId}/products/{productId} {
       allow get, list: if true;
-      allow create: if isSignedIn(); // Allow creation during onboarding
+      allow create: if isSignedIn();
       allow update, delete: if isStoreOwner(storeId);
     }
 
     match /stores/{storeId}/menus/{menuId} {
       allow read: if true;
-      allow write: if isSignedIn(); // Allow write during onboarding
+      allow write: if isSignedIn();
     }
 
     match /stores/{storeId}/packages/{packageId} {
@@ -99,11 +103,6 @@ service cloud.firestore {
       allow get, list: if true;
       allow create: if isSignedIn() || request.resource.data.userId == 'guest';
       allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid || resource.data.deliveryPartnerId == request.auth.uid;
-    }
-    
-    match /orders/{orderId}/orderItems/{orderItemId} {
-      allow read: if true;
-      allow write: if false;
     }
 
     /* ======================

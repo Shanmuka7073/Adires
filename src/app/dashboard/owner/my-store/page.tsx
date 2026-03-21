@@ -36,7 +36,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import type { Store, Menu, MenuItem, MenuTheme, User as AppUser } from '@/lib/types';
 import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, limit } from 'firebase/firestore';
+import { collection, query, where, addDoc, writeBatch, doc, updateDoc, limit } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
@@ -50,7 +50,26 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Sparkles, PlusCircle, Edit, Save, Smartphone, CheckCircle2, Utensils, Scissors, ShoppingBag, ArrowRight } from 'lucide-react';
+import { 
+    Share2, 
+    MapPin, 
+    Trash2, 
+    AlertCircle, 
+    Upload, 
+    Image as ImageIcon, 
+    Loader2, 
+    Sparkles, 
+    PlusCircle, 
+    Edit, 
+    Save, 
+    Smartphone, 
+    CheckCircle2, 
+    Utensils, 
+    Scissors, 
+    ShoppingBag, 
+    ArrowRight,
+    Link2
+} from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
@@ -62,22 +81,19 @@ import { extractMenuItems } from '@/ai/flows/extract-menu-items-flow';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-const ADMIN_EMAIL = 'admin@gmail.com';
+const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
 const storeSchema = z.object({
   name: z.string().min(3, 'Store name must be at least 3 characters'),
-  teluguName: z.string().optional(),
-  description: z
-    .string()
-    .min(10, 'Description must be at least 10 characters'),
+  description: z.string().min(10, 'Description must be at least 10 characters'),
   address: z.string().min(10, 'Please enter a valid address'),
-  latitude: z.coerce.number().min(-90, "Invalid latitude").max(90, "Invalid latitude"),
-  longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude"),
+  latitude: z.coerce.number().min(-90).max(90),
+  longitude: z.coerce.number().min(-180).max(180),
 });
 
 const locationSchema = z.object({
-    latitude: z.coerce.number().min(-90, "Invalid latitude").max(90, "Invalid latitude"),
-    longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude"),
+    latitude: z.coerce.number().min(-90).max(90),
+    longitude: z.coerce.number().min(-180).max(180),
 });
 
 type StoreFormValues = z.infer<typeof storeSchema>;
@@ -133,7 +149,7 @@ function StoreImageUploader({ store }: { store: Store }) {
     return (
         <Card className="rounded-3xl border-0 shadow-lg overflow-hidden">
             <CardHeader className="bg-primary/5 border-b border-black/5">
-                <CardTitle className="text-sm font-black uppercase tracking-tight text-gray-900">Storefront Visual</CardTitle>
+                <CardTitle className="text-sm font-black uppercase tracking-tight text-gray-950">Storefront Visual</CardTitle>
                 <CardDescription className="text-[10px] font-bold opacity-40 uppercase">Update your store's image URL</CardDescription>
             </CardHeader>
             <CardContent className="p-6 space-y-4">
@@ -224,14 +240,12 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
                 setExtractedData(null);
                 onComplete();
             } catch (error: any) {
-                console.error("Save failed:", error);
                 const permissionError = new FirestorePermissionError({
                     path: `stores/${storeId}/menus`,
-                    operation: 'write',
+                    operation: 'create',
                     requestResourceData: { items: extractedData.items }
                 });
                 errorEmitter.emit('permission-error', permissionError);
-                toast({ variant: 'destructive', title: "Save Failed", description: "Security rules blocked the update." });
             }
         });
     };
@@ -348,7 +362,6 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
         resolver: zodResolver(storeSchema.omit({ latitude: true, longitude: true })),
         defaultValues: {
             name: store.name,
-            teluguName: store.teluguName || '',
             description: store.description,
             address: store.address,
         },
@@ -439,6 +452,7 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
     const form = useForm<LocationFormValues>({ resolver: zodResolver(locationSchema), defaultValues: { latitude: store.latitude || 0, longitude: store.longitude || 0 } });
+    
     const handleGetLocation = () => {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition((position) => {
@@ -448,12 +462,14 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
             });
         }
     };
+
     const onSubmit = (data: LocationFormValues) => {
         if (!firestore) return;
         startTransition(() => {
             updateDoc(doc(firestore, 'stores', store.id), data).then(() => { toast({ title: "Updated!" }); onUpdate(); });
         });
     };
+
     return (
         <Alert variant="destructive" className="rounded-3xl border-2 border-red-100 bg-red-50 shadow-sm">
             <AlertCircle className="h-4 w-4" />
@@ -573,6 +589,29 @@ function DangerZone({ store }: { store: Store }) {
     );
 }
 
+function PromoteStorePanel({ store }: { store: Store }) {
+    const { toast } = useToast();
+    const handleShare = async () => {
+        if (!('contacts' in navigator && 'select' in (navigator as any).contacts)) {
+            toast({ variant: 'destructive', title: 'API Not Supported' });
+            return;
+        }
+        try {
+            const contacts = await (navigator as any).contacts.select(['name', 'tel'], { multiple: true });
+            if (contacts.length === 0) return;
+            const phoneNumbers = contacts.flatMap((c: any) => c.tel || []);
+            const shareText = `Check out ${store.name} on Adires! ${window.location.origin}/menu/${store.id}`;
+            if (phoneNumbers.length > 0) window.open(`sms:${phoneNumbers.join(',')}?&body=${encodeURIComponent(shareText)}`, '_blank');
+        } catch (e) { toast({ variant: 'destructive', title: 'Share Error' }); }
+    };
+    return (
+        <Card className="rounded-3xl border-0 shadow-lg overflow-hidden">
+            <CardHeader className="bg-primary/5 border-b border-black/5"><CardTitle className="text-sm font-black uppercase tracking-tight text-gray-900">Grow Your Reach</CardTitle></CardHeader>
+            <CardContent className="p-6"><Button onClick={handleShare} className="w-full h-11 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg"><Share2 className="mr-2 h-4 w-4" /> Share via SMS</Button></CardContent>
+        </Card>
+    );
+}
+
 function ManageStoreView({ store, isAdmin, onUpdate }: { store: Store; isAdmin: boolean, onUpdate: () => void }) {
     const needsLocationUpdate = !store.latitude || !store.longitude;
 
@@ -582,7 +621,7 @@ function ManageStoreView({ store, isAdmin, onUpdate }: { store: Store; isAdmin: 
         <StoreDetails store={store} onUpdate={onUpdate} />
         <div className="grid md:grid-cols-2 gap-8">
             <StoreImageUploader store={store} />
-            <PromoteStore store={store} />
+            <PromoteStorePanel store={store} />
         </div>
         <MenuOnboardingTool storeId={store.id} onComplete={onUpdate} />
         <DigitalMenuOverview storeId={store.id} />
@@ -644,10 +683,10 @@ function CreateStoreForm({ user, isAdmin }: { user: any; isAdmin: boolean; }) {
                         <div className="p-4 rounded-2xl bg-muted/30 border-2 border-dashed space-y-4">
                             <Label className="text-[10px] font-black uppercase opacity-40">GPS Coordinates</Label>
                             <div className="grid grid-cols-2 gap-4">
-                                <FormField control={form.control} name="latitude" render={({ field }: { field: any }) => (
+                                <FormField control={form.control} name="latitude" render={({ field }) => (
                                     <FormItem><FormControl><Input type="number" step="any" {...field} className="h-10 rounded-lg border-2" /></FormControl></FormItem>
                                 )} />
-                                <FormField control={form.control} name="longitude" render={({ field }: { field: any }) => (
+                                <FormField control={form.control} name="longitude" render={({ field }) => (
                                     <FormItem><FormControl><Input type="number" step="any" {...field} className="h-10 rounded-lg border-2" /></FormControl></FormItem>
                                 )} />
                             </div>
@@ -668,7 +707,7 @@ function CreateStoreForm({ user, isAdmin }: { user: any; isAdmin: boolean; }) {
 export default function MyStorePage() {
     const { user, isUserLoading, firestore } = useFirebase();
     const router = useRouter();
-    const { isAdmin, isLoading: isRoleLoading } = useAdminAuth();
+    const { isAdmin, isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
     const { userStore, fetchInitialData } = useAppStore();
 
     const ownerStoreQuery = useMemoFirebase(() => {
