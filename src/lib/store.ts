@@ -28,7 +28,7 @@ export interface AppState {
   language: string;
   activeStoreId: string | null;
   deviceId: string | null;
-  isCartOpen: boolean; // NEW: Global cart visibility state
+  isCartOpen: boolean; 
   readCount: number;
   writeCount: number;
   incrementReadCount: (count?: number) => void;
@@ -38,8 +38,14 @@ export interface AppState {
   setUserStore: (store: Store | null) => void;
   setAppReady: (ready: boolean) => void;
   setDeviceId: (id: string) => void;
-  setCartOpen: (open: boolean) => void; // NEW: Cart visibility setter
+  setCartOpen: (open: boolean) => void; 
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
+  // LEGACY STUBS FOR TYPE COMPATIBILITY
+  masterProducts?: any[];
+  productPrices?: any;
+  locales?: any;
+  commands?: any;
+  getAllAliases?: (key: string) => Record<string, string[]>;
 }
 
 const getInitialLanguage = (): string => {
@@ -118,9 +124,16 @@ export const useAppStore = create<AppState>()(
           set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
+      
+      // LEGACY STUBS
+      masterProducts: [],
+      productPrices: {},
+      locales: {},
+      commands: {},
+      getAllAliases: (key: string) => ({})
     }),
     {
-      name: 'localbasket-app-storage-v8',
+      name: 'localbasket-app-storage-v9',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,

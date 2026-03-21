@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Suspense, useState, useEffect, useTransition, useMemo } from 'react';
@@ -22,7 +23,9 @@ import {
   Loader2,
   ImageIcon,
   Smartphone,
-  ShieldCheck
+  ShieldCheck,
+  QrCode,
+  FileCode
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -256,6 +259,7 @@ export default function AdminDashboardPage() {
                     <AdminActionCard title="Market Catalog" description="Manage master products and prices." href="/dashboard/owner/my-store" icon={Store} />
                     <AdminActionCard title="Security Rules" description="Production Firestore rule inspect." href="/dashboard/admin/security-rules" icon={Shield} />
                     <AdminActionCard title="Image Management" description="Centralized asset control." href="/dashboard/admin/image-management" icon={ImageIcon} />
+                    <AdminActionCard title="QR Menu Logic" description="Source code for ordering system." href="/dashboard/admin/menu-help" icon={QrCode} />
                 </div>
             </div>
         </section>
@@ -276,7 +280,7 @@ export default function AdminDashboardPage() {
                             <Link href="/dashboard/admin/manifest-help">Edit PWA Manifest</Link>
                         </Button>
                         <Button asChild variant="outline" className="w-full h-10 rounded-xl font-black uppercase text-[8px] tracking-widest border-2">
-                            <Link href="/dashboard/admin/pwa-settings">PWA Settings</Link>
+                            <Link href="/dashboard/admin/dashboard-help">Dev Dashboard Code</Link>
                         </Button>
                     </CardContent>
                 </Card>
