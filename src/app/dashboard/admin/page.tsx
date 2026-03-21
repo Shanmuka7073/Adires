@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Suspense, useState, useEffect, useTransition, useMemo } from 'react';
+import { useState, useEffect, useTransition, useMemo } from 'react';
 import {
   Users,
   Store,
@@ -16,7 +16,6 @@ import {
   Rocket,
   Lock,
   Shield,
-  ArrowRight,
   CheckCircle2,
   Server,
   FileSignature,

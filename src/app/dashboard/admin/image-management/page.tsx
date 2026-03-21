@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect, useTransition, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useTransition, useMemo } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,19 +10,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Trash2, ImageIcon, Search, Link2, Sparkles, Save, Upload as UploadIcon, Copy } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, ImageIcon, Search, Save } from 'lucide-react';
 import { getPlaceholderImages, updatePlaceholderImages } from '@/app/actions';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useAppStore } from '@/lib/store';
-import { useFirebase } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
-import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
-import type { Product } from '@/lib/types';
-
 
 // --- Placeholder/Category Image Management ---
 const imageSchema = z.object({
@@ -79,7 +74,7 @@ function PlaceholderImageManager() {
     const onSubmit = (data: ImageListFormValues) => {
         startSaveTransition(async () => {
             try {
-                const result = await updatePlaceholderImages(form.getValues());
+                const result = await updatePlaceholderImages(data);
                 if (result.success) {
                     toast({
                         title: 'Images Updated!',
@@ -99,214 +94,91 @@ function PlaceholderImageManager() {
     };
 
     const filteredFields = useMemo(() => {
-        if (!searchTerm) return fields.map((field, index) => ({ ...field, originalIndex: index }));
+        const allFields = fields.map((field, index) => ({ ...field, originalIndex: index }));
+        if (!searchTerm) return allFields;
         
         const lowerCaseSearch = searchTerm.toLowerCase();
-        
-        return fields
-            .map((field, index) => ({ ...field, originalIndex: index }))
-            .filter((field, index) => {
-                const item = form.getValues(`placeholderImages.${index}`);
-                return (
-                    item.id.toLowerCase().includes(lowerCaseSearch) ||
-                    (item.imageHint && item.imageHint.toLowerCase().includes(lowerCaseSearch))
-                );
-            });
+        return allFields.filter((field) => {
+            const item = form.getValues(`placeholderImages.${field.originalIndex}`);
+            return (
+                item.id.toLowerCase().includes(lowerCaseSearch) ||
+                (item.imageHint && item.imageHint.toLowerCase().includes(lowerCaseSearch))
+            );
+        });
     }, [fields, searchTerm, form]);
 
 
     if (isLoadingData) {
-        return <Skeleton className="h-96 w-full" />;
+        return <Skeleton className="h-96 w-full rounded-2xl" />;
     }
     
     return (
          <form onSubmit={form.handleSubmit(onSubmit)}>
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex justify-between items-center mb-6 gap-4">
                  <div className="relative flex-grow">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground opacity-40" />
                     <Input
                         placeholder="Search by ID or hint..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-9"
+                        className="pl-9 h-11 rounded-xl border-2"
                     />
                 </div>
-                <Button type="submit" disabled={isSaving} className="ml-4">
+                <Button type="submit" disabled={isSaving} className="h-11 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg px-6">
                     {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                     Save Changes
                 </Button>
             </div>
-            <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {filteredFields.map((field) => (
-                    <div key={field.id} className="p-4 border rounded-lg space-y-4 relative">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                                <div className="space-y-2">
-                                <Label>Image Preview</Label>
-                                <div className="w-full aspect-video relative rounded-md overflow-hidden border bg-muted">
-                                    <Image 
-                                        src={form.watch(`placeholderImages.${field.originalIndex}.imageUrl`) || 'https://placehold.co/600x400/E2E8F0/64748B?text=?'} 
-                                        alt={field.id} 
-                                        fill
-                                        className="object-cover"
-                                    />
-                                </div>
-                                </div>
-                                <div className="space-y-4">
-                                    <div className="space-y-1">
-                                    <Label htmlFor={`id-${field.originalIndex}`}>Unique ID</Label>
-                                    <Input id={`id-${field.originalIndex}`} {...form.register(`placeholderImages.${field.originalIndex}.id`)} placeholder="e.g., cat-vegetables" />
-                                </div>
-                                <div className="space-y-1">
-                                    <Label htmlFor={`url-${field.originalIndex}`}>Image URL</Label>
-                                    <Input id={`url-${field.originalIndex}`} {...form.register(`placeholderImages.${field.originalIndex}.imageUrl`)} placeholder="https://images.unsplash.com/..." />
-                                </div>
-                                <div className="space-y-1">
-                                    <Label htmlFor={`hint-${field.originalIndex}`}>AI Hint (for future use)</Label>
-                                    <Input id={`hint-${field.originalIndex}`} {...form.register(`placeholderImages.${field.originalIndex}.imageHint`)} placeholder="e.g., fresh vegetables" />
-                                </div>
-                                </div>
+                    <Card key={field.id} className="rounded-3xl border-0 shadow-lg overflow-hidden group">
+                        <div className="relative aspect-video bg-muted border-b">
+                            <Image 
+                                src={form.watch(`placeholderImages.${field.originalIndex}.imageUrl`) || 'https://placehold.co/600x400/E2E8F0/64748B?text=?'} 
+                                alt={field.id} 
+                                fill
+                                className="object-cover"
+                            />
+                            <Button 
+                                type="button" 
+                                variant="destructive" 
+                                size="icon" 
+                                className="absolute top-3 right-3 h-8 w-8 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" 
+                                onClick={() => remove(field.originalIndex)}
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
                         </div>
-                        <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2" onClick={() => remove(field.originalIndex)}>
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
-                    </div>
+                        <CardContent className="p-6 space-y-4">
+                            <div className="space-y-1">
+                                <Label className="text-[8px] font-black uppercase tracking-widest opacity-40">Unique Asset ID</Label>
+                                <Input {...form.register(`placeholderImages.${field.originalIndex}.id`)} placeholder="e.g., cat-vegetables" className="h-9 rounded-lg text-xs" />
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-[8px] font-black uppercase tracking-widest opacity-40">Direct Image URL</Label>
+                                <Input {...form.register(`placeholderImages.${field.originalIndex}.imageUrl`)} placeholder="https://images.unsplash.com/..." className="h-9 rounded-lg text-xs" />
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-[8px] font-black uppercase tracking-widest opacity-40">Metadata Hint</Label>
+                                <Input {...form.register(`placeholderImages.${field.originalIndex}.imageHint`)} placeholder="e.g., fresh vegetables" className="h-9 rounded-lg text-xs" />
+                            </div>
+                        </CardContent>
+                    </Card>
                 ))}
-                    <Button type="button" variant="outline" onClick={() => append({ id: `new-image-${fields.length}`, imageUrl: '', imageHint: '' })}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add New Image Entry
-                </Button>
+                <button 
+                    type="button" 
+                    onClick={() => append({ id: `new-image-${fields.length}`, imageUrl: '', imageHint: '' })}
+                    className="flex flex-col items-center justify-center gap-3 p-12 rounded-[2.5rem] border-4 border-dashed border-black/5 hover:border-primary/20 hover:bg-primary/5 transition-all group"
+                >
+                    <div className="h-12 w-12 rounded-2xl bg-black/5 flex items-center justify-center text-gray-400 group-hover:bg-primary group-hover:text-white transition-colors">
+                        <PlusCircle className="h-6 w-6" />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-widest opacity-40 group-hover:opacity-100">Add New Entry</span>
+                </button>
             </div>
         </form>
     );
 }
-
-// --- Product Image Management ---
-
-function ProductImageRow({ product: initialProduct }: { product: Product }) {
-    const [product, setProduct] = useState(initialProduct);
-    const { firestore } = useFirebase();
-    const { toast } = useToast();
-    const [isSaving, startSaveTransition] = useTransition();
-    const [isGenerating, startGenerateTransition] = useTransition();
-
-    const handleGenerateImage = async () => {
-        startGenerateTransition(async () => {
-            try {
-                const result = await generateProductImage({ productName: product.name });
-                if (result.imageUrl) {
-                    setProduct(prev => ({ ...prev, imageUrl: result.imageUrl }));
-                    toast({ title: 'AI Image Generated!', description: 'URL has been updated. Click Save to apply.' });
-                } else {
-                    throw new Error("AI did not return an image URL.");
-                }
-            } catch (error) {
-                console.error(error);
-                toast({ variant: 'destructive', title: 'Generation Failed', description: (error as Error).message });
-            }
-        });
-    };
-    
-    const handleSave = async () => {
-        if (!firestore) return;
-        startSaveTransition(async () => {
-            const productRef = doc(firestore, 'stores', product.storeId, 'products', product.id);
-            try {
-                await updateDoc(productRef, { imageUrl: product.imageUrl });
-                toast({ title: 'Product Image Saved!', description: `Image for ${product.name} has been updated.` });
-            } catch (error) {
-                 console.error(error);
-                toast({ variant: 'destructive', title: 'Save Failed', description: (error as Error).message });
-            }
-        });
-    };
-
-    return (
-        <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 p-4 border rounded-lg">
-            <div className="flex items-center gap-4">
-                <div className="relative w-16 h-16 rounded-md bg-muted overflow-hidden">
-                     <Image 
-                        src={product.imageUrl || 'https://placehold.co/64x64/E2E8F0/64748B?text=?'} 
-                        alt={product.name} 
-                        fill
-                        className="object-cover"
-                    />
-                </div>
-                <p className="font-semibold">{product.name}</p>
-            </div>
-             <div className="flex items-center gap-2">
-                <div className="relative flex-grow">
-                    <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
-                    <Input 
-                        placeholder="Image URL"
-                        value={product.imageUrl || ''}
-                        onChange={(e) => setProduct(p => ({...p, imageUrl: e.target.value}))}
-                        className="pl-9"
-                    />
-                </div>
-                <Button variant="outline" size="icon" onClick={handleGenerateImage} disabled={isGenerating}>
-                    {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                    <span className="sr-only">Generate AI Image</span>
-                </Button>
-            </div>
-            <div className="text-right">
-                <Button onClick={handleSave} disabled={isSaving}>
-                     {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                    Save
-                </Button>
-            </div>
-        </div>
-    )
-}
-
-function ProductImageManager() {
-    const { masterProducts, loading } = useAppStore();
-    const [searchTerm, setSearchTerm] = useState('');
-    
-    const filteredProducts = useMemo(() => {
-        if (!searchTerm) return masterProducts;
-        return masterProducts.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
-    }, [masterProducts, searchTerm]);
-
-    if (loading) {
-        return <Skeleton className="h-96 w-full" />;
-    }
-
-    return (
-        <div className="space-y-4">
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                    placeholder="Search products..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9"
-                />
-            </div>
-             <div className="space-y-4">
-                {filteredProducts.map(product => (
-                    <ProductImageRow key={product.id} product={product} />
-                ))}
-             </div>
-        </div>
-    )
-}
-
-function PwaIconManager() {
-    const { toast } = useToast();
-    const [isUploading, startUploadTransition] = useTransition();
-    // This component is now simplified as the action is not available
-    
-    return (
-        <Card className="max-w-md mx-auto">
-            <CardHeader>
-                <CardTitle>Upload PWA Icon</CardTitle>
-                <CardDescription>This feature is currently unavailable as the server action is not implemented.</CardDescription>
-            </CardHeader>
-        </Card>
-    );
-}
-
-
-// --- Main Page Component ---
 
 export default function ImageManagementPage() {
     const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
@@ -318,41 +190,30 @@ export default function ImageManagementPage() {
         }
     }, [isAdminLoading, isAdmin, router]);
 
-    if (isAdminLoading) {
-        return <div className="container mx-auto py-12"><Skeleton className="h-96 w-full" /></div>;
+    if (isAdminLoading || !isAdmin) {
+        return <div className="p-12 text-center flex flex-col items-center justify-center h-[60vh] gap-4">
+            <Loader2 className="animate-spin h-10 w-10 text-primary opacity-20" />
+            <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Verifying Authority...</p>
+        </div>;
     }
 
     return (
-        <div className="container mx-auto py-12 px-4 md:px-6">
-            <Card className="max-w-6xl mx-auto">
-                <CardHeader>
-                    <CardTitle className="text-3xl font-headline flex items-center gap-2">
-                        <ImageIcon className="h-8 w-8 text-primary" />
-                        Image Management
-                    </CardTitle>
-                    <CardDescription>
-                        Manage placeholder images, category icons, and product images from one central place.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Tabs defaultValue="placeholders">
-                        <TabsList className="grid w-full grid-cols-3">
-                            <TabsTrigger value="placeholders">Category & Placeholder Images</TabsTrigger>
-                            <TabsTrigger value="products">Product Images</TabsTrigger>
-                             <TabsTrigger value="pwa">PWA & App Icons</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="placeholders" className="mt-6">
-                            <PlaceholderImageManager />
-                        </TabsContent>
-                        <TabsContent value="products" className="mt-6">
-                            <ProductImageManager />
-                        </TabsContent>
-                         <TabsContent value="pwa" className="mt-6">
-                            <PwaIconManager />
-                        </TabsContent>
-                    </Tabs>
-                </CardContent>
-            </Card>
+        <div className="container mx-auto py-12 px-4 md:px-6 space-y-12 pb-32">
+            <div className="flex justify-between items-end border-b pb-10 border-black/5">
+                <div>
+                    <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none">Asset Hub</h1>
+                    <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Marketplace Identity & Imagery</p>
+                </div>
+            </div>
+
+            <Tabs defaultValue="placeholders">
+                <TabsList className="bg-black/5 p-1 rounded-2xl border mb-8 h-12">
+                    <TabsTrigger value="placeholders" className="rounded-xl font-black text-[10px] uppercase h-10 px-8">Category & Placeholder Icons</TabsTrigger>
+                </TabsList>
+                <TabsContent value="placeholders" className="mt-0">
+                    <PlaceholderImageManager />
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }

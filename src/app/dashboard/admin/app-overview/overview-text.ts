@@ -4,7 +4,7 @@
 export const overviewText = `
 ## 🚀 Adires: The Advanced Unified Market Platform
 
-Adires (formerly LocalBasket) is a high-performance, multi-role market hub designed for the Indian context. It bridges the gap between neighborhood commerce and digital-first expectations using cutting-edge PWA and AI technologies.
+Adires is a high-performance, multi-role market hub designed for the Indian context. It bridges the gap between neighborhood commerce and digital-first expectations using cutting-edge PWA and AI technologies.
 
 ---
 
@@ -14,7 +14,7 @@ The platform supports **Restaurants, Salons, and Retailers** using a **Unified B
 *   **Behavioral Collections**: Instead of duplicate logic for different stores, we use operational nature:
     *   **Retail/Dairy**: Focuses on standardized goods, variants, and stock management.
     *   **Service/Menu**: Focuses on craft-based items, preparation time, and session management.
-*   **Zero-Friction Vertical Sync**: The app automatically identifies business types via explicit metadata or heuristic keyword matching (e.g., detecting "Biryani" implies Restaurant mode).
+*   **Zero-Friction Vertical Sync**: The app automatically identifies business types via explicit metadata or AI-assisted heuristics (e.g., detecting "Biryani" implies Restaurant mode).
 
 ---
 
@@ -36,15 +36,7 @@ We prioritize speed and cost-efficiency using **Operational Indexing** and **Per
 
 ---
 
-### 🎙️ 4. Multilingual NLU & Platform Identity
-The "Brain" of the platform is built for India's multilingual reality.
-
-*   **Regional NLU**: Understands English, Telugu, and Hindi mixed sentences. It can extract "one kg chicken" and "500gm onions" from a single spoken phrase.
-*   **Individual Data Continuity**: Every user (even guests) is assigned a persistent \`deviceId\`. This ensures that "Individual Data" like order history and favorites are preserved across visits.
-
----
-
-### 🥗 5. Restaurant & Salon Operations (POS)
+### 🥗 4. Restaurant & Salon Operations (POS)
 The app turns any shop into a high-tech operation with **zero hardware cost**.
 
 *   **AI Menu Scanning**: Owners upload a photo of a menu; the AI extracts items and prices instantly.
@@ -53,14 +45,14 @@ The app turns any shop into a high-tech operation with **zero hardware cost**.
 
 ---
 
-### 📉 6. Economic Intelligence & Gross Profit
+### 📉 5. Economic Intelligence & Gross Profit
 *   **Cost Drivers**: The app tracks master ingredient costs and maps them to menu items.
 *   **Margin Analysis**: Owners see the exact **Gross Profit** for every dish and every table, identifying exactly where money is being made or lost.
 *   **Optimization Hints**: AI analyzes cost patterns and suggests specific price or portion corrections to reach a 55% target margin.
 
 ---
 
-### 🔒 7. Advanced Security & Auth
+### 🔒 6. Advanced Security & Auth
 *   **Role-Based Access**: Multi-layered security ensuring employees, owners, and admins only see authorized data.
-*   **Contextual Permissions**: Firestore Security Rules ensure owners only see their store, delivery partners only see jobs in their \`zoneId\`, and customers only see their own private history.
+*   **Contextual Permissions**: Firestore Security Rules ensure owners only see their store, delivery partners only see jobs in their local zone, and customers only see their own private history.
 `;
