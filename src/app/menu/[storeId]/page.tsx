@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -350,13 +349,13 @@ function LiveBillSheet({
   
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: theme?.backgroundColor || '#1A1616' }}>
-        <SheetHeader className='p-5 border-b' style={{ borderColor: theme?.primaryColor + '20' }}>
+        <SheetHeader className='p-5 border-b shrink-0' style={{ borderColor: theme?.primaryColor + '20' }}>
             <SheetTitle className="flex items-center gap-2 text-lg font-bold" style={{ color: theme?.primaryColor || '#FBC02D' }}>
                 <Receipt className="h-5 w-5" /> {isSalon ? 'Visit Progress' : 'Live Order Progress'}
             </SheetTitle>
         </SheetHeader>
         
-        <div className="flex-1 overflow-y-auto p-5 space-y-10">
+        <div className="flex-1 overflow-y-auto p-5 space-y-10 min-h-0">
              {/* CURRENT ACTIVE ORDERS */}
              {placedOrders.length > 0 && (
                  <div className="space-y-6">
@@ -428,7 +427,7 @@ function LiveBillSheet({
              )}
         </div>
 
-        <div className="p-6 border-t space-y-4 bg-black/20" style={{ borderColor: theme?.primaryColor + '20' }}>
+        <div className="p-6 border-t space-y-4 bg-black/20 shrink-0 pb-10" style={{ borderColor: theme?.primaryColor + '20' }}>
             <div className="flex justify-between items-baseline mb-2">
                 <span className="text-sm font-bold uppercase tracking-widest opacity-60" style={{ color: theme?.textColor || '#fff' }}>Total Session Bill</span>
                 <span className="text-2xl font-black" style={{ color: theme?.primaryColor || '#FBC02D' }}>₹{sessionTotal.toFixed(2)}</span>
@@ -490,7 +489,7 @@ function MenuCard({ item, onAdd, onShowDetails, recentlyAdded, currentQuantityIn
             </div>
             <div className="p-3 flex flex-col gap-3 flex-1 min-w-0">
                 <div className="min-w-0">
-                    <h3 className="font-black text-sm leading-tight text-gray-950 mb-1 truncate">{item.name}</h3>
+                    <h3 className="font-black text-sm leading-tight text-gray-950 mb-1 truncate uppercase">{item.name}</h3>
                     <div className="flex items-center gap-1.5 opacity-60">
                         <Sparkles className="h-3 w-3 text-amber-500" />
                         <span className="text-[8px] font-black uppercase tracking-widest text-gray-600">Top Rated</span>
@@ -504,7 +503,7 @@ function MenuCard({ item, onAdd, onShowDetails, recentlyAdded, currentQuantityIn
                 <div className="flex items-center gap-2">
                     <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-black/5 hover:bg-black/10" onClick={() => onShowDetails(item)}><Eye className="h-4 w-4 text-gray-600" /></Button>
                     <Button onClick={() => onAdd(item, qty)} disabled={isOutOfStock} className={cn("flex-1 h-9 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95", recentlyAdded ? "bg-green-600 text-white" : "")} style={{ backgroundColor: recentlyAdded ? '' : (theme?.primaryColor || '#FBC02D'), color: recentlyAdded ? '' : (theme?.backgroundColor || '#1A1616') }}>
-                        {recentlyAdded ? <Check className="h-4 w-4" /> : 'Add to Order'}
+                        {recentlyAdded ? <Check className="h-4 w-4" /> : 'Add'}
                     </Button>
                 </div>
             </div>
@@ -780,7 +779,7 @@ export default function PublicMenuPage() {
                       <Button asChild variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-black/5"><Link href="/"><ArrowLeft className="h-4 w-4 text-gray-950" /></Link></Button>
                       <div className="relative h-10 w-10 rounded-xl overflow-hidden border-2 shadow-sm" style={{ borderColor: theme?.primaryColor || '#FBC02D' }}><Image src={store.imageUrl || ADIRES_LOGO} alt={store.name} fill className="object-cover" /></div>
                       <div className="min-w-0">
-                          <h1 className="text-base font-black truncate leading-tight text-gray-950">{store.name}</h1>
+                          <h1 className="text-base font-black truncate leading-tight text-gray-950 uppercase">{store.name}</h1>
                           <div className="flex items-center gap-1.5 mt-0.5">
                               {tableNumber === 'Counter' ? <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest bg-green-600 text-white border-0">Counter</Badge> : tableNumber ? <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>{isSalon ? `Chair ${tableNumber}` : `T-${tableNumber}`}</Badge> : <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest bg-blue-600 text-white border-0">{isSalon ? 'Home' : 'Delivery'}</Badge>}
                               <button onClick={() => setIsModeDialogOpen(true)} className="text-[8px] font-black uppercase tracking-widest underline opacity-40 hover:opacity-100 transition-opacity text-gray-900">Change</button>
@@ -790,7 +789,7 @@ export default function PublicMenuPage() {
                   <div className="flex items-center gap-1.5">
                       {canInstall && (
                         <Button onClick={triggerInstall} size="sm" className="h-8 rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg shadow-primary/20" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>
-                            <Download className="mr-1.5 h-3.5 w-3.5" /> Install App
+                            <Download className="mr-1.5 h-3.5 w-3.5" /> Install
                         </Button>
                       )}
                       {store.liveVideoUrl && placedOrders && placedOrders.length > 0 && (
@@ -849,7 +848,7 @@ export default function PublicMenuPage() {
                     <div className="relative group px-1">
                         <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                         <Input 
-                            placeholder="Search dishes or categories..." 
+                            placeholder="Search dishes..." 
                             value={searchTerm} 
                             onChange={(e) => setSearchTerm(e.target.value)} 
                             className="h-14 rounded-2xl bg-white border-2 border-black/5 pl-12 text-sm font-black text-gray-950 placeholder:text-gray-300 shadow-xl focus:border-primary transition-all" 

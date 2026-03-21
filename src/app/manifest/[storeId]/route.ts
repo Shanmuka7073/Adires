@@ -7,9 +7,9 @@ import type { Store, Menu } from "@/lib/types";
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
 /**
- * Dynamic Manifest API
- * Generates a unique PWA manifest for a specific store.
- * This allows each restaurant to have its own name and icon on the user's home screen.
+ * Dynamic Manifest API (Standalone Enforcement)
+ * Generates a store-specific manifest with a localized scope.
+ * This prevents the main Grozo app from capturing restaurant-specific links.
  */
 export async function GET(
   request: Request,
@@ -40,13 +40,15 @@ export async function GET(
     const logoUrl = store.imageUrl || ADIRES_LOGO;
 
     const manifest = {
-      id: `adires-restaurant-${storeId}`,
+      id: `adires-biz-${storeId}`,
       name: store.name,
       short_name: store.name.substring(0, 12),
-      description: store.description || `Digital menu and ordering for ${store.name}`,
+      description: store.description || `Official digital menu for ${store.name}`,
       start_url: `/menu/${storeId}`,
+      // Specific scope ensures Grozo doesn't intercept if configured properly
       scope: `/menu/${storeId}`,
       display: "standalone",
+      orientation: "portrait",
       background_color: menu?.theme?.backgroundColor || "#ffffff",
       theme_color: themeColor,
       icons: [
