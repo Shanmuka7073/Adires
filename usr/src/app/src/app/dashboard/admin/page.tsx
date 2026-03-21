@@ -21,7 +21,8 @@ import {
     Zap,
     Lock,
     ShieldCheck,
-    Smartphone
+    Smartphone,
+    FileSignature
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
