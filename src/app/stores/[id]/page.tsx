@@ -1,26 +1,26 @@
 
 'use client';
-import { Store, Product, ProductPrice } from '@/lib/types';
-import { useParams, notFound, useSearchParams, useRouter } from 'next/navigation';
+import { Store } from '@/lib/types';
+import { useParams, notFound, useRouter } from 'next/navigation';
 import { useFirebase } from '@/firebase';
 import { CategoryClient } from './category-client';
 import { useEffect, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAppStore } from '@/lib/store';
 
+/**
+ * Store Detail Page.
+ * Routes users between the retail scroller and the digital menu based on business type.
+ */
 export default function StoreDetailPage() {
   const { firestore } = useFirebase();
   const params = useParams();
   const router = useRouter();
-  const searchParams = useSearchParams();
   
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
 
   const { 
     stores,
-    masterProducts, 
-    productPrices, 
-    fetchProductPrices, 
     loading: appLoading, 
     isInitialized,
     fetchInitialData
@@ -33,9 +33,9 @@ export default function StoreDetailPage() {
         const searchPool = `${store.name} ${store.description}`.toLowerCase();
         const isSalon = store.businessType === 'salon' || ['salon', 'saloon', 'parlour', 'beauty', 'hair', 'cut', 'spa', 'makeup'].some(kw => searchPool.includes(kw));
         const isRestaurant = store.businessType === 'restaurant' || [
-            'restaurant', 'restuarent', 'hotel', 'biryani', 'tiffin', 'mess', 
+            'restaurant', 'hotel', 'biryani', 'tiffin', 'mess', 
             'canteen', 'dhaba', 'food', 'meals', 'sweets', 'bakery', 'kitchen', 
-            'cafe', 'bakers', 'grand', 'deluxe', 'paradise'
+            'cafe', 'bakers'
         ].some(kw => searchPool.includes(kw));
         
         if (isSalon || isRestaurant) {
@@ -49,14 +49,6 @@ export default function StoreDetailPage() {
       fetchInitialData(firestore);
     }
   }, [firestore, isInitialized, fetchInitialData]);
-
-
-  useEffect(() => {
-    if (firestore && masterProducts.length > 0) {
-      const productNames = masterProducts.map(p => p.name);
-      fetchProductPrices(firestore, productNames);
-    }
-  }, [firestore, masterProducts, fetchProductPrices]);
 
   const isLoading = appLoading || !isInitialized;
 
@@ -84,8 +76,8 @@ export default function StoreDetailPage() {
       <div className="flex-1 overflow-y-auto">
         <CategoryClient
           store={store}
-          allProducts={masterProducts}
-          productPrices={productPrices}
+          allProducts={[]}
+          productPrices={{}}
           isLoading={isLoading}
         />
       </div>

@@ -41,11 +41,12 @@ export interface AppState {
   setCartOpen: (open: boolean) => void; 
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
   // LEGACY STUBS FOR TYPE COMPATIBILITY
-  masterProducts?: any[];
-  productPrices?: any;
-  locales?: any;
-  commands?: any;
-  getAllAliases?: (key: string) => Record<string, string[]>;
+  masterProducts: any[];
+  productPrices: any;
+  locales: any;
+  commands: any;
+  getAllAliases: (key: string) => Record<string, string[]>;
+  fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
 }
 
 const getInitialLanguage = (): string => {
@@ -130,10 +131,11 @@ export const useAppStore = create<AppState>()(
       productPrices: {},
       locales: {},
       commands: {},
-      getAllAliases: (key: string) => ({})
+      getAllAliases: (key: string) => ({}),
+      fetchProductPrices: async () => {},
     }),
     {
-      name: 'localbasket-app-storage-v9',
+      name: 'localbasket-app-storage-v10',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
