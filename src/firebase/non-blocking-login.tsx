@@ -20,9 +20,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 /**
- * Personalized Auth Component.
- * Captures names to populate the %DISPLAY_NAME% placeholder in email templates.
- * Now includes Forgot Password functionality.
+ * Personalized Auth Component for Adires.
+ * Includes personalized sign-up and forgot password functionality.
  */
 export function NonBlockingLogin() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -53,7 +52,7 @@ export function NonBlockingLogin() {
           const userCredential = await createUserWithEmailAndPassword(auth, email, password);
           const user = userCredential.user;
 
-          // 2. Update the Auth Profile (Populates %DISPLAY_NAME% for your email template)
+          // 2. Update the Auth Profile
           await updateProfile(user, {
             displayName: `${firstName} ${lastName}`.trim()
           });
@@ -79,7 +78,6 @@ export function NonBlockingLogin() {
         } else {
           const userCredential = await signInWithEmailAndPassword(auth, email, password);
           
-          // Proactively send verification link if they attempt login while unverified
           if (!userCredential.user.emailVerified && userCredential.user.email !== 'admin@gmail.com') {
              await sendEmailVerification(userCredential.user);
              toast({ 
@@ -104,7 +102,7 @@ export function NonBlockingLogin() {
       toast({
         variant: 'destructive',
         title: 'Email Required',
-        description: 'Please enter your email address to receive a reset link.',
+        description: 'Please enter your email address first to receive a reset link.',
       });
       return;
     }
@@ -116,7 +114,7 @@ export function NonBlockingLogin() {
         await sendPasswordResetEmail(auth, email);
         toast({
           title: 'Reset Email Sent',
-          description: `A password reset link has been sent to ${email}.`,
+          description: `A secure password reset link has been sent to ${email}.`,
         });
       } catch (err: any) {
         toast({
@@ -162,20 +160,21 @@ export function NonBlockingLogin() {
           </div>
           
           <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <Label className="text-[10px] font-black uppercase opacity-40">Security Password</Label>
-              {!isSignUp && (
+            <Label className="text-[10px] font-black uppercase opacity-40">Security Password</Label>
+            <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required={!isResetPending} className="h-12 rounded-xl border-2" />
+            
+            {!isSignUp && (
+              <div className="flex justify-end pt-1">
                 <button 
                   type="button" 
                   onClick={handleForgotPassword}
                   disabled={isResetPending}
-                  className="text-[9px] font-black uppercase tracking-widest text-primary hover:underline disabled:opacity-50"
+                  className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline hover:text-primary/80 transition-colors disabled:opacity-50"
                 >
-                  {isResetPending ? 'Sending...' : 'Forgot Password?'}
+                  {isResetPending ? 'Sending Link...' : 'Forgot Password?'}
                 </button>
-              )}
-            </div>
-            <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required={!isResetPending} className="h-12 rounded-xl border-2" />
+              </div>
+            )}
           </div>
 
           {isSignUp && (
