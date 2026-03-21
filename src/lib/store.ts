@@ -93,6 +93,7 @@ export const useAppStore = create<AppState>()(
       setCartOpen: (open: boolean) => set({ isCartOpen: open }),
 
       fetchInitialData: async (db: Firestore, userId?: string) => {
+        // PERF: Avoid redundant fetches if we already have data
         if (get().loading) return;
         set({ loading: true, error: null });
         
@@ -145,6 +146,7 @@ export const useAppStore = create<AppState>()(
           
         } catch (error) {
           console.error("fetchInitialData failed:", error);
+          // Unlock app even on error to prevent LCP stall
           set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
@@ -159,30 +161,41 @@ export const useAppStore = create<AppState>()(
       getProductName: (product: any) => product?.name || '',
     }),
     {
-      name: 'localbasket-app-storage-v11',
+      name: 'localbasket-app-storage-v12', // Increment version for schema changes
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
           language: state.language,
           activeStoreId: state.activeStoreId,
           deviceId: state.deviceId,
+          stores: state.stores, // Persist stores for shell-first load
+          isInitialized: state.isInitialized,
       }),
+      onRehydrateStorage: () => (state) => {
+        // As soon as storage is rehydrated, the app is "ready" to show the shell
+        if (state) {
+          state.setAppReady(true);
+        }
+      }
     }
   )
 );
 
 export const useInitializeApp = () => {
     const { firestore, user, isUserLoading } = useFirebase();
-    const { fetchInitialData, loading, userStore, setAppReady } = useAppStore();
+    const { fetchInitialData, loading, isInitialized, setAppReady } = useAppStore();
 
     useEffect(() => {
-        if (userStore) {
+        // If we already have data from localStorage, we are ready to paint
+        if (isInitialized) {
             setAppReady(true);
         }
+        
+        // Background sync with Firestore
         if (firestore && !isUserLoading && !loading) {
             fetchInitialData(firestore, user?.uid);
         }
-    }, [firestore, user?.uid, isUserLoading, loading, fetchInitialData, userStore, setAppReady]);
+    }, [firestore, user?.uid, isUserLoading, loading, fetchInitialData, isInitialized, setAppReady]);
 
     return { isLoading: loading };
 };

@@ -156,14 +156,24 @@ export default function LocalBasketHomepage() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">
-      <HomepageContent onSearchChange={setSearchTerm} user={userData} />
+      <HomepageHeader onSearchChange={setSearchTerm} user={userData} />
       
       {!searchTerm && <HubNavigation />}
 
       <main className="p-4 space-y-8">
+        {/* PERF: Priority Hero Image Optimization */}
+        <div className="rounded-3xl overflow-hidden shadow-2xl relative aspect-[2/1] w-full">
+            <Image 
+                src="https://i.ibb.co/ZQC3c3h/file-00000000f15871fab9942ef91d9c2021.png" 
+                alt="Promotional Banner" 
+                fill 
+                priority 
+                className="object-cover" 
+            />
+        </div>
+
         {isAppLoading && !isInitialized ? (
             <div className="space-y-6">
-                <Skeleton className="h-40 w-full rounded-3xl" />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Skeleton className="h-48 w-full rounded-2xl" />
                     <Skeleton className="h-48 w-full rounded-2xl" />
