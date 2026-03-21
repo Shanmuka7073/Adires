@@ -97,7 +97,7 @@ export default function DashboardPage() {
         if (isEmployee) {
             return allRoleCards.filter(card => card.title === 'employee' || card.title === 'salary-slips');
         }
-        return allRoleCards.filter(card => card.title !== 'employee' && card.title !== 'salary-slips' && card.title !== 'voice-order');
+        return allRoleCards.filter(card => card.title !== 'employee' && card.title !== 'salary-slips');
     }, [isEmployee]);
 
     useLayoutEffect(() => {

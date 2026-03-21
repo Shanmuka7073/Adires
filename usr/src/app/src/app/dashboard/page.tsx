@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowRight, ShoppingCart, Store, Truck, Mic, Sparkles } from 'lucide-react';
+import { ArrowRight, ShoppingCart, Store, Truck } from 'lucide-react';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import Image from 'next/image';
@@ -17,16 +17,9 @@ const roleCards = [
     {
         title: 'start-shopping',
         description: 'browse-local-stores-and-find-fresh-groceries',
-        href: '/stores/beverages', // Default to beverages category
+        href: '/stores/beverages', 
         icon: ShoppingCart,
         imageId: 'dash-shopping'
-    },
-    {
-        title: 'voice-order',
-        description: 'record-your-shopping-list-and-have-a-local-shopkeeper-fulfill-it',
-        href: '/checkout',
-        icon: Mic,
-        imageId: 'dash-voice'
     },
     {
         title: 'store-owner',
@@ -88,15 +81,12 @@ export default function DashboardPage() {
     const router = useRouter();
 
     useLayoutEffect(() => {
-        // This effect runs before the browser paints.
-        // If the role is determined and it's a restaurant owner, redirect immediately.
         if (!isRoleLoading && isRestaurantOwner) {
             router.replace('/dashboard/restaurant');
         }
     }, [isRoleLoading, isRestaurantOwner, router]);
 
     useEffect(() => {
-        // This effect runs only if the user is NOT a restaurant owner.
         if (!isRoleLoading && !isRestaurantOwner) {
             const fetchImages = async () => {
                 const imagePromises = roleCards.map(card => getProductImage(card.imageId));
@@ -112,8 +102,6 @@ export default function DashboardPage() {
         }
     }, [isRoleLoading, isRestaurantOwner]);
 
-    // While role is loading OR if the user is a restaurant owner (and about to be redirected),
-    // render nothing. This prevents any flickering.
     if (isRoleLoading || isRestaurantOwner) {
         return (
             <div className="container mx-auto py-12 text-center">
@@ -128,7 +116,7 @@ export default function DashboardPage() {
                 <h1 className="text-4xl font-bold font-headline">{t('your-dashboard')}</h1>
                 <p className="text-lg text-muted-foreground mt-2">{t('select-your-role-to-access-your-tools')}</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
                 {roleCards.map((card) => (
                     <RoleCard 
                         key={card.title} 
@@ -137,26 +125,6 @@ export default function DashboardPage() {
                         isLoading={loading}
                     />
                 ))}
-            </div>
-            <div className="mt-16 text-center">
-                 <Card className="max-w-2xl mx-auto bg-primary/5 border-primary/20">
-                    <CardHeader>
-                        <CardTitle className="flex items-center justify-center gap-2 font-headline">
-                             <Sparkles className="h-6 w-6 text-primary" />
-                            <span>New: Voice ID Login</span>
-                        </CardTitle>
-                        <CardDescription>
-                            Set up a voice password for a faster, more secure way to log in.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Button asChild>
-                            <Link href="/dashboard/customer/voice-id">
-                                Set Up Your Voice ID
-                            </Link>
-                        </Button>
-                    </CardContent>
-                </Card>
             </div>
         </div>
     );

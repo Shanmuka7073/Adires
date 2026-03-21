@@ -14,6 +14,7 @@ import { useAppStore } from '@/lib/store';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { Label } from '@/components/ui/label';
 
 
 function ProductInventoryRow({ product, priceData, onUpdate }: { product: Product, priceData: ProductPrice | null, onUpdate: () => void }) {
@@ -97,7 +98,7 @@ function ProductInventoryRow({ product, priceData, onUpdate }: { product: Produc
                                                 type="number"
                                                 value={variant.price}
                                                 onChange={e => handleVariantChange(index, 'price', e.target.value)}
-                                                className="h-10 rounded-xl border-2 pl-7 font-black text-sm"
+                                                className="h-10 rounded-xl border-2 font-black text-sm"
                                             />
                                         </div>
                                     </div>

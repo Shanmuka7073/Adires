@@ -11,7 +11,6 @@ import { Search, MapPin, ChevronDown, ArrowRight, LayoutGrid, Beef, Scissors, Lo
 import Link from 'next/link';
 import StoreCard from '@/components/store-card';
 import { doc, collection, query, where, orderBy, limit } from 'firebase/firestore';
-import { useVoiceCommanderContext } from '@/components/layout/voice-commander-context';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
