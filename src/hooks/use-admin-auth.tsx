@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
@@ -6,7 +7,6 @@ import type { User as AppUser } from '@/lib/types';
 import { useMemo } from 'react';
 
 const ADMIN_EMAILS = ['admin@gmail.com', 'admin2@gmail.com'];
-const CHICKEN_ADMIN_EMAIL = 'chickenadmin@gmail.com';
 
 /**
  * A hook to determine the current user's role and authorization status.
@@ -30,11 +30,6 @@ export function useAdminAuth() {
     return !!(user && ADMIN_EMAILS.includes(user.email || ''));
   }, [user]);
 
-  // Specialized Admin for Chicken price management
-  const isChickenAdmin = useMemo(() => {
-    return !!(user && user.email === CHICKEN_ADMIN_EMAIL);
-  }, [user]);
-
   // Business Owner role (Restaurants, Salons, etc.)
   const isRestaurantOwner = useMemo(() => {
     return userData?.accountType === 'restaurant';
@@ -47,7 +42,6 @@ export function useAdminAuth() {
 
   return {
     isAdmin,
-    isChickenAdmin,
     isRestaurantOwner,
     isEmployee,
     isLoading: isUserLoading || isProfileLoading,

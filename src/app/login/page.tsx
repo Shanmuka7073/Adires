@@ -10,7 +10,6 @@ import LoginForm from './login-form';
 import { Loader2 } from 'lucide-react';
 
 const ADMIN_EMAIL = 'admin@gmail.com';
-const CHICKEN_ADMIN_EMAIL = 'chickenadmin@gmail.com';
 
 /**
  * Main Login Route.
@@ -34,8 +33,6 @@ export default function LoginPage() {
     if (!isUserLoading && !isProfileLoading && user && userData) {
        if (user.email === ADMIN_EMAIL) {
             router.push('/dashboard/admin');
-       } else if (user.email === CHICKEN_ADMIN_EMAIL) {
-            router.push('/dashboard/chicken-admin');
        } else if (userData.accountType === 'restaurant') {
             router.push('/dashboard/restaurant');
        } else {
