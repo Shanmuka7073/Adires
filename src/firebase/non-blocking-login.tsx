@@ -7,20 +7,22 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
   sendEmailVerification,
-  updateProfile
+  updateProfile,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, AlertCircle, UserPlus, LogIn } from 'lucide-react';
+import { Loader2, AlertCircle, UserPlus, LogIn, KeyRound } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 /**
  * Personalized Auth Component.
  * Captures names to populate the %DISPLAY_NAME% placeholder in email templates.
+ * Now includes Forgot Password functionality.
  */
 export function NonBlockingLogin() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -30,6 +32,7 @@ export function NonBlockingLogin() {
   const [lastName, setLastName] = useState('');
   const [accountType, setAccountType] = useState<'groceries' | 'restaurant'>('groceries');
   const [isPending, startTransition] = useTransition();
+  const [isResetPending, startResetTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const { auth, firestore } = useFirebase();
   const { toast } = useToast();
@@ -96,6 +99,35 @@ export function NonBlockingLogin() {
     });
   };
 
+  const handleForgotPassword = () => {
+    if (!email) {
+      toast({
+        variant: 'destructive',
+        title: 'Email Required',
+        description: 'Please enter your email address to receive a reset link.',
+      });
+      return;
+    }
+
+    if (!auth) return;
+
+    startResetTransition(async () => {
+      try {
+        await sendPasswordResetEmail(auth, email);
+        toast({
+          title: 'Reset Email Sent',
+          description: `A password reset link has been sent to ${email}.`,
+        });
+      } catch (err: any) {
+        toast({
+          variant: 'destructive',
+          title: 'Reset Failed',
+          description: err.message,
+        });
+      }
+    });
+  };
+
   return (
     <Card className="w-full max-w-md shadow-2xl border-t-4 border-t-primary rounded-[2.5rem] overflow-hidden bg-white">
       <CardHeader className="text-center pb-2 pt-8">
@@ -130,8 +162,20 @@ export function NonBlockingLogin() {
           </div>
           
           <div className="space-y-2">
-            <Label className="text-[10px] font-black uppercase opacity-40">Security Password</Label>
-            <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="h-12 rounded-xl border-2" />
+            <div className="flex justify-between items-center">
+              <Label className="text-[10px] font-black uppercase opacity-40">Security Password</Label>
+              {!isSignUp && (
+                <button 
+                  type="button" 
+                  onClick={handleForgotPassword}
+                  disabled={isResetPending}
+                  className="text-[9px] font-black uppercase tracking-widest text-primary hover:underline disabled:opacity-50"
+                >
+                  {isResetPending ? 'Sending...' : 'Forgot Password?'}
+                </button>
+              )}
+            </div>
+            <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required={!isResetPending} className="h-12 rounded-xl border-2" />
           </div>
 
           {isSignUp && (
