@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Server, Smartphone, Video, Shield, ImageIcon, Home, FileCode } from 'lucide-react';
+import { Users, Store, ShoppingBag, ArrowRight, Server, Smartphone, Video, Shield, ImageIcon, Home, FileCode, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
