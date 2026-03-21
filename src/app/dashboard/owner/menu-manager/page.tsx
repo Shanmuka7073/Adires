@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import Image from 'next/image';
 import Link from 'next/link';
-import QRCode from 'qrcode.react';
+import { QRCodeCanvas } from 'qrcode.react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from '@/components/ui/dialog';
 import { useForm, useFieldArray } from 'react-hook-form';
@@ -27,7 +27,7 @@ import { extractMenuItems } from '@/ai/flows/extract-menu-items-flow';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
@@ -202,7 +202,7 @@ function QRCodeDialog({ table, store }: { table: string, store: Store }) {
             </DialogHeader>
             
             <div id={`qr-${createSlug(table)}`} className="p-6 bg-white rounded-[2.5rem] shadow-inner border-4 border-black/5 mb-6 flex justify-center overflow-hidden">
-                <QRCode 
+                <QRCodeCanvas 
                     value={qrUrl} 
                     size={256} 
                     level="H" 
@@ -622,7 +622,7 @@ function EditMenuItemDialog({
                     </AlertDialog>
                    )}
                     <DialogClose asChild><Button type="button" variant="ghost" className="rounded-xl font-bold h-12" disabled={isSaving}>Cancel</Button></DialogClose>
-                    <Button type="submit" className="rounded-xl h-12 px-8 font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20" disabled={isSaving || isUploading}>{isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Item</Button>
+                    <Button type="submit" className="rounded-xl h-12 px-8 font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20" disabled={isSaving || iouploading}>{isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save Item</Button>
                 </div>
             </form>
         </Form>
@@ -788,7 +788,7 @@ export default function MenuManagerPage() {
     const { user, isUserLoading, firestore } = useFirebase();
     const router = useRouter();
     const { isAdmin, isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
-    const { userStore, stores, fetchInitialData } = useAppStore();
+    const { stores, fetchInitialData } = useAppStore();
 
     const ownerStoreQuery = useMemoFirebase(() => {
         if (!firestore || !user || isAdmin) return null;
@@ -796,7 +796,9 @@ export default function MenuManagerPage() {
     }, [firestore, user, isAdmin]);
 
     const { data: ownerStores, isLoading: isOwnerStoreLoading, refetch } = useCollection<Store>(ownerStoreQuery);
-    const myStore = useMemo(() => userStore || ownerStores?.[0], [userStore, ownerStores]);
+    
+    // PRIORITY: Firestore data > Cached data for real-time Floor Map updates
+    const myStore = useMemo(() => ownerStores?.[0] || stores.find(s => s.ownerId === user?.uid), [ownerStores, stores, user?.uid]);
 
     useEffect(() => { if (!isUserLoading && !user) router.push('/login'); }, [isUserLoading, user, router]);
 
