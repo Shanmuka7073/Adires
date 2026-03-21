@@ -4,10 +4,13 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Firestore, collection, getDocs } from 'firebase/firestore';
-import { Store } from './types';
+import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
+import { getStores, getMasterProducts } from './data';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { useFirebase } from '@/firebase';
+import { buildLocalesFromAliasGroups, initializeTranslations } from './locales';
+import { generalCommands as defaultGeneralCommands, CommandGroup } from './locales/commands';
 
 export interface ProfileFormValues {
   firstName?: string;
@@ -47,6 +50,7 @@ export interface AppState {
   commands: any;
   getAllAliases: (key: string) => Record<string, string[]>;
   fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
+  getProductName: (product: any) => string;
 }
 
 const getInitialLanguage = (): string => {
@@ -93,7 +97,12 @@ export const useAppStore = create<AppState>()(
         set({ loading: true, error: null });
         
         try {
-          const storesSnap = await getDocs(collection(db, 'stores'));
+          const [storesSnap, aliasDocs, commandDocs] = await Promise.all([
+            getDocs(collection(db, 'stores')),
+            getDocs(collection(db, 'voiceAliasGroups')),
+            getDocs(collection(db, 'voiceCommands'))
+          ]);
+
           const allStores = storesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Store));
           
           const businessStores = allStores.filter(s => 
@@ -112,9 +121,23 @@ export const useAppStore = create<AppState>()(
               set({ deviceId: newId });
           }
 
+          const voiceAliasGroups = aliasDocs.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
+          const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
+          
+          const dbCommands = commandDocs.docs.reduce((acc, doc) => {
+              acc[doc.id] = doc.data() as CommandGroup;
+              return acc;
+          }, {} as Record<string, CommandGroup>);
+          
+          const enrichedCommands = { ...defaultGeneralCommands, ...dbCommands };
+
+          initializeTranslations(locales); 
+
           set({
             stores: businessStores,
             userStore,
+            locales,
+            commands: enrichedCommands,
             isInitialized: true,
             appReady: true,
             loading: false,
@@ -133,9 +156,10 @@ export const useAppStore = create<AppState>()(
       commands: {},
       getAllAliases: (key: string) => ({}),
       fetchProductPrices: async () => {},
+      getProductName: (product: any) => product?.name || '',
     }),
     {
-      name: 'localbasket-app-storage-v10',
+      name: 'localbasket-app-storage-v11',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,

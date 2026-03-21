@@ -5,7 +5,6 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Firestore, collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
-import { getStores } from './data';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups } from '@/lib/locales';
@@ -32,7 +31,7 @@ export interface AppState {
   error: Error | null;
   language: string;
   activeStoreId: string | null;
-  deviceId: string | null; // Persistent individual data key
+  deviceId: string | null; 
   readCount: number;
   writeCount: number;
   incrementReadCount: (count?: number) => void;
@@ -50,7 +49,7 @@ export interface AppState {
   masterProducts: any[];
   productPrices: any;
   fetchProductPrices: any;
-  getProductName: any;
+  getProductName: (product: any) => string;
 }
 
 const getInitialLanguage = (): string => {
@@ -109,7 +108,6 @@ export const useAppStore = create<AppState>()(
           
           const allStores = storesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Store));
           
-          // FILTER: Only Restaurants and Salons. We don't cache grocery stores.
           const businessStores = allStores.filter(s => 
             s.businessType === 'restaurant' || 
             s.businessType === 'salon' ||
@@ -121,10 +119,8 @@ export const useAppStore = create<AppState>()(
               userStore = businessStores.find(s => s.ownerId === userId) || null;
           }
 
-          // FIX: Correctly map and type the voice aliases
           const voiceAliasGroups = aliasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
 
-          // FIX: Correctly type the reducer for commands
           const dbCommands = commandDocs.docs.reduce((acc, doc) => {
               acc[doc.id] = doc.data() as CommandGroup;
               return acc;
@@ -134,7 +130,6 @@ export const useAppStore = create<AppState>()(
 
           initializeTranslations(buildLocalesFromAliasGroups(voiceAliasGroups));
 
-          // Handle Device ID Persistence
           if (!get().deviceId) {
               const newId = Math.random().toString(36).substring(2, 15);
               set({ deviceId: newId });
@@ -148,7 +143,6 @@ export const useAppStore = create<AppState>()(
             isInitialized: true,
             appReady: true,
             loading: false,
-            // Explicitly clear legacy grocery data
             masterProducts: [],
           });
           
@@ -162,13 +156,11 @@ export const useAppStore = create<AppState>()(
         return getAliasesFromLocales(get().locales, key);
       },
 
-      // Purged grocery logic
       fetchProductPrices: async () => {},
-      fetchExtendedData: async () => {},
-      getProductName: (product: any) => product.name,
+      getProductName: (product: any) => product?.name || '',
     }),
     {
-      name: 'localbasket-app-storage-v3',
+      name: 'localbasket-app-storage-workspace-v4',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,

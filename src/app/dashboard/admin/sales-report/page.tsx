@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useTransition, useMemo, useCallback } from 'react';
@@ -115,8 +116,12 @@ const generateReport = async (db: any, period: 'daily' | 'monthly'): Promise<any
         const { masterProducts } = useAppStore.getState();
         const productCategoryMap = new Map<string, string>();
         
-        if (masterProducts) {
-            masterProducts.forEach(p => productCategoryMap.set(p.id, p.category?.toLowerCase() || 'grocery'));
+        if (masterProducts && Array.isArray(masterProducts)) {
+            masterProducts.forEach(p => {
+                if (p && p.id) {
+                    productCategoryMap.set(p.id, p.category?.toLowerCase() || 'grocery');
+                }
+            });
         }
 
         const ordersQuery = query(
