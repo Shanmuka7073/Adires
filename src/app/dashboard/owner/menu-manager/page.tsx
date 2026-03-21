@@ -209,7 +209,7 @@ function MenuUploader({ onMenuExtracted }: { onMenuExtracted: (data: { items: Me
     );
 }
 
-function QRCodeDialog({ table, storeId }: { table: string, storeId: string }) {
+function QRCodeDialog({ table, store }: { table: string, store: Store }) {
     const [baseUrl, setBaseUrl] = useState('');
     const { toast } = useToast();
 
@@ -217,7 +217,8 @@ function QRCodeDialog({ table, storeId }: { table: string, storeId: string }) {
         setBaseUrl(window.location.origin);
     }, []);
 
-    const qrUrl = `${baseUrl}/menu/${storeId}?table=${encodeURIComponent(table)}`;
+    const qrUrl = `${baseUrl}/menu/${store.id}?table=${encodeURIComponent(table)}`;
+    const logoUrl = store.imageUrl || ADIRES_LOGO;
 
     const handlePrint = () => {
         const win = window.open('', '_blank');
@@ -231,16 +232,18 @@ function QRCodeDialog({ table, storeId }: { table: string, storeId: string }) {
                     <title>Table ${table} QR Code</title>
                     <style>
                         body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; text-align: center; }
-                        .container { border: 4px solid #000; padding: 40px; border-radius: 40px; }
-                        h1 { font-size: 48px; margin-bottom: 10px; }
-                        p { font-size: 24px; margin-bottom: 30px; opacity: 0.6; }
+                        .container { border: 4px solid #000; padding: 40px; border-radius: 40px; width: 500px; }
+                        h1 { font-size: 48px; margin-bottom: 10px; font-weight: 900; text-transform: uppercase; }
+                        p { font-size: 24px; margin-bottom: 30px; opacity: 0.6; font-weight: bold; }
+                        img { border-radius: 20px; }
                     </style>
                 </head>
                 <body>
                     <div class="container">
-                        <h1>Table ${table}</h1>
+                        <h1>${table}</h1>
                         <p>Scan to Order</p>
                         <img src="${canvas.toDataURL()}" width="400" height="400" />
+                        <p style="margin-top: 20px; font-size: 14px;">Powered by Adires</p>
                     </div>
                     <script>window.onload = () => { window.print(); window.close(); }</script>
                 </body>
@@ -257,17 +260,25 @@ function QRCodeDialog({ table, storeId }: { table: string, storeId: string }) {
     return (
         <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl p-8 flex flex-col items-center text-center max-w-sm mx-auto">
             <DialogHeader className="mb-4">
-                <DialogTitle className="text-xl font-black uppercase tracking-tight">Table {table}</DialogTitle>
-                <DialogDescription>Place this QR code on the table for guests to scan and order.</DialogDescription>
+                <DialogTitle className="text-xl font-black uppercase tracking-tight">{table}</DialogTitle>
+                <DialogDescription>Branded QR code with your store image</DialogDescription>
             </DialogHeader>
             
-            <div className="p-6 bg-white rounded-[2.5rem] shadow-inner border-4 border-black/5 mb-6 flex justify-center">
+            <div className="p-6 bg-white rounded-[2.5rem] shadow-inner border-4 border-black/5 mb-6 flex justify-center overflow-hidden">
                 <QRCode 
                     id={`qr-${table}`}
                     value={qrUrl} 
-                    size={200} 
+                    size={256} 
                     level="H" 
                     includeMargin={true} 
+                    imageSettings={{
+                        src: logoUrl,
+                        x: undefined,
+                        y: undefined,
+                        height: 48,
+                        width: 48,
+                        excavate: true,
+                    }}
                 />
             </div>
 
@@ -280,6 +291,201 @@ function QRCodeDialog({ table, storeId }: { table: string, storeId: string }) {
                 </Button>
             </div>
         </DialogContent>
+    );
+}
+
+function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, menu: Menu, onReplace: () => void }) {
+    const { toast } = useToast(); 
+    const { firestore } = useFirebase(); 
+    const [isGenerating, startGeneration] = useTransition(); 
+    const [menu, setMenu] = useState(initialMenu);
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false); 
+    const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+    const [cachedStatus, setCachedStatus] = useState<Record<string, boolean>>({});
+    const [newZoneName, setNewZoneName] = useState('');
+    const [isAddingZone, startAddingZone] = useTransition();
+
+    useEffect(() => { setMenu(initialMenu); }, [initialMenu]);
+
+    const persistMenu = async (uM: Menu) => {
+        if (!firestore) return false;
+        try { await setDoc(doc(firestore, `stores/${store.id}/menus`, uM.id), uM, { merge: true }); return true; } catch (e) { return false; }
+    };
+
+    const handleSaveItem = async (itemData: MenuItem, isNew: boolean) => {
+        let uI;
+        if (isNew) { uI = [...menu.items, { ...itemData, id: createSlug(itemData.name), isAvailable: true }]; } 
+        else { uI = menu.items.map(i => i.id === editingItem?.id ? { ...i, ...itemData } : i); }
+        const uM = { ...menu, items: uI }; setMenu(uM);
+        if (!(await persistMenu(uM))) setMenu(menu); else toast({ title: "Saved!" });
+    };
+
+    const handleDeleteItem = async (it: MenuItem) => {
+         const uI = menu.items.filter(i => i.id !== it.id);
+         const uM = { ...menu, items: uI }; setMenu(uM);
+         if (!(await persistMenu(uM))) setMenu(menu); else toast({ title: "Deleted" });
+    }
+
+    const toggleAvailability = async (it: MenuItem) => {
+        const currentStatus = it.isAvailable !== false; // Default to available
+        const uI = menu.items.map(i => i.id === it.id ? { ...i, isAvailable: !currentStatus } : i);
+        const uM = { ...menu, items: uI }; setMenu(uM);
+        if (!(await persistMenu(uM))) { setMenu(menu); toast({ variant: 'destructive', title: 'Toggle Failed' }); }
+    };
+
+    const handleGenerateIngredients = async (item: MenuItem) => {
+        startGeneration(async () => {
+            try {
+                const result = await getIngredientsForDish({ dishName: item.name, language: 'en' });
+                if (result.isSuccess) { toast({ title: 'Cached!' }); setCachedStatus(p => ({ ...p, [item.id]: true })); }
+            } catch (e) { toast({ variant: 'destructive', title: 'Failed' }); }
+        });
+    };
+
+    const handleAddZone = () => {
+        if (!newZoneName.trim() || !firestore) return;
+        startAddingZone(async () => {
+            const currentTables = store.tables || [];
+            const updatedTables = [...new Set([...currentTables, newZoneName.trim()])];
+            try {
+                await updateDoc(doc(firestore, 'stores', store.id), { tables: updatedTables });
+                toast({ title: "Zone Added!" });
+                setNewZoneName('');
+            } catch (e) {
+                toast({ variant: 'destructive', title: "Failed to add zone" });
+            }
+        });
+    }
+
+    const handleRemoveZone = (zone: string) => {
+        if (!firestore) return;
+        const updatedTables = (store.tables || []).filter(t => t !== zone);
+        updateDoc(doc(firestore, 'stores', store.id), { tables: updatedTables })
+            .then(() => toast({ title: "Zone Removed" }));
+    }
+    
+    return (
+        <div className="grid lg:grid-cols-3 gap-8">
+            {isEditDialogOpen && <EditMenuItemDialog isOpen={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} onSave={handleSaveItem} existingItem={editingItem} onDeleteItem={handleDeleteItem} />}
+            <Card className="lg:col-span-2 rounded-3xl border-0 shadow-xl overflow-hidden bg-white">
+                <CardHeader className="bg-primary/5 border-b border-black/5 pb-6">
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <CardTitle className="text-xl font-black uppercase tracking-tight">Active Menu</CardTitle>
+                            <CardDescription className="text-[10px] font-bold opacity-40 uppercase">Live catalog management</CardDescription>
+                        </div>
+                        <Button size="sm" variant="outline" className="rounded-xl font-black text-[9px] uppercase border-2 h-10 px-6" onClick={() => { setEditingItem(null); setIsEditDialogOpen(true); }}>
+                            <PlusCircle className="h-4 w-4 mr-2" /> Add Item
+                        </Button>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                     <Table>
+                        <TableHeader className="bg-black/5">
+                            <TableRow>
+                                <TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Item</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Stock</TableHead>
+                                <TableHead className="text-right text-[10px] font-black uppercase tracking-widest opacity-40 pr-6">Edit</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {menu.items.map((it) => (
+                                <TableRow key={it.id} className={cn("hover:bg-muted/30 transition-colors", it.isAvailable === false && "opacity-50")}>
+                                    <TableCell className="py-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="relative h-12 w-12 rounded-2xl overflow-hidden border-2 bg-muted shrink-0 shadow-sm">
+                                                <Image src={it.imageUrl || ADIRES_LOGO} alt={it.name} fill className="object-cover" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-1.5">
+                                                    <p className="font-black text-sm uppercase tracking-tight text-gray-950 truncate leading-tight">{it.name}</p>
+                                                    {it.dietary && <div className={cn("h-2 w-2 rounded-full", it.dietary === 'veg' ? 'bg-green-600' : 'bg-red-600')}></div>}
+                                                </div>
+                                                <p className="text-[10px] font-black text-primary opacity-60">₹{it.price.toFixed(0)}</p>
+                                            </div>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex items-center gap-2">
+                                            <Switch checked={it.isAvailable !== false} onCheckedChange={() => toggleAvailability(it)} />
+                                            <span className="text-[8px] font-black uppercase opacity-40">{it.isAvailable !== false ? 'In' : 'Out'}</span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="text-right pr-6">
+                                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-black/5" onClick={() => { setEditingItem(it); setIsEditDialogOpen(true); }}>
+                                            <Edit className="h-4 w-4" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                     <div className="p-6 border-t border-black/5 bg-black/5">
+                        <Button onClick={onReplace} variant="destructive" className="w-full rounded-2xl font-black text-[10px] uppercase tracking-widest h-14 shadow-lg active:scale-95 transition-all">
+                            Delete & Start Over
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+
+             <Card className="rounded-3xl border-0 shadow-xl overflow-hidden h-fit bg-white">
+                <CardHeader className="bg-primary/5 border-b border-black/5 pb-6">
+                    <CardTitle className="text-xl font-black uppercase tracking-tight text-gray-950">Floor Map QR Hub</CardTitle>
+                    <CardDescription className="text-xs font-bold opacity-40 uppercase tracking-widest">Create unique scans for tables</CardDescription>
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
+                    <div className="flex gap-2">
+                        <Input 
+                            placeholder="Add Table (e.g. T-1)" 
+                            value={newZoneName}
+                            onChange={e => setNewZoneName(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleAddZone()}
+                            className="h-12 rounded-xl border-2 font-black uppercase text-xs"
+                        />
+                        <Button 
+                            onClick={handleAddZone} 
+                            disabled={!newZoneName.trim() || isAddingZone}
+                            className="h-12 w-12 rounded-xl shrink-0 shadow-lg"
+                        >
+                            {isAddingZone ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-5 w-5" />}
+                        </Button>
+                    </div>
+
+                    <div className="space-y-3">
+                        {store.tables?.length ? (
+                            <div className="grid grid-cols-1 gap-3">
+                                {store.tables.map(t => (
+                                    <div key={t} className="flex gap-2">
+                                        <Dialog>
+                                            <DialogTrigger asChild>
+                                                <Button variant="outline" className="flex-1 h-14 rounded-2xl border-2 justify-between px-5 font-black uppercase text-xs tracking-widest hover:border-primary transition-all">
+                                                    <span>{t}</span>
+                                                    <QrCode className="h-5 w-5 text-primary opacity-20" />
+                                                </Button>
+                                            </DialogTrigger>
+                                            <QRCodeDialog table={t} store={store} />
+                                        </Dialog>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-14 w-12 rounded-2xl text-destructive hover:bg-red-50"
+                                            onClick={() => handleRemoveZone(t)}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-16 opacity-30">
+                                <QrCode className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                                <p className="text-[10px] font-black uppercase tracking-widest">No Active Zones</p>
+                            </div>
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
     );
 }
 
@@ -487,118 +693,129 @@ function EditMenuItemDialog({
   );
 }
 
-function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, menu: Menu, onReplace: () => void }) {
-    const { toast } = useToast(); const { firestore } = useFirebase(); const [isGenerating, startGeneration] = useTransition(); const [menu, setMenu] = useState(initialMenu);
-    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false); const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
-    const [cachedStatus, setCachedStatus] = useState<Record<string, boolean>>({});
+function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComplete: () => void }) {
+    const { toast } = useToast();
+    const { firestore } = useFirebase();
+    const [isProcessing, startProcessing] = useTransition();
+    const [isSaving, startSave] = useTransition();
+    const [extractedData, setExtractedData] = useState<{items: MenuItem[], theme: MenuTheme, businessType: 'restaurant' | 'salon' | 'grocery'} | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    useEffect(() => { setMenu(initialMenu); }, [initialMenu]);
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !firestore) return;
 
-    const persistMenu = async (uM: Menu) => {
-        if (!firestore) return false;
-        try { await setDoc(doc(firestore, `stores/${store.id}/menus`, uM.id), uM, { merge: true }); return true; } catch (e) { return false; }
-    };
-
-    const handleSaveItem = async (itemData: MenuItem, isNew: boolean) => {
-        let uI;
-        if (isNew) { uI = [...menu.items, { ...itemData, id: createSlug(itemData.name), isAvailable: true }]; } 
-        else { uI = menu.items.map(i => i.id === editingItem?.id ? { ...i, ...itemData } : i); }
-        const uM = { ...menu, items: uI }; setMenu(uM);
-        if (!(await persistMenu(uM))) setMenu(menu); else toast({ title: "Saved!" });
-    };
-
-    const handleDeleteItem = async (it: MenuItem) => {
-         const uI = menu.items.filter(i => i.id !== it.id);
-         const uM = { ...menu, items: uI }; setMenu(uM);
-         if (!(await persistMenu(uM))) setMenu(menu); else toast({ title: "Deleted" });
-    }
-
-    const toggleAvailability = async (it: MenuItem) => {
-        const currentStatus = it.isAvailable !== false; // Default to available
-        const uI = menu.items.map(i => i.id === it.id ? { ...i, isAvailable: !currentStatus } : i);
-        const uM = { ...menu, items: uI }; setMenu(uM);
-        if (!(await persistMenu(uM))) { setMenu(menu); toast({ variant: 'destructive', title: 'Toggle Failed' }); }
-    };
-
-    const handleGenerateIngredients = async (item: MenuItem) => {
-        startGeneration(async () => {
+        startProcessing(async () => {
             try {
-                const result = await getIngredientsForDish({ dishName: item.name, language: 'en' });
-                if (result.isSuccess) { toast({ title: 'Cached!' }); setCachedStatus(p => ({ ...p, [item.id]: true })); }
-            } catch (e) { toast({ variant: 'destructive', title: 'Failed' }); }
+                const reader = new FileReader();
+                const imageData = await new Promise<string>((resolve) => {
+                    reader.onload = (e) => resolve(e.target?.result as string);
+                    reader.readAsDataURL(file);
+                });
+
+                const result = await extractMenuItems({ menuImage: imageData });
+                if (result && result.items) {
+                    setExtractedData({
+                        items: result.items.map(i => ({ ...i, id: createSlug(i.name), isAvailable: true })),
+                        theme: result.theme,
+                        businessType: result.businessType
+                    });
+                    toast({ title: "Menu Scanned!", description: `AI detected a ${result.businessType} vertical.` });
+                }
+            } catch (error: any) {
+                toast({ variant: 'destructive', title: 'Extraction Failed', description: error.message });
+            }
         });
     };
-    
+
+    const handleSaveMenu = () => {
+        if (!firestore || !extractedData) return;
+        startSave(async () => {
+            const batch = writeBatch(firestore);
+            const menuRef = doc(collection(firestore, `stores/${storeId}/menus`));
+            
+            batch.set(menuRef, {
+                id: menuRef.id,
+                storeId,
+                items: extractedData.items,
+                theme: extractedData.theme
+            });
+
+            batch.update(doc(firestore, 'stores', storeId), { 
+                businessType: extractedData.businessType 
+            });
+
+            try {
+                await batch.commit();
+                toast({ title: "Business Live!", description: "Digital menu and vertical synced successfully." });
+                setExtractedData(null);
+                onComplete();
+            } catch (error: any) {
+                const permissionError = new FirestorePermissionError({
+                    path: `stores/${storeId}/menus`,
+                    operation: 'create',
+                    requestResourceData: { items: extractedData.items }
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            }
+        });
+    };
+
     return (
-        <div className="grid md:grid-cols-2 gap-8">
-            {isEditDialogOpen && <EditMenuItemDialog isOpen={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} onSave={handleSaveItem} existingItem={editingItem} onDeleteItem={handleDeleteItem} />}
-            <Card className="rounded-3xl border-0 shadow-xl overflow-hidden">
-                <CardHeader className="bg-primary/5 border-b border-black/5 pb-6"><div className="flex justify-between items-center"><CardTitle className="text-xl font-black uppercase tracking-tight">Active Menu</CardTitle><Button size="sm" variant="outline" className="rounded-xl font-black text-[9px] uppercase border-2 h-8 px-4" onClick={() => { setEditingItem(null); setIsEditDialogOpen(true); }}>Add Item</Button></div></CardHeader>
-                <CardContent className="p-0">
-                     <Table>
-                        <TableHeader className="bg-black/5"><TableRow><TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Item</TableHead><TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Stock</TableHead><TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Specialist</TableHead><TableHead className="text-right text-[10px] font-black uppercase tracking-widest opacity-40">Edit</TableHead></TableRow></TableHeader>
-                        <TableBody>
-                            {menu.items.map((it) => (
-                                <TableRow key={it.id} className={cn("hover:bg-muted/30", it.isAvailable === false && "opacity-50")}>
-                                    <TableCell className="py-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="relative h-10 w-10 rounded-xl overflow-hidden border bg-muted shrink-0"><Image src={it.imageUrl || ADIRES_LOGO} alt={it.name} fill className="object-cover" /></div>
-                                            <div className="min-w-0">
-                                                <div className="flex items-center gap-1.5">
-                                                    <p className="font-bold text-sm leading-tight truncate">{it.name}</p>
-                                                    {it.dietary && <div className={cn("h-2.5 w-2.5 rounded-sm border-2", it.dietary === 'veg' ? 'border-green-600 bg-green-600' : 'border-red-600 bg-red-600')}></div>}
-                                                </div>
-                                                <p className="text-[10px] font-black text-primary opacity-60">₹{it.price.toFixed(0)}</p>
-                                            </div>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Switch checked={it.isAvailable !== false} onCheckedChange={() => toggleAvailability(it)} />
-                                    </TableCell>
-                                    <TableCell>
-                                        {cachedStatus[it.id] ? (
-                                            <Badge className="rounded-md bg-green-500 text-white text-[8px] font-black uppercase">Cached</Badge>
-                                        ) : (
-                                            <Button 
-                                                size="sm" 
-                                                variant="ghost" 
-                                                className="h-7 text-[8px] font-black uppercase tracking-widest opacity-40"
-                                                onClick={() => handleGenerateIngredients(it)}
-                                                disabled={isGenerating}
-                                            >
-                                                {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Cache'}
-                                            </Button>
-                                        )}
-                                    </TableCell>
-                                    <TableCell className="text-right"><Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => { setEditingItem(it); setIsEditDialogOpen(true); }}><Edit className="h-4 w-4" /></Button></TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                     <div className="p-6 border-t border-black/5 bg-black/5"><Button onClick={onReplace} variant="destructive" className="w-full rounded-xl font-black text-[10px] uppercase tracking-widest h-12 shadow-lg">Delete & Start Over</Button></div>
-                </CardContent>
-            </Card>
-             <Card className="rounded-3xl border-0 shadow-xl overflow-hidden h-fit">
-                <CardHeader className="bg-primary/5 border-b border-black/5 pb-6"><CardTitle className="text-xl font-black uppercase tracking-tight">Floor Map QR Codes</CardTitle><CardDescription className="text-xs font-bold opacity-40 uppercase">Unique scans for every table</CardDescription></CardHeader>
-                <CardContent className="p-6 space-y-4">
-                    {store.tables?.length ? (
-                        <div className="grid grid-cols-2 gap-3">
-                            {store.tables.map(t => (
-                                <Dialog key={t}>
-                                    <DialogTrigger asChild>
-                                        <Button variant="outline" className="h-14 rounded-2xl border-2 justify-between px-4 font-black uppercase text-[10px] tracking-widest">
-                                            <span>{t}</span>
-                                            <QrCode className="h-4 w-4 opacity-20" />
-                                        </Button>
-                                    </DialogTrigger>
-                                    <QRCodeDialog table={t} storeId={store.id} />
-                                </Dialog>
-                            ))}
+        <Card className="rounded-3xl border-0 shadow-xl overflow-hidden bg-primary/5 border-2 border-dashed border-primary/20">
+            <CardHeader className="text-center pb-2">
+                <CardTitle className="text-xl font-black uppercase tracking-tight">AI Menu Scanner</CardTitle>
+                <CardDescription className="text-xs font-bold opacity-40 uppercase tracking-widest">Digitize your paper menu instantly</CardDescription>
+            </CardHeader>
+            <CardContent className="p-8">
+                {extractedData ? (
+                    <div className="space-y-6">
+                        <ScrollArea className="h-64 rounded-2xl border bg-white shadow-inner">
+                            <Table>
+                                <TableHeader className="bg-black/5">
+                                    <TableRow>
+                                        <TableHead className="text-[10px] font-black uppercase">Category</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase">Item</TableHead>
+                                        <TableHead className="text-right text-[10px] font-black uppercase">Price</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {extractedData.items.map((i, idx) => (
+                                        <TableRow key={idx}>
+                                            <TableCell className="text-[10px] font-bold opacity-40 uppercase">{i.category}</TableCell>
+                                            <TableCell className="font-bold text-xs">{i.name}</TableCell>
+                                            <TableCell className="text-right font-black text-xs">₹{i.price}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </ScrollArea>
+                        <div className="flex gap-2">
+                            <Button onClick={handleSaveMenu} disabled={isSaving} className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
+                                {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                                Go Live Now
+                            </Button>
+                            <Button variant="ghost" onClick={() => setExtractedData(null)} disabled={isSaving} className="rounded-xl h-12 px-6">Cancel</Button>
                         </div>
-                    ) : <div className="text-center py-10 opacity-30"><p className="text-xs font-black uppercase tracking-widest mb-4">No tables found</p><Button asChild variant="secondary" className="rounded-xl font-black text-[10px] uppercase h-10 px-6"><Link href="/dashboard/owner/my-store">Go to Store Details</Link></Button></div>}
-                </CardContent>
-            </Card>
-        </div>
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center">
+                        <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+                            <Sparkles className="h-8 w-8 text-primary" />
+                        </div>
+                        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
+                        <Button 
+                            onClick={() => fileInputRef.current?.click()} 
+                            disabled={isProcessing}
+                            className="w-full h-14 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20"
+                        >
+                            {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <UploadIcon className="mr-2 h-5 w-5" />}
+                            {isProcessing ? 'AI Reading Menu...' : 'Upload Menu Photo'}
+                        </Button>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
     );
 }
 
@@ -634,9 +851,7 @@ export default function MenuManagerPage() {
                 await batch.commit(); 
                 toast({ title: 'Menu Saved!', description: `Store updated to ${extractedData.businessType} mode.` }); 
                 
-                // CRITICAL: Update local Zustand state so the dashboard reflects the new vertical immediately
                 setUserStore({ ...store, ...updatedStoreData });
-                
                 setExtractedData(null); 
                 rM?.(); 
             } catch (e) { 
@@ -655,7 +870,7 @@ export default function MenuManagerPage() {
                 <MenuDisplay store={store} menu={existingMenu} onReplace={() => setExtractedData({ items: [], theme: existingMenu.theme || { backgroundColor: '#ffffff', primaryColor: '#000000', textColor: '#000000' }, businessType: store.businessType || 'restaurant' })} />
             ) : (
                  <div className="grid md:grid-cols-2 gap-8">
-                     <MenuUploader onMenuExtracted={setExtractedData} />
+                     <MenuOnboardingTool storeId={store.id} onComplete={() => rM?.()} />
                      {extractedData && (
                         <Card className="rounded-3xl border-0 shadow-xl overflow-hidden h-fit">
                             <CardHeader className="bg-primary/5 border-b border-black/5 pb-6">
