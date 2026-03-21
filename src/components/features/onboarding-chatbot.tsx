@@ -26,12 +26,13 @@ import {
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import { format } from 'date-fns';
 
 type Message = {
     id: string;
     role: 'bot' | 'user';
     text: string;
-    type?: 'options' | 'location' | 'summary' | 'success';
+    type?: 'options' | 'location' | 'summary' | 'success' | 'businessType' | 'address' | 'review';
 };
 
 type OnboardingData = {
@@ -84,8 +85,10 @@ export function OnboardingChatbot({ onComplete }: { onComplete: (storeId: string
 
     // Initial message
     useEffect(() => {
-        addBotMessage(STEPS[0].question);
-    }, []);
+        if (messages.length === 0) {
+            addBotMessage(STEPS[0].question);
+        }
+    }, [messages.length]);
 
     const addBotMessage = (text: string, type?: Message['type']) => {
         setIsKitchenTyping(true);
