@@ -95,7 +95,7 @@ function LanguageSwitcher() {
 }
 
 function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: string) => void, user: User | null }) {
-    const [isCartOpen, setIsCartOpen] = useState(false);
+    const { setCartOpen, isCartOpen } = useAppStore();
     return (
         <header className="bg-background sticky top-0 z-20 px-4 pt-4 pb-2 border-b">
             <div className="flex justify-between items-center mb-3">
@@ -110,7 +110,7 @@ function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: strin
                 </div>
                  <div className="flex items-center gap-1">
                     <LanguageSwitcher />
-                    <CartIcon open={isCartOpen} onOpenChange={setIsCartOpen} />
+                    <CartIcon open={isCartOpen} onOpenChange={setCartOpen} />
                 </div>
             </div>
             <div className="flex items-center gap-3 bg-[#F1F3F5] p-2.5 rounded-xl border border-gray-200 shadow-inner">

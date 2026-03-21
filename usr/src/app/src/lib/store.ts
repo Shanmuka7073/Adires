@@ -32,6 +32,7 @@ export interface AppState {
   language: string;
   activeStoreId: string | null;
   deviceId: string | null; 
+  isCartOpen: boolean;
   readCount: number;
   writeCount: number;
   incrementReadCount: (count?: number) => void;
@@ -41,6 +42,7 @@ export interface AppState {
   setUserStore: (store: Store | null) => void;
   setAppReady: (ready: boolean) => void;
   setDeviceId: (id: string) => void;
+  setCartOpen: (open: boolean) => void;
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
   getAllAliases: (key: string) => Record<string, string[]>;
   setLocales: (newLocales: Locales) => void;
@@ -48,7 +50,7 @@ export interface AppState {
   // Deprecated/Purged Grocery Methods
   masterProducts: any[];
   productPrices: any;
-  fetchProductPrices: any;
+  fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
   getProductName: (product: any) => string;
 }
 
@@ -75,6 +77,7 @@ export const useAppStore = create<AppState>()(
       language: getInitialLanguage(),
       activeStoreId: null,
       deviceId: null,
+      isCartOpen: false,
       readCount: 0,
       writeCount: 0,
 
@@ -94,6 +97,7 @@ export const useAppStore = create<AppState>()(
       setLocales: (newLocales: Locales) => set({ locales: newLocales }),
       setCommands: (newCommands: Record<string, CommandGroup>) => set({ commands: newCommands }),
       setActiveStoreId: (storeId: string | null) => set({ activeStoreId: storeId }),
+      setCartOpen: (open: boolean) => set({ isCartOpen: open }),
 
       fetchInitialData: async (db: Firestore, userId?: string) => {
         if (get().loading) return;
@@ -156,7 +160,10 @@ export const useAppStore = create<AppState>()(
         return getAliasesFromLocales(get().locales, key);
       },
 
-      fetchProductPrices: async () => {},
+      fetchProductPrices: async (db: Firestore, productNames: string[]) => {
+          // Stub for legacy compatibility
+          return Promise.resolve();
+      },
       getProductName: (product: any) => product?.name || '',
     }),
     {
