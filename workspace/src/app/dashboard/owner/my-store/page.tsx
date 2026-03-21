@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useEffect, useMemo, useRef } from 'react';
@@ -37,7 +38,6 @@ import { useToast } from '@/hooks/use-toast';
 import type { Store, Product, User as AppUser } from '@/lib/types';
 import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, writeBatch, doc, updateDoc } from 'firebase/firestore';
-import { uploadStoreImage } from '@/app/actions';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
@@ -61,12 +61,11 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Share2, MapPin, Trash2, AlertCircle, ImageIcon, Loader2, PlusCircle, Edit, Save } from 'lucide-react';
+import { Share2, MapPin, Trash2, AlertCircle, ImageIcon, Loader2, PlusCircle, Edit, Save, Smartphone, CheckCircle2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { useAppStore, useMyStorePageStore, type ProfileFormValues } from '@/lib/store';
-import { Badge } from '@/components/ui/badge';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 const createSlug = (text: string) => {
@@ -102,6 +101,7 @@ type LocationFormValues = z.infer<typeof locationSchema>;
 
 function StoreImageUploader({ store }: { store: Store }) {
     const { toast } = useToast();
+    const { firestore } = useFirebase();
     const [isSaving, startSaveTransition] = useTransition();
     const [imageUrl, setImageUrl] = useState(store.imageUrl || '');
 
@@ -110,22 +110,24 @@ function StoreImageUploader({ store }: { store: Store }) {
     }, [store.imageUrl]);
 
     const handleSave = () => {
-        if (!imageUrl) {
+        if (!imageUrl || !firestore) {
             toast({ variant: 'destructive', title: 'URL is required.' });
             return;
         }
 
         startSaveTransition(async () => {
-            const result = await uploadStoreImage(store.id, imageUrl);
-            if (result.success) {
-                toast({ title: 'Image URL Updated!' });
-            } else {
-                toast({
-                    variant: 'destructive',
-                    title: 'Update Failed',
-                    description: result.error || 'The server action failed.',
+            const storeRef = doc(firestore, 'stores', store.id);
+            updateDoc(storeRef, { imageUrl: imageUrl })
+                .then(() => {
+                    toast({ title: 'Image URL Updated!' });
+                })
+                .catch((e) => {
+                    errorEmitter.emit('permission-error', new FirestorePermissionError({
+                        path: storeRef.path,
+                        operation: 'update',
+                        requestResourceData: { imageUrl },
+                    }));
                 });
-            }
         });
     };
 
@@ -156,9 +158,9 @@ function StoreImageUploader({ store }: { store: Store }) {
                         disabled={isSaving}
                     />
                 </div>
-                <Button onClick={handleSave} disabled={isSaving} className="w-full">
+                <Button onClick={handleSave} disabled={isSaving} className="w-full h-11 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg">
                     {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                    Save Image URL
+                    Save Identity Image
                 </Button>
             </CardContent>
         </Card>
@@ -241,7 +243,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                 <CardTitle>Business Information</CardTitle>
                 <Dialog open={isOpen} onOpenChange={setIsOpen}>
                     <DialogTrigger asChild><Button variant="outline" size="sm"><Edit className="h-4 w-4 mr-2"/> Edit</Button></DialogTrigger>
-                    <DialogContent className="max-w-2xl"><Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4"><FormField control={form.control} name="name" render={({ field }: { field: any }) => (<FormItem><FormLabel>Name</FormLabel><FormControl><Input {...field}/></FormControl></FormItem>)}/><FormField control={form.control} name="description" render={({ field }: { field: any }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Textarea {...field}/></FormControl></FormItem>)}/><Button type="submit" disabled={isPending}>Save</Button></form></Form></DialogContent>
+                    <DialogContent className="max-w-2xl"><Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4"><FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Name</FormLabel><FormControl><Input {...field}/></FormControl></FormItem>)}/><FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Textarea {...field}/></FormControl></FormItem>)}/><Button type="submit" disabled={isPending}>Save</Button></form></Form></DialogContent>
                 </Dialog>
             </CardHeader>
             <CardContent className="text-sm space-y-2"><p><strong>Address:</strong> {store.address}</p><p><strong>Description:</strong> {store.description}</p></CardContent>
@@ -273,7 +275,7 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
         <Alert variant="destructive">
             <AlertTitle>Update Location</AlertTitle>
             <AlertDescription>GPS coordinates missing.</AlertDescription>
-            <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4"><div className="grid grid-cols-2 gap-4"><FormField control={form.control} name="latitude" render={({ field }: { field: any }) => (<FormItem><FormControl><Input type="number" step="any" {...field} /></FormControl></FormItem>)} /><FormField control={form.control} name="longitude" render={({ field }: { field: any }) => (<FormItem><FormControl><Input type="number" step="any" {...field} /></FormControl></FormItem>)} /></div><div className="flex gap-2"><Button type="button" variant="outline" onClick={handleGetLocation}>Get GPS</Button><Button type="submit" disabled={isPending}>Save</Button></div></form></Form>
+            <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4"><div className="grid grid-cols-2 gap-4"><FormField control={form.control} name="latitude" render={({ field }) => (<FormItem><FormControl><Input type="number" step="any" {...field} /></FormControl></FormItem>)} /><FormField control={form.control} name="longitude" render={({ field }) => (<FormItem><FormControl><Input type="number" step="any" {...field} /></FormControl></FormItem>)} /></div><div className="flex gap-2"><Button type="button" variant="outline" onClick={handleGetLocation}>Get GPS</Button><Button type="submit" disabled={isPending}>Save</Button></div></form></Form>
         </Alert>
     );
 }

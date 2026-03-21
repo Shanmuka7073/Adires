@@ -3,31 +3,38 @@
 
 import { useState, useTransition } from 'react';
 import { useFirebase } from '@/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+  updateProfile,
+  sendPasswordResetEmail
+} from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, UserPlus, LogIn, KeyRound } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useRouter } from 'next/navigation';
 
 /**
- * A reusable authentication component that handles Sign In and Sign Up.
- * It uses Firebase Client SDK and non-blocking transitions.
+ * Personalized Auth Component for Adires.
+ * Includes personalized sign-up and forgot password functionality.
  */
 export function NonBlockingLogin() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [accountType, setAccountType] = useState<'groceries' | 'restaurant'>('groceries');
   const [isPending, startTransition] = useTransition();
+  const [isResetPending, startResetTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const { auth, firestore } = useFirebase();
   const { toast } = useToast();
-  const router = useRouter();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,27 +44,82 @@ export function NonBlockingLogin() {
     startTransition(async () => {
       try {
         if (isSignUp) {
+          if (!firstName || !lastName) {
+            throw new Error("First and Last name are required for account personalization.");
+          }
+
+          // 1. Create the user account
           const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          await setDoc(doc(firestore, 'users', userCredential.user.uid), {
-            id: userCredential.user.uid,
+          const user = userCredential.user;
+
+          // 2. Update the Auth Profile
+          await updateProfile(user, {
+            displayName: `${firstName} ${lastName}`.trim()
+          });
+          
+          // 3. Send the Verification Email
+          await sendEmailVerification(user);
+
+          // 4. Create the Firestore profile
+          await setDoc(doc(firestore, 'users', user.uid), {
+            id: user.uid,
             email,
-            firstName: '',
-            lastName: '',
+            firstName,
+            lastName,
             address: '',
             phoneNumber: '',
             accountType,
           });
-          toast({ title: 'Account Created!', description: 'Welcome to the platform.' });
+          
+          toast({ 
+            title: 'Account Created!', 
+            description: `Welcome ${firstName}! Please check your email to verify your account.` 
+          });
         } else {
-          await signInWithEmailAndPassword(auth, email, password);
-          toast({ title: 'Welcome Back!' });
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          
+          if (!userCredential.user.emailVerified && userCredential.user.email !== 'admin@gmail.com') {
+             await sendEmailVerification(userCredential.user);
+             toast({ 
+               title: 'Verification Required', 
+               description: 'We have sent a new verification link to your inbox.' 
+             });
+          }
         }
-        // Redirect will be handled by the parent page's auth listener
       } catch (err: any) {
         setError(err.message);
         toast({
           variant: 'destructive',
-          title: 'Authentication Failed',
+          title: 'Authentication Error',
+          description: err.message,
+        });
+      }
+    });
+  };
+
+  const handleForgotPassword = () => {
+    if (!email) {
+      toast({
+        variant: 'destructive',
+        title: 'Email Required',
+        description: 'Please enter your email address first to receive a reset link.',
+      });
+      return;
+    }
+
+    if (!auth) return;
+
+    startResetTransition(async () => {
+      try {
+        await sendPasswordResetEmail(auth, email);
+        toast({
+          title: 'Reset Email Sent',
+          description: `A secure password reset link has been sent to ${email}.`,
+        });
+      } catch (err: any) {
+        toast({
+          variant: 'destructive',
+          title: 'Reset Failed',
           description: err.message,
         });
       }
@@ -67,81 +129,93 @@ export function NonBlockingLogin() {
   return (
     <Card className="w-full max-w-md shadow-2xl border-t-4 border-t-primary rounded-[2.5rem] overflow-hidden bg-white">
       <CardHeader className="text-center pb-2 pt-8">
+        <div className="mx-auto w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-4">
+            {isSignUp ? <UserPlus className="h-6 w-6" /> : <LogIn className="h-6 w-6" />}
+        </div>
         <CardTitle className="text-3xl font-black font-headline tracking-tighter uppercase italic">
           {isSignUp ? 'Join Adires' : 'Welcome Back'}
         </CardTitle>
         <CardDescription className="font-bold opacity-40 uppercase text-[10px] tracking-widest">
-          {isSignUp
-            ? 'Create a business or personal account'
-            : 'Access your secure dashboard'}
+          {isSignUp ? 'Create your business or personal account' : 'Sign in to access your dashboard'}
         </CardDescription>
       </CardHeader>
       <CardContent className="p-8">
         <form onSubmit={handleSubmit} className="space-y-6">
+          {isSignUp && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase opacity-40">First Name</Label>
+                <Input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="e.g. Rahul" required className="h-12 rounded-xl border-2" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase opacity-40">Last Name</Label>
+                <Input value={lastName} onChange={e => setLastName(e.target.value)} placeholder="e.g. Sharma" required className="h-12 rounded-xl border-2" />
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-[10px] font-black uppercase opacity-40 tracking-widest">Email Address</Label>
-            <Input 
-                id="email" 
-                type="email" 
-                value={email} 
-                onChange={e => setEmail(e.target.value)} 
-                placeholder="m@example.com" 
-                required 
-                className="h-12 rounded-xl border-2 focus:ring-primary" 
-            />
+            <Label className="text-[10px] font-black uppercase opacity-40">Email Address</Label>
+            <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@email.com" required className="h-12 rounded-xl border-2" />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="password" className="text-[10px] font-black uppercase opacity-40 tracking-widest">Password</Label>
-            <Input 
-                id="password" 
-                type="password" 
-                value={password} 
-                onChange={e => setPassword(e.target.value)} 
-                required 
-                className="h-12 rounded-xl border-2" 
-            />
+            <Label className="text-[10px] font-black uppercase opacity-40">Security Password</Label>
+            <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required={!isResetPending} className="h-12 rounded-xl border-2" />
+            
+            {!isSignUp && (
+              <div className="flex justify-end pt-1">
+                <button 
+                  type="button" 
+                  onClick={handleForgotPassword}
+                  disabled={isResetPending}
+                  className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline hover:text-primary/80 transition-colors disabled:opacity-50"
+                >
+                  {isResetPending ? 'Sending Link...' : 'Forgot Password?'}
+                </button>
+              </div>
+            )}
           </div>
 
           {isSignUp && (
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase opacity-40 tracking-widest">Account Purpose</Label>
+              <Label className="text-[10px] font-black uppercase opacity-40">Identify Your Role</Label>
               <Select value={accountType} onValueChange={(v: any) => setAccountType(v)}>
                 <SelectTrigger className="h-12 rounded-xl border-2">
-                  <SelectValue placeholder="Select an account type" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="rounded-2xl">
-                  <SelectItem value="groceries">Personal (Shop & Order)</SelectItem>
-                  <SelectItem value="restaurant">Business (Store, Restaurant, Salon)</SelectItem>
+                  <SelectItem value="groceries">Personal (Shopping)</SelectItem>
+                  <SelectItem value="restaurant">Business (Store/Restaurant/Salon)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           )}
 
           {error && (
-            <div className="flex items-center gap-2 text-destructive bg-red-50 p-4 rounded-2xl border border-red-100">
+            <div className="flex items-center gap-2 text-destructive bg-red-50 p-4 rounded-2xl border border-red-100 animate-in shake-2">
                 <AlertCircle className="h-5 w-5 shrink-0" />
                 <p className="text-xs font-bold leading-tight">{error}</p>
             </div>
           )}
 
-          <Button 
-            type="submit" 
-            className="w-full h-14 text-base font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/20 transition-all active:scale-95" 
-            disabled={isPending}
-          >
-            {isPending ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : (isSignUp ? 'Create My Account' : 'Sign In')}
+          <Button type="submit" className="w-full h-14 font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/20" disabled={isPending}>
+            {isPending ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : (isSignUp ? 'Create My Account' : 'Sign In Now')}
           </Button>
         </form>
         
         <div className="mt-8 pt-6 border-t border-black/5 text-center">
-          <p className="text-muted-foreground font-bold text-xs uppercase tracking-tight">
-            {isSignUp ? "Already have an account?" : "Don't have an account?"}
+          <p className="text-muted-foreground font-bold text-xs uppercase">
+            {isSignUp ? "Already a member?" : "New to Adires?"}
             <button 
-                onClick={() => setIsSignUp(!isSignUp)}
-                className="text-primary font-black uppercase ml-2 hover:underline"
+                type="button"
+                onClick={() => {
+                    setError(null);
+                    setIsSignUp(!isSignUp);
+                }} 
+                className="text-primary font-black uppercase ml-2 hover:underline decoration-2"
             >
-              {isSignUp ? 'Sign In' : 'Sign Up Free'}
+              {isSignUp ? 'Login' : 'Join Now'}
             </button>
           </p>
         </div>

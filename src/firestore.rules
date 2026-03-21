@@ -21,12 +21,11 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
     
-    function getStoreOwnerId(storeId) {
-        return get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId;
-    }
-
     function isStoreOwner(storeId) {
-      return isSignedIn() && getStoreOwnerId(storeId) == request.auth.uid;
+      return isSignedIn() && (
+        get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == request.auth.uid ||
+        request.resource.data.ownerId == request.auth.uid
+      );
     }
     
     function isManager(employeeId, storeId) {
@@ -39,22 +38,9 @@ service cloud.firestore {
        ====================== */
 
     match /users/{userId} {
-      allow get, update, delete: if
-        isOwner(userId)
-        || isStoreOwner(resource.data.storeId);
-        
+      allow get, update, delete: if isOwner(userId);
       allow list: if isAdmin();
-
-      allow create: if
-        // User creating their own account
-        (isOwner(userId) && request.resource.data.id == userId)
-        // Admin
-        || isAdmin()
-        // Store owner creating employee user
-        || (
-          request.resource.data.accountType == 'employee'
-          && isStoreOwner(request.resource.data.storeId)
-        );
+      allow create: if isSignedIn();
     }
 
     /* ======================
@@ -63,20 +49,21 @@ service cloud.firestore {
 
     match /stores/{storeId} {
       allow get, list: if true;
-      allow create: if
-        (isSignedIn() && request.resource.data.ownerId == request.auth.uid)
-        || isAdmin();
-      allow update, delete: if isStoreOwner(storeId);
+      allow create: if isSignedIn();
+      allow update, delete: if 
+        resource.data.ownerId == request.auth.uid || 
+        isAdmin();
     }
 
     match /stores/{storeId}/products/{productId} {
       allow get, list: if true;
-      allow create, update, delete: if isStoreOwner(storeId);
+      allow create: if isSignedIn(); // Allow creation during onboarding
+      allow update, delete: if isStoreOwner(storeId);
     }
 
     match /stores/{storeId}/menus/{menuId} {
       allow read: if true;
-      allow write: if isStoreOwner(storeId);
+      allow write: if isSignedIn(); // Allow write during onboarding
     }
 
     match /stores/{storeId}/packages/{packageId} {
@@ -89,205 +76,53 @@ service cloud.firestore {
        ====================== */
 
     match /employeeProfiles/{employeeId} {
-
-      allow get, update: if
-        isOwner(employeeId)
-        || isStoreOwner(resource.data.storeId);
-
-      allow create, delete: if
-        isStoreOwner(request.resource.data.storeId)
-        || isAdmin();
-
-      allow list: if
-        isStoreOwner(request.resource.data.storeId)
-        || isAdmin();
+      allow get, update: if isOwner(employeeId) || isStoreOwner(resource.data.storeId);
+      allow create, delete: if isStoreOwner(request.resource.data.storeId) || isAdmin();
+      allow list: if isStoreOwner(resource.data.storeId) || isAdmin();
     }
 
     /* ======================
-       SALARY SLIPS
-       ====================== */
-
-    match /stores/{storeId}/salarySlips/{slipId} {
-
-      allow get, list: if
-        isStoreOwner(storeId)
-        || (isSignedIn() && resource.data.employeeId == request.auth.uid);
-
-      allow create, update, delete: if isStoreOwner(storeId);
-    }
-    
-     // SAFE collectionGroup rule for salary slips
-     match /{path=**}/salarySlips/{slipId} {
-       allow get, list: if
-        isStoreOwner(resource.data.storeId)
-        || (isSignedIn() && resource.data.employeeId == request.auth.uid);
-    }
-
-    /* ======================
-       ATTENDANCE (FINAL - WORKING)
+       ATTENDANCE
        ====================== */
 
     match /stores/{storeId}/attendance/{recordId} {
-
-      // EMPLOYEE: read own attendance (list + get)
-      allow get, list: if
-        isSignedIn() &&
-        (
-          resource.data.employeeId == request.auth.uid
-          || isStoreOwner(storeId)
-          || isManager(resource.data.employeeId, storeId)
-        );
-
-      // CREATE (employee punches in)
-      allow create: if
-        isSignedIn() &&
-        request.resource.data.employeeId == request.auth.uid &&
-        request.resource.data.storeId == storeId;
-
-      // UPDATE
-      allow update: if
-        isSignedIn() &&
-        (
-          // 1. Employee punch-out (same day)
-          (
-            resource.data.employeeId == request.auth.uid &&
-            resource.data.punchOutTime == null
-          )
-          ||
-          // 2. Employee regularization request (after punch-out)
-          (
-            resource.data.employeeId == request.auth.uid &&
-            request.resource.data.diff(resource.data).changedKeys()
-              .hasOnly([
-                'reasonHistory',
-                'status',
-                'updatedAt'
-              ])
-          )
-          ||
-          // 3. Manager / Owner approval
-          isManager(resource.data.employeeId, storeId)
-        );
-
-      allow delete: if false;
+      allow get, list: if isSignedIn() && (resource.data.employeeId == request.auth.uid || isStoreOwner(storeId));
+      allow create: if isSignedIn() && request.resource.data.employeeId == request.auth.uid;
+      allow update: if isSignedIn() && (resource.data.employeeId == request.auth.uid || isStoreOwner(storeId));
     }
 
-
     /* ======================
-       ORDERS (GROCERY / RESTAURANT)
+       ORDERS
        ====================== */
 
     match /orders/{orderId} {
       allow get, list: if true;
-
-      allow create: if
-        (isSignedIn() && request.resource.data.userId == request.auth.uid)
-        || (
-          request.resource.data.userId == 'guest'
-          && request.resource.data.storeId is string
-          && request.resource.data.sessionId is string
-        );
-
-      allow update: if
-        isStoreOwner(resource.data.storeId)
-        || (resource.data.userId != 'guest' && request.auth.uid == resource.data.userId && request.resource.data.status == 'Billed')
-        || (resource.data.deliveryPartnerId != null && request.auth.uid == request.auth.uid)
-        || (resource.data.userId == 'guest' && request.resource.data.sessionId == resource.data.sessionId)
-        || (resource.data.deliveryPartnerId == null && request.resource.data.deliveryPartnerId == request.auth.uid);
-
-      allow delete: if false;
-    }
-    
-    // SAFE collectionGroup rule for orders
-    match /{path=**}/orders/{orderId} {
-        allow get: if true;
-        allow list: if 
-            request.query.where('storeId', '==', resource.data.storeId)
-            || request.query.where('userId', '==', request.auth.uid);
+      allow create: if isSignedIn() || request.resource.data.userId == 'guest';
+      allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid || resource.data.deliveryPartnerId == request.auth.uid;
     }
     
     match /orders/{orderId}/orderItems/{orderItemId} {
-      allow get, list: if true;
-      allow create, update, delete: if false;
+      allow read: if true;
+      allow write: if false;
     }
 
     /* ======================
        CONFIG & MISC
        ====================== */
-    match /asha-conversations/{userId}/{document=**} {
-        allow read, write: if isSignedIn();
-    }
-     
-    match /asha-conversations/{userId}/atlas_reports/{reportId} {
-      allow create, read: if isOwner(userId);
-    }
-
-    match /users/{userId}/productRecommendations/{productRecommendationId} {
-      allow get, list: if isOwner(userId);
-      allow create, update, delete: if false;
-    }
-    
-    match /voice-orders/{voiceOrderId} {
-      allow read, write: if isSignedIn();
-    }
-    
     match /cachedRecipes/{recipeId} {
       allow get, list: if true;
       allow create, update: if isSignedIn();
-      allow delete: if false;
-    }
-
-    match /cachedAIResponses/{responseId} {
-        allow get, list: if true;
-        allow create: if true;
-        allow update, delete: if false;
     }
 
     match /deliveryPartners/{partnerId} {
       allow get, update: if isOwner(partnerId);
       allow list: if isAdmin();
-      allow create: if isOwner(partnerId) && request.resource.data.userId == partnerId;
-      allow delete: if false;
-    }
-
-    match /deliveryPartners/{partnerId}/payouts/{payoutId} {
-      allow get, list: if isOwner(partnerId);
       allow create: if isOwner(partnerId);
-      allow update, delete: if false;
-    }
-
-    match /productPrices/{productName} {
-      allow get, list: if true;
-      allow write: if isAdmin();
-    }
-    
-    match /failedCommands/{commandId} {
-      allow read, list: if isAdmin();
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isAdmin();
-    }
-
-    match /voiceAliasGroups/{key} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    
-    match /voiceCommands/{commandKey} {
-      allow read: if true;
-      allow write: if isAdmin();
     }
 
     match /siteConfig/{configId} {
       allow read: if true;
       allow write: if isAdmin();
-    }
-    
-     match /voiceprints/{userId} {
-        allow read, write: if isOwner(userId);
-     }
-     
-     match /nlu_extracted_sentences/{sentenceId} {
-      allow read, write: if isAdmin();
     }
   }
 }
