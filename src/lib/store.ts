@@ -1,3 +1,4 @@
+
 'use client';
 
 import { create } from 'zustand';
@@ -37,11 +38,14 @@ export interface AppState {
   setAppReady: (ready: boolean) => void;
   setDeviceId: (id: string) => void;
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
-  // LEGACY STUBS: Kept only to satisfy outdated imports during build transition
+  // LEGACY STUBS: Kept to satisfy outdated imports during transition
   masterProducts: any[];
   productPrices: Record<string, any>;
   locales: Record<string, any>;
   commands: Record<string, any>;
+  fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
+  getProductName: (product: any) => string;
+  getAllAliases: (key: string) => Record<string, string[]>;
 }
 
 const getInitialLanguage = (): string => {
@@ -126,9 +130,14 @@ export const useAppStore = create<AppState>()(
           set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
+
+      // Legacy Stubs Implementation
+      fetchProductPrices: async () => {},
+      getProductName: (p: any) => p?.name || 'Item',
+      getAllAliases: () => ({}),
     }),
     {
-      name: 'localbasket-app-storage-v6',
+      name: 'localbasket-app-storage-v7',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,

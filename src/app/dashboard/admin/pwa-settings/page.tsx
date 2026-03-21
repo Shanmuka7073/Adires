@@ -1,7 +1,8 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Server, Smartphone, Video, Shield, ImageIcon, Home, FileCode, Loader2 } from 'lucide-react';
+import { Users, Store, ShoppingBag, Server, Smartphone, ImageIcon, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -76,7 +77,10 @@ export default function PwaSettingsPage() {
     }, [isAdminLoading, isAdmin, router]);
 
     if (isAdminLoading || !isAdmin) {
-        return <div className="p-12 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto opacity-20" /></div>;
+        return <div className="p-12 text-center flex flex-col items-center justify-center h-[60vh] gap-4">
+            <Loader2 className="animate-spin h-10 w-10 text-primary opacity-20" />
+            <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Verifying Settings Authority...</p>
+        </div>;
     }
 
     return (

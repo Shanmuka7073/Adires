@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Suspense, useState, useEffect, useTransition, useMemo } from 'react';
@@ -12,8 +13,6 @@ import {
   Zap,
   RefreshCw,
   ZapOff,
-  Flame,
-  ShieldCheck,
   Rocket,
   Lock,
   Shield,
@@ -23,16 +22,15 @@ import {
   FileSignature,
   Loader2,
   ImageIcon,
-  Smartphone
+  Smartphone,
+  ShieldCheck
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { getPlatformAnalytics, executeCommand } from '@/app/actions';
-import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 
 function KPICard({ title, value, subValue, trendValue, icon: Icon, color }: any) {
@@ -150,7 +148,10 @@ export default function AdminDashboardPage() {
       }
   };
 
-  if (isLoading) return <div className="p-12 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto opacity-20" /></div>;
+  if (isLoading) return <div className="p-12 text-center flex flex-col items-center justify-center h-[60vh] gap-4">
+      <Loader2 className="animate-spin h-10 w-10 text-primary opacity-20" />
+      <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Connecting to Ops Data...</p>
+  </div>;
 
   const currentMetrics = data?.periods?.[activePeriod] || data?.periods?.today || { revenue: 0, orders: 0, aov: 0, userReach: 0, trends: { revenue: 0, orders: 0, aov: 0, userReach: 0 } };
 
