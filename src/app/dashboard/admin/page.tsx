@@ -24,7 +24,9 @@ import {
   Smartphone,
   ShieldCheck,
   QrCode,
-  FileCode
+  FileCode,
+  WifiOff,
+  Activity
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -160,7 +162,7 @@ export default function AdminDashboardPage() {
     <div className="container mx-auto px-4 py-10 space-y-12 max-w-7xl pb-32 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row justify-between items-end gap-6 border-b pb-10 border-black/5">
         <div>
-            <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none">Decision Hub</h1>
+            <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950">Decision Hub</h1>
             <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">System Administration & Intelligence</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
@@ -179,7 +181,7 @@ export default function AdminDashboardPage() {
                 ))}
             </div>
             <div className="flex gap-2 self-end">
-                <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="rounded-full h-10 px-4 border-2 font-black text-[10px] uppercase tracking-widest">
+                <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="rounded-full h-10 px-4 border-2 font-black text-[10px] uppercase tracking-widest shadow-sm">
                     <RefreshCw className={cn("mr-2 h-4 w-4", isRefreshing && "animate-spin")} /> Force Sync
                 </Button>
             </div>
@@ -233,6 +235,13 @@ export default function AdminDashboardPage() {
                         <p className="font-black uppercase text-xs text-green-900">Infrastructure Stable</p>
                         <p className="text-[10px] font-bold text-green-800/60 uppercase">All core services operational.</p>
                     </div>
+                    <Link href="/dashboard/admin/offline-audit">
+                        <div className="p-8 rounded-[2.5rem] bg-indigo-50 border-2 border-indigo-100 flex flex-col items-center justify-center text-center gap-2 hover:bg-indigo-100 transition-colors group">
+                            <WifiOff className="h-10 w-10 text-indigo-600 opacity-40 group-hover:opacity-100 transition-opacity" />
+                            <p className="font-black uppercase text-xs text-indigo-900">Offline Sync Audit</p>
+                            <p className="text-[10px] font-bold text-indigo-800/60 uppercase">Check PWA & Registry Status</p>
+                        </div>
+                    </Link>
                 </div>
             </div>
 

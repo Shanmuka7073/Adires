@@ -66,7 +66,8 @@ import {
   History,
   Leaf,
   Phone,
-  Smartphone
+  Smartphone,
+  Activity
 } from 'lucide-react';
 
 import {
@@ -810,17 +811,21 @@ export default function PublicMenuPage() {
                 <div className="space-y-6">
                     {/* SEARCH & FILTERS WITH HIGH CONTRAST */}
                     <div className="flex gap-2 bg-white p-1.5 rounded-2xl border-2 border-black/5 overflow-x-auto no-scrollbar shadow-sm">
-                        <button 
-                            onClick={() => setVegOnly(!vegOnly)}
-                            className={cn(
-                                "flex items-center gap-2 px-4 h-9 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all shrink-0 border-2",
-                                vegOnly ? "bg-green-600 border-green-500 text-white shadow-lg" : "bg-muted border-transparent text-gray-400"
-                            )}
-                        >
-                            <Leaf className={cn("h-3 w-3", vegOnly ? "text-white" : "text-green-600")} />
-                            Veg Only
-                        </button>
-                        <Separator orientation="vertical" className="h-9 bg-black/5" />
+                        {store.businessType === 'restaurant' && (
+                            <>
+                                <button 
+                                    onClick={() => setVegOnly(!vegOnly)}
+                                    className={cn(
+                                        "flex items-center gap-2 px-4 h-9 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all shrink-0 border-2",
+                                        vegOnly ? "bg-green-600 border-green-500 text-white shadow-lg" : "bg-muted border-transparent text-gray-400"
+                                    )}
+                                >
+                                    <Leaf className={cn("h-3 w-3", vegOnly ? "text-white" : "text-green-600")} />
+                                    Veg Only
+                                </button>
+                                <Separator orientation="vertical" className="h-9 bg-black/5" />
+                            </>
+                        )}
                         <button 
                             onClick={() => setSelectedCategory(null)} 
                             className={cn(
@@ -847,13 +852,12 @@ export default function PublicMenuPage() {
                     </div>
 
                     <div className="relative group px-1">
-                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-950" />
                         <Input 
-                            placeholder="Search dishes..." 
+                            placeholder="Search dishes or services..." 
                             value={searchTerm} 
                             onChange={(e) => setSearchTerm(e.target.value)} 
-                            className="h-14 rounded-2xl bg-white border-4 border-gray-900/10 pl-12 text-sm font-black text-gray-950 placeholder:text-gray-300 shadow-2xl focus:border-primary transition-all" 
-                            style={{ borderColor: theme?.primaryColor ? theme.primaryColor + '60' : undefined }} 
+                            className="h-14 rounded-2xl bg-white border-4 border-gray-950 pl-12 text-sm font-black text-gray-950 placeholder:text-gray-300 shadow-2xl focus:ring-0 transition-all" 
                         />
                         {searchTerm && (
                             <button onClick={() => setSearchTerm('')} className="absolute right-5 top-1/2 -translate-y-1/2 h-6 w-6 bg-black/5 rounded-full flex items-center justify-center"><X className="h-3 w-3 text-gray-400" /></button>
@@ -910,9 +914,14 @@ export default function PublicMenuPage() {
             </div>
           </div>
 
-          {/* TWO-BUTTON INSTALLATION INTERFACE */}
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[400px] px-4 flex flex-col gap-3">
-              {/* GROZO (LOCALBASKET) INSTALL BUTTON */}
+              {/* DEBUG SYNC AUDIT (Visible to Admins or if button is missing for troubleshooting) */}
+              {!canInstall && (
+                  <Link href="/dashboard/admin/offline-audit" className="text-[8px] font-black uppercase tracking-[0.3em] opacity-30 text-center hover:opacity-100 transition-opacity">
+                      Install missing? Click here to find out why.
+                  </Link>
+              )}
+
               {canInstall && (
                   <div className="px-2">
                       <Button 
