@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useState, useTransition, useEffect, useMemo, useRef } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -33,9 +34,9 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import type { Store, Product, ProductPrice, User as AppUser, ProductVariant, MenuItem, Menu, MenuTheme } from '@/lib/types';
+import type { Store, MenuItem, Menu, MenuTheme } from '@/lib/types';
 import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, deleteDoc, limit } from 'firebase/firestore';
+import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, limit } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
@@ -57,24 +58,31 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Sparkles, PlusCircle, Edit, Link2, QrCode, Save, CheckCircle2 } from 'lucide-react';
+import { Share2, MapPin, Trash2, AlertCircle, ImageIcon, Loader2, Sparkles, PlusCircle, Edit, Save, CheckCircle2, Upload as UploadIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { useAppStore } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
-import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { extractMenuItems } from '@/ai/flows/extract-menu-items-flow';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
-const ADMIN_EMAIL = 'shanmuka7073@gmail.com';
+
+const createSlug = (text: string) => {
+    if(!text) return '';
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-') 
+      .replace(/[^\w-]+/g, '') 
+      .replace(/--+/g, '-') 
+      .replace(/^-+/, '') 
+      .replace(/-+$/, ''); 
+};
 
 const storeSchema = z.object({
   name: z.string().min(3, 'Store name must be at least 3 characters'),
@@ -88,9 +96,12 @@ const storeSchema = z.object({
 });
 
 const locationSchema = z.object({
-    latitude: z.coerce.number().min(-90).max(90),
-    longitude: z.coerce.number().min(-180).max(180),
+    latitude: z.coerce.number().min(-90, "Invalid latitude").max(90, "Invalid latitude"),
+    longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude"),
 });
+
+type StoreFormValues = z.infer<typeof storeSchema>;
+type LocationFormValues = z.infer<typeof locationSchema>;
 
 function StoreImageUploader({ store }: { store: Store }) {
     const { toast } = useToast();
@@ -185,7 +196,6 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
 
                 const result = await extractMenuItems({ menuImage: imageData });
                 if (result && result.items) {
-                    const createSlug = (text: string) => text.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
                     setExtractedData({
                         items: result.items.map(i => ({ ...i, id: createSlug(i.name), isAvailable: true })),
                         theme: result.theme,
@@ -288,7 +298,7 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
                             disabled={isProcessing}
                             className="w-full h-14 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20"
                         >
-                            {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Upload className="mr-2 h-5 w-5" />}
+                            {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <UploadIcon className="mr-2 h-5 w-5" />}
                             {isProcessing ? 'AI Reading Menu...' : 'Upload Menu Photo'}
                         </Button>
                     </div>
@@ -348,6 +358,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
     const [isOpen, setIsOpen] = useState(false);
+    
     const form = useForm<Omit<StoreFormValues, 'latitude' | 'longitude'>>({
         resolver: zodResolver(storeSchema.omit({ latitude: true, longitude: true })),
         defaultValues: {
@@ -669,13 +680,14 @@ function CreateStoreForm({ user, isAdmin }: { user: any; isAdmin: boolean; }) {
 
     const onSubmit = (data: StoreFormValues) => {
         if (!user || !firestore) return;
-        startTransition(() => {
+        startTransition(async () => {
             const storeData = { ...data, ownerId: user.uid, imageId: `store-${Math.floor(Math.random() * 3) + 1}`, isClosed: false };
-            addDoc(collection(firestore, 'stores'), storeData)
-                .then(() => toast({ title: 'Business Created!' }))
-                .catch((e) => {
-                    errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'stores', operation: 'create', requestResourceData: storeData }));
-                });
+            try {
+                await addDoc(collection(firestore, 'stores'), storeData);
+                toast({ title: 'Business Created!' });
+            } catch(e) {
+                errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'stores', operation: 'create', requestResourceData: storeData }));
+            }
         });
     };
 

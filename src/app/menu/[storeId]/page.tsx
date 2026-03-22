@@ -10,10 +10,10 @@ import {
   limit,
   Timestamp,
   orderBy,
-  setDoc,
   serverTimestamp,
   updateDoc,
-  writeBatch
+  writeBatch,
+  setDoc
 } from 'firebase/firestore';
 
 import type {
@@ -61,12 +61,9 @@ import {
   X,
   Calculator,
   ShoppingBag,
-  ArrowRight,
   History,
   Leaf,
   Phone,
-  Smartphone,
-  Activity,
   Globe
 } from 'lucide-react';
 
@@ -102,7 +99,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { getIngredientsForDish } from '@/app/actions';
 import { useInstall } from '@/components/install-provider';
@@ -532,7 +528,6 @@ export default function PublicMenuPage() {
   const { data: menus, isLoading: menuLoading } = useCollection<Menu>(useMemoFirebase(() => firestore ? query(collection(firestore, `stores/${storeId}/menus`)) : null, [firestore, storeId]));
   const menu = menus?.[0];
 
-  // Sync business identity instantly for branding
   useEffect(() => {
       if (store) {
           setUserStore(store);
