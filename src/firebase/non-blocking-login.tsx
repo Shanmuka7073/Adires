@@ -4,79 +4,58 @@
 import { useState, useTransition } from 'react';
 import { useFirebase } from '@/firebase';
 import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword,
-  sendEmailVerification,
-  updateProfile,
-  sendPasswordResetEmail,
   GoogleAuthProvider,
   signInWithPopup
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, AlertCircle, UserPlus, LogIn, KeyRound, Store, ShieldCheck } from 'lucide-react';
+import { Loader2, Store, Chrome } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 /**
  * MERCHANT LOGIN PORTAL
- * Dedicated entry point for Business Owners and Employees.
+ * Dedicated Google-only entry point for Business Owners and Employees.
  */
 export function NonBlockingLogin() {
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
   const [isPending, startTransition] = useTransition();
-  const [isResetPending, startResetTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
   const { auth, firestore } = useFirebase();
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
+  const handleGoogleLogin = () => {
     if (!auth || !firestore) return;
 
     startTransition(async () => {
       try {
-        if (isSignUp) {
-          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          const user = userCredential.user;
+        const provider = new GoogleAuthProvider();
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
 
-          await updateProfile(user, { displayName: `${firstName} ${lastName}`.trim() });
-          await sendEmailVerification(user);
+        // Check if the user document already exists
+        const userDocRef = doc(firestore, 'users', user.uid);
+        const userSnap = await getDoc(userDocRef);
 
-          await setDoc(doc(firestore, 'users', user.uid), {
+        if (!userSnap.exists()) {
+          // New account detected - setup as Merchant by default
+          await setDoc(userDocRef, {
             id: user.uid,
-            email,
-            firstName,
-            lastName,
-            accountType: 'restaurant', // Default to merchant for login portal
+            email: user.email,
+            firstName: user.displayName?.split(' ')[0] || 'Merchant',
+            lastName: user.displayName?.split(' ').slice(1).join(' ') || 'User',
+            accountType: 'restaurant', 
+            imageUrl: user.photoURL || '',
           });
-          
-          toast({ title: 'Merchant Account Created!', description: 'Please verify your email to begin.' });
+          toast({ title: 'Welcome Partner!', description: 'Business account initialized.' });
         } else {
-          await signInWithEmailAndPassword(auth, email, password);
+          toast({ title: 'System Access Granted', description: `Authenticated as ${user.email}` });
         }
       } catch (err: any) {
-        setError(err.message);
-        toast({ variant: 'destructive', title: 'Auth Error', description: err.message });
-      }
-    });
-  };
-
-  const handleForgotPassword = () => {
-    if (!email || !auth) return;
-    startResetTransition(async () => {
-      try {
-        await sendPasswordResetEmail(auth, email);
-        toast({ title: 'Reset Email Sent' });
-      } catch (err: any) {
-        toast({ variant: 'destructive', title: 'Reset Failed', description: err.message });
+        console.error("Auth failed:", err);
+        toast({ 
+            variant: 'destructive', 
+            title: 'Authentication Failed', 
+            description: 'Could not connect to Google Services. Please try again.' 
+        });
       }
     });
   };
@@ -88,62 +67,30 @@ export function NonBlockingLogin() {
             <Store className="h-7 w-7" />
         </div>
         <CardTitle className="text-3xl font-black font-headline tracking-tighter uppercase italic text-gray-950">
-          Merchant Portal
+          Merchant Hub
         </CardTitle>
         <CardDescription className="font-bold opacity-40 uppercase text-[10px] tracking-widest mt-1">
-          Operations & Intelligence Hub
+          Operations & Operational Intelligence
         </CardDescription>
       </CardHeader>
-      <CardContent className="p-8">
-        <div className="space-y-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {isSignUp && (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase opacity-40">First Name</Label>
-                  <Input value={firstName} onChange={e => setFirstName(e.target.value)} required className="h-12 rounded-xl border-2" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase opacity-40">Last Name</Label>
-                  <Input value={lastName} onChange={e => setLastName(e.target.value)} required className="h-12 rounded-xl border-2" />
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase opacity-40">Corporate Email</Label>
-              <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="manager@store.com" required className="h-12 rounded-xl border-2" />
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <Label className="text-[10px] font-black uppercase opacity-40">Security Key</Label>
-                {!isSignUp && (
-                  <button type="button" onClick={handleForgotPassword} disabled={isResetPending} className="text-[10px] font-black uppercase text-primary hover:underline">Forgot?</button>
-                )}
-              </div>
-              <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="h-12 rounded-xl border-2" />
-            </div>
-
-            {error && (
-              <div className="flex items-center gap-2 text-destructive bg-red-50 p-4 rounded-2xl border border-red-100">
-                  <AlertCircle className="h-5 w-5 shrink-0" />
-                  <p className="text-[10px] font-bold uppercase">{error}</p>
-              </div>
-            )}
-
-            <Button type="submit" className="w-full h-14 font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/20" disabled={isPending}>
-              {isPending ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : (isSignUp ? 'Register Business' : 'Enter Ops Center')}
+      <CardContent className="p-8 space-y-8">
+        <div className="p-6 rounded-[2rem] bg-muted/30 border border-black/5 text-center space-y-4">
+            <p className="text-xs font-bold text-gray-600 leading-relaxed uppercase">
+                Access your secure control center using your verified Google Identity.
+            </p>
+            <Button 
+                onClick={handleGoogleLogin} 
+                disabled={isPending} 
+                className="w-full h-14 font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/20 bg-white text-gray-950 border-2 border-black/10 hover:bg-gray-50 hover:border-black/20 transition-all"
+            >
+                {isPending ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Chrome className="mr-2 h-5 w-5 text-blue-500" />}
+                Continue with Google
             </Button>
-          </form>
         </div>
         
-        <div className="mt-8 pt-6 border-t border-black/5 text-center">
-          <p className="text-muted-foreground font-bold text-[10px] uppercase tracking-widest">
-            {isSignUp ? "Already registered?" : "New partner?"}
-            <button type="button" onClick={() => { setError(null); setIsSignUp(!isSignUp); }} className="text-primary font-black uppercase ml-2 hover:underline">
-              {isSignUp ? 'Login' : 'Apply Now'}
-            </button>
+        <div className="pt-2 text-center">
+          <p className="text-muted-foreground font-bold text-[8px] uppercase tracking-[0.2em] opacity-40">
+            Secure Platform • AES-256 Encrypted
           </p>
         </div>
       </CardContent>

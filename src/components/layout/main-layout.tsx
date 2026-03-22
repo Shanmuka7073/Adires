@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useEffect } from 'react';
@@ -55,64 +56,6 @@ function MaintenanceOverlay() {
     );
 }
 
-/**
- * Banner to remind users to verify their email.
- * This handles the cross-browser sync issue by allowing users to manual refresh.
- */
-function EmailVerificationBanner() {
-    const { user } = useFirebase();
-    const { toast } = useToast();
-    const [isChecking, startChecking] = useTransition();
-
-    // Don't show if no user, user is already verified, or user is an admin
-    if (!user || user.emailVerified || user.email === 'admin@gmail.com' || user.email === 'admin2@gmail.com') {
-        return null;
-    }
-
-    const handleCheckStatus = () => {
-        startChecking(async () => {
-            try {
-                // Force a reload of the user profile from Firebase servers
-                await user.reload();
-                if (user.emailVerified) {
-                    toast({ title: "Email Verified!", description: "Thank you for securing your account." });
-                    // Trigger a re-render to hide the banner
-                    window.location.reload();
-                } else {
-                    toast({ 
-                        variant: 'destructive', 
-                        title: "Still Unverified", 
-                        description: "Please check your email and click the verification link first." 
-                    });
-                }
-            } catch (e: any) {
-                toast({ variant: 'destructive', title: "Status Check Failed", description: e.message });
-            }
-        });
-    };
-
-    return (
-        <div className="bg-amber-600 text-white px-4 py-2 flex items-center justify-between gap-4 shadow-md sticky top-0 z-[100]">
-            <div className="flex items-center gap-2 overflow-hidden">
-                <AlertTriangle className="h-4 w-4 shrink-0" />
-                <p className="text-[9px] font-black uppercase tracking-widest truncate">
-                    Verify email to secure your business: {user.email}
-                </p>
-            </div>
-            <Button 
-                onClick={handleCheckStatus} 
-                disabled={isChecking}
-                variant="outline" 
-                size="sm" 
-                className="h-7 rounded-lg bg-white/10 border-white/20 hover:bg-white/20 text-white font-black text-[8px] uppercase px-3 shrink-0"
-            >
-                {isChecking ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
-                Sync Status
-            </Button>
-        </div>
-    );
-}
-
 export function MainLayout({ 
   children,
 }: { 
@@ -130,7 +73,6 @@ export function MainLayout({
     <div className="relative flex min-h-dvh flex-col bg-background">
       {isMaintenanceActive && <MaintenanceOverlay />}
       <OfflineStatus />
-      <EmailVerificationBanner />
       <Header />
       <ProfileCompletionChecker />
       <main className="flex-1 pb-16 md:pb-0">{children}</main>
