@@ -1,27 +1,34 @@
+
 import type { Metadata } from "next";
-import { getAdminServices } from "@/firebase/admin-init";
 
 /**
  * Dynamic Metadata for Restaurant Menus
- * Links the page to a unique, store-specific manifest for branded PWA installation.
+ * Uses REST API for high reliability in production environments.
  */
 export async function generateMetadata({ params }: { params: { storeId: string } }): Promise<Metadata> {
   const { storeId } = params;
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
   
   try {
-    const { db } = await getAdminServices();
-    const storeDoc = await db.collection("stores").doc(storeId).get();
-    
-    if (!storeDoc.exists) {
-      return { title: 'Menu | Adires' };
+    const response = await fetch(
+      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/stores/${storeId}`,
+      { next: { revalidate: 60 } }
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+      const storeName = data.fields?.name?.stringValue || storeId;
+      const description = data.fields?.description?.stringValue || 'Digital Menu';
+
+      return {
+        title: `${storeName} | Adires`,
+        description: description,
+        manifest: `/manifest/${storeId}`
+      };
     }
 
-    const store = storeDoc.data();
-    
     return {
-      title: `${store?.name} | Digital Menu`,
-      description: store?.description || 'Order directly from our digital menu.',
-      // The key change: dynamic manifest URL
+      title: `${storeId.toUpperCase()} | Adires`,
       manifest: `/manifest/${storeId}`
     };
   } catch (e) {

@@ -1,129 +1,113 @@
 
 'use server';
 
-import { getAdminServices } from "@/firebase/admin-init";
 import { NextResponse } from "next/server";
-import type { Store, Menu } from "@/lib/types";
 
 // The official Adires Platform Logo (fallback branding)
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
 /**
- * Dynamic Manifest API (Resilient Identity)
- * Generates a store-specific manifest with a localized scope and UNIQUE ID.
- * Optimized for high reliability across Android and iOS.
+ * Dynamic Manifest API (Ultra-Resilient REST Version)
+ * Uses the Firestore REST API to bypass Admin SDK credential issues on production (Vercel).
+ * Ensures "PRAVEEN" shows up correctly in the install prompt.
  */
 export async function GET(
   request: Request,
   { params }: { params: { storeId: string } }
 ) {
   const { storeId } = params;
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
-  if (!storeId) {
-    return new NextResponse("Store ID is required", { status: 400 });
+  if (!storeId || !projectId) {
+    return new NextResponse("Missing context", { status: 400 });
   }
+
+  // DEFAULT FALLBACKS
+  let name = storeId.toUpperCase();
+  let imageUrl = ADIRES_LOGO;
+  let themeColor = "#90EE90";
+  let backgroundColor = "#ffffff";
 
   try {
-    const { db } = await getAdminServices();
-    
-    if (!db) {
-        throw new Error("Admin SDK missing");
+    /**
+     * FETCH STORE DATA VIA REST
+     * This is the most robust way to get data on the server without Admin SDK.
+     */
+    const storeRes = await fetch(
+      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/stores/${storeId}`,
+      { next: { revalidate: 60 } } 
+    );
+
+    if (storeRes.ok) {
+      const data = await storeRes.json();
+      const fields = data.fields;
+      
+      if (fields?.name?.stringValue) name = fields.name.stringValue;
+      if (fields?.imageUrl?.stringValue) imageUrl = fields.imageUrl.stringValue;
+
+      /**
+       * FETCH MENU THEME VIA REST
+       */
+      const menuRes = await fetch(
+        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/stores/${storeId}/menus`,
+        { next: { revalidate: 60 } }
+      );
+      
+      if (menuRes.ok) {
+          const menuData = await menuRes.json();
+          const firstMenu = menuData.documents?.[0];
+          if (firstMenu?.fields?.theme?.mapValue?.fields) {
+              const themeFields = firstMenu.fields.theme.mapValue.fields;
+              if (themeFields.primaryColor?.stringValue) themeColor = themeFields.primaryColor.stringValue;
+              if (themeFields.backgroundColor?.stringValue) backgroundColor = themeFields.backgroundColor.stringValue;
+          }
+      }
     }
-
-    const storeDoc = await db.collection("stores").doc(storeId).get();
-
-    if (!storeDoc.exists) {
-      throw new Error("Store not found");
-    }
-
-    const store = storeDoc.data() as Store;
-    
-    // Fetch menu to get theme color
-    const menuSnap = await db.collection("stores").doc(storeId).collection("menus").limit(1).get();
-    const menu = menuSnap.empty ? undefined : (menuSnap.docs[0].data() as Menu);
-    
-    const themeColor = menu?.theme?.primaryColor || "#90EE90";
-    const logoUrl = store.imageUrl || ADIRES_LOGO;
-    
-    // Create a human-readable fallback name if store.name is somehow missing
-    const rawName = store.name || storeId.replace(/[^a-zA-Z0-9]/g, ' ');
-    const cleanName = rawName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
-
-    const manifest = {
-      // V3 ID includes store update time or timestamp to break cache
-      id: `adires-v3-${storeId}-${Date.now()}`, 
-      name: cleanName,
-      short_name: cleanName.substring(0, 12) || "Store",
-      description: store.description || `Official app for ${cleanName}`,
-      
-      // Query param ensures the browser treats this as a fresh start point
-      start_url: `/menu/${storeId}?v=${Date.now()}`,
-      scope: `/menu/${storeId}`,
-      
-      display: "standalone",
-      display_override: ["standalone", "window-controls-overlay"],
-      orientation: "portrait",
-      
-      lang: "en",
-      dir: "ltr",
-      categories: ["food", "shopping", "lifestyle"],
-
-      background_color: menu?.theme?.backgroundColor || "#ffffff",
-      theme_color: themeColor,
-      
-      icons: [
-        {
-          src: logoUrl,
-          sizes: "192x192",
-          type: "image/png",
-          purpose: "any"
-        },
-        {
-          src: logoUrl,
-          sizes: "512x512",
-          type: "image/png",
-          purpose: "any"
-        },
-        {
-          src: logoUrl,
-          sizes: "512x512",
-          type: "image/png",
-          purpose: "maskable"
-        }
-      ],
-    };
-
-    return NextResponse.json(manifest, {
-      headers: {
-        "Content-Type": "application/manifest+json",
-        "Cache-Control": "no-cache, no-store, must-revalidate", // Prevent manifest caching
-      },
-    });
-    
   } catch (error) {
-    console.error(`Manifest Fallback for ${storeId}:`, error);
-    
-    // Robust Fallback: capitalize the ID and provide standard platform icons
-    const fallbackName = storeId.slice(0, 8).toUpperCase();
-    
-    const fallbackManifest = {
-        id: `adires-fallback-${storeId}`,
-        name: fallbackName,
-        short_name: fallbackName,
-        start_url: `/menu/${storeId}`,
-        scope: `/menu/${storeId}`,
-        display: "standalone",
-        background_color: "#ffffff",
-        theme_color: "#90EE90",
-        icons: [
-            { src: ADIRES_LOGO, sizes: "192x192", type: "image/png", purpose: "any" },
-            { src: ADIRES_LOGO, sizes: "512x512", type: "image/png", purpose: "any" }
-        ]
-    };
-    
-    return NextResponse.json(fallbackManifest, {
-        status: 200,
-        headers: { "Content-Type": "application/manifest+json" }
-    });
+    console.error(`Manifest REST error for ${storeId}:`, error);
   }
+
+  const manifest = {
+    id: `adires-v4-${storeId}`, // Version bump to force browser refresh
+    name: name,
+    short_name: name.substring(0, 12),
+    description: `Official app for ${name}`,
+    start_url: `/menu/${storeId}?v=4`,
+    scope: `/menu/${storeId}`,
+    display: "standalone",
+    display_override: ["standalone", "window-controls-overlay"],
+    orientation: "portrait",
+    lang: "en",
+    dir: "ltr",
+    categories: ["food", "shopping"],
+    background_color: backgroundColor,
+    theme_color: themeColor,
+    icons: [
+      {
+        src: imageUrl,
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any"
+      },
+      {
+        src: imageUrl,
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any"
+      },
+      {
+        src: imageUrl,
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable"
+      }
+    ],
+  };
+
+  return NextResponse.json(manifest, {
+    headers: {
+      "Content-Type": "application/manifest+json",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+    },
+  });
 }

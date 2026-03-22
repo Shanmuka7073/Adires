@@ -481,30 +481,30 @@ function MenuCard({ item, onAdd, onShowDetails, recentlyAdded, theme, isPersonal
         )} style={{ backgroundColor: '#ffffff' }}>
             <div className="relative aspect-[1.5/1] w-full cursor-pointer" onClick={() => onShowDetails(item)}>
                 <Image src={item.imageUrl || ADIRES_LOGO} alt={item.name} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
-                <div className="absolute bottom-1.5 left-1.5 bg-gray-950/80 backdrop-blur-md text-white px-2 py-0.5 rounded-full shadow-lg border border-white/10">
-                    <p className="text-[10px] font-black tracking-tighter">₹{item.price.toFixed(0)}</p>
+                <div className="absolute bottom-1 left-1 bg-gray-950/80 backdrop-blur-md text-white px-1.5 py-0.5 rounded-full shadow-lg border border-white/10">
+                    <p className="text-[9px] font-black tracking-tighter">₹{item.price.toFixed(0)}</p>
                 </div>
                 {item.dietary && (
-                    <div className="absolute top-1.5 right-1.5 h-3 w-3 bg-white rounded-full flex items-center justify-center p-0.5 shadow-sm">
+                    <div className="absolute top-1 right-1 h-2.5 w-2.5 bg-white rounded-full flex items-center justify-center p-0.5 shadow-sm">
                         <div className={cn("h-full w-full rounded-full", item.dietary === 'veg' ? 'bg-green-600' : 'bg-red-600')}></div>
                     </div>
                 )}
             </div>
-            <div className="p-2 flex flex-col gap-2 flex-1 min-w-0">
+            <div className="p-1.5 flex flex-col gap-1 flex-1 min-w-0">
                 <div className="min-w-0">
-                    <h3 className="font-black text-[11px] leading-tight text-gray-950 truncate uppercase">{item.name}</h3>
+                    <h3 className="font-black text-[10px] leading-tight text-gray-950 truncate uppercase">{item.name}</h3>
                 </div>
                 
-                <div className="flex items-center justify-between h-7 w-full rounded-lg bg-muted/50 px-1">
-                    <button onClick={() => setQty(Math.max(1, qty - 1))} className="h-5 w-5 rounded flex items-center justify-center text-gray-500 hover:bg-black/5"><Minus className="h-2.5 w-2.5" /></button>
-                    <span className="text-[10px] font-black text-gray-900">{qty}</span>
-                    <button onClick={() => setQty(qty + 1)} className="h-5 w-5 rounded flex items-center justify-center text-gray-500 hover:bg-black/5"><Plus className="h-2.5 w-2.5" /></button>
+                <div className="flex items-center justify-between h-6 w-full rounded-md bg-muted/50 px-1">
+                    <button onClick={() => setQty(Math.max(1, qty - 1))} className="h-4 w-4 rounded flex items-center justify-center text-gray-500 hover:bg-black/5"><Minus className="h-2 w-2" /></button>
+                    <span className="text-[9px] font-black text-gray-900">{qty}</span>
+                    <button onClick={() => setQty(qty + 1)} className="h-4 w-4 rounded flex items-center justify-center text-gray-500 hover:bg-black/5"><Plus className="h-2 w-2" /></button>
                 </div>
 
-                <div className="flex gap-1.5">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg bg-black/5 hover:bg-black/10 shrink-0" onClick={() => onShowDetails(item)}><Eye className="h-3.5 w-3.5 text-gray-500" /></Button>
-                    <Button onClick={() => onAdd(item, qty)} disabled={isOutOfStock} className={cn("flex-1 h-8 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-md transition-all active:scale-95", recentlyAdded ? "bg-green-600 text-white" : "")} style={{ backgroundColor: recentlyAdded ? '' : (theme?.primaryColor || '#FBC02D'), color: recentlyAdded ? '' : (theme?.backgroundColor || '#1A1616') }}>
-                        {recentlyAdded ? <Check className="h-3.5 w-3.5" /> : 'Add'}
+                <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md bg-black/5 hover:bg-black/10 shrink-0" onClick={() => onShowDetails(item)}><Eye className="h-3 w-3 text-gray-500" /></Button>
+                    <Button onClick={() => onAdd(item, qty)} disabled={isOutOfStock} className={cn("flex-1 h-7 rounded-md text-[8px] font-black uppercase tracking-widest shadow-md transition-all active:scale-95", recentlyAdded ? "bg-green-600 text-white" : "")} style={{ backgroundColor: recentlyAdded ? '' : (theme?.primaryColor || '#FBC02D'), color: recentlyAdded ? '' : (theme?.backgroundColor || '#1A1616') }}>
+                        {recentlyAdded ? <Check className="h-3 w-3" /> : 'Add'}
                     </Button>
                 </div>
             </div>
@@ -740,7 +740,7 @@ export default function PublicMenuPage() {
                         Object.entries(groupedMenu).map(([category, items]) => (
                             <section key={category} className="space-y-4 pt-2 px-1">
                                 <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 px-1">{category}</h2>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1.5 sm:gap-2 md:gap-3">
                                     {items.map((item) => (
                                         <MenuCard key={item.id} item={item} onAdd={handleAddItem} onShowDetails={handleShowIngredients} recentlyAdded={recentlyAdded.has(item.id)} theme={theme} />
                                     ))}
