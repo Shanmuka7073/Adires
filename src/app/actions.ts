@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -468,20 +467,30 @@ export async function getPlatformAnalytics() {
 }
 
 /**
- * SYSTEM HEALTH
+ * SYSTEM HEALTH (ADMIN SDK VERIFICATION)
  */
 export async function getSystemStatus() {
     try {
         const { db } = await getAdminServices();
+        
+        // 1. Check Service Account Presence
+        const hasServiceAccount = !!process.env.SERVICE_ACCOUNT;
+        
+        // 2. Perform a test read to verify SDK authority
         const [users, stores] = await Promise.all([
             db.collection('users').count().get(),
             db.collection('stores').count().get(),
         ]);
+
         return {
             status: 'ok' as const,
             llmStatus: 'Online' as const,
             serverDbStatus: 'Online' as const,
-            counts: { users: users.data().count, stores: stores.data().count },
+            identity: hasServiceAccount ? 'Authorized (Service Account)' : 'Basic (Project ID Only)',
+            counts: { 
+                users: users.data().count, 
+                stores: stores.data().count 
+            },
         };
     } catch (err: any) {
         return { 
