@@ -14,7 +14,8 @@ import { FileCode } from 'lucide-react';
 export default function ManifestHelpPage() {
     const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
     const router = useRouter();
-    const [manifest, setManifest] = useState(null);
+    // Specify 'any' to allow the manifest object to be stored in state
+    const [manifest, setManifest] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -26,9 +27,14 @@ export default function ManifestHelpPage() {
     useEffect(() => {
         async function fetchManifest() {
             setIsLoading(true);
-            const manifestData = await getManifest();
-            setManifest(manifestData);
-            setIsLoading(false);
+            try {
+                const manifestData = await getManifest();
+                setManifest(manifestData);
+            } catch (error) {
+                console.error("Failed to fetch manifest:", error);
+            } finally {
+                setIsLoading(false);
+            }
         }
         fetchManifest();
     }, []);
