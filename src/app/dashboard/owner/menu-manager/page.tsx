@@ -59,7 +59,7 @@ const menuItemSchema = z.object({
   price: z.coerce.number().min(0, "Price must be a positive number."),
   category: z.string().min(2, "Category is required."),
   imageUrl: z.string().url("Please enter a valid URL").optional().or(z.literal('')),
-  dietary: z.enum(['veg', 'non-veg']).optional(),
+  dietary: z.enum(['veg', 'non-veg']).optional().or(z.literal('')),
   isAvailable: z.boolean().default(true),
   customizations: z.array(z.object({
       title: z.string().min(1, "Group title is required"),
@@ -714,6 +714,7 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
                                 <TableHeader className="bg-black/5">
                                     <TableRow>
                                         <TableHead className="text-[10px] font-black uppercase">Category</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase">Dietary</TableHead>
                                         <TableHead className="text-[10px] font-black uppercase">Item</TableHead>
                                         <TableHead className="text-right text-[10px] font-black uppercase">Price</TableHead>
                                     </TableRow>
@@ -722,6 +723,13 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
                                     {extractedData.items.map((i, idx) => (
                                         <TableRow key={idx}>
                                             <TableCell className="text-[10px] font-bold opacity-40 uppercase">{i.category}</TableCell>
+                                            <TableCell>
+                                                {i.dietary ? (
+                                                    <Badge variant="outline" className={cn("text-[8px] font-black uppercase", i.dietary === 'veg' ? 'border-green-200 text-green-600' : 'border-red-200 text-red-600')}>
+                                                        {i.dietary}
+                                                    </Badge>
+                                                ) : '—'}
+                                            </TableCell>
                                             <TableCell className="font-bold text-xs">{i.name}</TableCell>
                                             <TableCell className="text-right font-black text-xs">₹{i.price}</TableCell>
                                         </TableRow>

@@ -485,7 +485,7 @@ function MenuCard({ item, onAdd, onShowDetails, recentlyAdded, theme, isPersonal
                     <p className="text-[9px] font-black tracking-tighter">₹{item.price.toFixed(0)}</p>
                 </div>
                 {item.dietary && (
-                    <div className="absolute top-1 right-1 h-2.5 w-2.5 bg-white rounded-full flex items-center justify-center p-0.5 shadow-sm">
+                    <div className="absolute top-1 right-1 h-3 w-3 bg-white rounded-full flex items-center justify-center p-0.5 shadow-sm border border-black/5">
                         <div className={cn("h-full w-full rounded-full", item.dietary === 'veg' ? 'bg-green-600' : 'bg-red-600')}></div>
                     </div>
                 )}
