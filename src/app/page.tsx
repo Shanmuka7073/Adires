@@ -4,29 +4,28 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import { User, Store as StoreType, Order } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { Search, MapPin, ChevronDown, ArrowRight, LayoutGrid, Beef, Scissors, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import StoreCard from '@/components/store-card';
 import { doc, collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { RecipeCard } from '@/components/features/recipe-card';
+import { CartIcon } from '@/components/cart/cart-icon';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
 /**
  * Optimized Header for performance.
- * Renamed from HomepageContent to fix ReferenceError.
  */
 function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: string) => void, user: User | null }) {
     const [deliveryTime, setDeliveryTime] = useState<number | null>(null);
+    const { isCartOpen, setCartOpen } = useAppStore();
 
     useEffect(() => {
         // Deferred to prevent hydration mismatch and improve TBT
@@ -51,6 +50,14 @@ function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: strin
                          </div>
                      )}
                 </div>
+                <div className="flex items-center gap-2">
+                    <CartIcon open={isCartOpen} onOpenChange={setCartOpen} />
+                    <Link href="/dashboard/customer/my-profile">
+                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full bg-black/5 border-2">
+                            <Image src={user?.imageUrl || ADIRES_LOGO} alt="Profile" width={24} height={24} className="rounded-full" />
+                        </Button>
+                    </Link>
+                </div>
             </div>
             <div className="flex items-center gap-3 bg-[#F1F3F5] p-3 rounded-2xl border border-gray-200 shadow-inner">
                 <Search className="h-5 w-5 text-gray-400" />
@@ -68,6 +75,9 @@ function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: strin
 function RecentActivity({ orders, stores }: { orders: Order[] | null, stores: StoreType[] }) {
     if (!orders || orders.length === 0) return null;
 
+    const filtered = orders.filter(o => stores.some(s => s.id === o.storeId));
+    if (filtered.length === 0) return null;
+
     return (
         <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="flex justify-between items-end px-1">
@@ -81,7 +91,7 @@ function RecentActivity({ orders, stores }: { orders: Order[] | null, stores: St
             </div>
             <ScrollArea className="w-full whitespace-nowrap pb-4">
                 <div className="flex gap-4 px-1">
-                    {recentOrdersFiltered(orders, stores).map(order => {
+                    {filtered.map(order => {
                         const store = stores.find(s => s.id === order.storeId);
                         return (
                             <Link key={order.id} href={`/menu/${order.storeId}`} className="block w-64 flex-shrink-0 group">
@@ -110,10 +120,6 @@ function RecentActivity({ orders, stores }: { orders: Order[] | null, stores: St
     )
 }
 
-function recentOrdersFiltered(orders: Order[], stores: StoreType[]) {
-    return orders.filter(o => stores.some(s => s.id === o.storeId));
-}
-
 function HubNavigation() {
     return (
         <ScrollArea className="w-full whitespace-nowrap py-4 border-b bg-white">
@@ -136,7 +142,6 @@ function HubNavigation() {
 export default function LocalBasketHomepage() {
   const { firestore, user } = useFirebase();
   const { isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
-  const router = useRouter();
   const { loading: isAppLoading, isInitialized, stores, deviceId, fetchInitialData } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -157,11 +162,10 @@ export default function LocalBasketHomepage() {
   const { data: recentOrders } = useCollection<Order>(historyQuery);
 
   useEffect(() => { if (firestore && !isInitialized) fetchInitialData(firestore, user?.uid); }, [firestore, isInitialized, fetchInitialData, user?.uid]);
-  useEffect(() => { if (!isRoleLoading && isRestaurantOwner) router.replace('/dashboard/restaurant'); }, [isRoleLoading, isRestaurantOwner, router]);
 
   const filteredStores = useMemo(() => searchTerm ? stores.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())) : stores, [searchTerm, stores]);
 
-  if (isRoleLoading || isRestaurantOwner) return <div className="flex h-screen items-center justify-center bg-background"><Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" /></div>;
+  if (isRoleLoading) return <div className="flex h-screen items-center justify-center bg-background"><Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" /></div>;
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">
@@ -170,7 +174,6 @@ export default function LocalBasketHomepage() {
       {!searchTerm && <HubNavigation />}
 
       <main className="p-4 space-y-8">
-        {/* PERF: Priority Hero Image Optimization */}
         <div className="rounded-3xl overflow-hidden shadow-2xl relative aspect-[2/1] w-full">
             <Image 
                 src="https://i.ibb.co/ZQC3c3h/file-00000000f15871fab9942ef91d9c2021.png" 

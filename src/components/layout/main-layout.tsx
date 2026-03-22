@@ -1,19 +1,18 @@
-
 'use client';
 
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { ProfileCompletionChecker } from '@/components/profile-completion-checker';
 import { NotificationPermissionManager } from '@/components/layout/notification-permission-manager';
-import { useAppStore, useInitializeApp } from '@/lib/store';
+import { useAppStore } from '@/lib/store';
 import { BottomNavBar } from './bottom-nav-bar';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { FirestoreCounter } from './firestore-counter';
 import { OfflineStatus } from './offline-status';
 import { doc } from 'firebase/firestore';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
-import { Cog, Zap, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Cog, Zap, AlertTriangle, RefreshCw, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -121,19 +120,11 @@ export function MainLayout({
 }) {
   const { firestore } = useFirebase();
   const { isAdmin } = useAdminAuth();
-  const { setLanguage, isInitialized } = useAppStore();
-
-  useInitializeApp();
+  const { isInitialized } = useAppStore();
 
   const statusRef = useMemoFirebase(() => firestore ? doc(firestore, 'siteConfig', 'appStatus') : null, [firestore]);
   const { data: appStatus } = useDoc<any>(statusRef);
   const isMaintenanceActive = appStatus?.isMaintenance && !isAdmin;
-
-  useEffect(() => {
-    if (!isInitialized) return;
-    const savedLanguage = localStorage.getItem('app-language');
-    if (savedLanguage) setLanguage(savedLanguage);
-  }, [isInitialized, setLanguage]);
 
   return (
     <div className="relative flex min-h-dvh flex-col bg-background">
