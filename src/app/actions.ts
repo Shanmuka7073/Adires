@@ -99,13 +99,13 @@ export async function getIngredientsForDish(input: { dishName: string; language:
 /**
  * STUBS FOR LEGACY/HELP PAGE COMPATIBILITY
  */
-export async function bulkUploadRecipes(text: string) { return { success: true, count: 0 }; }
-export async function importProductsFromUrl(url: string) { return { success: true, count: 0 }; }
+export async function bulkUploadRecipes(text: string) { return { success: true, count: 0, error: null as string | null }; }
+export async function importProductsFromUrl(url: string) { return { success: true, count: 0, error: null as string | null }; }
 export async function getWikipediaSummary(topic: string) { return { summary: '', error: 'Feature decommissioned.' }; }
 export async function getMealDbRecipe(dishName: string) { return { ingredients: [], instructions: '', error: 'Feature decommissioned.' }; }
-export async function processPdfAndExtractRules(formData: FormData) { return { success: true, sentenceCount: 0 }; }
-export async function approveRule(id: string, text: string) { return { success: true }; }
-export async function rejectRule(id: string) { return { success: true }; }
+export async function processPdfAndExtractRules(formData: FormData) { return { success: true, sentenceCount: 0, error: null as string | null }; }
+export async function approveRule(id: string, text: string) { return { success: true, error: null as string | null }; }
+export async function rejectRule(id: string) { return { success: true, error: null as string | null }; }
 
 /**
  * ORDER MANAGEMENT: PLACE RESTAURANT ORDER
@@ -146,10 +146,10 @@ export async function placeRestaurantOrder(cartItems: any[], cartTotal: number, 
         };
 
         await orderRef.set(orderData);
-        return { success: true, orderId };
+        return { success: true, orderId, error: null as string | null };
     } catch (e: any) {
         console.error("placeRestaurantOrder failed:", e);
-        return { success: false, error: e.message };
+        return { success: false, error: e.message as string };
     }
 }
 
@@ -170,9 +170,9 @@ export async function updateSiteConfig(id: string, data: any) {
     try {
         const { db } = await getAdminServices();
         await db.collection('siteConfig').doc(id).set(data, { merge: true });
-        return { success: true };
+        return { success: true, error: null as string | null };
     } catch (e: any) {
-        return { success: false, error: e.message };
+        return { success: false, error: e.message as string };
     }
 }
 
@@ -180,9 +180,9 @@ export async function updateEmployee(userId: string, data: any) {
     try {
         const { db } = await getAdminServices();
         await db.collection('employeeProfiles').doc(userId).set(data, { merge: true });
-        return { success: true };
+        return { success: true, error: null as string | null };
     } catch (e: any) {
-        return { success: false, error: e.message };
+        return { success: false, error: e.message as string };
     }
 }
 
@@ -193,9 +193,9 @@ export async function approveRegularization(id: string, storeId: string, approve
             status: approve ? 'approved' : 'rejected',
             updatedAt: FieldValue.serverTimestamp()
         });
-        return { success: true };
+        return { success: true, error: null as string | null };
     } catch (e: any) {
-        return { success: false, error: e.message };
+        return { success: false, error: e.message as string };
     }
 }
 
@@ -213,9 +213,9 @@ export async function rejectRegularization(id: string, storeId: string, reason: 
                 status: 'rejected'
             })
         });
-        return { success: true };
+        return { success: true, error: null as string | null };
     } catch (e: any) {
-        return { success: false, error: e.message };
+        return { success: false, error: e.message as string };
     }
 }
 
@@ -298,10 +298,10 @@ export async function getPlatformAnalytics() {
     }
 }
 
-export async function uploadStoreImage(storeId: string, imageDataUri: string) { return { success: true }; }
+export async function uploadStoreImage(storeId: string, imageDataUri: string) { return { success: true, error: null as string | null }; }
 export async function getManifest() { return null; }
-export async function updateManifest(data: any) { return { success: true }; }
+export async function updateManifest(data: any) { return { success: true, error: null as string | null }; }
 export async function getPlaceholderImages() { return { placeholderImages: [] }; }
-export async function updatePlaceholderImages(data: any) { return { success: true }; }
+export async function updatePlaceholderImages(data: any) { return { success: true, error: null as string | null }; }
 export async function getSalarySlipData(slipId: string, userId: string, storeId?: string) { return null; }
 export async function getStoreSalesReport(input: any) { return { success: true, report: {} }; }
