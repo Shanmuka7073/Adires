@@ -53,9 +53,11 @@ function PlaceholderImageManager() {
         async function loadImages() {
             setIsLoadingData(true);
             try {
-                const imageData = await getPlaceholderImages();
-                if (imageData && imageData.placeholderImages) {
-                    replace(imageData.placeholderImages);
+                const result = await getPlaceholderImages();
+                if (result.success && result.placeholderImages) {
+                    replace(result.placeholderImages);
+                } else if (result.error) {
+                    throw new Error(result.error);
                 }
             } catch (error) {
                 toast({
