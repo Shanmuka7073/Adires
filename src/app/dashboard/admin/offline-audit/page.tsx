@@ -22,9 +22,10 @@ import {
     ArrowRight,
     Check,
     Globe,
-    Lock
+    Lock,
+    Wrench
 } from 'lucide-react';
-import { useFirebase } from '@/firebase';
+import { useFirebase, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -35,7 +36,7 @@ import Link from 'next/link';
 
 interface DiagnosticState {
     sw: {
-        status: 'active' | 'missing' | 'checking' | 'unsupported' | 'insecure';
+        status: 'active' | 'missing' | 'checking' | 'unsupported' | 'insecure' | 'waiting';
         reason: string;
     };
     manifest: {
@@ -62,6 +63,7 @@ export default function OfflineAuditPage() {
     });
     const [lastSyncStatus, setLastSyncStatus] = useState<'idle' | 'writing' | 'queued' | 'synced'>('idle');
     const [isTesting, startTest] = useTransition();
+    const [isRepairing, startRepair] = useTransition();
     
     const { user, firestore } = useFirebase();
     const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
@@ -94,11 +96,15 @@ export default function OfflineAuditPage() {
             } else {
                 try {
                     const registrations = await navigator.serviceWorker.getRegistrations();
-                    const active = registrations.find(r => r.active || r.waiting);
-                    if (active) {
-                        setDiag(prev => ({ ...prev, sw: { status: 'active', reason: `Active scope: ${active.scope}` } }));
+                    const activeReg = registrations.find(r => r.active);
+                    const waitingReg = registrations.find(r => r.waiting);
+                    
+                    if (activeReg) {
+                        setDiag(prev => ({ ...prev, sw: { status: 'active', reason: `Active scope: ${activeReg.scope}` } }));
+                    } else if (waitingReg) {
+                        setDiag(prev => ({ ...prev, sw: { status: 'waiting', reason: 'Update found and waiting. Hard refresh required.' } }));
                     } else {
-                        setDiag(prev => ({ ...prev, sw: { status: 'missing', reason: 'No Service Worker found. Visit the Home page once.' } }));
+                        setDiag(prev => ({ ...prev, sw: { status: 'missing', reason: 'No Service Worker found on this domain. Try Manual Repair.' } }));
                     }
                 } catch (e) {
                     setDiag(prev => ({ ...prev, sw: { status: 'missing', reason: 'Error querying SW registry.' } }));
@@ -120,6 +126,31 @@ export default function OfflineAuditPage() {
         } else {
             setDiag(prev => ({ ...prev, prompt: { status: 'waiting', reason: 'Waiting for browser interaction event.' } }));
         }
+    };
+
+    const handleRepairShell = () => {
+        if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+        
+        startRepair(async () => {
+            try {
+                toast({ title: "Initiating Repair", description: "Attempting manual shell registration..." });
+                const reg = await navigator.serviceWorker.register('/sw.js', {
+                    scope: '/',
+                    updateViaCache: 'none'
+                });
+                
+                if (reg.installing) {
+                    toast({ title: "Repair In Progress", description: "Worker is installing..." });
+                } else {
+                    toast({ title: "Repair Signal Sent", description: `Registered at scope: ${reg.scope}. Please refresh page.` });
+                }
+                
+                performAudit();
+            } catch (error: any) {
+                console.error('Manual repair failed:', error);
+                toast({ variant: 'destructive', title: "Repair Failed", description: error.message });
+            }
+        });
     };
 
     useEffect(() => {
@@ -177,7 +208,7 @@ export default function OfflineAuditPage() {
             <div className="flex justify-between items-end border-b pb-10 border-black/5">
                 <div>
                     <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950">Decision Audit</h1>
-                    <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Domain: adires.vercel.app</p>
+                    <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Identity: adires.vercel.app</p>
                 </div>
                 <Button onClick={performAudit} variant="outline" className="rounded-full h-12 px-6 font-black uppercase text-[10px] tracking-widest border-2">
                     <RefreshCw className="mr-2 h-4 w-4" /> Re-Scan
@@ -208,14 +239,26 @@ export default function OfflineAuditPage() {
                 {/* SW CHECK */}
                 <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white">
                     <CardHeader className="bg-primary/5 pb-6 border-b border-black/5">
-                        <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                            <Lock className="h-4 w-4 text-primary" /> App Shell (PWA)
-                        </CardTitle>
+                        <div className="flex justify-between items-center">
+                            <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                                <Lock className="h-4 w-4 text-primary" /> App Shell (PWA)
+                            </CardTitle>
+                            <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                onClick={handleRepairShell} 
+                                disabled={isRepairing}
+                                className="h-7 rounded-lg text-[8px] font-black uppercase bg-primary/10 hover:bg-primary/20 text-primary"
+                            >
+                                {isRepairing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wrench className="mr-1 h-3 w-3" />}
+                                Repair Shell
+                            </Button>
+                        </div>
                     </CardHeader>
                     <CardContent className="p-8 space-y-4">
                         <div className="flex justify-between items-center">
                             <span className="text-[10px] font-black uppercase opacity-40">Service Worker</span>
-                            <Badge variant={diag.sw.status === 'active' ? 'default' : 'destructive'} className="font-black uppercase text-[9px]">
+                            <Badge variant={diag.sw.status === 'active' ? 'default' : diag.sw.status === 'waiting' ? 'secondary' : 'destructive'} className="font-black uppercase text-[9px]">
                                 {diag.sw.status.toUpperCase()}
                             </Badge>
                         </div>

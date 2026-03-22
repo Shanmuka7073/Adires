@@ -32,7 +32,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { getPlatformAnalytics, executeCommand } from '@/app/actions';
+import { getPlatformAnalytics } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 
 function KPICard({ title, value, subValue, trendValue, icon: Icon, color }: any) {
