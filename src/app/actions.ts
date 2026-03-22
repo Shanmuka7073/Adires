@@ -35,7 +35,6 @@ export async function getFirebaseConfig() {
 
 /**
  * SYSTEM HEALTH CHECK
- * Hardened to report specific credential parsing failures to the UI.
  */
 export async function getSystemStatus() {
     const hasServiceAccount = !!process.env.SERVICE_ACCOUNT;
@@ -75,32 +74,109 @@ export async function getSystemStatus() {
 
 /**
  * ANALYTICS ENGINE
+ * Calculates real Revenue, AOV, and Trends for the Decision Hub.
  */
 export async function getPlatformAnalytics() {
     try {
         const { db } = await getAdminServices();
-        const sixtyDaysAgo = new Date();
-        sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
         
-        const [usersSnap, storesSnap, ordersSnap, configSnap] = await Promise.all([
-            db.collection('users').count().get().catch(() => ({ data: () => ({ count: 0 }) })),
-            db.collection('stores').count().get().catch(() => ({ data: () => ({ count: 0 }) })),
-            db.collection('orders').where('orderDate', '>=', Timestamp.fromDate(sixtyDaysAgo)).get().catch(() => ({ docs: [] })),
-            db.collection('siteConfig').doc('appStatus').get().catch(() => ({ data: () => ({ isMaintenance: false }) }))
+        // Time Boundaries
+        const now = new Date();
+        const todayStart = new Date(now.setHours(0,0,0,0));
+        const yesterdayStart = new Date(new Date(todayStart).getTime() - 86400000);
+        const sevenDaysAgo = new Date(new Date(todayStart).getTime() - 7 * 86400000);
+        const fourteenDaysAgo = new Date(new Date(todayStart).getTime() - 14 * 86400000);
+        const thirtyDaysAgo = new Date(new Date(todayStart).getTime() - 30 * 86400000);
+        const sixtyDaysAgo = new Date(new Date(todayStart).getTime() - 60 * 86400000);
+
+        // 1. Fetch Totals (Lean count queries)
+        const [usersCount, storesCount, activeOrdersSnap] = await Promise.all([
+            db.collection('users').count().get(),
+            db.collection('stores').count().get(),
+            db.collection('orders').where('isActive', '==', true).get()
         ]);
 
-        const activeOrders = ordersSnap.docs.filter((d: any) => d.data().isActive);
+        // 2. Fetch Recent Orders for detailed calculation
+        // We limit to 500 orders to keep performance high
+        const recentOrdersSnap = await db.collection('orders')
+            .where('orderDate', '>=', Timestamp.fromDate(sixtyDaysAgo))
+            .orderBy('orderDate', 'desc')
+            .limit(500)
+            .get();
+
+        const orders = recentOrdersSnap.docs.map(d => ({ ...d.data(), orderDate: d.data().orderDate.toDate() }));
+
+        const calculateMetrics = (rangeStart: Date, rangeEnd: Date) => {
+            const rangeOrders = orders.filter(o => o.orderDate >= rangeStart && o.orderDate < rangeEnd && o.status !== 'Cancelled');
+            const revenue = rangeOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+            const count = rangeOrders.length;
+            const uniqueUsers = new Set(rangeOrders.map(o => o.userId || o.deviceId)).size;
+            const aov = count > 0 ? revenue / count : 0;
+            return { revenue, count, uniqueUsers, aov };
+        };
+
+        // Today vs Yesterday
+        const today = calculateMetrics(todayStart, new Date());
+        const yesterday = calculateMetrics(yesterdayStart, todayStart);
+
+        // 7D vs 7D Prior
+        const last7d = calculateMetrics(sevenDaysAgo, new Date());
+        const prev7d = calculateMetrics(fourteenDaysAgo, sevenDaysAgo);
+
+        // 30D vs 30D Prior
+        const last30d = calculateMetrics(thirtyDaysAgo, new Date());
+        const prev30d = calculateMetrics(sixtyDaysAgo, thirtyDaysAgo);
+
+        const calculateTrend = (current: number, previous: number) => {
+            if (previous === 0) return current > 0 ? 100 : 0;
+            return ((current - previous) / previous) * 100;
+        };
 
         return {
-            totalUsers: usersSnap.data().count,
-            totalStores: storesSnap.data().count,
-            activeSessions: activeOrders.length,
-            isMaintenance: configSnap.data()?.isMaintenance || false,
+            totalUsers: usersCount.data().count,
+            totalStores: storesCount.data().count,
+            activeSessions: activeOrdersSnap.size,
             periods: {
-                today: { revenue: 0, orders: 0, aov: 0, userReach: 0, trends: { revenue: 0, orders: 0, aov: 0, userReach: 0 } }
+                today: {
+                    revenue: today.revenue,
+                    orders: today.count,
+                    aov: today.aov,
+                    userReach: today.uniqueUsers,
+                    trends: {
+                        revenue: calculateTrend(today.revenue, yesterday.revenue),
+                        orders: calculateTrend(today.count, yesterday.count),
+                        aov: calculateTrend(today.aov, yesterday.aov),
+                        userReach: calculateTrend(today.uniqueUsers, yesterday.uniqueUsers)
+                    }
+                },
+                '7d': {
+                    revenue: last7d.revenue,
+                    orders: last7d.count,
+                    aov: last7d.aov,
+                    userReach: last7d.uniqueUsers,
+                    trends: {
+                        revenue: calculateTrend(last7d.revenue, prev7d.revenue),
+                        orders: calculateTrend(last7d.count, prev7d.count),
+                        aov: calculateTrend(last7d.aov, prev7d.aov),
+                        userReach: calculateTrend(last7d.uniqueUsers, prev7d.uniqueUsers)
+                    }
+                },
+                '30d': {
+                    revenue: last30d.revenue,
+                    orders: last30d.count,
+                    aov: last30d.aov,
+                    userReach: last30d.uniqueUsers,
+                    trends: {
+                        revenue: calculateTrend(last30d.revenue, prev30d.revenue),
+                        orders: calculateTrend(last30d.count, prev30d.count),
+                        aov: calculateTrend(last30d.aov, prev30d.aov),
+                        userReach: calculateTrend(last30d.uniqueUsers, prev30d.uniqueUsers)
+                    }
+                }
             }
         };
     } catch (error) {
+        console.error("Platform analytics engine failed:", error);
         return null;
     }
 }
