@@ -32,7 +32,7 @@ const withPWA = require('next-pwa')({
       urlPattern: /\/dashboard|\/menu/i,
       handler: 'StaleWhileRevalidate',
       options: {
-        cacheName: 'business-logic-routes',
+        cacheName: ' business-logic-routes',
         expiration: {
           maxEntries: 32,
           maxAgeSeconds: 24 * 60 * 60,
@@ -56,7 +56,7 @@ const nextConfig = {
   },
   experimental: {
     serverActions: {
-      bodySizeLimit: '4.5mb',
+      bodySizeLimit: '10mb',
     },
     esmExternals: false,
   },
