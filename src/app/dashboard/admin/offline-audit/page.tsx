@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -107,9 +108,9 @@ export default function OfflineAuditPage() {
                             setDiag(prev => ({ ...prev, sw: { status: 'uncontrolled', reason: 'Active but Uncontrolled.', details: 'Worker is running but hasn\'t "claimed" the current tab. A page refresh will fix this.' } }));
                         }
                     } else if (waitingReg) {
-                        setDiag(prev => ({ ...prev, sw: { status: 'waiting', reason: 'Update Waiting.', details: 'A new version of the app shell is downloaded. It will activate after all tabs are closed and reopened.' } }));
+                        setDiag(prev => ({ ...prev, sw: { status: 'waiting', reason: 'Update Waiting.', details: 'A new version of the app shell is downloaded. Click "Force Register" to push it through.' } }));
                     } else if (installingReg) {
-                        setDiag(prev => ({ ...prev, sw: { status: 'waiting', reason: 'Installing...', details: 'The app shell is currently being downloaded into the browser cache.' } }));
+                        setDiag(prev => ({ ...prev, sw: { status: 'waiting', reason: 'Installing...', details: 'The app shell is currently being downloaded into the browser cache. Please wait.' } }));
                     } else {
                         setDiag(prev => ({ ...prev, sw: { status: 'missing', reason: 'No SW Registration Found.', details: 'The browser has no record of registering a worker. This usually happens if the register component failed to fire.' } }));
                     }
@@ -140,21 +141,29 @@ export default function OfflineAuditPage() {
         
         startRepair(async () => {
             try {
-                toast({ title: "Initiating Force Register", description: "Requesting manual /sw.js registration..." });
+                toast({ title: "Initiating Repair", description: "Re-registering app shell..." });
                 const reg = await navigator.serviceWorker.register('/sw.js', {
                     scope: '/',
                     updateViaCache: 'none'
                 });
                 
+                // Monitor the installation state machine
                 if (reg.installing) {
-                    toast({ title: "Installing...", description: "Worker is being cached." });
-                } else {
-                    toast({ title: "Registration Success", description: "Scope: " + reg.scope });
-                }
-                
-                // If it's active but uncontrolled, try to claim
-                if (reg.active && !navigator.serviceWorker.controller) {
+                    const sw = reg.installing;
+                    sw.onstatechange = () => {
+                        if (sw.state === 'installed') {
+                            toast({ title: "Cache Complete", description: "Forcing activation..." });
+                            sw.postMessage({ type: 'SKIP_WAITING' });
+                        }
+                    };
+                } else if (reg.waiting) {
+                    toast({ title: "Worker Waiting", description: "Forcing activation..." });
+                    reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                } else if (reg.active && !navigator.serviceWorker.controller) {
+                    toast({ title: "Activating", description: "Claiming current page..." });
                     window.location.reload();
+                } else {
+                    toast({ title: "Shell Active", description: "Service worker is operational." });
                 }
 
                 performAudit();
