@@ -304,4 +304,4 @@ export async function updateManifest(data: any) { return { success: true, error:
 export async function getPlaceholderImages() { return { placeholderImages: [] }; }
 export async function updatePlaceholderImages(data: any) { return { success: true, error: null as string | null }; }
 export async function getSalarySlipData(slipId: string, userId: string, storeId?: string) { return null; }
-export async function getStoreSalesReport(input: any) { return { success: true, report: {} }; }
+export async function getStoreSalesReport(input: any) { return { success: true, report: {}, error: null as string | null }; }
