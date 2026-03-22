@@ -14,13 +14,12 @@ import {
     AlertCircle,
     ShieldCheck,
     RefreshCw,
-    SmartphoneNfc,
-    MousePointer2,
     Check,
     Globe,
     Lock,
     Wrench,
-    Bug
+    Bug,
+    Info
 } from 'lucide-react';
 import { useFirebase } from '@/firebase';
 import { doc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -30,6 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 interface DiagnosticState {
     sw: {
@@ -174,13 +174,6 @@ export default function OfflineAuditPage() {
         window.addEventListener('pwa-install-available', performAudit);
         return () => window.removeEventListener('pwa-install-available', performAudit);
     }, [isAdmin, isAdminLoading, router]);
-
-    const handleTriggerEngagement = () => {
-        window.scrollBy({ top: 100, behavior: 'smooth' });
-        setTimeout(() => window.scrollBy({ top: -100, behavior: 'smooth' }), 500);
-        toast({ title: "Simulating Interaction", description: "Helping the browser trigger the install event." });
-        performAudit();
-    };
 
     const handleTestSync = async () => {
         if (!firestore || !user) return;
