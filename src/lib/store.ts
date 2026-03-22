@@ -59,6 +59,14 @@ const getInitialLanguage = (): string => {
   return 'en';
 };
 
+/**
+ * ADIRES GLOBAL DATA STORE (Zustand)
+ * 
+ * DESIGN STRATEGY:
+ * 1. Initial Load: Fetch lightweight "Business Identities" only.
+ * 2. On-Demand: Heavy data (Menus, Orders) is lazy-loaded at the page level.
+ * 3. Persistence: User identity and selected store are saved to LocalStorage for instant UI boots.
+ */
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -91,14 +99,18 @@ export const useAppStore = create<AppState>()(
       setActiveStoreId: (storeId: string | null) => set({ activeStoreId: storeId }),
       setCartOpen: (open: boolean) => set({ isCartOpen: open }),
 
+      /**
+       * fetchInitialData
+       * Triggered on every cold boot. Fetches the "Marketplace Identity" layer.
+       */
       fetchInitialData: async (db: Firestore, userId?: string) => {
-        // PERF: Avoid redundant fetches or loops if already in progress or completed
+        // Prevent redundant fetch loops
         if (get().loading || get().isInitialized) return;
         
-        // Mark as initialized IMMEDIATELY to prevent infinite retry loop on rule failure
         set({ loading: true, error: null, isInitialized: true });
         
         try {
+          // LEAN FETCH: Parallel fetch of identities and metadata
           const [storesSnap, aliasDocs, commandDocs] = await Promise.all([
             getDocs(collection(db, 'stores')),
             getDocs(collection(db, 'voiceAliasGroups')),
@@ -107,17 +119,20 @@ export const useAppStore = create<AppState>()(
 
           const allStores = storesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Store));
           
+          // Categorize for local marketplace logic
           const businessStores = allStores.filter(s => 
             s.businessType === 'restaurant' || 
             s.businessType === 'salon' ||
             ['hotel', 'mess', 'salon', 'saloon', 'parlour', 'bakery'].some(kw => s.name.toLowerCase().includes(kw))
           );
 
+          // IDENTIFY USER: If owner, find their business
           let userStore = get().userStore; 
           if (userId && (!userStore || userStore.ownerId !== userId)) {
               userStore = businessStores.find(s => s.ownerId === userId) || null;
           }
 
+          // DEVICE ID: For persistent guest history
           if (!get().deviceId) {
               const newId = Math.random().toString(36).substring(2, 15);
               set({ deviceId: newId });
@@ -146,12 +161,12 @@ export const useAppStore = create<AppState>()(
           
         } catch (error) {
           console.error("fetchInitialData failed:", error);
-          // Ensure we don't loop even if the initial load fails due to permissions
+          // Unlock app even on error to prevent total lock-out
           set({ error: error as Error, loading: false, appReady: true });
         }
       },
       
-      // LEGACY STUBS
+      // LEGACY STUBS FOR BACKWARDS COMPATIBILITY
       masterProducts: [],
       productPrices: {},
       locales: {},
@@ -161,7 +176,7 @@ export const useAppStore = create<AppState>()(
       getProductName: (product: any) => product?.name || '',
     }),
     {
-      name: 'localbasket-app-storage-v12',
+      name: 'adires-app-v1.0',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
@@ -189,7 +204,6 @@ export const useInitializeApp = () => {
             setAppReady(true);
         }
         
-        // Only trigger fetch if NOT initialized and NOT already loading
         if (firestore && !isUserLoading && !loading && !isInitialized) {
             fetchInitialData(firestore, user?.uid);
         }
