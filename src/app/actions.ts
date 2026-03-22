@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -26,6 +27,7 @@ export async function getFirebaseConfig() {
       storageBucket: options.storageBucket || `${options.projectId}.appspot.com`,
       messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
       appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+      vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY, // Ensure VAPID is available to client
     };
   } catch (e) {
     return null;
@@ -104,8 +106,8 @@ export async function getPlatformAnalytics() {
             return {
                 ...data,
                 orderDate: (data.orderDate as Timestamp).toDate()
-            };
-        }) as any[];
+            } as any;
+        });
 
         const calculateMetrics = (rangeStart: Date, rangeEnd: Date) => {
             const rangeOrders = orders.filter(o => o.orderDate >= rangeStart && o.orderDate < rangeEnd && o.status !== 'Cancelled');
