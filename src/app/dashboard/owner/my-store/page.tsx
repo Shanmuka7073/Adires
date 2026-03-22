@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useState, useTransition, useEffect, useMemo, useRef } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -34,11 +33,19 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import type { Store, Menu, MenuItem, MenuTheme } from '@/lib/types';
+import type { Store, Product, ProductPrice, User as AppUser, ProductVariant, MenuItem, Menu, MenuTheme } from '@/lib/types';
 import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, query, where, addDoc, writeBatch, doc, updateDoc, limit } from 'firebase/firestore';
+import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, deleteDoc, limit } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,32 +57,19 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { 
-    Share2, 
-    MapPin, 
-    Trash2, 
-    AlertCircle, 
-    Upload, 
-    Image as ImageIcon, 
-    Loader2, 
-    Sparkles, 
-    PlusCircle, 
-    Edit, 
-    Save, 
-    Smartphone, 
-    CheckCircle2, 
-    Utensils, 
-    Link2,
-    LocateFixed
-} from 'lucide-react';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Sparkles, PlusCircle, Edit, Link2, QrCode, Save, CheckCircle2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { useAppStore } from '@/lib/store';
+import { Badge } from '@/components/ui/badge';
+import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
+import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { extractMenuItems } from '@/ai/flows/extract-menu-items-flow';
 
@@ -84,31 +78,19 @@ const ADMIN_EMAIL = 'shanmuka7073@gmail.com';
 
 const storeSchema = z.object({
   name: z.string().min(3, 'Store name must be at least 3 characters'),
-  description: z.string().min(10, 'Description must be at least 10 characters'),
+  teluguName: z.string().optional(),
+  description: z
+    .string()
+    .min(10, 'Description must be at least 10 characters'),
   address: z.string().min(10, 'Please enter a valid address'),
-  latitude: z.coerce.number().min(-90).max(90),
-  longitude: z.coerce.number().min(-180).max(180),
+  latitude: z.coerce.number().min(-90, "Invalid latitude").max(90, "Invalid latitude"),
+  longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude"),
 });
 
 const locationSchema = z.object({
     latitude: z.coerce.number().min(-90).max(90),
     longitude: z.coerce.number().min(-180).max(180),
 });
-
-type StoreFormValues = z.infer<typeof storeSchema>;
-type LocationFormValues = z.infer<typeof locationSchema>;
-
-const createSlug = (text: string) => {
-    if(!text) return '';
-    return text
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, '-') 
-      .replace(/[^\w-]+/g, '') 
-      .replace(/--+/g, '-') 
-      .replace(/^-+/, '') 
-      .replace(/-+$/, ''); 
-};
 
 function StoreImageUploader({ store }: { store: Store }) {
     const { toast } = useToast();
@@ -203,6 +185,7 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
 
                 const result = await extractMenuItems({ menuImage: imageData });
                 if (result && result.items) {
+                    const createSlug = (text: string) => text.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
                     setExtractedData({
                         items: result.items.map(i => ({ ...i, id: createSlug(i.name), isAvailable: true })),
                         theme: result.theme,
@@ -351,7 +334,7 @@ function DigitalMenuOverview({ storeId }: { storeId: string }) {
                     </div>
                 ) : (
                     <div className="text-center py-10 opacity-40 flex flex-col items-center gap-4">
-                        <Utensils className="h-12 w-12" />
+                        <ImageIcon className="h-12 w-12" />
                         <p className="font-black uppercase tracking-widest text-xs">No digital menu detected</p>
                     </div>
                 )}
@@ -744,19 +727,11 @@ export default function MyStorePage() {
     const { isAdmin, isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
     const { stores, userStore, fetchInitialData } = useAppStore();
 
-    const ownerStoreQuery = useMemoFirebase(() => {
-        if (!firestore || !user || isAdmin) return null;
-        return query(collection(firestore, 'stores'), where('ownerId', '==', user.uid), limit(1));
-    }, [firestore, user, isAdmin]);
-
-    const { data: ownerStores, isLoading: isOwnerStoreLoading, refetch } = useCollection<Store>(ownerStoreQuery);
-    
-    // PRIORITY: Firestore data > Cached data for real-time Floor Map updates
-    const myStore = useMemo(() => userStore || ownerStores?.[0], [userStore, ownerStores]);
+    const myStore = useMemo(() => userStore || stores.find(s => s.ownerId === user?.uid), [userStore, stores, user?.uid]);
 
     useEffect(() => { if (!isUserLoading && !user) router.push('/login'); }, [isUserLoading, user, router]);
 
-    if (isUserLoading || isRoleLoading || isOwnerStoreLoading) return <div className="p-12 text-center flex flex-col items-center justify-center gap-4 h-[80vh]"><Loader2 className="animate-spin h-10 w-10 text-primary opacity-20" /><p className="text-[10px] font-black uppercase tracking-widest opacity-40">Verifying Authority...</p></div>;
+    if (isUserLoading || isRoleLoading) return <div className="p-12 text-center flex flex-col items-center justify-center gap-4 h-[80vh]"><Loader2 className="animate-spin h-10 w-10 text-primary opacity-20" /><p className="text-[10px] font-black uppercase tracking-widest opacity-40">Verifying Authority...</p></div>;
 
     return (
         <div className="container mx-auto py-12 px-4 md:px-6 space-y-12 pb-32">
@@ -773,7 +748,7 @@ export default function MyStorePage() {
                             </Badge>
                         </div>
                     </div>
-                    <ManageStoreView store={myStore} isAdmin={isAdmin} onUpdate={() => refetch && refetch()} />
+                    <ManageStoreView store={myStore} isAdmin={isAdmin} onUpdate={() => fetchInitialData(firestore!, user?.uid)} />
                 </>
             ) : (
                 <CreateStoreForm user={user} isAdmin={isAdmin} />
@@ -781,4 +756,3 @@ export default function MyStorePage() {
         </div>
     );
 }
-
