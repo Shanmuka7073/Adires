@@ -308,51 +308,6 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
     );
 }
 
-function DigitalMenuOverview({ storeId }: { storeId: string }) {
-    const { firestore } = useFirebase();
-    const menuQuery = useMemoFirebase(() => (firestore && storeId) ? query(collection(firestore, `stores/${storeId}/menus`), limit(1)) : null, [firestore, storeId]);
-    const { data: menus, isLoading } = useCollection<Menu>(menuQuery);
-    const menu = menus?.[0];
-
-    return (
-        <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white">
-            <CardHeader className="bg-primary/5 border-b border-black/5 pb-6 flex flex-row justify-between items-center">
-                <div>
-                    <CardTitle className="text-xl font-black uppercase tracking-tight text-gray-950">Active Digital Menu</CardTitle>
-                    <CardDescription className="text-[10px] font-bold opacity-40 uppercase tracking-widest">Live offerings and pricing</CardDescription>
-                </div>
-                <Button asChild variant="outline" size="sm" className="rounded-xl font-black text-[9px] uppercase tracking-widest border-2 h-9 px-4">
-                    <Link href="/dashboard/owner/menu-manager"><Edit className="mr-2 h-3.5 w-3.5" /> Edit Items</Link>
-                </Button>
-            </CardHeader>
-            <CardContent className="p-8">
-                {isLoading ? (
-                    <div className="flex justify-center p-4"><Loader2 className="h-6 w-6 animate-spin opacity-20" /></div>
-                ) : menu && menu.items?.length > 0 ? (
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {menu.items.slice(0, 4).map(item => (
-                                <div key={item.id} className="p-3 rounded-2xl bg-muted/30 border border-black/5 text-center">
-                                    <p className="font-black text-xs truncate uppercase tracking-tight">{item.name}</p>
-                                    <p className="text-primary font-bold text-sm mt-1">₹{item.price}</p>
-                                </div>
-                            ))}
-                        </div>
-                        {menu.items.length > 4 && (
-                            <p className="text-[10px] font-black uppercase opacity-40 text-center tracking-widest">Plus {menu.items.length - 4} more items live...</p>
-                        )}
-                    </div>
-                ) : (
-                    <div className="text-center py-10 opacity-40 flex flex-col items-center gap-4">
-                        <ImageIcon className="h-12 w-12" />
-                        <p className="font-black uppercase tracking-widest text-xs">No digital menu detected</p>
-                    </div>
-                )}
-            </CardContent>
-        </Card>
-    );
-}
-
 function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void }) {
     const { firestore } = useFirebase();
     const [isPending, startTransition] = useTransition();
@@ -448,6 +403,25 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
     );
 }
 
+function ManageStoreView({ store, isAdmin, onUpdate }: { store: Store; isAdmin: boolean, onUpdate: () => void }) {
+    return (
+      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-700">
+        {!store.latitude && <UpdateLocationForm store={store} onUpdate={onUpdate} />}
+        <StoreDetails store={store} onUpdate={onUpdate} />
+        <div className="grid md:grid-cols-2 gap-8">
+            <StoreImageUploader store={store} />
+            <div className="space-y-8">
+                <Card className="rounded-3xl border-0 shadow-lg overflow-hidden">
+                    <CardHeader className="bg-primary/5 border-b border-black/5"><CardTitle className="text-sm font-black uppercase tracking-tight">Promote Business</CardTitle></CardHeader>
+                    <CardContent className="p-6"><Button className="w-full h-11 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg" onClick={() => {}}><Share2 className="mr-2 h-4 w-4" /> Share with Contacts</Button></CardContent>
+                </Card>
+            </div>
+        </div>
+        <MenuOnboardingTool storeId={store.id} onComplete={onUpdate} />
+    </div>
+    )
+}
+
 function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () => void }) {
     const { firestore } = useFirebase();
     const [isPending, startTransition] = useTransition();
@@ -500,7 +474,7 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
             <AlertCircle className="h-5 w-5 text-red-600" />
             <AlertTitle className="font-black uppercase tracking-tight text-red-900">Location Missing</AlertTitle>
             <AlertDescription className="font-bold text-red-800/60 text-xs mt-1">
-                GPS coordinates are required for your business to appear in the local directory and for delivery calculations.
+                GPS coordinates are required for your business hub.
             </AlertDescription>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-6">
@@ -520,7 +494,7 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
                     </div>
                     <div className="flex gap-2">
                         <Button type="button" variant="outline" onClick={handleGetLocation} className="rounded-xl h-10 px-4 font-black text-[10px] uppercase tracking-widest border-2">
-                            <MapPin className="mr-2 h-4 w-4" /> Get My GPS
+                            <MapPin className="mr-2 h-4 w-4" /> Detect GPS
                         </Button>
                         <Button type="submit" disabled={isPending} className="flex-1 h-10 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg">
                             {isPending ? 'Syncing...' : 'Save Location'}
@@ -529,207 +503,6 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
                 </form>
             </Form>
         </Alert>
-    );
-}
-
-function TableManager({ store }: { store: Store }) {
-    const { firestore } = useFirebase();
-    const [newTableName, setNewTableName] = useState('');
-    const [isSaving, startSaveTransition] = useTransition();
-    const { toast } = useToast();
-
-    const handleAddTable = () => {
-        if (!newTableName.trim()) return;
-        const currentTables = store.tables || [];
-        const updatedTables = [...new Set([...currentTables, newTableName.trim()])];
-        
-        startSaveTransition(() => {
-            if (!firestore) return;
-            updateDoc(doc(firestore, 'stores', store.id), { tables: updatedTables })
-                .then(() => {
-                    toast({ title: "Zone Added" });
-                    setNewTableName('');
-                })
-                .catch(err => {
-                    toast({ variant: "destructive", title: "Update Failed" });
-                });
-        });
-    };
-    
-    const handleRemoveTable = (tableToRemove: string) => {
-        if (!firestore) return;
-        const updatedTables = (store.tables || []).filter(t => t !== tableToRemove);
-        startSaveTransition(() => {
-            updateDoc(doc(firestore, 'stores', store.id), { tables: updatedTables })
-                .then(() => toast({ title: "Zone Removed" }));
-        });
-    };
-
-    return (
-        <Card className="rounded-3xl border-0 shadow-lg overflow-hidden">
-            <CardHeader className="bg-primary/5 border-b border-black/5">
-                <CardTitle className="text-sm font-black uppercase tracking-tight text-gray-900">Floor Management</CardTitle>
-                <CardDescription className="text-[10px] font-bold opacity-40 uppercase tracking-widest">Active tables or service zones</CardDescription>
-            </CardHeader>
-            <CardContent className="p-6 space-y-4">
-                <div className="flex gap-2">
-                    <Input 
-                        placeholder="e.g. Table 5"
-                        value={newTableName}
-                        onChange={(e) => setNewTableName(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleAddTable(); }}
-                        className="h-11 rounded-xl border-2"
-                    />
-                    <Button onClick={handleAddTable} disabled={isSaving || !newTableName.trim()} className="rounded-xl h-11 px-6">
-                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                    </Button>
-                </div>
-                 {store.tables && store.tables.length > 0 && (
-                     <div className="grid grid-cols-2 gap-2 mt-2">
-                         {store.tables.map(table => (
-                             <div key={table} className="flex items-center justify-between p-2 pl-4 bg-muted/30 rounded-xl border border-black/5">
-                                 <span className="font-bold text-xs uppercase tracking-tight">{table}</span>
-                                 <Button variant="ghost" size="icon" className="h-3.5 w-3.5 text-destructive" onClick={() => handleRemoveTable(table)}>
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                 </Button>
-                             </div>
-                         ))}
-                     </div>
-                 )}
-            </CardContent>
-        </Card>
-    );
-}
-
-function DangerZone({ store }: { store: Store }) {
-    const { firestore } = useFirebase();
-    const [isClosing, startCloseTransition] = useTransition();
-    const { toast } = useToast();
-    const handleCloseStore = () => {
-        if (!firestore) return;
-        startCloseTransition(async () => {
-            await updateDoc(doc(firestore, 'stores', store.id), { isClosed: true });
-            toast({ title: "Store Closed" });
-        });
-    };
-    return (
-        <Card className="rounded-[2.5rem] border-2 border-red-100 bg-red-50/30 overflow-hidden">
-            <CardHeader className="border-b border-red-100"><CardTitle className="text-red-600 text-sm font-black uppercase tracking-widest">Risk Management</CardTitle></CardHeader>
-            <CardContent className="p-8 flex justify-between items-center">
-                <div className="space-y-1">
-                    <p className="font-black uppercase text-xs">Deactivate Hub</p>
-                    <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest">Hide your business from all search results</p>
-                </div>
-                <AlertDialog>
-                    <AlertDialogTrigger asChild><Button variant="destructive" className="rounded-xl font-black uppercase text-[10px] tracking-widest h-11 px-8">Close Store</Button></AlertDialogTrigger>
-                    <AlertDialogContent className="rounded-[2.5rem] border-0 shadow-2xl">
-                        <AlertDialogHeader><AlertDialogTitle className="font-black uppercase tracking-tight">Confirm Deactivation?</AlertDialogTitle><AlertDialogDescription className="font-bold">This will immediately hide your storefront from the marketplace.</AlertDialogDescription></AlertDialogHeader>
-                        <AlertDialogFooter className="gap-2"><AlertDialogCancel className="rounded-xl font-bold">Cancel</AlertDialogCancel><AlertDialogAction onClick={handleCloseStore} className="bg-destructive hover:bg-destructive/90 rounded-xl font-bold uppercase tracking-widest text-[10px]">Yes, Deactivate</AlertDialogAction></AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            </CardContent>
-        </Card>
-    );
-}
-
-function ManageStoreView({ store, isAdmin, onUpdate }: { store: Store; isAdmin: boolean, onUpdate: () => void }) {
-    const isClosed = store.isClosed;
-    const needsLocationUpdate = !store.latitude || !store.longitude;
-
-    if (isClosed) return <Alert variant="destructive" className="rounded-3xl p-8"><AlertTitle className="font-black uppercase tracking-tight text-lg mb-2">Store is Inactive</AlertTitle><AlertDescription className="font-bold opacity-60">Your business hub is currently hidden from the marketplace.</AlertDescription></Alert>;
-
-    return (
-      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-700">
-        {needsLocationUpdate && <UpdateLocationForm store={store} onUpdate={onUpdate} />}
-        <StoreDetails store={store} onUpdate={onUpdate} />
-        <div className="grid md:grid-cols-2 gap-8">
-            <StoreImageUploader store={store} />
-            <div className="space-y-8">
-                <Card className="rounded-3xl border-0 shadow-lg overflow-hidden">
-                    <CardHeader className="bg-primary/5 border-b border-black/5"><CardTitle className="text-sm font-black uppercase tracking-tight">Share Business</CardTitle></CardHeader>
-                    <CardContent className="p-6"><Button className="w-full h-11 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg" onClick={() => {}}><Share2 className="mr-2 h-4 w-4" /> SMS Promotion</Button></CardContent>
-                </Card>
-                <TableManager store={store} />
-            </div>
-        </div>
-        <MenuOnboardingTool storeId={store.id} onComplete={onUpdate} />
-        <DigitalMenuOverview storeId={store.id} />
-        <DangerZone store={store} />
-      </div>
-    );
-}
-
-function CreateStoreForm({ user, isAdmin }: { user: any; isAdmin: boolean; }) {
-    const { toast } = useToast();
-    const [isPending, startTransition] = useTransition();
-    const { firestore } = useFirebase();
-    const form = useForm<StoreFormValues>({
-        resolver: zodResolver(storeSchema),
-        defaultValues: { name: '', description: '', address: '', latitude: 0, longitude: 0 },
-    });
-
-    const handleGetLocation = () => {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition((position) => {
-                form.setValue('latitude', position.coords.latitude, { shouldValidate: true });
-                form.setValue('longitude', position.coords.longitude, { shouldValidate: true });
-                toast({ title: "Location Captured!" });
-            });
-        }
-    };
-
-    const onSubmit = (data: StoreFormValues) => {
-        if (!user || !firestore) return;
-        startTransition(async () => {
-            const storeData = { ...data, ownerId: user.uid, imageId: `store-${Math.floor(Math.random() * 3) + 1}`, isClosed: false };
-            try {
-                await addDoc(collection(firestore, 'stores'), storeData);
-                toast({ title: 'Business Created!' });
-            } catch(e) {
-                errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'stores', operation: 'create', requestResourceData: storeData }));
-            }
-        });
-    };
-
-    return (
-        <Card className="max-w-3xl mx-auto rounded-[2.5rem] border-0 shadow-2xl">
-            <CardHeader className="text-center pt-10">
-                <CardTitle className="text-3xl font-black font-headline tracking-tighter uppercase italic text-gray-950">Register Business</CardTitle>
-                <CardDescription className="font-bold opacity-40 uppercase text-[10px] tracking-[0.2em] mt-1">Fill the details to get your storefront live</CardDescription>
-            </CardHeader>
-            <CardContent className="p-8">
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                        <FormField control={form.control} name="name" render={({ field }) => (
-                            <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Store Name</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl border-2" /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField control={form.control} name="description" render={({ field }) => (
-                            <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Business Bio</FormLabel><FormControl><Textarea {...field} className="min-h-[100px] rounded-xl border-2" /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField control={form.control} name="address" render={({ field }) => (
-                            <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Full Address</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl border-2" /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <div className="p-4 rounded-2xl bg-muted/30 border-2 border-dashed space-y-4">
-                            <Label className="text-[10px] font-black uppercase opacity-40">GPS Coordinates</Label>
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField control={form.control} name="latitude" render={({ field }) => (
-                                    <FormItem><FormControl><Input type="number" step="any" {...field} className="h-10 rounded-lg border-2" /></FormControl></FormItem>
-                                )} />
-                                <FormField control={form.control} name="longitude" render={({ field }) => (
-                                    <FormItem><FormControl><Input type="number" step="any" {...field} className="h-10 rounded-lg border-2" /></FormControl></FormItem>
-                                )} />
-                            </div>
-                            <Button type="button" variant="outline" onClick={handleGetLocation} className="w-full h-10 rounded-xl font-black text-[10px] uppercase tracking-widest border-2">
-                                <MapPin className="mr-2 h-4 w-4" /> Use Current Location
-                            </Button>
-                        </div>
-                        <Button type="submit" disabled={isPending} className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl shadow-primary/20">
-                            {isPending ? 'Syncing...' : 'Create My Store'}
-                        </Button>
-                    </form>
-                </Form>
-            </CardContent>
-        </Card>
     );
 }
 
@@ -745,26 +518,22 @@ export default function MyStorePage() {
 
     if (isUserLoading || isRoleLoading) return <div className="p-12 text-center flex flex-col items-center justify-center gap-4 h-[80vh]"><Loader2 className="animate-spin h-10 w-10 text-primary opacity-20" /><p className="text-[10px] font-black uppercase tracking-widest opacity-40">Verifying Authority...</p></div>;
 
+    if (!myStore) return <div className="p-12 text-center">Business hub not found.</div>;
+
     return (
         <div className="container mx-auto py-12 px-4 md:px-6 space-y-12 pb-32">
-            {myStore ? (
-                <>
-                    <div className="flex justify-between items-end border-b pb-10 border-black/5">
-                        <div className="space-y-1">
-                            <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950 truncate max-w-[600px]">{myStore.name}</h1>
-                            <p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Operational Hub</p>
-                        </div>
-                        <div className="hidden sm:block">
-                            <Badge variant="outline" className="rounded-full border-2 border-primary/20 text-primary font-black uppercase text-[10px] tracking-widest px-4 py-1.5 bg-primary/5">
-                                <CheckCircle2 className="h-3 w-3 mr-2 fill-current" /> Business Active
-                            </Badge>
-                        </div>
-                    </div>
-                    <ManageStoreView store={myStore} isAdmin={isAdmin} onUpdate={() => fetchInitialData(firestore!, user?.uid)} />
-                </>
-            ) : (
-                <CreateStoreForm user={user} isAdmin={isAdmin} />
-            )}
+            <div className="flex justify-between items-end border-b pb-10 border-black/5">
+                <div className="space-y-1">
+                    <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950 truncate max-w-[600px]">{myStore.name}</h1>
+                    <p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Operational Dashboard</p>
+                </div>
+                <div className="hidden sm:block">
+                    <Badge variant="outline" className="rounded-full border-2 border-primary/20 text-primary font-black uppercase text-[10px] tracking-widest px-4 py-1.5 bg-primary/5">
+                        <CheckCircle2 className="h-3 w-3 mr-2 fill-current" /> Business Active
+                    </Badge>
+                </div>
+            </div>
+            <ManageStoreView store={myStore} isAdmin={isAdmin} onUpdate={() => fetchInitialData(firestore!, user?.uid)} />
         </div>
     );
 }

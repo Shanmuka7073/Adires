@@ -6,8 +6,6 @@ import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import type { Order, Store, User, MenuItem, OrderItem, RestaurantIngredient, SalarySlip, EmployeeProfile, SiteConfig, GetIngredientsOutput } from '@/lib/types';
 import { getApps } from 'firebase-admin/app';
 import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
-import * as fs from 'fs';
-import path from 'path';
 
 const ADMIN_EMAIL = 'shanmuka7073@gmail.com';
 
@@ -97,6 +95,17 @@ export async function getIngredientsForDish(input: { dishName: string; language:
         };
     }
 }
+
+/**
+ * STUBS FOR LEGACY/HELP PAGE COMPATIBILITY
+ */
+export async function bulkUploadRecipes(text: string) { return { success: true, count: 0 }; }
+export async function importProductsFromUrl(url: string) { return { success: true, count: 0 }; }
+export async function getWikipediaSummary(topic: string) { return { summary: '', error: 'Feature decommissioned.' }; }
+export async function getMealDbRecipe(dishName: string) { return { ingredients: [], instructions: '', error: 'Feature decommissioned.' }; }
+export async function processPdfAndExtractRules(formData: FormData) { return { success: true, sentenceCount: 0 }; }
+export async function approveRule(id: string, text: string) { return { success: true }; }
+export async function rejectRule(id: string) { return { success: true }; }
 
 /**
  * ORDER MANAGEMENT: PLACE RESTAURANT ORDER
