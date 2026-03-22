@@ -38,7 +38,11 @@ function getAppOptions(): AppOptions {
     }
 
     try {
-        const serviceAccount = JSON.parse(serviceAccountString);
+        // ROBUST PARSING: Trim whitespace and remove accidental leading/trailing quotes
+        // This handles cases where the user might have pasted "'{...}'" instead of "{...}"
+        const cleanedString = serviceAccountString.trim().replace(/^['"]|['"]$/g, '');
+        const serviceAccount = JSON.parse(cleanedString);
+        
         return {
             credential: cert(serviceAccount),
             projectId: serviceAccount.project_id,
