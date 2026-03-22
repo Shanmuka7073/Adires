@@ -535,7 +535,7 @@ export default function PublicMenuPage() {
   const { data: menus, isLoading: menuLoading } = useCollection<Menu>(useMemoFirebase(() => firestore ? query(collection(firestore, `stores/${storeId}/menus`)) : null, [firestore, storeId]));
   const menu = menus?.[0];
 
-  // Logic to update userStore in cache for branded loader/header
+  // Sync business identity instantly for the loader and header
   useEffect(() => {
       if (store) {
           setUserStore(store);
@@ -709,7 +709,7 @@ export default function PublicMenuPage() {
         setDoc(orderRef, orderData).catch(async (e) => {
             errorEmitter.emit('permission-error', new FirestorePermissionError({
                 path: orderRef.path,
-                operation: 'create',
+                operation: 'create' as const,
                 requestResourceData: orderData
             }));
         });

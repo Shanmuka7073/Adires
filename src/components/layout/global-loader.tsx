@@ -6,6 +6,10 @@ import { useAppStore } from '@/lib/store';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
+/**
+ * Branded Global Loader
+ * Uses the store's identity from the persistent local cache to show branding instantly.
+ */
 export default function GlobalLoader() {
   const { userStore } = useAppStore();
   
@@ -24,10 +28,11 @@ export default function GlobalLoader() {
                     alt={brandName}
                     fill
                     className="object-cover"
+                    priority
                 />
             </div>
         </div>
-      <p className="mt-6 text-muted-foreground font-black text-xs uppercase tracking-[0.3em] animate-pulse">
+      <p className="mt-6 text-gray-900 font-black text-xs uppercase tracking-[0.3em] animate-pulse">
         {brandName}
       </p>
     </div>
