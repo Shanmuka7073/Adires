@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -20,7 +19,8 @@ import {
     SmartphoneNfc,
     Globe,
     MousePointer2,
-    Sparkles
+    Sparkles,
+    Zap
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { useFirebase } from '@/firebase';
