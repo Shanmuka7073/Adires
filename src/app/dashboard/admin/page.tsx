@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition, useMemo } from 'react';
@@ -11,21 +12,16 @@ import {
   Target,
   Zap,
   RefreshCw,
-  ZapOff,
   Rocket,
-  Lock,
   Shield,
   CheckCircle2,
   Server,
   FileSignature,
   Loader2,
   ImageIcon,
-  Smartphone,
   ShieldCheck,
   QrCode,
-  FileCode,
   WifiOff,
-  Activity,
   Globe,
   ExternalLink,
   Info
@@ -64,36 +60,6 @@ function KPICard({ title, value, subValue, trendValue, icon: Icon, color }: any)
       </CardContent>
     </Card>
   );
-}
-
-function CommandCard({ title, icon: Icon, color, command, onExecute, variant = 'default' }: any) {
-    const isDestructive = variant === 'destructive';
-    return (
-        <Card className={cn(
-            "rounded-2xl border-0 shadow-md group hover:shadow-xl transition-all overflow-hidden border-2 border-transparent hover:border-black/5 bg-white",
-            isDestructive && "border-red-100 bg-red-50/30"
-        )}>
-            <CardContent className="p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center text-white shadow-inner", color)}>
-                        <Icon className="h-4 w-4" />
-                    </div>
-                    <span className={cn("text-[10px] font-black uppercase tracking-tight", isDestructive && "text-red-900")}>{title}</span>
-                </div>
-                <Button 
-                    variant={isDestructive ? 'destructive' : 'ghost'} 
-                    size="sm" 
-                    onClick={() => onExecute(command)} 
-                    className={cn(
-                        "h-8 rounded-lg text-[8px] font-black uppercase",
-                        !isDestructive && "bg-black/5 hover:bg-black/10"
-                    )}
-                >
-                    {isDestructive ? 'Disable' : 'Execute'}
-                </Button>
-            </CardContent>
-        </Card>
-    )
 }
 
 function AdminActionCard({ title, description, href, icon: Icon }: { title: string, description: string, href: string, icon: React.ElementType }) {
@@ -141,17 +107,6 @@ export default function AdminDashboardPage() {
           await fetchStats();
           toast({ title: 'System metrics updated' });
       });
-  };
-
-  const handleExecute = async (command: string) => {
-      toast({ title: 'Broadcasting Command', description: 'Transmitting to platform edge...' });
-      const res = await executeCommand(command);
-      if (res.success) {
-          toast({ title: 'Success', description: res.message });
-          handleRefresh(); 
-      } else {
-          toast({ variant: 'destructive', title: 'Execution Failed' });
-      }
   };
 
   if (isLoading) return <div className="p-12 text-center flex flex-col items-center justify-center h-[60vh] gap-4">

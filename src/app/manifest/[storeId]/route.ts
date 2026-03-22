@@ -24,6 +24,12 @@ export async function GET(
 
   try {
     const { db } = await getAdminServices();
+    
+    // Defensive check for Firestore connection
+    if (!db) {
+        throw new Error("Firestore Admin SDK not initialized.");
+    }
+
     const storeDoc = await db.collection("stores").doc(storeId).get();
 
     if (!storeDoc.exists) {
@@ -40,13 +46,11 @@ export async function GET(
     const logoUrl = store.imageUrl || ADIRES_LOGO;
 
     const manifest = {
-      // The unique ID is critical for separating this app from the main platform app
       id: `adires-business-app-${storeId}`,
       name: store.name,
       short_name: store.name.substring(0, 12),
       description: store.description || `Official digital menu for ${store.name}`,
       start_url: `/menu/${storeId}`,
-      // Specific scope ensures the main platform app doesn't intercept these links
       scope: `/menu/${storeId}`,
       display: "standalone",
       orientation: "portrait",
@@ -83,6 +87,19 @@ export async function GET(
     
   } catch (error) {
     console.error(`Failed to generate manifest for store ${storeId}:`, error);
-    return new NextResponse("Internal Server Error", { status: 500 });
+    
+    // Fallback manifest to prevent 500 error and allow site to load
+    const fallbackManifest = {
+        name: "Adires Store",
+        short_name: "Store",
+        start_url: `/menu/${storeId}`,
+        display: "standalone",
+        icons: [{ src: ADIRES_LOGO, sizes: "192x192", type: "image/png" }]
+    };
+    
+    return NextResponse.json(fallbackManifest, {
+        status: 200,
+        headers: { "Content-Type": "application/manifest+json" }
+    });
   }
 }
