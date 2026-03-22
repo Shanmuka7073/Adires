@@ -1,16 +1,20 @@
 
 import { MetadataRoute } from 'next';
 
+/**
+ * Global Grozo Platform Manifest
+ * Explicitly set with a unique ID to separate it from individual restaurant apps.
+ */
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: 'adires-platform-main',
-    name: 'LocalBasket',
-    short_name: 'LocalBasket',
-    description: 'Your local grocery and restaurant market, powered by AI.',
+    name: 'Grozo Market',
+    short_name: 'Grozo',
+    description: 'Hyperlocal marketplace for restaurants, salons, and stores.',
     start_url: '/',
     scope: '/',
     display: 'standalone',
-    background_color: '#F0FFF0',
+    background_color: '#FDFCF7',
     theme_color: '#90EE90',
     icons: [
       {

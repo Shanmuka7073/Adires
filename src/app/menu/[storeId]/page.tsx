@@ -65,7 +65,8 @@ import {
   ArrowRight,
   History,
   Leaf,
-  Phone
+  Phone,
+  Smartphone
 } from 'lucide-react';
 
 import {
@@ -484,6 +485,7 @@ function MenuCard({ item, onAdd, onShowDetails, recentlyAdded, currentQuantityIn
                         <div className={cn("h-full w-full rounded-full border-2", item.dietary === 'veg' ? 'border-green-600 bg-green-600' : 'border-red-600 bg-red-600')}></div>
                     </div>
                 )}
+                {/* HIGH VISIBILITY PRICE BADGE */}
                 <div className="absolute bottom-2 left-2 bg-gray-950/80 backdrop-blur-md text-white px-4 py-1.5 rounded-full shadow-2xl border-2 border-white/20">
                     <p className="text-sm font-black tracking-tight">₹{item.price.toFixed(0)}</p>
                 </div>
@@ -806,6 +808,7 @@ export default function PublicMenuPage() {
                   </Card>
               ) : (
                 <div className="space-y-6">
+                    {/* SEARCH & FILTERS WITH HIGH CONTRAST */}
                     <div className="flex gap-2 bg-white p-1.5 rounded-2xl border-2 border-black/5 overflow-x-auto no-scrollbar shadow-sm">
                         <button 
                             onClick={() => setVegOnly(!vegOnly)}
@@ -907,48 +910,69 @@ export default function PublicMenuPage() {
             </div>
           </div>
 
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[400px] px-4 flex gap-2">
-              {tableNumber && tableNumber !== 'Counter' && placedOrders && placedOrders.length > 0 && (
-                  <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="outline" className="h-14 w-14 rounded-2xl shadow-2xl border-4 shrink-0 bg-white text-primary" style={{ borderColor: theme?.primaryColor || '#FBC02D', color: theme?.primaryColor }}><BellRing className="h-6 w-6" /></Button></DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="w-48 rounded-2xl p-2 border-0 shadow-2xl">
-                          <DropdownMenuLabel className="text-[10px] uppercase font-black opacity-40">Staff Call</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handleCallWaiter('Water')} className="rounded-xl font-bold">Glass of Water</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleCallWaiter('Cleaning')} className="rounded-xl font-bold">Clear Table</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleCallWaiter('Assistance')} className="rounded-xl font-bold">General Help</DropdownMenuItem>
-                      </DropdownMenuContent>
-                  </DropdownMenu>
+          {/* TWO-BUTTON INSTALLATION INTERFACE */}
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[400px] px-4 flex flex-col gap-3">
+              {/* GROZO (LOCALBASKET) INSTALL BUTTON */}
+              {canInstall && (
+                  <div className="px-2">
+                      <Button 
+                        onClick={triggerInstall} 
+                        variant="secondary"
+                        className="w-full h-10 rounded-xl bg-white border-2 border-black/5 shadow-xl text-[9px] font-black uppercase tracking-widest text-gray-600 hover:bg-gray-50"
+                      >
+                          <Smartphone className="mr-2 h-3.5 w-3.5 opacity-40" />
+                          Install {store.name} App
+                      </Button>
+                  </div>
               )}
-              {cartItems.length > 0 && (
-                  <Button onClick={handlePlaceOrder} className="h-14 flex-1 rounded-2xl shadow-2xl text-xs font-black uppercase tracking-widest border-2 border-white/20" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>
-                      {isAdding ? <Loader2 className="animate-spin h-5 w-5"/> : <PlusCircle className="mr-2 h-5 w-5" />}
-                      {tableNumber === 'Counter' ? `Bill (${cartItems.length})` : `Place Order (${cartItems.length})`}
-                  </Button>
-              )}
-              {(activeItemCount > 0 || cartItems.length > 0 || (historyOrders && historyOrders.length > 0)) && (
-                  <Sheet open={isLiveBillOpen} onOpenChange={setIsLiveBillOpen}>
-                      <SheetTrigger asChild>
-                          <Button variant="outline" className={cn("h-14 rounded-2xl shadow-2xl text-[10px] font-black uppercase tracking-widest border-4", (cartItems.length === 0 || tableNumber === 'Counter') ? "flex-1" : "px-5")} style={{ borderColor: theme?.primaryColor || '#FBC02D', color: theme?.primaryColor || '#FBC02D', backgroundColor: '#ffffff' }}>
-                              <Receipt className={cn(cartItems.length === 0 && "mr-2", "h-5 w-5")} /> 
-                              {(cartItems.length === 0 || tableNumber === 'Counter') && "Live Bill"}
-                              {activeItemCount > 0 && <Badge className="ml-2 h-6 min-w-[24px] rounded-lg text-xs font-black" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>{activeItemCount}</Badge>}
-                          </Button>
-                      </SheetTrigger>
-                      <SheetContent side="bottom" className="h-[85vh] rounded-t-[3rem] p-0 border-0 overflow-hidden shadow-2xl">
-                          <LiveBillSheet 
-                            sessionId={sessionId} 
-                            theme={theme} 
-                            store={store} 
-                            onShowUpi={() => setIsUpiDialogOpen(true)} 
-                            isSalon={isSalon} 
-                            placedOrders={placedOrders || []} 
-                            historyOrders={historyOrders || []}
-                            isLoadingOrders={ordersLoading} 
-                            onFinalizeBill={handleFinalizeBill}
-                          />
-                      </SheetContent>
-                  </Sheet>
-              )}
+
+              <div className="flex gap-2">
+                {tableNumber && tableNumber !== 'Counter' && placedOrders && placedOrders.length > 0 && (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild><Button variant="outline" className="h-14 w-14 rounded-2xl shadow-2xl border-4 shrink-0 bg-white text-primary" style={{ borderColor: theme?.primaryColor || '#FBC02D', color: theme?.primaryColor }}><BellRing className="h-6 w-6" /></Button></DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-48 rounded-2xl p-2 border-0 shadow-2xl">
+                            <DropdownMenuLabel className="text-[10px] uppercase font-black opacity-40">Staff Call</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => handleCallWaiter('Water')} className="rounded-xl font-bold">Glass of Water</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleCallWaiter('Cleaning')} className="rounded-xl font-bold">Clear Table</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleCallWaiter('Assistance')} className="rounded-xl font-bold">General Help</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
+                {cartItems.length > 0 && (
+                    <Button onClick={handlePlaceOrder} className="h-14 flex-1 rounded-2xl shadow-2xl text-xs font-black uppercase tracking-widest border-2 border-white/20" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>
+                        {isAdding ? <Loader2 className="animate-spin h-5 w-5"/> : <PlusCircle className="mr-2 h-5 w-5" />}
+                        {tableNumber === 'Counter' ? `Bill (${cartItems.length})` : `Place Order (${cartItems.length})`}
+                    </Button>
+                )}
+                {(activeItemCount > 0 || cartItems.length > 0 || (historyOrders && historyOrders.length > 0)) && (
+                    <Sheet open={isLiveBillOpen} onOpenChange={setIsLiveBillOpen}>
+                        <SheetTrigger asChild>
+                            <Button variant="outline" className={cn("h-14 rounded-2xl shadow-2xl text-[10px] font-black uppercase tracking-widest border-4", (cartItems.length === 0 || tableNumber === 'Counter') ? "flex-1" : "px-5")} style={{ borderColor: theme?.primaryColor || '#FBC02D', color: theme?.primaryColor || '#FBC02D', backgroundColor: '#ffffff' }}>
+                                <Receipt className={cn(cartItems.length === 0 && "mr-2", "h-5 w-5")} /> 
+                                {(cartItems.length === 0 || tableNumber === 'Counter') && "Live Bill"}
+                                {activeItemCount > 0 && <Badge className="ml-2 h-6 min-w-[24px] rounded-lg text-xs font-black" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>{activeItemCount}</Badge>}
+                            </Button>
+                        </SheetTrigger>
+                        <SheetContent side="bottom" className="h-[85vh] rounded-t-[3rem] p-0 border-0 overflow-hidden shadow-2xl">
+                            <LiveBillSheet 
+                                sessionId={sessionId} 
+                                theme={theme} 
+                                store={store} 
+                                onShowUpi={() => setIsUpiDialogOpen(true)} 
+                                isSalon={isSalon} 
+                                placedOrders={placedOrders || []} 
+                                historyOrders={historyOrders || []}
+                                isLoadingOrders={ordersLoading} 
+                                onFinalizeBill={handleFinalizeBill}
+                            />
+                        </SheetContent>
+                    </Sheet>
+                )}
+              </div>
+              
+              <Link href="/" className="text-[8px] font-black uppercase tracking-[0.3em] opacity-30 text-center hover:opacity-100 transition-opacity">
+                  Marketplace Home: Open Grozo Platform
+              </Link>
           </div>
         </div>
     </>
