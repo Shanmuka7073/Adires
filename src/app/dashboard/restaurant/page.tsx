@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowRight, Store, ShoppingBag, CheckCircle, XCircle, Users, FileText, Scissors, Utensils, Loader2, BarChart3, LayoutGrid, Sparkles, WifiOff } from 'lucide-react';
+import { ArrowRight, Store, ShoppingBag, CheckCircle, XCircle, Users, FileText, Scissors, Utensils, Loader2, BarChart3, LayoutGrid, Sparkles, WifiOff, Download, Smartphone } from 'lucide-react';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { useAppStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { useInstall } from '@/components/install-provider';
 
 const serviceLinks = [
     {
@@ -69,7 +70,7 @@ function PWAChecklist({ store }: { store: StoreType }) {
     const allComplete = checklistItems.every(item => item.completed);
 
     return (
-        <Card className="mt-8 bg-green-50 border-green-200 rounded-[2.5rem] shadow-inner">
+        <Card className="bg-green-50 border-green-200 rounded-[2.5rem] shadow-inner">
             <CardHeader>
                 <CardTitle className="text-xl font-black uppercase tracking-tight text-green-900">PWA Readiness</CardTitle>
                 <CardDescription className="font-bold text-green-800/60">
@@ -107,6 +108,7 @@ export default function ServiceDashboardPage() {
     const router = useRouter();
     const { firestore } = useFirebase();
     const { userStore } = useAppStore();
+    const { canInstall, triggerInstall } = useInstall();
 
     const storeQuery = useMemoFirebase(() => 
         user && isRestaurantOwner ? query(collection(firestore, 'stores'), where('ownerId', '==', user.uid)) : null
@@ -123,7 +125,7 @@ export default function ServiceDashboardPage() {
         }
     }, [isLoading, isRestaurantOwner, router]);
     
-    const { isSalon, isRestaurant, dashboardTitle, DashboardIcon } = useMemo(() => {
+    const { isSalon, dashboardTitle, DashboardIcon } = useMemo(() => {
         if (!store) return { isSalon: false, isRestaurant: false, dashboardTitle: 'Business Dashboard', DashboardIcon: Store };
         if (store.businessType === 'salon') return { isSalon: true, isRestaurant: false, dashboardTitle: 'Salon Hub', DashboardIcon: Scissors };
         if (store.businessType === 'restaurant') return { isSalon: false, isRestaurant: true, dashboardTitle: 'Restaurant Hub', DashboardIcon: Utensils };
@@ -151,6 +153,28 @@ export default function ServiceDashboardPage() {
                     Business Status: Online
                 </div>
             </div>
+
+            {/* Prominent Installation Card (Outside Menu) */}
+            {canInstall && (
+                <Card className="rounded-[2.5rem] border-0 shadow-2xl bg-primary text-white p-8 relative overflow-hidden group mb-12">
+                    <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12 transition-transform group-hover:rotate-45 duration-700">
+                        <Smartphone className="h-32 w-32" />
+                    </div>
+                    <div className="relative z-10 space-y-6">
+                        <div>
+                            <h2 className="text-3xl font-black uppercase tracking-tighter italic">Install Adires POS</h2>
+                            <p className="font-bold opacity-80 text-xs uppercase tracking-widest mt-1">Get the high-performance native app experience</p>
+                        </div>
+                        <Button 
+                            onClick={triggerInstall}
+                            className="rounded-2xl h-14 px-8 bg-white text-primary hover:bg-white/90 font-black uppercase tracking-widest text-[10px] shadow-2xl active:scale-95 transition-all"
+                        >
+                            <Download className="mr-2 h-5 w-5" />
+                            Install Now
+                        </Button>
+                    </div>
+                </Card>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {serviceLinks.map((card) => (
@@ -189,8 +213,20 @@ export default function ServiceDashboardPage() {
                 ))}
             </div>
 
-             <div className="max-w-2xl mx-auto mt-16">
+             <div className="max-w-4xl mx-auto mt-16 grid md:grid-cols-2 gap-8">
                 {store ? <PWAChecklist store={store} /> : <Skeleton className="h-48 w-full rounded-[2.5rem]" />}
+                <Card className="rounded-[2.5rem] border-0 shadow-lg bg-white p-8 flex flex-col justify-center gap-4">
+                    <div className="flex items-center gap-3">
+                        <WifiOff className="h-6 w-6 text-amber-500" />
+                        <h3 className="font-black uppercase text-sm tracking-tight">Sync Diagnostics</h3>
+                    </div>
+                    <p className="text-xs font-bold text-gray-500 leading-relaxed uppercase">
+                        Ensure your device is correctly registered for offline-first order processing.
+                    </p>
+                    <Button asChild variant="outline" className="rounded-xl font-black text-[9px] uppercase tracking-widest border-2 h-10 w-fit">
+                        <Link href="/dashboard/offline-audit">Open Sync Center</Link>
+                    </Button>
+                </Card>
             </div>
         </div>
     );

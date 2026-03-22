@@ -32,7 +32,6 @@ import type {
 import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
-import { v4 as uuidv4 } from 'uuid';
 import Link from 'next/link';
 import { format } from 'date-fns';
 
@@ -926,10 +925,10 @@ export default function PublicMenuPage() {
                   <div className="px-2">
                       <Button 
                         onClick={triggerInstall} 
-                        variant="secondary"
-                        className="w-full h-10 rounded-xl bg-white border-2 border-black/5 shadow-xl text-[9px] font-black uppercase tracking-widest text-gray-600 hover:bg-gray-50"
+                        variant="default"
+                        className="w-full h-12 rounded-xl bg-primary text-white shadow-2xl text-[10px] font-black uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all border-0"
                       >
-                          <Smartphone className="mr-2 h-3.5 w-3.5 opacity-40" />
+                          <Download className="mr-2 h-4 w-4" />
                           Install {store.name} App
                       </Button>
                   </div>

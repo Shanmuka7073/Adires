@@ -27,6 +27,27 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
+/**
+ * Prominent Install Button for the Top Header (Outside)
+ */
+function GlobalInstallButton() {
+    const { canInstall, triggerInstall } = useInstall();
+    if (!canInstall) return null;
+
+    return (
+        <Button 
+            onClick={triggerInstall} 
+            variant="default" 
+            size="sm" 
+            className="rounded-full h-9 px-4 font-black text-[9px] sm:text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20 bg-primary text-white border-0 transition-all active:scale-95 hover:brightness-110 flex items-center gap-2"
+        >
+            <Download className="h-3.5 w-3.5 sm:h-4 w-4" />
+            <span className="hidden xs:inline-block">Install App</span>
+            <span className="xs:hidden inline-block">Install</span>
+        </Button>
+    );
+}
+
 function LanguageSwitcher() {
     const { language, setLanguage } = useAppStore();
 
@@ -84,24 +105,33 @@ function UserMenu() {
           <span className="sr-only">Toggle user menu</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56 rounded-2xl">
+      <DropdownMenuContent align="end" className="w-56 rounded-2xl overflow-hidden">
         <DropdownMenuLabel className="font-bold">{t('my-account')}</DropdownMenuLabel>
         <DropdownMenuItem disabled className="text-xs opacity-60">{user.email}</DropdownMenuItem>
         <DropdownMenuSeparator />
+        
+        {/* Prominent "Inside" Install Button */}
+        {canInstall && (
+          <>
+            <DropdownMenuItem 
+                onClick={triggerInstall} 
+                className="rounded-lg cursor-pointer bg-primary text-white focus:bg-primary/90 focus:text-white font-black uppercase text-[10px] tracking-widest py-3 mb-1 shadow-md flex items-center gap-2"
+            >
+                <Download className="h-4 w-4" />
+                <span>Install Now</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
+
         <Link href={dashboardHref} passHref>
           <DropdownMenuItem className="rounded-lg cursor-pointer">
               <LayoutDashboard className="mr-2 h-4 w-4" />
               <span>{t('dashboard')}</span>
           </DropdownMenuItem>
         </Link>
-        <DropdownMenuSeparator />
-        {canInstall && (
-          <DropdownMenuItem onClick={triggerInstall} className="rounded-lg cursor-pointer">
-            <Download className="mr-2 h-4 w-4" />
-            <span>Install App</span>
-          </DropdownMenuItem>
-        )}
-         <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:bg-destructive/10 focus:text-destructive rounded-lg cursor-pointer">
+        
+         <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:bg-destructive/10 focus:text-destructive rounded-lg cursor-pointer mt-1">
             <LogOut className="mr-2 h-4 w-4" />
             <span>{t('logout')}</span>
         </DropdownMenuItem>
@@ -140,6 +170,7 @@ export function Header() {
       <div className="flex-1" />
 
       <div className="flex items-center gap-1.5 md:gap-3">
+        <GlobalInstallButton />
         {showShoppingControls && <LanguageSwitcher />}
         {showShoppingControls && <CartIcon open={isCartOpen} onOpenChange={setCartOpen} />}
         <UserMenu />
