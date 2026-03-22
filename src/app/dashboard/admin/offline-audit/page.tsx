@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -14,15 +15,11 @@ import {
     AlertCircle,
     ShieldCheck,
     RefreshCw,
-    Download,
-    FileCode,
     SmartphoneNfc,
-    Globe,
     MousePointer2,
     Sparkles,
     Zap
 } from 'lucide-react';
-import { useAppStore } from '@/lib/store';
 import { useFirebase } from '@/firebase';
 import { doc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
@@ -148,7 +145,7 @@ export default function OfflineAuditPage() {
                 toast({ 
                     variant: 'destructive', 
                     title: "Write Failed", 
-                    description: e.message?.includes('permissions') 
+                    description: e.message?.toLowerCase().includes('permission') 
                         ? "Missing Firestore rules for 'diagnostic_logs'." 
                         : "Unknown error during sync check." 
                 });

@@ -128,8 +128,7 @@ service cloud.firestore {
     }
 
     match /diagnostic_logs/{logId} {
-      allow create: if isSignedIn();
-      allow get: if isAdmin() || resource.data.userId == request.auth.uid;
+      allow read, write: if isSignedIn();
     }
   }
 }
