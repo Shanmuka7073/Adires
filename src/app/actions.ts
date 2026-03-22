@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -83,9 +82,6 @@ export async function getPlatformAnalytics() {
         // Time Boundaries
         const now = new Date();
         const todayStart = new Date(now.setHours(0,0,0,0));
-        const yesterdayStart = new Date(new Date(todayStart).getTime() - 86400000);
-        const sevenDaysAgo = new Date(new Date(todayStart).getTime() - 7 * 86400000);
-        const fourteenDaysAgo = new Date(new Date(todayStart).getTime() - 14 * 86400000);
         const thirtyDaysAgo = new Date(new Date(todayStart).getTime() - 30 * 86400000);
         const sixtyDaysAgo = new Date(new Date(todayStart).getTime() - 60 * 86400000);
 
@@ -97,14 +93,19 @@ export async function getPlatformAnalytics() {
         ]);
 
         // 2. Fetch Recent Orders for detailed calculation
-        // We limit to 500 orders to keep performance high
         const recentOrdersSnap = await db.collection('orders')
             .where('orderDate', '>=', Timestamp.fromDate(sixtyDaysAgo))
             .orderBy('orderDate', 'desc')
-            .limit(500)
+            .limit(1000)
             .get();
 
-        const orders = recentOrdersSnap.docs.map(d => ({ ...d.data(), orderDate: d.data().orderDate.toDate() }));
+        const orders = recentOrdersSnap.docs.map(d => {
+            const data = d.data();
+            return {
+                ...data,
+                orderDate: (data.orderDate as Timestamp).toDate()
+            };
+        }) as any[];
 
         const calculateMetrics = (rangeStart: Date, rangeEnd: Date) => {
             const rangeOrders = orders.filter(o => o.orderDate >= rangeStart && o.orderDate < rangeEnd && o.status !== 'Cancelled');
@@ -115,15 +116,14 @@ export async function getPlatformAnalytics() {
             return { revenue, count, uniqueUsers, aov };
         };
 
-        // Today vs Yesterday
+        const yesterdayStart = new Date(new Date(todayStart).getTime() - 86400000);
+        const sevenDaysAgo = new Date(new Date(todayStart).getTime() - 7 * 86400000);
+        const fourteenDaysAgo = new Date(new Date(todayStart).getTime() - 14 * 86400000);
+
         const today = calculateMetrics(todayStart, new Date());
         const yesterday = calculateMetrics(yesterdayStart, todayStart);
-
-        // 7D vs 7D Prior
         const last7d = calculateMetrics(sevenDaysAgo, new Date());
         const prev7d = calculateMetrics(fourteenDaysAgo, sevenDaysAgo);
-
-        // 30D vs 30D Prior
         const last30d = calculateMetrics(thirtyDaysAgo, new Date());
         const prev30d = calculateMetrics(sixtyDaysAgo, thirtyDaysAgo);
 
