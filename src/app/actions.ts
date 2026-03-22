@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -58,6 +57,7 @@ export async function getSystemStatus() {
                 users: users.data().count, 
                 stores: stores.data().count 
             },
+            error: null,
         };
     } catch (err: any) {
         return { 
@@ -66,7 +66,8 @@ export async function getSystemStatus() {
             serverDbStatus: 'Offline' as const, 
             errorMessage: err.message,
             isCredentialError: !hasServiceAccount || err.message.includes('credentials'),
-            counts: { users: 0, stores: 0 } 
+            counts: { users: 0, stores: 0 },
+            error: err.message,
         };
     }
 }
@@ -143,7 +144,9 @@ export async function placeRestaurantOrder(cartItems: CartItem[], total: number,
  * GET INGREDIENTS FOR DISH
  */
 export async function getIngredientsForDish(input: { dishName: string; language: string }) {
-    return getIngredientsForDishFlow({ dishName: input.dishName, language: input.language });
+    // TypeScript fix: Ensure language matches the required union type 'en' | 'te'
+    const lang = (input.language === 'te' ? 'te' : 'en') as 'en' | 'te';
+    return getIngredientsForDishFlow({ dishName: input.dishName, language: lang });
 }
 
 /**
