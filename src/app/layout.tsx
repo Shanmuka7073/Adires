@@ -12,9 +12,29 @@ const ptSans = PT_Sans({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://adires.vercel.app'),
   title: "Adires | Unified Local Market",
   description: "Your unified local market for groceries, restaurants, and salons.",
-  // Next.js handles manifest.ts automatically, so we don't need a hardcoded manifest.json link here.
+  keywords: ["hyperlocal", "marketplace", "delivery", "restaurant", "salon", "India"],
+  authors: [{ name: "Adires Platform" }],
+  openGraph: {
+    title: "Adires | Unified Local Market",
+    description: "Connecting you to your trusted neighborhood stores.",
+    url: "https://adires.vercel.app",
+    siteName: "Adires",
+    images: [
+      {
+        url: "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png",
+        width: 800,
+        height: 600,
+      },
+    ],
+    locale: "en_IN",
+    type: "website",
+  },
+  verification: {
+    google: 'add-your-google-verification-code-here',
+  },
   icons: {
     apple: "/apple-touch-icon.png",
   },
@@ -22,6 +42,9 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#90EE90",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({
@@ -33,7 +56,6 @@ export default function RootLayout({
     <html lang="en" className={ptSans.variable}>
        <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
-        {/* Force an early capture of the install prompt for the InstallProvider */}
         <script dangerouslySetInnerHTML={{
             __html: `
                 window.addEventListener('beforeinstallprompt', (e) => {

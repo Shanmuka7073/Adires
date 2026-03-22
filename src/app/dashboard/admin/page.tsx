@@ -26,7 +26,9 @@ import {
   QrCode,
   FileCode,
   WifiOff,
-  Activity
+  Activity,
+  Globe,
+  ExternalLink
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -246,20 +248,6 @@ export default function AdminDashboardPage() {
             </div>
 
             <div className="space-y-4">
-                <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 flex items-center gap-2">
-                    <Zap className="h-3 w-3" /> Command Hub
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <CommandCard title="Boost Partner Rewards" icon={Zap} color="bg-indigo-500" command="reward_boost" onExecute={handleExecute} />
-                    {data.isMaintenance ? (
-                        <CommandCard title="Disable Maintenance" icon={ZapOff} color="bg-red-600" command="maintenance_off" onExecute={handleExecute} variant="destructive" />
-                    ) : (
-                        <CommandCard title="Enable Maintenance" icon={ZapOff} color="bg-red-500" command="maintenance_on" onExecute={handleExecute} />
-                    )}
-                </div>
-            </div>
-
-            <div className="space-y-4">
                 <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 px-1">Infrastructure Control</h2>
                 <div className="grid md:grid-cols-2 gap-4">
                     <AdminActionCard title="System Status" description="Live health check of platform services." href="/dashboard/admin/system-status" icon={Server} />
@@ -275,20 +263,27 @@ export default function AdminDashboardPage() {
         <section className="space-y-10">
             <div className="space-y-4">
                 <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 flex items-center gap-2">
-                    <Smartphone className="h-3 w-3" /> PWA Modules
+                    <Globe className="h-3 w-3" /> Production Status
                 </h2>
                 <Card className="rounded-[2.5rem] border-0 shadow-lg bg-white overflow-hidden">
                     <CardHeader className="bg-primary/5 border-b border-primary/10 pb-4">
                         <CardTitle className="text-xs font-black uppercase tracking-tight text-primary flex items-center gap-2">
-                            <Lock className="h-3 w-3" /> App Shell Config
+                            <ExternalLink className="h-3 w-3" /> Deployment Info
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="p-6 space-y-4">
+                        <div className="space-y-1">
+                            <p className="text-[8px] font-black uppercase opacity-40">Primary Domain</p>
+                            <p className="text-[10px] font-bold text-primary truncate">adires.vercel.app</p>
+                        </div>
+                        <Alert className="bg-amber-50 border-amber-100 p-3 rounded-xl">
+                            <Info className="h-3 w-3 text-amber-600" />
+                            <AlertDescription className="text-[9px] font-bold text-amber-800 leading-tight">
+                                Reminder: Ensure this domain is added to <strong>Authentication > Settings > Authorized Domains</strong> in Firebase Console.
+                            </AlertDescription>
+                        </Alert>
                         <Button asChild variant="outline" className="w-full h-10 rounded-xl font-black uppercase text-[8px] tracking-widest border-2">
                             <Link href="/dashboard/admin/manifest-help">Edit PWA Manifest</Link>
-                        </Button>
-                        <Button asChild variant="outline" className="w-full h-10 rounded-xl font-black uppercase text-[8px] tracking-widest border-2">
-                            <Link href="/dashboard/admin/dashboard-help">Dev Dashboard Code</Link>
                         </Button>
                     </CardContent>
                 </Card>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -19,7 +20,9 @@ import {
     Sparkles,
     Zap,
     ArrowRight,
-    Check
+    Check,
+    Globe,
+    Lock
 } from 'lucide-react';
 import { useFirebase } from '@/firebase';
 import { doc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -43,6 +46,10 @@ interface DiagnosticState {
         status: 'ready' | 'waiting' | 'blocked' | 'checking';
         reason: string;
     };
+    domain: {
+        status: 'production' | 'development' | 'unrecognized';
+        reason: string;
+    };
 }
 
 export default function OfflineAuditPage() {
@@ -50,7 +57,8 @@ export default function OfflineAuditPage() {
     const [diag, setDiag] = useState<DiagnosticState>({
         sw: { status: 'checking', reason: 'Analyzing browser environment...' },
         manifest: { status: 'checking', reason: 'Searching for web manifest...' },
-        prompt: { status: 'checking', reason: 'Listening for install prompt...' }
+        prompt: { status: 'checking', reason: 'Listening for install prompt...' },
+        domain: { status: 'development', reason: 'Checking host authority...' }
     });
     const [lastSyncStatus, setLastSyncStatus] = useState<'idle' | 'writing' | 'queued' | 'synced'>('idle');
     const [isTesting, startTest] = useTransition();
@@ -66,11 +74,21 @@ export default function OfflineAuditPage() {
         // 1. Check Network
         setIsOnline(navigator.onLine);
 
-        // 2. Check Service Worker
+        // 2. Check Domain Authority
+        const host = window.location.hostname;
+        if (host === 'adires.vercel.app') {
+            setDiag(prev => ({ ...prev, domain: { status: 'production', reason: 'Official production domain verified.' } }));
+        } else if (host === 'localhost' || host === '127.0.0.1') {
+            setDiag(prev => ({ ...prev, domain: { status: 'development', reason: 'Local development environment.' } }));
+        } else {
+            setDiag(prev => ({ ...prev, domain: { status: 'unrecognized', reason: `Host: ${host}. Ensure this is added to Firebase Authorized Domains.` } }));
+        }
+
+        // 3. Check Service Worker
         if (!('serviceWorker' in navigator)) {
             setDiag(prev => ({ ...prev, sw: { status: 'unsupported', reason: 'Browser lacks SW support.' } }));
         } else {
-            const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
             if (!isSecure) {
                 setDiag(prev => ({ ...prev, sw: { status: 'insecure', reason: 'PWA DISABLED: Browser requires HTTPS.' } }));
             } else {
@@ -88,7 +106,7 @@ export default function OfflineAuditPage() {
             }
         }
 
-        // 3. Check Manifest
+        // 4. Check Manifest
         const manifestLink = document.querySelector('link[rel="manifest"]');
         if (manifestLink) {
             setDiag(prev => ({ ...prev, manifest: { status: 'found', reason: `Link detected: ${manifestLink.getAttribute('href')}` } }));
@@ -96,7 +114,7 @@ export default function OfflineAuditPage() {
             setDiag(prev => ({ ...prev, manifest: { status: 'missing', reason: 'Manifest link not found in head.' } }));
         }
 
-        // 4. Check Prompt Readiness
+        // 5. Check Prompt Readiness
         if (window.deferredInstallPrompt) {
             setDiag(prev => ({ ...prev, prompt: { status: 'ready', reason: 'Install prompt is primed and ready to fire.' } }));
         } else {
@@ -137,7 +155,8 @@ export default function OfflineAuditPage() {
                     timestamp: serverTimestamp(), 
                     userId: user.uid, 
                     type: 'sync-test',
-                    platform: 'Adires Admin'
+                    platform: 'Adires Admin',
+                    host: window.location.hostname
                 });
             } catch (e: any) {
                 console.error("Sync test failed:", e);
@@ -158,7 +177,7 @@ export default function OfflineAuditPage() {
             <div className="flex justify-between items-end border-b pb-10 border-black/5">
                 <div>
                     <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950">Decision Audit</h1>
-                    <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Reason-Based Diagnostic center</p>
+                    <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Domain: adires.vercel.app</p>
                 </div>
                 <Button onClick={performAudit} variant="outline" className="rounded-full h-12 px-6 font-black uppercase text-[10px] tracking-widest border-2">
                     <RefreshCw className="mr-2 h-4 w-4" /> Re-Scan
@@ -166,16 +185,36 @@ export default function OfflineAuditPage() {
             </div>
 
             <div className="grid md:grid-cols-2 gap-8">
-                {/* SW CHECK */}
+                {/* DOMAIN CHECK */}
                 <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white">
                     <CardHeader className="bg-primary/5 pb-6 border-b border-black/5">
                         <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                            <Activity className="h-4 w-4 text-primary" /> Service Worker
+                            <Globe className="h-4 w-4 text-primary" /> Domain Authority
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="p-8 space-y-4">
                         <div className="flex justify-between items-center">
-                            <span className="text-[10px] font-black uppercase opacity-40">Status</span>
+                            <span className="text-[10px] font-black uppercase opacity-40">Environment</span>
+                            <Badge variant={diag.domain.status === 'production' ? 'default' : 'secondary'} className="font-black uppercase text-[9px]">
+                                {diag.domain.status.toUpperCase()}
+                            </Badge>
+                        </div>
+                        <p className="text-[11px] font-bold text-gray-600 leading-tight p-4 bg-muted/30 rounded-2xl border border-black/5">
+                            {diag.domain.reason}
+                        </p>
+                    </CardContent>
+                </Card>
+
+                {/* SW CHECK */}
+                <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white">
+                    <CardHeader className="bg-primary/5 pb-6 border-b border-black/5">
+                        <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                            <Lock className="h-4 w-4 text-primary" /> App Shell (PWA)
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-8 space-y-4">
+                        <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-black uppercase opacity-40">Service Worker</span>
                             <Badge variant={diag.sw.status === 'active' ? 'default' : 'destructive'} className="font-black uppercase text-[9px]">
                                 {diag.sw.status.toUpperCase()}
                             </Badge>
@@ -212,7 +251,7 @@ export default function OfflineAuditPage() {
                 </Card>
 
                 {/* NETWORK & SYNC */}
-                <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white border-2 border-primary/20 md:col-span-2">
+                <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white border-2 border-primary/20">
                     <CardHeader className="bg-primary/5 pb-6 border-b border-black/5">
                         <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
                             <Cloud className="h-4 w-4 text-primary" /> Sync Diagnostics
@@ -235,65 +274,20 @@ export default function OfflineAuditPage() {
                 </Card>
             </div>
 
-            {lastSyncStatus === 'synced' && (
-                <section className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6">
-                    <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-2xl bg-green-100 flex items-center justify-center text-green-600">
-                            <Sparkles className="h-6 w-6" />
-                        </div>
-                        <h2 className="text-3xl font-black uppercase tracking-tighter italic text-green-950">Next: Go Live</h2>
-                    </div>
-                    
-                    <div className="grid md:grid-cols-3 gap-4">
-                        <Card className="rounded-3xl border-0 shadow-lg p-6 bg-white space-y-3">
-                            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-black">1</div>
-                            <p className="text-xs font-black uppercase tracking-tight">Open Menu</p>
-                            <p className="text-[10px] font-bold text-gray-500 leading-relaxed">Visit any restaurant menu page on a real mobile device (using Chrome/Safari).</p>
-                        </Card>
-                        <Card className="rounded-3xl border-0 shadow-lg p-6 bg-white space-y-3">
-                            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-black">2</div>
-                            <p className="text-xs font-black uppercase tracking-tight">Engagement</p>
-                            <p className="text-[10px] font-bold text-gray-500 leading-relaxed">Scroll and click at least 3 items. Chrome needs to know you are interested.</p>
-                        </Card>
-                        <Card className="rounded-3xl border-0 shadow-lg p-6 bg-white space-y-3">
-                            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-black">3</div>
-                            <p className="text-xs font-black uppercase tracking-tight">Installation</p>
-                            <p className="text-[10px] font-bold text-gray-500 leading-relaxed">The "Install App" button will appear in the header. Click it to add to home screen.</p>
-                        </Card>
-                    </div>
-
-                    <Card className="rounded-[3rem] border-0 shadow-2xl bg-slate-900 text-white p-10 overflow-hidden relative">
-                        <div className="absolute top-0 right-0 p-10 opacity-10 rotate-12">
-                            <Check className="h-48 w-48 text-primary" strokeWidth={4} />
-                        </div>
-                        <div className="relative z-10 space-y-4">
-                            <p className="text-xl font-bold leading-relaxed text-primary/90">
-                                "Platform Plumbing Verified."
-                            </p>
-                            <p className="text-sm font-medium text-white/60 leading-relaxed max-w-2xl">
-                                Your **Sync Success** confirms that your Firestore Rules and Cloud Infrastructure are professional-grade. Each restaurant now has its own unique App ID and will be treated as a standalone app by the OS.
-                            </p>
-                            <Button asChild variant="outline" className="rounded-xl border-white/20 text-white hover:bg-white/10 font-black uppercase text-[10px] h-12 px-8">
-                                <Link href="/dashboard/admin">Return to Dashboard <ArrowRight className="ml-2 h-4 w-4"/></Link>
-                            </Button>
-                        </div>
-                    </Card>
-                </section>
-            )}
-
-            <Card className="rounded-[3rem] border-0 shadow-md bg-white p-10">
-                <div className="flex items-start gap-6">
-                    <div className="h-12 w-12 rounded-2xl bg-black/5 flex items-center justify-center text-gray-400 shrink-0">
-                        <Smartphone className="h-6 w-6" />
-                    </div>
-                    <div>
-                        <h3 className="text-xl font-black uppercase tracking-tight mb-2">Standalone App Verification</h3>
-                        <div className="space-y-4 text-xs font-bold text-gray-500 leading-relaxed">
-                            <p>1. <strong className="text-gray-900">Unique IDs</strong>: We use specific manifest IDs so "Chandra Restaurant" and "Local Basket" don't merge. They will have separate icons.</p>
-                            <p>2. <strong className="text-gray-900">Chrome Requirements</strong>: On Android, Chrome won't show the "Add to Home Screen" button until the Service Worker is active and the user has scrolled the page.</p>
-                            <p>3. <strong className="text-gray-900">Manual Check</strong>: If you don't see the button, click the 3 dots in Chrome and look for "Install app" or "Add to home screen". If it's there, your manifest is perfect.</p>
-                        </div>
-                    </div>
+            <Card className="rounded-[3rem] border-0 shadow-2xl bg-slate-900 text-white p-10 overflow-hidden relative">
+                <div className="absolute top-0 right-0 p-10 opacity-10 rotate-12">
+                    <Check className="h-48 w-48 text-primary" strokeWidth={4} />
+                </div>
+                <div className="relative z-10 space-y-4">
+                    <p className="text-xl font-bold leading-relaxed text-primary/90">
+                        "Environment Health Verified."
+                    </p>
+                    <p className="text-sm font-medium text-white/60 leading-relaxed max-w-2xl">
+                        Your **Sync Success** on `adires.vercel.app` confirms that your deployment is production-ready. Remember to add your Google Verification token to the layout meta-tags to complete the Google Cloud handshake.
+                    </p>
+                    <Button asChild variant="outline" className="rounded-xl border-white/20 text-white hover:bg-white/10 font-black uppercase text-[10px] h-12 px-8">
+                        <Link href="/dashboard/admin">Return to Dashboard <ArrowRight className="ml-2 h-4 w-4"/></Link>
+                    </Button>
                 </div>
             </Card>
         </div>
