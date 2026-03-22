@@ -51,7 +51,7 @@ const prompt = ai.definePrompt({
   name: 'extractMenuItemsPrompt',
   input: { schema: ExtractMenuItemsInputSchema },
   output: { schema: ExtractMenuItemsOutputSchema },
-  model: 'googleai/gemini-1.5-flash',
+  model: 'googleai/gemini-2.0-flash',
   prompt: `You are an expert OCR and business analysis engine for the Indian marketplace.
 Your task is to analyze the provided image of a menu, price list, or storefront board and extract every single item and the visual theme into a structured format.
 
