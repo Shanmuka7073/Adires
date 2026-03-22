@@ -27,7 +27,7 @@ export async function getFirebaseConfig() {
       storageBucket: options.storageBucket || `${options.projectId}.appspot.com`,
       messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
       appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-      vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY, // Ensure VAPID is available to client
+      vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY, // Critical for Push Notifications
     };
   } catch (e) {
     return null;
@@ -110,7 +110,7 @@ export async function getPlatformAnalytics() {
         });
 
         const calculateMetrics = (rangeStart: Date, rangeEnd: Date) => {
-            const rangeOrders = orders.filter(o => o.orderDate >= rangeStart && o.orderDate < rangeEnd && o.status !== 'Cancelled');
+            const rangeOrders = (orders as any[]).filter(o => o.orderDate >= rangeStart && o.orderDate < rangeEnd && o.status !== 'Cancelled');
             const revenue = rangeOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
             const count = rangeOrders.length;
             const uniqueUsers = new Set(rangeOrders.map(o => o.userId || o.deviceId)).size;

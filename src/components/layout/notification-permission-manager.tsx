@@ -3,10 +3,10 @@
 
 import { useEffect } from 'react';
 import { getMessaging, getToken, isSupported } from 'firebase/messaging';
-import { useFirebase, errorEmitter } from '@/firebase';
+import { useFirebase } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { getFirebaseConfig } from '@/app/actions';
 
 /**
  * Manages Push Notification permissions and FCM token lifecycle.
@@ -27,7 +27,6 @@ export function NotificationPermissionManager() {
       }
 
       // 1. Wait for Service Worker to be fully active
-      // This prevents the "Redundant" state by ensuring we use the already-running PWA shell.
       if (!('serviceWorker' in navigator)) return;
       const registration = await navigator.serviceWorker.ready;
 
@@ -35,7 +34,9 @@ export function NotificationPermissionManager() {
 
       if (Notification.permission === 'granted') {
         try {
-          const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+          // Fetch the VAPID key dynamically from the server to ensure we have the latest production key
+          const config = await getFirebaseConfig();
+          const vapidKey = config?.vapidKey;
           
           if (!vapidKey) {
               console.warn("FCM: VAPID Key is missing. Push notifications will not work. Add NEXT_PUBLIC_FIREBASE_VAPID_KEY to Vercel.");
@@ -44,7 +45,7 @@ export function NotificationPermissionManager() {
 
           const currentToken = await getToken(messaging, {
             vapidKey: vapidKey,
-            serviceWorkerRegistration: registration, // Explicitly use our PWA worker
+            serviceWorkerRegistration: registration,
           });
 
           if (currentToken) {
