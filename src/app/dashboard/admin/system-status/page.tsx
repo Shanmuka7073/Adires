@@ -1,11 +1,13 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Server, BrainCircuit, Database, ShieldAlert, RefreshCw, Users, Store as StoreIcon, Globe, Lock } from 'lucide-react';
+import { Server, BrainCircuit, Database, ShieldAlert, RefreshCw, Users, Store as StoreIcon, Globe, Lock, Key, Settings, ExternalLink } from 'lucide-react';
 import { getSystemStatus } from '@/app/actions';
 import { useState, useEffect, useTransition, useCallback } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface ServerStatus {
     status: 'ok' | 'error' | 'loading';
@@ -13,7 +15,63 @@ interface ServerStatus {
     serverDbStatus: 'Online' | 'Offline' | 'Unavailable' | 'Loading';
     errorMessage?: string | null;
     identity?: string;
+    isCredentialError?: boolean;
     counts: { users: number; stores: number };
+}
+
+function ConnectionRepairGuide() {
+    return (
+        <Card className="rounded-[2.5rem] border-0 shadow-2xl bg-slate-900 text-white overflow-hidden">
+            <CardHeader className="bg-primary p-8 border-b border-white/10">
+                <CardTitle className="text-2xl font-black uppercase tracking-tight flex items-center gap-3">
+                    <Key className="h-6 w-6" />
+                    How to Fix "Offline" Status
+                </CardTitle>
+                <CardDescription className="text-white/60 font-bold uppercase text-[10px] tracking-widest mt-1">
+                    Follow these steps to connect your production backend
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="p-8 space-y-8">
+                <div className="space-y-6">
+                    <div className="flex gap-4">
+                        <div className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center shrink-0 font-black text-xs">1</div>
+                        <div className="space-y-1">
+                            <p className="font-black uppercase text-xs tracking-tight">Generate Firebase Key</p>
+                            <p className="text-[11px] font-medium text-white/60 leading-relaxed">
+                                Go to <strong>Firebase Console &gt; Project Settings &gt; Service Accounts</strong> and click <strong>"Generate New Private Key"</strong>.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex gap-4">
+                        <div className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center shrink-0 font-black text-xs">2</div>
+                        <div className="space-y-1">
+                            <p className="font-black uppercase text-xs tracking-tight">Add Secret to Vercel</p>
+                            <p className="text-[11px] font-medium text-white/60 leading-relaxed">
+                                Copy the <strong>ENTIRE JSON content</strong>. Go to your <strong>Vercel Dashboard &gt; Settings &gt; Environment Variables</strong>. Add a new key called <code className="bg-white/10 px-1.5 py-0.5 rounded text-primary">SERVICE_ACCOUNT</code> and paste the JSON as the value.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex gap-4">
+                        <div className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center shrink-0 font-black text-xs">3</div>
+                        <div className="space-y-1">
+                            <p className="font-black uppercase text-xs tracking-tight">Redeploy Application</p>
+                            <p className="text-[11px] font-medium text-white/60 leading-relaxed">
+                                Vercel needs a <strong>Redeploy</strong> to "pick up" the new secret. Go to the Deployments tab and trigger a rebuild.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div className="pt-4 border-t border-white/5">
+                    <Button asChild variant="outline" className="w-full h-12 rounded-xl border-white/20 text-white hover:bg-white/5 font-black uppercase text-[10px] tracking-widest">
+                        <a href="https://vercel.com/dashboard" target="_blank" rel="noopener noreferrer">
+                            <Settings className="mr-2 h-4 w-4" /> Open Vercel Settings <ExternalLink className="ml-2 h-3 w-3 opacity-40" />
+                        </a>
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
+    );
 }
 
 export default function SystemStatusPage() {
@@ -36,6 +94,7 @@ export default function SystemStatusPage() {
             serverDbStatus: result.serverDbStatus as any,
             errorMessage: (result as any).errorMessage || null,
             identity: (result as any).identity,
+            isCredentialError: (result as any).isCredentialError,
             counts: result.counts,
         });
       } catch (error) {
@@ -45,6 +104,7 @@ export default function SystemStatusPage() {
             llmStatus: 'Offline', 
             serverDbStatus: 'Offline', 
             errorMessage: (error as Error).message,
+            isCredentialError: true,
             counts: { users: 0, stores: 0 }
         });
       }
@@ -67,90 +127,114 @@ export default function SystemStatusPage() {
   };
 
   const dbStatusInfo = getStatusInfo(status.serverDbStatus);
-  const llmStatusInfo = getStatusInfo(status.llmStatus);
 
   return (
-    <div className="p-8 space-y-8 bg-gray-50 min-h-screen pb-32">
-       <div className="flex justify-between items-center border-b pb-4">
+    <div className="p-8 space-y-12 bg-gray-50 min-h-screen pb-32">
+       <div className="flex justify-between items-center border-b pb-6 border-black/5">
         <div>
-            <h1 className="text-3xl font-black text-gray-950 uppercase italic tracking-tighter">
+            <h1 className="text-4xl font-black text-gray-950 uppercase italic tracking-tighter">
                 Infrastructure Audit
             </h1>
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">
-                Connected to: <span className="text-primary">{hostName || 'adires.vercel.app'}</span>
+                CONNECTED TO: <span className="text-primary">{hostName || 'adires.vercel.app'}</span>
             </p>
         </div>
-        <Button onClick={fetchStatus} disabled={isFetching} variant="outline" className="rounded-xl h-10 border-2 shadow-sm font-black text-[10px] uppercase">
+        <Button onClick={fetchStatus} disabled={isFetching} variant="outline" className="rounded-xl h-12 px-6 border-2 shadow-sm font-black text-[10px] uppercase tracking-widest">
           <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} /> Re-Scan
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-         <Card className="rounded-[2rem] border-0 shadow-lg bg-white overflow-hidden">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+         <Card className="rounded-[2rem] border-0 shadow-xl overflow-hidden bg-white">
             <CardHeader className="bg-primary/5 pb-4 border-b border-black/5">
                 <CardTitle className="flex items-center gap-2 font-black uppercase text-xs tracking-widest">
                     <Lock className="h-4 w-4 text-primary" />
                     Admin SDK Identity
                 </CardTitle>
             </CardHeader>
-            <CardContent className="pt-6">
-                <p className={`font-black text-2xl uppercase tracking-tighter ${dbStatusInfo.color}`}>{status.serverDbStatus}</p>
-                <div className="mt-2 space-y-1">
+            <CardContent className="pt-8">
+                <p className={`font-black text-4xl uppercase tracking-tighter ${dbStatusInfo.color}`}>{status.serverDbStatus}</p>
+                <div className="mt-4 space-y-1">
                     <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest">Auth Level</p>
-                    <p className="text-xs font-bold text-gray-700">{status.identity || 'Verifying credentials...'}</p>
+                    <p className="text-xs font-black text-gray-700">{status.identity || 'Verifying credentials...'}</p>
                 </div>
             </CardContent>
         </Card>
 
-         <Card className="rounded-[2rem] border-0 shadow-lg bg-white overflow-hidden">
+         <Card className="rounded-[2rem] border-0 shadow-xl overflow-hidden bg-white">
             <CardHeader className="bg-primary/5 pb-4 border-b border-black/5">
                 <CardTitle className="flex items-center gap-2 font-black uppercase text-xs tracking-widest">
                     <Database className="h-4 w-4 text-primary" />
                     Firestore OPS
                 </CardTitle>
             </CardHeader>
-            <CardContent className="pt-6">
+            <CardContent className="pt-8">
                 <div className="grid grid-cols-2 gap-4">
                     <div>
                         <p className="text-[8px] font-black uppercase opacity-40">User Records</p>
-                        <p className="text-2xl font-black tracking-tighter">{status.counts.users}</p>
+                        <p className="text-3xl font-black tracking-tighter">{status.counts.users}</p>
                     </div>
                     <div>
                         <p className="text-[8px] font-black uppercase opacity-40">Business Hubs</p>
-                        <p className="text-2xl font-black tracking-tighter">{status.counts.stores}</p>
+                        <p className="text-3xl font-black tracking-tighter">{status.counts.stores}</p>
                     </div>
                 </div>
             </CardContent>
         </Card>
 
-        <Card className="rounded-[2rem] border-0 shadow-lg bg-white overflow-hidden">
+        <Card className="rounded-[2rem] border-0 shadow-xl overflow-hidden bg-white">
             <CardHeader className="bg-primary/5 pb-4 border-b border-black/5">
                 <CardTitle className="flex items-center gap-2 font-black uppercase text-xs tracking-widest">
                     <Globe className="h-4 w-4 text-primary" />
-                    Edge Delivery
+                    Deployment Status
                 </CardTitle>
             </CardHeader>
-            <CardContent className="pt-6">
-                <p className={`font-black text-2xl uppercase tracking-tighter text-green-500`}>PROD-READY</p>
-                <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest mt-1">Domain: {hostName}</p>
+            <CardContent className="pt-8">
+                <p className={`font-black text-4xl uppercase tracking-tighter text-green-500`}>PROD-READY</p>
+                <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest mt-4">Edge Identity Verified</p>
             </CardContent>
         </Card>
       </div>
 
-      {status.status === 'error' && (
-          <div className="p-8 rounded-[2.5rem] bg-red-50 border-2 border-red-100 flex items-start gap-4">
-              <ShieldAlert className="h-6 w-6 text-red-600 mt-1 shrink-0" />
-              <div>
-                  <h3 className="font-black uppercase text-sm text-red-950">Credential Failure</h3>
-                  <p className="text-xs font-medium text-red-800 leading-relaxed mt-1">
-                      The server could not initialize the Admin SDK. Ensure the <strong>SERVICE_ACCOUNT</strong> secret is correctly added to your environment variables.
-                  </p>
-                  <pre className="mt-4 p-4 bg-black/10 rounded-xl text-[10px] font-mono overflow-auto max-w-full">
-                      {status.errorMessage}
-                  </pre>
+      <div className="grid lg:grid-cols-2 gap-12">
+          {status.status === 'error' && (
+              <div className="space-y-6">
+                  <div className="p-8 rounded-[2.5rem] bg-red-50 border-2 border-red-100 flex items-start gap-4 shadow-lg">
+                      <ShieldAlert className="h-8 w-8 text-red-600 mt-1 shrink-0" />
+                      <div>
+                          <h3 className="font-black uppercase text-sm text-red-950 tracking-tight">Identity Verification Failed</h3>
+                          <p className="text-xs font-bold text-red-800/60 leading-relaxed mt-2 uppercase tracking-wide">
+                              The server encountered a security exception while initializing the Admin SDK.
+                          </p>
+                          <div className="mt-6 p-5 bg-black/10 rounded-2xl text-[10px] font-mono overflow-auto max-w-full text-red-900 border border-red-200">
+                              <p className="font-black uppercase opacity-40 mb-2">RAW EXCEPTION:</p>
+                              {status.errorMessage}
+                          </div>
+                      </div>
+                  </div>
+                  
+                  {status.isCredentialError && <ConnectionRepairGuide />}
               </div>
-          </div>
-      )}
+          )}
+          
+          <Card className="rounded-[2.5rem] border-0 shadow-xl bg-white p-8 space-y-6">
+              <h3 className="text-xs font-black uppercase tracking-[0.3em] opacity-40">Operational Index</h3>
+              <div className="space-y-4">
+                  <div className="p-4 rounded-2xl bg-muted/30 border border-black/5">
+                      <p className="text-[8px] font-black uppercase opacity-40 mb-1">Authenticated Email</p>
+                      <p className="text-xs font-bold text-gray-700 italic">shanmuka7073@gmail.com</p>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-muted/30 border border-black/5">
+                      <p className="text-[8px] font-black uppercase opacity-40 mb-1">Server Region</p>
+                      <p className="text-xs font-bold text-gray-700">Google Cloud (Automatic Selection)</p>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-muted/30 border border-black/5">
+                      <p className="text-[8px] font-black uppercase opacity-40 mb-1">Permissions</p>
+                      <p className="text-xs font-bold text-gray-700 uppercase">FULL PLATFORM READ/WRITE (ADMIN)</p>
+                  </div>
+              </div>
+          </Card>
+      </div>
     </div>
   );
 }

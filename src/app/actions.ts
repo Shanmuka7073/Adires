@@ -47,10 +47,12 @@ export async function getFirebaseConfig() {
  * SYSTEM HEALTH (ADMIN SDK VERIFICATION)
  */
 export async function getSystemStatus() {
+    const hasServiceAccount = !!process.env.SERVICE_ACCOUNT;
+    
     try {
         const { db } = await getAdminServices();
-        const hasServiceAccount = !!process.env.SERVICE_ACCOUNT;
         
+        // Test connectivity with a lightweight count
         const [users, stores] = await Promise.all([
             db.collection('users').count().get(),
             db.collection('stores').count().get(),
@@ -60,18 +62,20 @@ export async function getSystemStatus() {
             status: 'ok' as const,
             llmStatus: 'Online' as const,
             serverDbStatus: 'Online' as const,
-            identity: hasServiceAccount ? 'Authorized (Service Account)' : 'Basic (Project ID Only)',
+            identity: hasServiceAccount ? 'Authorized (Service Account)' : 'Limited (Project ID Only)',
             counts: { 
                 users: users.data().count, 
                 stores: stores.data().count 
             },
         };
     } catch (err: any) {
+        console.error("System health check failed:", err.message);
         return { 
             status: 'error' as const, 
             llmStatus: 'Offline' as const, 
             serverDbStatus: 'Offline' as const, 
-            errorMessage: err.message as string, 
+            errorMessage: err.message as string,
+            isCredentialError: !hasServiceAccount || err.message.includes('credentials'),
             counts: { users: 0, stores: 0 } 
         };
     }
