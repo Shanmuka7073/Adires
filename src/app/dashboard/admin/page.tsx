@@ -280,7 +280,7 @@ export default function AdminDashboardPage() {
                         <Alert className="bg-amber-50 border-amber-100 p-3 rounded-xl">
                             <Info className="h-3 w-3 text-amber-600" />
                             <AlertDescription className="text-[9px] font-bold text-amber-800 leading-tight">
-                                Reminder: Ensure this domain is added to <strong>Authentication > Settings > Authorized Domains</strong> in Firebase Console.
+                                Reminder: Ensure this domain is added to <strong>Authentication &gt; Settings &gt; Authorized Domains</strong> in Firebase Console.
                             </AlertDescription>
                         </Alert>
                         <Button asChild variant="outline" className="w-full h-10 rounded-xl font-black uppercase text-[8px] tracking-widest border-2">
