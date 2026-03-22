@@ -18,7 +18,7 @@ export default function GlobalLoader() {
         <div className="relative flex items-center justify-center h-24 w-24">
             <div className="absolute inset-0 border-4 border-primary/20 rounded-full"></div>
             <div className="absolute inset-0 border-t-4 border-primary rounded-full animate-spin"></div>
-            <div className="relative w-16 h-16 rounded-full overflow-hidden bg-white shadow-md">
+            <div className="relative w-16 h-16 rounded-full overflow-hidden bg-white shadow-md border-2 border-primary/10">
                 <Image 
                     src={logoUrl} 
                     alt={brandName}
@@ -27,8 +27,8 @@ export default function GlobalLoader() {
                 />
             </div>
         </div>
-      <p className="mt-6 text-muted-foreground font-semibold text-lg animate-pulse tracking-tight">
-        Loading {brandName}…
+      <p className="mt-6 text-muted-foreground font-black text-xs uppercase tracking-[0.3em] animate-pulse">
+        {brandName}
       </p>
     </div>
   );

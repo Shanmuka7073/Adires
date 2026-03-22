@@ -528,12 +528,19 @@ export default function PublicMenuPage() {
   const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null); const [ingredientsData, setIngredientsData] = useState<GetIngredientsOutput | null>(null); const [isFetchingIngredients, startFetchingIngredients] = useTransition(); const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
   const [isAdding, startAdding] = useTransition();
   const { canInstall, triggerInstall } = useInstall();
-  const { isInitialized, fetchInitialData } = useAppStore();
+  const { isInitialized, fetchInitialData, setUserStore } = useAppStore();
   const { cartItems, addItem, clearCart } = useCart();
 
   const { data: store, isLoading: storeLoading } = useDoc<Store>(useMemoFirebase(() => firestore ? doc(firestore, 'stores', storeId) : null, [firestore, storeId]));
   const { data: menus, isLoading: menuLoading } = useCollection<Menu>(useMemoFirebase(() => firestore ? query(collection(firestore, `stores/${storeId}/menus`)) : null, [firestore, storeId]));
   const menu = menus?.[0];
+
+  // Logic to update userStore in cache for branded loader/header
+  useEffect(() => {
+      if (store) {
+          setUserStore(store);
+      }
+  }, [store, setUserStore]);
 
   const upsellItems = useMemo(() => {
       if (!selectedItemForIngredients || !menu?.items) return [];

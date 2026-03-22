@@ -5,6 +5,7 @@ import { getAdminServices } from "@/firebase/admin-init";
 import { NextResponse } from "next/server";
 import type { Store, Menu } from "@/lib/types";
 
+// The official Adires Platform Logo (Locaro branding)
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
 /**
@@ -25,7 +26,6 @@ export async function GET(
   try {
     const { db } = await getAdminServices();
     
-    // Defensive check for Firestore connection
     if (!db) {
         throw new Error("Firestore Admin SDK not initialized.");
     }
@@ -43,10 +43,11 @@ export async function GET(
     const menu = menuSnap.docs[0]?.data() as Menu | undefined;
     const themeColor = menu?.theme?.primaryColor || "#4CAF50";
     
+    // Use store image for the icon, fallback to platform logo
     const logoUrl = store.imageUrl || ADIRES_LOGO;
 
     const manifest = {
-      id: `adires-business-app-${storeId}`,
+      id: `adires-business-${storeId}`,
       name: store.name,
       short_name: store.name.substring(0, 12),
       description: store.description || `Official digital menu for ${store.name}`,
@@ -88,7 +89,7 @@ export async function GET(
   } catch (error) {
     console.error(`Failed to generate manifest for store ${storeId}:`, error);
     
-    // Fallback manifest to prevent 500 error and allow site to load
+    // Fallback manifest uses generic branding if the specific fetch fails
     const fallbackManifest = {
         name: "Adires Store",
         short_name: "Store",
