@@ -21,13 +21,17 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
     
+    function storeExists(storeId) {
+      return exists(/databases/$(database)/documents/stores/$(storeId));
+    }
+
     function getStoreOwnerId(storeId) {
         return get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId;
     }
 
     function isStoreOwner(storeId) {
       return isSignedIn() && (
-        (exists(/databases/$(database)/documents/stores/$(storeId)) && getStoreOwnerId(storeId) == request.auth.uid) ||
+        (storeExists(storeId) && getStoreOwnerId(storeId) == request.auth.uid) ||
         (request.resource != null && request.resource.data.ownerId == request.auth.uid) ||
         (resource != null && resource.data.ownerId == request.auth.uid)
       );
@@ -36,6 +40,28 @@ service cloud.firestore {
     function isManager(employeeId, storeId) {
        let employeeProfile = get(/databases/$(database)/documents/employeeProfiles/$(employeeId)).data;
        return employeeProfile.reportingTo == request.auth.uid || isStoreOwner(storeId);
+    }
+
+    /* ======================
+       ORDER VALIDATION (SAFE GUEST SUPPORT)
+       ====================== */
+
+    function isValidOrder() {
+      return (
+        request.resource.data.keys().hasAll([
+          "storeId",
+          "items",
+          "totalAmount",
+          "orderDate"
+        ])
+        && storeExists(request.resource.data.storeId)
+        && request.resource.data.items.size() > 0
+        && request.resource.data.totalAmount > 0
+        && (
+          request.resource.data.userId == "guest" ||
+          (isSignedIn() && request.resource.data.userId == request.auth.uid)
+        )
+      );
     }
 
     /* ======================
@@ -62,19 +88,19 @@ service cloud.firestore {
 
     match /stores/{storeId}/products/{productId} {
       allow get, list: if true;
-      allow create: if isSignedIn(); 
+      allow create: if isSignedIn() && isStoreOwner(storeId);
       allow update, delete: if isSignedIn() && isStoreOwner(storeId);
     }
 
     match /stores/{storeId}/menus/{menuId} {
       allow read: if true;
-      allow create: if isSignedIn(); 
+      allow create: if isSignedIn() && isStoreOwner(storeId);
       allow update, delete: if isSignedIn() && isStoreOwner(storeId);
     }
 
     match /stores/{storeId}/packages/{packageId} {
       allow get, list: if true;
-      allow create: if isSignedIn(); 
+      allow create: if isSignedIn() && isStoreOwner(storeId);
       allow update, delete: if isSignedIn() && isStoreOwner(storeId);
     }
 
@@ -99,12 +125,12 @@ service cloud.firestore {
     }
 
     /* ======================
-       ORDERS
+       ORDERS (WITH GUEST SUPPORT)
        ====================== */
 
     match /orders/{orderId} {
       allow get, list: if true;
-      allow create: if isSignedIn() || request.resource.data.userId == 'guest';
+      allow create: if isValidOrder();
       allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid || resource.data.deliveryPartnerId == request.auth.uid;
     }
 
@@ -129,6 +155,21 @@ service cloud.firestore {
 
     match /diagnostic_logs/{logId} {
       allow read, write: if isSignedIn();
+    }
+
+    match /voiceAliasGroups/{key} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /voiceCommands/{commandKey} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /productPrices/{productName} {
+      allow get, list: if true;
+      allow write: if isAdmin();
     }
   }
 }

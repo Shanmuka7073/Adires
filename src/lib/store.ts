@@ -5,7 +5,6 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Firestore, collection, getDocs } from 'firebase/firestore';
 import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
-import { getStores, getMasterProducts } from './data';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { useFirebase } from '@/firebase';
@@ -96,7 +95,8 @@ export const useAppStore = create<AppState>()(
         // PERF: Avoid redundant fetches or loops if already in progress or completed
         if (get().loading || get().isInitialized) return;
         
-        set({ loading: true, error: null });
+        // Mark as initialized IMMEDIATELY to prevent infinite retry loop on rule failure
+        set({ loading: true, error: null, isInitialized: true });
         
         try {
           const [storesSnap, aliasDocs, commandDocs] = await Promise.all([
@@ -140,15 +140,14 @@ export const useAppStore = create<AppState>()(
             userStore,
             locales,
             commands: enrichedCommands,
-            isInitialized: true,
             appReady: true,
             loading: false,
           });
           
         } catch (error) {
           console.error("fetchInitialData failed:", error);
-          // Set isInitialized to true even on error to stop the retry loop
-          set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
+          // Ensure we don't loop even if the initial load fails due to permissions
+          set({ error: error as Error, loading: false, appReady: true });
         }
       },
       
@@ -190,7 +189,7 @@ export const useInitializeApp = () => {
             setAppReady(true);
         }
         
-        // Prevent infinite retry loop by only calling if not initialized and not already loading
+        // Only trigger fetch if NOT initialized and NOT already loading
         if (firestore && !isUserLoading && !loading && !isInitialized) {
             fetchInitialData(firestore, user?.uid);
         }
