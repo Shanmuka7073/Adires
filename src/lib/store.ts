@@ -3,7 +3,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Firestore, collection, getDocs } from 'firebase/firestore';
+import { Firestore, collection, getDocs, query, where, doc, getDoc, limit } from 'firebase/firestore';
 import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
@@ -42,7 +42,7 @@ export interface AppState {
   setDeviceId: (id: string) => void;
   setCartOpen: (open: boolean) => void; 
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
-  // LEGACY STUBS FOR TYPE COMPATIBILITY
+  // LEGACY STUBS
   masterProducts: any[];
   productPrices: any;
   locales: any;
@@ -60,12 +60,12 @@ const getInitialLanguage = (): string => {
 };
 
 /**
- * ADIRES GLOBAL DATA STORE (Zustand)
+ * ADIRES GLOBAL DATA STORE
  * 
- * DESIGN STRATEGY:
- * 1. Initial Load: Fetch lightweight "Business Identities" only.
- * 2. On-Demand: Heavy data (Menus, Orders) is lazy-loaded at the page level.
- * 3. Persistence: User identity and selected store are saved to LocalStorage for instant UI boots.
+ * STRATEGY: 
+ * 1. Owners load only their store on boot.
+ * 2. Shoppers load nothing on boot, lazy-load menu on scan.
+ * 3. Identity persists in LocalStorage for instant UI.
  */
 export const useAppStore = create<AppState>()(
   persist(
@@ -99,40 +99,28 @@ export const useAppStore = create<AppState>()(
       setActiveStoreId: (storeId: string | null) => set({ activeStoreId: storeId }),
       setCartOpen: (open: boolean) => set({ isCartOpen: open }),
 
-      /**
-       * fetchInitialData
-       * Triggered on every cold boot. Fetches the "Marketplace Identity" layer.
-       */
       fetchInitialData: async (db: Firestore, userId?: string) => {
-        // Prevent redundant fetch loops
-        if (get().loading || get().isInitialized) return;
-        
-        set({ loading: true, error: null, isInitialized: true });
+        if (get().loading) return;
+        set({ loading: true, error: null });
         
         try {
-          // LEAN FETCH: Parallel fetch of identities and metadata
-          const [storesSnap, aliasDocs, commandDocs] = await Promise.all([
-            getDocs(collection(db, 'stores')),
+          // 1. Fetch lightweight system metadata
+          const [aliasDocs, commandDocs] = await Promise.all([
             getDocs(collection(db, 'voiceAliasGroups')),
             getDocs(collection(db, 'voiceCommands'))
           ]);
 
-          const allStores = storesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Store));
-          
-          // Categorize for local marketplace logic
-          const businessStores = allStores.filter(s => 
-            s.businessType === 'restaurant' || 
-            s.businessType === 'salon' ||
-            ['hotel', 'mess', 'salon', 'saloon', 'parlour', 'bakery'].some(kw => s.name.toLowerCase().includes(kw))
-          );
-
-          // IDENTIFY USER: If owner, find their business
-          let userStore = get().userStore; 
-          if (userId && (!userStore || userStore.ownerId !== userId)) {
-              userStore = businessStores.find(s => s.ownerId === userId) || null;
+          // 2. Fetch Personal Identity (If logged in as merchant)
+          let userStore = get().userStore;
+          if (userId) {
+              const q = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
+              const storeSnap = await getDocs(q);
+              if (!storeSnap.empty) {
+                  userStore = { id: storeSnap.docs[0].id, ...storeSnap.docs[0].data() } as Store;
+              }
           }
 
-          // DEVICE ID: For persistent guest history
+          // 3. Generate stable Device ID for guest shoppers
           if (!get().deviceId) {
               const newId = Math.random().toString(36).substring(2, 15);
               set({ deviceId: newId });
@@ -151,22 +139,20 @@ export const useAppStore = create<AppState>()(
           initializeTranslations(locales); 
 
           set({
-            stores: businessStores,
             userStore,
             locales,
             commands: enrichedCommands,
+            isInitialized: true,
             appReady: true,
             loading: false,
           });
           
         } catch (error) {
           console.error("fetchInitialData failed:", error);
-          // Unlock app even on error to prevent total lock-out
-          set({ error: error as Error, loading: false, appReady: true });
+          set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
       
-      // LEGACY STUBS FOR BACKWARDS COMPATIBILITY
       masterProducts: [],
       productPrices: {},
       locales: {},
@@ -176,38 +162,30 @@ export const useAppStore = create<AppState>()(
       getProductName: (product: any) => product?.name || '',
     }),
     {
-      name: 'adires-app-v1.0',
+      name: 'adires-ops-storage-v5',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
           language: state.language,
-          activeStoreId: state.activeStoreId,
           deviceId: state.deviceId,
-          stores: state.stores,
-          isInitialized: state.isInitialized,
       }),
-      onRehydrateStorage: () => (state) => {
-        if (state) {
-          state.setAppReady(true);
-        }
-      }
     }
   )
 );
 
 export const useInitializeApp = () => {
     const { firestore, user, isUserLoading } = useFirebase();
-    const { fetchInitialData, loading, isInitialized, setAppReady } = useAppStore();
+    const { fetchInitialData, loading, isInitialized, userStore, setAppReady } = useAppStore();
 
     useEffect(() => {
-        if (isInitialized) {
+        if (isInitialized || userStore) {
             setAppReady(true);
         }
         
         if (firestore && !isUserLoading && !loading && !isInitialized) {
             fetchInitialData(firestore, user?.uid);
         }
-    }, [firestore, user?.uid, isUserLoading, loading, fetchInitialData, isInitialized, setAppReady]);
+    }, [firestore, user?.uid, isUserLoading, loading, fetchInitialData, isInitialized, userStore, setAppReady]);
 
     return { isLoading: loading };
 };

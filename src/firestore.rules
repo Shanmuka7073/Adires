@@ -36,11 +36,6 @@ service cloud.firestore {
         (resource != null && resource.data.ownerId == request.auth.uid)
       );
     }
-    
-    function isManager(employeeId, storeId) {
-       let employeeProfile = get(/databases/$(database)/documents/employeeProfiles/$(employeeId)).data;
-       return employeeProfile.reportingTo == request.auth.uid || isStoreOwner(storeId);
-    }
 
     /* ======================
        ORDER VALIDATION (SAFE GUEST SUPPORT)
@@ -52,7 +47,8 @@ service cloud.firestore {
           "storeId",
           "items",
           "totalAmount",
-          "orderDate"
+          "orderDate",
+          "sessionId"
         ])
         && storeExists(request.resource.data.storeId)
         && request.resource.data.items.size() > 0
@@ -65,7 +61,7 @@ service cloud.firestore {
     }
 
     /* ======================
-       USERS
+       COLLECTIONS
        ====================== */
 
     match /users/{userId} {
@@ -74,87 +70,26 @@ service cloud.firestore {
       allow create: if isSignedIn();
     }
 
-    /* ======================
-       STORES / RESTAURANTS
-       ====================== */
-
     match /stores/{storeId} {
       allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if 
-        (resource.data.ownerId == request.auth.uid) || 
-        isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if isStoreOwner(storeId) || isAdmin();
     }
 
     match /stores/{storeId}/products/{productId} {
       allow get, list: if true;
-      allow create: if isSignedIn() && isStoreOwner(storeId);
-      allow update, delete: if isSignedIn() && isStoreOwner(storeId);
+      allow write: if isStoreOwner(storeId);
     }
 
     match /stores/{storeId}/menus/{menuId} {
       allow read: if true;
-      allow create: if isSignedIn() && isStoreOwner(storeId);
-      allow update, delete: if isSignedIn() && isStoreOwner(storeId);
+      allow write: if isStoreOwner(storeId);
     }
-
-    match /stores/{storeId}/packages/{packageId} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && isStoreOwner(storeId);
-      allow update, delete: if isSignedIn() && isStoreOwner(storeId);
-    }
-
-    /* ======================
-       EMPLOYEE PROFILES
-       ====================== */
-
-    match /employeeProfiles/{employeeId} {
-      allow get, update: if isOwner(employeeId) || isStoreOwner(resource.data.storeId);
-      allow create, delete: if isStoreOwner(request.resource.data.storeId) || isAdmin();
-      allow list: if isStoreOwner(resource.data.storeId) || isAdmin();
-    }
-
-    /* ======================
-       ATTENDANCE
-       ====================== */
-
-    match /stores/{storeId}/attendance/{recordId} {
-      allow get, list: if isSignedIn() && (resource.data.employeeId == request.auth.uid || isStoreOwner(storeId));
-      allow create: if isSignedIn() && request.resource.data.employeeId == request.auth.uid;
-      allow update: if isSignedIn() && (resource.data.employeeId == request.auth.uid || isStoreOwner(storeId));
-    }
-
-    /* ======================
-       ORDERS (WITH GUEST SUPPORT)
-       ====================== */
 
     match /orders/{orderId} {
       allow get, list: if true;
       allow create: if isValidOrder();
-      allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid || resource.data.deliveryPartnerId == request.auth.uid;
-    }
-
-    /* ======================
-       CONFIG & MISC
-       ====================== */
-    match /cachedRecipes/{recipeId} {
-      allow get, list: if true;
-      allow create, update: if isSignedIn();
-    }
-
-    match /deliveryPartners/{partnerId} {
-      allow get, update: if isOwner(partnerId);
-      allow list: if isAdmin();
-      allow create: if isOwner(partnerId);
-    }
-
-    match /siteConfig/{configId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    match /diagnostic_logs/{logId} {
-      allow read, write: if isSignedIn();
+      allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid || (resource.data.userId == 'guest' && request.resource.data.sessionId == resource.data.sessionId);
     }
 
     match /voiceAliasGroups/{key} {
@@ -167,9 +102,20 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    match /productPrices/{productName} {
-      allow get, list: if true;
+    match /siteConfig/{configId} {
+      allow read: if true;
       allow write: if isAdmin();
+    }
+
+    match /employeeProfiles/{employeeId} {
+      allow get, update: if isOwner(employeeId) || isStoreOwner(resource.data.storeId);
+      allow create, delete, list: if isAdmin();
+    }
+
+    match /deliveryPartners/{partnerId} {
+      allow get, update: if isOwner(partnerId);
+      allow list: if isAdmin();
+      allow create: if isOwner(partnerId);
     }
   }
 }
