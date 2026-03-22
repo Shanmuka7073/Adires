@@ -3,7 +3,8 @@ const withPWA = require('next-pwa')({
   dest: 'public',
   register: true,
   skipWaiting: true,
-  disable: false, // Force enabled for studio testing as requested for offline verification
+  disable: false, // Force enabled for production stability
+  buildExcludes: [/middleware-manifest\.json$/],
 });
 
 /** @type {import('next').NextConfig} */

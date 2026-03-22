@@ -12,8 +12,8 @@ export default function ServiceWorkerRegister() {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       const register = async () => {
         try {
-          // Register with explicit root scope
-          const registration = await navigator.serviceWorker.register('/sw.js', {
+          // Register with explicit root scope and a version query to bypass cache
+          const registration = await navigator.serviceWorker.register('/sw.js?v=4', {
             scope: '/',
             updateViaCache: 'none'
           });
@@ -24,7 +24,8 @@ export default function ServiceWorkerRegister() {
           if (registration.installing) {
               console.log('Adires Shell: Installing...');
           } else if (registration.waiting) {
-              console.log('Adires Shell: Update waiting. Manual refresh needed.');
+              console.log('Adires Shell: Update waiting. Manual refresh recommended.');
+              registration.waiting.postMessage({ type: 'SKIP_WAITING' });
           } else if (registration.active) {
               console.log('Adires Shell: Active and healthy.');
           }
@@ -37,7 +38,7 @@ export default function ServiceWorkerRegister() {
         }
       };
 
-      // Ensure registration happens after initial load to improve LCP
+      // Ensure registration happens as soon as possible
       if (document.readyState === 'complete') {
         register();
       } else {
