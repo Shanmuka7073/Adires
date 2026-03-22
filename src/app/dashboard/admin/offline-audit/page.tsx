@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -17,15 +16,13 @@ import {
     RefreshCw,
     SmartphoneNfc,
     MousePointer2,
-    Sparkles,
-    Zap,
-    ArrowRight,
     Check,
     Globe,
     Lock,
-    Wrench
+    Wrench,
+    Bug
 } from 'lucide-react';
-import { useFirebase, useMemoFirebase } from '@/firebase';
+import { useFirebase } from '@/firebase';
 import { doc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -36,8 +33,9 @@ import Link from 'next/link';
 
 interface DiagnosticState {
     sw: {
-        status: 'active' | 'missing' | 'checking' | 'unsupported' | 'insecure' | 'waiting';
+        status: 'active' | 'missing' | 'checking' | 'unsupported' | 'insecure' | 'waiting' | 'uncontrolled';
         reason: string;
+        details?: string;
     };
     manifest: {
         status: 'found' | 'missing' | 'checking';
@@ -86,28 +84,37 @@ export default function OfflineAuditPage() {
             setDiag(prev => ({ ...prev, domain: { status: 'unrecognized', reason: `Host: ${host}. Ensure this is added to Firebase Authorized Domains.` } }));
         }
 
-        // 3. Check Service Worker
+        // 3. Check Service Worker (DEEP INSPECTION)
         if (!('serviceWorker' in navigator)) {
-            setDiag(prev => ({ ...prev, sw: { status: 'unsupported', reason: 'Browser lacks SW support.' } }));
+            setDiag(prev => ({ ...prev, sw: { status: 'unsupported', reason: 'Browser lacks SW support.', details: 'This browser version does not support Progressive Web App technology.' } }));
         } else {
             const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
             if (!isSecure) {
-                setDiag(prev => ({ ...prev, sw: { status: 'insecure', reason: 'PWA DISABLED: Browser requires HTTPS.' } }));
+                setDiag(prev => ({ ...prev, sw: { status: 'insecure', reason: 'PWA DISABLED: Browser requires HTTPS.', details: 'Service workers only run over secure connections or localhost.' } }));
             } else {
                 try {
                     const registrations = await navigator.serviceWorker.getRegistrations();
                     const activeReg = registrations.find(r => r.active);
                     const waitingReg = registrations.find(r => r.waiting);
+                    const installingReg = registrations.find(r => r.installing);
                     
+                    const isControlled = !!navigator.serviceWorker.controller;
+
                     if (activeReg) {
-                        setDiag(prev => ({ ...prev, sw: { status: 'active', reason: `Active scope: ${activeReg.scope}` } }));
+                        if (isControlled) {
+                            setDiag(prev => ({ ...prev, sw: { status: 'active', reason: `Shell Active: ${activeReg.scope}`, details: 'The Service Worker is active and currently controlling this page session.' } }));
+                        } else {
+                            setDiag(prev => ({ ...prev, sw: { status: 'uncontrolled', reason: 'Active but Uncontrolled.', details: 'Worker is running but hasn\'t "claimed" the current tab. A page refresh will fix this.' } }));
+                        }
                     } else if (waitingReg) {
-                        setDiag(prev => ({ ...prev, sw: { status: 'waiting', reason: 'Update found and waiting. Hard refresh required.' } }));
+                        setDiag(prev => ({ ...prev, sw: { status: 'waiting', reason: 'Update Waiting.', details: 'A new version of the app shell is downloaded. It will activate after all tabs are closed and reopened.' } }));
+                    } else if (installingReg) {
+                        setDiag(prev => ({ ...prev, sw: { status: 'waiting', reason: 'Installing...', details: 'The app shell is currently being downloaded into the browser cache.' } }));
                     } else {
-                        setDiag(prev => ({ ...prev, sw: { status: 'missing', reason: 'No Service Worker found on this domain. Try Manual Repair.' } }));
+                        setDiag(prev => ({ ...prev, sw: { status: 'missing', reason: 'No SW Registration Found.', details: 'The browser has no record of registering a worker. This usually happens if the register component failed to fire.' } }));
                     }
-                } catch (e) {
-                    setDiag(prev => ({ ...prev, sw: { status: 'missing', reason: 'Error querying SW registry.' } }));
+                } catch (e: any) {
+                    setDiag(prev => ({ ...prev, sw: { status: 'missing', reason: 'SW Registry Error.', details: e.message } }));
                 }
             }
         }
@@ -115,16 +122,16 @@ export default function OfflineAuditPage() {
         // 4. Check Manifest
         const manifestLink = document.querySelector('link[rel="manifest"]');
         if (manifestLink) {
-            setDiag(prev => ({ ...prev, manifest: { status: 'found', reason: `Link detected: ${manifestLink.getAttribute('href')}` } }));
+            setDiag(prev => ({ ...prev, manifest: { status: 'found', reason: `Link: ${manifestLink.getAttribute('href')}` } }));
         } else {
-            setDiag(prev => ({ ...prev, manifest: { status: 'missing', reason: 'Manifest link not found in head.' } }));
+            setDiag(prev => ({ ...prev, manifest: { status: 'missing', reason: 'No manifest link detected in <head>.' } }));
         }
 
         // 5. Check Prompt Readiness
         if (window.deferredInstallPrompt) {
-            setDiag(prev => ({ ...prev, prompt: { status: 'ready', reason: 'Install prompt is primed and ready to fire.' } }));
+            setDiag(prev => ({ ...prev, prompt: { status: 'ready', reason: 'Install Prompt Primed.' } }));
         } else {
-            setDiag(prev => ({ ...prev, prompt: { status: 'waiting', reason: 'Waiting for browser interaction event.' } }));
+            setDiag(prev => ({ ...prev, prompt: { status: 'waiting', reason: 'Waiting for User interaction.' } }));
         }
     };
 
@@ -133,18 +140,23 @@ export default function OfflineAuditPage() {
         
         startRepair(async () => {
             try {
-                toast({ title: "Initiating Repair", description: "Attempting manual shell registration..." });
+                toast({ title: "Initiating Force Register", description: "Requesting manual /sw.js registration..." });
                 const reg = await navigator.serviceWorker.register('/sw.js', {
                     scope: '/',
                     updateViaCache: 'none'
                 });
                 
                 if (reg.installing) {
-                    toast({ title: "Repair In Progress", description: "Worker is installing..." });
+                    toast({ title: "Installing...", description: "Worker is being cached." });
                 } else {
-                    toast({ title: "Repair Signal Sent", description: `Registered at scope: ${reg.scope}. Please refresh page.` });
+                    toast({ title: "Registration Success", description: "Scope: " + reg.scope });
                 }
                 
+                // If it's active but uncontrolled, try to claim
+                if (reg.active && !navigator.serviceWorker.controller) {
+                    window.location.reload();
+                }
+
                 performAudit();
             } catch (error: any) {
                 console.error('Manual repair failed:', error);
@@ -166,7 +178,7 @@ export default function OfflineAuditPage() {
     const handleTriggerEngagement = () => {
         window.scrollBy({ top: 100, behavior: 'smooth' });
         setTimeout(() => window.scrollBy({ top: -100, behavior: 'smooth' }), 500);
-        toast({ title: "Engagement Triggered", description: "Simulating interaction to wake up the browser." });
+        toast({ title: "Simulating Interaction", description: "Helping the browser trigger the install event." });
         performAudit();
     };
 
@@ -195,7 +207,7 @@ export default function OfflineAuditPage() {
                 toast({ 
                     variant: 'destructive', 
                     title: "Write Failed", 
-                    description: "Check Firestore Security Rules for 'diagnostic_logs'." 
+                    description: "Check rules for 'diagnostic_logs'." 
                 });
             }
         });
@@ -207,8 +219,8 @@ export default function OfflineAuditPage() {
         <div className="container mx-auto py-12 px-4 md:px-6 max-w-4xl space-y-12 pb-32">
             <div className="flex justify-between items-end border-b pb-10 border-black/5">
                 <div>
-                    <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950">Decision Audit</h1>
-                    <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Identity: adires.vercel.app</p>
+                    <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950">System Audit</h1>
+                    <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Exact Error Diagnostics</p>
                 </div>
                 <Button onClick={performAudit} variant="outline" className="rounded-full h-12 px-6 font-black uppercase text-[10px] tracking-widest border-2">
                     <RefreshCw className="mr-2 h-4 w-4" /> Re-Scan
@@ -216,6 +228,56 @@ export default function OfflineAuditPage() {
             </div>
 
             <div className="grid md:grid-cols-2 gap-8">
+                {/* SW CHECK (THE "EXACT ERROR" SECTION) */}
+                <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white col-span-full">
+                    <CardHeader className="bg-primary/5 pb-6 border-b border-black/5">
+                        <div className="flex justify-between items-center">
+                            <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                                <Lock className="h-4 w-4 text-primary" /> App Shell (Service Worker)
+                            </CardTitle>
+                            <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                onClick={handleRepairShell} 
+                                disabled={isRepairing}
+                                className="h-7 rounded-lg text-[8px] font-black uppercase bg-primary/10 hover:bg-primary/20 text-primary"
+                            >
+                                {isRepairing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wrench className="mr-1 h-3 w-3" />}
+                                Force Register
+                            </Button>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-8 space-y-6">
+                        <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-black uppercase opacity-40">Internal Browser State</span>
+                            <Badge variant={diag.sw.status === 'active' ? 'default' : diag.sw.status === 'waiting' || diag.sw.status === 'uncontrolled' ? 'secondary' : 'destructive'} className="font-black uppercase text-[9px]">
+                                {diag.sw.status.toUpperCase()}
+                            </Badge>
+                        </div>
+                        
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <div className="p-5 bg-muted/30 rounded-2xl border-2 border-transparent">
+                                <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-2">Primary Detection</p>
+                                <p className="text-sm font-black text-gray-900 leading-tight">{diag.sw.reason}</p>
+                            </div>
+                            <div className="p-5 bg-black/5 rounded-2xl border-2 border-transparent">
+                                <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 flex items-center gap-1"><Bug className="h-3 w-3"/> Root Cause Analysis</p>
+                                <p className="text-[11px] font-bold text-gray-600 leading-relaxed">{diag.sw.details}</p>
+                            </div>
+                        </div>
+
+                        {diag.sw.status === 'uncontrolled' && (
+                            <Alert className="bg-blue-50 border-blue-100 rounded-2xl">
+                                <Info className="h-4 w-4 text-blue-600" />
+                                <AlertTitle className="text-[10px] font-black uppercase tracking-widest text-blue-800">Refresh Required</AlertTitle>
+                                <AlertDescription className="text-xs font-bold text-blue-900 leading-tight">
+                                    The shell is active, but the current tab is stale. Please refresh the browser once to allow the worker to take control.
+                                </AlertDescription>
+                            </Alert>
+                        )}
+                    </CardContent>
+                </Card>
+
                 {/* DOMAIN CHECK */}
                 <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white">
                     <CardHeader className="bg-primary/5 pb-6 border-b border-black/5">
@@ -236,68 +298,11 @@ export default function OfflineAuditPage() {
                     </CardContent>
                 </Card>
 
-                {/* SW CHECK */}
-                <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white">
-                    <CardHeader className="bg-primary/5 pb-6 border-b border-black/5">
-                        <div className="flex justify-between items-center">
-                            <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                                <Lock className="h-4 w-4 text-primary" /> App Shell (PWA)
-                            </CardTitle>
-                            <Button 
-                                size="sm" 
-                                variant="ghost" 
-                                onClick={handleRepairShell} 
-                                disabled={isRepairing}
-                                className="h-7 rounded-lg text-[8px] font-black uppercase bg-primary/10 hover:bg-primary/20 text-primary"
-                            >
-                                {isRepairing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wrench className="mr-1 h-3 w-3" />}
-                                Repair Shell
-                            </Button>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-8 space-y-4">
-                        <div className="flex justify-between items-center">
-                            <span className="text-[10px] font-black uppercase opacity-40">Service Worker</span>
-                            <Badge variant={diag.sw.status === 'active' ? 'default' : diag.sw.status === 'waiting' ? 'secondary' : 'destructive'} className="font-black uppercase text-[9px]">
-                                {diag.sw.status.toUpperCase()}
-                            </Badge>
-                        </div>
-                        <p className="text-[11px] font-bold text-gray-600 leading-tight p-4 bg-muted/30 rounded-2xl border border-black/5">
-                            {diag.sw.reason}
-                        </p>
-                    </CardContent>
-                </Card>
-
-                {/* PROMPT READINESS */}
-                <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white">
-                    <CardHeader className="bg-primary/5 pb-6 border-b border-black/5">
-                        <div className="flex justify-between items-center">
-                            <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                                <SmartphoneNfc className="h-4 w-4 text-primary" /> Install Event
-                            </CardTitle>
-                            <Button size="sm" variant="ghost" onClick={handleTriggerEngagement} className="h-7 rounded-lg text-[8px] font-black uppercase bg-primary/10 hover:bg-primary/20 text-primary">
-                                <MousePointer2 className="mr-1 h-3 w-3" /> Engage
-                            </Button>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-8 space-y-4">
-                        <div className="flex justify-between items-center">
-                            <span className="text-[10px] font-black uppercase opacity-40">Prompt State</span>
-                            <Badge variant={diag.prompt.status === 'ready' ? 'default' : 'secondary'} className="font-black uppercase text-[9px]">
-                                {diag.prompt.status.toUpperCase()}
-                            </Badge>
-                        </div>
-                        <p className="text-[11px] font-bold text-gray-600 leading-tight p-4 bg-muted/30 rounded-2xl border border-black/5">
-                            {diag.prompt.reason}
-                        </p>
-                    </CardContent>
-                </Card>
-
-                {/* NETWORK & SYNC */}
+                {/* SYNC TEST */}
                 <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white border-2 border-primary/20">
                     <CardHeader className="bg-primary/5 pb-6 border-b border-black/5">
                         <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                            <Cloud className="h-4 w-4 text-primary" /> Sync Diagnostics
+                            <Cloud className="h-4 w-4 text-primary" /> Sync Integrity
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="p-8 space-y-6 text-center">
@@ -306,33 +311,44 @@ export default function OfflineAuditPage() {
                             <div className="text-sm font-black text-gray-900 uppercase min-h-[24px]">
                                 {lastSyncStatus === 'idle' && "Ready to Test"}
                                 {lastSyncStatus === 'writing' && "Triggering Write..."}
-                                {lastSyncStatus === 'queued' && <span className="text-amber-600 flex items-center justify-center gap-2 animate-pulse"><Zap className="h-4 w-4 fill-current"/> Queued (Waiting for Sync)</span>}
-                                {lastSyncStatus === 'synced' && <span className="text-green-600 flex items-center justify-center gap-2"><CheckCircle2 className="h-4 w-4"/> Sync Success!</span>}
+                                {lastSyncStatus === 'queued' && <span className="text-amber-600 flex items-center justify-center gap-2 animate-pulse"><Zap className="h-4 w-4 fill-current"/> Queued Locally</span>}
+                                {lastSyncStatus === 'synced' && <span className="text-green-600 flex items-center justify-center gap-2"><CheckCircle2 className="h-4 w-4"/> Synced!</span>}
                             </div>
                         </div>
                         <Button onClick={handleTestSync} disabled={isTesting} className="w-full max-w-sm h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-primary/20">
-                            {isTesting ? 'Testing...' : 'Test Background Sync'}
+                            Test Background Sync
                         </Button>
                     </CardContent>
                 </Card>
             </div>
 
-            <Card className="rounded-[3rem] border-0 shadow-2xl bg-slate-900 text-white p-10 overflow-hidden relative">
-                <div className="absolute top-0 right-0 p-10 opacity-10 rotate-12">
-                    <Check className="h-48 w-48 text-primary" strokeWidth={4} />
-                </div>
-                <div className="relative z-10 space-y-4">
-                    <p className="text-xl font-bold leading-relaxed text-primary/90">
-                        "Environment Health Verified."
-                    </p>
-                    <p className="text-sm font-medium text-white/60 leading-relaxed max-w-2xl">
-                        Your **Sync Success** on `adires.vercel.app` confirms that your deployment is production-ready. Remember to add your Google Verification token to the layout meta-tags to complete the Google Cloud handshake.
-                    </p>
-                    <Button asChild variant="outline" className="rounded-xl border-white/20 text-white hover:bg-white/10 font-black uppercase text-[10px] h-12 px-8">
-                        <Link href="/dashboard/admin">Return to Dashboard <ArrowRight className="ml-2 h-4 w-4"/></Link>
-                    </Button>
-                </div>
-            </Card>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Button asChild variant="outline" className="h-14 rounded-2xl font-black uppercase text-[10px] tracking-widest border-2">
+                    <Link href="/dashboard/admin/manifest-help">Edit PWA Manifest</Link>
+                </Button>
+                <Button asChild variant="outline" className="h-14 rounded-2xl font-black uppercase text-[10px] tracking-widest border-2">
+                    <Link href="/dashboard/admin">Return to Dashboard</Link>
+                </Button>
+            </div>
         </div>
     );
+}
+
+function Zap(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 14.899 13 2l-2.474 7.961L19.526 10 10.526 22.899 13 14.938Z" />
+    </svg>
+  )
 }

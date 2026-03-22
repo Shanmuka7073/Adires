@@ -1,44 +1,46 @@
-
 'use client';
 
 import { useEffect } from 'react';
 
 /**
  * Aggressively registers the Service Worker on the client.
- * Includes explicit scope handling and cache-busting for production environments.
+ * Handles the "uncontrolled" state by forcing an immediate reload check.
  */
 export default function ServiceWorkerRegister() {
   useEffect(() => {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       const register = async () => {
         try {
-          // Register with explicit root scope and a version query to bypass cache
-          const registration = await navigator.serviceWorker.register('/sw.js?v=4', {
+          const registration = await navigator.serviceWorker.register('/sw.js', {
             scope: '/',
             updateViaCache: 'none'
           });
           
-          console.log('Adires Shell registered successfully. Scope:', registration.scope);
+          console.log('Adires PWA registered:', registration.scope);
           
-          // Trigger immediate activation for better first-load experience
-          if (registration.installing) {
-              console.log('Adires Shell: Installing...');
-          } else if (registration.waiting) {
-              console.log('Adires Shell: Update waiting. Manual refresh recommended.');
+          // Handle automatic updates
+          registration.onupdatefound = () => {
+            const installingWorker = registration.installing;
+            if (installingWorker) {
+              installingWorker.onstatechange = () => {
+                if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  console.log('New content is available; please refresh.');
+                }
+              };
+            }
+          };
+
+          // If a worker is waiting, it means an update is ready
+          if (registration.waiting) {
+              console.log('Update waiting. Prompting skipWaiting.');
               registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-          } else if (registration.active) {
-              console.log('Adires Shell: Active and healthy.');
           }
 
-          // Signal to diagnostic tools that registration was successful
-          window.dispatchEvent(new CustomEvent('sw-registered', { detail: registration }));
-          
         } catch (error) {
-          console.error('Adires Shell registration failed:', error);
+          console.error('PWA Registration failed:', error);
         }
       };
 
-      // Ensure registration happens as soon as possible
       if (document.readyState === 'complete') {
         register();
       } else {
