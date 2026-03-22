@@ -80,6 +80,7 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { extractMenuItems } from '@/ai/flows/extract-menu-items-flow';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
+const ADMIN_EMAIL = 'shanmuka7073@gmail.com';
 
 const storeSchema = z.object({
   name: z.string().min(3, 'Store name must be at least 3 characters'),
@@ -262,6 +263,7 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
                                 <TableHeader className="bg-black/5">
                                     <TableRow>
                                         <TableHead className="text-[10px] font-black uppercase">Category</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase">Dietary</TableHead>
                                         <TableHead className="text-[10px] font-black uppercase">Item</TableHead>
                                         <TableHead className="text-right text-[10px] font-black uppercase">Price</TableHead>
                                     </TableRow>
@@ -270,6 +272,13 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
                                     {extractedData.items.map((i, idx) => (
                                         <TableRow key={idx}>
                                             <TableCell className="text-[10px] font-bold opacity-40 uppercase">{i.category}</TableCell>
+                                            <TableCell>
+                                                {i.dietary ? (
+                                                    <Badge variant="outline" className={cn("text-[8px] font-black uppercase", i.dietary === 'veg' ? 'border-green-200 text-green-600' : 'border-red-200 text-red-600')}>
+                                                        {i.dietary}
+                                                    </Badge>
+                                                ) : '—'}
+                                            </TableCell>
                                             <TableCell className="font-bold text-xs">{i.name}</TableCell>
                                             <TableCell className="text-right font-black text-xs">₹{i.price}</TableCell>
                                         </TableRow>
@@ -586,7 +595,7 @@ function TableManager({ store }: { store: Store }) {
                          {store.tables.map(table => (
                              <div key={table} className="flex items-center justify-between p-2 pl-4 bg-muted/30 rounded-xl border border-black/5">
                                  <span className="font-bold text-xs uppercase tracking-tight">{table}</span>
-                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveTable(table)}>
+                                 <Button variant="ghost" size="icon" className="h-3.5 w-3.5 text-destructive" onClick={() => handleRemoveTable(table)}>
                                     <Trash2 className="h-3.5 w-3.5" />
                                  </Button>
                              </div>
@@ -741,6 +750,8 @@ export default function MyStorePage() {
     }, [firestore, user, isAdmin]);
 
     const { data: ownerStores, isLoading: isOwnerStoreLoading, refetch } = useCollection<Store>(ownerStoreQuery);
+    
+    // PRIORITY: Firestore data > Cached data for real-time Floor Map updates
     const myStore = useMemo(() => userStore || ownerStores?.[0], [userStore, ownerStores]);
 
     useEffect(() => { if (!isUserLoading && !user) router.push('/login'); }, [isUserLoading, user, router]);
@@ -770,3 +781,4 @@ export default function MyStorePage() {
         </div>
     );
 }
+

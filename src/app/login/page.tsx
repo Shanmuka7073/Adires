@@ -9,7 +9,7 @@ import type { User as AppUser } from '@/lib/types';
 import LoginForm from './login-form';
 import { Loader2 } from 'lucide-react';
 
-const ADMIN_EMAIL = 'admin@gmail.com';
+const ADMIN_EMAIL = 'shanmuka7073@gmail.com';
 
 /**
  * Login Page.
@@ -36,7 +36,7 @@ export default function LoginPage() {
     if (isUserLoading || isProfileLoading) return;
 
     if (user && userData) {
-       const isAdmin = user.email === ADMIN_EMAIL || user.email === 'admin2@gmail.com';
+       const isAdmin = user.email === ADMIN_EMAIL;
        
        if (isAdmin) {
             router.push('/dashboard/admin');

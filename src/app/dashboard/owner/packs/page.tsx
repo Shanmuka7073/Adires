@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
@@ -22,7 +23,7 @@ import { calculateSimilarity } from '@/lib/calculate-similarity';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
-const ADMIN_EMAIL = 'admin@gmail.com';
+const ADMIN_EMAIL = 'shanmuka7073@gmail.com';
 
 function AIPackGenerator({ storeId }: { storeId: string }) {
     const { toast } = useToast();
@@ -347,7 +348,7 @@ function ExistingPacks({ storeId }: { storeId: string }) {
                                         </Button>
                                     </div>
                                 </AccordionContent>
-                            </AccordionItem>
+                             </AccordionItem>
                         ))}
                     </Accordion>
                 ) : (

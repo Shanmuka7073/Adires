@@ -6,7 +6,7 @@ import { doc } from 'firebase/firestore';
 import type { User as AppUser } from '@/lib/types';
 import { useMemo } from 'react';
 
-const ADMIN_EMAILS = ['admin@gmail.com', 'admin2@gmail.com'];
+const ADMIN_EMAILS = ['shanmuka7073@gmail.com'];
 
 /**
  * A hook to determine the current user's role and authorization status.
