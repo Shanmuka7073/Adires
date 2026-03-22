@@ -66,7 +66,8 @@ import {
   Leaf,
   Phone,
   Smartphone,
-  Activity
+  Activity,
+  Globe
 } from 'lucide-react';
 
 import {
@@ -485,7 +486,6 @@ function MenuCard({ item, onAdd, onShowDetails, recentlyAdded, currentQuantityIn
                         <div className={cn("h-full w-full rounded-full border-2", item.dietary === 'veg' ? 'border-green-600 bg-green-600' : 'border-red-600 bg-red-600')}></div>
                     </div>
                 )}
-                {/* HIGH VISIBILITY PRICE BADGE */}
                 <div className="absolute bottom-2 left-2 bg-gray-950/80 backdrop-blur-md text-white px-4 py-1.5 rounded-full shadow-2xl border-2 border-white/20">
                     <p className="text-sm font-black tracking-tight">₹{item.price.toFixed(0)}</p>
                 </div>
@@ -771,7 +771,7 @@ export default function PublicMenuPage() {
       <ModeSelectionDialog isOpen={isModeDialogOpen} onOpenChange={setIsModeDialogOpen} onSelectMode={(m: any, v: any) => { if(m==='delivery') setTableNumber(null); else if(v) setTableNumber(v); setIsModeDialogOpen(false); handleStartNewOrder(); }} currentMode={tableNumber === 'Counter' ? 'counter' : (tableNumber ? 'table' : 'delivery')} theme={theme} isSalon={isSalon} />
       {placedOrders && <UPIPaymentDialog isOpen={isUpiDialogOpen} onOpenChange={setIsUpiDialogOpen} total={placedOrders.reduce((acc, o) => acc + o.totalAmount, 0)} store={store} theme={theme} />}
       
-      <div className="min-h-screen pb-32 bg-[#FDFCF7]">
+      <div className="min-h-screen pb-40 bg-[#FDFCF7]">
           <div className="container mx-auto py-4 px-3 max-w-2xl">
             <div className="space-y-6">
               <div className="flex items-center justify-between gap-3">
@@ -913,74 +913,75 @@ export default function PublicMenuPage() {
             </div>
           </div>
 
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[400px] px-4 flex flex-col gap-3">
-              {/* DEBUG SYNC AUDIT (Visible to Admins or if button is missing for troubleshooting) */}
-              {!canInstall && (
-                  <Link href="/dashboard/admin/offline-audit" className="text-[8px] font-black uppercase tracking-[0.3em] opacity-30 text-center hover:opacity-100 transition-opacity">
-                      Install missing? Click here to find out why.
-                  </Link>
-              )}
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-t-2 border-black/5 pb-8 pt-4 px-4 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)]">
+              <div className="max-w-[400px] mx-auto space-y-4">
+                  {!canInstall && (
+                      <Link href="/dashboard/admin/offline-audit" className="block text-[10px] font-black uppercase tracking-[0.2em] opacity-60 text-center hover:opacity-100 transition-opacity bg-black/5 py-2 rounded-lg text-gray-900">
+                          Install missing? Tap for setup help.
+                      </Link>
+                  )}
 
-              {canInstall && (
-                  <div className="px-2">
+                  {canInstall && (
                       <Button 
                         onClick={triggerInstall} 
-                        variant="default"
-                        className="w-full h-12 rounded-xl bg-primary text-white shadow-2xl text-[10px] font-black uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all border-0"
+                        className="w-full h-14 rounded-2xl bg-primary text-white shadow-2xl text-[11px] font-black uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all border-0"
                       >
-                          <Download className="mr-2 h-4 w-4" />
+                          <Download className="mr-2 h-5 w-5" />
                           Install {store.name} App
                       </Button>
-                  </div>
-              )}
+                  )}
 
-              <div className="flex gap-2">
-                {tableNumber && tableNumber !== 'Counter' && placedOrders && placedOrders.length > 0 && (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="outline" className="h-14 w-14 rounded-2xl shadow-2xl border-4 shrink-0 bg-white text-primary" style={{ borderColor: theme?.primaryColor || '#FBC02D', color: theme?.primaryColor }}><BellRing className="h-6 w-6" /></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-48 rounded-2xl p-2 border-0 shadow-2xl">
-                            <DropdownMenuLabel className="text-[10px] uppercase font-black opacity-40">Staff Call</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => handleCallWaiter('Water')} className="rounded-xl font-bold">Glass of Water</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleCallWaiter('Cleaning')} className="rounded-xl font-bold">Clear Table</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleCallWaiter('Assistance')} className="rounded-xl font-bold">General Help</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                )}
-                {cartItems.length > 0 && (
-                    <Button onClick={handlePlaceOrder} className="h-14 flex-1 rounded-2xl shadow-2xl text-xs font-black uppercase tracking-widest border-2 border-white/20" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>
-                        {isAdding ? <Loader2 className="animate-spin h-5 w-5"/> : <PlusCircle className="mr-2 h-5 w-5" />}
-                        {tableNumber === 'Counter' ? `Bill (${cartItems.length})` : `Place Order (${cartItems.length})`}
-                    </Button>
-                )}
-                {(activeItemCount > 0 || cartItems.length > 0 || (historyOrders && historyOrders.length > 0)) && (
-                    <Sheet open={isLiveBillOpen} onOpenChange={setIsLiveBillOpen}>
-                        <SheetTrigger asChild>
-                            <Button variant="outline" className={cn("h-14 rounded-2xl shadow-2xl text-[10px] font-black uppercase tracking-widest border-4", (cartItems.length === 0 || tableNumber === 'Counter') ? "flex-1" : "px-5")} style={{ borderColor: theme?.primaryColor || '#FBC02D', color: theme?.primaryColor || '#FBC02D', backgroundColor: '#ffffff' }}>
-                                <Receipt className={cn(cartItems.length === 0 && "mr-2", "h-5 w-5")} /> 
-                                {(cartItems.length === 0 || tableNumber === 'Counter') && "Live Bill"}
-                                {activeItemCount > 0 && <Badge className="ml-2 h-6 min-w-[24px] rounded-lg text-xs font-black" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>{activeItemCount}</Badge>}
-                            </Button>
-                        </SheetTrigger>
-                        <SheetContent side="bottom" className="h-[85vh] rounded-t-[3rem] p-0 border-0 overflow-hidden shadow-2xl">
-                            <LiveBillSheet 
-                                sessionId={sessionId} 
-                                theme={theme} 
-                                store={store} 
-                                onShowUpi={() => setIsUpiDialogOpen(true)} 
-                                isSalon={isSalon} 
-                                placedOrders={placedOrders || []} 
-                                historyOrders={historyOrders || []}
-                                isLoadingOrders={ordersLoading} 
-                                onFinalizeBill={handleFinalizeBill}
-                            />
-                        </SheetContent>
-                    </Sheet>
-                )}
+                  <div className="flex gap-2">
+                    {tableNumber && tableNumber !== 'Counter' && placedOrders && placedOrders.length > 0 && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild><Button variant="outline" className="h-14 w-14 rounded-2xl shadow-2xl border-4 shrink-0 bg-white text-primary" style={{ borderColor: theme?.primaryColor || '#FBC02D', color: theme?.primaryColor }}><BellRing className="h-6 w-6" /></Button></DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-48 rounded-2xl p-2 border-0 shadow-2xl">
+                                <DropdownMenuLabel className="text-[10px] uppercase font-black opacity-40">Staff Call</DropdownMenuLabel>
+                                <DropdownMenuItem onClick={() => handleCallWaiter('Water')} className="rounded-xl font-bold">Glass of Water</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleCallWaiter('Cleaning')} className="rounded-xl font-bold">Clear Table</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleCallWaiter('Assistance')} className="rounded-xl font-bold">General Help</DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
+                    {cartItems.length > 0 && (
+                        <Button onClick={handlePlaceOrder} className="h-14 flex-1 rounded-2xl shadow-2xl text-sm font-black uppercase tracking-widest border-2 border-white/20" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>
+                            {isAdding ? <Loader2 className="animate-spin h-5 w-5"/> : <PlusCircle className="mr-2 h-5 w-5" />}
+                            {tableNumber === 'Counter' ? `Bill (${cartItems.length})` : `Send Order (${cartItems.length})`}
+                        </Button>
+                    )}
+                    {(activeItemCount > 0 || cartItems.length > 0 || (historyOrders && historyOrders.length > 0)) && (
+                        <Sheet open={isLiveBillOpen} onOpenChange={setIsLiveBillOpen}>
+                            <SheetTrigger asChild>
+                                <Button variant="outline" className={cn("h-14 rounded-2xl shadow-2xl text-[10px] font-black uppercase tracking-widest border-4", (cartItems.length === 0 || tableNumber === 'Counter') ? "flex-1" : "px-5")} style={{ borderColor: theme?.primaryColor || '#FBC02D', color: theme?.primaryColor || '#FBC02D', backgroundColor: '#ffffff' }}>
+                                    <Receipt className={cn(cartItems.length === 0 && "mr-2", "h-5 w-5")} /> 
+                                    {(cartItems.length === 0 || tableNumber === 'Counter') && "Visit Detail"}
+                                    {activeItemCount > 0 && <Badge className="ml-2 h-6 min-w-[24px] rounded-lg text-xs font-black" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>{activeItemCount}</Badge>}
+                                </Button>
+                            </SheetTrigger>
+                            <SheetContent side="bottom" className="h-[85vh] rounded-t-[3rem] p-0 border-0 overflow-hidden shadow-2xl">
+                                <LiveBillSheet 
+                                    sessionId={sessionId} 
+                                    theme={theme} 
+                                    store={store} 
+                                    onShowUpi={() => setIsUpiDialogOpen(true)} 
+                                    isSalon={isSalon} 
+                                    placedOrders={placedOrders || []} 
+                                    historyOrders={historyOrders || []}
+                                    isLoadingOrders={ordersLoading} 
+                                    onFinalizeBill={handleFinalizeBill}
+                                />
+                            </SheetContent>
+                        </Sheet>
+                    )}
+                  </div>
+                  
+                  <div className="flex justify-center items-center gap-2 pt-2">
+                      <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-gray-950 opacity-80 hover:opacity-100 transition-opacity">
+                          <Globe className="h-3 w-3 text-primary" />
+                          Main Marketplace
+                      </Link>
+                  </div>
               </div>
-              
-              <Link href="/" className="text-[8px] font-black uppercase tracking-[0.3em] opacity-30 text-center hover:opacity-100 transition-opacity">
-                  Marketplace Home: Open Grozo Platform
-              </Link>
           </div>
         </div>
     </>
