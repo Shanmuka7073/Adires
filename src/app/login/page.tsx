@@ -1,13 +1,13 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useTransition } from 'react';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { doc } from 'firebase/firestore';
 import type { User as AppUser } from '@/lib/types';
 import LoginForm from './login-form';
-import { Loader2, Mail, RefreshCw, LogOut, CheckCircle2 } from 'lucide-react';
+import { Loader2, Mail, RefreshCw, LogOut } from 'lucide-react';
 import { sendEmailVerification, signOut } from 'firebase/auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const redirectTo = searchParams.get('redirectTo') || '/dashboard';
+  const [isChecking, startChecking] = useTransition();
   
   const userDocRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -62,6 +63,39 @@ export default function LoginPage() {
       } catch (err: any) {
         toast({ variant: 'destructive', title: "System Busy", description: err.message });
       }
+    }
+  };
+
+  const handleCheckVerification = async () => {
+    if (user) {
+      startChecking(async () => {
+        try {
+          // Force Firebase to refresh the user's ID token and profile data
+          await user.reload();
+          
+          if (user.emailVerified) {
+            toast({ 
+              title: "Account Verified!", 
+              description: "Success! Taking you to your dashboard." 
+            });
+            // Force a full page reload to refresh the context with the now-verified user
+            window.location.reload();
+          } else {
+            toast({ 
+              variant: 'destructive', 
+              title: "Not Verified Yet", 
+              description: "Please check your inbox and click the verification link first." 
+            });
+          }
+        } catch (err: any) {
+          console.error("Verification check failed:", err);
+          toast({ 
+            variant: 'destructive', 
+            title: "Check Failed", 
+            description: err.message 
+          });
+        }
+      });
     }
   };
 
@@ -104,10 +138,12 @@ export default function LoginPage() {
                     </div>
                     <div className="flex flex-col gap-3">
                         <Button 
-                            onClick={() => window.location.reload()} 
+                            onClick={handleCheckVerification} 
+                            disabled={isChecking}
                             className="w-full h-14 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-amber-500/20"
                         >
-                            <RefreshCw className="mr-2 h-4 w-4" /> I've Verified My Email
+                            {isChecking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                            I've Verified My Email
                         </Button>
                         <Button 
                             variant="outline" 
