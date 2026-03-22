@@ -223,12 +223,12 @@ export default function OfflineAuditPage() {
                     <CardContent className="p-8 space-y-6 text-center">
                         <div className="space-y-1">
                             <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Queue Status</p>
-                            <p className="font-black text-sm uppercase">
+                            <div className="text-sm font-black text-gray-900 uppercase">
                                 {lastSyncStatus === 'idle' && "Idle"}
                                 {lastSyncStatus === 'writing' && "Triggering Write..."}
                                 {lastSyncStatus === 'queued' && <span className="text-amber-600 flex items-center justify-center gap-2 animate-pulse"><Zap className="h-4 w-4 fill-current"/> Queued (Waiting for Sync)</span>}
                                 {lastSyncStatus === 'synced' && <span className="text-green-600 flex items-center justify-center gap-2"><CheckCircle2 className="h-4 w-4"/> Sync Success!</span>}
-                            </p>
+                            </div>
                         </div>
                         <Button onClick={handleTestSync} disabled={isTesting} className="w-full max-w-sm h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-primary/20">
                             Test Background Sync

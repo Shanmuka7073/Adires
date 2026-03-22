@@ -123,5 +123,9 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    match /diagnostic_logs/{logId} {
+      allow read, write: if isSignedIn();
+    }
   }
 }
