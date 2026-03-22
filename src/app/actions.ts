@@ -226,13 +226,13 @@ export async function getPlatformAnalytics() {
         sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
         
         const [usersSnap, storesSnap, ordersSnap, configSnap] = await Promise.all([
-            db.collection('users').count().get(),
-            db.collection('stores').count().get(),
-            db.collection('orders').where('orderDate', '>=', Timestamp.fromDate(sixtyDaysAgo)).get(),
-            db.collection('siteConfig').doc('appStatus').get()
+            db.collection('users').count().get().catch(() => ({ data: () => ({ count: 0 }) })),
+            db.collection('stores').count().get().catch(() => ({ data: () => ({ count: 0 }) })),
+            db.collection('orders').where('orderDate', '>=', Timestamp.fromDate(sixtyDaysAgo)).get().catch(() => ({ docs: [] })),
+            db.collection('siteConfig').doc('appStatus').get().catch(() => ({ data: () => ({ isMaintenance: false }) }))
         ]);
 
-        const allOrders = ordersSnap.docs.map(d => ({ 
+        const allOrders = ordersSnap.docs.map((d: any) => ({ 
             ...(d.data() as Order), 
             orderDate: toDateSafe(d.data().orderDate) 
         })) as Order[];
@@ -294,7 +294,19 @@ export async function getPlatformAnalytics() {
         };
     } catch (error) {
         console.error("Platform Analytics failed:", error);
-        return null;
+        return {
+            totalUsers: 0,
+            totalStores: 0,
+            activeSessions: 0,
+            isMaintenance: false,
+            topStores: [],
+            periods: {
+                today: { revenue: 0, orders: 0, aov: 0, userReach: 0, trends: { revenue: 0, orders: 0, aov: 0, userReach: 0 } },
+                '7d': { revenue: 0, orders: 0, aov: 0, userReach: 0, trends: { revenue: 0, orders: 0, aov: 0, userReach: 0 } },
+                '14d': { revenue: 0, orders: 0, aov: 0, userReach: 0, trends: { revenue: 0, orders: 0, aov: 0, userReach: 0 } },
+                '30d': { revenue: 0, orders: 0, aov: 0, userReach: 0, trends: { revenue: 0, orders: 0, aov: 0, userReach: 0 } }
+            }
+        };
     }
 }
 

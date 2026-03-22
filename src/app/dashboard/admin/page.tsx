@@ -24,7 +24,8 @@ import {
   WifiOff,
   Globe,
   ExternalLink,
-  Info
+  Info,
+  AlertTriangle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -35,7 +36,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { getPlatformAnalytics } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 
-function KPICard({ title, value, subValue, trendValue, icon: Icon, color }: any) {
+function KPICard({ title, value, subValue, trendValue = 0, icon: Icon, color }: any) {
   const isPositive = trendValue >= 0;
   return (
     <Card className="rounded-[2rem] border-0 shadow-lg bg-white overflow-hidden group hover:shadow-2xl transition-all border-2 border-transparent hover:border-primary/10">
@@ -94,6 +95,7 @@ export default function AdminDashboardPage() {
         const stats = await getPlatformAnalytics();
         setData(stats);
     } catch (e) {
+        console.error("Platform analytics failed:", e);
         toast({ variant: 'destructive', title: 'Data sync failed' });
     } finally {
         setIsLoading(false);
@@ -114,7 +116,20 @@ export default function AdminDashboardPage() {
       <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Connecting to Ops Data...</p>
   </div>;
 
-  const currentMetrics = data?.periods?.[activePeriod] || data?.periods?.today || { revenue: 0, orders: 0, aov: 0, userReach: 0, trends: { revenue: 0, orders: 0, aov: 0, userReach: 0 } };
+  if (!data) return (
+      <div className="p-12 text-center flex flex-col items-center justify-center h-[60vh] gap-4">
+          <AlertTriangle className="h-10 w-10 text-destructive opacity-40" />
+          <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Failed to load system state.</p>
+          <Button onClick={handleRefresh} variant="outline" size="sm" className="rounded-xl font-black uppercase text-[10px] tracking-widest">
+              Retry Sync
+          </Button>
+      </div>
+  );
+
+  const currentMetrics = data?.periods?.[activePeriod] || data?.periods?.today || { 
+      revenue: 0, orders: 0, aov: 0, userReach: 0, 
+      trends: { revenue: 0, orders: 0, aov: 0, userReach: 0 } 
+  };
 
   return (
     <div className="container mx-auto px-4 py-10 space-y-12 max-w-7xl pb-32 animate-in fade-in duration-700">
@@ -149,33 +164,33 @@ export default function AdminDashboardPage() {
       <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <KPICard 
             title={`Revenue ${activePeriod.toUpperCase()}`} 
-            value={`₹${currentMetrics.revenue.toFixed(0)}`} 
+            value={`₹${(currentMetrics.revenue || 0).toFixed(0)}`} 
             subValue={activePeriod === 'today' ? "Vs Yesterday" : "Growth Context"} 
-            trendValue={currentMetrics.trends.revenue} 
+            trendValue={currentMetrics.trends?.revenue || 0} 
             icon={DollarSign} 
             color="bg-primary" 
         />
         <KPICard 
             title={`Orders ${activePeriod.toUpperCase()}`} 
-            value={currentMetrics.orders} 
+            value={currentMetrics.orders || 0} 
             subValue="Transaction Volume" 
-            trendValue={currentMetrics.trends.orders} 
+            trendValue={currentMetrics.trends?.orders || 0} 
             icon={ShoppingBag} 
             color="bg-amber-500" 
         />
         <KPICard 
             title="Avg Order Value" 
-            value={`₹${currentMetrics.aov.toFixed(0)}`} 
+            value={`₹${(currentMetrics.aov || 0).toFixed(0)}`} 
             subValue="Basket Profitability" 
-            trendValue={currentMetrics.trends.aov} 
+            trendValue={currentMetrics.trends?.aov || 0} 
             icon={Target} 
             color="bg-blue-600" 
         />
         <KPICard 
             title="Market Reach" 
-            value={currentMetrics.userReach} 
-            subValue={`${data.activeSessions} Real-time Visitors`} 
-            trendValue={currentMetrics.trends.userReach} 
+            value={currentMetrics.userReach || 0} 
+            subValue={`${data.activeSessions || 0} Real-time Visitors`} 
+            trendValue={currentMetrics.trends?.userReach || 0} 
             icon={Users} 
             color="bg-purple-600" 
         />

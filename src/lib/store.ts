@@ -61,11 +61,6 @@ const getInitialLanguage = (): string => {
 
 /**
  * ADIRES GLOBAL DATA STORE
- * 
- * STRATEGY: 
- * 1. Owners load only their store on boot.
- * 2. Shoppers load nothing on boot, lazy-load menu on scan.
- * 3. Identity persists in LocalStorage for instant UI.
  */
 export const useAppStore = create<AppState>()(
   persist(
@@ -104,32 +99,36 @@ export const useAppStore = create<AppState>()(
         set({ loading: true, error: null });
         
         try {
-          // 1. Fetch lightweight system metadata
+          // Parallel fetch of system metadata with defensive error handling per collection
           const [aliasDocs, commandDocs] = await Promise.all([
-            getDocs(collection(db, 'voiceAliasGroups')),
-            getDocs(collection(db, 'voiceCommands'))
+            getDocs(collection(db, 'voiceAliasGroups')).catch(err => {
+                console.warn("Permission denied for voiceAliasGroups. Using empty set.");
+                return { docs: [] };
+            }),
+            getDocs(collection(db, 'voiceCommands')).catch(err => {
+                console.warn("Permission denied for voiceCommands. Using empty set.");
+                return { docs: [] };
+            })
           ]);
 
-          // 2. Fetch Personal Identity (If logged in as merchant)
           let userStore = get().userStore;
           if (userId) {
               const q = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
-              const storeSnap = await getDocs(q);
-              if (!storeSnap.empty) {
-                  userStore = { id: storeSnap.docs[0].id, ...storeSnap.docs[0].data() } as Store;
+              const storeSnap = await getDocs(q).catch(() => ({ empty: true, docs: [] }));
+              if (!(storeSnap as any).empty) {
+                  userStore = { id: (storeSnap as any).docs[0].id, ...(storeSnap as any).docs[0].data() } as Store;
               }
           }
 
-          // 3. Generate stable Device ID for guest shoppers
           if (!get().deviceId) {
               const newId = Math.random().toString(36).substring(2, 15);
               set({ deviceId: newId });
           }
 
-          const voiceAliasGroups = aliasDocs.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
+          const voiceAliasGroups = aliasDocs.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
           const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
           
-          const dbCommands = commandDocs.docs.reduce((acc, doc) => {
+          const dbCommands = commandDocs.docs.reduce((acc: any, doc: any) => {
               acc[doc.id] = doc.data() as CommandGroup;
               return acc;
           }, {} as Record<string, CommandGroup>);
@@ -148,7 +147,8 @@ export const useAppStore = create<AppState>()(
           });
           
         } catch (error) {
-          console.error("fetchInitialData failed:", error);
+          console.error("fetchInitialData critical failure:", error);
+          // Unlock app even on error to prevent white screen for non-admin users
           set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
