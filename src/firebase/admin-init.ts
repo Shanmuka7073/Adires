@@ -8,8 +8,7 @@ import { getStorage } from 'firebase-admin/storage';
 
 /**
  * @fileOverview This file is the EXCLUSIVE entry point for the Firebase Admin SDK.
- * It is marked with 'use server' to prevent any part of this logic from being bundled 
- * into the client-side code.
+ * It handles the robust parsing of the SERVICE_ACCOUNT secret from Vercel.
  */
 
 interface AdminServices {
@@ -19,60 +18,69 @@ interface AdminServices {
   storage: ReturnType<typeof getStorage>;
 }
 
-// Global singleton to prevent multiple initializations during Next.js HMR.
 let adminServices: AdminServices | null = null;
 
 /**
- * Generates AppOptions from environment variables.
- * SERVICE_ACCOUNT should be a stringified JSON object in Vercel.
+ * Robustly parses the SERVICE_ACCOUNT environment variable.
+ * Cleans accidental quotes or whitespace common in Vercel copy-pasting.
  */
 function getAppOptions(): AppOptions {
-    const serviceAccountString = process.env.SERVICE_ACCOUNT;
+    let serviceAccountString = process.env.SERVICE_ACCOUNT;
     
     if (!serviceAccountString) {
-        // Fallback for local development or when secret is missing
-        console.warn("SERVICE_ACCOUNT not found. Admin operations will run in restricted mode.");
-        return {
-            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-        };
+        throw new Error("CRITICAL: 'SERVICE_ACCOUNT' environment variable is missing. Please add it to Vercel Settings > Environment Variables.");
     }
 
     try {
-        // ROBUST PARSING: Trim whitespace and remove accidental leading/trailing quotes
-        // This handles cases where the user might have pasted "'{...}'" instead of "{...}"
-        const cleanedString = serviceAccountString.trim().replace(/^['"]|['"]$/g, '');
-        const serviceAccount = JSON.parse(cleanedString);
+        // CLEANUP: Remove leading/trailing whitespace
+        serviceAccountString = serviceAccountString.trim();
+
+        // CLEANUP: Remove accidental wrapping quotes (e.g., if user pasted "'{...}'")
+        if ((serviceAccountString.startsWith("'") && serviceAccountString.endsWith("'")) || 
+            (serviceAccountString.startsWith('"') && serviceAccountString.endsWith('"'))) {
+            serviceAccountString = serviceAccountString.slice(1, -1);
+        }
+
+        // CLEANUP: Remove any trailing quote at the very end (common copy-paste error)
+        if (serviceAccountString.endsWith("'") || serviceAccountString.endsWith('"')) {
+            serviceAccountString = serviceAccountString.slice(0, -1);
+        }
+
+        const serviceAccount = JSON.parse(serviceAccountString);
         
+        if (!serviceAccount.project_id) {
+            throw new Error("The JSON is valid but seems to be the wrong file. Please ensure you are using the 'Firebase Service Account' key from Project Settings.");
+        }
+
         return {
             credential: cert(serviceAccount),
             projectId: serviceAccount.project_id,
             storageBucket: `${serviceAccount.project_id}.appspot.com`,
         };
     } catch (e: any) {
-        console.error('Failed to parse SERVICE_ACCOUNT secret:', e.message);
-        return {
-            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-        };
+        throw new Error(`INVALID JSON: ${e.message}. Tip: Ensure you copied the ENTIRE content of the JSON file and check for extra characters at the end in Vercel.`);
     }
 }
 
-/**
- * The only function that should be used by Server Actions to access Admin features.
- */
 export async function getAdminServices(): Promise<AdminServices> {
   if (adminServices) {
     return adminServices;
   }
 
-  const options = getAppOptions();
-  const app = getApps().length ? getApps()[0] : initializeApp(options);
+  try {
+    const options = getAppOptions();
+    const app = getApps().length ? getApps()[0] : initializeApp(options);
 
-  adminServices = {
-    app,
-    auth: getAuth(app),
-    db: getFirestore(app),
-    storage: getStorage(app),
-  };
+    adminServices = {
+      app,
+      auth: getAuth(app),
+      db: getFirestore(app),
+      storage: getStorage(app),
+    };
 
-  return adminServices;
+    return adminServices;
+  } catch (error: any) {
+    console.error("ADMIN_INIT_FAILURE:", error.message);
+    throw error; // Re-throw to be caught by the calling Server Action
+  }
 }

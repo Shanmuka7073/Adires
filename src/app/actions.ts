@@ -1,8 +1,8 @@
+
 'use server';
 
 /**
  * @fileOverview Centralized Server Actions Hub.
- * All functions here run on the server and have access to the Admin SDK via getAdminServices.
  */
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -29,13 +29,13 @@ export async function getFirebaseConfig() {
       appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
     };
   } catch (e) {
-    console.error("Config fetch failed:", e);
     return null;
   }
 }
 
 /**
  * SYSTEM HEALTH CHECK
+ * Hardened to report specific credential parsing failures to the UI.
  */
 export async function getSystemStatus() {
     const hasServiceAccount = !!process.env.SERVICE_ACCOUNT;
@@ -52,7 +52,7 @@ export async function getSystemStatus() {
             status: 'ok' as const,
             llmStatus: 'Online' as const,
             serverDbStatus: 'Online' as const,
-            identity: hasServiceAccount ? 'Authorized (Full Service Account)' : 'Limited (Project ID Only)',
+            identity: 'Authorized (Full Admin Access)',
             counts: { 
                 users: users.data().count, 
                 stores: stores.data().count 
@@ -65,7 +65,8 @@ export async function getSystemStatus() {
             llmStatus: 'Offline' as const, 
             serverDbStatus: 'Offline' as const, 
             errorMessage: err.message,
-            isCredentialError: !hasServiceAccount || err.message.includes('credentials'),
+            identity: hasServiceAccount ? 'Identity Error: Check JSON format' : 'Setup Required: Missing Variable',
+            isCredentialError: true,
             counts: { users: 0, stores: 0 },
             error: err.message,
         };
@@ -100,7 +101,6 @@ export async function getPlatformAnalytics() {
             }
         };
     } catch (error) {
-        console.error("Platform Analytics failed:", error);
         return null;
     }
 }
@@ -144,7 +144,6 @@ export async function placeRestaurantOrder(cartItems: CartItem[], total: number,
  * GET INGREDIENTS FOR DISH
  */
 export async function getIngredientsForDish(input: { dishName: string; language: string }) {
-    // TypeScript fix: Ensure language matches the required union type 'en' | 'te'
     const lang = (input.language === 'te' ? 'te' : 'en') as 'en' | 'te';
     return getIngredientsForDishFlow({ dishName: input.dishName, language: lang });
 }
@@ -195,9 +194,6 @@ export async function updateManifest(data: any) {
     }
 }
 
-/**
- * KNOWLEDGE CHAT
- */
 export async function getMealDbRecipe(dishName: string) {
     return { ingredients: [], instructions: '', error: 'API connection pending.' };
 }
@@ -206,9 +202,6 @@ export async function getWikipediaSummary(topic: string) {
     return { summary: '', error: 'API connection pending.' };
 }
 
-/**
- * NLU TRAINING
- */
 export async function processPdfAndExtractRules(formData: FormData) {
     return { success: true, sentenceCount: 0, error: null };
 }
@@ -221,9 +214,6 @@ export async function rejectRule(id: string) {
     return { success: true, error: null };
 }
 
-/**
- * MISC STUBS
- */
 export async function importProductsFromUrl(url: string) {
     return { success: true, count: 0, error: null };
 }
