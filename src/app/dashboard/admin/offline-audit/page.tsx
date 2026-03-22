@@ -18,7 +18,9 @@ import {
     Download,
     FileCode,
     SmartphoneNfc,
-    Globe
+    Globe,
+    MousePointer2,
+    Sparkles
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { useFirebase } from '@/firebase';
@@ -113,6 +115,13 @@ export default function OfflineAuditPage() {
         return () => window.removeEventListener('pwa-install-available', performAudit);
     }, [isAdmin, isAdminLoading, router]);
 
+    const handleTriggerEngagement = () => {
+        // Browsers like Chrome wait for interaction. Triggering a small scroll or click can help.
+        window.scrollBy({ top: 10, behavior: 'smooth' });
+        toast({ title: "Engagement Triggered", description: "Scrolling and interacting to wake up the install prompt." });
+        performAudit();
+    };
+
     const handleTestSync = async () => {
         if (!firestore || !user) return;
         startTest(async () => {
@@ -125,10 +134,24 @@ export default function OfflineAuditPage() {
             });
 
             try {
-                await setDoc(testRef, { timestamp: serverTimestamp(), userId: user.uid, type: 'sync-test' });
+                // Ensure rule exists for diagnostic_logs
+                await setDoc(testRef, { 
+                    timestamp: serverTimestamp(), 
+                    userId: user.uid, 
+                    type: 'sync-test',
+                    platform: 'Adires Admin'
+                });
                 toast({ title: "Sync Test Started" });
-            } catch (e) {
-                toast({ variant: 'destructive', title: "Write Failed" });
+            } catch (e: any) {
+                console.error("Sync test failed:", e);
+                setLastSyncStatus('idle');
+                toast({ 
+                    variant: 'destructive', 
+                    title: "Write Failed", 
+                    description: e.message?.includes('permissions') 
+                        ? "Missing Firestore rules for 'diagnostic_logs'." 
+                        : "Unknown error during sync check." 
+                });
             }
         });
     };
@@ -168,32 +191,17 @@ export default function OfflineAuditPage() {
                     </CardContent>
                 </Card>
 
-                {/* MANIFEST CHECK */}
-                <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white">
-                    <CardHeader className="bg-primary/5 pb-6 border-b border-black/5">
-                        <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                            <FileCode className="h-4 w-4 text-primary" /> Registry Link
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-8 space-y-4">
-                        <div className="flex justify-between items-center">
-                            <span className="text-[10px] font-black uppercase opacity-40">Manifest Discovery</span>
-                            <Badge variant={diag.manifest.status === 'found' ? 'default' : 'destructive'} className="font-black uppercase text-[9px]">
-                                {diag.manifest.status.toUpperCase()}
-                            </Badge>
-                        </div>
-                        <p className="text-[11px] font-bold text-gray-600 leading-tight p-4 bg-muted/30 rounded-2xl border border-black/5">
-                            {diag.manifest.reason}
-                        </p>
-                    </CardContent>
-                </Card>
-
                 {/* PROMPT READINESS */}
                 <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white">
                     <CardHeader className="bg-primary/5 pb-6 border-b border-black/5">
-                        <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                            <SmartphoneNfc className="h-4 w-4 text-primary" /> Install Event
-                        </CardTitle>
+                        <div className="flex justify-between items-center">
+                            <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                                <SmartphoneNfc className="h-4 w-4 text-primary" /> Install Event
+                            </CardTitle>
+                            <Button size="sm" variant="ghost" onClick={handleTriggerEngagement} className="h-7 rounded-lg text-[8px] font-black uppercase bg-primary/10 hover:bg-primary/20 text-primary">
+                                <MousePointer2 className="mr-1 h-3 w-3" /> Engage
+                            </Button>
+                        </div>
                     </CardHeader>
                     <CardContent className="p-8 space-y-4">
                         <div className="flex justify-between items-center">
@@ -209,7 +217,7 @@ export default function OfflineAuditPage() {
                 </Card>
 
                 {/* NETWORK & SYNC */}
-                <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white border-2 border-primary/20">
+                <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white border-2 border-primary/20 md:col-span-2">
                     <CardHeader className="bg-primary/5 pb-6 border-b border-black/5">
                         <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
                             <Cloud className="h-4 w-4 text-primary" /> Sync Diagnostics
@@ -221,11 +229,11 @@ export default function OfflineAuditPage() {
                             <p className="font-black text-sm uppercase">
                                 {lastSyncStatus === 'idle' && "Idle"}
                                 {lastSyncStatus === 'writing' && "Triggering Write..."}
-                                {lastSyncStatus === 'queued' && "Queued (Waiting for Sync)"}
-                                {lastSyncStatus === 'synced' && "Sync Success!"}
+                                {lastSyncStatus === 'queued' && <span className="text-amber-600 flex items-center justify-center gap-2 animate-pulse"><Zap className="h-4 w-4 fill-current"/> Queued (Waiting for Sync)</span>}
+                                {lastSyncStatus === 'synced' && <span className="text-green-600 flex items-center justify-center gap-2"><CheckCircle2 className="h-4 w-4"/> Sync Success!</span>}
                             </p>
                         </div>
-                        <Button onClick={handleTestSync} disabled={isTesting} className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-primary/20">
+                        <Button onClick={handleTestSync} disabled={isTesting} className="w-full max-w-sm h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-primary/20">
                             Test Background Sync
                         </Button>
                     </CardContent>
@@ -235,15 +243,15 @@ export default function OfflineAuditPage() {
             <Card className="rounded-[3rem] border-0 shadow-2xl bg-slate-900 text-white p-10">
                 <div className="flex items-start gap-6">
                     <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center text-primary shrink-0">
-                        <Globe className="h-6 w-6" />
+                        <Sparkles className="h-6 w-6" />
                     </div>
                     <div>
                         <h3 className="text-xl font-black uppercase tracking-tight mb-2">PWA Installation Checklist</h3>
                         <div className="space-y-4 text-xs font-bold text-white/60 leading-relaxed">
-                            <p>1. <strong className="text-white">Is the page HTTPS?</strong>: Chrome will hide the install button on insecure HTTP pages.</p>
-                            <p>2. <strong className="text-white">User Engagement</strong>: Browsers often wait for you to click or scroll before showing the prompt.</p>
-                            <p>3. <strong className="text-white">Already Installed?</strong>: Check if the app is already on your home screen.</p>
-                            <p>4. <strong className="text-white">Private Browsing</strong>: PWAs are disabled in Incognito/Private tabs.</p>
+                            <p>1. <strong className="text-white">Is the page HTTPS?</strong>: Browsers strictly hide the install button on insecure HTTP pages.</p>
+                            <p>2. <strong className="text-white">Interaction Required</strong>: Click the "Engage" button above. Chrome requires a scroll or click to prove the user is active.</p>
+                            <p>3. <strong className="text-white">Service Worker</strong>: If status is "Missing", visit the Home page and then return here.</p>
+                            <p>4. <strong className="text-white">Already Installed?</strong>: Check if the app icon is already on your home screen. Browsers won't show the prompt twice.</p>
                         </div>
                     </div>
                 </div>
