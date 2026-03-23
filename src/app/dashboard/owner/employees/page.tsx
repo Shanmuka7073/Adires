@@ -218,11 +218,19 @@ export default function ManageEmployeesPage() {
   const [isProcessing, startProcessing] = useTransition();
   const [editingEmployee, setEditingEmployee] = useState<EmployeeProfile | null>(null);
 
-  const storeQuery = useMemoFirebase(() => (user ? query(collection(firestore, 'stores'), where('ownerId', '==', user.uid)) : null), [user, firestore]);
+  const storeQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'stores'), where('ownerId', '==', user.uid));
+  }, [user, firestore]);
+
   const { data: stores, isLoading: storeLoading } = useCollection<Store>(storeQuery);
   const myStore = useMemo(() => stores?.[0], [stores]);
 
-  const employeesQuery = useMemoFirebase(() => (myStore ? query(collection(firestore, 'employeeProfiles'), where('storeId', '==', myStore.id)) : null), [myStore, firestore]);
+  const employeesQuery = useMemoFirebase(() => {
+    if (!firestore || !myStore) return null;
+    return query(collection(firestore, 'employeeProfiles'), where('storeId', '==', myStore.id));
+  }, [myStore, firestore]);
+
   const { data: employees, isLoading: employeesLoading } = useCollection<EmployeeProfile>(employeesQuery);
 
   const managerMap = useMemo(() => {
