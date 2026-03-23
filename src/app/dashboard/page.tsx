@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -57,13 +58,13 @@ function RoleCard({ card, image, isLoading }: { card: any, image: any, isLoading
         : card.href;
 
     if (isLoading || !image) {
-        return <Skeleton className="h-full w-full min-h-[250px]" />;
+        return <Skeleton className="h-full w-full min-h-[200px] rounded-[2rem]" />;
     }
 
     return (
-        <Link href={href} className="group block rounded-lg overflow-hidden h-full">
-            <Card className="h-full flex flex-col transition-all group-hover:shadow-xl group-hover:-translate-y-1">
-                <div className="relative h-40 w-full">
+        <Link href={href} className="group block h-full">
+            <Card className="h-full rounded-[2rem] border-0 shadow-lg flex flex-col transition-all group-hover:shadow-2xl group-active:scale-95 overflow-hidden">
+                <div className="relative h-32 xs:h-40 w-full shrink-0">
                     <Image 
                         src={image.imageUrl} 
                         alt={t(card.title)} 
@@ -72,16 +73,16 @@ function RoleCard({ card, image, isLoading }: { card: any, image: any, isLoading
                         data-ai-hint={image.imageHint}
                     />
                 </div>
-                <CardHeader>
-                    <CardTitle className="text-xl font-bold font-headline">{t(card.title)}</CardTitle>
-                </CardHeader>
-                <CardContent className="flex-1 flex flex-col justify-between">
-                    <CardDescription>{t(card.description)}</CardDescription>
-                    <div className="flex items-center text-primary font-semibold mt-4">
-                        <span>{t('go-to')} {t(card.title)}</span>
-                        <ArrowRight className="ml-2 h-4 w-4" />
+                <div className="p-5 flex-1 flex flex-col justify-between">
+                    <div>
+                        <h3 className="text-xl font-black font-headline uppercase tracking-tight text-gray-900 leading-none mb-2">{t(card.title)}</h3>
+                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-tight leading-tight">{t(card.description)}</p>
                     </div>
-                </CardContent>
+                    <div className="flex items-center text-primary font-black uppercase text-[10px] tracking-widest mt-6">
+                        <span>Enter Section</span>
+                        <ArrowRight className="ml-2 h-3 w-3" />
+                    </div>
+                </div>
             </Card>
         </Link>
     )
@@ -124,21 +125,23 @@ export default function DashboardPage() {
     
     if (isRoleLoading || isRestaurantOwner) {
         return (
-            <div className="container mx-auto py-12 text-center">
-                <p>Loading your dashboard...</p>
+            <div className="container mx-auto py-12 text-center flex flex-col items-center justify-center gap-4 h-[60vh]">
+                <Loader2 className="animate-spin h-8 w-8 text-primary opacity-20" />
+                <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Identifying Role...</p>
             </div>
         );
     }
 
-    const gridCols = isEmployee ? 'lg:grid-cols-2' : 'lg:grid-cols-3';
-
     return (
-        <div className="container mx-auto py-12 px-4 md:px-6">
-            <div className="text-center mb-12">
-                <h1 className="text-4xl font-bold font-headline">{t('your-dashboard')}</h1>
-                <p className="text-lg text-muted-foreground mt-2">{t('select-your-role-to-access-your-tools')}</p>
+        <div className="container mx-auto py-8 px-4 md:px-6 max-w-6xl pb-24 md:pb-10">
+            <div className="text-center mb-10 space-y-2">
+                <h1 className="text-4xl font-black font-headline tracking-tighter uppercase italic">{t('your-dashboard')}</h1>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest opacity-60">{t('select-your-role-to-access-your-tools')}</p>
             </div>
-            <div className={`grid grid-cols-1 md:grid-cols-2 ${gridCols} gap-8 max-w-6xl mx-auto`}>
+            <div className={cn(
+                "grid grid-cols-1 gap-6 max-w-5xl mx-auto",
+                isEmployee ? "md:grid-cols-2" : "md:grid-cols-2 lg:grid-cols-3"
+            )}>
                 {roleCards.map((card) => (
                     <RoleCard 
                         key={card.title} 

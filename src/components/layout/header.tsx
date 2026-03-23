@@ -39,11 +39,11 @@ function GlobalInstallButton() {
             onClick={triggerInstall} 
             variant="default" 
             size="sm" 
-            className="rounded-full h-9 px-4 font-black text-[9px] sm:text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20 bg-primary text-white border-0 transition-all active:scale-95 hover:brightness-110 flex items-center gap-2"
+            className="rounded-full h-8 px-2 sm:px-4 font-black text-[9px] sm:text-[10px] uppercase tracking-widest shadow-lg bg-primary text-white border-0 transition-all active:scale-95"
         >
-            <Download className="h-3.5 w-3.5 sm:h-4 w-4" />
-            <span className="hidden xs:inline-block">Install App</span>
-            <span className="xs:hidden inline-block">Install</span>
+            <Download className="h-3.5 w-3.5 sm:mr-2" />
+            <span className="hidden sm:inline-block">Install App</span>
+            <span className="hidden xs:inline-block sm:hidden">Install</span>
         </Button>
     );
 }
@@ -54,7 +54,7 @@ function LanguageSwitcher() {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl">
+                <Button variant="outline" size="icon" className="h-8 w-8 rounded-xl border-2">
                     <Globe className="h-4 w-4" />
                     <span className="sr-only">Change language</span>
                 </Button>
@@ -86,12 +86,12 @@ function UserMenu() {
   };
 
   if (isUserLoading) {
-    return <Skeleton className="h-9 w-9 rounded-full" />;
+    return <Skeleton className="h-8 w-8 rounded-full" />;
   }
 
   if (!user) {
     return (
-      <Button asChild variant="outline" size="sm" className="rounded-xl">
+      <Button asChild variant="outline" size="sm" className="rounded-xl h-8 px-3 font-black text-[10px] uppercase tracking-widest border-2">
         <Link href="/login">{t('login')}</Link>
       </Button>
     );
@@ -100,7 +100,7 @@ function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="icon" className="rounded-full h-9 w-9 border-2 border-primary/10">
+        <Button variant="secondary" size="icon" className="rounded-full h-8 w-8 border-2 border-primary/10">
           <UserCircle className="h-5 w-5" />
           <span className="sr-only">Toggle user menu</span>
         </Button>
@@ -110,7 +110,6 @@ function UserMenu() {
         <DropdownMenuItem disabled className="text-xs opacity-60">{user.email}</DropdownMenuItem>
         <DropdownMenuSeparator />
         
-        {/* Prominent "Inside" Install Button */}
         {canInstall && (
           <>
             <DropdownMenuItem 
@@ -148,30 +147,28 @@ export function Header() {
   if (pathname.startsWith('/menu/')) return null;
 
   const showShoppingControls = !isRestaurantOwner && !isEmployee;
-  
-  // MERCHANTS AND ADMINS GO TO THEIR HUB, OTHERS TO CUSTOMER HOME
   const homeHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : (isEmployee ? '/dashboard/employee/attendance' : '/'));
   
   const logoUrl = userStore?.imageUrl || ADIRES_LOGO;
   const brandName = userStore?.name || "Adires";
 
   return (
-    <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-md px-4 md:px-6">
-      <Link href={homeHref} className="flex items-center gap-2.5 group shrink-0">
-        <div className="relative w-9 h-9 rounded-full overflow-hidden border-2 border-primary/20 bg-white shadow-sm transition-transform group-hover:scale-105 group-active:scale-95">
+    <header className="sticky top-0 z-50 flex h-14 sm:h-16 items-center gap-2 sm:gap-4 border-b bg-background/80 backdrop-blur-md px-3 sm:px-6">
+      <Link href={homeHref} className="flex items-center gap-2 group shrink-0 min-w-0">
+        <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border-2 border-primary/20 bg-white shrink-0">
           <Image src={logoUrl} alt={brandName} fill className="object-cover" priority />
         </div>
-        <div className="flex flex-col min-w-0">
-            <span className="font-headline font-black text-gray-950 text-sm leading-none tracking-tight truncate max-w-[120px] md:max-w-[300px] uppercase">
+        <div className="flex flex-col min-w-0 overflow-hidden">
+            <span className="font-headline font-black text-gray-950 text-[11px] sm:text-sm leading-none tracking-tight truncate max-w-[80px] xs:max-w-[120px] md:max-w-[300px] uppercase">
                 {brandName}
             </span>
-            <span className="text-[8px] font-black text-primary uppercase tracking-[0.2em] mt-0.5 opacity-60">Verified Store</span>
+            <span className="text-[7px] font-black text-primary uppercase tracking-widest mt-0.5 opacity-60 truncate">Verified Store</span>
         </div>
       </Link>
       
       <div className="flex-1" />
 
-      <div className="flex items-center gap-1.5 md:gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-3">
         <GlobalInstallButton />
         {showShoppingControls && <LanguageSwitcher />}
         {showShoppingControls && <CartIcon open={isCartOpen} onOpenChange={setCartOpen} />}

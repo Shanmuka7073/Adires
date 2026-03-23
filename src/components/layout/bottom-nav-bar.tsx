@@ -35,21 +35,16 @@ export function BottomNavBar() {
   const { user, isUserLoading } = useFirebase();
   const { isRestaurantOwner, isEmployee, isAdmin } = useAdminAuth();
 
-  // Don't show if loading, on login page, or on public menu pages
   if (isUserLoading || pathname === '/login' || pathname.startsWith('/menu/')) {
     return null;
   }
   
-  // Don't show on protected routes if not logged in
   if (!user && (pathname.startsWith('/dashboard') || pathname === '/checkout')) {
       return null;
   }
 
-  // Determine which nav items to show based on role
   let items = customerNavItems;
   if (isAdmin) {
-      // Admins usually don't need a mobile bottom bar as they use desktop, 
-      // but let's keep it consistent with customer or hidden.
       return null; 
   } else if (isRestaurantOwner) {
       items = merchantNavItems;
@@ -59,7 +54,12 @@ export function BottomNavBar() {
 
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-background border-t z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-      <nav className={cn("grid h-full", `grid-cols-${items.length}`)}>
+      <nav className={cn(
+          "grid h-full", 
+          items.length === 3 ? "grid-cols-3" : 
+          items.length === 4 ? "grid-cols-4" : 
+          items.length === 5 ? "grid-cols-5" : "grid-cols-4"
+      )}>
         {items.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
@@ -70,12 +70,12 @@ export function BottomNavBar() {
               key={item.href}
               href={item.href}
               className={cn(
-                'flex flex-col items-center justify-center gap-1 text-[10px] font-black uppercase tracking-tight transition-all',
-                isActive ? item.color : 'text-muted-foreground opacity-60 hover:opacity-100'
+                'flex flex-col items-center justify-center gap-1 text-[9px] font-black uppercase tracking-tight transition-all',
+                isActive ? item.color : 'text-muted-foreground opacity-60'
               )}
             >
               <Icon className={cn("h-5 w-5 mb-0.5", isActive && "scale-110")} />
-              <span className="truncate">{label}</span>
+              <span className="truncate max-w-full px-1">{label}</span>
             </Link>
           );
         })}
