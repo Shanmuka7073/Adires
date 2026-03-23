@@ -57,7 +57,6 @@ import {
   CookingPot,
   LocateFixed,
   Video,
-  Truck,
   X,
   Calculator,
   ShoppingBag,
@@ -704,8 +703,8 @@ export default function PublicMenuPage() {
                       <Button onClick={handleStartNewOrder} className="rounded-xl h-12 px-8 uppercase font-black text-[10px] tracking-[0.2em] shadow-2xl" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>Start New Session</Button>
                   </Card>
               ) : (
-                <div className="space-y-6">
-                    <div className="flex gap-2 bg-white p-1.5 rounded-2xl border-2 border-black/5 overflow-x-auto no-scrollbar shadow-sm">
+                <div className="space-y-4">
+                    <div className="flex gap-2 bg-white p-1 rounded-2xl border-2 border-black/5 overflow-x-auto no-scrollbar shadow-sm">
                         {store.businessType === 'restaurant' && (
                             <>
                                 <button onClick={() => setVegOnly(!vegOnly)} className={cn("flex items-center gap-2 px-4 h-9 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all shrink-0 border-2", vegOnly ? "bg-green-600 border-green-500 text-white shadow-lg" : "bg-muted border-transparent text-gray-400")}>
@@ -719,8 +718,8 @@ export default function PublicMenuPage() {
                     </div>
 
                     <div className="relative group px-1">
-                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-950" />
-                        <Input placeholder="Search dishes or services..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-14 rounded-2xl bg-white border-4 border-gray-950 pl-12 text-sm font-black text-gray-950 placeholder:text-gray-300 shadow-2xl focus:ring-0 transition-all" />
+                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-950 opacity-40" />
+                        <Input placeholder="Search dishes or services..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-11 rounded-2xl bg-white border-2 border-gray-950 pl-11 text-xs font-black text-gray-950 placeholder:text-gray-300 shadow-xl focus:ring-0 transition-all" />
                         {searchTerm && (<button onClick={() => setSearchTerm('')} className="absolute right-5 top-1/2 -translate-y-1/2 h-6 w-6 bg-black/5 rounded-full flex items-center justify-center"><X className="h-3 w-3 text-gray-400" /></button>)}
                     </div>
 
@@ -774,7 +773,6 @@ export default function PublicMenuPage() {
                         </Sheet>
                     )}
                   </div>
-                  <div className="flex justify-center items-center gap-2 pt-2"><Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-gray-950 opacity-80 hover:opacity-100 transition-opacity"><Globe className="h-3 w-3 text-primary" />Main Marketplace</Link></div>
               </div>
           </div>
         </div>
