@@ -178,7 +178,7 @@ export default function OfflineAuditPage() {
                         <RefreshCw className="mr-2 h-3.5 w-3.5" /> Re-Check
                     </Button>
                     <Button asChild variant="ghost" className="rounded-full h-10 px-6 font-black uppercase text-[10px] tracking-widest hover:bg-black/5">
-                        <Link href={backLink}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Link>
+                        <Link href={backLink}><ArrowLeft className="mr-2 h-4 w-4" /></Link>
                     </Button>
                 </div>
             </div>
