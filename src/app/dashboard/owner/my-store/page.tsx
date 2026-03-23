@@ -544,7 +544,7 @@ export default function MyStorePage() {
         <div className="container mx-auto py-12 px-4 md:px-6 space-y-12 pb-32">
             <div className="flex justify-between items-end border-b pb-10 border-black/5">
                 <div className="space-y-1">
-                    <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950 truncate max-w-[600px]">{myStore.name || 'Your Business'}</h1>
+                    <h1 className="text-4xl md:text-5xl font-black font-headline tracking-tight text-gray-950 truncate max-w-[600px]">{myStore.name || 'Your Business'}</h1>
                     <p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Operational Dashboard</p>
                 </div>
                 <div className="hidden sm:block">

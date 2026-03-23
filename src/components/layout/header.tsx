@@ -159,8 +159,8 @@ export function Header() {
         <div className="relative w-9 h-9 rounded-full overflow-hidden border-2 border-primary/20 bg-white shadow-sm transition-transform group-hover:scale-105 group-active:scale-95">
           <Image src={logoUrl} alt={brandName} fill className="object-cover" priority />
         </div>
-        <div className="flex flex-col">
-            <span className="font-headline font-black text-gray-950 text-sm leading-none tracking-tight truncate max-w-[100px] md:max-w-[200px] uppercase italic">
+        <div className="flex flex-col min-w-0">
+            <span className="font-headline font-black text-gray-950 text-sm leading-none tracking-tight truncate max-w-[120px] md:max-w-[300px] uppercase">
                 {brandName}
             </span>
             <span className="text-[8px] font-black text-primary uppercase tracking-[0.2em] mt-0.5 opacity-60">Verified Store</span>
