@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -32,6 +31,7 @@ import type {
 import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
+import { v4 as uuidv4 } from 'uuid';
 import Link from 'next/link';
 import { format } from 'date-fns';
 
@@ -475,7 +475,7 @@ function MenuCard({ item, onAdd, onShowDetails, recentlyAdded, theme, isPersonal
             isPersonalized && "ring-2 ring-primary/40 shadow-primary/10"
         )} style={{ backgroundColor: '#ffffff' }}>
             <div className="relative aspect-[1.5/1] w-full cursor-pointer" onClick={() => onShowDetails(item)}>
-                <Image src={item.imageUrl || ADIRES_LOGO} alt={item.name} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
+                <Image src={item.imageUrl || ADIRES_LOGO} alt={item.name} fill className="object-cover" />
                 <div className="absolute bottom-1 left-1 bg-gray-950/80 backdrop-blur-md text-white px-1.5 py-0.5 rounded-full shadow-lg border border-white/10">
                     <p className="text-[9px] font-black tracking-tighter">₹{item.price.toFixed(0)}</p>
                 </div>
@@ -741,7 +741,13 @@ export default function PublicMenuPage() {
                     {!searchTerm && !selectedCategory && personalizedRecommendations.length > 0 && (
                         <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-1000">
                             <div className="flex items-center gap-2 px-1"><Sparkles className="h-4 w-4 text-amber-500" /><h2 className="text-xl font-black uppercase tracking-tighter text-gray-950">Recommended</h2></div>
-                            <ScrollArea className="w-full whitespace-nowrap pb-4"><div className="flex gap-4 px-1">{personalizedRecommendations.map(item => (<div key={item.id} className="w-40 flex-shrink-0"><MenuCard item={item} onAdd={handleAddItem} onShowDetails={handleShowIngredients} recentlyAdded={recentlyAdded.has(item.id)} theme={theme} isPersonalized={true}/></div>))}</div><ScrollBar orientation="horizontal" className="opacity-0" /></section>
+                            <ScrollArea className="w-full whitespace-nowrap pb-4">
+                                <div className="flex gap-4 px-1">
+                                    {personalizedRecommendations.map(item => (<div key={item.id} className="w-40 flex-shrink-0"><MenuCard item={item} onAdd={handleAddItem} onShowDetails={handleShowIngredients} recentlyAdded={recentlyAdded.has(item.id)} theme={theme} isPersonalized={true}/></div>))}
+                                </div>
+                                <ScrollBar orientation="horizontal" className="opacity-0" />
+                            </ScrollArea>
+                        </section>
                     )}
 
                     {Object.keys(groupedMenu).length > 0 ? (
