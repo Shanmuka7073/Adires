@@ -3,18 +3,25 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, User, Package, Store, Truck, UserCheck, FileText, LayoutGrid } from 'lucide-react';
+import { Home, User, Package, Store, Truck, UserCheck, FileText, LayoutGrid, ShoppingBag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirebase } from '@/firebase';
 import { t } from '@/lib/locales';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
-const navItems = [
+const customerNavItems = [
   { href: '/', label: 'home', icon: Home, color: 'text-primary' },
   { href: '/stores', label: 'Market', icon: LayoutGrid, color: 'text-blue-600' },
   { href: '/dashboard/owner/my-store', label: 'my-store', icon: Store, color: 'text-orange-500' },
   { href: '/dashboard/customer/my-orders', label: 'my-orders', icon: Package, color: 'text-purple-500' },
   { href: '/dashboard/customer/my-profile', label: 'my-profile', icon: User, color: 'text-gray-500' },
+];
+
+const merchantNavItems = [
+  { href: '/dashboard/restaurant', label: 'Dashboard', icon: LayoutGrid, color: 'text-primary' },
+  { href: '/dashboard/owner/orders', label: 'Live Orders', icon: ShoppingBag, color: 'text-blue-600' },
+  { href: '/dashboard/owner/my-store', label: 'Business', icon: Store, color: 'text-orange-500' },
+  { href: '/dashboard/customer/my-profile', label: 'Profile', icon: User, color: 'text-gray-500' },
 ];
 
 const employeeNavItems = [
@@ -26,7 +33,7 @@ const employeeNavItems = [
 export function BottomNavBar() {
   const pathname = usePathname();
   const { user, isUserLoading } = useFirebase();
-  const { isEmployee } = useAdminAuth();
+  const { isRestaurantOwner, isEmployee, isAdmin } = useAdminAuth();
 
   // Don't show if loading, on login page, or on public menu pages
   if (isUserLoading || pathname === '/login' || pathname.startsWith('/menu/')) {
@@ -38,15 +45,25 @@ export function BottomNavBar() {
       return null;
   }
 
-  const items = isEmployee ? employeeNavItems : navItems;
+  // Determine which nav items to show based on role
+  let items = customerNavItems;
+  if (isAdmin) {
+      // Admins usually don't need a mobile bottom bar as they use desktop, 
+      // but let's keep it consistent with customer or hidden.
+      return null; 
+  } else if (isRestaurantOwner) {
+      items = merchantNavItems;
+  } else if (isEmployee) {
+      items = employeeNavItems;
+  }
 
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-background border-t z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-      <nav className={cn("grid h-full", isEmployee ? "grid-cols-3" : "grid-cols-5")}>
+      <nav className={cn("grid h-full", `grid-cols-${items.length}`)}>
         {items.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
-          const label = isEmployee ? item.label : (item.label === 'Market' ? 'Market' : t(item.label));
+          const label = item.label.includes('-') ? t(item.label) : item.label;
           
           return (
             <Link

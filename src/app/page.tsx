@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useLayoutEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { User, Store as StoreType, Order } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -142,12 +142,23 @@ function HubNavigation() {
 
 export default function LocalBasketHomepage() {
   const { firestore, user } = useFirebase();
-  const { isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
+  const router = useRouter();
+  const { isRestaurantOwner, isLoading: isRoleLoading, isAdmin } = useAdminAuth();
   const { loading: isAppLoading, isInitialized, stores, deviceId, fetchInitialData } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   
   const userDocRef = useMemoFirebase(() => (!firestore || !user) ? null : doc(firestore, 'users', user.uid), [firestore, user]);
   const { data: userData } = useDoc<User>(userDocRef);
+
+  // REDIRECT MERCHANTS AWAY FROM CUSTOMER HOMEPAGE
+  useLayoutEffect(() => {
+    if (!isRoleLoading && isRestaurantOwner) {
+      router.replace('/dashboard/restaurant');
+    }
+    if (!isRoleLoading && isAdmin) {
+      router.replace('/dashboard/admin');
+    }
+  }, [isRoleLoading, isRestaurantOwner, isAdmin, router]);
 
   const historyQuery = useMemoFirebase(() => {
       if (!firestore) return null;
@@ -162,11 +173,17 @@ export default function LocalBasketHomepage() {
   }, [firestore, user?.uid, deviceId]);
   const { data: recentOrders } = useCollection<Order>(historyQuery);
 
-  useEffect(() => { if (firestore && !isInitialized) fetchInitialData(firestore, user?.uid); }, [firestore, isInitialized, fetchInitialData, user?.uid]);
+  useEffect(() => { 
+    if (firestore && !isInitialized) {
+        fetchInitialData(firestore, user?.uid); 
+    }
+  }, [firestore, isInitialized, fetchInitialData, user?.uid]);
 
   const filteredStores = useMemo(() => searchTerm ? stores.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())) : stores, [searchTerm, stores]);
 
-  if (isRoleLoading) return <div className="flex h-screen items-center justify-center bg-background"><Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" /></div>;
+  if (isRoleLoading || isRestaurantOwner || isAdmin) {
+    return <div className="flex h-screen items-center justify-center bg-background"><Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" /></div>;
+  }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">

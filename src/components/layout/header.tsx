@@ -148,6 +148,8 @@ export function Header() {
   if (pathname.startsWith('/menu/')) return null;
 
   const showShoppingControls = !isRestaurantOwner && !isEmployee;
+  
+  // MERCHANTS AND ADMINS GO TO THEIR HUB, OTHERS TO CUSTOMER HOME
   const homeHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : (isEmployee ? '/dashboard/employee/attendance' : '/'));
   
   const logoUrl = userStore?.imageUrl || ADIRES_LOGO;
