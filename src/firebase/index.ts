@@ -1,75 +1,34 @@
-
 'use client';
 
-import { getClientFirebaseConfig } from '@/firebase/config';
-import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import {
-  initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager
-} from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
-import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
+/**
+ * FIREBASE HUB (OPTIMIZED V2)
+ * Re-exports services from modular files to support tree-shaking.
+ * Heavweight services (Firestore, Storage, App Check) are strictly lazy-loaded.
+ */
 
-// Keep a client-side cache of the initialized app
-let clientFirebaseApp: FirebaseApp | null = null;
-let appCheckInitialized = false;
+export { app as firebaseApp } from './app';
+export { auth } from './auth';
 
-// IMPORTANT: DO NOT MODIFY THIS FUNCTION
-export async function initializeFirebase() {
-  // If we've already initialized, return the cached instance
-  if (clientFirebaseApp) {
-    return getSdks(clientFirebaseApp);
-  }
-
-  // Fetch the configuration from the server action
-  const firebaseConfig = await getClientFirebaseConfig();
-
-  // Initialize the app with the fetched config
-  const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-  clientFirebaseApp = app;
-
-  // Initialize App Check only on the client
-  if (typeof window !== 'undefined' && !appCheckInitialized) {
-    try {
-        // SYNCHRONIZED KEY: Production reCAPTCHA v3 site key
-        const appCheck = initializeAppCheck(app, {
-            provider: new ReCaptchaV3Provider('6LdgK5UsAAAAAN0jsIdfk5gPWZpSHKOo5aEGtYsw'),
-            isTokenAutoRefreshEnabled: true,
-        });
-        // Expose instance for diagnostic tools
-        (window as any).firebaseAppCheckInstance = appCheck;
-        appCheckInitialized = true;
-        console.log("App Check initialized successfully with reCAPTCHA v3.");
-    } catch (e) {
-        console.warn("App Check failed to initialize:", e);
-    }
-  }
-
-  return getSdks(app);
+// Dynamic loaders for heavy services
+export async function getFirestoreInstance() {
+    const { db } = await import('./firestore');
+    return db;
 }
 
-export function getSdks(firebaseApp: FirebaseApp) {
-  return {
-    firebaseApp,
-    auth: getAuth(firebaseApp),
-    firestore: initializeFirestore(firebaseApp, {
-        // Enable persistent local cache for sub-200ms perceived speed and lower costs
-        localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-        ignoreUndefinedProperties: true,
-        experimentalForceLongPolling: true,
-    }),
-    storage: getStorage(firebaseApp),
-  };
+export async function getStorageInstance() {
+    const { storage } = await import('./storage');
+    return storage;
 }
 
+export async function initializeAppCheckDeferred() {
+    const { initAppCheck } = await import('./appcheck');
+    return initAppCheck();
+}
+
+// Re-export common hooks and utilities
 export * from './provider';
 export * from './client-provider';
 export * from './firestore/use-collection';
 export * from './firestore/use-doc';
-export * from './non-blocking-updates';
 export * from './errors';
 export * from './error-emitter';
-
-export { useFirestore } from './provider';

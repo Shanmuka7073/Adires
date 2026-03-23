@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -14,7 +13,7 @@ import { GoogleReCaptchaProvider } from 'react-google-recaptcha-v3';
 /**
  * Consolidated Client Root.
  * Optimized for "Shell-First" rendering to drastically reduce LCP.
- * Now includes Google reCAPTCHA v3 protection with synchronized site key.
+ * Synchronized reCAPTCHA site key with Firebase App Check.
  */
 function AppContent({ children }: { children: React.ReactNode }) {
     useInitializeApp();
@@ -40,7 +39,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
 
 export function ClientRoot({ children }: { children: React.ReactNode }) {
   return (
-    <GoogleReCaptchaProvider reCaptchaKey="6LdgK5UsAAAAAN0jsIdfk5gPWZpSHKOo5aEGtYsw">
+    <GoogleReCaptchaProvider reCaptchaKey="6LfCA5UsAAAAHBhXpVksdpRTfzRkUP-2gTPfwAh">
         <FirebaseClientProvider>
             <AppContent>{children}</AppContent>
         </FirebaseClientProvider>

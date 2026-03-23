@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
@@ -10,6 +9,7 @@ const ADMIN_EMAILS = ['shanmuka7073@gmail.com'];
 
 /**
  * A hook to determine the current user's role and authorization status.
+ * Optimized to handle multiple roles and loading states gracefully.
  */
 export function useAdminAuth() {
   const { user, isUserLoading, firestore } = useFirebase();
@@ -33,10 +33,15 @@ export function useAdminAuth() {
     return userData?.accountType === 'employee';
   }, [userData]);
 
+  const isChickenAdmin = useMemo(() => {
+    return !!(user && user.email === 'chickenadmin@gmail.com');
+  }, [user]);
+
   return {
     isAdmin,
     isRestaurantOwner,
     isEmployee,
+    isChickenAdmin,
     isLoading: isUserLoading || isProfileLoading,
     user,
     userData,

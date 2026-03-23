@@ -1,7 +1,6 @@
-
 'use client';
 
-import React, { useEffect, useMemo, useState, useLayoutEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import { User, Store as StoreType, Order } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -147,7 +146,7 @@ export default function LocalBasketHomepage() {
   const userDocRef = useMemoFirebase(() => (!firestore || !user) ? null : doc(firestore, 'users', user.uid), [firestore, user]);
   const { data: userData } = useDoc<User>(userDocRef);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!isRoleLoading && isRestaurantOwner) {
       router.replace('/dashboard/restaurant');
     }

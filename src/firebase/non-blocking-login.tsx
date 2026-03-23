@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useFirebase } from '@/firebase';
+import { useFirebase, getFirestoreInstance } from '@/firebase';
 import { 
   GoogleAuthProvider,
   signInWithPopup
@@ -16,14 +15,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 /**
  * MERCHANT LOGIN PORTAL
  * Dedicated Google-only entry point for Business Owners and Employees.
+ * Optimized to load Firestore only after successful auth interaction.
  */
 export function NonBlockingLogin() {
   const [isPending, startTransition] = useTransition();
-  const { auth, firestore } = useFirebase();
+  const { auth } = useFirebase();
   const { toast } = useToast();
 
   const handleGoogleLogin = () => {
-    if (!auth || !firestore) return;
+    if (!auth) return;
 
     startTransition(async () => {
       try {
@@ -31,8 +31,9 @@ export function NonBlockingLogin() {
         const result = await signInWithPopup(auth, provider);
         const user = result.user;
 
-        // Check if the user document already exists
-        const userDocRef = doc(firestore, 'users', user.uid);
+        // Lazy load firestore only after login is initiated
+        const db = await getFirestoreInstance();
+        const userDocRef = doc(db, 'users', user.uid);
         const userSnap = await getDoc(userDocRef);
 
         if (!userSnap.exists()) {
