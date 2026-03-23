@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useEffect, useMemo, useRef } from 'react';
@@ -35,7 +34,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import type { Store, MenuItem, Menu, MenuTheme } from '@/lib/types';
-import { useFirebase, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, limit, deleteDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
