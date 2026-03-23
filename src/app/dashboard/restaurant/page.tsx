@@ -12,7 +12,6 @@ import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import type { Store as StoreType } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useAppStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
@@ -72,9 +71,9 @@ function PWAChecklist({ store }: { store: StoreType }) {
     return (
         <Card className="bg-green-50 border-green-200 rounded-[2.5rem] shadow-inner">
             <CardHeader>
-                <CardTitle className="text-xl font-black uppercase tracking-tight text-green-900">PWA Readiness</CardTitle>
+                <CardTitle className="text-xl font-bold uppercase tracking-tight text-green-900">PWA Readiness</CardTitle>
                 <CardDescription className="font-bold text-green-800/60">
-                    Allow customers to "Install" your restaurant on their phone.
+                    Allow customers to "Install" your business on their phone.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -86,7 +85,7 @@ function PWAChecklist({ store }: { store: StoreType }) {
                             ) : (
                                 <XCircle className="h-5 w-5 text-red-400" />
                             )}
-                            <span className={cn("text-xs font-black uppercase tracking-tight", item.completed ? 'text-green-800/40 line-through' : 'text-green-900')}>
+                            <span className={cn("text-xs font-bold uppercase tracking-tight", item.completed ? 'text-green-800/40 line-through' : 'text-green-900')}>
                                 {item.label}
                             </span>
                         </li>
@@ -137,20 +136,22 @@ export default function ServiceDashboardPage() {
     }
 
     return (
-        <div className="container mx-auto py-12 px-4 md:px-6 max-w-6xl">
-            <div className="flex flex-col md:flex-row justify-between items-end gap-6 border-b pb-10 border-black/5 mb-12">
-                <div className="space-y-1 min-w-0 flex-1">
-                    <div className="flex items-center gap-3">
-                        <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner shrink-0">
-                            <DashboardIcon className="h-6 w-6" />
-                        </div>
-                        <h1 className="text-3xl md:text-5xl font-black font-headline tracking-tight uppercase italic leading-none truncate">{dashboardTitle}</h1>
+        <div className="container mx-auto py-8 px-4 md:px-6 max-w-6xl">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4 border-b pb-8 mb-10">
+                <div className="flex items-center gap-4 min-w-0">
+                    <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner shrink-0">
+                        <DashboardIcon className="h-8 w-8" />
                     </div>
-                    <p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">OPERATIONAL AUTHORITY</p>
+                    <div className="min-w-0">
+                        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-gray-800 truncate leading-none">
+                            {dashboardTitle}
+                        </h1>
+                        <p className="text-muted-foreground font-bold mt-1 uppercase text-[10px] tracking-[0.2em] opacity-40">Operational Authority</p>
+                    </div>
                 </div>
-                <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-primary bg-primary/5 px-4 py-2 rounded-full border border-primary/10 shrink-0">
+                <div className="flex items-center gap-3 text-[9px] font-black uppercase tracking-widest text-primary bg-primary/5 px-4 py-2 rounded-full border border-primary/10 shrink-0">
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                    Business Status: Online
+                    Status: Online
                 </div>
             </div>
 
@@ -161,7 +162,7 @@ export default function ServiceDashboardPage() {
                     </div>
                     <div className="relative z-10 space-y-6">
                         <div>
-                            <h2 className="text-3xl font-black uppercase tracking-tighter italic">Install Adires POS</h2>
+                            <h2 className="text-3xl font-bold tracking-tighter uppercase">Install Adires POS</h2>
                             <p className="font-bold opacity-80 text-xs uppercase tracking-widest mt-1">Get the high-performance native app experience</p>
                         </div>
                         <Button 
@@ -192,19 +193,19 @@ export default function ServiceDashboardPage() {
                                     )}>
                                         <card.icon className="h-7 w-7" />
                                     </div>
-                                    {card.highlight && <Badge className="rounded-md font-black uppercase text-[8px] tracking-widest">New & Pro</Badge>}
+                                    {card.highlight && <Badge className="rounded-md font-bold uppercase text-[8px] tracking-widest">New & Pro</Badge>}
                                 </div>
-                                <CardTitle className="text-xl font-black uppercase tracking-tight mt-6 leading-tight">
+                                <CardTitle className="text-xl font-bold uppercase tracking-tight mt-6 leading-tight">
                                     {card.title === 'Advanced Analytics' ? 'Analytics Hub' : t(card.title)}
                                 </CardTitle>
-                                <CardDescription className="font-bold text-xs opacity-60 mt-2">
+                                <CardDescription className="font-medium text-xs opacity-60 mt-2">
                                     {card.description}
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="px-8 pb-8">
-                                <div className="flex items-center text-primary font-black uppercase text-[10px] tracking-widest mt-4">
+                                <div className="flex items-center text-primary font-bold uppercase text-[10px] tracking-widest mt-4">
                                     <span>Enter Module</span>
-                                    <ArrowRight className="ml-2 h-4 w-4" />
+                                    <ArrowRight className="ml-2 h-3 w-3" />
                                 </div>
                             </CardContent>
                         </Card>
@@ -217,9 +218,9 @@ export default function ServiceDashboardPage() {
                 <Card className="rounded-[2.5rem] border-0 shadow-lg bg-white p-8 flex flex-col justify-center gap-4">
                     <div className="flex items-center gap-3">
                         <WifiOff className="h-6 w-6 text-amber-500" />
-                        <h3 className="font-black uppercase text-sm tracking-tight">Sync Diagnostics</h3>
+                        <h3 className="font-bold uppercase text-sm tracking-tight">Sync Diagnostics</h3>
                     </div>
-                    <p className="text-xs font-bold text-gray-500 leading-relaxed uppercase">
+                    <p className="text-xs font-medium text-gray-500 leading-relaxed uppercase">
                         Ensure your device is correctly registered for offline-first order processing.
                     </p>
                     <Button asChild variant="outline" className="rounded-xl font-black text-[9px] uppercase tracking-widest border-2 h-10 w-fit">
